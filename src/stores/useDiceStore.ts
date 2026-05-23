@@ -1,0 +1,52 @@
+import { create } from 'zustand';
+import type { DiceRecord, DiceResultType, DiceMode } from '../types';
+
+const randD10 = () => Math.floor(Math.random() * 10);
+const d100 = (t: number, o: number) => (t === 0 && o === 0) ? 100 : t * 10 + o;
+
+function determineResult(roll: number, target: number, sanCheck: boolean): DiceResultType {
+  const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+  if (roll === 100) return 'crit-failure';
+  if (sanCheck && roll >= 96) return 'crit-failure';
+  if (roll === 1) return 'crit-success';
+  if (roll <= fifth) return 'extreme-success';
+  if (roll <= half) return 'hard-success';
+  if (roll <= target) return 'success';
+  if (!sanCheck && target < 50 && roll >= 96) return 'crit-failure';
+  return 'failure';
+}
+
+interface DiceStore {
+  isOpen: boolean; mode: DiceMode; target: number; bonusDice: number; sanCheck: boolean;
+  tens: number; ones: number; bonusTens: number; oppTens: number; oppOnes: number;
+  resultType: DiceResultType | null; history: DiceRecord[];
+  open: () => void; close: () => void;
+  setMode: (m: DiceMode) => void; setTarget: (t: number) => void;
+  toggleBonus: () => void; togglePenalty: () => void; toggleSan: () => void;
+  roll: () => void; addRecord: (r: DiceRecord) => void;
+}
+
+export const useDiceStore = create<DiceStore>((set, get) => ({
+  isOpen: false, mode: 'check', target: 65, bonusDice: 0, sanCheck: false,
+  tens: 0, ones: 0, bonusTens: 0, oppTens: 0, oppOnes: 0, resultType: null, history: [],
+  open: () => set({ isOpen: true }),
+  close: () => set({ isOpen: false }),
+  setMode: (m) => set({ mode: m }),
+  setTarget: (t) => set({ target: t }),
+  toggleBonus: () => set((s) => ({ bonusDice: s.bonusDice > 0 ? 0 : 1 })),
+  togglePenalty: () => set((s) => ({ bonusDice: s.bonusDice < 0 ? 0 : -1 })),
+  toggleSan: () => set((s) => ({ sanCheck: !s.sanCheck })),
+  roll: () => {
+    const s = get();
+    let t = randD10(), o = randD10(), bt = 0;
+    if (s.bonusDice !== 0) bt = randD10();
+    let finalTens = t;
+    if (s.bonusDice > 0) finalTens = Math.min(t, bt);
+    else if (s.bonusDice < 0) finalTens = Math.max(t, bt);
+    const roll = d100(finalTens, o);
+    const resultType = determineResult(roll, s.target, s.sanCheck);
+    set({ tens: t, ones: o, bonusTens: bt, resultType, oppTens: s.mode === 'opposed' ? randD10() : 0, oppOnes: s.mode === 'opposed' ? randD10() : 0 });
+    get().addRecord({ skill: '检定', roll: String(roll).padStart(2,'0'), target: String(s.target), type: resultType, time: Date.now() });
+  },
+  addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
+}));
