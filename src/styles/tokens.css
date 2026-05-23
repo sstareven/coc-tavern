@@ -1,0 +1,25 @@
+:root {
+  --parchment: #f4e4c1;
+  --parchment-deep: #e8d5a3;
+  --parchment-dark: #d4c4a0;
+  --leather: #2a1f14;
+  --abyss: #1a1410;
+  --void: #0d0a07;
+  --gold: #c4a855;
+  --gold-bright: #e8c865;
+  --brass: #3d2b13;
+  --ink: #2a1f14;
+  --ink-faded: #6b5a3a;
+  --ink-subtle: #8b7858;
+  --blood: #8b3a3a;
+  --blood-bright: #cc3333;
+  --success: #3a6b5a;
+  --success-bright: #5aab7a;
+  --text-light: #d4c4a0;
+  --shadow-deep: rgba(0,0,0,0.6);
+  --font-display: 'Georgia', 'Noto Serif SC', serif;
+  --font-body: 'Crimson Text', 'Noto Serif SC', serif;
+  --font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}

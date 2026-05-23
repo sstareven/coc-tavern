@@ -1,0 +1,12 @@
+@import './tokens.css';
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--void);
+  font-family: var(--font-ui);
+  color: var(--text-light);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
