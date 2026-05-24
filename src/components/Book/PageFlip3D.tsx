@@ -38,8 +38,9 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
   const textOpacity = raw < 0.35 ? 1 : Math.max(0, 1 - (raw - 0.35) / 0.2);
 
-  // Arc effect: tilt page back at midpoint to trace a semi-circular path
-  const tilt = Math.sin(p * Math.PI) * 18;
+  // Soft paper bending: spine fixed at origin, free edge lifts + twists
+  const lift = Math.sin(p * Math.PI) * 12;
+  const droop = Math.sin(p * Math.PI) * (isForward ? -5 : 5);
 
   return (
     <div
@@ -47,7 +48,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `rotateY(${rotateY}deg) rotateX(${tilt}deg)`,
+        transform: `rotateY(${rotateY}deg) rotateX(${lift}deg) rotateZ(${droop}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
