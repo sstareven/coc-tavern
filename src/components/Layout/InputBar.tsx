@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -187,6 +188,9 @@ export function InputBar() {
   const [previewMessages, setPreviewMessages] = useState<AssembledMessage[]>([]);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Wand menu state
+  const [wandOpen, setWandOpen] = useState(false);
+
   // Token counter state
   const [showTokenCounter, setShowTokenCounter] = useState(false);
   const [tokenContext, setTokenContext] = useState<{
@@ -196,6 +200,17 @@ export function InputBar() {
     chatHistoryMessages: string[];
     userMessage: string;
   } | undefined>();
+
+  // Click outside to close wand menu
+  useEffect(() => {
+    if (!wandOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLElement)) return;
+      if (!e.target.closest('.wand-menu-container')) setWandOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [wandOpen]);
 
   const openTokenCounter = () => {
     const trimmed = input.trim();
@@ -363,21 +378,64 @@ export function InputBar() {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '10px 24px',
         }}>
-          {/* Wand buttons — left side */}
-          <button onClick={toggleDiceHistory} title="检定记录"
-            style={wandBtnStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-          >
-            ✦
-          </button>
-          <button onClick={openTokenCounter} title="Token计数"
-            style={wandBtnStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-          >
-            T
-          </button>
+          {/* Magic wand button with popup menu */}
+          <div className="wand-menu-container" style={{ position: 'relative' }}>
+            <button
+              onClick={() => setWandOpen(!wandOpen)}
+              title="工具"
+              style={wandBtnStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+              onMouseLeave={(e) => { if (!wandOpen) { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; } }}
+            >
+              ✦
+            </button>
+
+            <AnimatePresence>
+              {wandOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: 0,
+                    minWidth: 160,
+                    background: 'linear-gradient(180deg, rgba(42,31,20,0.98) 0%, rgba(26,20,16,0.98) 100%)',
+                    border: '1px solid var(--gold)',
+                    borderRadius: 6,
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                    overflow: 'hidden',
+                    zIndex: 700,
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
+                    <tbody>
+                      <tr
+                        onClick={() => { toggleDiceHistory(); setWandOpen(false); }}
+                        style={{ cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: 'var(--gold)', fontSize: 14 }}>✦</td>
+                        <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>检定记录</td>
+                      </tr>
+                      <tr
+                        onClick={() => { openTokenCounter(); setWandOpen(false); }}
+                        style={{ cursor: 'pointer', borderTop: '1px solid rgba(196,168,85,0.1)', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontWeight: 'bold', fontSize: 11 }}>T</td>
+                        <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>Token 计数</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <input
             type="text"
