@@ -154,8 +154,9 @@ export function DicePanel() {
   const roll = useDiceStore((s) => s.roll);
 
   const [localTarget, setLocalTarget] = useState(String(target));
-  const [displayRoll, setDisplayRoll] = useState(0);
+  const [displayOriginal, setDisplayOriginal] = useState(0);
   const [displayBonus, setDisplayBonus] = useState(0);
+  const [displayFinal, setDisplayFinal] = useState(0);
   const [displayOppRoll, setDisplayOppRoll] = useState(0);
   const [localResult, setLocalResult] = useState<DiceResultType | null>(null);
   const [showParticles, setShowParticles] = useState(false);
@@ -171,8 +172,9 @@ export function DicePanel() {
     roll();
     setTimeout(() => {
       const s = useDiceStore.getState();
-      setDisplayRoll(s.finalRoll);
+      setDisplayOriginal(s.originalRoll);
       setDisplayBonus(s.bonusTens);
+      setDisplayFinal(s.finalRoll);
       const oppVal = s.oppTens === 0 && s.oppOnes === 0 ? 100 : s.oppTens * 10 + s.oppOnes;
       setDisplayOppRoll(s.mode === 'opposed' ? oppVal : 0);
       setLocalResult(s.resultType);
@@ -351,10 +353,12 @@ export function DicePanel() {
             background: 'rgba(0,0,0,0.2)',
             flexWrap: 'wrap',
           }}>
-            {/* Main d100 die — shows final result 1-100 */}
-            <DiceDie value={displayRoll} color="player" label="d100" large />
+            {/* Main d100 die — shows ORIGINAL roll before bonus/penalty */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <DiceDie value={displayOriginal} color="player" label="原始出目" large />
+            </div>
 
-            {/* Bonus/Penalty die — shown next to main die when active */}
+            {/* Bonus/Penalty tens die — shows raw bonus tens value */}
             {hasBonus && (
               <>
                 <span style={{
@@ -364,7 +368,7 @@ export function DicePanel() {
                   {isBonus ? '← 取小' : '← 取大'}
                 </span>
                 <DiceDie value={displayBonus} color="bonus"
-                  label={isBonus ? '奖励骰 (十位)' : '惩罚骰 (十位)'}
+                  label={isBonus ? '奖励骰' : '惩罚骰'}
                 />
               </>
             )}
@@ -379,7 +383,36 @@ export function DicePanel() {
                     VS
                   </span>
                 </div>
-                <DiceDie value={displayOppRoll} color="opponent" label="对方 d100" large />
+                <DiceDie value={displayOppRoll} color="opponent" label="对方出目" large />
+              </>
+            )}
+
+            {/* Final result — shown when bonus/penalty applied and different from original */}
+            {hasBonus && displayOriginal !== displayFinal && (
+              <>
+                <span style={{
+                  color: 'var(--ink-subtle)', fontSize: 18, fontFamily: 'var(--font-mono)',
+                }}>
+                  →
+                </span>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  opacity: 0.85,
+                }}>
+                  <div style={{
+                    width: 72, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid var(--gold-bright)', borderRadius: 6,
+                    background: 'rgba(232,200,101,0.12)',
+                    fontSize: 30, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    color: 'var(--gold-bright)',
+                    boxShadow: '0 0 12px rgba(232,200,101,0.25)',
+                  }}>
+                    {displayFinal}
+                  </div>
+                  <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>
+                    最终结果
+                  </span>
+                </div>
               </>
             )}
           </div>
