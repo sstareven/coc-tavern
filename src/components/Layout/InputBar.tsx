@@ -11,6 +11,8 @@ import { PromptViewer } from '../Settings/PromptViewer';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { extractVariablesWithLLM } from '../../sillytavern/mvu-extractor';
+import { processSlashCommands } from '../../sillytavern/slash-commands';
+import { renderTemplate } from '../../sillytavern/ejs-template';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -267,14 +269,25 @@ export function InputBar() {
     const gameVars = useVariableStore.getState().buildFullSubstitutionMap();
     const variables = { ...gameVars, ...charVars };
 
+    // Process EJS templates in system prompt and lore entries
+    const processedPreset = {
+      ...DEFAULT_PRESET,
+      systemPrompt: renderTemplate(DEFAULT_PRESET.systemPrompt),
+    };
+    const processedLore = matchedLore.map((e) => ({
+      ...e,
+      content: renderTemplate(e.content),
+    }));
+    const processedFormat = renderTemplate(FORMAT_INSTRUCTION);
+
     // Assemble prompt messages
     const messages = assemblePrompt(
-      trimmed,
+      renderTemplate(trimmed),
       [],
-      DEFAULT_PRESET,
-      matchedLore,
+      processedPreset,
+      processedLore,
       variables,
-      FORMAT_INSTRUCTION,
+      processedFormat,
     );
 
     return { messages };
@@ -283,6 +296,18 @@ export function InputBar() {
   const submit = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
+
+    // Process slash commands first
+    let processedInput = trimmed;
+    if (trimmed.startsWith('/')) {
+      processedInput = await processSlashCommands(trimmed);
+      // If the command fully handled the input (no remaining message), update input and stop
+      if (!processedInput.trim() || processedInput.startsWith('[')) {
+        setInput(processedInput);
+        return;
+      }
+      setInput(processedInput);
+    }
 
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) {
