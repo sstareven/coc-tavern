@@ -38,17 +38,14 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
   const textOpacity = raw < 0.35 ? 1 : Math.max(0, 1 - (raw - 0.35) / 0.2);
 
-  // Soft paper bending: spine fixed at origin, free edge lifts + twists
-  const lift = Math.sin(p * Math.PI) * 12;
-  const droop = Math.sin(p * Math.PI) * (isForward ? -5 : 5);
-
+  // Pure rotateY only — spine is a fixed vertical line, page rotates strictly left↔right
   return (
     <div
       data-flip="card"
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `rotateY(${rotateY}deg) rotateX(${lift}deg) rotateZ(${droop}deg)`,
+        transform: `rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
@@ -60,7 +57,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
           position: 'absolute', inset: 0,
           backfaceVisibility: 'hidden',
           background: FRONT_BG, borderRadius: radius,
-          overflow: 'hidden', display: 'flex',
+          display: 'flex',
         }}
       >
         <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none' }}>
