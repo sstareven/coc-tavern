@@ -8,6 +8,7 @@ import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
 import { PageFlip } from './PageFlip';
+import { CSSFlipPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 
@@ -15,7 +16,7 @@ export function Storybook() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const isFlipping = useBookStore((s) => s.isFlipping);
-  const { flipForward, flipBackward, canGoNext, canGoPrev, direction } = usePageFlip();
+  const { flipForward, flipBackward, canGoNext, canGoPrev, direction, isFlipping, flipProgress } = usePageFlip();
 
   const page = pages[pageIndex];
   if (!page) return null;
@@ -29,23 +30,30 @@ export function Storybook() {
     document.dispatchEvent(event);
   };
 
-  // --- bookmark tab styles ---
+  // --- paper-style bookmark tab ---
   const bookmarkTab: React.CSSProperties = {
     width: 130,
-    height: 30,
+    height: 32,
     display: 'flex',
     alignItems: 'center',
-    paddingLeft: 12,
-    fontFamily: 'var(--font-ui)',
+    paddingLeft: 14,
+    fontFamily: '"PingFang SC", "DengXian", "Noto Serif SC", var(--font-ui), sans-serif',
     fontSize: 11,
     letterSpacing: 1.5,
-    color: 'var(--text-light)',
-    background: 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)',
-    borderLeft: '3px solid var(--blood)',
-    borderRadius: '4px 0 0 4px',
+    color: '#4a3020',
+    background: `
+      linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)
+    `,
+    border: '1px solid rgba(139,100,60,0.2)',
+    borderLeft: 'none',
+    borderRadius: '2px 6px 6px 2px',
     cursor: 'pointer',
-    backdropFilter: 'blur(2px)',
-    transition: 'var(--transition-smooth)',
+    boxShadow: `
+      1px 2px 4px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.3)
+    `,
+    transition: 'all 0.25s ease',
+    position: 'relative' as const,
   };
 
   return (
@@ -142,12 +150,23 @@ export function Storybook() {
 
           {/* Left page */}
           <div style={{ flex: 1, display: 'flex' }}>
-            <LeftPage
-              header={page.leftHeader}
-              content={page.leftContent}
-              pageNum={page.leftPage}
-              isFlipping={isFlipping}
-            />
+            {isFlipping && direction === 'forward' ? (
+              <CSSFlipPage progress={flipProgress} direction="forward">
+                <LeftPage
+                  header={page.leftHeader}
+                  content={page.leftContent}
+                  pageNum={page.leftPage}
+                  isFlipping={isFlipping}
+                />
+              </CSSFlipPage>
+            ) : (
+              <LeftPage
+                header={page.leftHeader}
+                content={page.leftContent}
+                pageNum={page.leftPage}
+                isFlipping={isFlipping}
+              />
+            )}
           </div>
 
           {/* Center fold — subtle crease where pages meet */}
@@ -159,12 +178,23 @@ export function Storybook() {
 
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>
-            <RightPage
-              header={page.rightHeader}
-              content={page.rightContent}
-              choices={page.rightChoices}
-              isFlipping={isFlipping}
-            />
+            {isFlipping && direction === 'backward' ? (
+              <CSSFlipPage progress={flipProgress} direction="backward">
+                <RightPage
+                  header={page.rightHeader}
+                  content={page.rightContent}
+                  choices={page.rightChoices}
+                  isFlipping={isFlipping}
+                />
+              </CSSFlipPage>
+            ) : (
+              <RightPage
+                header={page.rightHeader}
+                content={page.rightContent}
+                choices={page.rightChoices}
+                isFlipping={isFlipping}
+              />
+            )}
           </div>
 
           {/* Page flip animation overlay */}
@@ -198,14 +228,19 @@ export function Storybook() {
             onClick={() => useCharSheetStore.getState().toggle()}
             style={bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
+              e.currentTarget.style.color = '#8b3a3a';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.paddingLeft = '18px';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.color = '#4a3020';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+              e.currentTarget.style.paddingLeft = '14px';
             }}
           >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>✦</span>
             调查员记录
           </button>
 
@@ -214,14 +249,19 @@ export function Storybook() {
             onClick={() => useDiceStore.getState().open()}
             style={bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
+              e.currentTarget.style.color = '#8b3a3a';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.paddingLeft = '18px';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.color = '#4a3020';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+              e.currentTarget.style.paddingLeft = '14px';
             }}
           >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◆</span>
             掷骰
           </button>
 
@@ -230,14 +270,19 @@ export function Storybook() {
             onClick={() => usePanelStore.getState().open('diceHistory')}
             style={bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
+              e.currentTarget.style.color = '#8b3a3a';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.paddingLeft = '18px';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.color = '#4a3020';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+              e.currentTarget.style.paddingLeft = '14px';
             }}
           >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◈</span>
             检定记录
           </button>
         </div>
