@@ -80,7 +80,8 @@ export const useBookStore = create<BookStore>((set, get) => ({
   }),
 
   appendPage: (page) => set((s) => {
-    const pages = [...s.pages, { ...page, leftPage: pageNum(pages.length) }];
+    const newIdx = s.pages.length;
+    const pages = [...s.pages, { ...page, leftPage: pageNum(newIdx) }];
     return { pages };
   }),
 
