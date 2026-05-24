@@ -33,6 +33,7 @@ export function TopBar({ onReturnToMenu, onCreateCharacter }: Props) {
         <NavButton label="世 界 书" onClick={() => openPanel('worldbook')} />
         <NavButton label="预 设" onClick={() => openPanel('preset')} />
         <NavButton label="对 话" onClick={() => openPanel('chatlist')} />
+        <NavButton label="正 则" onClick={() => openPanel('regex')} />
         <NavButton label="菜 单" onClick={onReturnToMenu} />
       </nav>
     </header>

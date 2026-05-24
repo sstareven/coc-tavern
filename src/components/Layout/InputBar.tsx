@@ -6,7 +6,9 @@ import { useLorebookStore } from '../../stores/useLorebookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { assemblePrompt, matchLoreEntries } from '../../sillytavern/prompt-assembler';
 import { sendChatCompletion } from '../../sillytavern/api-router';
+import { PromptViewer } from '../Settings/PromptViewer';
 import type { BookPage, ChatPreset, LoreEntry } from '../../types';
+import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
 const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复，不要包含任何其他文字。JSON格式如下：
 {
@@ -150,6 +152,43 @@ export function InputBar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Prompt viewer state
+  const [previewMessages, setPreviewMessages] = useState<AssembledMessage[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const buildPromptMessages = (): { messages: AssembledMessage[] } | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // Build context from recent pages
+    const contextText = buildContextFromPages();
+
+    // Match lorebook entries against context + user input
+    const allBooks = useLorebookStore.getState().books;
+    let matchedLore: LoreEntry[] = [];
+    for (const book of Object.values(allBooks)) {
+      for (const entry of Object.values(book.entries)) {
+        matchedLore.push(entry);
+      }
+    }
+    matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
+
+    // Build character variables
+    const variables = buildCharacterVariables();
+
+    // Assemble prompt messages
+    const messages = assemblePrompt(
+      trimmed,
+      [],
+      DEFAULT_PRESET,
+      matchedLore,
+      variables,
+      FORMAT_INSTRUCTION,
+    );
+
+    return { messages };
+  };
+
   const submit = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -160,56 +199,38 @@ export function InputBar() {
       return;
     }
 
+    const result = buildPromptMessages();
+    if (!result) return;
+
+    // Show prompt viewer first
+    setPreviewMessages(result.messages);
+    setShowPreview(true);
+  };
+
+  const handleSendFromPreview = async (editedMessages: AssembledMessage[]) => {
+    setShowPreview(false);
+    const settings = useSettingsStore.getState();
+    const trimmed = input.trim();
+
     setLoading(true);
     setError('');
 
     try {
-      // Build context from recent pages
-      const contextText = buildContextFromPages();
-
-      // Match lorebook entries against context + user input
-      const allBooks = useLorebookStore.getState().books;
-      let matchedLore: LoreEntry[] = [];
-      for (const book of Object.values(allBooks)) {
-        for (const entry of Object.values(book.entries)) {
-          matchedLore.push(entry);
-        }
-      }
-      matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
-
-      // Build character variables
-      const variables = buildCharacterVariables();
-
-      // Assemble prompt messages
-      const messages = assemblePrompt(
-        trimmed,
-        [], // chat history — we use page context instead
-        DEFAULT_PRESET,
-        matchedLore,
-        variables,
-        FORMAT_INSTRUCTION,
-      );
-
-      // Call the LLM API
       const response = await sendChatCompletion(
-        messages,
+        editedMessages,
         DEFAULT_PRESET,
         settings.apiBaseUrl,
         settings.apiKey,
         settings.apiModel,
-        false, // non-streaming for structured JSON reliability
+        false,
       );
 
-      // Parse response into a BookPage
       const newPage = parseLlmResponse(response.content, trimmed);
       if (!newPage) {
         throw new Error('无法解析AI回复');
       }
 
-      // Append new page and auto-flip
       useBookStore.getState().appendPage(newPage);
-
-      // Clear input and loading state
       setInput('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI请求失败';
@@ -217,6 +238,10 @@ export function InputBar() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClosePreview = () => {
+    setShowPreview(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -236,75 +261,83 @@ export function InputBar() {
   };
 
   return (
-    <footer style={{
-      display: 'flex', flexDirection: 'column', flexShrink: 0,
-      borderTop: '1px solid rgba(196,168,85,0.15)',
-      background: 'rgba(13,10,7,0.85)', backdropFilter: 'blur(8px)',
-    }}>
-      {error && (
-        <div style={{
-          padding: '6px 24px', fontSize: 12, color: '#e8815b',
-          fontFamily: 'var(--font-ui)', letterSpacing: 1,
-          background: 'rgba(180,60,30,0.1)', display: 'flex', justifyContent: 'space-between',
-        }}>
-          <span>{error}</span>
-          <span
-            onClick={() => setError('')}
-            style={{ cursor: 'pointer', opacity: 0.7, fontSize: 16 }}
-            title="关闭"
-          >
-            ×
-          </span>
-        </div>
-      )}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 24px',
+    <>
+      <PromptViewer
+        visible={showPreview}
+        messages={previewMessages}
+        onClose={handleClosePreview}
+        onSend={handleSendFromPreview}
+      />
+      <footer style={{
+        display: 'flex', flexDirection: 'column', flexShrink: 0,
+        borderTop: '1px solid rgba(196,168,85,0.15)',
+        background: 'rgba(13,10,7,0.85)', backdropFilter: 'blur(8px)',
       }}>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => { setInput(e.target.value); if (error) setError(''); }}
-          onKeyDown={handleKeyDown}
-          placeholder="输入行动或对话..."
-          disabled={loading}
-          style={{
-            flex: 1, padding: '10px 16px',
-            border: '1px solid var(--brass)', borderRadius: 3,
-            background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-            fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 1,
-            outline: 'none', caretColor: 'var(--gold)',
-            opacity: loading ? 0.5 : 1,
+        {error && (
+          <div style={{
+            padding: '6px 24px', fontSize: 12, color: '#e8815b',
+            fontFamily: 'var(--font-ui)', letterSpacing: 1,
+            background: 'rgba(180,60,30,0.1)', display: 'flex', justifyContent: 'space-between',
+          }}>
+            <span>{error}</span>
+            <span
+              onClick={() => setError('')}
+              style={{ cursor: 'pointer', opacity: 0.7, fontSize: 16 }}
+              title="关闭"
+            >
+              ×
+            </span>
+          </div>
+        )}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '10px 24px',
+        }}>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => { setInput(e.target.value); if (error) setError(''); }}
+            onKeyDown={handleKeyDown}
+            placeholder="输入行动或对话..."
+            disabled={loading}
+            style={{
+              flex: 1, padding: '10px 16px',
+              border: '1px solid var(--brass)', borderRadius: 3,
+              background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
+              fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 1,
+              outline: 'none', caretColor: 'var(--gold)',
+              opacity: loading ? 0.5 : 1,
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          />
+          <button onClick={toggleDiceHistory} title="检定记录" style={{
+            padding: '10px 12px', border: '1px solid var(--brass)',
+            background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
+            fontFamily: 'var(--font-display)', fontSize: 14,
+            borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-        />
-        <button onClick={toggleDiceHistory} title="检定记录" style={{
-          padding: '10px 12px', border: '1px solid var(--brass)',
-          background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
-          fontFamily: 'var(--font-display)', fontSize: 14,
-          borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-        >
-          &#9861;
-        </button>
-        <button onClick={submit} disabled={loading} style={{
-          padding: '10px 28px', border: '1px solid var(--gold)',
-          background: loading ? 'rgba(196,168,85,0.05)' : 'rgba(196,168,85,0.1)',
-          color: loading ? 'rgba(196,168,85,0.4)' : 'var(--gold)',
-          fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 4,
-          borderRadius: 3, cursor: loading ? 'default' : 'pointer',
-          whiteSpace: 'nowrap', transition: 'var(--transition-smooth)',
-          opacity: loading ? 0.7 : 1,
-        }}
-          onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}
-          onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = 'rgba(196,168,85,0.1)'; }}
-        >
-          {loading ? '...' : '推 进'}
-        </button>
-      </div>
-    </footer>
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          >
+            &#9861;
+          </button>
+          <button onClick={submit} disabled={loading} title="预览提示词后发送" style={{
+            padding: '10px 28px', border: '1px solid var(--gold)',
+            background: loading ? 'rgba(196,168,85,0.05)' : 'rgba(196,168,85,0.1)',
+            color: loading ? 'rgba(196,168,85,0.4)' : 'var(--gold)',
+            fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 4,
+            borderRadius: 3, cursor: loading ? 'default' : 'pointer',
+            whiteSpace: 'nowrap', transition: 'var(--transition-smooth)',
+            opacity: loading ? 0.7 : 1,
+          }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = 'rgba(196,168,85,0.1)'; }}
+          >
+            {loading ? '...' : '推 进'}
+          </button>
+        </div>
+      </footer>
+    </>
   );
 }

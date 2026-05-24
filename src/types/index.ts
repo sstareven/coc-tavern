@@ -110,5 +110,40 @@ export interface Extension {
   entryPoint: string;
 }
 
+// ===== Regex Scripts =====
+export type RegexPlacement = 1 | 2 | 3 | 5 | 6;
+// 1=USER_INPUT, 2=AI_OUTPUT, 3=SLASH_COMMAND, 5=WORLD_INFO, 6=REASONING
+export type SubstituteFindRegex = 0 | 1 | 2; // NONE | RAW | ESCAPED
+export type RegexScriptType = 'global' | 'scoped' | 'preset';
+
+export interface RegexScript {
+  id: string;
+  scriptName: string;
+  findRegex: string;
+  replaceString: string;
+  trimStrings: string[];
+  placement: RegexPlacement[];
+  disabled: boolean;
+  markdownOnly: boolean;
+  promptOnly: boolean;
+  runOnEdit: boolean;
+  substituteRegex: SubstituteFindRegex;
+  minDepth: number | null;
+  maxDepth: number | null;
+}
+
+export interface RegexPresetItem {
+  id: string;
+}
+
+export interface RegexPreset {
+  id: string;
+  name: string;
+  isSelected: boolean;
+  global: RegexPresetItem[];
+  scoped: RegexPresetItem[];
+  preset: RegexPresetItem[];
+}
+
 // ===== Tooltip Keywords =====
 export type KeywordDB = Record<string, string>;
