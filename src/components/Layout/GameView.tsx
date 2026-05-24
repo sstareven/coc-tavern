@@ -15,6 +15,7 @@ import { PresetEditor } from '../Settings/PresetEditor';
 import { ChatlistPanel } from '../Settings/ChatlistPanel';
 import { ExtManager } from '../Settings/ExtManager';
 import { RegexEditor } from '../Settings/RegexEditor';
+import { VariablePanel } from '../Settings/VariablePanel';
 import { usePanelStore } from '../../stores/usePanelStore';
 
 interface Props { onReturnToMenu: () => void }
@@ -156,6 +157,11 @@ export function GameView({ onReturnToMenu }: Props) {
       )}
 
       <RegexEditor />
+
+      <VariablePanel
+        visible={openPanel === 'variable'}
+        onClose={closeAll}
+      />
 
       {/* Character Creator */}
       {showCreator && (

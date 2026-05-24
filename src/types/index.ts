@@ -154,5 +154,14 @@ export interface RegexPreset {
   preset: RegexPresetItem[];
 }
 
+// ===== MVU Game Variables =====
+export interface GameVariable {
+  name: string;
+  value: string;
+  locked: boolean;
+  source: 'system' | 'character' | 'llm' | 'manual';
+  updatedAt: number;
+}
+
 // ===== Tooltip Keywords =====
 export type KeywordDB = Record<string, string>;

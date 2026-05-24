@@ -9,6 +9,7 @@ export type Panel =
   | 'chatlist'
   | 'extManager'
   | 'diceHistory'
+  | 'variable'
   | null;
 
 interface PanelStore {
