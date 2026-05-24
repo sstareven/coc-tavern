@@ -150,31 +150,12 @@ export function Storybook() {
             />
           </div>
 
-          {/* Spine */}
+          {/* Center fold — subtle crease where pages meet */}
           <div style={{
-            width: 22,
+            width: 2,
             flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            position: 'relative',
-          }}>
-            {/* Spine center line */}
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              top: 0,
-              bottom: 0,
-              width: 1,
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.35) 15%, rgba(0,0,0,0.28) 50%, rgba(0,0,0,0.35) 85%, transparent 100%)',
-            }} />
-            {/* Spine inner shadow on pages */}
-            <div style={{
-              flex: 1,
-              width: '100%',
-              background: 'linear-gradient(to right, rgba(0,0,0,0.08) 0%, transparent 50%, rgba(0,0,0,0.08) 100%)',
-            }} />
-          </div>
+            background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
+          }} />
 
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>

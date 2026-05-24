@@ -16,7 +16,7 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
       padding: '28px 24px 20px 28px',
       background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopLeftRadius: 4, borderBottomLeftRadius: 4,
-      boxShadow: 'inset -6px 0 16px rgba(0,0,0,0.08)',
+      boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
       fontSize: 15, lineHeight: 1.75, position: 'relative',
     }}>
