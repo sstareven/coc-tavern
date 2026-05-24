@@ -10,6 +10,21 @@ import { CSSFlipPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 
+/** Blank back-of-page placeholder — lighter, reversed page appearance */
+function PageBack() {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column',
+      padding: '28px 24px 20px 28px',
+      background: 'linear-gradient(135deg, #e8d8b8 0%, #dfceaa 100%)',
+      borderRadius: 4,
+      color: 'var(--ink)', fontFamily: 'var(--font-body)',
+      fontSize: 15, lineHeight: 1.75,
+      opacity: 0.5,
+    }} />
+  );
+}
+
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
@@ -150,59 +165,52 @@ export function Storybook() {
           {/* Left page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'backward' ? (
-              <CSSFlipPage progress={flipProgress} direction="backward">
-                <LeftPage
-                  header={page.leftHeader}
-                  content={page.leftContent}
-                  pageNum={page.leftPage}
-                />
-              </CSSFlipPage>
+              <CSSFlipPage
+                progress={flipProgress}
+                direction="backward"
+                front={
+                  <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                }
+                back={
+                  /* Back of left page: previous spread's right content (reversed) */
+                  prevPageData
+                    ? <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
+                    : <PageBack />
+                }
+              />
             ) : isFlipping && direction === 'forward' && nextPage ? (
-              /* Forward flip: show next page's left content revealed underneath */
-              <LeftPage
-                header={nextPage.leftHeader}
-                content={nextPage.leftContent}
-                pageNum={nextPage.leftPage}
-              />
+              <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
             ) : (
-              <LeftPage
-                header={page.leftHeader}
-                content={page.leftContent}
-                pageNum={page.leftPage}
-              />
+              <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             )}
           </div>
 
-          {/* Center fold — subtle crease where pages meet */}
+          {/* Center fold */}
           <div style={{
-            width: 2,
-            flexShrink: 0,
+            width: 2, flexShrink: 0,
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'forward' ? (
-              <CSSFlipPage progress={flipProgress} direction="forward">
-                <RightPage
-                  header={page.rightHeader}
-                  content={page.rightContent}
-                  choices={page.rightChoices}
-                />
-              </CSSFlipPage>
+              <CSSFlipPage
+                progress={flipProgress}
+                direction="forward"
+                front={
+                  <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+                }
+                back={
+                  /* Back of right page: next spread's left content (reversed) */
+                  nextPage
+                    ? <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
+                    : <PageBack />
+                }
+              />
             ) : isFlipping && direction === 'backward' && prevPageData ? (
-              /* Backward flip: show previous page's right content revealed underneath */
-              <RightPage
-                header={prevPageData.rightHeader}
-                content={prevPageData.rightContent}
-                choices={prevPageData.rightChoices}
-              />
+              <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
             ) : (
-              <RightPage
-                header={page.rightHeader}
-                content={page.rightContent}
-                choices={page.rightChoices}
-              />
+              <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
             )}
           </div>
 

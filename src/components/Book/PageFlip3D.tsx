@@ -139,20 +139,23 @@ export function buildCurlOverlayStyle(p: number): React.CSSProperties {
   };
 }
 
-// ── CSS-only fallback: full page flip without WebGL ──
+// ── Double-sided page flip ──
 
 interface CSSFlipProps {
   progress: number;
   direction: 'forward' | 'backward';
-  children: React.ReactNode;
+  /** Content visible on the front face (visible at start) */
+  front: React.ReactNode;
+  /** Content visible on the back face (visible when flipped past 90°) */
+  back: React.ReactNode;
   style?: React.CSSProperties;
 }
 
-export function CSSFlipPage({ progress, direction, children, style }: CSSFlipProps) {
+export function CSSFlipPage({ progress, direction, front, back, style }: CSSFlipProps) {
   const p = stagedProgress(progress);
 
-  // Forward: right page flips left around its left edge (spine)
-  // Backward: left page flips right around its right edge (spine)
+  // Forward: page rotates around its LEFT edge (spine side)
+  // Backward: page rotates around its RIGHT edge (spine side)
   const isForward = direction === 'forward';
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
@@ -161,21 +164,30 @@ export function CSSFlipPage({ progress, direction, children, style }: CSSFlipPro
     <div
       style={{
         ...style,
-        flex: 1,
-        display: 'flex',
+        flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
         transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
-        backfaceVisibility: 'hidden' as const,
+        transformStyle: 'preserve-3d',
         transition: 'none',
-        position: 'relative',
-        zIndex: isFlippingLike(p) ? 5 : 1,
+        zIndex: p > 0.01 && p < 0.99 ? 5 : 1,
       }}
     >
-      {children}
+      {/* Front face */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backfaceVisibility: 'hidden' as const,
+      }}>
+        {front}
+      </div>
+
+      {/* Back face — pre-rotated 180° so it appears when the card flips */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        transform: 'rotateY(180deg)',
+        backfaceVisibility: 'hidden' as const,
+      }}>
+        {back}
+      </div>
     </div>
   );
-}
-
-function isFlippingLike(p: number): boolean {
-  return p > 0.01 && p < 0.99;
 }
