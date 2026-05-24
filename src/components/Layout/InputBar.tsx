@@ -10,6 +10,7 @@ import { sendChatCompletion } from '../../sillytavern/api-router';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { useVariableStore } from '../../stores/useVariableStore';
+import { extractVariablesWithLLM } from '../../sillytavern/mvu-extractor';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -307,7 +308,34 @@ export function InputBar() {
       );
 
       // Extract variables from LLM response
-      const { cleanedText } = useVariableStore.getState().processResponse(response.content);
+      const mvuSettings = useSettingsStore.getState();
+      let cleanedText: string;
+      if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey) {
+        try {
+          const result = await extractVariablesWithLLM(
+            response.content,
+            mvuSettings.mvuApiBaseUrl,
+            mvuSettings.mvuApiKey,
+            mvuSettings.mvuApiModel,
+          );
+          cleanedText = result.cleanedText;
+          // Merge extracted variables
+          const st = useVariableStore.getState();
+          const { mergeVariables } = await import('../../sillytavern/variables');
+          st.processResponse(response.content); // also runs regex extraction as baseline
+          // Override with LLM-extracted variables
+          for (const [name, value] of Object.entries(result.variables)) {
+            st.setVariable(name, value, 'llm');
+          }
+        } catch {
+          // Fallback to regex extraction
+          const result = useVariableStore.getState().processResponse(response.content);
+          cleanedText = result.cleanedText;
+        }
+      } else {
+        const result = useVariableStore.getState().processResponse(response.content);
+        cleanedText = result.cleanedText;
+      }
 
       const newPage = parseLlmResponse(cleanedText, trimmed);
       if (!newPage) {

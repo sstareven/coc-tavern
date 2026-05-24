@@ -317,9 +317,21 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const availableModels = useSettingsStore((s) => s.availableModels);
   const setAvailableModels = useSettingsStore((s) => s.setAvailableModels);
 
+  const mvuUseIndependentApi = useSettingsStore((s) => s.mvuUseIndependentApi);
+  const setMvuUseIndependentApi = useSettingsStore((s) => s.setMvuUseIndependentApi);
+  const mvuApiBaseUrl = useSettingsStore((s) => s.mvuApiBaseUrl);
+  const setMvuApiBaseUrl = useSettingsStore((s) => s.setMvuApiBaseUrl);
+  const mvuApiModel = useSettingsStore((s) => s.mvuApiModel);
+  const setMvuApiModel = useSettingsStore((s) => s.setMvuApiModel);
+  const mvuApiKey = useSettingsStore((s) => s.mvuApiKey);
+  const setMvuApiKey = useSettingsStore((s) => s.setMvuApiKey);
+
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
   const [localApiKey, setLocalApiKey] = useState(apiKey);
+  const [localMvuUrl, setLocalMvuUrl] = useState(mvuApiBaseUrl);
+  const [localMvuModel, setLocalMvuModel] = useState(mvuApiModel);
+  const [localMvuKey, setLocalMvuKey] = useState(mvuApiKey);
   const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [modelsLoading, setModelsLoading] = useState(false);
 
@@ -545,6 +557,66 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
                     />
                   </div>
+                </div>
+
+                {/* MVU Variable Engine API */}
+                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
+                    MVU 变量引擎 API
+                  </div>
+
+                  {/* Toggle independent/global */}
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>独立通道</span>
+                    <button
+                      onClick={() => setMvuUseIndependentApi(!mvuUseIndependentApi)}
+                      style={{
+                        padding: '5px 18px',
+                        border: mvuUseIndependentApi ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
+                        borderRadius: 3,
+                        background: mvuUseIndependentApi ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
+                        color: mvuUseIndependentApi ? 'var(--gold)' : 'var(--ink-faded)',
+                        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
+                      }}>
+                      {mvuUseIndependentApi ? '独立' : '跟随全局'}
+                    </button>
+                  </div>
+
+                  {mvuUseIndependentApi && (
+                    <>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>API Key</span>
+                        <input type="password" value={localMvuKey}
+                          onChange={(e) => { setLocalMvuKey(e.target.value); setMvuApiKey(e.target.value); }}
+                          placeholder="sk-..." style={inputStyle}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                        />
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>API 地址</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input value={localMvuUrl}
+                            onChange={(e) => setLocalMvuUrl(e.target.value)}
+                            onBlur={() => setMvuApiBaseUrl(localMvuUrl)}
+                            style={{ ...inputStyle, width: 160 }}
+                            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>模型名</span>
+                        <input value={localMvuModel}
+                          onChange={(e) => setLocalMvuModel(e.target.value)}
+                          onBlur={() => setMvuApiModel(localMvuModel)}
+                          placeholder="deepseek-chat" style={inputStyle}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Return to menu */}
