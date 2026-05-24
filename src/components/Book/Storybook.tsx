@@ -6,7 +6,7 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { CSSFlipPage, FadeInPage } from './PageFlip3D';
+import { CSSFlipPage, BlankPaper } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 
@@ -16,8 +16,6 @@ export function Storybook() {
   const { flipForward, flipBackward, canGoNext, canGoPrev, direction, isFlipping, flipProgress } = usePageFlip();
 
   const page = pages[pageIndex];
-  const nextPage = pages[pageIndex + 1] ?? null;
-  const prevPageData = pages[pageIndex - 1] ?? null;
   if (!page) return null;
 
   const deletePage = () => {
@@ -150,15 +148,11 @@ export function Storybook() {
           {/* Left page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'backward' ? (
-              /* Backward: left page flips away to the right */
               <CSSFlipPage progress={flipProgress} direction="backward">
                 <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'forward' && nextPage ? (
-              /* Forward: reveal next page's left content with fade-in */
-              <FadeInPage progress={flipProgress}>
-                <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
-              </FadeInPage>
+            ) : isFlipping && direction === 'forward' ? (
+              <BlankPaper side="left" />
             ) : (
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             )}
@@ -173,15 +167,11 @@ export function Storybook() {
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'forward' ? (
-              /* Forward: right page flips away to the left */
               <CSSFlipPage progress={flipProgress} direction="forward">
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'backward' && prevPageData ? (
-              /* Backward: reveal previous page's right content with fade-in */
-              <FadeInPage progress={flipProgress}>
-                <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
-              </FadeInPage>
+            ) : isFlipping && direction === 'backward' ? (
+              <BlankPaper side="right" />
             ) : (
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
             )}
