@@ -1,21 +1,30 @@
-MIT License
+# 非商业使用许可证 (Non-Commercial License)
 
 Copyright (c) 2025 sstareven
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 允许的行为
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- 个人使用、学习、研究本软件
+- 修改、衍生本软件
+- 以源代码或二进制形式分发本软件及衍生作品
+- 在非商业环境中运行本软件
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## 禁止的行为
+
+- 将本软件或其衍生作品用于任何商业销售、商业租赁、商业订阅或其他直接营利活动
+- 未经作者书面许可，将本软件集成到任何商业产品中并以此谋利
+
+## 免责声明
+
+本软件按"原样"提供，不提供任何形式的明示或暗示担保。在任何情况下，作者或版权持有人均不对因使用本软件而产生的任何索赔、损害或其他责任负责。
+
+---
+
+以上为中文协议概要，法律效力以英文条款为准：
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software to use, copy, modify, merge, publish, and distribute the Software for non-commercial purposes only, subject to the following conditions:
+
+1. The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+2. Commercial use, including but not limited to selling, licensing as part of a paid product, or using the Software to generate direct revenue, is strictly prohibited without explicit written permission from the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
