@@ -31,7 +31,6 @@ interface CSSFlipProps {
  */
 export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const raw = Math.max(0, Math.min(1, progress));
-  // Rotation uses eased curve
   const p = stagedProgress(raw);
   const isForward = direction === 'forward';
   const rotateY = isForward ? -p * 180 : p * 180;
@@ -39,13 +38,16 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
   const textOpacity = raw < 0.35 ? 1 : Math.max(0, 1 - (raw - 0.35) / 0.2);
 
+  // Arc effect: tilt page back at midpoint to trace a semi-circular path
+  const tilt = Math.sin(p * Math.PI) * 18;
+
   return (
     <div
       data-flip="card"
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `rotateY(${rotateY}deg)`,
+        transform: `rotateY(${rotateY}deg) rotateX(${tilt}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
