@@ -318,9 +318,8 @@ export function InputBar() {
     const result = buildPromptMessages();
     if (!result) return;
 
-    // Show prompt viewer first
-    setPreviewMessages(result.messages);
-    setShowPreview(true);
+    // Send directly — no prompt viewer
+    await handleSendFromPreview(result.messages);
   };
 
   const handleSendFromPreview = async (editedMessages: AssembledMessage[]) => {
@@ -410,13 +409,6 @@ export function InputBar() {
 
   return (
     <>
-      <PromptViewer
-        visible={showPreview}
-        messages={previewMessages}
-        onClose={handleClosePreview}
-        onSend={handleSendFromPreview}
-      />
-
       <TokenCounter
         visible={showTokenCounter}
         onClose={() => setShowTokenCounter(false)}
