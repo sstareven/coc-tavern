@@ -50,26 +50,58 @@ export function GameView({ onReturnToMenu }: Props) {
         alignItems: 'center',
         position: 'relative',
         overflow: 'hidden',
-        padding: '12px 0',
+        padding: '12px 24px 24px',
       }}>
         {/* Status bar above book */}
         <StatusBar />
 
-        <Storybook />
-
-        {/* Desk surface below book */}
+        {/* Desk surface — large table that the book rests on */}
         <div style={{
-          width: '78%',
-          maxWidth: 900,
-          height: 28,
-          flexShrink: 0,
-          marginTop: -8,
-          borderRadius: 4,
-          background: 'linear-gradient(180deg, rgba(61,43,19,0.55) 0%, rgba(42,31,20,0.35) 40%, rgba(13,10,7,0.6) 100%)',
-          border: '1px solid rgba(61,43,19,0.4)',
-          borderTop: 'none',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 2px 6px rgba(196,168,85,0.04)',
-        }} />
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+          width: '100%',
+        }}>
+          {/* Desk table surface */}
+          <div style={{
+            position: 'absolute',
+            inset: '8px 0 0 0',
+            borderRadius: 12,
+            background: `
+              linear-gradient(175deg,
+                rgba(61,43,19,0.7) 0%,
+                rgba(51,35,15,0.65) 20%,
+                rgba(42,28,12,0.7) 50%,
+                rgba(35,22,10,0.75) 100%
+              ),
+              repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 30px,
+                rgba(255,255,255,0.008) 30px,
+                rgba(255,255,255,0.008) 31px
+              ),
+              repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 80px,
+                rgba(0,0,0,0.04) 80px,
+                rgba(0,0,0,0.04) 81px
+              )
+            `,
+            border: '1px solid rgba(80,55,30,0.35)',
+            boxShadow: `
+              inset 0 2px 0 rgba(255,255,255,0.03),
+              inset 0 -2px 8px rgba(0,0,0,0.4),
+              0 0 60px rgba(0,0,0,0.5)
+            `,
+          }} />
+
+          {/* Book resting on desk */}
+          <Storybook />
+        </div>
       </main>
 
       <InputBar />
