@@ -24,9 +24,12 @@ interface CSSFlipProps {
 }
 
 /**
- * A physical paper page that rotates around the spine.
- * Front face = current content. Back face = blank paper.
- * Both faces are solid paper — no transparency, no see-through.
+ * [FlipCard] A physical paper page that rotates around the spine.
+ *
+ * Structure:
+ *   FlipCard (outer, rotates)         ← 3D旋转容器
+ *   ├─ FlipFront (front face)         ← 正面：当前内容+纸底
+ *   └─ FlipBack (back face, 180°)     ← 背面：空白纸色
  */
 export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const p = stagedProgress(Math.max(0, Math.min(1, progress)));
@@ -34,37 +37,44 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-
-  // Only fade text — paper stays solid on both faces
   const textOpacity = Math.max(0.08, 1 - p * 1.8);
 
   return (
-    <div style={{
-      flex: 1, display: 'flex', position: 'relative',
-      transformOrigin: `${originX} 50%`,
-      transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
-      transformStyle: 'preserve-3d',
-      transition: 'none',
-    }}>
-      {/* ── Front face ── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backfaceVisibility: 'hidden',
-        background: FRONT_BG, borderRadius: radius,
-        overflow: 'hidden', display: 'flex',
-      }}>
+    <div
+      data-flip="card"
+      style={{
+        flex: 1, display: 'flex', position: 'relative',
+        transformOrigin: `${originX} 50%`,
+        transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
+        transformStyle: 'preserve-3d',
+        transition: 'none',
+      }}
+    >
+      {/* [FlipFront] */}
+      <div
+        data-flip="front"
+        style={{
+          position: 'absolute', inset: 0,
+          backfaceVisibility: 'hidden',
+          background: FRONT_BG, borderRadius: radius,
+          overflow: 'hidden', display: 'flex',
+        }}
+      >
         <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none' }}>
           {children}
         </div>
       </div>
 
-      {/* ── Back face (pre-rotated 180°) ── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        transform: 'rotateY(180deg)',
-        backfaceVisibility: 'hidden',
-        background: BACK_BG, borderRadius: radius,
-      }} />
+      {/* [FlipBack] */}
+      <div
+        data-flip="back"
+        style={{
+          position: 'absolute', inset: 0,
+          transform: 'rotateY(180deg)',
+          backfaceVisibility: 'hidden',
+          background: BACK_BG, borderRadius: radius,
+        }}
+      />
     </div>
   );
 }
@@ -72,14 +82,18 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
 // ── Blank paper placeholder (no text, just solid paper) ──
 
 /**
- * Static blank paper shown on the opposite side during a flip.
- * The actual content renders naturally after flip completes.
+ * [Placeholder] Static blank paper shown on the opposite side during a flip.
+ * No text, just solid paper color.
  */
 export function BlankPaper({ side }: { side: 'left' | 'right' }) {
   const radius = side === 'left' ? '3px 0 0 3px' : '0 3px 3px 0';
   return (
-    <div style={{
-      flex: 1, background: PLACEHOLDER_BG, borderRadius: radius,
-    }} />
+    <div
+      data-flip="placeholder"
+      data-side={side}
+      style={{
+        flex: 1, background: PLACEHOLDER_BG, borderRadius: radius,
+      }}
+    />
   );
 }

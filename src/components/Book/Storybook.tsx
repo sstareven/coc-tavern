@@ -145,32 +145,32 @@ export function Storybook() {
             zIndex: 1,
           }} />
 
-          {/* Left page */}
+          {/* [A] 左页 */}
           <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'forward' ? (
-              <CSSFlipPage progress={flipProgress} direction="forward">
+            {isFlipping && direction === 'backward' ? (
+              <CSSFlipPage progress={flipProgress} direction="backward">
                 <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'backward' ? (
+            ) : isFlipping && direction === 'forward' ? (
               <BlankPaper side="left" />
             ) : (
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             )}
           </div>
 
-          {/* Center fold */}
+          {/* [C] 书脊 */}
           <div style={{
             width: 2, flexShrink: 0,
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
-          {/* Right page */}
+          {/* [B] 右页 */}
           <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'backward' ? (
-              <CSSFlipPage progress={flipProgress} direction="backward">
+            {isFlipping && direction === 'forward' ? (
+              <CSSFlipPage progress={flipProgress} direction="forward">
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'forward' ? (
+            ) : isFlipping && direction === 'backward' ? (
               <BlankPaper side="right" />
             ) : (
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
