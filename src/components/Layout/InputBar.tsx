@@ -378,6 +378,8 @@ export function InputBar() {
       }
 
       useBookStore.getState().appendPage(newPage);
+      // Trigger flip animation to newly appended page
+      useBookStore.getState().autoFlipForward();
       setInput('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI请求失败';

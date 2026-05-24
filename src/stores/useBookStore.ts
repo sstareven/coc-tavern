@@ -3,7 +3,7 @@ import type { BookPage } from '../types';
 
 const defaultPages: BookPage[] = [
   {
-    leftHeader: '第三章', leftContent: '你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯。', leftPage: '— 3 —',
+    leftHeader: '第一章', leftContent: '你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯。', leftPage: pageNum(0),
     rightHeader: '调查', rightContent: '角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案。',
     rightChoices: [
       { num: 'I', text: '调查铁柜', action: '调查铁柜' },
@@ -17,7 +17,7 @@ const defaultPages: BookPage[] = [
     },
   },
   {
-    leftHeader: '侦查结果', leftContent: '你用力撬开了锈蚀的铁柜。柜内躺着一叠泛黄的信件和一本皮质封面的日记。信件的纸张已经脆弱发黄，日期停留在 1923 年。', leftPage: '— 5 —',
+    leftHeader: '侦查结果', leftContent: '你用力撬开了锈蚀的铁柜。柜内躺着一叠泛黄的信件和一本皮质封面的日记。信件的纸张已经脆弱发黄，日期停留在 1923 年。', leftPage: pageNum(1),
     rightHeader: '行动', rightContent: '你翻看着这些令人不安的文书，心中涌起一股不祥的预感。接下来该怎么办？',
     rightChoices: [
       { num: 'I', text: '仔细阅读信件', action: '仔细阅读每一封信件' },
@@ -32,31 +32,78 @@ const defaultPages: BookPage[] = [
   },
 ];
 
+/** Page number from floor index: 0→1, 1→3, 2→5... */
+function pageNum(index: number): string {
+  return `— ${index * 2 + 1} —`;
+}
+
+const FLIP_DURATION = 1500;
+
 interface BookStore {
   pages: BookPage[];
   pageIndex: number;
   isFlipping: boolean;
+  flipProgress: number;
+  flipDirection: 'forward' | 'backward';
   nextPage: () => void;
   prevPage: () => void;
   setFlipping: (v: boolean) => void;
   updateLeftPage: (index: number, header: string, content: string) => void;
   appendPage: (page: BookPage) => void;
+  /** Animated flip to the freshly appended page */
+  autoFlipForward: () => void;
 }
+
+let flipRaf = 0;
 
 export const useBookStore = create<BookStore>((set, get) => ({
   pages: defaultPages,
   pageIndex: 0,
   isFlipping: false,
-  nextPage: () => { const { pageIndex, pages } = get(); if (pageIndex < pages.length - 1) set({ pageIndex: pageIndex + 1 }); },
-  prevPage: () => { const { pageIndex } = get(); if (pageIndex > 0) set({ pageIndex: pageIndex - 1 }); },
+  flipProgress: 0,
+  flipDirection: 'forward',
+
+  nextPage: () => {
+    const { pageIndex, pages } = get();
+    if (pageIndex < pages.length - 1) set({ pageIndex: pageIndex + 1 });
+  },
+  prevPage: () => {
+    const { pageIndex } = get();
+    if (pageIndex > 0) set({ pageIndex: pageIndex - 1 });
+  },
   setFlipping: (v) => set({ isFlipping: v }),
+
   updateLeftPage: (index, header, content) => set((s) => {
     const pages = [...s.pages];
-    pages[index] = { ...pages[index], leftHeader: header, leftContent: content };
+    pages[index] = { ...pages[index], leftHeader: header, leftContent: content, leftPage: pageNum(index) };
     return { pages };
   }),
+
   appendPage: (page) => set((s) => {
-    const pages = [...s.pages, page];
-    return { pages, pageIndex: pages.length - 1 };
+    const pages = [...s.pages, { ...page, leftPage: pageNum(pages.length) }];
+    return { pages };
   }),
+
+  autoFlipForward: () => {
+    const { isFlipping, pages, pageIndex } = get();
+    if (isFlipping || pageIndex >= pages.length - 1) return;
+    if (flipRaf) cancelAnimationFrame(flipRaf);
+
+    set({ isFlipping: true, flipProgress: 0, flipDirection: 'forward' });
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const raw = Math.min(1, elapsed / FLIP_DURATION);
+      set({ flipProgress: raw });
+      if (raw < 1) {
+        flipRaf = requestAnimationFrame(tick);
+      } else {
+        set({ flipProgress: 1 });
+        get().nextPage();
+        set({ isFlipping: false, flipProgress: 0 });
+      }
+    };
+    flipRaf = requestAnimationFrame(tick);
+  },
 }));
