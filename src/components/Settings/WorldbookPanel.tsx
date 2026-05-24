@@ -7,6 +7,7 @@ interface Props {
 
 export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
+  const addBook = useLorebookStore((s) => s.addBook);
 
   return (
     <div
@@ -80,7 +81,10 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
         </div>
 
         {/* Create new */}
-        <button style={{
+        <button onClick={() => {
+          const newId = addBook('新建世界书');
+          onEditBook(newId);
+        }} style={{
           width: '100%', marginTop: 16, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',

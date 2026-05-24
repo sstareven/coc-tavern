@@ -9,11 +9,12 @@ const defaultBooks: Record<string, LoreBook> = {
 };
 
 let entryCounter = 10;
-interface LorebookStore { books: Record<string, LoreBook>; activeBook: string | null; setActiveBook: (id: string|null) => void; updateEntry: (b:string, e:string, entry: LoreEntry) => void; deleteEntry: (b:string, e:string) => void; addEntry: (b:string) => void; }
+interface LorebookStore { books: Record<string, LoreBook>; activeBook: string | null; setActiveBook: (id: string|null) => void; updateEntry: (b:string, e:string, entry: LoreEntry) => void; deleteEntry: (b:string, e:string) => void; addEntry: (b:string) => void; addBook: (name:string) => string; }
 export const useLorebookStore = create<LorebookStore>((set) => ({
   books: defaultBooks, activeBook: null,
   setActiveBook: (id) => set({ activeBook: id }),
   updateEntry: (b, e, entry) => set((s) => { const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [e]:entry}}; return {books}; }),
   deleteEntry: (b, e) => set((s) => { const books={...s.books}; const entries={...books[b].entries}; delete entries[e]; books[b]={...books[b], entries}; return {books}; }),
   addEntry: (b) => set((s) => { const id='e'+(++entryCounter); const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [id]:{name:'新条目',keys:'',content:'',logic:'AND',priority:10}}}; return {books}; }),
+  addBook: (name) => { const id = 'wb-' + Date.now(); set((s) => ({ books: { ...s.books, [id]: { name, entries: {} } } })); return id; },
 }));

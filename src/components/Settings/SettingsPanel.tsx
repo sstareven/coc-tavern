@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 
 interface Props {
   visible: boolean;
@@ -16,9 +17,27 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
+  const apiKey = useSettingsStore((s) => s.apiKey);
+  const setApiKey = useSettingsStore((s) => s.setApiKey);
 
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
+  const [localApiKey, setLocalApiKey] = useState(apiKey);
+  const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
+
+  const handleReturnToMenu = () => {
+    onClose();
+    usePanelStore.getState().closeAll();
+    onReturnToMenu();
+  };
+
+  const testConnection = () => {
+    if (!localApiUrl.trim()) return;
+    setConnStatus('testing');
+    fetch(localApiUrl.trim(), { method: 'GET', headers: { 'Accept': 'application/json' } })
+      .then(() => setConnStatus('connected'))
+      .catch(() => setConnStatus('failed'));
+  };
 
   if (!visible) return null;
 
@@ -104,15 +123,52 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
           <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
             API 配置
           </div>
+
+          {/* API Key */}
           <div style={rowStyle}>
-            <span style={labelStyle}>API 地址</span>
-            <input value={localApiUrl}
-              onChange={(e) => setLocalApiUrl(e.target.value)}
+            <span style={labelStyle}>API Key</span>
+            <input type="password" value={localApiKey}
+              onChange={(e) => { setLocalApiKey(e.target.value); setApiKey(e.target.value); }}
+              placeholder="sk-..."
               style={inputStyle}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
             />
           </div>
+
+          {/* API Base URL with connection test */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>API 地址</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input value={localApiUrl}
+                onChange={(e) => setLocalApiUrl(e.target.value)}
+                style={{ ...inputStyle, width: 180 }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+              />
+              <button onClick={testConnection} disabled={connStatus === 'testing'}
+                style={{
+                  padding: '6px 12px', border: '1px solid var(--brass)', borderRadius: 3,
+                  background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
+                  fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+                  opacity: connStatus === 'testing' ? 0.5 : 1,
+                }}
+              >
+                {connStatus === 'testing' ? '...' : '测试连接'}
+              </button>
+              {connStatus === 'connected' && (
+                <span style={{ fontSize: 10, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                  已连接
+                </span>
+              )}
+              {connStatus === 'failed' && (
+                <span style={{ fontSize: 10, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                  连接失败
+                </span>
+              )}
+            </div>
+          </div>
+
           <div style={rowStyle}>
             <span style={labelStyle}>模型</span>
             <input value={localApiModel}
@@ -129,7 +185,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
           <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
             扩展管理
           </div>
-          <button style={{
+          <button onClick={() => usePanelStore.getState().open('extManager')} style={{
             width: '100%', padding: '10px 0', border: '1px solid var(--brass)',
             borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
             fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
@@ -139,7 +195,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         </div>
 
         {/* Return to menu */}
-        <button onClick={onReturnToMenu} style={{
+        <button onClick={handleReturnToMenu} style={{
           width: '100%', marginTop: 24, padding: '10px 0',
           border: '1px solid var(--blood)', borderRadius: 3,
           background: 'rgba(139,58,58,0.08)', color: 'var(--blood)',

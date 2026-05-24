@@ -29,6 +29,23 @@ export function ExtManager({ onClose }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [importPath, setImportPath] = useState('');
 
+  const handleImport = () => {
+    if (!importPath.trim()) return;
+    const name = importPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '新扩展';
+    const newExt: Extension = {
+      id: 'ext-' + Date.now(),
+      name,
+      version: '0.1.0',
+      author: '未知',
+      description: '从 ' + importPath.trim() + ' 导入',
+      enabled: false,
+      entryPoint: importPath.trim(),
+    };
+    setExts((prev) => [...prev, newExt]);
+    setImportPath('');
+    setShowImport(false);
+  };
+
   const toggleExt = (id: string) => {
     setExts((prev) => prev.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e)));
   };
@@ -167,7 +184,7 @@ export function ExtManager({ onClose }: Props) {
                   background: 'transparent', color: 'var(--ink-subtle)',
                   fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
                 }}>取消</button>
-                <button style={{
+                <button onClick={handleImport} style={{
                   padding: '6px 16px', border: '1px solid var(--gold)', borderRadius: 3,
                   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
                   fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',

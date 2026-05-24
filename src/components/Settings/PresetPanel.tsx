@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useChatStore } from '../../stores/useChatStore';
 import type { ChatPreset } from '../../types';
 
 const DEFAULT_PRESETS: Record<string, ChatPreset> = {
@@ -29,6 +30,16 @@ interface Props {
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
   const [presets] = useState(DEFAULT_PRESETS);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const activeSessionId = useChatStore((s) => s.activeId);
+  const setPreset = useChatStore((s) => s.setPreset);
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id);
+    if (activeSessionId) {
+      setPreset(id);
+    }
+  };
 
   return (
     <div
@@ -59,25 +70,33 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Object.entries(presets).map(([id, preset]) => (
-            <div key={id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px', border: '1px solid rgba(196,168,85,0.12)',
-              borderRadius: 4, background: 'rgba(0,0,0,0.15)',
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 14, color: 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2 }}>
-                  {preset.name}
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
-                  T={preset.temperature} · P={preset.topP} · max={preset.maxTokens}
-                </span>
+          {Object.entries(presets).map(([id, preset]) => {
+            const isActive = selectedId === id;
+            return (
+              <div key={id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 16px',
+                border: isActive ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.12)',
+                borderRadius: 4,
+                background: isActive ? 'rgba(196,168,85,0.12)' : 'rgba(0,0,0,0.15)',
+                cursor: 'pointer',
+                transition: 'var(--transition-smooth)',
+              }} onClick={() => handleSelect(id)}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2 }}>
+                    {preset.name}
+                    {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
+                    T={preset.temperature} · P={preset.topP} · max={preset.maxTokens}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(id); }} style={actionBtnStyle}>编辑</button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => onEditPreset(id)} style={actionBtnStyle}>编辑</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button style={{
