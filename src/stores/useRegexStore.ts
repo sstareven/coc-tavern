@@ -6,6 +6,69 @@ function uid(): string {
   return `regex_${Date.now()}_${++idCounter}`;
 }
 
+const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
+  {
+    id: 'mvu-var-display',
+    scriptName: 'MVU变量标签清理',
+    findRegex: '/<var\\s+name="([^"]+)"\\s+value="([^"]*)"\\s*\\/>/gi',
+    replaceString: '',
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+    runOnEdit: false,
+    substituteRegex: 0,
+    minDepth: null,
+    maxDepth: null,
+  },
+  {
+    id: 'mvu-set-clean',
+    scriptName: 'MVU内联命令清理',
+    findRegex: '/\\{\\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\\}\\}/gi',
+    replaceString: '',
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: true,
+    promptOnly: false,
+    runOnEdit: false,
+    substituteRegex: 0,
+    minDepth: null,
+    maxDepth: null,
+  },
+  {
+    id: 'mvu-hp-track',
+    scriptName: 'MVU生命值变化追踪',
+    findRegex: '/(失去|损失|减少|扣除)(\\d+)点?(生命值?|HP|体力)/gi',
+    replaceString: '$0 <var name="hpChange" value="-$2" />',
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: false,
+    promptOnly: true,
+    runOnEdit: false,
+    substituteRegex: 0,
+    minDepth: null,
+    maxDepth: null,
+  },
+  {
+    id: 'mvu-san-track',
+    scriptName: 'MVU理智变化追踪',
+    findRegex: '/(失去|损失|减少|扣除)(\\d+)点?(理智值?|SAN|神智)/gi',
+    replaceString: '$0 <var name="sanChange" value="-$2" />',
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: false,
+    promptOnly: true,
+    runOnEdit: false,
+    substituteRegex: 0,
+    minDepth: null,
+    maxDepth: null,
+  },
+];
+
 interface RegexStore {
   // Scripts by type
   globalScripts: RegexScript[];
@@ -44,7 +107,7 @@ interface RegexStore {
 }
 
 export const useRegexStore = create<RegexStore>((set, get) => ({
-  globalScripts: [],
+  globalScripts: [...DEFAULT_GLOBAL_SCRIPTS],
   presetScripts: [],
 
   isEditorOpen: false,
