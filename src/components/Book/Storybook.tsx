@@ -6,7 +6,6 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { PageFlip } from './PageFlip';
 import { CSSFlipPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
@@ -154,7 +153,6 @@ export function Storybook() {
                   header={page.leftHeader}
                   content={page.leftContent}
                   pageNum={page.leftPage}
-                  isFlipping={isFlipping}
                 />
               </CSSFlipPage>
             ) : (
@@ -162,7 +160,6 @@ export function Storybook() {
                 header={page.leftHeader}
                 content={page.leftContent}
                 pageNum={page.leftPage}
-                isFlipping={isFlipping}
               />
             )}
           </div>
@@ -182,7 +179,6 @@ export function Storybook() {
                   header={page.rightHeader}
                   content={page.rightContent}
                   choices={page.rightChoices}
-                  isFlipping={isFlipping}
                 />
               </CSSFlipPage>
             ) : (
@@ -190,13 +186,9 @@ export function Storybook() {
                 header={page.rightHeader}
                 content={page.rightContent}
                 choices={page.rightChoices}
-                isFlipping={isFlipping}
               />
             )}
           </div>
-
-          {/* Page flip animation overlay */}
-          <PageFlip isFlipping={isFlipping} direction={direction} />
 
           {/* TokenDisplay — inside book at bottom-right */}
           <TokenDisplay />
