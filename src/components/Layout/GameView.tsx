@@ -68,7 +68,6 @@ export function GameView({ onReturnToMenu }: Props) {
               repeating-linear-gradient(2deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 6px),
               repeating-linear-gradient(88deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)
             `,
-            backgroundBlendMode: 'normal, normal, multiply, overlay',
             border: '2px solid rgba(100,70,40,0.3)',
             borderRadius: 14,
             boxShadow: `
