@@ -18,7 +18,6 @@ interface Props {
 
 export function RegexPanel({ visible, onClose }: Props) {
   const globalScripts = useRegexStore((s) => s.globalScripts);
-  const scopedScripts = useRegexStore((s) => s.scopedScripts);
   const presetScripts = useRegexStore((s) => s.presetScripts);
   const openEditor = useRegexStore((s) => s.openEditor);
   const toggleScript = useRegexStore((s) => s.toggleScript);
@@ -40,7 +39,6 @@ export function RegexPanel({ visible, onClose }: Props) {
   const getScripts = (): RegexScript[] => {
     switch (activeTab) {
       case 'global': return globalScripts;
-      case 'scoped': return scopedScripts;
       case 'preset': return presetScripts;
     }
   };
@@ -113,7 +111,6 @@ export function RegexPanel({ visible, onClose }: Props) {
 
   const TABS: { type: RegexScriptType; label: string }[] = [
     { type: 'global', label: `全局 (${globalScripts.length})` },
-    { type: 'scoped', label: `角色 (${scopedScripts.length})` },
     { type: 'preset', label: `预设 (${presetScripts.length})` },
   ];
 
@@ -228,7 +225,6 @@ export function RegexPanel({ visible, onClose }: Props) {
                     fontSize: 12, background: 'var(--parchment)',
                   }}>
                   <option value="global">导入为全局</option>
-                  <option value="scoped">导入为角色</option>
                   <option value="preset">导入为预设</option>
                 </select>
                 <textarea
@@ -322,15 +318,12 @@ export function RegexPanel({ visible, onClose }: Props) {
                   </button>
                   <button onClick={() => openEditor(script, activeTab)} title="编辑" style={iconBtnStyle}>✎</button>
 
-                  {/* Move buttons */}
-                  {activeTab !== 'global' && (
-                    <button onClick={() => moveScript(script.id, activeTab, 'global')} title="移至全局" style={iconBtnStyle}>🌐</button>
+                  {/* Move button — toggle between global/preset */}
+                  {activeTab === 'global' && (
+                    <button onClick={() => moveScript(script.id, 'global', 'preset')} title="移至预设" style={iconBtnStyle}>⚙</button>
                   )}
-                  {activeTab !== 'scoped' && (
-                    <button onClick={() => moveScript(script.id, activeTab, 'scoped')} title="移至角色" style={iconBtnStyle}>🆔</button>
-                  )}
-                  {activeTab !== 'preset' && (
-                    <button onClick={() => moveScript(script.id, activeTab, 'preset')} title="移至预设" style={iconBtnStyle}>⚙</button>
+                  {activeTab === 'preset' && (
+                    <button onClick={() => moveScript(script.id, 'preset', 'global')} title="移至全局" style={iconBtnStyle}>🌐</button>
                   )}
 
                   <button onClick={() => {
@@ -354,7 +347,7 @@ export function RegexPanel({ visible, onClose }: Props) {
 
           {scripts.length === 0 && (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13 }}>
-              {search ? '没有找到匹配的脚本' : `暂无${activeTab === 'global' ? '全局' : activeTab === 'scoped' ? '角色' : '预设'}正则脚本`}
+              {search ? '没有找到匹配的脚本' : `暂无${activeTab === 'global' ? '全局' : '预设'}正则脚本`}
               <br />
               <button onClick={() => openEditor(null, activeTab)} style={{
                 marginTop: 12, background: 'var(--gold)', color: 'var(--abyss)', border: 'none',

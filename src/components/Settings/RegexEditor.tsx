@@ -177,7 +177,7 @@ export function RegexEditor() {
           <h3 style={{ margin: 0, color: 'var(--leather)', fontFamily: 'var(--font-display)' }}>
             {editingScript ? '编辑正则脚本' : '新建正则脚本'}
             <span style={{ fontSize: 12, marginLeft: 8, color: 'var(--ink-subtle)' }}>
-              ({editingType === 'global' ? '全局' : editingType === 'scoped' ? '角色' : '预设'})
+              ({editingType === 'global' ? '全局' : '预设'})
             </span>
           </h3>
           <button

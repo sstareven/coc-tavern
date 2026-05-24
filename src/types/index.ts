@@ -114,7 +114,7 @@ export interface Extension {
 export type RegexPlacement = 1 | 2 | 3 | 5 | 6;
 // 1=USER_INPUT, 2=AI_OUTPUT, 3=SLASH_COMMAND, 5=WORLD_INFO, 6=REASONING
 export type SubstituteFindRegex = 0 | 1 | 2; // NONE | RAW | ESCAPED
-export type RegexScriptType = 'global' | 'scoped' | 'preset';
+export type RegexScriptType = 'global' | 'preset';
 
 export interface RegexScript {
   id: string;
@@ -141,7 +141,6 @@ export interface RegexPreset {
   name: string;
   isSelected: boolean;
   global: RegexPresetItem[];
-  scoped: RegexPresetItem[];
   preset: RegexPresetItem[];
 }
 

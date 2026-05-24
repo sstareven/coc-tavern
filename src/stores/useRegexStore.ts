@@ -9,7 +9,6 @@ function uid(): string {
 interface RegexStore {
   // Scripts by type
   globalScripts: RegexScript[];
-  scopedScripts: RegexScript[];
   presetScripts: RegexScript[];
 
   // UI state
@@ -46,7 +45,6 @@ interface RegexStore {
 
 export const useRegexStore = create<RegexStore>((set, get) => ({
   globalScripts: [],
-  scopedScripts: [],
   presetScripts: [],
 
   isEditorOpen: false,
@@ -58,7 +56,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   getScripts: (type) => {
     switch (type) {
       case 'global': return get().globalScripts;
-      case 'scoped': return get().scopedScripts;
       case 'preset': return get().presetScripts;
     }
   },
@@ -68,7 +65,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
     set((st) => {
       switch (type) {
         case 'global': return { globalScripts: [...st.globalScripts, s] };
-        case 'scoped': return { scopedScripts: [...st.scopedScripts, s] };
         case 'preset': return { presetScripts: [...st.presetScripts, s] };
       }
     });
@@ -80,7 +76,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
         arr.map((s) => (s.id === id ? { ...s, ...updates } : s));
       switch (type) {
         case 'global': return { globalScripts: update(st.globalScripts) };
-        case 'scoped': return { scopedScripts: update(st.scopedScripts) };
         case 'preset': return { presetScripts: update(st.presetScripts) };
       }
     });
@@ -90,7 +85,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
     set((st) => {
       switch (type) {
         case 'global': return { globalScripts: st.globalScripts.filter((s) => s.id !== id) };
-        case 'scoped': return { scopedScripts: st.scopedScripts.filter((s) => s.id !== id) };
         case 'preset': return { presetScripts: st.presetScripts.filter((s) => s.id !== id) };
       }
     });
@@ -102,7 +96,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
         arr.map((s) => (s.id === id ? { ...s, disabled: !s.disabled } : s));
       switch (type) {
         case 'global': return { globalScripts: toggle(st.globalScripts) };
-        case 'scoped': return { scopedScripts: toggle(st.scopedScripts) };
         case 'preset': return { presetScripts: toggle(st.presetScripts) };
       }
     });
@@ -123,7 +116,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
       const reordered = ids.map((id) => arr.find((s) => s.id === id)).filter(Boolean) as RegexScript[];
       switch (type) {
         case 'global': return { globalScripts: reordered };
-        case 'scoped': return { scopedScripts: reordered };
         case 'preset': return { presetScripts: reordered };
       }
     });
@@ -134,7 +126,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
       const toggleAll = (arr: RegexScript[]) => arr.map((s) => ({ ...s, disabled }));
       switch (type) {
         case 'global': return { globalScripts: toggleAll(st.globalScripts) };
-        case 'scoped': return { scopedScripts: toggleAll(st.scopedScripts) };
         case 'preset': return { presetScripts: toggleAll(st.presetScripts) };
       }
     });
@@ -145,7 +136,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
       const filterAll = (arr: RegexScript[]) => arr.filter((s) => !ids.includes(s.id));
       switch (type) {
         case 'global': return { globalScripts: filterAll(st.globalScripts) };
-        case 'scoped': return { scopedScripts: filterAll(st.scopedScripts) };
         case 'preset': return { presetScripts: filterAll(st.presetScripts) };
       }
     });
@@ -183,7 +173,7 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
 
   exportAllScripts: () => {
     const st = get();
-    const all = [...st.globalScripts, ...st.scopedScripts, ...st.presetScripts];
+    const all = [...st.globalScripts, ...st.presetScripts];
     return JSON.stringify(all, null, 2);
   },
 }));

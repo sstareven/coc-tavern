@@ -9,7 +9,10 @@ export default function App() {
   return (
     <>
       {screen === 'landing' && (
-        <LandingScreen onStart={() => setScreen('creator')} />
+        <LandingScreen
+          onStart={() => setScreen('creator')}
+          onLoadGame={() => setScreen('game')}
+        />
       )}
       {screen === 'creator' && (
         <CharacterCreator onComplete={() => setScreen('game')} onClose={() => setScreen('landing')} />

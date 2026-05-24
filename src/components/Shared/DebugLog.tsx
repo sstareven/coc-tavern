@@ -84,7 +84,7 @@ export function DebugLog() {
         title="调试日志"
         style={{
           position: 'fixed',
-          bottom: 12,
+          top: 52,
           left: 12,
           zIndex: 601,
           width: 30,

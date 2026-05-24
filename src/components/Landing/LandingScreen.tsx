@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 
-interface Props { onStart: () => void }
+interface Props { onStart: () => void; onLoadGame: () => void }
 
-export function LandingScreen({ onStart }: Props) {
+export function LandingScreen({ onStart, onLoadGame }: Props) {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
@@ -29,7 +29,7 @@ export function LandingScreen({ onStart }: Props) {
               width: 280, padding: '14px 0', border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
               fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 6, borderRadius: 3, cursor: 'pointer'
             }}>开 始 游 戏</button>
-            <button onClick={() => { import('../../stores/useChatStore').then(m => m.useChatStore.getState().createSession('新对话')); onStart(); }} style={{
+            <button onClick={() => { import('../../stores/useChatStore').then(m => m.useChatStore.getState().createSession('新对话')); onLoadGame(); }} style={{
               width: 280, padding: '14px 0', border: '1px solid var(--brass)', background: 'rgba(42,31,20,0.5)', color: 'var(--text-light)',
               fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 6, borderRadius: 3, cursor: 'pointer'
             }}>读 取 游 戏</button>
