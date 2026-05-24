@@ -147,9 +147,9 @@ export function Storybook() {
 
           {/* [A] 左页 — underlay在底层始终可见，overlay盖上FlipCard/BlankPaper */}
           <div style={{ flex: 1, position: 'relative' }}>
-            {/* [A-underlay] */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex' }}>
-              <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+            {/* [A-underlay] 空白纸底 — absolute填充 */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+              <BlankPaper side="left" />
             </div>
             {/* [A-overlay] */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
@@ -171,9 +171,9 @@ export function Storybook() {
 
           {/* [B] 右页 — underlay底层 + overlay上层 */}
           <div style={{ flex: 1, position: 'relative' }}>
-            {/* [B-underlay] */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex' }}>
-              <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+            {/* [B-underlay] 空白纸底 */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+              <BlankPaper side="right" />
             </div>
             {/* [B-overlay] */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>

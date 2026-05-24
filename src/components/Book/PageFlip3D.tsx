@@ -93,7 +93,8 @@ export function BlankPaper({ side }: { side: 'left' | 'right' }) {
       data-flip="placeholder"
       data-side={side}
       style={{
-        flex: 1, background: PLACEHOLDER_BG, borderRadius: radius,
+        width: '100%', height: '100%',
+        background: PLACEHOLDER_BG, borderRadius: radius,
       }}
     />
   );
