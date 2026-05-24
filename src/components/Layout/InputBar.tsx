@@ -9,6 +9,7 @@ import { assemblePrompt, matchLoreEntries } from '../../sillytavern/prompt-assem
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { TokenCounter } from '../Shared/TokenCounter';
+import { useVariableStore } from '../../stores/useVariableStore';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -251,8 +252,10 @@ export function InputBar() {
     }
     matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
 
-    // Build character variables
-    const variables = buildCharacterVariables();
+    // Build full variable substitution map (character + game variables)
+    const charVars = buildCharacterVariables();
+    const gameVars = useVariableStore.getState().buildFullSubstitutionMap();
+    const variables = { ...gameVars, ...charVars };
 
     // Assemble prompt messages
     const messages = assemblePrompt(
@@ -303,7 +306,10 @@ export function InputBar() {
         false,
       );
 
-      const newPage = parseLlmResponse(response.content, trimmed);
+      // Extract variables from LLM response
+      const { cleanedText } = useVariableStore.getState().processResponse(response.content);
+
+      const newPage = parseLlmResponse(cleanedText, trimmed);
       if (!newPage) {
         throw new Error('无法解析AI回复');
       }
@@ -429,6 +435,15 @@ export function InputBar() {
                       >
                         <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontWeight: 'bold', fontSize: 11 }}>T</td>
                         <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>Token 计数</td>
+                      </tr>
+                      <tr
+                        onClick={() => { usePanelStore.getState().open('variable'); setWandOpen(false); }}
+                        style={{ cursor: 'pointer', borderTop: '1px solid rgba(196,168,85,0.1)', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: '#7b9fc1', fontSize: 12 }}>⬡</td>
+                        <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>变量引擎</td>
                       </tr>
                     </tbody>
                   </table>
