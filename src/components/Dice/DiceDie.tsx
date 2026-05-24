@@ -4,6 +4,7 @@ interface Props {
   value: number;
   color?: 'player' | 'opponent' | 'bonus';
   label?: string;
+  large?: boolean;
 }
 
 const colorMap = {
@@ -12,46 +13,50 @@ const colorMap = {
   bonus: { border: 'var(--success)', text: 'var(--success)', bg: 'rgba(58,107,90,0.1)' },
 };
 
-export function DiceDie({ value, color = 'player', label }: Props) {
+export function DiceDie({ value, color = 'player', label, large }: Props) {
   const [rolling, setRolling] = useState(true);
-  const [displayValue, setDisplayValue] = useState(Math.floor(Math.random() * 10));
+  const max = large ? 100 : 9;
+  const [displayValue, setDisplayValue] = useState(Math.floor(Math.random() * (max + 1)));
 
   useEffect(() => {
     setRolling(true);
     const timer = setInterval(() => {
-      setDisplayValue(Math.floor(Math.random() * 10));
-    }, 60);
+      setDisplayValue(Math.floor(Math.random() * (max + 1)));
+    }, 50);
     const stop = setTimeout(() => {
       clearInterval(timer);
       setRolling(false);
       setDisplayValue(value);
-    }, 400);
+    }, 500);
     return () => {
       clearInterval(timer);
       clearTimeout(stop);
     };
-  }, [value]);
+  }, [value, max]);
 
   const c = colorMap[color];
+  const size = large ? 80 : 52;
+  const fontSize = large ? 36 : 24;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div style={{
-        width: 56,
-        height: 56,
+        width: size,
+        height: size,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         border: `2px solid ${c.border}`,
-        borderRadius: 4,
+        borderRadius: 6,
         background: c.bg,
-        fontSize: 28,
+        fontSize,
         fontFamily: 'var(--font-mono)',
         fontWeight: 700,
         color: c.text,
         transition: 'transform 0.1s ease',
         transform: rolling ? 'rotate(-6deg) scale(1.08)' : 'rotate(0deg) scale(1)',
-        boxShadow: `0 0 12px ${c.border}22`,
+        boxShadow: `0 0 16px ${c.border}22`,
+        minWidth: large ? 80 : 52,
       }}>
         {displayValue}
       </div>

@@ -35,11 +35,10 @@ function playResultSound(type: DiceResultType) {
   else sfxFailure();
 }
 
-function fillResultText(roll: string, type: DiceResultType, target: number) {
+function fillResultText(roll: number, type: DiceResultType, target: number) {
   const input = document.querySelector<HTMLInputElement>('footer input[type="text"]');
   if (!input) return;
-  const label = resultLabel[type];
-  const text = `[${roll} / ${target}] ${label}`;
+  const text = `[${roll} / ${target}] ${resultLabel[type]}`;
   const setter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype,
     'value',
@@ -48,7 +47,7 @@ function fillResultText(roll: string, type: DiceResultType, target: number) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-// ── Particle/sparkle effect for crit results ──
+// ── Particle effect for crit results ──
 
 interface Particle {
   id: number;
@@ -91,70 +90,45 @@ function ParticleEffect({ isSuccess, onDone }: { isSuccess: boolean; onDone: () 
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 850,
-        pointerEvents: 'none',
-        overflow: 'hidden',
+        position: 'fixed', inset: 0, zIndex: 850,
+        pointerEvents: 'none', overflow: 'hidden',
       }}
     >
-      {/* Flash overlay */}
       <motion.div
         initial={{ opacity: 0.6 }}
         animate={{ opacity: 0 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
         style={{
-          position: 'absolute',
-          inset: 0,
+          position: 'absolute', inset: 0,
           background: isSuccess
             ? 'radial-gradient(circle, rgba(232,200,101,0.3) 0%, transparent 70%)'
             : 'radial-gradient(circle, rgba(204,51,51,0.25) 0%, transparent 70%)',
         }}
       />
-
-      {/* Vignette for crit failure */}
       {!isSuccess && (
         <motion.div
           initial={{ opacity: 0.6 }}
           animate={{ opacity: 0 }}
           transition={{ duration: 2, ease: 'easeOut' }}
           style={{
-            position: 'absolute',
-            inset: 0,
+            position: 'absolute', inset: 0,
             background: 'radial-gradient(ellipse at center, transparent 30%, rgba(139,58,58,0.5) 100%)',
           }}
         />
       )}
-
-      {/* Particles */}
       {particles.current.map((p) => (
-        <motion.div
-          key={p.id}
-          initial={{
-            opacity: 1,
-            scale: 0,
-            x: '-50%',
-            y: '-50%',
-            left: '50%',
-            top: '55%',
-          }}
+        <motion.div key={p.id}
+          initial={{ opacity: 1, scale: 0, x: '-50%', y: '-50%', left: '50%', top: '55%' }}
           animate={{
             opacity: [1, 1, 0],
             scale: [0, 1.2, 0],
             x: `calc(-50% + ${p.drift * (isSuccess ? 1 : 0.5)}px)`,
             y: `calc(-50% - ${80 + p.delay * 100 + Math.random() * 120}px)`,
           }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            ease: 'easeOut',
-          }}
+          transition={{ duration: p.duration, delay: p.delay, ease: 'easeOut' }}
           style={{
-            position: 'absolute',
-            width: p.size,
-            height: p.size,
-            borderRadius: '50%',
-            background: p.color,
+            position: 'absolute', width: p.size, height: p.size,
+            borderRadius: '50%', background: p.color,
             boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
           }}
         />
@@ -180,11 +154,9 @@ export function DicePanel() {
   const roll = useDiceStore((s) => s.roll);
 
   const [localTarget, setLocalTarget] = useState(String(target));
-  const [rolledTens, setRolledTens] = useState(0);
-  const [rolledOnes, setRolledOnes] = useState(0);
-  const [rolledBonus, setRolledBonus] = useState(0);
-  const [rolledOppTens, setRolledOppTens] = useState(0);
-  const [rolledOppOnes, setRolledOppOnes] = useState(0);
+  const [displayRoll, setDisplayRoll] = useState(0);
+  const [displayBonus, setDisplayBonus] = useState(0);
+  const [displayOppRoll, setDisplayOppRoll] = useState(0);
   const [localResult, setLocalResult] = useState<DiceResultType | null>(null);
   const [showParticles, setShowParticles] = useState(false);
   const [isCritSuccess, setIsCritSuccess] = useState(false);
@@ -199,18 +171,16 @@ export function DicePanel() {
     roll();
     setTimeout(() => {
       const s = useDiceStore.getState();
-      setRolledTens(s.tens);
-      setRolledOnes(s.ones);
-      setRolledBonus(s.bonusTens);
-      setRolledOppTens(s.oppTens);
-      setRolledOppOnes(s.oppOnes);
+      setDisplayRoll(s.finalRoll);
+      setDisplayBonus(s.bonusTens);
+      const oppVal = s.oppTens === 0 && s.oppOnes === 0 ? 100 : s.oppTens * 10 + s.oppOnes;
+      setDisplayOppRoll(s.mode === 'opposed' ? oppVal : 0);
       setLocalResult(s.resultType);
+
       if (s.resultType) {
         playResultSound(s.resultType);
-        const rollVal = s.tens === 0 && s.ones === 0 ? 100 : s.tens * 10 + s.ones;
-        fillResultText(String(rollVal), s.resultType, s.target);
+        fillResultText(s.finalRoll, s.resultType, s.target);
 
-        // Trigger crit effects
         if (s.resultType === 'crit-success') {
           setIsCritSuccess(true);
           setShowParticles(true);
@@ -224,22 +194,17 @@ export function DicePanel() {
           setTimeout(() => { setShake(false); setFlashBg(false); }, 1200);
         }
       }
-    }, 50);
+    }, 100);
   }, [roll]);
 
   const handleTargetBlur = () => {
     const n = Number(localTarget);
-    if (!isNaN(n) && n >= 1 && n <= 100) {
-      setTarget(n);
-    } else {
-      setLocalTarget(String(target));
-    }
+    if (!isNaN(n) && n >= 1 && n <= 100) setTarget(n);
+    else setLocalTarget(String(target));
   };
 
   const handleEsc = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    },
+    (e: KeyboardEvent) => { if (e.key === 'Escape') close(); },
     [close],
   );
 
@@ -252,6 +217,10 @@ export function DicePanel() {
 
   if (!isOpen) return null;
 
+  const isBonus = bonusDice > 0;
+  const isPenalty = bonusDice < 0;
+  const hasBonus = isBonus || isPenalty;
+
   const critGlow =
     localResult === 'crit-success'
       ? '0 0 40px rgba(232,200,101,0.5), 0 0 80px rgba(232,200,101,0.2)'
@@ -261,13 +230,9 @@ export function DicePanel() {
 
   return (
     <>
-      {/* Particle effect overlay */}
       <AnimatePresence>
         {showParticles && (
-          <ParticleEffect
-            isSuccess={isCritSuccess}
-            onDone={() => setShowParticles(false)}
-          />
+          <ParticleEffect isSuccess={isCritSuccess} onDone={() => setShowParticles(false)} />
         )}
       </AnimatePresence>
 
@@ -277,18 +242,11 @@ export function DicePanel() {
           transition: { duration: 0.6, ease: 'easeOut' },
         } : {}}
         style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 800,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(6px)',
+          position: 'fixed', inset: 0, zIndex: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) close();
-        }}
+        onClick={(e) => { if (e.target === e.currentTarget) close(); }}
       >
         <motion.div
           animate={flashBg ? {
@@ -320,111 +278,42 @@ export function DicePanel() {
           }}
         >
           {/* Title bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 24,
-              borderBottom: '1px solid rgba(196,168,85,0.18)',
-              paddingBottom: 14,
-            }}
-          >
-            <h3
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 18,
-                color: 'var(--gold)',
-                letterSpacing: 4,
-                margin: 0,
-              }}
-            >
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 24, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 14,
+          }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
               掷骰检定 / DICE ROLL
             </h3>
-            <button
-              onClick={close}
-              style={{
-                width: 28,
-                height: 28,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid transparent',
-                borderRadius: 3,
-                background: 'transparent',
-                color: 'var(--ink-subtle)',
-                fontSize: 16,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-ui)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--gold)';
-                e.currentTarget.style.borderColor = 'var(--brass)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--ink-subtle)';
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
-              ✕
-            </button>
+            <button onClick={close} style={closeBtnStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            >✕</button>
           </div>
 
           {/* Mode selector + target */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as DiceMode)}
+            <select value={mode} onChange={(e) => setMode(e.target.value as DiceMode)}
               style={{
-                flex: 1,
-                padding: '8px 12px',
-                border: '1px solid var(--brass)',
-                borderRadius: 3,
-                background: 'rgba(0,0,0,0.3)',
-                color: 'var(--text-light)',
-                fontFamily: 'var(--font-ui)',
-                fontSize: 12,
-                letterSpacing: 1,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
+                flex: 1, padding: '8px 12px', border: '1px solid var(--brass)', borderRadius: 3,
+                background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
+                fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1, outline: 'none', cursor: 'pointer',
+              }}>
               <option value="check">技能检定 (Skill Check)</option>
               <option value="opposed">对抗检定 (Opposed)</option>
               <option value="free">自由掷骰 (Free Roll)</option>
             </select>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              color: 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)',
-              fontSize: 11,
-              letterSpacing: 2,
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2 }}>
               目标
             </div>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={localTarget}
+            <input type="number" min={1} max={100} value={localTarget}
               onChange={(e) => setLocalTarget(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleTargetBlur(); }}
               style={{
-                width: 56,
-                padding: '8px 6px',
-                border: '1px solid var(--brass)',
-                borderRadius: 3,
-                background: 'rgba(0,0,0,0.3)',
-                color: 'var(--gold)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 16,
-                fontWeight: 700,
-                textAlign: 'center',
-                outline: 'none',
-                caretColor: 'var(--gold)',
+                width: 56, padding: '8px 6px', border: '1px solid var(--brass)', borderRadius: 3,
+                background: 'rgba(0,0,0,0.3)', color: 'var(--gold)', fontFamily: 'var(--font-mono)',
+                fontSize: 16, fontWeight: 700, textAlign: 'center', outline: 'none', caretColor: 'var(--gold)',
               }}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; handleTargetBlur(); }}
@@ -434,35 +323,20 @@ export function DicePanel() {
           {/* Toggle buttons */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20, justifyContent: 'center' }}>
             {(['bonus', 'penalty', 'san'] as const).map((t) => {
-              const active =
-                t === 'bonus' ? bonusDice > 0
-                : t === 'penalty' ? bonusDice < 0
-                : sanCheck;
-              const label =
-                t === 'bonus' ? '奖励 BONUS'
-                : t === 'penalty' ? '惩罚 PENALTY'
-                : 'SAN';
-              const onClick =
-                t === 'bonus' ? toggleBonus
-                : t === 'penalty' ? togglePenalty
-                : toggleSan;
+              const active = t === 'bonus' ? isBonus : t === 'penalty' ? isPenalty : sanCheck;
+              const label = t === 'bonus' ? '奖励 BONUS' : t === 'penalty' ? '惩罚 PENALTY' : 'SAN';
+              const onClick = t === 'bonus' ? toggleBonus : t === 'penalty' ? togglePenalty : toggleSan;
               return (
-                <button
-                  key={t}
-                  onClick={onClick}
+                <button key={t} onClick={onClick}
                   style={{
                     padding: '6px 16px',
                     border: active ? '1px solid var(--gold)' : '1px solid var(--brass)',
                     borderRadius: 3,
                     background: active ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
                     color: active ? 'var(--gold)' : 'var(--ink-subtle)',
-                    fontFamily: 'var(--font-ui)',
-                    fontSize: 10,
-                    letterSpacing: 2,
-                    cursor: 'pointer',
-                    transition: 'var(--transition-smooth)',
-                  }}
-                >
+                    fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 2,
+                    cursor: 'pointer', transition: 'var(--transition-smooth)',
+                  }}>
                   {label}
                 </button>
               );
@@ -470,83 +344,56 @@ export function DicePanel() {
           </div>
 
           {/* Dice display area */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              padding: '20px 0',
-              marginBottom: 16,
-              border: '1px solid rgba(196,168,85,0.1)',
-              borderRadius: 6,
-              background: 'rgba(0,0,0,0.2)',
-            }}
-          >
-            <DiceDie value={rolledTens} color="player" label="十位" />
-            <DiceDie value={rolledOnes} color="player" label="个位" />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20,
+            padding: '24px 0', marginBottom: 16,
+            border: '1px solid rgba(196,168,85,0.1)', borderRadius: 6,
+            background: 'rgba(0,0,0,0.2)',
+            flexWrap: 'wrap',
+          }}>
+            {/* Main d100 die — shows final result 1-100 */}
+            <DiceDie value={displayRoll} color="player" label="d100" large />
 
-            {bonusDice !== 0 && (
+            {/* Bonus/Penalty die — shown next to main die when active */}
+            {hasBonus && (
               <>
-                <span style={{ color: 'var(--ink-subtle)', fontSize: 14, fontFamily: 'var(--font-mono)' }}>
-                  {bonusDice > 0 ? '+' : '-'}
+                <span style={{
+                  color: isBonus ? 'var(--success)' : 'var(--blood)',
+                  fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 'bold',
+                }}>
+                  {isBonus ? '← 取小' : '← 取大'}
                 </span>
-                <DiceDie value={rolledBonus} color="bonus" label="奖励骰" />
+                <DiceDie value={displayBonus} color="bonus"
+                  label={isBonus ? '奖励骰 (十位)' : '惩罚骰 (十位)'}
+                />
               </>
             )}
 
+            {/* Opponent dice */}
             {mode === 'opposed' && (
               <>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '0 8px',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontFamily: 'var(--font-ui)',
-                      color: 'var(--blood)',
-                      letterSpacing: 2,
-                    }}
-                  >
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 8px',
+                }}>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--blood)', letterSpacing: 2 }}>
                     VS
                   </span>
                 </div>
-                <DiceDie value={rolledOppTens} color="opponent" label="十位" />
-                <DiceDie value={rolledOppOnes} color="opponent" label="个位" />
+                <DiceDie value={displayOppRoll} color="opponent" label="对方 d100" large />
               </>
             )}
           </div>
 
           {/* Roll button */}
-          <motion.button
-            onClick={handleRoll}
-            whileTap={{ scale: 0.96 }}
+          <motion.button onClick={handleRoll} whileTap={{ scale: 0.96 }}
             style={{
-              width: '100%',
-              padding: '12px 0',
-              border: '1px solid var(--gold)',
-              borderRadius: 4,
-              background: 'rgba(196,168,85,0.12)',
-              color: 'var(--gold)',
-              fontFamily: 'var(--font-display)',
-              fontSize: 18,
-              letterSpacing: 8,
-              cursor: 'pointer',
-              transition: 'var(--transition-smooth)',
-              marginBottom: 16,
+              width: '100%', padding: '12px 0', border: '1px solid var(--gold)',
+              borderRadius: 4, background: 'rgba(196,168,85,0.12)', color: 'var(--gold)',
+              fontFamily: 'var(--font-display)', fontSize: 18, letterSpacing: 8,
+              cursor: 'pointer', transition: 'var(--transition-smooth)', marginBottom: 16,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(196,168,85,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(196,168,85,0.12)';
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.25)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; }}
           >
             掷 骰
           </motion.button>
@@ -554,8 +401,7 @@ export function DicePanel() {
           {/* Result bar with crit animation */}
           <AnimatePresence mode="wait">
             {localResult && (
-              <motion.div
-                key={localResult}
+              <motion.div key={localResult}
                 initial={{ opacity: 0, scale: 0.8, y: 10 }}
                 animate={
                   localResult === 'crit-success'
@@ -573,37 +419,18 @@ export function DicePanel() {
                       : { duration: 0.3 }
                 }
                 style={{
-                  padding: '10px 16px',
-                  border: `1px solid ${resultColor[localResult]}`,
-                  borderRadius: 4,
-                  background: `${resultColor[localResult]}15`,
-                  color: resultColor[localResult],
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 15,
-                  letterSpacing: 3,
-                  textAlign: 'center',
+                  padding: '10px 16px', border: `1px solid ${resultColor[localResult]}`,
+                  borderRadius: 4, background: `${resultColor[localResult]}15`,
+                  color: resultColor[localResult], fontFamily: 'var(--font-display)',
+                  fontSize: 15, letterSpacing: 3, textAlign: 'center',
                 }}
               >
                 <motion.span
-                  animate={
-                    localResult === 'crit-success'
-                      ? {
-                          textShadow: [
-                            '0 0 8px rgba(232,200,101,0.6)',
-                            '0 0 24px rgba(232,200,101,0.9)',
-                            '0 0 8px rgba(232,200,101,0.6)',
-                          ],
-                        }
-                      : localResult === 'crit-failure'
-                        ? {
-                            textShadow: [
-                              '0 0 8px rgba(204,51,51,0.5)',
-                              '0 0 20px rgba(204,51,51,0.8)',
-                              '0 0 8px rgba(204,51,51,0.5)',
-                            ],
-                          }
-                        : {}
-                  }
+                  animate={localResult === 'crit-success'
+                    ? { textShadow: ['0 0 8px rgba(232,200,101,0.6)', '0 0 24px rgba(232,200,101,0.9)', '0 0 8px rgba(232,200,101,0.6)'] }
+                    : localResult === 'crit-failure'
+                      ? { textShadow: ['0 0 8px rgba(204,51,51,0.5)', '0 0 20px rgba(204,51,51,0.8)', '0 0 8px rgba(204,51,51,0.5)'] }
+                    : {}}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                   style={{ display: 'inline-block' }}
                 >
@@ -617,3 +444,9 @@ export function DicePanel() {
     </>
   );
 }
+
+const closeBtnStyle: React.CSSProperties = {
+  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
+  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+};

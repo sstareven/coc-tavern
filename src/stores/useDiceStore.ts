@@ -18,8 +18,8 @@ function determineResult(roll: number, target: number, sanCheck: boolean): DiceR
 
 interface DiceStore {
   isOpen: boolean; mode: DiceMode; target: number; bonusDice: number; sanCheck: boolean;
-  tens: number; ones: number; bonusTens: number; oppTens: number; oppOnes: number;
-  resultType: DiceResultType | null; history: DiceRecord[];
+  tens: number; ones: number; finalTens: number; bonusTens: number; oppTens: number; oppOnes: number;
+  finalRoll: number; resultType: DiceResultType | null; history: DiceRecord[];
   open: () => void; close: () => void;
   setMode: (m: DiceMode) => void; setTarget: (t: number) => void;
   toggleBonus: () => void; togglePenalty: () => void; toggleSan: () => void;
@@ -28,7 +28,8 @@ interface DiceStore {
 
 export const useDiceStore = create<DiceStore>((set, get) => ({
   isOpen: false, mode: 'check', target: 65, bonusDice: 0, sanCheck: false,
-  tens: 0, ones: 0, bonusTens: 0, oppTens: 0, oppOnes: 0, resultType: null, history: [],
+  tens: 0, ones: 0, finalTens: 0, bonusTens: 0, oppTens: 0, oppOnes: 0,
+  finalRoll: 0, resultType: null, history: [],
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   setMode: (m) => set({ mode: m }),
@@ -38,15 +39,24 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   toggleSan: () => set((s) => ({ sanCheck: !s.sanCheck })),
   roll: () => {
     const s = get();
-    let t = randD10(), o = randD10(), bt = 0;
+    const t = randD10(), o = randD10();
+    let bt = 0;
     if (s.bonusDice !== 0) bt = randD10();
-    let finalTens = t;
-    if (s.bonusDice > 0) finalTens = Math.min(t, bt);
-    else if (s.bonusDice < 0) finalTens = Math.max(t, bt);
-    const roll = d100(finalTens, o);
-    const resultType = determineResult(roll, s.target, s.sanCheck);
-    set({ tens: t, ones: o, bonusTens: bt, resultType, oppTens: s.mode === 'opposed' ? randD10() : 0, oppOnes: s.mode === 'opposed' ? randD10() : 0 });
-    get().addRecord({ skill: '检定', roll: String(roll).padStart(2,'0'), target: String(s.target), type: resultType, time: Date.now() });
+    let ft = t;
+    if (s.bonusDice > 0) ft = Math.min(t, bt);
+    else if (s.bonusDice < 0) ft = Math.max(t, bt);
+    const finalRoll = d100(ft, o);
+    const resultType = determineResult(finalRoll, s.target, s.sanCheck);
+    const oppTens = s.mode === 'opposed' ? randD10() : 0;
+    const oppOnes = s.mode === 'opposed' ? randD10() : 0;
+    set({ tens: t, ones: o, finalTens: ft, bonusTens: bt, oppTens, oppOnes, finalRoll, resultType });
+    get().addRecord({
+      skill: s.bonusDice > 0 ? '奖励骰' : s.bonusDice < 0 ? '惩罚骰' : '检定',
+      roll: String(finalRoll).padStart(2, '0'),
+      target: String(s.target),
+      type: resultType,
+      time: Date.now(),
+    });
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
 }));
