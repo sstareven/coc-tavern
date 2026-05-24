@@ -55,7 +55,7 @@ export function GameView({ onReturnToMenu }: Props) {
         {/* Status bar above book */}
         <StatusBar />
 
-        {/* Desk surface — large table that the book rests on */}
+        {/* Desk surface — slightly larger than the book, book rests on it */}
         <div style={{
           position: 'relative',
           display: 'flex',
@@ -63,39 +63,39 @@ export function GameView({ onReturnToMenu }: Props) {
           justifyContent: 'center',
           flex: 1,
           width: '100%',
+          padding: '8px 0',
         }}>
           {/* Desk table surface */}
           <div style={{
             position: 'absolute',
-            inset: '8px 0 0 0',
-            borderRadius: 12,
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'min(92vw, 960px)',
+            height: 'min(65vh, 600px)',
+            borderRadius: 16,
             background: `
-              linear-gradient(175deg,
-                rgba(61,43,19,0.7) 0%,
-                rgba(51,35,15,0.65) 20%,
-                rgba(42,28,12,0.7) 50%,
-                rgba(35,22,10,0.75) 100%
+              url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65 0.15' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E"),
+              linear-gradient(178deg,
+                #4a3020 0%,
+                #3d2818 15%,
+                #352218 35%,
+                #3a2416 55%,
+                #2e1d10 75%,
+                #25180c 100%
               ),
-              repeating-linear-gradient(
-                90deg,
-                transparent,
-                transparent 30px,
-                rgba(255,255,255,0.008) 30px,
-                rgba(255,255,255,0.008) 31px
-              ),
-              repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 80px,
-                rgba(0,0,0,0.04) 80px,
-                rgba(0,0,0,0.04) 81px
-              )
+              repeating-linear-gradient(2deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 6px),
+              repeating-linear-gradient(88deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)
             `,
-            border: '1px solid rgba(80,55,30,0.35)',
+            backgroundBlendMode: 'normal, normal, multiply, overlay',
+            border: '2px solid rgba(100,70,40,0.3)',
+            borderRadius: 14,
             boxShadow: `
-              inset 0 2px 0 rgba(255,255,255,0.03),
-              inset 0 -2px 8px rgba(0,0,0,0.4),
-              0 0 60px rgba(0,0,0,0.5)
+              inset 0 2px 3px rgba(255,255,255,0.04),
+              inset 0 -3px 10px rgba(0,0,0,0.45),
+              0 2px 0 rgba(120,80,40,0.08),
+              0 0 50px rgba(0,0,0,0.55),
+              0 20px 60px rgba(0,0,0,0.4)
             `,
           }} />
 
