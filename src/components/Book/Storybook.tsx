@@ -6,24 +6,9 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { CSSFlipPage } from './PageFlip3D';
+import { CSSFlipPage, FadeInPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
-
-/** Blank back-of-page placeholder — lighter, reversed page appearance */
-function PageBack() {
-  return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      padding: '28px 24px 20px 28px',
-      background: 'linear-gradient(135deg, #e8d8b8 0%, #dfceaa 100%)',
-      borderRadius: 4,
-      color: 'var(--ink)', fontFamily: 'var(--font-body)',
-      fontSize: 15, lineHeight: 1.75,
-      opacity: 0.5,
-    }} />
-  );
-}
 
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
@@ -165,21 +150,15 @@ export function Storybook() {
           {/* Left page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'backward' ? (
-              <CSSFlipPage
-                progress={flipProgress}
-                direction="backward"
-                front={
-                  <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
-                }
-                back={
-                  /* Back of left page: previous spread's right content (reversed) */
-                  prevPageData
-                    ? <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
-                    : <PageBack />
-                }
-              />
+              /* Backward: left page flips away to the right */
+              <CSSFlipPage progress={flipProgress} direction="backward">
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+              </CSSFlipPage>
             ) : isFlipping && direction === 'forward' && nextPage ? (
-              <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
+              /* Forward: reveal next page's left content with fade-in */
+              <FadeInPage progress={flipProgress}>
+                <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
+              </FadeInPage>
             ) : (
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             )}
@@ -194,21 +173,15 @@ export function Storybook() {
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>
             {isFlipping && direction === 'forward' ? (
-              <CSSFlipPage
-                progress={flipProgress}
-                direction="forward"
-                front={
-                  <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
-                }
-                back={
-                  /* Back of right page: next spread's left content (reversed) */
-                  nextPage
-                    ? <LeftPage header={nextPage.leftHeader} content={nextPage.leftContent} pageNum={nextPage.leftPage} />
-                    : <PageBack />
-                }
-              />
+              /* Forward: right page flips away to the left */
+              <CSSFlipPage progress={flipProgress} direction="forward">
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+              </CSSFlipPage>
             ) : isFlipping && direction === 'backward' && prevPageData ? (
-              <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
+              /* Backward: reveal previous page's right content with fade-in */
+              <FadeInPage progress={flipProgress}>
+                <RightPage header={prevPageData.rightHeader} content={prevPageData.rightContent} choices={prevPageData.rightChoices} />
+              </FadeInPage>
             ) : (
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
             )}
