@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0a07;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; font-family: 'Georgia', 'Noto Serif SC', serif;
+  }
+
+  .scene { position: relative; display: flex; justify-content: center; align-items: center; }
+
+  /* Book */
+  .book {
+    display: flex;
+    background: linear-gradient(to right, #3d2b13 0%, #2a1f14 50%, #3d2b13 100%);
+    border-radius: 8px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 60px rgba(196,168,85,0.06);
+    position: relative;
+  }
+  .page {
+    width: 340px; height: 480px;
+    position: relative; padding: 32px 24px 32px 32px;
+  }
+  .page-left {
+    background: linear-gradient(135deg, #f4e4c1 0%, #e8d5a3 50%, #d4c4a0 100%);
+    border-radius: 4px 1px 1px 4px;
+    box-shadow: inset -10px 0 16px rgba(0,0,0,0.08);
+  }
+  .page-right {
+    background: linear-gradient(135deg, #e8d5a3 0%, #f4e4c1 50%, #d4c4a0 100%);
+    border-radius: 1px 4px 4px 1px;
+    box-shadow: inset 10px 0 16px rgba(0,0,0,0.08);
+    padding: 32px 32px 32px 24px;
+  }
+  .chapter-label {
+    color: #8b3a3a; font-size: 12px; letter-spacing: 4px;
+    border-bottom: 2px solid #c4a855; padding-bottom: 10px; margin-bottom: 20px;
+  }
+  .narrative {
+    color: #2a1f14; font-size: 15px; line-height: 2.1;
+  }
+  .page-num {
+    position: absolute; bottom: 24px; right: 32px; color: #8b3a3a; font-size: 11px;
+  }
+  .page-num-right {
+    position: absolute; bottom: 24px; left: 32px; color: #8b3a3a; font-size: 11px;
+  }
+
+  /* Spine separator */
+  .spine {
+    width: 2px; background: linear-gradient(to bottom, transparent, #c4a855 20%, #c4a855 80%, transparent);
+    position: absolute; left: 50%; top: 0; bottom: 0; transform: translateX(-50%);
+  }
+
+  /* Dice Panel - starts centered over book */
+  .dice-panel {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 240px;
+    background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+    border: 1px solid #3d2b13;
+    border-radius: 8px;
+    padding: 28px 24px 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(196,168,85,0.08);
+    z-index: 10;
+    pointer-events: auto;
+    animation: diceLifecycle 5s ease-in-out infinite;
+  }
+
+  /* The dice cube */
+  .dice-cube {
+    display: inline-block;
+    width: 80px; height: 80px;
+    background: linear-gradient(150deg, #2a1f14 0%, #1a1210 60%, #0d0a07 100%);
+    border: 2px solid #c4a855;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    position: relative;
+    box-shadow:
+      inset 0 2px 0 rgba(196,168,85,0.08),
+      0 6px 24px rgba(0,0,0,0.6),
+      0 0 20px rgba(196,168,85,0.06);
+  }
+  .dice-dot {
+    position: absolute; width: 8px; height: 8px;
+    background: #c4a855; border-radius: 50%;
+    box-shadow: 0 0 6px rgba(196,168,85,0.4);
+  }
+  .dice-pip {
+    position: absolute; width: 4px; height: 4px;
+    background: #8b7858; border-radius: 50%;
+  }
+
+  /* Animated roll number */
+  .roll-number {
+    font-size: 48px; font-weight: bold; font-family: 'Georgia', serif; color: #f4e4c1;
+    line-height: 1;
+    transition: color 0.4s;
+  }
+  .roll-number.win { color: #5aab7a; text-shadow: 0 0 16px rgba(90,171,122,0.3); }
+  .roll-number.lose { color: #c44a4a; text-shadow: 0 0 16px rgba(196,74,74,0.3); }
+
+  .stat-label { color: #8b7858; font-size: 10px; letter-spacing: 3px; margin-bottom: 4px; }
+  .target-row {
+    display: flex; justify-content: center; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .target-value { color: #c4a855; font-size: 22px; font-weight: bold; font-family: 'Georgia', serif; }
+  .separator { color: #8b7858; font-size: 14px; }
+
+  .result-badge {
+    display: inline-block; padding: 5px 18px; border-radius: 3px;
+    font-size: 13px; letter-spacing: 2px; margin-bottom: 4px;
+  }
+  .result-badge.win {
+    color: #5aab7a; border: 1px solid #3a6b5a;
+    background: rgba(58,107,90,0.12); text-shadow: 0 0 8px rgba(90,171,122,0.2);
+  }
+  .result-badge.lose {
+    color: #c44a4a; border: 1px solid #8b3a3a;
+    background: rgba(139,58,58,0.12); text-shadow: 0 0 8px rgba(196,74,74,0.2);
+  }
+
+  /* Animation keyframes */
+  @keyframes diceLifecycle {
+    /* Phase 1: emerge from book center */
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.3);
+      filter: blur(8px);
+    }
+    8% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.08);
+      filter: blur(0);
+    }
+    12% {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    /* Phase 2: hold (visible for ~3s) */
+    60% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      filter: blur(0);
+    }
+    /* Phase 3: retreat back */
+    75% {
+      opacity: 0.6;
+      transform: translate(-50%, -50%) scale(0.6);
+      filter: blur(4px);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.15);
+      filter: blur(10px);
+    }
+  }
+
+  /* Dice rolling flicker */
+  @keyframes diceFlicker {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-3deg); }
+    50% { transform: rotate(2deg); }
+    75% { transform: rotate(-1deg); }
+  }
+  .dice-cube.rolling { animation: diceFlicker 0.15s ease-in-out 6; }
+
+  /* Pulse glow */
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(196,168,85,0.06); }
+    50% { box-shadow: 0 0 32px rgba(90,171,122,0.15); }
+  }
+  .dice-panel.pulse-win { animation: diceLifecycle 5s ease-in-out infinite, glowPulse 2s ease-in-out infinite; }
+
+  .controls {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px;
+  }
+  .btn {
+    background: rgba(42,31,20,0.9); border: 1px solid #3d2b13; color: #c4a855;
+    padding: 10px 24px; border-radius: 3px; cursor: pointer; font-size: 13px;
+    font-family: inherit; letter-spacing: 1px; transition: all 0.2s;
+  }
+  .btn:hover { background: rgba(196,168,85,0.15); border-color: #c4a855; }
+  .btn.active { background: rgba(196,168,85,0.2); border-color: #c4a855; }
+</style>
+</head>
+<body>
+
+<div class="scene">
+
+  <!-- Book -->
+  <div class="book">
+    <div class="page page-left">
+      <div class="chapter-label">第三章</div>
+      <div class="narrative">
+        你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯...
+      </div>
+      <div class="page-num">— 3 —</div>
+    </div>
+    <div class="spine"></div>
+    <div class="page page-right">
+      <div class="chapter-label">调查</div>
+      <div class="narrative">
+        角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案...
+      </div>
+      <div class="page-num-right">— 4 —</div>
+    </div>
+  </div>
+
+  <!-- Dice Panel: centered over book -->
+  <div class="dice-panel pulse-win" id="dicePanel">
+    <div class="dice-cube" id="diceCube">
+      <div class="dice-dot" style="top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;"></div>
+      <div class="dice-pip" style="top:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="bottom:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="left:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="right:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="top:14px;left:14px;"></div>
+      <div class="dice-pip" style="bottom:14px;right:14px;"></div>
+    </div>
+
+    <div class="stat-label" id="statLabel">侦查检定</div>
+
+    <div class="target-row">
+      <div class="roll-number win" id="rollNumber">42</div>
+      <div class="separator">/</div>
+      <div class="target-value">65</div>
+    </div>
+
+    <div class="result-badge win" id="resultBadge">普通成功</div>
+  </div>
+
+</div>
+
+<div class="controls">
+  <button class="btn active" onclick="playAnimation('win')" id="btnWin">成功 (42/65)</button>
+  <button class="btn" onclick="playAnimation('lose')" id="btnLose">失败 (78/65)</button>
+  <button class="btn" onclick="playAnimation('crit')" id="btnCrit">大成功 (01/65)</button>
+</div>
+
+<script>
+function playAnimation(type) {
+  const panel = document.getElementById('dicePanel');
+  const cube = document.getElementById('diceCube');
+  const rollNum = document.getElementById('rollNumber');
+  const badge = document.getElementById('resultBadge');
+  const statLabel = document.getElementById('statLabel');
+  const buttons = document.querySelectorAll('.btn');
+
+  // Update active button
+  buttons.forEach(b => b.classList.remove('active'));
+  document.getElementById('btn' + (type === 'win' ? 'Win' : type === 'lose' ? 'Lose' : 'Crit')).classList.add('active');
+
+  // Reset animation
+  panel.style.animation = 'none';
+  panel.offsetHeight; // force reflow
+  cube.classList.remove('rolling');
+
+  // Set values
+  if (type === 'win') {
+    rollNum.textContent = '42';
+    rollNum.className = 'roll-number win';
+    badge.textContent = '普通成功';
+    badge.className = 'result-badge win';
+    statLabel.textContent = '侦查检定';
+    panel.className = 'dice-panel';
+  } else if (type === 'lose') {
+    rollNum.textContent = '78';
+    rollNum.className = 'roll-number lose';
+    badge.textContent = '失败';
+    badge.className = 'result-badge lose';
+    statLabel.textContent = '侦查检定';
+    panel.className = 'dice-panel';
+  } else {
+    rollNum.textContent = '01';
+    rollNum.className = 'roll-number win';
+    badge.textContent = '大成功！';
+    badge.className = 'result-badge win';
+    statLabel.textContent = '侦查检定';
+    panel.className = 'dice-panel';
+  }
+
+  // Restart animation
+  requestAnimationFrame(() => {
+    panel.style.animation = 'diceLifecycle 5s ease-in-out forwards';
+    setTimeout(() => cube.classList.add('rolling'), 100);
+  });
+}
+
+// Auto-play win on load
+setTimeout(() => playAnimation('win'), 500);
+</script>
+
+</body>
+</html>

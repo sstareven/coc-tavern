@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深渊档案馆 — COC TRPG</title>
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --parchment: #f4e4c1;
+  --parchment-deep: #e8d5a3;
+  --parchment-dark: #d4c4a0;
+  --leather: #2a1f14;
+  --abyss: #1a1410;
+  --void: #0d0a07;
+  --gold: #c4a855;
+  --gold-bright: #e8c865;
+  --brass: #3d2b13;
+  --ink: #2a1f14;
+  --ink-faded: #6b5a3a;
+  --ink-subtle: #8b7858;
+  --blood: #8b3a3a;
+  --blood-bright: #cc3333;
+  --success: #3a6b5a;
+  --success-bright: #5aab7a;
+  --text-light: #d4c4a0;
+  --shadow-soft: rgba(0,0,0,0.3);
+  --shadow-deep: rgba(0,0,0,0.6);
+  --shadow-gold: rgba(196,168,85,0.06);
+  --font-display: 'Georgia', 'Noto Serif SC', 'SimSun', serif;
+  --font-body: 'Crimson Text', 'Noto Serif SC', 'SimSun', serif;
+  --font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--void);
+  font-family: var(--font-ui);
+  color: var(--text-light);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Noise texture overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 100;
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app {
+  display: flex; flex-direction: column;
+  height: 100vh; position: relative; z-index: 1;
+}
+
+/* ---- Top Bar ---- */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 24px;
+  background: linear-gradient(180deg, rgba(42,31,20,0.95), rgba(42,31,20,0.7));
+  border-bottom: 1px solid var(--brass);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+}
+.topbar-title {
+  display: flex; align-items: baseline; gap: 14px;
+}
+.topbar-title .icon-star {
+  color: var(--gold); font-size: 20px;
+  text-shadow: 0 0 8px rgba(196,168,85,0.3);
+}
+.topbar-title h1 {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: normal; color: var(--gold);
+  letter-spacing: 6px;
+}
+.topbar-title .subtitle {
+  font-size: 11px; color: var(--ink-subtle); letter-spacing: 3px;
+}
+.topbar-nav {
+  display: flex; gap: 8px;
+}
+.nav-btn {
+  background: transparent; border: 1px solid transparent; color: var(--ink-subtle);
+  padding: 6px 16px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 2px;
+  transition: all var(--transition-smooth);
+}
+.nav-btn:hover { color: var(--gold); border-color: var(--brass); background: rgba(196,168,85,0.05); }
+.nav-btn:active { background: rgba(196,168,85,0.1); }
+
+/* ---- Main Area ---- */
+.main-area {
+  flex: 1; display: flex; justify-content: center; align-items: center;
+  position: relative; overflow: hidden;
+}
+
+/* ---- Storybook ---- */
+.book-container {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  perspective: 2000px;
+}
+.book {
+  display: flex;
+  background: linear-gradient(to right, #3d2b13 0%, #2a1f14 50%, #3d2b13 100%);
+  border-radius: 6px;
+  box-shadow: 0 24px 80px var(--shadow-deep), 0 0 60px var(--shadow-gold);
+  position: relative;
+  transition: filter 0.6s, transform 0.4s;
+}
+.book.dimmed { filter: brightness(0.3) saturate(0.4); }
+.book.shaking { animation: bookShake 0.4s ease-out; }
+
+.book-spine {
+  position: absolute; left: 50%; top: 4%; bottom: 4%; width: 2px;
+  background: linear-gradient(to bottom, transparent, var(--gold) 20%, var(--gold) 80%, transparent);
+  transform: translateX(-50%); z-index: 2;
+}
+
+.page { width: 360px; height: 500px; position: relative; padding: 36px 28px 36px 36px; }
+.page-left {
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 50%, var(--parchment-dark) 100%);
+  border-radius: 4px 1px 1px 4px;
+  box-shadow: inset -12px 0 20px rgba(0,0,0,0.06);
+}
+.page-right {
+  background: linear-gradient(135deg, var(--parchment-deep) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  border-radius: 1px 4px 4px 1px;
+  box-shadow: inset 12px 0 20px rgba(0,0,0,0.06);
+  padding: 36px 36px 36px 28px;
+}
+
+.page-header {
+  color: var(--blood); font-size: 12px; letter-spacing: 5px;
+  border-bottom: 1.5px solid var(--gold); padding-bottom: 12px; margin-bottom: 22px;
+  font-family: var(--font-display);
+}
+.page-text {
+  color: var(--ink); font-size: 15px; line-height: 2.1;
+  font-family: var(--font-body);
+}
+.page-number {
+  position: absolute; bottom: 28px; color: var(--blood); font-size: 12px;
+  font-family: var(--font-display);
+}
+.page-number.left { right: 36px; }
+.page-number.right { left: 36px; }
+
+/* Skill check block on page */
+.skill-check {
+  margin-top: 28px; padding: 16px 18px;
+  border: 1px solid var(--blood); border-radius: 2px;
+  background: rgba(139,58,58,0.04);
+}
+.skill-check-header {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
+}
+.skill-check-name {
+  color: var(--ink); font-size: 15px; font-weight: bold;
+  font-family: var(--font-display);
+}
+.skill-check-value {
+  background: var(--blood); color: var(--parchment);
+  padding: 3px 12px; border-radius: 2px;
+  font-size: 17px; font-weight: bold; font-family: var(--font-mono);
+}
+.skill-check-options {
+  display: flex; gap: 12px; font-size: 12px; color: var(--ink-faded);
+}
+
+/* ---- Side tabs ---- */
+.side-tab {
+  position: absolute; top: 50%; z-index: 30;
+  background: var(--leather); border: 1px solid var(--brass);
+  padding: 8px 18px; cursor: pointer;
+  transition: all var(--transition-smooth);
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 3px;
+}
+.side-tab:hover { background: #35281a; border-color: var(--gold); color: var(--gold); }
+.side-tab-left {
+  left: 0; transform: translateY(-50%) rotate(-90deg) translateX(-50%);
+  border-radius: 5px 5px 0 0; border-bottom: none;
+  color: var(--gold);
+}
+.side-tab-right {
+  right: 0; transform: translateY(-50%) rotate(90deg) translateX(50%);
+  border-radius: 5px 5px 0 0; border-bottom: none;
+  color: var(--ink-subtle); font-size: 14px; padding: 6px 14px;
+}
+
+/* ---- Bottom Input ---- */
+.input-bar {
+  display: flex; justify-content: center; padding: 16px 24px 20px;
+  z-index: 50;
+}
+.input-wrapper {
+  display: flex; align-items: center; gap: 10px;
+  width: 640px;
+  background: rgba(42,31,20,0.85); border: 1px solid var(--brass);
+  border-radius: 4px; padding: 12px 18px;
+  backdrop-filter: blur(6px);
+  transition: border-color var(--transition-smooth);
+}
+.input-wrapper:focus-within { border-color: var(--gold); }
+.input-field {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-light); font-family: var(--font-ui); font-size: 14px;
+  letter-spacing: 1px;
+}
+.input-field::placeholder { color: var(--ink-subtle); }
+.input-btn {
+  background: var(--gold); color: var(--void); border: none;
+  padding: 8px 22px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 13px; letter-spacing: 3px;
+  transition: all var(--transition-smooth);
+}
+.input-btn:hover { background: var(--gold-bright); box-shadow: 0 0 16px rgba(196,168,85,0.25); }
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+
+/* Character Sheet — left slide */
+.char-sheet-overlay {
+  position: fixed; inset: 0; z-index: 80;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.char-sheet-overlay.open { pointer-events: auto; opacity: 1; }
+.char-sheet-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+}
+.char-sheet {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: 420px;
+  background: linear-gradient(180deg, #1f1810 0%, #15100c 100%);
+  border-right: 1px solid var(--brass);
+  padding: 32px 28px;
+  transform: translateX(-100%);
+  transition: transform var(--transition-spring);
+  overflow-y: auto;
+  box-shadow: 8px 0 40px rgba(0,0,0,0.5);
+}
+.char-sheet-overlay.open .char-sheet { transform: translateX(0); }
+
+.char-sheet-title {
+  font-family: var(--font-display); font-size: 18px; color: var(--gold);
+  letter-spacing: 6px; margin-bottom: 24px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--brass);
+  display: flex; align-items: center; gap: 12px;
+}
+.char-sheet-close {
+  margin-left: auto; background: transparent; border: 1px solid var(--brass);
+  color: var(--ink-subtle); width: 28px; height: 28px; border-radius: 3px;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition-smooth);
+}
+.char-sheet-close:hover { border-color: var(--blood); color: var(--blood); }
+
+/* Characteristics grid */
+.char-section-label {
+  font-size: 10px; color: var(--ink-subtle); letter-spacing: 4px;
+  margin-bottom: 14px; margin-top: 24px;
+}
+.char-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.char-attr {
+  background: rgba(42,31,20,0.5); border: 1px solid transparent;
+  border-radius: 3px; padding: 10px 14px;
+  transition: all var(--transition-smooth);
+  position: relative;
+}
+.char-attr.modified { border-color: rgba(196,168,85,0.3); background: rgba(196,168,85,0.06); }
+.char-attr .attr-name { font-size: 11px; color: var(--ink-subtle); letter-spacing: 2px; }
+.char-attr .attr-full { font-size: 10px; color: var(--ink-faded); }
+.char-attr .attr-value {
+  font-size: 22px; font-family: var(--font-mono); color: var(--text-light);
+  margin-top: 4px; font-weight: bold;
+}
+.char-attr.modified .attr-value { color: var(--gold); }
+.char-attr .attr-half-fifth {
+  font-size: 10px; color: var(--ink-subtle); margin-top: 2px; font-family: var(--font-mono);
+}
+.char-attr .mod-dot {
+  position: absolute; top: 8px; right: 10px;
+  width: 6px; height: 6px; background: var(--gold);
+  border-radius: 50%; opacity: 0; transition: opacity 0.3s;
+  box-shadow: 0 0 6px rgba(196,168,85,0.5);
+}
+.char-attr.modified .mod-dot { opacity: 1; }
+
+/* Secondary stats row */
+.sec-stats {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;
+}
+.sec-stat {
+  background: rgba(42,31,20,0.5); border: 1px solid var(--brass);
+  border-radius: 3px; padding: 8px 14px; min-width: 70px;
+  text-align: center;
+}
+.sec-stat .sec-label { font-size: 10px; color: var(--ink-subtle); letter-spacing: 2px; }
+.sec-stat .sec-value {
+  font-size: 16px; font-family: var(--font-mono); color: var(--text-light);
+  margin-top: 2px; font-weight: bold;
+}
+.sec-stat.san .sec-value { color: var(--blood); }
+.sec-stat.hp .sec-value { color: var(--success-bright); }
+
+/* Close btn in panel */
+.panel-close-row {
+  margin-top: 28px; text-align: center;
+}
+.panel-close-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 8px 32px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 3px;
+  transition: all var(--transition-smooth);
+}
+.panel-close-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ============================================================
+   DICE OVERLAY
+   ============================================================ */
+.dice-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.dice-overlay.active { pointer-events: auto; opacity: 1; }
+
+.dice-panel {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--brass);
+  border-radius: 8px;
+  padding: 32px 28px 24px;
+  text-align: center;
+  box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 48px rgba(0,0,0,0.3);
+  transition: border-color 0.5s, box-shadow 0.5s;
+}
+.dice-cube {
+  display: inline-block;
+  width: 76px; height: 76px;
+  background: linear-gradient(150deg, #2a1f14 0%, #1a1210 60%, #0d0a07 100%);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  margin-bottom: 18px;
+  position: relative;
+  transition: border-color 0.5s, box-shadow 0.5s;
+  box-shadow: inset 0 2px 0 rgba(196,168,85,0.08), 0 6px 24px rgba(0,0,0,0.6);
+}
+.dice-dot {
+  position: absolute; width: 10px; height: 10px;
+  background: var(--gold); border-radius: 50%;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(196,168,85,0.4);
+  transition: background 0.5s, box-shadow 0.5s;
+}
+.dice-pip {
+  position: absolute; width: 4px; height: 4px;
+  background: var(--ink-subtle); border-radius: 50%;
+}
+.dice-stat-label {
+  color: var(--ink-subtle); font-size: 10px; letter-spacing: 3px; margin-bottom: 6px;
+  transition: color 0.4s;
+}
+.dice-result-row {
+  display: flex; justify-content: center; align-items: baseline; gap: 12px; margin-bottom: 10px;
+}
+.dice-roll-num {
+  font-size: 48px; font-weight: bold; font-family: var(--font-display);
+  line-height: 1; transition: color 0.4s, text-shadow 0.4s, font-size 0.4s;
+}
+.dice-sep { color: var(--ink-subtle); font-size: 14px; }
+.dice-target { color: var(--gold); font-size: 22px; font-weight: bold; font-family: var(--font-display); }
+
+.dice-badge {
+  display: inline-block; padding: 5px 18px; border-radius: 3px;
+  font-size: 13px; letter-spacing: 2px; transition: all 0.4s;
+}
+
+/* States */
+.dice-panel.normal-success .dice-cube { border-color: var(--success); box-shadow: inset 0 2px 0 rgba(58,107,90,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(58,107,90,0.15); }
+.dice-panel.normal-success .dice-roll-num { color: var(--success-bright); text-shadow: 0 0 16px rgba(90,171,122,0.25); }
+.dice-panel.normal-success .dice-badge { color: var(--success-bright); border: 1px solid var(--success); background: rgba(58,107,90,0.1); }
+.dice-panel.normal-success { border-color: var(--success); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 40px rgba(58,107,90,0.1); }
+
+.dice-panel.normal-failure .dice-cube { border-color: var(--blood); box-shadow: inset 0 2px 0 rgba(139,58,58,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(139,58,58,0.15); }
+.dice-panel.normal-failure .dice-roll-num { color: #c44a4a; text-shadow: 0 0 16px rgba(196,74,74,0.25); }
+.dice-panel.normal-failure .dice-badge { color: #c44a4a; border: 1px solid var(--blood); background: rgba(139,58,58,0.1); }
+.dice-panel.normal-failure { border-color: var(--blood); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 40px rgba(139,58,58,0.1); }
+
+.dice-panel.crit-success .dice-cube {
+  border-color: var(--gold-bright);
+  box-shadow: inset 0 2px 0 rgba(196,168,85,0.15), 0 0 24px rgba(196,168,85,0.4), 0 0 60px rgba(196,168,85,0.25);
+  animation: critCubeGlow 1.5s ease-in-out infinite;
+}
+.dice-panel.crit-success .dice-dot { background: var(--gold-bright); box-shadow: 0 0 12px rgba(232,200,101,0.8), 0 0 24px rgba(232,200,101,0.4); }
+.dice-panel.crit-success .dice-roll-num {
+  color: var(--gold-bright); font-size: 56px;
+  text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3);
+  animation: critNumberPulse 0.8s ease-in-out infinite;
+}
+.dice-panel.crit-success .dice-badge {
+  color: var(--gold-bright); border: 1px solid var(--gold); background: rgba(196,168,85,0.15);
+  font-size: 16px; letter-spacing: 6px;
+  text-shadow: 0 0 12px rgba(232,200,101,0.4);
+  animation: critBadgePulse 1.2s ease-in-out infinite;
+}
+.dice-panel.crit-success { border-color: var(--gold); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 50px rgba(196,168,85,0.25); }
+.dice-panel.crit-success .dice-stat-label { color: var(--gold); }
+
+.dice-panel.crit-failure .dice-cube {
+  border-color: #6b1a1a;
+  box-shadow: inset 0 2px 0 rgba(139,26,26,0.2), 0 0 24px rgba(139,26,26,0.5), 0 0 60px rgba(139,26,26,0.3);
+  animation: critFailCubeShake 0.3s ease-in-out infinite;
+}
+.dice-panel.crit-failure .dice-dot { background: var(--blood-bright); box-shadow: 0 0 12px rgba(204,51,51,0.8), 0 0 24px rgba(204,51,51,0.4); }
+.dice-panel.crit-failure .dice-roll-num {
+  color: var(--blood-bright); font-size: 56px;
+  text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3);
+  animation: critFailNumberPulse 0.6s ease-in-out infinite;
+}
+.dice-panel.crit-failure .dice-badge {
+  color: var(--blood-bright); border: 1px solid #6b1a1a; background: rgba(139,26,26,0.2);
+  font-size: 16px; letter-spacing: 6px;
+  text-shadow: 0 0 12px rgba(204,51,51,0.4);
+  animation: critFailBadgeShake 0.4s ease-in-out infinite;
+}
+.dice-panel.crit-failure { border-color: #6b1a1a; box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 50px rgba(139,26,26,0.3); }
+.dice-panel.crit-failure .dice-stat-label { color: var(--blood-bright); }
+
+/* Dice lifecycle animations */
+.dice-panel.anim-standard { animation: diceLifecycle 5s ease-in-out forwards; }
+.dice-panel.anim-crit-success { animation: critLifecycle 5.5s ease-in-out forwards; }
+.dice-panel.anim-crit-failure { animation: critFailLifecycle 5.5s ease-in-out forwards; }
+
+.dice-continue {
+  margin-top: 14px;
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 6px 20px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: 3px;
+  transition: all var(--transition-smooth);
+}
+.dice-continue:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Vignette & flash */
+.dice-vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 85;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(139,26,26,0.3) 100%);
+  opacity: 0; transition: opacity 0.4s;
+}
+.dice-vignette.active { opacity: 1; }
+.screen-flash {
+  position: fixed; inset: 0; pointer-events: none; z-index: 89;
+}
+
+/* Particles */
+.particles { position: fixed; inset: 0; pointer-events: none; z-index: 95; }
+.particle {
+  position: absolute; border-radius: 50%;
+  animation: particleFly var(--dur) ease-out forwards;
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes diceLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); filter: blur(6px); }
+  10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); filter: blur(0); }
+  15%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+  80%  { opacity: 0.5; transform: translate(-50%, -50%) scale(0.5); filter: blur(3px); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(8px); }
+}
+@keyframes critLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.05); filter: blur(8px); }
+  6%   { opacity: 1; transform: translate(-50%, -50%) scale(1.15); filter: blur(0); }
+  10%  { transform: translate(-50%, -50%) scale(0.95); }
+  13%  { transform: translate(-50%, -50%) scale(1.03); }
+  16%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+  75%  { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); filter: blur(4px); }
+}
+@keyframes critFailLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(4px); }
+  5%   { opacity: 1; transform: translate(-50%, -50%) scale(1.2); filter: blur(0); }
+  8%   { transform: translate(-48%, -52%) scale(1.05); }
+  10%  { transform: translate(-52%, -48%) scale(1.1); }
+  13%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80%  { opacity: 0.3; transform: translate(-49%, -51%) scale(0.7); filter: blur(2px); }
+  100% { opacity: 0; transform: translate(-52%, -48%) scale(0.2); filter: blur(6px); }
+}
+@keyframes critCubeGlow {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.15), 0 0 24px rgba(196,168,85,0.4), 0 0 60px rgba(196,168,85,0.25); }
+  50% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.25), 0 0 40px rgba(232,200,101,0.6), 0 0 80px rgba(196,168,85,0.4); }
+}
+@keyframes critNumberPulse {
+  0%, 100% { text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3); }
+  50% { text-shadow: 0 0 36px rgba(232,200,101,0.9), 0 0 72px rgba(232,200,101,0.5); }
+}
+@keyframes critBadgePulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(196,168,85,0.3); }
+  50% { box-shadow: 0 0 20px rgba(232,200,101,0.6), 0 0 40px rgba(196,168,85,0.2); }
+}
+@keyframes critFailCubeShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1.5px, 1px) rotate(-0.5deg); }
+  50% { transform: translate(1.5px, -1px) rotate(0.5deg); }
+  75% { transform: translate(-0.5px, -0.5px) rotate(-0.3deg); }
+}
+@keyframes critFailNumberPulse {
+  0%, 100% { text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3); }
+  50% { text-shadow: 0 0 36px rgba(255,60,60,0.9), 0 0 72px rgba(204,51,51,0.5); }
+}
+@keyframes critFailBadgeShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); }
+}
+@keyframes bookShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px); }
+  20% { transform: translateX(5px); }
+  30% { transform: translateX(-4px); }
+  40% { transform: translateX(3px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(1px); }
+}
+@keyframes particleFly {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+@keyframes screenFlashAnim {
+  0% { background: transparent; }
+  50% { background: var(--flash-color); }
+  100% { background: transparent; }
+}
+
+/* ============================================================
+   TEST BUTTONS DOCK
+   ============================================================ */
+.test-dock {
+  position: fixed; bottom: 80px; right: 24px; z-index: 200;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.test-dock-label {
+  font-size: 10px; color: var(--ink-subtle); letter-spacing: 3px;
+  text-align: right; margin-bottom: 2px;
+}
+.test-btn {
+  background: rgba(42,31,20,0.85); border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 8px 16px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: 2px;
+  transition: all var(--transition-smooth);
+  backdrop-filter: blur(4px);
+}
+.test-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(196,168,85,0.08); }
+.test-btn.crit-s { border-left: 3px solid var(--gold); }
+.test-btn.success { border-left: 3px solid var(--success); }
+.test-btn.failure { border-left: 3px solid var(--blood); }
+.test-btn.crit-f { border-left: 3px solid #6b1a1a; }
+
+/* Sound toggle */
+.sound-toggle {
+  position: fixed; top: 20px; right: 24px; z-index: 200;
+  background: rgba(42,31,20,0.7); border: 1px solid var(--brass); color: var(--text-light);
+  padding: 6px 14px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 1px;
+  transition: all var(--transition-smooth);
+}
+.sound-toggle:hover { border-color: var(--gold); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <span class="icon-star">&#9733;</span>
+      <h1>深渊档案馆</h1>
+      <span class="subtitle">ABYSSAL ARCHIVE</span>
+    </div>
+    <nav class="topbar-nav">
+      <button class="nav-btn" onclick="alert('设置面板（原型占位）')">设 置</button>
+      <button class="nav-btn" onclick="alert('世界书面板（原型占位）')">世 界 书</button>
+      <button class="nav-btn" onclick="alert('预设面板（原型占位）')">预 设</button>
+    </nav>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main-area" id="mainArea">
+
+    <!-- Left side tab: character sheet -->
+    <div class="side-tab side-tab-left" onclick="toggleCharSheet()">调查员记录</div>
+
+    <!-- Right side tab: dice -->
+    <div class="side-tab side-tab-right" onclick="triggerDiceRoll()">&#x2684;</div>
+
+    <!-- STORYBOOK -->
+    <div class="book-container">
+      <div class="book" id="book">
+        <div class="book-spine"></div>
+        <div class="page page-left">
+          <div class="page-header">第三章</div>
+          <div class="page-text">
+            你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯。窗帘紧闭，空气凝滞——这里已经很久没有人来过了。
+          </div>
+          <div class="page-number left">— 3 —</div>
+        </div>
+        <div class="page page-right">
+          <div class="page-header">调查</div>
+          <div class="page-text">
+            角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案。你的直觉告诉你，这柜子里藏着重要的线索。
+          </div>
+          <div class="skill-check" id="skillCheckBlock">
+            <div class="skill-check-header">
+              <span class="skill-check-name" id="skillCheckName">侦查检定</span>
+              <span class="skill-check-value" id="skillCheckVal">65%</span>
+            </div>
+            <div class="skill-check-options">
+              <span>调查铁柜</span>
+              <span>检查手稿</span>
+              <span>离开房间</span>
+            </div>
+          </div>
+          <div class="page-number right">— 4 —</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM INPUT -->
+  <div class="input-bar">
+    <div class="input-wrapper">
+      <input class="input-field" type="text" placeholder="输入你的行动意图..." id="mainInput"
+        onkeydown="if(event.key==='Enter'){alert('消息发送（原型占位）');this.value='';}">
+      <button class="input-btn" onclick="alert('消息发送（原型占位）');document.getElementById('mainInput').value='';">推 进</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTER SHEET OVERLAY -->
+<div class="char-sheet-overlay" id="charSheetOverlay">
+  <div class="char-sheet-backdrop" onclick="toggleCharSheet()"></div>
+  <div class="char-sheet" id="charSheet">
+    <div class="char-sheet-title">
+      调查员记录卡
+      <button class="char-sheet-close" onclick="toggleCharSheet()">&#x2715;</button>
+    </div>
+
+    <div class="char-section-label">基础属性</div>
+    <div class="char-grid">
+      <div class="char-attr modified">
+        <div class="mod-dot"></div>
+        <div class="attr-name">STR 力量</div>
+        <div class="attr-full">Strength</div>
+        <div class="attr-value">70</div>
+        <div class="attr-half-fifth">35 / 14</div>
+      </div>
+      <div class="char-attr">
+        <div class="mod-dot"></div>
+        <div class="attr-name">CON 体质</div>
+        <div class="attr-full">Constitution</div>
+        <div class="attr-value">50</div>
+        <div class="attr-half-fifth">25 / 10</div>
+      </div>
+      <div class="char-attr modified">
+        <div class="mod-dot"></div>
+        <div class="attr-name">POW 意志</div>
+        <div class="attr-full">Power</div>
+        <div class="attr-value">80</div>
+        <div class="attr-half-fifth">40 / 16</div>
+      </div>
+      <div class="char-attr modified">
+        <div class="mod-dot"></div>
+        <div class="attr-name">DEX 敏捷</div>
+        <div class="attr-full">Dexterity</div>
+        <div class="attr-value">65</div>
+        <div class="attr-half-fifth">32 / 13</div>
+      </div>
+      <div class="char-attr">
+        <div class="mod-dot"></div>
+        <div class="attr-name">APP 外貌</div>
+        <div class="attr-full">Appearance</div>
+        <div class="attr-value">45</div>
+        <div class="attr-half-fifth">22 / 9</div>
+      </div>
+      <div class="char-attr">
+        <div class="mod-dot"></div>
+        <div class="attr-name">SIZ 体型</div>
+        <div class="attr-full">Size</div>
+        <div class="attr-value">55</div>
+        <div class="attr-half-fifth">27 / 11</div>
+      </div>
+      <div class="char-attr modified">
+        <div class="mod-dot"></div>
+        <div class="attr-name">INT 智力</div>
+        <div class="attr-full">Intelligence</div>
+        <div class="attr-value">75</div>
+        <div class="attr-half-fifth">37 / 15</div>
+      </div>
+      <div class="char-attr modified">
+        <div class="mod-dot"></div>
+        <div class="attr-name">EDU 教育</div>
+        <div class="attr-full">Education</div>
+        <div class="attr-value">70</div>
+        <div class="attr-half-fifth">35 / 14</div>
+      </div>
+    </div>
+
+    <div class="char-section-label">衍生属性</div>
+    <div class="sec-stats">
+      <div class="sec-stat hp"><div class="sec-label">HP 生命</div><div class="sec-value">10 / 10</div></div>
+      <div class="sec-stat san"><div class="sec-label">SAN 理智</div><div class="sec-value">72 / 80</div></div>
+      <div class="sec-stat"><div class="sec-label">MP 魔法</div><div class="sec-value">16 / 16</div></div>
+      <div class="sec-stat"><div class="sec-label">LUCK 幸运</div><div class="sec-value">55</div></div>
+      <div class="sec-stat"><div class="sec-label">MOV 移动</div><div class="sec-value">8</div></div>
+      <div class="sec-stat"><div class="sec-label">DB 伤害加值</div><div class="sec-value">+1D4</div></div>
+    </div>
+
+    <div class="char-section-label">职业 &amp; 背景</div>
+    <div style="font-size:12px;color:var(--ink-subtle);letter-spacing:2px;line-height:2;">
+      职业：私家侦探<br>
+      年龄：34 &nbsp; | &nbsp; 性别：男<br>
+      住址：阿卡姆 大学路 128号
+    </div>
+
+    <div class="panel-close-row">
+      <button class="panel-close-btn" onclick="toggleCharSheet()">关 闭 记 录</button>
+    </div>
+  </div>
+</div>
+
+<!-- DICE VIGNETTE -->
+<div class="dice-vignette" id="diceVignette"></div>
+
+<!-- SCREEN FLASH -->
+<div class="screen-flash" id="screenFlash"></div>
+
+<!-- PARTICLES -->
+<div class="particles" id="particles"></div>
+
+<!-- DICE OVERLAY -->
+<div class="dice-overlay" id="diceOverlay">
+  <div class="dice-panel" id="dicePanel">
+    <div class="dice-cube" id="diceCube">
+      <div class="dice-dot"></div>
+      <div class="dice-pip" style="top:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="bottom:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="left:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="right:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="top:14px;left:14px;"></div>
+      <div class="dice-pip" style="bottom:14px;right:14px;"></div>
+    </div>
+
+    <div class="dice-stat-label" id="diceStatLabel">侦查检定</div>
+
+    <div class="dice-result-row">
+      <span class="dice-roll-num" id="diceRollNum">42</span>
+      <span class="dice-sep">/</span>
+      <span class="dice-target">65</span>
+    </div>
+
+    <div class="dice-badge" id="diceBadge">普通成功</div>
+
+    <button class="dice-continue" onclick="hideDice()">继 续</button>
+  </div>
+</div>
+
+<!-- SOUND TOGGLE -->
+<button class="sound-toggle" onclick="toggleSound()" id="soundToggle">&#x1F50A; 音效：开</button>
+
+<!-- TEST BUTTONS -->
+<div class="test-dock">
+  <div class="test-dock-label">效果测试</div>
+  <button class="test-btn crit-s" onclick="triggerDiceRoll('crit-success')">大成功 (01)</button>
+  <button class="test-btn success" onclick="triggerDiceRoll('success')">普通成功 (42)</button>
+  <button class="test-btn failure" onclick="triggerDiceRoll('failure')">失败 (78)</button>
+  <button class="test-btn crit-f" onclick="triggerDiceRoll('crit-failure')">大失败 (100)</button>
+  <button class="test-btn" onclick="toggleCharSheet()">切换角色卡</button>
+  <button class="test-btn" onclick="resetUI()">重置界面</button>
+</div>
+
+<script>
+// ===================== AUDIO ENGINE =====================
+let audioCtx = null;
+let soundEnabled = true;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  document.getElementById('soundToggle').textContent = soundEnabled ? '🔊 音效：开' : '🔇 音效：关';
+}
+
+function sfxDiceRattle() {
+  if (!soundEnabled) return;
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  for (let i = 0; i < 8; i++) {
+    const t = now + i * 0.04;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.02, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let j = 0; j < data.length; j++) {
+      data[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / data.length, 3);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 700 + Math.random() * 1000;
+    filter.Q.value = 2;
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.03);
+  }
+}
+
+function sfxCritSuccess() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime;
+  const osc1 = ctx.createOscillator(); osc1.type = 'triangle';
+  osc1.frequency.setValueAtTime(180, now);
+  osc1.frequency.exponentialRampToValueAtTime(360, now + 0.8);
+  const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.2, now);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+  osc1.connect(g1); g1.connect(ctx.destination);
+  osc1.start(now); osc1.stop(now + 1.5);
+
+  const osc2 = ctx.createOscillator(); osc2.type = 'triangle';
+  osc2.frequency.setValueAtTime(270, now);
+  osc2.frequency.exponentialRampToValueAtTime(540, now + 0.8);
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.14, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now); osc2.stop(now + 1.2);
+
+  const osc3 = ctx.createOscillator(); osc3.type = 'sine';
+  osc3.frequency.setValueAtTime(880, now + 0.12);
+  osc3.frequency.exponentialRampToValueAtTime(1320, now + 0.7);
+  const g3 = ctx.createGain(); g3.gain.setValueAtTime(0, now);
+  g3.gain.linearRampToValueAtTime(0.12, now + 0.15);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  osc3.connect(g3); g3.connect(ctx.destination);
+  osc3.start(now + 0.12); osc3.stop(now + 2.0);
+
+  [0.35, 0.6].forEach((delay, idx) => {
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(idx === 0 ? 1400 : 1760, now + delay);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.08, now + delay + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.7);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now + delay); osc.stop(now + delay + 0.7);
+  });
+}
+
+function sfxSuccess() {
+  if (!soundEnabled) return;
+  const ctx = getCtx();
+  sfxDiceRattle();
+  [523.25, 659.25].forEach((freq, i) => {
+    const t = ctx.currentTime + 0.2 + i * 0.12;
+    const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.4);
+  });
+}
+
+function sfxFailure() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime;
+  sfxDiceRattle();
+  const osc = ctx.createOscillator(); osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, now + 0.2);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.7);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.18, now + 0.2); g.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(now + 0.2); osc.stop(now + 0.9);
+
+  const osc2 = ctx.createOscillator(); osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(70, now + 0.25);
+  osc2.frequency.exponentialRampToValueAtTime(45, now + 0.7);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.25, now + 0.25); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now + 0.25); osc2.stop(now + 0.9);
+}
+
+function sfxCritFailure() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime;
+  sfxDiceRattle();
+
+  const osc1 = ctx.createOscillator(); osc1.type = 'sawtooth';
+  osc1.frequency.setValueAtTime(50, now + 0.15);
+  osc1.frequency.linearRampToValueAtTime(30, now + 1.5);
+  const g1 = ctx.createGain();
+  g1.gain.setValueAtTime(0.12, now + 0.15);
+  g1.gain.setValueAtTime(0.12, now + 1.0);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+  const f1 = ctx.createBiquadFilter(); f1.type = 'lowpass';
+  f1.frequency.value = 180; f1.Q.value = 1;
+  osc1.connect(f1); f1.connect(g1); g1.connect(ctx.destination);
+  osc1.start(now + 0.15); osc1.stop(now + 2.8);
+
+  const osc2 = ctx.createOscillator(); osc2.type = 'triangle';
+  osc2.frequency.setValueAtTime(160, now + 0.2);
+  osc2.frequency.setValueAtTime(150, now + 0.4);
+  osc2.frequency.setValueAtTime(160, now + 0.6);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.1, now + 0.2); g2.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now + 0.2); osc2.stop(now + 2.0);
+
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 4);
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const gn = ctx.createGain();
+  gn.gain.setValueAtTime(0.15, now + 0.2); gn.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.setValueAtTime(500, now + 0.2);
+  src.connect(filt); filt.connect(gn); gn.connect(ctx.destination);
+  src.start(now + 0.2); src.stop(now + 0.5);
+
+  [0.8, 1.3, 1.8].forEach(t => {
+    const osc3 = ctx.createOscillator(); osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(38, now + t);
+    const g3 = ctx.createGain();
+    g3.gain.setValueAtTime(0.2, now + t); g3.gain.exponentialRampToValueAtTime(0.001, now + t + 0.3);
+    osc3.connect(g3); g3.connect(ctx.destination);
+    osc3.start(now + t); osc3.stop(now + t + 0.3);
+  });
+}
+
+// ===================== PARTICLES =====================
+function spawnParticles(count, color, fromEl) {
+  const container = document.getElementById('particles');
+  const rect = fromEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 5;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 50 + Math.random() * 150;
+    p.style.cssText = `
+      left: ${cx}px; top: ${cy}px;
+      width: ${size}px; height: ${size}px;
+      background: ${color};
+      box-shadow: 0 0 ${size*2}px ${color};
+      --dx: ${Math.cos(angle) * distance}px; --dy: ${Math.sin(angle) * distance - 40}px;
+      --dur: ${1 + Math.random() * 2}s;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+}
+
+// ===================== CHARACTER SHEET =====================
+function toggleCharSheet(force) {
+  const overlay = document.getElementById('charSheetOverlay');
+  if (force === true) overlay.classList.add('open');
+  else if (force === false) overlay.classList.remove('open');
+  else overlay.classList.toggle('open');
+}
+
+// ===================== DICE SYSTEM =====================
+let diceTimeout = null;
+let diceVignetteTimer = null;
+
+function triggerDiceRoll(type) {
+  if (!type) {
+    // Random type for side tab click
+    const types = ['success', 'failure', 'crit-success', 'crit-failure'];
+    type = types[Math.floor(Math.random() * types.length)];
+  }
+
+  // Clean up any running dice
+  if (diceTimeout) clearTimeout(diceTimeout);
+  if (diceVignetteTimer) clearTimeout(diceVignetteTimer);
+
+  const overlay = document.getElementById('diceOverlay');
+  const panel = document.getElementById('dicePanel');
+  const book = document.getElementById('book');
+  const rollNum = document.getElementById('diceRollNum');
+  const badge = document.getElementById('diceBadge');
+  const statLabel = document.getElementById('diceStatLabel');
+  const vignette = document.getElementById('diceVignette');
+  const flash = document.getElementById('screenFlash');
+  const diceCube = document.getElementById('diceCube');
+
+  // Reset state classes
+  panel.className = 'dice-panel';
+  book.classList.remove('dimmed', 'shaking');
+  vignette.classList.remove('active');
+  flash.style.animation = 'none';
+  flash.style.background = 'transparent';
+  rollNum.style.fontSize = '';
+  badge.style.fontSize = '';
+  badge.style.letterSpacing = '';
+  diceCube.style.animation = '';
+  overlay.classList.remove('active');
+  document.getElementById('particles').innerHTML = '';
+
+  // Reset animation
+  panel.style.animation = 'none';
+  void panel.offsetWidth;
+
+  // Show overlay
+  overlay.classList.add('active');
+
+  // Configure based on type
+  let stateClass, animClass, rollValue, badgeText, statText, soundFn;
+  let doParticles = false, doFlash = false, doVignette = false, doBookShake = false, doBookDim = false;
+
+  switch (type) {
+    case 'crit-success':
+      stateClass = 'crit-success'; animClass = 'anim-crit-success';
+      rollValue = '01'; badgeText = '大成功！'; statText = '命运的眷顾';
+      soundFn = sfxCritSuccess; doParticles = true; doFlash = true;
+      break;
+    case 'success':
+      stateClass = 'normal-success'; animClass = 'anim-standard';
+      rollValue = '42'; badgeText = '普通成功'; statText = '侦查检定';
+      soundFn = sfxSuccess;
+      break;
+    case 'failure':
+      stateClass = 'normal-failure'; animClass = 'anim-standard';
+      rollValue = '78'; badgeText = '失败'; statText = '侦查检定';
+      soundFn = sfxFailure;
+      break;
+    case 'crit-failure':
+      stateClass = 'crit-failure'; animClass = 'anim-crit-failure';
+      rollValue = '100'; badgeText = '大失败'; statText = '深渊的注视';
+      soundFn = sfxCritFailure; doParticles = true; doFlash = true;
+      doVignette = true; doBookShake = true; doBookDim = true;
+      break;
+  }
+
+  panel.classList.add(stateClass, animClass);
+  rollNum.textContent = rollValue;
+  badge.textContent = badgeText;
+  statLabel.textContent = statText;
+
+  // Sound
+  if (soundFn) soundFn();
+
+  // Visual effects
+  if (doFlash) {
+    const flashColor = type === 'crit-success' ? 'rgba(232,200,101,0.12)' : 'rgba(139,26,26,0.15)';
+    setTimeout(() => {
+      flash.style.setProperty('--flash-color', flashColor);
+      flash.style.animation = 'screenFlashAnim 0.6s ease-out';
+      setTimeout(() => { flash.style.animation = 'none'; flash.style.background = 'transparent'; }, 600);
+    }, 250);
+  }
+
+  if (doParticles) {
+    const pColor = type === 'crit-success' ? '#e8c865' : '#cc3333';
+    setTimeout(() => {
+      spawnParticles(25, pColor, diceCube);
+      spawnParticles(15, type === 'crit-success' ? '#c4a855' : '#6b1a1a', diceCube);
+    }, 300);
+    setTimeout(() => spawnParticles(12, pColor, diceCube), 1600);
+  }
+
+  if (doVignette) {
+    setTimeout(() => vignette.classList.add('active'), 300);
+    diceVignetteTimer = setTimeout(() => vignette.classList.remove('active'), 1800);
+    setTimeout(() => vignette.classList.add('active'), 2200);
+    setTimeout(() => vignette.classList.remove('active'), 3500);
+  }
+
+  if (doBookDim) {
+    setTimeout(() => book.classList.add('dimmed'), 200);
+    setTimeout(() => book.classList.remove('dimmed'), 4000);
+  }
+
+  if (doBookShake) {
+    setTimeout(() => {
+      book.classList.add('shaking');
+      setTimeout(() => book.classList.remove('shaking'), 400);
+    }, 200);
+  }
+
+  // Auto-hide after animation
+  const duration = (type === 'crit-success' || type === 'crit-failure') ? 5500 : 5000;
+  diceTimeout = setTimeout(() => hideDice(), duration);
+}
+
+function hideDice() {
+  document.getElementById('diceOverlay').classList.remove('active');
+  document.getElementById('diceVignette').classList.remove('active');
+  document.getElementById('book').classList.remove('dimmed', 'shaking');
+  document.getElementById('particles').innerHTML = '';
+  if (diceTimeout) clearTimeout(diceTimeout);
+  if (diceVignetteTimer) clearTimeout(diceVignetteTimer);
+}
+
+function resetUI() {
+  hideDice();
+  toggleCharSheet(false);
+  document.getElementById('book').classList.remove('dimmed', 'shaking');
+  document.getElementById('screenFlash').style.animation = 'none';
+  document.getElementById('screenFlash').style.background = 'transparent';
+  document.getElementById('mainInput').value = '';
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') resetUI();
+  if (e.key === '1' && !e.ctrlKey && !e.metaKey && document.activeElement !== document.getElementById('mainInput')) {
+    triggerDiceRoll('crit-success');
+  }
+  if (e.key === '2' && !e.ctrlKey && !e.metaKey && document.activeElement !== document.getElementById('mainInput')) {
+    triggerDiceRoll('success');
+  }
+  if (e.key === '3' && !e.ctrlKey && !e.metaKey && document.activeElement !== document.getElementById('mainInput')) {
+    triggerDiceRoll('failure');
+  }
+  if (e.key === '4' && !e.ctrlKey && !e.metaKey && document.activeElement !== document.getElementById('mainInput')) {
+    triggerDiceRoll('crit-failure');
+  }
+  if (e.key === 'c' && !e.ctrlKey && !e.metaKey && document.activeElement !== document.getElementById('mainInput')) {
+    toggleCharSheet();
+  }
+});
+</script>
+
+</body>
+</html>

@@ -410,13 +410,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
 
     setSheet(sheet);
-    onClose();
+    onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills,
     luckValue, name, player, occupation, age, sex, residence, birthplace,
     description, beliefs, significantPeople, meaningfulLocations,
     treasuredPossessions, traits, injuries, phobias,
-    setSheet, onClose,
+    setSheet, onComplete,
   ]);
 
   /* ---- Nav ---- */

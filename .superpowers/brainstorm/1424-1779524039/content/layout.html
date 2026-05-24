@@ -1,0 +1,117 @@
+<h2>空间布局 — 故事书居中 SPA</h2>
+<p class="subtitle">所有次级界面作为覆盖层，故事书始终占据视觉重心</p>
+
+<div class="section">
+  <h3>主视口布局</h3>
+</div>
+
+<div class="mockup" style="background: #1a1410; padding: 32px; border-radius: 8px; min-height: 500px;">
+  <div class="mockup-header" style="color: #c4a855;">主页面 — 故事书居中</div>
+  <div class="mockup-body">
+
+    <!-- TOP BAR -->
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(42,31,20,0.8); border: 1px solid #3d2b13; margin-bottom: 24px; border-radius: 2px;">
+      <div style="display: flex; gap: 16px; align-items: baseline;">
+        <span style="color:#c4a855; font-size: 18px; font-weight: bold;">★ 深渊档案馆</span>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <span class="mock-button" style="background: transparent; border: 1px solid #3d2b13; color: #d4c4a0; padding: 4px 12px; font-size: 12px;">⚙ 设置</span>
+        <span class="mock-button" style="background: transparent; border: 1px solid #3d2b13; color: #d4c4a0; padding: 4px 12px; font-size: 12px;">📖 世界书</span>
+        <span class="mock-button" style="background: transparent; border: 1px solid #3d2b13; color: #d4c4a0; padding: 4px 12px; font-size: 12px;">📋 预设</span>
+        <span class="mock-button" style="background: #c4a855; border: 1px solid #c4a855; color: #1a1410; padding: 4px 12px; font-size: 12px;">🎲 掷骰</span>
+      </div>
+    </div>
+
+    <!-- CENTER: STORYBOOK + SIDE PANELS -->
+    <div style="display: flex; justify-content: center; align-items: flex-start; gap: 0; position: relative;">
+
+      <!-- LEFT: Character sheet toggle -->
+      <div style="position: absolute; left: -40px; top: 50%; transform: translateY(-50%) rotate(-90deg); background: #2a1f14; border: 1px solid #3d2b13; border-bottom: none; border-radius: 4px 4px 0 0; padding: 8px 16px; z-index: 5;">
+        <span style="color: #c4a855; font-size: 12px;">调查员记录</span>
+      </div>
+
+      <!-- STORYBOOK -->
+      <div style="display: flex; background: linear-gradient(to right, #3d2b13 0%, #2a1f14 50%, #3d2b13 100%); border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(196,168,85,0.05); position: relative; max-width: 800px;">
+        <!-- Left page -->
+        <div style="width: 350px; height: 480px; background: linear-gradient(135deg, #f4e4c1 0%, #e8d5a3 50%, #d4c4a0 100%); border-right: 1px solid #c4a855; border-radius: 3px 1px 1px 3px; padding: 32px 24px 32px 32px; position: relative; box-shadow: inset -8px 0 12px rgba(0,0,0,0.08);">
+          <div style="border-bottom: 2px solid #c4a855; padding-bottom: 8px; margin-bottom: 16px;">
+            <span style="color: #8b3a3a; font-size: 11px; letter-spacing: 2px;">第三章</span>
+          </div>
+          <div style="color: #2a1f14; font-size: 14px; line-height: 1.8; font-family: serif;">
+            你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯...
+          </div>
+          <div style="position: absolute; bottom: 24px; right: 32px; color: #8b3a3a; font-size: 10px;">— 3 —</div>
+        </div>
+        <!-- Right page -->
+        <div style="width: 350px; height: 480px; background: linear-gradient(135deg, #e8d5a3 0%, #f4e4c1 50%, #d4c4a0 100%); border-left: 1px solid #c4a855; border-radius: 1px 3px 3px 1px; padding: 32px 32px 32px 24px; position: relative; box-shadow: inset 8px 0 12px rgba(0,0,0,0.08);">
+          <div style="color: #2a1f14; font-size: 14px; line-height: 1.8; font-family: serif;">
+            角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案...
+          </div>
+          <div style="margin-top: 24px; padding: 12px; border: 1px solid #8b3a3a; border-radius: 2px; background: rgba(139,58,58,0.08);">
+            <span style="color: #8b3a3a; font-size: 11px;">▶ 调查铁柜（侦查检定）</span><br>
+            <span style="color: #8b3a3a; font-size: 11px;">▶ 检查桌上的手稿</span><br>
+            <span style="color: #8b3a3a; font-size: 11px;">▶ 离开这个房间</span>
+          </div>
+          <div style="position: absolute; bottom: 24px; left: 32px; color: #8b3a3a; font-size: 10px;">— 4 —</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Dice panel toggle -->
+      <div style="position: absolute; right: -40px; top: 50%; transform: translateY(-50%) rotate(90deg); background: #2a1f14; border: 1px solid #3d2b13; border-bottom: none; border-radius: 4px 4px 0 0; padding: 8px 16px; z-index: 5;">
+        <span style="color: #c4a855; font-size: 12px;">掷骰</span>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM: Input bar -->
+    <div style="margin-top: 24px; display: flex; gap: 8px; justify-content: center;">
+      <div style="width: 600px; background: rgba(42,31,20,0.8); border: 1px solid #3d2b13; border-radius: 4px; padding: 10px 16px; display: flex; gap: 8px;">
+        <span style="color: #8b7858; font-size: 13px; flex: 1;">输入你的行动意图...</span>
+        <span style="background: #c4a855; color: #1a1410; padding: 4px 16px; border-radius: 2px; font-size: 12px;">推进</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>面板呼出示意（侧滑层）</h3>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+  <div class="mockup">
+    <div class="mockup-header">角色卡面板（左侧滑出）</div>
+    <div class="mockup-body" style="background: #1a1410; padding: 16px; border: 1px solid #3d2b13; min-height: 200px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: #d4c4a0; font-size: 11px;">
+        <div>STR 力量 <span style="color:#c4a855;">70</span></div>
+        <div>CON 体质 <span style="color:#c4a855;">55</span></div>
+        <div>POW 意志 <span style="color:#8b3a3a;">80</span></div>
+        <div>DEX 敏捷 <span style="color:#c4a855;">60</span></div>
+        <div>APP 外貌 <span style="color:#c4a855;">45</span></div>
+        <div>SIZ 体型 <span style="color:#c4a855;">50</span></div>
+        <div>INT 智力 <span style="color:#8b3a3a;">75</span></div>
+        <div>EDU 教育 <span style="color:#c4a855;">65</span></div>
+      </div>
+      <div style="border-top: 1px solid #3d2b13; margin-top: 12px; padding-top: 8px; font-size: 11px;">
+        <span style="color:#d4c4a0;">HP 生命</span> <span style="color:#c4a855;">10/10</span> &nbsp;
+        <span style="color:#d4c4a0;">SAN 理智</span> <span style="color:#8b3a3a;">72/80</span> &nbsp;
+        <span style="color:#d4c4a0;">MP 魔法</span> <span style="color:#c4a855;">16/16</span>
+      </div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">掷骰面板（右侧滑出）</div>
+    <div class="mockup-body" style="background: #1a1410; padding: 16px; border: 1px solid #3d2b13; min-height: 200px;">
+      <div style="color: #d4c4a0; font-size: 12px; margin-bottom: 12px;">侦查检定 <span style="color:#8b7858;">技能值 65%</span></div>
+      <div style="text-align: center; padding: 24px;">
+        <span style="font-size: 48px; color: #c4a855;">🎲</span>
+        <div style="font-size: 32px; color: #c4a855; margin-top: 8px;">42</div>
+        <div style="color: #3a6b5a; font-size: 14px; margin-top: 4px;">✓ 普通成功</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <p class="subtitle">布局确认后，将进入详细交互流程和微动效设计。</p>
+</div>

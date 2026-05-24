@@ -1,0 +1,3543 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深渊档案馆 — COC TRPG</title>
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --parchment: #f4e4c1;
+  --parchment-deep: #e8d5a3;
+  --parchment-dark: #d4c4a0;
+  --leather: #2a1f14;
+  --abyss: #1a1410;
+  --void: #0d0a07;
+  --gold: #c4a855;
+  --gold-bright: #e8c865;
+  --brass: #3d2b13;
+  --ink: #2a1f14;
+  --ink-faded: #6b5a3a;
+  --ink-subtle: #8b7858;
+  --blood: #8b3a3a;
+  --blood-bright: #cc3333;
+  --success: #3a6b5a;
+  --success-bright: #5aab7a;
+  --text-light: #d4c4a0;
+  --shadow-deep: rgba(0,0,0,0.6);
+  --font-display: 'Georgia', 'Noto Serif SC', 'SimSun', serif;
+  --font-body: 'Crimson Text', 'Noto Serif SC', 'SimSun', serif;
+  --font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Responsive book scale — simulates natural reading distance */
+  --book-page-w: clamp(260px, 37vw, 440px);
+  --book-page-h: clamp(360px, 54vh, 560px);
+  --book-font-size: clamp(13px, 1.5vw, 17px);
+  --book-header-size: clamp(10px, 1.1vw, 13px);
+  --book-padding-x: clamp(18px, 2.5vw, 36px);
+  --book-padding-y: clamp(20px, 2.8vh, 36px);
+  --input-bar-w: clamp(400px, 55vw, 700px);
+}
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--void);
+  font-family: var(--font-ui);
+  color: var(--text-light);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 999;
+}
+
+/* ============================================================
+   LANDING SCREEN
+   ============================================================ */
+.landing {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #1f1810 0%, var(--void) 70%);
+  transition: opacity 0.8s ease-out, visibility 0.8s;
+}
+.landing.hidden {
+  opacity: 0; visibility: hidden; pointer-events: none;
+}
+
+.landing-inner {
+  text-align: center; max-width: 520px; padding: 40px;
+}
+
+.landing-emblem {
+  width: 100px; height: 100px;
+  margin: 0 auto 32px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  box-shadow: 0 0 40px rgba(196,168,85,0.12), 0 0 80px rgba(196,168,85,0.05);
+}
+.landing-emblem::before {
+  content: '';
+  position: absolute; inset: -8px;
+  border: 1px solid rgba(196,168,85,0.25);
+  border-radius: 50%;
+}
+.landing-emblem-inner {
+  font-size: 36px; color: var(--gold);
+  text-shadow: 0 0 16px rgba(196,168,85,0.3);
+}
+
+.landing-title {
+  font-family: var(--font-display);
+  font-size: 36px; color: var(--gold);
+  letter-spacing: 12px;
+  margin-bottom: 8px;
+}
+.landing-sub {
+  font-size: 12px; color: var(--ink-subtle);
+  letter-spacing: 6px;
+  margin-bottom: 48px;
+}
+
+.landing-buttons {
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.landing-btn {
+  width: 280px; padding: 14px 0;
+  border: 1px solid var(--brass);
+  background: rgba(42,31,20,0.5);
+  color: var(--text-light);
+  font-family: var(--font-ui); font-size: 15px; letter-spacing: 6px;
+  border-radius: 3px; cursor: pointer;
+  transition: all var(--transition-smooth);
+  position: relative; overflow: hidden;
+}
+.landing-btn::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(196,168,85,0.05) 50%, transparent 100%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.landing-btn:hover::after { opacity: 1; }
+.landing-btn:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 24px rgba(196,168,85,0.08);
+}
+.landing-btn.primary {
+  background: rgba(196,168,85,0.1);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.landing-btn.primary:hover {
+  background: rgba(196,168,85,0.18);
+  box-shadow: 0 0 32px rgba(196,168,85,0.12);
+}
+.landing-version {
+  margin-top: 64px;
+  font-size: 10px; color: var(--ink-subtle);
+  letter-spacing: 3px; opacity: 0.5;
+}
+
+/* ============================================================
+   GAME VIEW
+   ============================================================ */
+.app {
+  display: flex; flex-direction: column;
+  height: 100vh; position: relative; z-index: 1;
+}
+
+/* ---- Top Bar ---- */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 24px;
+  background: linear-gradient(180deg, rgba(42,31,20,0.95), rgba(42,31,20,0.7));
+  border-bottom: 1px solid var(--brass);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+}
+.topbar-title {
+  display: flex; align-items: baseline; gap: 14px;
+}
+.topbar-title .icon-star {
+  color: var(--gold); font-size: 20px;
+  text-shadow: 0 0 8px rgba(196,168,85,0.3);
+}
+.topbar-title h1 {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 1.8vw, 22px); font-weight: normal; color: var(--gold);
+  letter-spacing: 6px;
+}
+.topbar-title .subtitle {
+  font-size: clamp(9px, 1vw, 12px); color: var(--ink-subtle); letter-spacing: 3px;
+}
+.topbar-nav {
+  display: flex; gap: 8px;
+}
+.nav-btn {
+  background: transparent; border: 1px solid transparent; color: var(--ink-subtle);
+  padding: 6px 16px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 2px;
+  transition: all var(--transition-smooth);
+  position: relative;
+}
+.nav-btn:hover { color: var(--gold); border-color: var(--brass); background: rgba(196,168,85,0.05); }
+.nav-btn:active { background: rgba(196,168,85,0.1); }
+
+/* ---- Main Area ---- */
+.main-area {
+  flex: 1; display: flex; justify-content: center; align-items: center;
+  position: relative; overflow: hidden;
+}
+
+/* ---- Storybook ---- */
+.book-container {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  perspective: 2000px;
+}
+.book {
+  display: flex;
+  background: linear-gradient(to right, #3d2b13 0%, #2a1f14 50%, #3d2b13 100%);
+  border-radius: 6px;
+  box-shadow:
+    0 24px 80px var(--shadow-deep),
+    0 0 60px rgba(196,168,85,0.06);
+  position: relative; z-index: 1;
+  transition: filter 0.6s, transform 0.4s;
+  /* Book thickness */
+  transform-style: preserve-3d;
+}
+/* Left cover edge — thickness */
+.book::before {
+  content: '';
+  position: absolute;
+  left: -6px; top: 4px; bottom: 4px;
+  width: 6px;
+  background: linear-gradient(to right,
+    #1a1210 0%,
+    #2a1f14 40%,
+    #3d2b13 100%
+  );
+  border-radius: 3px 0 0 3px;
+  z-index: 0;
+}
+/* Right page stack edge */
+.book::after {
+  content: '';
+  position: absolute;
+  right: -4px; top: 4px; bottom: 4px;
+  width: 4px;
+  background: linear-gradient(to right,
+    #d4c4a0 0%,
+    #c4b890 30%,
+    #b8a880 60%,
+    #a89870 100%
+  );
+  border-radius: 0 2px 2px 0;
+  z-index: 0;
+}
+/* Bottom page stack */
+.book-stack {
+  position: absolute;
+  left: -2px; right: -1px; bottom: -5px;
+  height: 5px;
+  background: linear-gradient(to bottom,
+    #c4b890 0%,
+    #b8a880 30%,
+    #a89870 60%,
+    #8b7858 100%
+  );
+  border-radius: 0 0 4px 4px;
+  z-index: -1;
+  /* page lines */
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 1px,
+      rgba(0,0,0,0.08) 1px,
+      rgba(0,0,0,0.08) 1.5px
+    );
+}
+.book.dimmed { filter: brightness(0.3) saturate(0.4); }
+.book.shaking { animation: bookShake 0.4s ease-out; }
+
+.book-spine {
+  position: absolute; left: 50%; top: 4%; bottom: 4%; width: 2px;
+  background: linear-gradient(to bottom, transparent, var(--gold) 20%, var(--gold) 80%, transparent);
+  transform: translateX(-50%); z-index: 2;
+}
+
+.page { width: var(--book-page-w); height: var(--book-page-h); position: relative; z-index: 2; padding: var(--book-padding-y) calc(var(--book-padding-x) * 0.75) var(--book-padding-y) var(--book-padding-x); display: flex; flex-direction: column; }
+.page-left {
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 50%, var(--parchment-dark) 100%);
+  border-radius: 4px 1px 1px 4px;
+  box-shadow: inset -12px 0 20px rgba(0,0,0,0.06);
+}
+.page-right {
+  background: linear-gradient(135deg, var(--parchment-deep) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  border-radius: 1px 4px 4px 1px;
+  box-shadow: inset 12px 0 20px rgba(0,0,0,0.06);
+  padding: var(--book-padding-y) var(--book-padding-x) var(--book-padding-y) calc(var(--book-padding-x) * 0.75);
+  display: flex; flex-direction: column;
+}
+
+.page-header {
+  color: var(--blood); font-size: var(--book-header-size); letter-spacing: 5px;
+  border-bottom: 1.5px solid var(--gold); padding-bottom: 12px; margin-bottom: 22px;
+  font-family: var(--font-display);
+}
+.page-text {
+  color: var(--ink); font-size: var(--book-font-size); line-height: 2.1;
+  font-family: var(--font-body);
+}
+/* Scrollable content for overflow text */
+.page-scroll {
+  flex: 1; overflow-y: auto; padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139,58,58,0.2) transparent;
+}
+.page-scroll::-webkit-scrollbar { width: 4px; }
+.page-scroll::-webkit-scrollbar-track { background: transparent; }
+.page-scroll::-webkit-scrollbar-thumb {
+  background: rgba(139,58,58,0.2); border-radius: 2px;
+}
+
+/* ---- Choice list on right page ---- */
+.choice-list {
+  display: flex; flex-direction: column; gap: 10px; margin-top: 12px;
+}
+.choice-item {
+  padding: 10px 14px;
+  border: 1px solid rgba(139,58,58,0.2);
+  border-left: 3px solid var(--blood);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--book-font-size);
+  color: var(--ink);
+  background: rgba(139,58,58,0.02);
+  transition: all 0.25s ease;
+  letter-spacing: 2px;
+}
+.choice-item:hover {
+  background: rgba(139,58,58,0.07);
+  border-left-color: var(--gold);
+  transform: translateX(3px);
+}
+.choice-item .choice-num {
+  display: inline-block; width: 20px; height: 20px; line-height: 20px;
+  text-align: center;
+  font-family: var(--font-display); font-size: 0.7em;
+  color: var(--blood);
+  border: 1px solid rgba(139,58,58,0.25);
+  border-radius: 50%;
+  margin-right: 10px;
+}
+/* Dice result inline on left page */
+.dice-result-inline {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 12px 14px 14px; margin: 8px 0 14px;
+  position: relative; overflow: hidden;
+  font-family: var(--font-display);
+  border: 1px solid rgba(196,168,85,0.15);
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse at 85% 50%, rgba(196,168,85,0.04) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(196,168,85,0.03) 0%, transparent 40%, transparent 60%, rgba(196,168,85,0.02) 100%);
+}
+/* Top ornamental divider:  ✦ ——— ✦ ——— ✦  */
+.dice-result-inline::before {
+  content: '\2726\2003\2014\2003\2726\2003\2014\2003\2726';
+  display: block; text-align: center;
+  font-size: 0.35em;
+  color: rgba(196,168,85,0.22);
+  margin-bottom: 8px; position: relative; z-index: 1;
+  letter-spacing: normal;
+}
+/* Watermark seal — massively oversized, clipped by overflow:hidden */
+.dice-result-inline::after {
+  position: absolute; z-index: 0; pointer-events: none;
+  font-size: 17em; line-height: 1;
+  opacity: 0.2;
+  top: 55%; left: 50%;
+  transform: translate(-50%, -50%);
+  paint-order: stroke fill;
+}
+.dice-result-inline.success::after {
+  content: '\25CB'; color: var(--success-bright);
+  -webkit-text-stroke: 12px var(--success-bright);
+}
+.dice-result-inline.failure::after {
+  content: '\2718'; color: var(--blood);
+  -webkit-text-stroke: 12px var(--blood);
+}
+
+.dice-result-inline .dri-label {
+  font-size: 0.65em; color: var(--ink-subtle); letter-spacing: 6px;
+  font-family: var(--font-display); font-weight: bold;
+  position: relative; z-index: 1;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.dice-result-inline .dri-row {
+  display: flex; align-items: baseline; gap: 14px;
+  position: relative; z-index: 1;
+}
+.dice-result-inline .dri-roll {
+  font-size: 1.8em; font-weight: bold;
+  font-family: var(--font-display);
+  position: relative; z-index: 1;
+  line-height: 1;
+}
+.dice-result-inline .dri-sep {
+  color: var(--ink-faded); font-size: 0.6em;
+  font-family: var(--font-display);
+}
+.dice-result-inline .dri-target {
+  font-size: 1.05em; color: var(--ink-faded);
+  padding: 3px 12px; border: 1px solid rgba(196,168,85,0.2);
+  border-radius: 2px; font-family: var(--font-mono);
+  position: relative; z-index: 1;
+  background: rgba(196,168,85,0.04);
+  font-weight: bold;
+}
+.dice-result-inline .dri-outcome {
+  font-size: 0.5em; letter-spacing: 5px;
+  font-family: var(--font-ui);
+  padding: 4px 20px; border-radius: 1px;
+  position: relative; z-index: 1;
+  margin-top: 8px;
+}
+.dice-result-inline.success .dri-roll { color: var(--success); }
+.dice-result-inline.success .dri-outcome {
+  color: var(--success); border: 1px solid rgba(58,107,90,0.2);
+  background: rgba(58,107,90,0.04);
+}
+.dice-result-inline.failure .dri-roll { color: var(--blood); }
+.dice-result-inline.failure .dri-outcome {
+  color: var(--blood); border: 1px solid rgba(139,58,58,0.2);
+  background: rgba(139,58,58,0.04);
+}
+.page-number {
+  position: absolute; bottom: 28px; color: var(--blood); font-size: var(--book-header-size);
+  font-family: var(--font-display);
+}
+.page-number.left { right: 36px; }
+.page-number.right { left: 36px; }
+
+/* Skill check block */
+.skill-check {
+  margin-top: 28px; padding: 16px 18px;
+  border: 1px solid var(--blood); border-radius: 2px;
+  background: rgba(139,58,58,0.04);
+}
+.skill-check-header {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
+}
+.skill-check-name {
+  color: var(--ink); font-size: var(--book-font-size); font-weight: bold;
+  font-family: var(--font-display);
+}
+.skill-check-value {
+  background: var(--blood); color: var(--parchment);
+  padding: 3px 12px; border-radius: 2px;
+  font-size: clamp(14px, 1.6vw, 18px); font-weight: bold; font-family: var(--font-mono);
+}
+.skill-check-options {
+  display: flex; gap: 12px; font-size: clamp(10px, 1.1vw, 13px); color: var(--ink-faded);
+}
+
+/* ---- Under-book tab bookmarks (long strips, left side, tucked beneath pages) ---- */
+.book-outer {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+}
+.under-tabs {
+  position: absolute; left: 0; top: 20%;
+  display: flex; flex-direction: column; gap: 14px;
+  z-index: 0; /* Below pages */
+  pointer-events: none;
+  transform: translateX(-90%);
+}
+.under-tabs > * { pointer-events: auto; }
+.under-tab {
+  pointer-events: auto;
+  padding: 6px 18px 6px 14px;
+  cursor: pointer;
+  font-family: var(--font-ui); letter-spacing: 2px;
+  font-size: clamp(9px, 1vw, 11px);
+  color: var(--ink);
+  white-space: nowrap;
+  transition: all 0.6s cubic-bezier(0.22, 0.05, 0.1, 0.97);
+  position: relative;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg,
+    rgba(232,213,163,0.95) 0%,
+    rgba(244,228,193,0.92) 50%,
+    rgba(244,228,193,0.75) 100%
+  );
+  border: 1px solid rgba(139,58,58,0.15);
+  border-left: 2px solid var(--blood);
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+}
+.under-tab:hover {
+  transform: translateX(6px);
+  background: linear-gradient(90deg,
+    rgba(244,228,193,1) 0%,
+    rgba(250,240,215,0.95) 50%,
+    rgba(244,228,193,0.85) 100%
+  );
+  border-color: rgba(139,58,58,0.35);
+  box-shadow: 3px 3px 10px rgba(0,0,0,0.25);
+}
+/* bookmarks are static — no flip animation */
+
+/* ---- Page-flip: paper curl effect ---- */
+/* ---- Bidirectional page-flip system ---- */
+.flip-wrapper {
+  perspective: 800px;
+  position: relative; z-index: 3;
+}
+.flip-wrapper-left {
+  perspective: 800px; perspective-origin: right center;
+  position: relative; z-index: 3;
+}
+
+/* Shadow cast on the OTHER page during flip */
+.flip-shadow-overlay {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: transparent;
+  transition: background 1.2s cubic-bezier(0.22, 0.05, 0.1, 0.97);
+}
+.flip-shadow-overlay.from-right {
+  border-radius: 4px 1px 1px 4px;
+  background: linear-gradient(to right,
+    transparent 55%, rgba(0,0,0,0.06) 78%,
+    rgba(0,0,0,0.18) 95%, rgba(0,0,0,0.28) 100%
+  );
+}
+.flip-shadow-overlay-right {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: transparent; border-radius: 1px 4px 4px 1px;
+  transition: background 1.2s cubic-bezier(0.22, 0.05, 0.1, 0.97);
+}
+.flip-shadow-overlay-right.from-left {
+  background: linear-gradient(to left,
+    transparent 55%, rgba(0,0,0,0.06) 78%,
+    rgba(0,0,0,0.18) 95%, rgba(0,0,0,0.28) 100%
+  );
+}
+
+/* Curl gradient on the flipping page surface */
+.flip-curl {
+  position: absolute; inset: 0; z-index: 11; pointer-events: none;
+  background: transparent; transition: background 1.2s cubic-bezier(0.22, 0.05, 0.1, 0.97);
+}
+.flip-curl.forward {
+  border-radius: 1px 4px 4px 1px;
+  background: linear-gradient(to left, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.07) 30%, transparent 55%);
+}
+.flip-curl.backward {
+  border-radius: 4px 1px 1px 4px;
+  background: linear-gradient(to right, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.07) 30%, transparent 55%);
+}
+
+/* The flipping page element */
+.flip-page {
+  position: absolute; inset: 0; z-index: 10;
+  transform-style: preserve-3d;
+  transition: transform 1.2s cubic-bezier(0.22, 0.05, 0.1, 0.97);
+  backface-visibility: hidden;
+}
+.flip-forward { transform-origin: left center; }
+.flip-forward.flipped { transform: rotateY(-175deg) translateX(-6px); }
+.flip-backward { transform-origin: right center; }
+.flip-backward.flipped { transform: rotateY(175deg) translateX(6px); }
+
+/* Front & back faces */
+.flip-page .flip-front,
+.flip-page .flip-back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.flip-forward .flip-front,
+.flip-forward .flip-back {
+  border-radius: 1px 4px 4px 1px;
+}
+.flip-backward .flip-front,
+.flip-backward .flip-back {
+  border-radius: 4px 1px 1px 4px;
+}
+.flip-forward .flip-front {
+  background: linear-gradient(135deg, var(--parchment-deep) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  box-shadow: inset 12px 0 20px rgba(0,0,0,0.06);
+}
+.flip-backward .flip-front {
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 50%, var(--parchment-dark) 100%);
+  box-shadow: inset -12px 0 20px rgba(0,0,0,0.06);
+}
+.flip-forward .flip-back {
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 50%, var(--parchment-dark) 100%);
+  transform: rotateY(180deg);
+  box-shadow: inset 12px 0 20px rgba(0,0,0,0.06);
+}
+.flip-backward .flip-back {
+  background: linear-gradient(135deg, var(--parchment-deep) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  transform: rotateY(180deg);
+  box-shadow: inset -12px 0 20px rgba(0,0,0,0.06);
+}
+
+/* Under-layer revealed during flip */
+.under-page {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.under-page-right {
+  border-radius: 1px 4px 4px 1px;
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 50%, var(--parchment-dark) 100%);
+  box-shadow: inset 12px 0 20px rgba(0,0,0,0.06);
+}
+.under-page-left {
+  border-radius: 4px 1px 1px 4px;
+  background: linear-gradient(135deg, var(--parchment-deep) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  box-shadow: inset -12px 0 20px rgba(0,0,0,0.06);
+}
+
+/* ---- Page navigation arrows (circular, outside book) ---- */
+.page-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 35; pointer-events: auto;
+  width: 38px; height: 38px;
+  background: rgba(42,31,20,0.75); border: 2px solid var(--brass);
+  color: var(--gold); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-family: var(--font-display);
+  transition: all 0.3s ease;
+  border-radius: 50%;
+  backdrop-filter: blur(4px);
+}
+.page-nav:hover {
+  background: rgba(196,168,85,0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 16px rgba(196,168,85,0.15), 0 0 32px rgba(196,168,85,0.05);
+}
+.page-nav:active { transform: translateY(-50%) scale(0.9); }
+.page-nav.disabled { opacity: 0.2; pointer-events: none; }
+.page-nav-left { left: -50px; }
+.page-nav-right { right: -50px; }
+
+/* ---- Book utility icons (outside book, top-right) ---- */
+.book-utils {
+  position: absolute; top: -2px; right: -32px; z-index: 50;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.book-util-btn {
+  width: 22px; height: 22px; border-radius: 3px;
+  background: rgba(244,228,193,0.12); border: 1px solid rgba(212,196,160,0.2);
+  color: rgba(212,196,160,0.5); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; transition: all 0.2s;
+}
+.book-util-btn:hover { border-color: rgba(212,196,160,0.4); color: rgba(244,228,193,0.8); background: rgba(244,228,193,0.18); }
+
+/* Token display (subtle text, bottom-right of book) */
+.token-display {
+  position: absolute; bottom: 4px; right: 6px; z-index: 50;
+  font-family: var(--font-mono); font-size: 8px;
+  color: rgba(180,160,120,0.55); letter-spacing: 1px;
+  pointer-events: none;
+}
+
+/* ---- Debug log panel (top) ---- */
+.debug-log {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: rgba(13,10,7,0.96); border-bottom: 2px solid var(--gold);
+  max-height: 160px; overflow-y: auto; display: none;
+  font-family: var(--font-mono); font-size: 10px; padding: 6px 14px;
+}
+.debug-log.open { display: block; }
+.debug-log-entry { padding: 2px 0; color: var(--ink-subtle); border-bottom: 1px solid rgba(61,43,19,0.15); }
+.debug-log-entry .dl-time { color: var(--ink-faded); margin-right: 8px; }
+.debug-log-entry .dl-info { color: var(--gold); }
+.debug-log-entry .dl-warn { color: var(--gold-bright); }
+.debug-log-entry .dl-err { color: var(--blood); }
+
+/* ---- Dice history table ---- */
+.dh-table-wrap { max-height: 200px; overflow-y: auto; }
+.dh-table-wrap::-webkit-scrollbar { width: 3px; }
+.dh-table-wrap::-webkit-scrollbar-thumb { background: rgba(196,168,85,0.15); border-radius: 2px; }
+.dh-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.dh-table th {
+  text-align: center; padding: 7px 10px; font-weight: normal;
+  font-size: 9px; color: var(--ink-faded); letter-spacing: 2px;
+  border-bottom: 1px solid var(--brass);
+  position: sticky; top: 0; z-index: 1;
+  background: #1a1410;
+}
+.dh-table td {
+  padding: 6px 10px; color: var(--text-light);
+  border-bottom: 1px solid rgba(61,43,19,0.2);
+  font-family: var(--font-mono); font-size: 10px;
+  text-align: center;
+}
+.dh-table td:first-child { font-family: var(--font-ui); letter-spacing: 1px; }
+.dh-table .dh-empty { text-align: center; color: var(--ink-faded); padding: 16px; font-family: var(--font-ui) !important; }
+.dh-table .dh-crit-success td:nth-child(2) { color: var(--gold-bright); }
+.dh-table .dh-extreme-success td:nth-child(2) { color: #3cb371; }
+.dh-table .dh-hard-success td:nth-child(2) { color: #4aad7a; }
+.dh-table .dh-success td:nth-child(2) { color: var(--success); }
+.dh-table .dh-failure td:nth-child(2) { color: var(--blood); }
+.dh-table .dh-crit-failure td:nth-child(2) { color: var(--blood-bright); }
+
+/* ---- Bottom Input ---- */
+.input-bar {
+  display: flex; justify-content: center; padding: 16px 24px 20px;
+  z-index: 50;
+}
+.input-wrapper {
+  display: flex; align-items: center; gap: 10px;
+  width: var(--input-bar-w);
+  background: rgba(42,31,20,0.85); border: 1px solid var(--brass);
+  border-radius: 4px; padding: 12px 18px;
+  backdrop-filter: blur(6px);
+  transition: border-color var(--transition-smooth);
+}
+
+.input-wrapper:focus-within { border-color: var(--gold); }
+.input-field {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-light); font-family: var(--font-ui); font-size: 14px;
+  letter-spacing: 1px;
+}
+.input-field::placeholder { color: var(--ink-subtle); }
+.input-btn {
+  background: var(--gold); color: var(--void); border: none;
+  padding: 8px 22px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 13px; letter-spacing: 3px;
+  transition: all var(--transition-smooth);
+}
+.input-btn:hover { background: var(--gold-bright); box-shadow: 0 0 16px rgba(196,168,85,0.25); }
+
+/* ============================================================
+   CHARACTER SHEET PANEL
+   ============================================================ */
+.char-sheet-overlay {
+  position: fixed; inset: 0; z-index: 80;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.char-sheet-overlay.open { pointer-events: auto; opacity: 1; }
+.char-sheet-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+}
+.char-sheet {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: 420px;
+  background: linear-gradient(180deg, #1f1810 0%, #15100c 100%);
+  border-right: 1px solid var(--brass);
+  padding: 32px 28px;
+  transform: translateX(-100%);
+  transition: transform var(--transition-spring);
+  overflow-y: auto;
+  box-shadow: 8px 0 40px rgba(0,0,0,0.5);
+}
+.char-sheet-overlay.open .char-sheet { transform: translateX(0); }
+
+.char-sheet-title {
+  font-family: var(--font-display); font-size: 18px; color: var(--gold);
+  letter-spacing: 6px; margin-bottom: 24px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--brass);
+  display: flex; align-items: center; gap: 12px;
+}
+.char-portrait {
+  width: 48px; height: 60px; flex-shrink: 0;
+  border: 1px solid var(--brass); border-radius: 3px;
+  background: rgba(42,31,20,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--ink-subtle);
+  position: relative; overflow: hidden;
+}
+.char-portrait::after {
+  content: '';
+  position: absolute; inset: 2px;
+  border: 1px solid rgba(196,168,85,0.12);
+  border-radius: 2px;
+}
+.char-sheet-close {
+  margin-left: auto; background: transparent; border: 1px solid var(--brass);
+  color: var(--ink-subtle); width: 28px; height: 28px; border-radius: 3px;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition-smooth);
+}
+.char-sheet-close:hover { border-color: var(--blood); color: var(--blood); }
+
+.char-section-label {
+  font-size: 10px; color: var(--ink-subtle); letter-spacing: 4px;
+  margin-bottom: 14px; margin-top: 24px;
+}
+.char-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.char-attr {
+  background: rgba(42,31,20,0.5); border: 1px solid transparent;
+  border-radius: 3px; padding: 10px 14px;
+  transition: all var(--transition-smooth);
+  position: relative;
+}
+.char-attr.modified { border-color: rgba(196,168,85,0.3); background: rgba(196,168,85,0.06); }
+.char-attr .attr-name { font-size: 11px; color: var(--ink-subtle); letter-spacing: 2px; }
+.char-attr .attr-full { font-size: 10px; color: var(--ink-faded); }
+.char-attr .attr-value {
+  font-size: 22px; font-family: var(--font-mono); color: var(--text-light);
+  margin-top: 4px; font-weight: bold;
+}
+.char-attr.modified .attr-value { color: var(--gold); }
+.char-attr .attr-half-fifth {
+  font-size: 10px; color: var(--ink-subtle); margin-top: 2px; font-family: var(--font-mono);
+}
+.char-attr .mod-dot {
+  position: absolute; top: 8px; right: 10px;
+  width: 6px; height: 6px; background: var(--gold);
+  border-radius: 50%; opacity: 0; transition: opacity 0.3s;
+  box-shadow: 0 0 6px rgba(196,168,85,0.5);
+}
+.char-attr.modified .mod-dot { opacity: 1; }
+
+/* ---- Tooltip system ---- */
+.char-tooltip {
+  position: fixed; z-index: 9990; top: 0; left: 0;
+  max-width: 240px; padding: 10px 14px;
+  background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--text-light);
+  letter-spacing: 1px; line-height: 1.7;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(196,168,85,0.08);
+  pointer-events: none;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity 0.25s, transform 0.25s;
+}
+.char-tooltip.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.char-tooltip .tt-title {
+  color: var(--gold); font-size: 12px; letter-spacing: 3px;
+  border-bottom: 1px solid var(--brass); padding-bottom: 6px; margin-bottom: 6px;
+}
+/* Keyword highlight inside tooltips */
+.tt-keyword {
+  color: var(--gold-bright); cursor: help;
+  border-bottom: 1px dotted rgba(232,200,101,0.4);
+  transition: all 0.2s;
+  position: relative;
+}
+.tt-keyword:hover {
+  color: #fff;
+  background: rgba(196,168,85,0.12);
+  border-bottom-color: var(--gold);
+}
+/* Nested tooltip */
+.tt-nested {
+  position: fixed; z-index: 9990; top: 0; left: 0; pointer-events: auto;
+  max-width: 220px; padding: 8px 12px;
+  background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--gold-bright);
+  border-radius: 4px;
+  font-family: var(--font-ui); font-size: 10px; color: var(--text-light);
+  letter-spacing: 1px; line-height: 1.6;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6), 0 0 10px rgba(232,200,101,0.1);
+  opacity: 0; transform: translateY(3px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.tt-nested.visible { opacity: 1; transform: translateY(0); }
+
+/* Circular progress ring for tooltip delay */
+.tt-progress-ring {
+  position: fixed; z-index: 99999; pointer-events: none;
+  width: 22px; height: 22px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.tt-progress-ring.active { opacity: 1; }
+.tt-progress-ring svg {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+.tt-progress-ring .tt-ring-bg {
+  fill: none; stroke: var(--brass); stroke-width: 2;
+}
+.tt-progress-ring .tt-ring-fill {
+  fill: none; stroke: var(--gold); stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 50.27; /* 2*PI*8 */
+  stroke-dashoffset: 50.27;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.sec-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px;
+}
+.sec-stat {
+  background: rgba(42,31,20,0.5); border: 1px solid var(--brass);
+  border-radius: 3px; padding: 10px 8px;
+  text-align: center;
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: 52px;
+}
+.sec-stat .sec-label { font-size: 10px; color: var(--ink-subtle); letter-spacing: 2px; }
+.sec-stat .sec-value {
+  font-size: 16px; font-family: var(--font-mono); color: var(--text-light);
+  margin-top: 3px; font-weight: bold; line-height: 1.2;
+}
+.sec-stat.san .sec-value { color: var(--blood); }
+.sec-stat.hp .sec-value { color: var(--success-bright); }
+
+/* ---- Skills table ---- */
+.skills-section { margin-bottom: 8px; }
+.skills-toggle {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 6px 0; transition: color var(--transition-smooth);
+}
+.skills-toggle:hover { color: var(--gold); }
+.skills-toggle .skills-caret {
+  display: inline-block; font-size: 10px; transition: transform var(--transition-smooth);
+  color: var(--ink-subtle);
+}
+.skills-toggle.open .skills-caret { transform: rotate(90deg); }
+.skills-table-wrap {
+  overflow: hidden;
+  max-height: 0; transition: max-height 0.4s ease;
+}
+.skills-table-wrap.open { max-height: 400px; }
+.skills-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11px; letter-spacing: 1px;
+}
+.skills-table th {
+  text-align: left; color: var(--ink-faded); font-weight: normal;
+  font-size: 10px; letter-spacing: 3px;
+  padding: 6px 10px; border-bottom: 1px solid var(--brass);
+}
+.skills-table td {
+  padding: 9px 10px; color: var(--text-light);
+  border-bottom: 1px solid rgba(61,43,19,0.3);
+  font-family: var(--font-mono); font-size: 12px;
+}
+.skills-table td:first-child {
+  font-family: var(--font-ui); font-size: 11px;
+  letter-spacing: 1px;
+}
+.skills-table tr:hover td {
+  background: rgba(196,168,85,0.04);
+}
+.skills-table .skill-base { color: var(--ink-subtle); font-size: 10px; }
+.skills-table .skill-half { color: var(--ink-faded); font-size: 10px; }
+.skills-table td.skill-val { color: var(--gold); font-weight: bold; }
+
+/* ---- Investigator Card ---- */
+.investigator-card {
+  border: 1px solid var(--brass);
+  border-radius: 4px; padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(42,31,20,0.6) 0%, rgba(26,20,16,0.4) 100%);
+  position: relative; overflow: hidden;
+}
+.investigator-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+  background: var(--gold);
+  opacity: 0.5;
+}
+.investigator-card .ic-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid rgba(61,43,19,0.4);
+}
+.investigator-card .ic-name {
+  font-family: var(--font-display); font-size: 16px; color: var(--gold);
+  letter-spacing: 4px;
+}
+.investigator-card .ic-occupation {
+  font-size: 11px; color: var(--ink-subtle); letter-spacing: 3px;
+}
+.investigator-card .ic-details {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+  font-size: 11px; letter-spacing: 2px;
+}
+.investigator-card .ic-detail-label {
+  color: var(--ink-faded); font-size: 9px; letter-spacing: 2px;
+}
+.investigator-card .ic-detail-value {
+  color: var(--text-light);
+}
+.investigator-card .ic-id {
+  font-family: var(--font-mono); font-size: 9px; color: var(--ink-faded);
+  letter-spacing: 2px;
+}
+
+.panel-close-row {
+  margin-top: 28px; text-align: center;
+}
+.panel-close-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 8px 32px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 3px;
+  transition: all var(--transition-smooth);
+}
+.panel-close-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ============================================================
+   DICE OVERLAY
+   ============================================================ */
+.dice-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.dice-overlay.active { pointer-events: auto; opacity: 1; }
+
+.dice-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: clamp(320px, 36vw, 420px);
+  background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--brass); border-radius: 8px;
+  padding: 20px 22px 18px; text-align: center;
+  box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 48px rgba(0,0,0,0.3);
+}
+
+/* Controls row */
+.dice-controls {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 18px;
+}
+.dice-mode-select {
+  background: rgba(42,31,20,0.6); border: 1px solid var(--brass); color: var(--text-light);
+  padding: 5px 8px; border-radius: 3px; font-family: var(--font-ui); font-size: 10px; outline: none; cursor: pointer;
+}
+.dice-target-input {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(42,31,20,0.6); border: 1px solid var(--brass); border-radius: 3px; padding: 2px 8px;
+}
+.dice-target-label { font-size: 9px; color: var(--ink-subtle); letter-spacing: 1px; }
+.dice-target-input input {
+  width: 40px; background: transparent; border: none; color: var(--gold);
+  font-family: var(--font-mono); font-size: 13px; text-align: center; outline: none;
+}
+.dice-mod-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 3px 8px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 9px; letter-spacing: 1px;
+  transition: all var(--transition-smooth);
+}
+.dice-mod-btn:hover { border-color: var(--gold); color: var(--gold); }
+.dice-mod-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(196,168,85,0.1); }
+
+/* Dice area */
+.dice-area { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
+.dice-pair { display: flex; gap: 12px; align-items: center; }
+.d10-die {
+  width: 64px; height: 64px;
+  background: linear-gradient(150deg, #2a1f14 0%, #1a1210 60%, #0d0a07 100%);
+  border: 2px solid var(--brass); border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s; position: relative;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.d10-die:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.6), 0 0 12px rgba(196,168,85,0.08); }
+.d10-die:active { transform: translateY(0) scale(0.95); }
+.d10-face {
+  font-family: var(--font-display); font-size: 26px; font-weight: bold; color: var(--text-light);
+  line-height: 1;
+}
+.d10-label {
+  font-size: 7px; color: var(--ink-subtle); letter-spacing: 1px; margin-top: 2px;
+}
+.player-die { border-color: var(--gold); }
+.player-die .d10-face { color: var(--gold); }
+.opponent-die { border-color: var(--blood); }
+.opponent-die .d10-face { color: var(--blood); }
+.bonus-die { border-color: var(--gold-bright); }
+.bonus-die .d10-face { color: var(--gold-bright); }
+
+.opponent-divider {
+  font-family: var(--font-display); font-size: 14px; color: var(--ink-subtle);
+  letter-spacing: 3px; padding: 0 8px;
+}
+
+/* Roll button */
+.dice-roll-btn {
+  display: block; margin: 14px auto;
+  background: linear-gradient(180deg, rgba(196,168,85,0.15), rgba(196,168,85,0.05));
+  border: 1px solid var(--gold); color: var(--gold);
+  padding: 10px 0; width: 180px; border-radius: 4px;
+  cursor: pointer; font-family: var(--font-display); font-size: 16px;
+  letter-spacing: 6px; transition: all 0.25s;
+}
+.dice-roll-btn:hover { background: rgba(196,168,85,0.2); box-shadow: 0 0 20px rgba(196,168,85,0.12); }
+.dice-roll-btn:active { transform: scale(0.97); }
+
+/* Result bar */
+.dice-result-bar {
+  padding: 8px 12px; border-radius: 3px;
+  background: rgba(42,31,20,0.5); border: 1px solid var(--brass);
+}
+.dice-result-main {
+  display: block; font-family: var(--font-display); font-size: 14px; color: var(--text-light);
+  letter-spacing: 2px;
+}
+.dice-result-sub {
+  display: block; font-size: 10px; color: var(--ink-subtle); letter-spacing: 1px; margin-top: 2px;
+}
+.dice-result-bar.success .dice-result-main { color: var(--success); }
+.dice-result-bar.failure .dice-result-main { color: var(--blood); }
+.dice-result-bar.crit .dice-result-main { color: var(--gold-bright); }
+.dice-stat-label {
+  color: var(--ink-subtle); font-size: clamp(9px, 1vw, 11px); letter-spacing: 3px; margin-bottom: 6px;
+  transition: color 0.4s;
+}
+.dice-result-row {
+  display: flex; justify-content: center; align-items: baseline; gap: 12px; margin-bottom: 10px;
+}
+.dice-roll-num {
+  font-size: clamp(36px, 5vw, 52px); font-weight: bold; font-family: var(--font-display);
+  line-height: 1; transition: color 0.4s, text-shadow 0.4s, font-size 0.4s;
+}
+.dice-sep { color: var(--ink-subtle); font-size: clamp(11px, 1.2vw, 15px); }
+.dice-target { color: var(--gold); font-size: clamp(18px, 2.2vw, 24px); font-weight: bold; font-family: var(--font-display); }
+
+.dice-badge {
+  display: inline-block; padding: 5px 18px; border-radius: 3px;
+  font-size: clamp(11px, 1.3vw, 14px); letter-spacing: 2px; transition: all 0.4s;
+}
+
+/* Dice states */
+/* Extreme success — between crit and hard */
+.dice-panel.extreme-success .dice-cube { border-color: #2e8b57; box-shadow: inset 0 2px 0 rgba(46,139,87,0.12), 0 6px 24px rgba(0,0,0,0.6), 0 0 24px rgba(46,139,87,0.2); }
+.dice-panel.extreme-success .dice-roll-num { color: #3cb371; text-shadow: 0 0 20px rgba(60,179,113,0.3); }
+.dice-panel.extreme-success .dice-badge { color: #3cb371; border: 1px solid #2e8b57; background: rgba(46,139,87,0.1); }
+.dice-panel.extreme-success { border-color: #2e8b57; box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 40px rgba(46,139,87,0.12); }
+
+/* Hard success — between extreme and regular */
+.dice-panel.hard-success .dice-cube { border-color: #3a7d5a; box-shadow: inset 0 2px 0 rgba(58,125,90,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 18px rgba(58,125,90,0.18); }
+.dice-panel.hard-success .dice-roll-num { color: #4aad7a; text-shadow: 0 0 18px rgba(74,173,122,0.28); }
+.dice-panel.hard-success .dice-badge { color: #4aad7a; border: 1px solid #3a7d5a; background: rgba(58,125,90,0.1); }
+.dice-panel.hard-success { border-color: #3a7d5a; box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 35px rgba(58,125,90,0.1); }
+
+.dice-panel.normal-success .dice-cube { border-color: var(--success); box-shadow: inset 0 2px 0 rgba(58,107,90,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(58,107,90,0.15); }
+.dice-panel.normal-success .dice-roll-num { color: var(--success-bright); text-shadow: 0 0 16px rgba(90,171,122,0.25); }
+.dice-panel.normal-success .dice-badge { color: var(--success-bright); border: 1px solid var(--success); background: rgba(58,107,90,0.1); }
+.dice-panel.normal-success { border-color: var(--success); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 40px rgba(58,107,90,0.1); }
+
+.dice-panel.normal-failure .dice-cube { border-color: var(--blood); box-shadow: inset 0 2px 0 rgba(139,58,58,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(139,58,58,0.15); }
+.dice-panel.normal-failure .dice-roll-num { color: #c44a4a; text-shadow: 0 0 16px rgba(196,74,74,0.25); }
+.dice-panel.normal-failure .dice-badge { color: #c44a4a; border: 1px solid var(--blood); background: rgba(139,58,58,0.1); }
+.dice-panel.normal-failure { border-color: var(--blood); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 40px rgba(139,58,58,0.1); }
+
+.dice-panel.crit-success .dice-cube {
+  border-color: var(--gold-bright);
+  box-shadow: inset 0 2px 0 rgba(196,168,85,0.15), 0 0 24px rgba(196,168,85,0.4), 0 0 60px rgba(196,168,85,0.25);
+  animation: critCubeGlow 1.5s ease-in-out infinite;
+}
+.dice-panel.crit-success .dice-dot { background: var(--gold-bright); box-shadow: 0 0 12px rgba(232,200,101,0.8), 0 0 24px rgba(232,200,101,0.4); }
+.dice-panel.crit-success .dice-roll-num {
+  color: var(--gold-bright); font-size: 56px;
+  text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3);
+  animation: critNumberPulse 0.8s ease-in-out infinite;
+}
+.dice-panel.crit-success .dice-badge {
+  color: var(--gold-bright); border: 1px solid var(--gold); background: rgba(196,168,85,0.15);
+  font-size: 16px; letter-spacing: 6px;
+  text-shadow: 0 0 12px rgba(232,200,101,0.4);
+  animation: critBadgePulse 1.2s ease-in-out infinite;
+}
+.dice-panel.crit-success { border-color: var(--gold); box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 50px rgba(196,168,85,0.25); }
+.dice-panel.crit-success .dice-stat-label { color: var(--gold); }
+
+.dice-panel.crit-failure .dice-cube {
+  border-color: #6b1a1a;
+  box-shadow: inset 0 2px 0 rgba(139,26,26,0.2), 0 0 24px rgba(139,26,26,0.5), 0 0 60px rgba(139,26,26,0.3);
+  animation: critFailCubeShake 0.3s ease-in-out infinite;
+}
+.dice-panel.crit-failure .dice-dot { background: var(--blood-bright); box-shadow: 0 0 12px rgba(204,51,51,0.8), 0 0 24px rgba(204,51,51,0.4); }
+.dice-panel.crit-failure .dice-roll-num {
+  color: var(--blood-bright); font-size: 56px;
+  text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3);
+  animation: critFailNumberPulse 0.6s ease-in-out infinite;
+}
+.dice-panel.crit-failure .dice-badge {
+  color: var(--blood-bright); border: 1px solid #6b1a1a; background: rgba(139,26,26,0.2);
+  font-size: 16px; letter-spacing: 6px;
+  text-shadow: 0 0 12px rgba(204,51,51,0.4);
+  animation: critFailBadgeShake 0.4s ease-in-out infinite;
+}
+.dice-panel.crit-failure { border-color: #6b1a1a; box-shadow: 0 24px 72px rgba(0,0,0,0.85), 0 0 50px rgba(139,26,26,0.3); }
+.dice-panel.crit-failure .dice-stat-label { color: var(--blood-bright); }
+
+.dice-panel.anim-standard { animation: diceLifecycle 5s ease-in-out forwards; }
+.dice-panel.anim-crit-success { animation: critLifecycle 5.5s ease-in-out forwards; }
+.dice-panel.anim-crit-failure { animation: critFailLifecycle 5.5s ease-in-out forwards; }
+
+/* Bonus/Penalty/SAN toggle buttons */
+.dice-mod-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 3px 10px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 9px; letter-spacing: 1px;
+  transition: all var(--transition-smooth);
+}
+.dice-mod-btn:hover { border-color: var(--gold); color: var(--gold); }
+.dice-mod-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(196,168,85,0.08); }
+
+
+.dice-vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 85;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(139,26,26,0.3) 100%);
+  opacity: 0; transition: opacity 0.4s;
+}
+.dice-vignette.active { opacity: 1; }
+.screen-flash {
+  position: fixed; inset: 0; pointer-events: none; z-index: 89;
+}
+.particles { position: fixed; inset: 0; pointer-events: none; z-index: 95; }
+.particle {
+  position: absolute; border-radius: 50%;
+  animation: particleFly var(--dur) ease-out forwards;
+}
+
+/* ============================================================
+   IN-GAME UTILITY BAR (bottom-center, above input)
+   ============================================================ */
+.utility-bar {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  z-index: 60; display: flex; gap: 8px;
+}
+.util-btn {
+  background: rgba(42,31,20,0.75); border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 5px 14px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: 2px;
+  transition: all var(--transition-smooth);
+  backdrop-filter: blur(4px);
+}
+.util-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(196,168,85,0.08); }
+.util-btn .icon { margin-right: 4px; }
+
+/* ============================================================
+   SETTINGS OVERLAY (placeholder — same nav as in-game)
+   ============================================================ */
+.settings-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.settings-overlay.open { pointer-events: auto; opacity: 1; }
+.settings-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+}
+.settings-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+  width: 520px; max-height: 80vh;
+  background: linear-gradient(180deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--brass);
+  border-radius: 6px; padding: 36px 32px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  transition: transform var(--transition-spring);
+  overflow-y: auto;
+}
+.settings-overlay.open .settings-panel { transform: translate(-50%, -50%) scale(1); }
+
+.settings-title {
+  font-family: var(--font-display); font-size: 20px; color: var(--gold);
+  letter-spacing: 6px; margin-bottom: 6px;
+}
+.settings-sub {
+  font-size: 11px; color: var(--ink-subtle); letter-spacing: 2px;
+  margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--brass);
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+.settings-section-label {
+  font-size: 10px; color: var(--ink-subtle); letter-spacing: 4px;
+  margin-bottom: 12px;
+}
+.settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid rgba(61,43,19,0.4);
+}
+.settings-row-label { font-size: 13px; color: var(--text-light); letter-spacing: 2px; }
+.settings-row-hint { font-size: 10px; color: var(--ink-faded); margin-top: 2px; }
+
+.settings-toggle {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: var(--brass); border: 1px solid var(--brass);
+  cursor: pointer; position: relative; transition: all var(--transition-smooth);
+}
+.settings-toggle.on { background: var(--success); border-color: var(--success); }
+.settings-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--text-light); transition: transform var(--transition-smooth);
+}
+.settings-toggle.on::after { transform: translateX(20px); }
+
+.settings-select {
+  background: rgba(42,31,20,0.8); border: 1px solid var(--brass); color: var(--text-light);
+  padding: 6px 12px; border-radius: 3px; font-family: var(--font-ui); font-size: 12px;
+  cursor: pointer; outline: none;
+}
+.settings-select:focus { border-color: var(--gold); }
+
+.settings-close-row {
+  margin-top: 28px; text-align: center;
+}
+.settings-close-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 10px 36px; border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 4px;
+  transition: all var(--transition-smooth);
+}
+.settings-close-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ---- Generic panel shared styles ---- */
+.generic-panel {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.92);
+  width: 560px; max-height: 75vh;
+  background: linear-gradient(180deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--brass);
+  border-radius: 6px; padding: 32px 28px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  transition: transform var(--transition-spring), opacity 0.3s;
+  overflow-y: auto; opacity: 0;
+}
+.generic-overlay.open .generic-panel { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.generic-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+}
+.generic-overlay {
+  position: fixed; inset: 0; z-index: 390;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+.generic-overlay.open { pointer-events: auto; opacity: 1; }
+
+.panel-title {
+  font-family: var(--font-display); font-size: 18px; color: var(--gold);
+  letter-spacing: 5px; margin-bottom: 4px;
+}
+.panel-sub {
+  font-size: 10px; color: var(--ink-subtle); letter-spacing: 2px;
+  margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--brass);
+}
+.panel-list { display: flex; flex-direction: column; gap: 6px; }
+.panel-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px;
+  background: rgba(42,31,20,0.4); border: 1px solid transparent;
+  border-radius: 3px; cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+.panel-item:hover { border-color: var(--brass); background: rgba(42,31,20,0.6); }
+.panel-item.active { border-color: rgba(196,168,85,0.25); background: rgba(196,168,85,0.06); }
+.panel-item .item-icon {
+  width: 36px; height: 36px; border-radius: 3px;
+  background: rgba(196,168,85,0.08); border: 1px solid var(--brass);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--gold); flex-shrink: 0;
+}
+.panel-item .item-info { flex: 1; min-width: 0; }
+.panel-item .item-name { font-size: 13px; color: var(--text-light); letter-spacing: 2px; }
+.panel-item .item-meta { font-size: 10px; color: var(--ink-faded); margin-top: 2px; letter-spacing: 1px; }
+.panel-item .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.panel-item .item-btn {
+  background: transparent; border: 1px solid var(--brass); color: var(--ink-subtle);
+  padding: 4px 10px; border-radius: 2px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 10px; letter-spacing: 1px;
+  transition: all var(--transition-smooth);
+}
+.panel-item .item-btn:hover { border-color: var(--gold); color: var(--gold); }
+.panel-item .item-btn.danger:hover { border-color: var(--blood); color: var(--blood); }
+
+.panel-add-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px;
+  background: transparent; border: 1px dashed var(--brass); color: var(--ink-subtle);
+  border-radius: 3px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 3px;
+  transition: all var(--transition-smooth); margin-top: 8px;
+}
+.panel-add-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(196,168,85,0.04); }
+
+/* ---- Preset editor tabs ---- */
+.preset-tab.active { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
+.preset-tab:hover { color: var(--gold); }
+
+/* ---- Extension detail (expandable) ---- */
+.ext-detail { width: 100%; max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+.ext-detail.open { max-height: 200px; }
+.ext-detail-row { padding: 6px 0; font-size: 10px; color: var(--text-light); letter-spacing: 1px; border-bottom: 1px solid rgba(61,43,19,0.2); }
+.ext-detail-label { color: var(--ink-subtle); margin-right: 8px; font-size: 9px; letter-spacing: 2px; }
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes diceLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); filter: blur(6px); }
+  10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); filter: blur(0); }
+  15%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+  80%  { opacity: 0.5; transform: translate(-50%, -50%) scale(0.5); filter: blur(3px); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(8px); }
+}
+@keyframes critLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.05); filter: blur(8px); }
+  6%   { opacity: 1; transform: translate(-50%, -50%) scale(1.15); filter: blur(0); }
+  10%  { transform: translate(-50%, -50%) scale(0.95); }
+  13%  { transform: translate(-50%, -50%) scale(1.03); }
+  16%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+  75%  { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); filter: blur(4px); }
+}
+@keyframes critFailLifecycle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(4px); }
+  5%   { opacity: 1; transform: translate(-50%, -50%) scale(1.2); filter: blur(0); }
+  8%   { transform: translate(-48%, -52%) scale(1.05); }
+  10%  { transform: translate(-52%, -48%) scale(1.1); }
+  13%  { transform: translate(-50%, -50%) scale(1); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80%  { opacity: 0.3; transform: translate(-49%, -51%) scale(0.7); filter: blur(2px); }
+  100% { opacity: 0; transform: translate(-52%, -48%) scale(0.2); filter: blur(6px); }
+}
+@keyframes critCubeGlow {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.15), 0 0 24px rgba(196,168,85,0.4), 0 0 60px rgba(196,168,85,0.25); }
+  50% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.25), 0 0 40px rgba(232,200,101,0.6), 0 0 80px rgba(196,168,85,0.4); }
+}
+@keyframes critNumberPulse {
+  0%, 100% { text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3); }
+  50% { text-shadow: 0 0 36px rgba(232,200,101,0.9), 0 0 72px rgba(232,200,101,0.5); }
+}
+@keyframes critBadgePulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(196,168,85,0.3); }
+  50% { box-shadow: 0 0 20px rgba(232,200,101,0.6), 0 0 40px rgba(196,168,85,0.2); }
+}
+@keyframes critFailCubeShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1.5px, 1px) rotate(-0.5deg); }
+  50% { transform: translate(1.5px, -1px) rotate(0.5deg); }
+  75% { transform: translate(-0.5px, -0.5px) rotate(-0.3deg); }
+}
+@keyframes critFailNumberPulse {
+  0%, 100% { text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3); }
+  50% { text-shadow: 0 0 36px rgba(255,60,60,0.9), 0 0 72px rgba(204,51,51,0.5); }
+}
+@keyframes critFailBadgeShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); }
+}
+@keyframes bookShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px); }
+  20% { transform: translateX(5px); }
+  30% { transform: translateX(-4px); }
+  40% { transform: translateX(3px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(1px); }
+}
+/* ---- Changelog modal ---- */
+.changelog {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+.changelog.open { opacity: 1; pointer-events: auto; }
+.changelog-card {
+  background: linear-gradient(180deg, #1f1810 0%, #15100c 100%);
+  border: 1px solid var(--gold); border-radius: 6px;
+  padding: 36px 32px 24px; max-width: 480px; width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 30px rgba(196,168,85,0.08);
+  transform: translateY(12px); transition: transform 0.4s var(--transition-spring);
+}
+.changelog.open .changelog-card { transform: translateY(0); }
+.changelog-title { font-family: var(--font-display); font-size: 20px; color: var(--gold); letter-spacing: 6px; margin-bottom: 4px; }
+.changelog-version { font-size: 11px; color: var(--ink-subtle); letter-spacing: 2px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--brass); }
+.changelog-list { list-style: none; margin-bottom: 24px; }
+.changelog-list li { padding: 6px 0; font-size: 12px; color: var(--text-light); letter-spacing: 1px; line-height: 1.6; position: relative; padding-left: 16px; }
+.changelog-list li::before { content: '\2726'; position: absolute; left: 0; color: var(--gold); font-size: 8px; top: 9px; }
+.changelog-close { display: block; margin: 0 auto; background: var(--gold); color: var(--void); border: none; padding: 10px 40px; border-radius: 3px; cursor: pointer; font-family: var(--font-ui); font-size: 13px; letter-spacing: 4px; transition: all var(--transition-smooth); }
+.changelog-close:hover { background: var(--gold-bright); box-shadow: 0 0 16px rgba(196,168,85,0.25); }
+
+@keyframes particleFly {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+@keyframes screenFlashAnim {
+  0% { background: transparent; }
+  50% { background: var(--flash-color); }
+  100% { background: transparent; }
+}
+@keyframes fadeItemIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Music player (draggable, below topbar) ---- */
+.music-player {
+  position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+  z-index: 200; display: flex; align-items: center; gap: 10px;
+  background: rgba(26,20,16,0.85); border: 1px solid var(--brass);
+  border-radius: 22px; padding: 6px 16px 6px 8px;
+  backdrop-filter: blur(6px);
+  cursor: grab; user-select: none;
+}
+.music-player:active { cursor: grabbing; }
+.music-player:hover { border-color: var(--gold); }
+.music-player .mp-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(196,168,85,0.1); border: 1px solid var(--brass);
+  color: var(--gold); cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s;
+}
+.music-player .mp-btn:hover { background: rgba(196,168,85,0.2); border-color: var(--gold); }
+.music-player .mp-btn.playing { background: var(--gold); color: var(--void); border-color: var(--gold); }
+.music-player .mp-info { min-width: 100px; }
+.music-player .mp-track {
+  font-size: 10px; color: var(--text-light); letter-spacing: 2px;
+  font-family: var(--font-ui);
+}
+.music-player .mp-artist {
+  font-size: 8px; color: var(--ink-subtle); letter-spacing: 1px;
+}
+.music-player .mp-vol {
+  width: 60px; accent-color: var(--gold); height: 4px; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LANDING SCREEN
+     ============================================================ -->
+<div class="landing" id="landing">
+  <div class="landing-inner">
+    <div class="landing-emblem">
+      <div class="landing-emblem-inner">&#x2606;</div>
+    </div>
+    <h1 class="landing-title">深渊档案馆</h1>
+    <p class="landing-sub">ABYSSAL ARCHIVE</p>
+
+    <div class="landing-buttons">
+      <button class="landing-btn primary" onclick="startGame()">开 始 游 戏</button>
+      <button class="landing-btn" onclick="loadGame()">读 取 游 戏</button>
+      <button class="landing-btn" onclick="openSettings()">设 置</button>
+    </div>
+
+    <p class="landing-version">v0.1.0 &nbsp;&middot;&nbsp; COC 7th Edition &nbsp;&middot;&nbsp; <span style="cursor:pointer;border-bottom:1px dotted var(--ink-subtle);" onclick="showChangelog()">更新日志</span></p>
+  </div>
+</div>
+
+<!-- ============================================================
+     SETTINGS OVERLAY
+     ============================================================ -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-backdrop" onclick="closeSettings()"></div>
+  <div class="settings-panel">
+    <div class="settings-title">设 置</div>
+    <div class="settings-sub">SETTINGS</div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">游戏模式</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">游戏模式</div>
+          <div class="settings-row-hint">正文 + 选项 UI 展示</div>
+        </div>
+        <div class="settings-toggle on" onclick="this.classList.toggle('on')" id="toggleGameMode"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">API 配置</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">API 地址</div>
+        </div>
+        <span style="color:var(--ink-subtle);font-size:11px;">https://api.deepseek.com</span>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">模型</div>
+        </div>
+        <select class="settings-select">
+          <option>deepseek-v4-pro</option>
+          <option>deepseek-v4-flash</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">流式输出</div>
+        </div>
+        <div class="settings-toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">音效</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">音效开关</div>
+          <div class="settings-row-hint">骰子、翻页、界面反馈音效</div>
+        </div>
+        <div class="settings-toggle on" id="settingsSoundToggle" onclick="toggleSoundFromSettings()"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">界面</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">提示悬停延迟</div>
+          <div class="settings-row-hint">角色卡属性悬停提示的触发时间</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--ink-subtle);" id="ttDelayLabel">600ms</span>
+          <input type="range" min="200" max="1500" value="600" step="100"
+            style="width:100px;accent-color:var(--gold);"
+            oninput="tooltipDelay=parseInt(this.value);document.getElementById('ttDelayLabel').textContent=this.value+'ms';">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">扩展脚本</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">已安装</div>
+          <div class="settings-row-hint">3 个扩展脚本 · 2 个已启用</div>
+        </div>
+        <span style="font-size:11px;color:var(--gold);cursor:pointer;letter-spacing:2px;" onclick="openPanel('extManager')">管理</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="panel-add-btn" style="flex:1;margin-top:0;" onclick="openImportExtModal()">&#x2795; 导入扩展脚本</button>
+        <button class="panel-add-btn" style="flex:1;margin-top:0;" onclick="openPanel('extManager')">&#x2699; 管理扩展脚本</button>
+      </div>
+    </div>
+
+    <!-- Extension Manager overlay -->
+    <div class="generic-overlay" id="extManagerOverlay">
+      <div class="generic-backdrop" onclick="closePanel('extManager')"></div>
+      <div class="generic-panel" style="width:520px;">
+        <div class="panel-title">管理扩展脚本</div>
+        <div class="panel-sub">EXTENSION MANAGER</div>
+        <div class="panel-list">
+          <div class="panel-item" style="flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:14px;width:100%;">
+              <div class="item-icon">&#x2699;</div>
+              <div class="item-info" style="flex:1;">
+                <div class="item-name">MVU 变量引擎 <span style="font-size:9px;color:var(--success);">已启用</span></div>
+                <div class="item-meta">v0.1.0 · Tavern Team</div>
+              </div>
+              <span style="font-size:10px;color:var(--ink-subtle);cursor:pointer;letter-spacing:2px;" onclick="toggleExtDetail(this)">&#x25B2;</span>
+            </div>
+            <div class="ext-detail">
+              <div class="ext-detail-row"><span class="ext-detail-label">描述</span> MVU 模式游戏状态管理，变量追踪、自动提取与合并。</div>
+              <div class="ext-detail-row"><span class="ext-detail-label">入口</span> window.__mvu_engine__</div>
+              <div class="ext-detail-row" style="display:flex;justify-content:space-between;align-items:center;"><span class="ext-detail-label">启用</span><div class="settings-toggle on" onclick="this.classList.toggle('on');flashNotification(this.classList.contains('on')?'MVU 变量引擎已启用':'MVU 变量引擎已禁用');"></div></div>
+            </div>
+          </div>
+          <div class="panel-item" style="flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:14px;width:100%;">
+              <div class="item-icon">&#x1F916;</div>
+              <div class="item-info" style="flex:1;">
+                <div class="item-name">酒馆助手 <span style="font-size:9px;color:var(--ink-subtle);">已禁用</span></div>
+                <div class="item-meta">v0.0.1 · COC Tools</div>
+              </div>
+              <span style="font-size:10px;color:var(--ink-subtle);cursor:pointer;letter-spacing:2px;" onclick="toggleExtDetail(this)">&#x25B2;</span>
+            </div>
+            <div class="ext-detail">
+              <div class="ext-detail-row"><span class="ext-detail-label">描述</span> LLM 上下文优化，智能裁剪历史、注入世界书条目。</div>
+              <div class="ext-detail-row"><span class="ext-detail-label">入口</span> window.__tavern_helper__</div>
+              <div class="ext-detail-row" style="display:flex;justify-content:space-between;align-items:center;"><span class="ext-detail-label">启用</span><div class="settings-toggle" onclick="this.classList.toggle('on');flashNotification(this.classList.contains('on')?'酒馆助手已启用':'酒馆助手已禁用');"></div></div>
+            </div>
+          </div>
+          <div class="panel-item" style="flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:14px;width:100%;">
+              <div class="item-icon">&#x1F3B2;</div>
+              <div class="item-info" style="flex:1;">
+                <div class="item-name">骰子宏脚本 <span style="font-size:9px;color:var(--success);">已启用</span></div>
+                <div class="item-meta">v0.2.0 · DiceMaster</div>
+              </div>
+              <span style="font-size:10px;color:var(--ink-subtle);cursor:pointer;letter-spacing:2px;" onclick="toggleExtDetail(this)">&#x25B2;</span>
+            </div>
+            <div class="ext-detail">
+              <div class="ext-detail-row"><span class="ext-detail-label">描述</span> 复杂骰子表达式、CoC 奖励骰/惩罚骰、/r 快捷指令。</div>
+              <div class="ext-detail-row"><span class="ext-detail-label">入口</span> /r, /roll 命令</div>
+              <div class="ext-detail-row" style="display:flex;justify-content:space-between;align-items:center;"><span class="ext-detail-label">启用</span><div class="settings-toggle on" onclick="this.classList.toggle('on');flashNotification(this.classList.contains('on')?'骰子宏脚本已启用':'骰子宏脚本已禁用');"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-close-row" style="margin-top:16px;text-align:center;">
+          <button class="settings-close-btn" onclick="closePanel('extManager')">关 闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extension import modal -->
+    <div class="generic-overlay" id="extImportOverlay">
+      <div class="generic-backdrop" onclick="closePanel('extImport')"></div>
+      <div class="generic-panel" style="width:460px;">
+        <div class="panel-title">导入扩展脚本</div>
+        <div class="panel-sub">INSTALL EXTENSION</div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">GitHub 仓库地址</label>
+          <input type="text" placeholder="https://github.com/用户名/仓库名" id="extUrlInput"
+            style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:10px 12px;border-radius:3px;font-family:var(--font-mono);font-size:11px;margin-top:6px;outline:none;">
+        </div>
+        <div style="font-size:9px;color:var(--ink-faded);margin-bottom:20px;letter-spacing:1px;line-height:1.6;">
+          支持格式：<code style="color:var(--gold);background:rgba(196,168,85,0.08);padding:1px 4px;border-radius:2px;">https://github.com/用户名/仓库名</code><br>
+          脚本将安装至扩展目录，可在上方列表中管理启用/禁用。
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="settings-close-btn" onclick="closePanel('extImport')">取消</button>
+          <button class="settings-close-btn" style="border-color:var(--gold);color:var(--gold);" onclick="installExtension()">确认安装</button>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="settings-close-row" style="display:flex;gap:12px;justify-content:center;">
+      <button class="settings-close-btn" onclick="closeSettings()">关 闭 设 置</button>
+      <button class="settings-close-btn" onclick="closeSettings();returnToMenu();" style="border-color:var(--blood);color:var(--blood);">返回主菜单</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGELOG MODAL -->
+<div class="changelog" id="changelog">
+  <div class="changelog-card">
+    <div class="changelog-title">更新日志</div>
+    <div class="changelog-version">v0.1.0 — 深渊档案馆</div>
+    <ul class="changelog-list">
+      <li>故事书翻页系统 — 四层章节 + 双向翻页动画</li>
+      <li>COC 7th 调查员角色卡 — 带悬停进度环提示</li>
+      <li>d100 骰子检定 — 大成功 / 成功 / 失败 / 大失败</li>
+      <li>世界书编辑器 — 阿卡姆设定集 + 神话生物图鉴 + 密大档案</li>
+      <li>聊天预设管理 — 温度 / Top-P 实时调节</li>
+      <li>对话会话管理 — 多存档支持</li>
+      <li>关键词数据库 — 嵌套悬浮窗</li>
+      <li>Web Audio 音效合成 — 翻页 / 骰子</li>
+    </ul>
+    <button class="changelog-close" onclick="closeChangelog()">开 始 探 索</button>
+  </div>
+</div>
+
+<!-- WORLD BOOK OVERLAY -->
+<div class="generic-overlay" id="worldbookOverlay">
+  <div class="generic-backdrop" onclick="closePanel('worldbook')"></div>
+  <div class="generic-panel">
+    <div class="panel-title">世 界 书</div>
+    <div class="panel-sub">WORLD INFO / LOREBOOKS</div>
+    <div class="panel-list" id="worldbookList">      <div class="panel-item active" id="wb-arkham">        <div class="item-icon">&#x1F4DC;</div>        <div class="item-info">          <div class="item-name">阿卡姆设定集</div>          <div class="item-meta" id="wb-arkham-count">4 条目 · 1920s 阿卡姆世界观</div>        </div>        <div class="item-actions">          <button class="item-btn" onclick="openLorebookEditor('arkham')">编辑</button>          <button class="item-btn danger">删除</button>        </div>      </div>      <div class="panel-item" id="wb-mythos">        <div class="item-icon">&#x2726;</div>        <div class="item-info">          <div class="item-name">神话生物图鉴</div>          <div class="item-meta" id="wb-mythos-count">3 条目 · 克苏鲁神话实体</div>        </div>        <div class="item-actions">          <button class="item-btn" onclick="openLorebookEditor('mythos')">编辑</button>          <button class="item-btn danger">删除</button>        </div>      </div>      <div class="panel-item" id="wb-miskatonic">        <div class="item-icon">&#x1F4D6;</div>        <div class="item-info">          <div class="item-name">密大图书馆档案</div>          <div class="item-meta" id="wb-miskatonic-count">2 条目 · NPC 与组织</div>        </div>        <div class="item-actions">          <button class="item-btn" onclick="openLorebookEditor('miskatonic')">编辑</button>          <button class="item-btn danger">删除</button>        </div>      </div>    </div>    <button class="panel-add-btn" onclick="alert('导入 SillyTavern 世界书 JSON')">&#x2795; 导入世界书</button>
+    <div class="panel-close-row" style="margin-top:20px;text-align:center;">
+      <button class="settings-close-btn" onclick="closePanel('worldbook')">关 闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRESETS OVERLAY -->
+<div class="generic-overlay" id="presetOverlay">
+  <div class="generic-backdrop" onclick="closePanel('preset')"></div>
+  <div class="generic-panel">
+    <div class="panel-title">预 设</div>
+    <div class="panel-sub">CHAT PRESETS</div>
+    <div class="panel-list" id="presetList">
+      <div class="panel-item active">
+        <div class="item-icon">&#x2606;</div>
+        <div class="item-info">
+          <div class="item-name">克苏鲁跑团主持</div>
+          <div class="item-meta">温度 0.85 · Top-P 0.92 · Max 4096t · deepseek-v4-pro</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-btn" onclick="openPresetEditor()">编辑</button>
+          <button class="item-btn danger">删除</button>
+        </div>
+      </div>
+      <div class="panel-item">
+        <div class="item-icon">&#x2699;</div>
+        <div class="item-info">
+          <div class="item-name">标准叙事</div>
+          <div class="item-meta">温度 0.7 · Top-P 0.9 · Max 2048t · deepseek-v4-flash</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-btn">编辑</button>
+          <button class="item-btn danger">删除</button>
+        </div>
+      </div>
+    </div>
+    <button class="panel-add-btn" onclick="alert('创建新预设')">&#x2795; 新建预设</button>
+    <div class="panel-close-row" style="margin-top:20px;text-align:center;">
+      <button class="settings-close-btn" onclick="closePanel('preset')">关 闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT SESSIONS OVERLAY -->
+<div class="generic-overlay" id="chatlistOverlay">
+  <div class="generic-backdrop" onclick="closePanel('chatlist')"></div>
+  <div class="generic-panel">
+    <div class="panel-title">对 话 记 录</div>
+    <div class="panel-sub">CHAT SESSIONS</div>
+    <div class="panel-list" id="chatlistList">
+      <div class="panel-item active">
+        <div class="item-icon">&#x1F4AC;</div>
+        <div class="item-info">
+          <div class="item-name">私家侦探 - 阿卡姆旧宅调查</div>
+          <div class="item-meta">12 条消息 · 最后更新 3 分钟前</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-btn" onclick="closePanel('chatlist')">载入</button>
+          <button class="item-btn danger">删除</button>
+        </div>
+      </div>
+      <div class="panel-item">
+        <div class="item-icon">&#x1F4AC;</div>
+        <div class="item-info">
+          <div class="item-name">私家侦探 - 旅馆初见</div>
+          <div class="item-meta">8 条消息 · 最后更新 1 小时前</div>
+        </div>
+        <div class="item-actions">
+          <button class="item-btn" onclick="closePanel('chatlist')">载入</button>
+          <button class="item-btn danger">删除</button>
+        </div>
+      </div>
+    </div>
+    <button class="panel-add-btn" onclick="closePanel('chatlist');alert('新对话已创建')">&#x2795; 新建对话</button>
+    <div class="panel-close-row" style="margin-top:20px;text-align:center;">
+      <button class="settings-close-btn" onclick="closePanel('chatlist')">关 闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOREBOOK EDITOR OVERLAY -->
+<div class="generic-overlay" id="lorebookEditorOverlay">
+  <div class="generic-backdrop" onclick="closePanel('lorebookEditor')"></div>
+  <div class="generic-panel" style="width:680px; max-height:80vh;">
+    <div class="panel-title" id="leBookTitle">阿卡姆设定集 · 条目编辑</div>
+    <div class="panel-sub">LOREBOOK ENTRY EDITOR</div>
+    <div style="display:flex;gap:16px;min-height:340px;">
+      <!-- Entry list -->
+      <div style="width:200px;flex-shrink:0;border-right:1px solid var(--brass);padding-right:12px;overflow-y:auto;max-height:50vh;">
+        <div class="panel-list" id="lorebookEntryList"></div>
+        <button class="panel-add-btn" style="font-size:10px;padding:8px;margin-top:8px;" onclick="newLoreEntry()">&#x2795; 新条目</button>
+      </div>
+      <!-- Entry form -->
+      <div style="flex:1;overflow-y:auto;max-height:50vh;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:3px;">条目名称</label>
+          <input id="leName" value="阿卡姆简介" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:8px 10px;border-radius:3px;font-family:var(--font-ui);font-size:12px;margin-top:4px;outline:none;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:3px;">触发关键词（逗号分隔）</label>
+          <input id="leKeys" value="阿卡姆, 城镇, 马萨诸塞" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--gold);padding:8px 10px;border-radius:3px;font-family:var(--font-mono);font-size:11px;margin-top:4px;outline:none;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:3px;">条目内容</label>
+          <textarea id="leContent" rows="5" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:8px 10px;border-radius:3px;font-family:var(--font-ui);font-size:11px;margin-top:4px;resize:vertical;outline:none;line-height:1.7;">阿卡姆是马萨诸塞州的一座古老城镇，始建于17世纪。镇上最著名的建筑是密斯卡塔尼克大学，其图书馆收藏了大量禁忌典籍。阿卡姆的居民普遍对超自然事件保持沉默，但镇上流传着关于女巫审判和神秘失踪的传闻。</textarea>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:3px;">触发逻辑</label>
+            <select id="leLogic" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px 8px;border-radius:3px;font-family:var(--font-ui);font-size:11px;margin-top:4px;outline:none;">
+              <option>AND（全部匹配）</option>
+              <option>OR（任一匹配）</option>
+              <option>NOT（排除匹配）</option>
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:3px;">优先级</label>
+            <input id="lePriority" type="number" value="10" min="1" max="100" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px 8px;border-radius:3px;font-family:var(--font-mono);font-size:11px;margin-top:4px;outline:none;">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="settings-close-btn" style="font-size:10px;padding:6px 16px;" onclick="deleteLoreEntry()">删除条目</button>
+          <button class="settings-close-btn" style="font-size:10px;padding:6px 16px;border-color:var(--gold);color:var(--gold);" onclick="saveLoreEntry()">保存条目</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-close-row" style="margin-top:16px;text-align:center;display:flex;gap:12px;justify-content:center;">
+      <button class="settings-close-btn" onclick="closePanel('lorebookEditor');openPanel('worldbook');">返回世界书列表</button>
+      <button class="settings-close-btn" onclick="closePanel('lorebookEditor')">关 闭 编 辑 器</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRESET EDITOR OVERLAY -->
+<div class="generic-overlay" id="presetEditorOverlay">
+  <div class="generic-backdrop" onclick="closePanel('presetEditor')"></div>
+  <div class="generic-panel" style="width:600px;">
+    <div class="panel-title">克苏鲁跑团主持 · 编辑</div>
+    <div class="panel-sub">PRESET CONFIGURATION</div>
+    <!-- Tab bar -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--brass);">
+      <button class="preset-tab active" onclick="switchPresetTab(this,'sampling')" style="flex:1;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--gold);padding:10px 0;cursor:pointer;font-family:var(--font-ui);font-size:11px;letter-spacing:3px;">采样参数</button>
+      <button class="preset-tab" onclick="switchPresetTab(this,'prompts')" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--ink-subtle);padding:10px 0;cursor:pointer;font-family:var(--font-ui);font-size:11px;letter-spacing:3px;">Prompt 模板</button>
+      <button class="preset-tab" onclick="switchPresetTab(this,'order')" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--ink-subtle);padding:10px 0;cursor:pointer;font-family:var(--font-ui);font-size:11px;letter-spacing:3px;">Prompt 排序</button>
+    </div>
+    <!-- Tab: Sampling -->
+    <div class="preset-tab-panel" id="presetTabSampling">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Temperature</label><input type="range" min="0" max="200" value="85" style="width:100%;accent-color:var(--gold);" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">0.85</span></div>
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Top-P</label><input type="range" min="0" max="100" value="92" style="width:100%;accent-color:var(--gold);" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">0.92</span></div>
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Top-K</label><input type="range" min="0" max="100" value="0" style="width:100%;accent-color:var(--gold);" oninput="this.nextElementSibling.textContent=this.value==0?'0 (禁用)':this.value"><span style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">0 (禁用)</span></div>
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Repetition Penalty</label><input type="range" min="100" max="200" value="110" style="width:100%;accent-color:var(--gold);" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">1.10</span></div>
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Max Tokens</label><input type="number" value="4096" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px;border-radius:3px;font-family:var(--font-mono);font-size:11px;outline:none;"></div>
+        <div><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Min-P</label><input type="range" min="0" max="50" value="5" style="width:100%;accent-color:var(--gold);" oninput="this.nextElementSibling.textContent=(this.value/100).toFixed(2)"><span style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">0.05</span></div>
+      </div>
+    </div>
+    <!-- Tab: Prompts -->
+    <div class="preset-tab-panel" id="presetTabPrompts" style="display:none;">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">System Prompt</label>
+        <textarea rows="4" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:8px;border-radius:3px;font-family:var(--font-mono);font-size:10px;margin-top:4px;resize:vertical;outline:none;line-height:1.6;">你是一位克苏鲁的呼唤 TRPG 守秘人。你负责叙述 1920 年代新英格兰地区的恐怖故事。保持哥特式恐怖氛围，描写细致入微。使用第二人称"你"来称呼调查员。当需要进行技能检定时，明确告知玩家所需检定类型。{{worldInfo}}</textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">User Message Prefix</label>
+        <input value="{{user}}: " style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px 8px;border-radius:3px;font-family:var(--font-mono);font-size:10px;outline:none;margin-top:4px;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">Assistant Message Prefix</label>
+        <input value="{{char}}: " style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px 8px;border-radius:3px;font-family:var(--font-mono);font-size:10px;outline:none;margin-top:4px;">
+      </div>
+    </div>
+    <!-- Tab: Order -->
+    <div class="preset-tab-panel" id="presetTabOrder" style="display:none;">
+      <div class="panel-list">
+        <div class="panel-item" style="justify-content:space-between;"><span style="color:var(--text-light);">&#x2630; System Prompt</span><span style="color:var(--success);font-size:10px;">&#x2713; 启用</span></div>
+        <div class="panel-item" style="justify-content:space-between;"><span style="color:var(--text-light);">&#x2630; World Info / 世界书</span><span style="color:var(--success);font-size:10px;">&#x2713; 启用</span></div>
+        <div class="panel-item" style="justify-content:space-between;"><span style="color:var(--text-light);">&#x2630; Character Card / 角色卡</span><span style="color:var(--success);font-size:10px;">&#x2713; 启用</span></div>
+        <div class="panel-item" style="justify-content:space-between;"><span style="color:var(--text-light);">&#x2630; Chat History / 对话历史</span><span style="color:var(--success);font-size:10px;">&#x2713; 启用</span></div>
+        <div class="panel-item" style="justify-content:space-between;"><span style="color:var(--text-light);">&#x2630; User Message</span><span style="color:var(--success);font-size:10px;">&#x2713; 启用</span></div>
+      </div>
+    </div>
+    <div class="panel-close-row" style="margin-top:20px;text-align:center;display:flex;gap:12px;justify-content:center;">
+      <button class="settings-close-btn" style="border-color:var(--gold);color:var(--gold);" onclick="flashNotification('预设已保存')">保 存 预 设</button>
+      <button class="settings-close-btn" onclick="closePanel('presetEditor')">关 闭 编 辑 器</button>
+    </div>
+  </div>
+</div>
+
+<!-- MUSIC PLAYER -->
+<div class="music-player" id="musicPlayer" style="display:none;">
+  <button class="mp-btn" id="mpPlayBtn" onclick="toggleMusic()">&#x25B6;</button>
+  <div class="mp-info" style="cursor:pointer;" onclick="triggerMusicImport()" title="点击导入音乐">
+    <div class="mp-track" id="mpTrack">深渊的呢喃</div>
+    <div class="mp-artist" id="mpArtist">点击导入音乐文件</div>
+  </div>
+  <button class="mp-btn" style="width:22px;height:22px;font-size:9px;" onclick="triggerMusicImport()" title="导入音频">&#x1F4C1;</button>
+  <input type="range" class="mp-vol" id="mpVol" min="0" max="100" value="40" oninput="setMusicVolume(this.value)">
+</div>
+
+<!-- ============================================================
+     GAME VIEW
+     ============================================================ -->
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <span class="icon-star">&#9733;</span>
+      <h1>深渊档案馆</h1>
+      <span class="subtitle">ABYSSAL ARCHIVE</span>
+    </div>
+    <nav class="topbar-nav">
+      <button class="nav-btn" onclick="openSettings()">设 置</button>
+      <button class="nav-btn" onclick="openPanel('worldbook')">世 界 书</button>
+      <button class="nav-btn" onclick="openPanel('preset')">预 设</button>
+      <button class="nav-btn" onclick="openPanel('chatlist')">对 话</button>
+    </nav>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main-area" id="mainArea">
+
+    <div class="book-container">
+      <div class="book-outer">
+        <!-- Under-book tab bookmarks -->
+        <div class="under-tabs">
+          <div class="under-tab" onclick="toggleCharSheet()" id="bookmarkLeft">调查员记录</div>
+          <div class="under-tab" onclick="showDicePanel()" id="bookmarkDice">&#x2684; 掷骰</div>
+          <div class="under-tab" onclick="toggleDiceHistory()" id="bookmarkHistory">检定记录</div>
+        </div>
+
+        <!-- Page nav arrows -->
+        <div class="page-nav page-nav-left" id="navPrev" onclick="prevPage()">&#x2039;</div>
+        <div class="page-nav page-nav-right" id="navNext" onclick="nextPage()">&#x203A;</div>
+
+        <!-- Book utility icons (outside book, top-right) -->
+        <div class="book-utils" id="bookUtils">
+          <button class="book-util-btn" title="编辑当前页" onclick="editCurrentPage()">&#x270E;</button>
+          <button class="book-util-btn" title="删除当前页" onclick="deleteCurrentPage()">&#x2715;</button>
+          <button class="book-util-btn" title="调试日志" onclick="toggleDebugLog()">&#x2691;</button>
+        </div>
+
+        <div class="book" id="book">
+        <div class="book-stack"></div>
+        <div class="book-spine"></div>
+        <!-- Token display -->
+        <div class="token-display" id="tokenDisplay">0 tokens</div>
+        <!-- LEFT PAGE: backward-flip system (flips rightward when going back) -->
+        <div class="page page-left flip-wrapper-left" id="flipWrapL">
+          <div class="flip-curl" id="curlL"></div>
+          <div class="flip-shadow-overlay-right" id="shadowR"></div>
+          <div class="under-page under-page-left" id="underL" style="display:flex;align-items:center;justify-content:center;opacity:0.15;font-family:var(--font-display);color:var(--ink-subtle);font-size:clamp(14px,2vw,20px);">&#x2606;</div>
+          <div class="flip-page flip-backward" id="fpLeft">
+            <div class="flip-front" style="padding:var(--book-padding-y) calc(var(--book-padding-x) * 0.75) var(--book-padding-y) var(--book-padding-x);">
+              <div class="page-header" id="leftHeader">第三章</div>
+              <div class="page-scroll" style="flex:1;"><div class="page-text" id="leftContent">你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯。窗帘紧闭，空气凝滞——这里已经很久没有人来过了。</div></div>
+              <div class="page-number left" id="leftPageNum">— 3 —</div>
+            </div>
+            <div class="flip-back" id="fbLeft" style="display:flex;align-items:center;justify-content:center;opacity:0.15;font-family:var(--font-display);color:var(--ink-subtle);font-size:clamp(14px,2vw,20px);">&#x2606;</div>
+          </div>
+        </div>
+
+        <!-- RIGHT PAGE: forward-flip system (flips leftward when advancing) -->
+        <div class="page page-right flip-wrapper" id="flipWrapR">
+          <div class="flip-curl" id="curlR"></div>
+          <div class="flip-shadow-overlay" id="shadowL"></div>
+          <div class="under-page under-page-right" id="underR" style="display:flex;align-items:center;justify-content:center;opacity:0.15;font-family:var(--font-display);color:var(--ink-subtle);font-size:clamp(14px,2vw,20px);">&#x2606;</div>
+          <div class="flip-page flip-forward" id="fpRight">
+            <div class="flip-front" style="padding:var(--book-padding-y) var(--book-padding-x) var(--book-padding-y) calc(var(--book-padding-x) * 0.75);">
+              <div class="page-header" id="rightHeader">调查</div>
+              <div class="page-scroll" style="flex:1;"><div id="rightIntro" style="color:var(--ink);font-size:var(--book-font-size);line-height:2.1;font-family:var(--font-body);margin-bottom:14px;">角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案。</div><div class="choice-list" id="choiceList"></div></div>
+              <div class="page-number right" id="rightPageNum" style="display:none;"></div>
+            </div>
+            <div class="flip-back" id="fbRight" style="display:flex;align-items:center;justify-content:center;opacity:0.15;font-family:var(--font-display);color:var(--ink-subtle);font-size:clamp(14px,2vw,20px);">&#x2606;</div>
+          </div>
+        </div>
+      </div>
+      </div><!-- /book-outer -->
+    </div>
+  </main>
+
+  <!-- BOTTOM INPUT -->
+  <div class="input-bar">
+    <div class="input-wrapper">
+      <input class="input-field" type="text" placeholder="输入你的行动意图..." id="mainInput"
+        onkeydown="if(event.key==='Enter'){sendInput();}">
+      <button class="input-btn" onclick="sendInput()">推 进</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTER SHEET OVERLAY -->
+<div class="char-sheet-overlay" id="charSheetOverlay">
+  <div class="char-sheet-backdrop" onclick="toggleCharSheet()"></div>
+  <div class="char-sheet" id="charSheet">
+    <div class="char-sheet-title">
+      调查员记录卡
+      <button class="char-sheet-close" onclick="toggleCharSheet()">&#x2715;</button>
+    </div>
+
+    <div class="char-section-label">基础属性</div>
+    <div class="char-grid">
+      <div class="char-attr modified"><div class="mod-dot"></div><div class="attr-name">STR 力量</div><div class="attr-full">Strength</div><div class="attr-value">70</div><div class="attr-half-fifth">35 / 14</div></div>
+      <div class="char-attr"><div class="mod-dot"></div><div class="attr-name">CON 体质</div><div class="attr-full">Constitution</div><div class="attr-value">50</div><div class="attr-half-fifth">25 / 10</div></div>
+      <div class="char-attr modified"><div class="mod-dot"></div><div class="attr-name">POW 意志</div><div class="attr-full">Power</div><div class="attr-value">80</div><div class="attr-half-fifth">40 / 16</div></div>
+      <div class="char-attr modified"><div class="mod-dot"></div><div class="attr-name">DEX 敏捷</div><div class="attr-full">Dexterity</div><div class="attr-value">65</div><div class="attr-half-fifth">32 / 13</div></div>
+      <div class="char-attr"><div class="mod-dot"></div><div class="attr-name">APP 外貌</div><div class="attr-full">Appearance</div><div class="attr-value">45</div><div class="attr-half-fifth">22 / 9</div></div>
+      <div class="char-attr"><div class="mod-dot"></div><div class="attr-name">SIZ 体型</div><div class="attr-full">Size</div><div class="attr-value">55</div><div class="attr-half-fifth">27 / 11</div></div>
+      <div class="char-attr modified"><div class="mod-dot"></div><div class="attr-name">INT 智力</div><div class="attr-full">Intelligence</div><div class="attr-value">75</div><div class="attr-half-fifth">37 / 15</div></div>
+      <div class="char-attr modified"><div class="mod-dot"></div><div class="attr-name">EDU 教育</div><div class="attr-full">Education</div><div class="attr-value">70</div><div class="attr-half-fifth">35 / 14</div></div>
+    </div>
+
+    <div class="char-section-label">衍生属性</div>
+    <div class="sec-stats">
+      <div class="sec-stat hp"><div class="sec-label">HP 生命</div><div class="sec-value">10 / 10</div></div>
+      <div class="sec-stat san"><div class="sec-label">SAN 理智</div><div class="sec-value">72 / 80</div></div>
+      <div class="sec-stat"><div class="sec-label">MP 魔法</div><div class="sec-value">16 / 16</div></div>
+      <div class="sec-stat"><div class="sec-label">LUCK 幸运</div><div class="sec-value">55</div></div>
+      <div class="sec-stat"><div class="sec-label">MOV 移动</div><div class="sec-value">8</div></div>
+      <div class="sec-stat"><div class="sec-label">DB 伤害加值</div><div class="sec-value">+1D4</div></div>
+    </div>
+
+    <div class="char-section-label">职业技能</div>
+    <div class="skills-section">
+      <div class="skills-toggle open" onclick="toggleSkills(this)">
+        <span class="skills-caret">&#x25B6;</span>
+        <span style="font-size:11px;letter-spacing:2px;">已习得技能</span>
+        <span style="font-size:9px;color:var(--ink-faded);">3 项</span>
+      </div>
+      <div class="skills-table-wrap open">
+        <table class="skills-table">
+          <thead>
+            <tr><th>技能名称</th><th>基础值</th><th>当前值</th><th>半值 / 五值</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>图书馆使用</td>
+              <td class="skill-base">20%</td>
+              <td class="skill-val">60%</td>
+              <td class="skill-half">30 / 12</td>
+            </tr>
+            <tr>
+              <td>驾驶</td>
+              <td class="skill-base">20%</td>
+              <td class="skill-val">50%</td>
+              <td class="skill-half">25 / 10</td>
+            </tr>
+            <tr>
+              <td>心理学</td>
+              <td class="skill-base">10%</td>
+              <td class="skill-val">70%</td>
+              <td class="skill-half">35 / 14</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="char-section-label">调查员身份</div>
+    <div class="investigator-card" style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="char-portrait" style="flex-shrink:0;">&#x2606;</div>
+      <div style="flex:1;min-width:0;">
+        <div class="ic-header">
+          <div>
+            <div class="ic-name">霍华德·菲利普斯</div>
+            <div class="ic-occupation">私家侦探</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--ink-faded);letter-spacing:2px;">NO.</div>
+            <div style="font-family:var(--font-mono);font-size:14px;color:var(--gold);">#042</div>
+          </div>
+        </div>
+        <div class="ic-details">
+          <div><div class="ic-detail-label">年龄</div><div class="ic-detail-value">34</div></div>
+          <div><div class="ic-detail-label">性别</div><div class="ic-detail-value">男</div></div>
+          <div><div class="ic-detail-label">出生地</div><div class="ic-detail-value">马萨诸塞州</div></div>
+          <div><div class="ic-detail-label">现居</div><div class="ic-detail-value">阿卡姆</div></div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--ink-subtle);letter-spacing:1px;display:flex;justify-content:space-between;align-items:flex-end;">大学路 128号 · 阿卡姆 · 马萨诸塞州<span class="ic-id">ID: INV-1925-042</span></div>
+      </div>
+    </div>
+
+    <div class="panel-close-row">
+      <button class="panel-close-btn" onclick="toggleCharSheet()">关 闭 记 录</button>
+    </div>
+  </div>
+</div>
+
+<!-- UTILITY BAR — sound toggle moved here -->
+<div class="utility-bar">
+  <button class="util-btn" onclick="toggleSound()" id="soundToggle">
+    <span class="icon">&#x1F50A;</span> 音效：开
+  </button>
+  <button class="util-btn" onclick="resetUI()">
+    <span class="icon">&#x21BA;</span> 重置
+  </button>
+</div>
+
+<!-- DEBUG LOG -->
+<div class="debug-log" id="debugLog"></div>
+
+<!-- DICE VIGNETTE -->
+<div class="dice-vignette" id="diceVignette"></div>
+<!-- SCREEN FLASH -->
+<div class="screen-flash" id="screenFlash"></div>
+<!-- PARTICLES -->
+<div class="particles" id="particles"></div>
+
+<!-- DICE HISTORY OVERLAY (center) -->
+<div class="dice-overlay" id="diceHistoryOverlay" style="z-index:91;">
+  <div class="dice-panel" style="width:380px;animation:none;text-align:left;">
+    <div style="font-family:var(--font-display);font-size:16px;color:var(--gold);letter-spacing:4px;margin-bottom:2px;font-weight:bold;">检定记录</div>
+    <div style="font-size:9px;color:var(--ink-subtle);letter-spacing:2px;margin-bottom:16px;">ROLL HISTORY</div>
+    <button onclick="toggleDiceHistory()" style="position:absolute;top:18px;right:20px;background:transparent;border:1px solid var(--brass);color:var(--ink-subtle);cursor:pointer;font-size:12px;width:24px;height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+    <div class="dh-table-wrap">
+      <table class="dh-table" id="dhTable">
+        <thead><tr><th>检定项目</th><th>掷出</th><th>目标</th><th>结果</th></tr></thead>
+        <tbody id="dhTableBody">
+          <tr><td colspan="4" class="dh-empty">尚无检定记录</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- DICE OVERLAY -->
+<div class="dice-overlay" id="diceOverlay">
+  <div class="dice-panel" id="dicePanel">
+    <div class="dice-panel-inner">
+      <!-- Title -->
+      <div style="font-family:var(--font-display);font-size:16px;color:var(--gold);letter-spacing:4px;font-weight:bold;margin-bottom:2px;">掷骰检定</div>
+      <div style="font-size:9px;color:var(--ink-subtle);letter-spacing:2px;margin-bottom:14px;">DICE ROLL</div>
+      <button onclick="hideDice()" style="position:absolute;top:14px;right:16px;background:transparent;border:1px solid var(--brass);color:var(--ink-subtle);cursor:pointer;font-size:12px;width:24px;height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
+
+      <!-- Mode + target row -->
+      <div class="dice-controls">
+        <select id="diceMode" class="dice-mode-select" onchange="onDiceModeChange()">
+          <option value="check">技能检定</option>
+          <option value="opposed">对抗检定</option>
+          <option value="free">自由掷骰</option>
+        </select>
+        <div class="dice-target-input">
+          <span class="dice-target-label">目标</span>
+          <input type="number" id="diceTarget" value="65" min="1" max="200" onchange="saveDiceSettings()">
+        </div>
+        <button class="dice-mod-btn" id="diceSanBtn" onclick="toggleSanCheck()">&#x2620; SAN</button>
+        <button class="dice-mod-btn" id="diceBonusBtn" onclick="toggleBonus()">&#x25B2;奖</button>
+        <button class="dice-mod-btn" id="dicePenaltyBtn" onclick="togglePenalty()">&#x25BC;惩</button>
+      </div>
+
+      <!-- Dice area -->
+      <div class="dice-area" id="diceArea">
+        <!-- Player dice -->
+        <div class="dice-pair" id="dicePairPlayer">
+          <div class="d10-die player-die" id="d10Tens">
+            <span class="d10-face" id="d10TensFace">-</span>
+            <span class="d10-label">十位</span>
+          </div>
+          <div class="d10-die player-die" id="d10Ones">
+            <span class="d10-face" id="d10OnesFace">-</span>
+            <span class="d10-label">个位</span>
+          </div>
+          <div class="d10-die bonus-die" id="d10Bonus" style="display:none;">
+            <span class="d10-face" id="d10BonusFace">-</span>
+            <span class="d10-label" id="d10BonusLabel">奖励十位</span>
+          </div>
+        </div>
+        <div class="opponent-divider" id="opponentDivider" style="display:none;"><span>VS</span></div>
+        <div class="dice-pair" id="dicePairOpponent" style="display:none;">
+          <div class="d10-die opponent-die" id="d10OppTens">
+            <span class="d10-face" id="d10OppTensFace">-</span>
+            <span class="d10-label">十位</span>
+          </div>
+          <div class="d10-die opponent-die" id="d10OppOnes">
+            <span class="d10-face" id="d10OppOnesFace">-</span>
+            <span class="d10-label">个位</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roll button -->
+      <button class="dice-roll-btn" onclick="doDiceRoll()">&#x2684; 掷 骰</button>
+
+      <!-- Result display -->
+      <div class="dice-result-bar" id="diceResultBar">
+        <span class="dice-result-main" id="diceResultMain">准备就绪</span>
+        <span class="dice-result-sub" id="diceResultSub"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ===================== AUDIO ENGINE =====================
+let audioCtx = null;
+let soundEnabled = true;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const toggle = document.getElementById('soundToggle');
+  toggle.innerHTML = soundEnabled ? '<span class="icon">&#x1F50A;</span> 音效：开' : '<span class="icon">&#x1F507;</span> 音效：关';
+  // Sync settings panel toggle if open
+  const settingsToggle = document.getElementById('settingsSoundToggle');
+  if (soundEnabled) settingsToggle.classList.add('on');
+  else settingsToggle.classList.remove('on');
+}
+
+function toggleSoundFromSettings() {
+  const settingsToggle = document.getElementById('settingsSoundToggle');
+  settingsToggle.classList.toggle('on');
+  soundEnabled = settingsToggle.classList.contains('on');
+  const toggle = document.getElementById('soundToggle');
+  toggle.innerHTML = soundEnabled ? '<span class="icon">&#x1F50A;</span> 音效：开' : '<span class="icon">&#x1F507;</span> 音效：关';
+}
+
+// ---- Music player (MP3-based) ----
+let musicPlaying = false;
+let musicAudio = null;
+let musicTrackName = '深渊的呢喃';
+let musicTrackArtist = '导入你的音乐文件';
+
+function toggleMusic() {
+  const btn = document.getElementById('mpPlayBtn');
+  if (!musicAudio) { flashNotification('请先导入音乐文件'); return; }
+  if (musicPlaying) {
+    musicAudio.pause();
+    btn.classList.remove('playing'); btn.innerHTML = '&#x25B6;';
+    musicPlaying = false;
+  } else {
+    musicAudio.play().catch(() => flashNotification('播放失败'));
+    btn.classList.add('playing'); btn.innerHTML = '&#x25FC;';
+    musicPlaying = true;
+  }
+}
+
+function loadMusicFile(file) {
+  if (!file || !file.type.startsWith('audio/')) { flashNotification('仅支持音频文件'); return; }
+  const url = URL.createObjectURL(file);
+  if (musicAudio) { musicAudio.pause(); URL.revokeObjectURL(musicAudio.src); }
+  musicAudio = new Audio(url);
+  musicAudio.loop = true;
+  musicAudio.volume = (parseInt(document.getElementById('mpVol').value) || 40) / 100;
+  musicAudio.addEventListener('ended', () => { if (musicAudio.loop) musicAudio.play(); });
+  musicTrackName = file.name.replace(/\.[^.]+$/, '');
+  musicTrackArtist = '已导入';
+  document.getElementById('mpTrack').textContent = musicTrackName;
+  document.getElementById('mpArtist').textContent = musicTrackArtist;
+  flashNotification('音乐已加载');
+  // Auto-play
+  if (!musicPlaying) toggleMusic();
+}
+
+function triggerMusicImport() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'audio/*';
+  input.onchange = () => { if (input.files[0]) loadMusicFile(input.files[0]); };
+  input.click();
+}
+
+function setMusicVolume(v) {
+  if (musicAudio) musicAudio.volume = v / 100;
+}
+
+// ---- Drag music player ----
+function setupMusicPlayerDrag() {
+  const el = document.getElementById('musicPlayer');
+  if (!el || el.dataset.dragReady) return;
+  el.dataset.dragReady = '1';
+  let dragging = false, sx, sy, ox, oy;
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button') || e.target.closest('input')) return;
+    dragging = true; el.style.transition = 'none';
+    const rect = el.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY;
+    ox = rect.left; oy = rect.top;
+    el.style.transform = 'none'; el.style.left = ox + 'px'; el.style.top = oy + 'px';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    el.style.left = (ox + e.clientX - sx) + 'px';
+    el.style.top = (oy + e.clientY - sy) + 'px';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function sfxDiceRattle() {
+  if (!soundEnabled) return;
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  for (let i = 0; i < 8; i++) {
+    const t = now + i * 0.04;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.02, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let j = 0; j < data.length; j++) {
+      data[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / data.length, 3);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.frequency.value = 700 + Math.random() * 1000; filter.Q.value = 2;
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.03);
+  }
+}
+
+function sfxCritSuccess() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime;
+  const osc1 = ctx.createOscillator(); osc1.type = 'triangle';
+  osc1.frequency.setValueAtTime(180, now);
+  osc1.frequency.exponentialRampToValueAtTime(360, now + 0.8);
+  const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.2, now);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+  osc1.connect(g1); g1.connect(ctx.destination);
+  osc1.start(now); osc1.stop(now + 1.5);
+  const osc2 = ctx.createOscillator(); osc2.type = 'triangle';
+  osc2.frequency.setValueAtTime(270, now);
+  osc2.frequency.exponentialRampToValueAtTime(540, now + 0.8);
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.14, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now); osc2.stop(now + 1.2);
+  const osc3 = ctx.createOscillator(); osc3.type = 'sine';
+  osc3.frequency.setValueAtTime(880, now + 0.12);
+  osc3.frequency.exponentialRampToValueAtTime(1320, now + 0.7);
+  const g3 = ctx.createGain(); g3.gain.setValueAtTime(0, now);
+  g3.gain.linearRampToValueAtTime(0.12, now + 0.15);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  osc3.connect(g3); g3.connect(ctx.destination);
+  osc3.start(now + 0.12); osc3.stop(now + 2.0);
+  [0.35, 0.6].forEach((delay, idx) => {
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(idx === 0 ? 1400 : 1760, now + delay);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.08, now + delay + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.7);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now + delay); osc.stop(now + delay + 0.7);
+  });
+}
+
+function sfxSuccess() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); sfxDiceRattle();
+  [523.25, 659.25].forEach((freq, i) => {
+    const t = ctx.currentTime + 0.2 + i * 0.12;
+    const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.4);
+  });
+}
+
+function sfxFailure() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime; sfxDiceRattle();
+  const osc = ctx.createOscillator(); osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, now + 0.2);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.7);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.18, now + 0.2); g.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(now + 0.2); osc.stop(now + 0.9);
+  const osc2 = ctx.createOscillator(); osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(70, now + 0.25);
+  osc2.frequency.exponentialRampToValueAtTime(45, now + 0.7);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.25, now + 0.25); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now + 0.25); osc2.stop(now + 0.9);
+}
+
+function sfxCritFailure() {
+  if (!soundEnabled) return;
+  const ctx = getCtx(); const now = ctx.currentTime; sfxDiceRattle();
+  const osc1 = ctx.createOscillator(); osc1.type = 'sawtooth';
+  osc1.frequency.setValueAtTime(50, now + 0.15);
+  osc1.frequency.linearRampToValueAtTime(30, now + 1.5);
+  const g1 = ctx.createGain();
+  g1.gain.setValueAtTime(0.12, now + 0.15); g1.gain.setValueAtTime(0.12, now + 1.0);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+  const f1 = ctx.createBiquadFilter(); f1.type = 'lowpass'; f1.frequency.value = 180; f1.Q.value = 1;
+  osc1.connect(f1); f1.connect(g1); g1.connect(ctx.destination);
+  osc1.start(now + 0.15); osc1.stop(now + 2.8);
+  const osc2 = ctx.createOscillator(); osc2.type = 'triangle';
+  osc2.frequency.setValueAtTime(160, now + 0.2);
+  osc2.frequency.setValueAtTime(150, now + 0.4);
+  osc2.frequency.setValueAtTime(160, now + 0.6);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.1, now + 0.2); g2.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+  osc2.connect(g2); g2.connect(ctx.destination);
+  osc2.start(now + 0.2); osc2.stop(now + 2.0);
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 4);
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const gn = ctx.createGain();
+  gn.gain.setValueAtTime(0.15, now + 0.2); gn.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.setValueAtTime(500, now + 0.2);
+  src.connect(filt); filt.connect(gn); gn.connect(ctx.destination);
+  src.start(now + 0.2); src.stop(now + 0.5);
+  [0.8, 1.3, 1.8].forEach(t => {
+    const osc3 = ctx.createOscillator(); osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(38, now + t);
+    const g3 = ctx.createGain();
+    g3.gain.setValueAtTime(0.2, now + t); g3.gain.exponentialRampToValueAtTime(0.001, now + t + 0.3);
+    osc3.connect(g3); g3.connect(ctx.destination);
+    osc3.start(now + t); osc3.stop(now + t + 0.3);
+  });
+}
+
+// ===================== PARTICLES =====================
+function spawnParticles(count, color, fromEl) {
+  const container = document.getElementById('particles');
+  const rect = fromEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div'); p.className = 'particle';
+    const size = 2 + Math.random() * 5;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 50 + Math.random() * 150;
+    p.style.cssText = `
+      left: ${cx}px; top: ${cy}px;
+      width: ${size}px; height: ${size}px;
+      background: ${color};
+      box-shadow: 0 0 ${size*2}px ${color};
+      --dx: ${Math.cos(angle) * distance}px; --dy: ${Math.sin(angle) * distance - 40}px;
+      --dur: ${1 + Math.random() * 2}s;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+}
+
+// ===================== NAVIGATION =====================
+// ---- Changelog ----
+const CHANGELOG_VERSION = 'v0.1.0';
+
+function showChangelog() {
+  const el = document.getElementById('changelog');
+  el.style.display = '';
+  el.classList.add('open');
+}
+
+function closeChangelog() {
+  document.getElementById('changelog').classList.remove('open');
+  try { localStorage.setItem('coc_changelog_seen', CHANGELOG_VERSION); } catch(e) {}
+}
+
+function checkChangelog() {
+  try {
+    const seen = localStorage.getItem('coc_changelog_seen');
+    if (seen !== CHANGELOG_VERSION) { setTimeout(showChangelog, 600); return; }
+  } catch(e) {}
+  // Already seen this version
+}
+
+function startGame() {
+  document.getElementById('landing').classList.add('hidden');
+  document.getElementById('musicPlayer').style.display = 'flex';
+}
+
+function loadGame() {
+  openPanel('chatlist');
+}
+
+function openPanel(name) {
+  document.getElementById(name + 'Overlay').classList.add('open');
+}
+function closePanel(name) {
+  document.getElementById(name + 'Overlay').classList.remove('open');
+}
+
+// ---- Multi-book lorebook data ----
+const loreBooks = {
+  arkham: {
+    name: '阿卡姆设定集',
+    entries: {
+      e1: { name:'阿卡姆简介', keys:'阿卡姆, 城镇, 马萨诸塞', content:'阿卡姆是马萨诸塞州的一座古老城镇，始建于17世纪。镇上最著名的建筑是密斯卡塔尼克大学，其图书馆收藏了大量禁忌典籍。阿卡姆的居民普遍对超自然事件保持沉默，但镇上流传着关于女巫审判和神秘失踪的传闻。', logic:0, priority:10 },
+      e2: { name:'密斯卡塔尼克大学', keys:'密斯卡塔尼克, 大学, 图书馆, 校园', content:'密斯卡塔尼克大学位于阿卡姆市中心，始建于1690年。其图书馆以收藏大量神秘学与禁忌典籍闻名，包括《死灵书》拉丁文译本、《无名祭祀书》和《拉莱耶文本》的残篇。大学考古系曾多次参与新英格兰地区的发掘工作，其中数次以灾难告终。', logic:0, priority:20 },
+      e3: { name:'阿卡姆旧宅', keys:'旧宅, 铁柜, 符号, 房间, 大学路', content:'位于阿卡姆大学路128号的废弃住宅，属于失踪的考古学教授亨利·阿米蒂奇。宅内有大量研究手稿和神秘文物。最近有邻居报告称夜间听到屋内传来奇怪的吟诵声。', logic:0, priority:15 },
+      e4: { name:'1920s时代背景', keys:'1920, 禁酒令, 年代, 背景, 时代', content:'故事发生在1920年代的美国禁酒令时期。私自酿酒与地下酒吧盛行，有组织犯罪猖獗。汽车开始普及但仍属奢侈品。电话主要限于城市地区。医学对精神疾病的理解尚处早期阶段，弗洛伊德的精神分析学说正在流行。', logic:0, priority:5 }
+    }
+  },
+  mythos: {
+    name: '神话生物图鉴',
+    entries: {
+      e1: { name:'深潜者', keys:'深潜者, 印斯茅斯, 鱼人, 大衮', content:'深潜者是侍奉父神大衮与母神海德拉的两栖类人种族，主要栖息于马萨诸塞州印斯茅斯附近的海底城市伊哈斯雷。它们可以与人类交配产生混血后代，混血后裔在中年后会逐渐转变为深潜者。目睹深潜者损失 0/1D6 理智值。', logic:0, priority:25 },
+      e2: { name:'食尸鬼', keys:'食尸鬼, 尸体, 地下, 墓地, 隧道', content:'食尸鬼是类人形的食腐生物，栖息于地下隧道与墓地中。它们的皮肤呈现橡胶般的灰色质感，拥有犬类般的面容和蹄状的双足。食尸鬼可以通过地下通道在世界各地的墓地间穿行。目睹食尸鬼损失 0/1D6 理智值。', logic:0, priority:20 },
+      e3: { name:'米·戈', keys:'米戈, 外星, 真菌, 大脑, 犹格斯', content:'米·戈是来自犹格斯星（冥王星）的外星真菌生物。它们拥有远超人类的科技水平，能够将活人的大脑取出并保存在金属圆筒中携往宇宙。米·戈通常栖息于偏远山区的矿区中，对特定矿物有强烈兴趣。目睹米·戈损失 0/1D6 理智值。', logic:0, priority:20 }
+    }
+  },
+  miskatonic: {
+    name: '密大图书馆档案',
+    entries: {
+      e1: { name:'亨利·阿米蒂奇', keys:'亨利, 阿米蒂奇, 教授, 考古, 失踪', content:'亨利·阿米蒂奇博士，密斯卡塔尼克大学考古学教授，1923年在阿卡姆郊外的考古发掘中神秘失踪。他是研究前哥伦布时期美洲原住民文化的权威，但晚年将研究兴趣转向了新英格兰地区的超自然现象。', logic:0, priority:30 },
+      e2: { name:'阿尔伯特·威尔克斯', keys:'威尔克斯, 图书馆, 联络人, 波士顿', content:'阿尔伯特·威尔克斯，密斯卡塔尼克大学图书馆特藏部主任，负责管理大学的神秘学藏书。他是阿米蒂奇教授的密友，也是少数了解教授真正研究方向的人。为人谨慎，不轻易相信外人，但对真正的求知者会提供帮助。', logic:0, priority:25 }
+    }
+  }
+};
+
+let currentBook = 'arkham';
+let currentLoreEntryId = '';
+
+function openLorebookEditor(bookId) {
+  currentBook = bookId;
+  currentLoreEntryId = '';
+  closePanel('worldbook');
+  openPanel('lorebookEditor');
+  document.getElementById('leBookTitle').textContent = loreBooks[bookId].name + ' · 条目编辑';
+  renderLoreEntryList();
+  const first = document.querySelector('#lorebookEntryList .panel-item');
+  if (first) first.click();
+}
+
+function renderLoreEntryList() {
+  const list = document.getElementById('lorebookEntryList');
+  list.innerHTML = '';
+  Object.entries(loreBooks[currentBook].entries).forEach(([id, entry]) => {
+    const div = document.createElement('div');
+    div.className = 'panel-item';
+    div.setAttribute('onclick', "selectLoreEntry(this,'" + id + "')");
+    div.style.cssText = 'padding:8px 10px;font-size:11px;';
+    div.innerHTML = '<span>&#x2726;</span> ' + entry.name;
+    list.appendChild(div);
+  });
+}
+
+function selectLoreEntry(el, entryId) {
+  document.querySelectorAll('#lorebookEntryList .panel-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  currentLoreEntryId = entryId;
+  loreEntryDirty = false;
+  const d = loreBooks[currentBook].entries[entryId];
+  if (!d) return;
+  const t = document.getElementById('leContent');
+  t.textContent = '';
+  t.value = d.content;
+  document.getElementById('leName').value = d.name;
+  document.getElementById('leKeys').value = d.keys;
+  document.getElementById('leLogic').selectedIndex = d.logic;
+  document.getElementById('lePriority').value = d.priority;
+}
+
+function saveLoreEntry() {
+  if (!currentLoreEntryId) return;
+  const d = {
+    name: document.getElementById('leName').value,
+    keys: document.getElementById('leKeys').value,
+    content: document.getElementById('leContent').value,
+    logic: document.getElementById('leLogic').selectedIndex,
+    priority: parseInt(document.getElementById('lePriority').value) || 10
+  };
+  loreBooks[currentBook].entries[currentLoreEntryId] = d;
+  renderLoreEntryList();
+  const count = Object.keys(loreBooks[currentBook].entries).length;
+  const cEl = document.getElementById('wb-' + currentBook + '-count');
+  if (cEl) cEl.textContent = count + ' 条目 · ' + (currentBook === 'arkham' ? '1920s 阿卡姆世界观' : currentBook === 'mythos' ? '克苏鲁神话实体' : 'NPC 与组织');
+  flashNotification('条目已保存');
+}
+
+function deleteLoreEntry() {
+  const name = loreBooks[currentBook].entries[currentLoreEntryId]?.name || '';
+  if (!confirm('确定删除条目「' + name + '」？')) return;
+  delete loreBooks[currentBook].entries[currentLoreEntryId];
+  currentLoreEntryId = '';
+  renderLoreEntryList();
+  const count = Object.keys(loreBooks[currentBook].entries).length;
+  const cEl = document.getElementById('wb-' + currentBook + '-count');
+  if (cEl) cEl.textContent = count + ' 条目';
+  flashNotification('条目已删除');
+}
+
+function newLoreEntry() {
+  const id = 'e' + Date.now();
+  loreBooks[currentBook].entries[id] = { name:'新条目', keys:'', content:'', logic:0, priority:10 };
+  renderLoreEntryList();
+  const items = document.querySelectorAll('#lorebookEntryList .panel-item');
+  const last = items[items.length - 1];
+  if (last) { currentLoreEntryId = id; selectLoreEntry(last, id); }
+}
+
+function toggleExtDetail(el) {
+  const open = el.closest('.panel-item').querySelector('.ext-detail').classList.toggle('open');
+  el.innerHTML = open ? '&#x25BC;' : '&#x25B2;';
+}
+
+function openImportExtModal() {
+  openPanel('extImport');
+  setTimeout(() => document.getElementById('extUrlInput').focus(), 300);
+}
+
+function installExtension() {
+  const url = document.getElementById('extUrlInput').value.trim();
+  if (!url) { flashNotification('请输入有效的 GitHub 地址'); return; }
+  flashNotification('扩展脚本安装请求已发送');
+  closePanel('extImport');
+  document.getElementById('extUrlInput').value = '';
+}
+
+function flashNotification(msg) {
+  const n = document.createElement('div');
+  n.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(42,31,20,0.95);border:1px solid var(--gold);color:var(--gold);padding:8px 28px;border-radius:3px;font-family:var(--font-ui);font-size:12px;letter-spacing:3px;z-index:99999;animation:fadeItemIn 0.3s ease-out;';
+  n.textContent = msg;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity='0'; n.style.transition='opacity 0.4s'; setTimeout(()=>n.remove(),400); }, 1500);
+}
+
+function switchPresetTab(btn, tab) {
+  document.querySelectorAll('.preset-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.preset-tab-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('presetTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (panel) panel.style.display = 'block';
+}
+
+// Note: openLorebookEditor(bookId) now defined above with multi-book support
+function openPresetEditor() { closePanel('preset'); openPanel('presetEditor'); }
+
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+// ===================== CHARACTER SHEET =====================
+function toggleSkills(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+
+function sfxPageFlip() {
+  if (!soundEnabled) return;
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+
+  // Layer 1: Paper slide — broad noise sweep simulating a page sliding over another
+  const buf1 = ctx.createBuffer(1, ctx.sampleRate * 0.6, ctx.sampleRate);
+  const d1 = buf1.getChannelData(0);
+  for (let i = 0; i < d1.length; i++) {
+    const t = i / d1.length;
+    d1[i] = (Math.random() * 2 - 1) * Math.sin(t * Math.PI) * 0.5;
+  }
+  const src1 = ctx.createBufferSource(); src1.buffer = buf1;
+  const gain1 = ctx.createGain();
+  gain1.gain.setValueAtTime(0.18, now);
+  gain1.gain.linearRampToValueAtTime(0.12, now + 0.2);
+  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+  const f1 = ctx.createBiquadFilter();
+  f1.type = 'bandpass';
+  f1.frequency.setValueAtTime(1200, now);
+  f1.frequency.exponentialRampToValueAtTime(600, now + 0.35);
+  f1.Q.value = 1.2;
+  src1.connect(f1); f1.connect(gain1); gain1.connect(ctx.destination);
+  src1.start(now); src1.stop(now + 0.6);
+
+  // Layer 2: Crisp paper flick — higher frequency sharp transient
+  const buf2 = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+  const d2 = buf2.getChannelData(0);
+  for (let i = 0; i < d2.length; i++) {
+    const t = i / d2.length;
+    d2[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2) * 0.4;
+  }
+  const src2 = ctx.createBufferSource(); src2.buffer = buf2;
+  const gain2 = ctx.createGain();
+  gain2.gain.setValueAtTime(0.15, now + 0.05);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  const f2 = ctx.createBiquadFilter();
+  f2.type = 'highpass';
+  f2.frequency.value = 2000;
+  src2.connect(f2); f2.connect(gain2); gain2.connect(ctx.destination);
+  src2.start(now + 0.05); src2.stop(now + 0.25);
+
+  // Layer 3: Page settle thump — low-mid body
+  const osc3 = ctx.createOscillator(); osc3.type = 'triangle';
+  osc3.frequency.setValueAtTime(180, now + 0.25);
+  osc3.frequency.exponentialRampToValueAtTime(90, now + 0.5);
+  const gain3 = ctx.createGain();
+  gain3.gain.setValueAtTime(0.15, now + 0.25);
+  gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+  osc3.connect(gain3); gain3.connect(ctx.destination);
+  osc3.start(now + 0.25); osc3.stop(now + 0.55);
+
+  // Layer 4: Sub thud — body resonance of a heavy book page
+  const osc4 = ctx.createOscillator(); osc4.type = 'sine';
+  osc4.frequency.setValueAtTime(70, now + 0.3);
+  const gain4 = ctx.createGain();
+  gain4.gain.setValueAtTime(0.2, now + 0.3);
+  gain4.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  osc4.connect(gain4); gain4.connect(ctx.destination);
+  osc4.start(now + 0.3); osc4.stop(now + 0.5);
+}
+
+let isFlipping = false;
+let pageIndex = 0;
+
+const pages = [
+  { /* page 0 */
+    leftHeader: '第三章', leftContent: '你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯。窗帘紧闭，空气凝滞——这里已经很久没有人来过了。', leftPage: '— 3 —',
+    rightHeader: '调查', rightContent: '角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案。你的直觉告诉你，这柜子里藏着重要的线索。',
+    rightChoices: [
+      { num: 'I', text: '调查铁柜', action: '调查铁柜' },
+      { num: 'II', text: '检查手稿', action: '检查桌上的手稿' },
+      { num: 'III', text: '观察符号', action: '仔细观察墙上的符号' },
+      { num: 'IV', text: '离开房间', action: '离开这个房间' }
+    ], rightPage: '— 4 —'
+  },
+  { /* page 1 */
+    leftHeader: '侦查结果',
+    leftContent: '<div class="dice-result-inline success"><span class="dri-label">侦查检定</span><div class="dri-row"><span class="dri-roll">42</span><span class="dri-sep">/</span><span class="dri-target">65</span></div><span class="dri-outcome">普通成功</span></div><p>你用力撬开了锈蚀的铁柜。柜内躺着一叠泛黄的信件和一本皮质封面的日记。信件的纸张已经脆弱发黄，日期停留在 1923 年——那是距今十年前的夏天。日记的封面上用烫金印着一个名字：<em>亨利·阿米蒂奇</em>。你翻开第一页，第一篇日记提到了阿卡姆郊外的一次秘密考古发掘。日记中反复出现一个你从未见过的词汇——<em>「克苏鲁」</em>。信件的内容更令人不安，一封来自波士顿教授的警告信写道：<em>「亲爱的亨利，请停止你的调查。那些东西不该被唤醒。我已经看到了太多，每晚都无法入睡。它们在梦里等着我。」</em>这间房间里隐藏的秘密，远比你想像的更加深邃和危险。</p>',
+    leftPage: '— 5 —',
+    rightHeader: '行动', rightContent: '你翻看着这些令人不安的文书，心中涌起一股不祥的预感。接下来该怎么办？',
+    rightChoices: [
+      { num: 'I', text: '仔细阅读信件', action: '仔细阅读每一封信件' },
+      { num: 'II', text: '翻阅日记', action: '翻阅亨利·阿米蒂奇的日记' },
+      { num: 'III', text: '搜索房间', action: '彻底搜索房间的每个角落' },
+      { num: 'IV', text: '带着证据离开', action: '带着信件和日记离开这里' }
+    ], rightPage: '— 6 —'
+  },
+  { /* page 2 */
+    leftHeader: '信件的秘密',
+    leftContent: '<div class="dice-result-inline success"><span class="dri-label">智力检定</span><div class="dri-row"><span class="dri-roll">31</span><span class="dri-sep">/</span><span class="dri-target">75</span></div><span class="dri-outcome">困难成功</span></div><p>你仔细阅读每一封信件，凭借你的语言功底破译了其中隐含的信息。教授在信中使用了大量古典拉丁文与密码学符号——他显然在试图隐藏什么。关键段落提到：<em>「我们在遗址深处发现了一扇无法用任何已知手段打开的石门。门上的浮雕描绘着一种介于乌贼与龙之间的巨大生物。门后传来低沉的脉动声...像心跳。」</em>信末的另一段话让你脊背发凉：<em>「如果我失踪了，把这封信带给密斯卡塔尼克大学图书馆的阿尔伯特·威尔克斯。他知道该怎么做。」</em></p>',
+    leftPage: '— 7 —',
+    rightHeader: '线索', rightContent: '信件指向密斯卡塔尼克大学图书馆。这似乎是一个危险的转折点。',
+    rightChoices: [
+      { num: 'I', text: '前往大学图书馆', action: '前往密斯卡塔尼克大学图书馆' },
+      { num: 'II', text: '翻阅亨利的日记', action: '翻阅亨利·阿米蒂奇的日记' },
+      { num: 'III', text: '再次搜索房间', action: '彻底搜索房间寻找更多线索' },
+      { num: 'IV', text: '离开并报警', action: '带着证据离开并联系警方' }
+    ], rightPage: '— 8 —'
+  },
+  { /* page 3 */
+    leftHeader: '日记的记载',
+    leftContent: '<div class="dice-result-inline failure"><span class="dri-label">意志检定</span><div class="dri-row"><span class="dri-roll">91</span><span class="dri-sep">/</span><span class="dri-target">80</span></div><span class="dri-outcome">失败</span></div><p>你翻开亨利的日记，前几页只是日常记录——考古发掘的进度、学生的论文指导、与同事的晚餐。但从 4 月 20 日起，日记的笔迹开始变得潦草：<em>「今天我们又听到了那种声音。不是风，不是地下水——是某种有节奏的振动。工人们拒绝继续挖掘。」</em>4 月 25 日的记录几乎无法辨认，但你勉强看出几个词：<em>「梦...它在呼唤我...我看到了...巨大...绿色的...眼睛...」</em>你的手开始微微颤抖。一种无法解释的恐惧爬上你的脊背，仿佛有什么东西正在房间的角落注视着你。<strong>理智损失 1/1D3。</strong></p>',
+    leftPage: '— 9 —',
+    rightHeader: '抉择', rightContent: '日记的内容让人不寒而栗。你必须决定下一步的行动。',
+    rightChoices: [
+      { num: 'I', text: '继续阅读日记', action: '硬着头皮继续翻阅日记' },
+      { num: 'II', text: '前往大学图书馆', action: '立即前往密斯卡塔尼克大学图书馆' },
+      { num: 'III', text: '寻找威尔克斯教授', action: '尝试联系阿尔伯特·威尔克斯' },
+      { num: 'IV', text: '销毁所有证据', action: '烧掉信件和日记，当什么都没发生过' }
+    ], rightPage: '— 10 —'
+  }
+];
+
+// ---- Page transition (fade-in after flip) ----
+function fadeInContent(el, html, duration) {
+  el.style.transition = 'none';
+  el.style.opacity = '0';
+  el.innerHTML = html;
+  void el.offsetWidth;
+  el.style.transition = 'opacity ' + (duration/1000) + 's ease-out';
+  el.style.opacity = '1';
+}
+
+function renderPageContent(idx, animate) {
+  const p = pages[idx];
+  const lh = document.getElementById('leftHeader');
+  const lp = document.getElementById('leftPageNum');
+  const rh = document.getElementById('rightHeader');
+  const le = document.getElementById('leftContent');
+  const ri = document.getElementById('rightIntro');
+  const cl = document.getElementById('choiceList');
+
+  lh.textContent = p.leftHeader;
+  lp.textContent = p.leftPage;
+  rh.textContent = p.rightHeader;
+
+  if (animate) {
+    // Restore header/page-number opacity
+    [lh,lp,rh].forEach(el => { el.style.transition = 'opacity 0.5s ease-out'; el.style.opacity = '1'; });
+    fadeInContent(le, p.leftContent, 800);
+    ri.style.opacity = '1';
+    ri.style.transition = 'opacity 0.6s ease-out';
+    setTimeout(() => {
+      let ch = '';
+      p.rightChoices.forEach(c => {
+        ch += '<div class="choice-item" style="opacity:0;animation:fadeItemIn 0.5s ease-out forwards;animation-delay:' + (p.rightChoices.indexOf(c) * 0.1) + 's;" onclick="document.getElementById(\'mainInput\').value=\'' + c.action + '\';document.getElementById(\'mainInput\').focus();"><span class="choice-num">' + c.num + '</span> ' + c.text + '</div>';
+      });
+      cl.style.opacity = '1';
+      cl.innerHTML = ch;
+    }, 200);
+  } else {
+    [lh,lp,rh,rp,le,ri,cl].forEach(el => { el.style.opacity = '1'; });
+    le.innerHTML = p.leftContent;
+    let ch = '';
+    p.rightChoices.forEach(c => {
+      ch += '<div class="choice-item" onclick="document.getElementById(\'mainInput\').value=\'' + c.action + '\';document.getElementById(\'mainInput\').focus();"><span class="choice-num">' + c.num + '</span> ' + c.text + '</div>';
+    });
+    cl.innerHTML = ch;
+  }
+
+}
+
+// ---- Bidirectional flip ----
+function doFlip(dir) {
+  if (isFlipping) return;
+  if (dir === 'next' && pageIndex >= pages.length - 1) return;
+  if (dir === 'prev' && pageIndex <= 0) return;
+  isFlipping = true;
+
+  // Fade out all visible page elements on both sides
+  ['leftHeader','leftContent','leftPageNum','rightHeader','rightIntro','choiceList'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.transition = 'opacity 0.35s ease-in'; el.style.opacity = '0'; }
+  });
+
+  if (dir === 'next') {
+    document.getElementById('fpRight').classList.add('flipped');
+    document.getElementById('curlR').classList.add('forward');
+    document.getElementById('shadowL').classList.add('from-right');
+  } else {
+    document.getElementById('fpLeft').classList.add('flipped');
+    document.getElementById('curlL').classList.add('backward');
+    document.getElementById('shadowR').classList.add('from-left');
+  }
+  sfxPageFlip();
+
+  setTimeout(() => {
+    if (dir === 'next') pageIndex++; else pageIndex--;
+    updateNavState();
+
+    // Reset both flip elements first
+    [['fpRight','curlR','forward','shadowL','from-right'],
+     ['fpLeft','curlL','backward','shadowR','from-left']].forEach(([fid,cid,ccls,sid,scls]) => {
+      const fe = document.getElementById(fid);
+      const ce = document.getElementById(cid);
+      const se = document.getElementById(sid);
+      fe.style.transition = 'none';
+      fe.classList.remove('flipped');
+      if (ce) ce.classList.remove(ccls);
+      if (se) se.classList.remove(scls);
+      void fe.offsetWidth;
+      fe.style.transition = 'transform 1.2s cubic-bezier(0.22, 0.05, 0.1, 0.97)';
+    });
+
+    // Now render new content with fade-in (no scramble, clean transition)
+    renderPageContent(pageIndex, true);
+    isFlipping = false;
+  }, 1200);
+}
+
+function nextPage() { doFlip('next'); }
+function prevPage() { doFlip('prev'); }
+
+function updateNavState() {
+  const p = document.getElementById('navPrev');
+  const n = document.getElementById('navNext');
+  if (pageIndex <= 0) p.classList.add('disabled'); else p.classList.remove('disabled');
+  if (pageIndex >= pages.length - 1) n.classList.add('disabled'); else n.classList.remove('disabled');
+}
+
+// Init
+function initBook() {
+  renderPageContent(0, false);
+  updateNavState();
+  setupCharTooltips();
+  setupMusicPlayerDrag();
+  loadDiceSettings();
+  checkChangelog();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initBook);
+} else {
+  initBook();
+}
+
+// ---- Character sheet tooltips ----
+const attrTooltips = {
+  'STR 力量': '力量（Strength）：衡量角色的肌肉力量与物理出力。影响近战伤害加值、举起重物、强行破门等。高力量有助于战斗和体力劳动。',
+  'CON 体质': '体质（Constitution）：代表角色的健康水平、耐力与抗病能力。决定生命值（HP）上限，影响抵抗毒素与疾病的检定。',
+  'POW 意志': '意志（Power）：衡量角色的精神力、魔法天赋与人格强度。决定理智值（SAN）和魔法值（MP）的初始上限，影响对超自然力量的抵抗。',
+  'DEX 敏捷': '敏捷（Dexterity）：衡量角色的身体灵活性、反应速度和协调能力。影响闪避检定和部分战斗技能的基础值。',
+  'APP 外貌': '外貌（Appearance）：衡量角色的外表吸引力与个人魅力。可通过加点提升。影响部分社交技能和第一印象。',
+  'SIZ 体型': '体型（Size）：综合身高与体重。与体质共同决定生命值，与力量共同决定伤害加值（DB）和体格（Build）。',
+  'INT 智力': '智力（Intelligence）：代表角色的学习能力、逻辑推理和观察力。决定个人兴趣技能点数的总量（INT×2），影响灵感检定。',
+  'EDU 教育': '教育（Education）：代表角色接受过的正规或非正规教育。决定职业技能点数的总量（EDU x 4），影响知识类技能的基础值。',
+  '图书馆使用': '图书馆使用（Library Use）：基础值 20%。在图书馆、档案馆或资料室中查找特定信息的技能。可用于检索旧报纸、公共记录、学术文献等。成功找到所需信息，失败则可能浪费数小时。',
+  '驾驶': '驾驶（Drive Auto）：基础值 20%。操作汽车或轻型卡车的技能。日常驾驶无需检定，仅在高速追逐、恶劣天气、危险路况或试图完成特技动作时进行检定。失败可能导致车辆失控。',
+};
+
+// ---- Keyword database for nested tooltips ----
+const keywordDB = {
+  '理智值': 'SAN（Sanity）：代表心智稳定性，初始值=POW。接触神话存在或目睹恐怖事件时损失理智。单次损失≥5点触发临时疑惑，一日内损失≥1/5触发不定疑惑。归零则永久疑惑。',
+  '生命值': 'HP（Hit Points）：由 (SIZ+CON)÷10 决定。归零时角色濒死，每轮需进行 CON 检定以维持生命。',
+  '魔法值': 'MP（Magic Points）：由 POW÷5 决定。施放法术消耗魔法值，自然恢复速度为每小时 1 点。',
+  '伤害加值': 'DB（Damage Bonus）：由 (STR+SIZ) 总和查表决定。范围从 -2 到 +6D6。体格（Build）也由同一表格查得。',
+  '克苏鲁': '克苏鲁（Cthulhu）：旧日支配者之一，沉睡于南太平洋海底城市拉莱耶。目睹克苏鲁将自动损失 1D10/1D100 理智值。',
+  '神话': '克苏鲁神话（Cthulhu Mythos）：代表角色对宇宙真相的理解。初始为 0%，越高代表越接近疑惑。',
+  '临时疑惑': '临时疑惑（Temporary Insanity）：单次理智损失≥5点时触发。持续 1D10 小时。',
+  '不定疑惑': '不定疑惑（Indefinite Insanity）：一日内理智损失≥最大值 1/5 时触发。',
+  '幸运': '幸运（Luck）：初始值 3D6×5。可花费幸运点数调整检定结果。',
+  '灵感': '灵感检定（Idea Roll）：基于 INT 的检定。成功意味着角色灵光一现。',
+  '密斯卡塔尼克': '密斯卡塔尼克大学（Miskatonic University）：位于阿卡姆的著名学府。',
+  '阿卡姆': '阿卡姆（Arkham）：马萨诸塞州虚构城市，克苏鲁神话核心舞台。',
+  'D100': 'D100 检定：COC 7th 核心规则。投掷两个十面骰，结果 ≤ 技能值则为成功。01-05 为大成功，96-100 为大失败。',
+  'COC': '克苏鲁的呼唤（Call of Cthulhu）：Chaosium 公司出品的恐怖角色扮演游戏。',
+};
+
+const keywordRegex = new RegExp('(' + Object.keys(keywordDB).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g');
+
+function wrapKeywords(text) {
+  return text.replace(keywordRegex, (match) => {
+    return '<span class="tt-keyword" data-key="' + match + '">' + match + '</span>';
+  });
+}
+
+Object.assign(attrTooltips, {
+  '心理学': '心理学（Psychology）：基础值 10%。观察并分析他人行为与情绪的技能。可用于判断某人是否在说谎、评估其精神状态，或预测对方的下一步行动。在 COC 中，此技能不能用于阅读其他玩家的调查员。',
+  'HP 生命': '生命值（Hit Points）：代表角色的身体承受伤害的能力。由 (SIZ+CON)÷10 决定。归零时角色将面临死亡。',
+  'SAN 理智': '理智值（Sanity）：代表角色的心智稳定性。初始值等于 POW。接触神话存在或目睹恐怖事件时会损失理智。归零则永久疯狂。',
+  'MP 魔法': '魔法值（Magic Points）：用于施放法术的能量。由 POW÷5 决定。使用法术或激活某些能力会消耗魔法值。',
+  'LUCK 幸运': '幸运（Luck）：决定命运眷顾的程度。可用于调整检定结果，每次使用后降低。遭遇重大危机时可进行幸运检定。',
+  'MOV 移动': '移动速度（Move Rate）：角色在一轮战斗中可以移动的距离。人类默认为 8，部分生物或特定情况下可能不同。',
+  'DB 伤害加值': '伤害加值（Damage Bonus）：由 (STR+SIZ) 总和查表决定。成功命中后将此加值添加到武器伤害中。体格（Build）也由同一表格决定。'
+});
+
+let tooltipEl = null;
+let tooltipDelay = 600;
+let progressRing = null;
+let progressAnimFrame = null;
+let activeEl = null;   // element currently being hovered
+let activeKey = null;  // tooltip key for active element
+let lastMouseX = 0;
+let lastMouseY = 0;
+
+function createProgressRing() {
+  if (progressRing) return;
+  progressRing = document.createElement('div');
+  progressRing.className = 'tt-progress-ring';
+  progressRing.innerHTML = '<svg viewBox="0 0 20 20"><circle class="tt-ring-bg" cx="10" cy="10" r="8"/><circle class="tt-ring-fill" cx="10" cy="10" r="8"/></svg>';
+  document.body.appendChild(progressRing);
+}
+
+function startProgress(x, y, onComplete) {
+  createProgressRing();
+  progressRing.style.left = (x - 11) + 'px';
+  progressRing.style.top = (y - 11) + 'px';
+  progressRing.classList.add('active');
+  const start = performance.now();
+  const fill = progressRing.querySelector('.tt-ring-fill');
+  const circumference = 50.27;
+  fill.style.transition = 'none';
+  fill.style.strokeDashoffset = circumference;
+  function tick(ts) {
+    const pct = Math.min((ts - start) / tooltipDelay, 1);
+    fill.style.strokeDashoffset = circumference * (1 - pct);
+    if (pct < 1) {
+      progressAnimFrame = requestAnimationFrame(tick);
+    } else {
+      stopProgress();
+      if (onComplete) onComplete();
+    }
+  }
+  progressAnimFrame = requestAnimationFrame(tick);
+}
+
+function stopProgress() {
+  if (progressRing) progressRing.classList.remove('active');
+  if (progressAnimFrame) { cancelAnimationFrame(progressAnimFrame); progressAnimFrame = null; }
+}
+
+let nestedEl = null;
+let nestedTimer = null;
+let cursorOnTooltip = false;
+let autoHideTimer = null;
+
+function showTooltip(key, x, y) {
+  const desc = attrTooltips[key];
+  if (!desc) return;
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'char-tooltip';
+    // Event delegation for keyword hovers inside tooltip
+    tooltipEl.addEventListener('mousemove', (ev) => { lastMouseX = ev.clientX; lastMouseY = ev.clientY; });
+    tooltipEl.addEventListener('mouseover', (ev) => {
+      const kw = ev.target.closest('.tt-keyword');
+      if (kw) {
+        if (nestedTimer) clearTimeout(nestedTimer);
+        lastMouseX = ev.clientX; lastMouseY = ev.clientY;
+        startProgress(ev.clientX, ev.clientY, () => showNested(lastMouseX, lastMouseY, kw.dataset.key));
+        return;
+      }
+      cursorOnTooltip = true;
+      resetAutoHide();
+    });
+    tooltipEl.addEventListener('mouseout', (ev) => {
+      const kw = ev.target.closest('.tt-keyword');
+      if (kw) {
+        stopProgress();
+        hideNested();
+        return;
+      }
+      if (!tooltipEl.contains(ev.relatedTarget)) {
+        cursorOnTooltip = false;
+        startAutoHide();
+      }
+    });
+    document.body.appendChild(tooltipEl);
+  }
+  if (autoHideTimer) clearTimeout(autoHideTimer);
+  tooltipEl.innerHTML = '<div class="tt-title">' + key + '</div>' + wrapKeywords(desc);
+  tooltipEl.style.left = x + 'px';
+  tooltipEl.style.top = y + 'px';
+  tooltipEl.classList.add('visible');
+  cursorOnTooltip = true;
+}
+
+function showNested(x, y, key) {
+  stopProgress();
+  const desc = keywordDB[key];
+  if (!desc) return;
+  if (!nestedEl) {
+    nestedEl = document.createElement('div');
+    nestedEl.className = 'tt-nested';
+    nestedEl.addEventListener('mouseenter', () => { if (nestedTimer) clearTimeout(nestedTimer); });
+    nestedEl.addEventListener('mouseleave', () => { nestedEl.classList.remove('visible'); });
+    document.body.appendChild(nestedEl);
+  }
+  if (nestedTimer) clearTimeout(nestedTimer);
+  nestedEl.textContent = desc;
+  nestedEl.style.left = x + 'px';
+  nestedEl.style.top = y + 'px';
+  nestedEl.classList.add('visible');
+}
+
+function hideNested() {
+  if (nestedTimer) clearTimeout(nestedTimer);
+  nestedTimer = setTimeout(() => {
+    if (nestedEl && !nestedEl.matches(':hover')) nestedEl.classList.remove('visible');
+  }, 80);
+}
+
+function startAutoHide() {
+  if (autoHideTimer) clearTimeout(autoHideTimer);
+  autoHideTimer = setTimeout(() => {
+    if (!cursorOnTooltip) {
+      if (tooltipEl) tooltipEl.classList.remove('visible');
+      if (nestedEl) nestedEl.classList.remove('visible');
+      cursorOnTooltip = false;
+    }
+  }, 300);
+}
+
+function resetAutoHide() {
+  if (autoHideTimer) clearTimeout(autoHideTimer);
+  autoHideTimer = null;
+}
+
+function hideTooltip() {
+  if (cursorOnTooltip) return;
+  stopProgress();
+  if (autoHideTimer) clearTimeout(autoHideTimer);
+  if (tooltipEl) tooltipEl.classList.remove('visible');
+  if (nestedEl) nestedEl.classList.remove('visible');
+  hideNested();
+}
+
+function enterElement(el, key, e) {
+  lastMouseX = e.clientX; lastMouseY = e.clientY;
+  if (activeEl && activeEl !== el) {
+    stopProgress();
+    hideTooltip();
+    cursorOnTooltip = false;
+  }
+  activeEl = el;
+  activeKey = key;
+  startProgress(e.clientX, e.clientY, () => showTooltip(key, lastMouseX, lastMouseY));
+}
+
+function leaveElement(el) {
+  if (activeEl !== el) return;
+  // Give a moment for cursor to reach the tooltip, then check
+  setTimeout(() => {
+    if (cursorOnTooltip) return;
+    // Not on tooltip — start auto-hide countdown (1s)
+    startAutoHide();
+    activeEl = null;
+    activeKey = null;
+  }, 80);
+}
+
+function setupCharTooltips() {
+  document.querySelectorAll('.char-attr, .sec-stat').forEach(el => {
+    let key = '';
+    const nameEl = el.querySelector('.attr-name') || el.querySelector('.sec-label');
+    if (nameEl) key = nameEl.textContent.trim();
+    if (key && attrTooltips[key]) {
+      el.style.cursor = 'help';
+      el.addEventListener('mouseenter', (e) => enterElement(el, key, e));
+      el.addEventListener('mousemove', (e) => { lastMouseX = e.clientX; lastMouseY = e.clientY;
+        if (progressRing && progressRing.classList.contains('active')) {
+          progressRing.style.left = (e.clientX - 11) + 'px';
+          progressRing.style.top = (e.clientY - 11) + 'px';
+        }
+        
+      });
+      el.addEventListener('mouseleave', () => leaveElement(el));
+    }
+  });
+  document.querySelectorAll('.skills-table tbody tr').forEach(el => {
+    const key = el.cells[0]?.textContent.trim();
+    if (key && attrTooltips[key]) {
+      el.style.cursor = 'help';
+      el.addEventListener('mouseenter', (e) => enterElement(el, key, e));
+      el.addEventListener('mousemove', (e) => { lastMouseX = e.clientX; lastMouseY = e.clientY;
+        if (progressRing && progressRing.classList.contains('active')) {
+          progressRing.style.left = (e.clientX - 11) + 'px';
+          progressRing.style.top = (e.clientY - 11) + 'px';
+        }
+        
+      });
+      el.addEventListener('mouseleave', () => leaveElement(el));
+    }
+  });
+}
+
+function returnToMenu() {
+  if (musicPlaying) toggleMusic();
+  document.getElementById('musicPlayer').style.display = 'none';
+  document.getElementById('landing').classList.remove('hidden');
+  resetUI();
+}
+
+function sendInput() {
+  const input = document.getElementById('mainInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  // Advance to next page (simulated response)
+  if (pageIndex < pages.length - 1) {
+    nextPage();
+  } else {
+    // Show a toast-like notification at the bottom
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(42,31,20,0.95);border:1px solid var(--gold);color:var(--gold);padding:10px 24px;border-radius:3px;font-family:var(--font-ui);font-size:12px;letter-spacing:3px;z-index:9999;animation:fadeItemIn 0.4s ease-out;';
+    toast.textContent = '暂无更多页面 · 等待 LLM 接入';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 2000);
+  }
+}
+
+function forceHideAllTooltips() {
+  stopProgress();
+  cursorOnTooltip = false;
+  if (autoHideTimer) clearTimeout(autoHideTimer);
+  if (tooltipEl) tooltipEl.classList.remove('visible');
+  if (nestedEl) nestedEl.classList.remove('visible');
+  activeEl = null; activeKey = null;
+}
+
+function toggleCharSheet(force) {
+  const overlay = document.getElementById('charSheetOverlay');
+  if (force === true) overlay.classList.add('open');
+  else if (force === false) overlay.classList.remove('open');
+  else overlay.classList.toggle('open');
+  // If closing, kill all tooltips
+  if (!overlay.classList.contains('open')) forceHideAllTooltips();
+  // Setup tooltips once sheet is open
+  setTimeout(setupCharTooltips, 100);
+}
+
+// ===================== DICE SYSTEM =====================
+let diceTimeout = null;
+let diceVignetteTimer = null;
+
+// ---- Dice system ----
+let diceBonus = 0;
+let diceSanCheck = false;
+let diceMode = 'check';
+let playerTens = 0, playerOnes = 0, bonusTens = 0;
+let oppTens = 0, oppOnes = 0;
+
+function toggleBonus() {
+  diceBonus = diceBonus > 0 ? 0 : 1;
+  document.getElementById('diceBonusBtn').classList.toggle('active', diceBonus > 0);
+  document.getElementById('dicePenaltyBtn').classList.remove('active');
+  document.getElementById('d10Bonus').style.display = diceBonus !== 0 ? 'flex' : 'none';
+  document.getElementById('d10BonusLabel').textContent = diceBonus > 0 ? '奖励十位' : '惩罚十位';
+  saveDiceSettings();
+}
+function togglePenalty() {
+  diceBonus = diceBonus < 0 ? 0 : -1;
+  document.getElementById('dicePenaltyBtn').classList.toggle('active', diceBonus < 0);
+  document.getElementById('diceBonusBtn').classList.remove('active');
+  document.getElementById('d10Bonus').style.display = diceBonus !== 0 ? 'flex' : 'none';
+  document.getElementById('d10BonusLabel').textContent = diceBonus < 0 ? '惩罚十位' : '奖励十位';
+  saveDiceSettings();
+}
+function toggleSanCheck() {
+  diceSanCheck = !diceSanCheck;
+  document.getElementById('diceSanBtn').classList.toggle('active', diceSanCheck);
+  saveDiceSettings();
+}
+function onDiceModeChange() {
+  diceMode = document.getElementById('diceMode').value;
+  const oppDivider = document.getElementById('opponentDivider');
+  const oppDice = document.getElementById('dicePairOpponent');
+  oppDivider.style.display = diceMode === 'opposed' ? 'flex' : 'none';
+  oppDice.style.display = diceMode === 'opposed' ? 'flex' : 'none';
+  saveDiceSettings();
+}
+
+function randD10() { return Math.floor(Math.random() * 10); }
+
+function d100Result(tens, ones) { return (tens === 0 && ones === 0) ? 100 : tens * 10 + ones; }
+
+function doDiceRoll() {
+  playerTens = randD10(); playerOnes = randD10();
+  if (diceBonus !== 0) bonusTens = randD10();
+  if (diceMode === 'opposed') { oppTens = randD10(); oppOnes = randD10(); }
+  updateDiceFaces();
+  evaluateResult();
+}
+
+function updateDiceFaces() {
+  document.getElementById('d10TensFace').textContent = playerTens;
+  document.getElementById('d10OnesFace').textContent = playerOnes;
+  if (diceBonus !== 0) document.getElementById('d10BonusFace').textContent = bonusTens;
+  if (diceMode === 'opposed') {
+    document.getElementById('d10OppTensFace').textContent = oppTens;
+    document.getElementById('d10OppOnesFace').textContent = oppOnes;
+  }
+}
+
+function evaluateResult() {
+  const target = parseInt(document.getElementById('diceTarget').value) || 65;
+  const fifth = Math.floor(target / 5);
+  const half = Math.floor(target / 2);
+  let finalTens = playerTens;
+  if (diceBonus !== 0) finalTens = diceBonus > 0 ? Math.min(playerTens, bonusTens) : Math.max(playerTens, bonusTens);
+  const roll = d100Result(finalTens, playerOnes);
+  let type;
+  if (roll === 100) type = 'crit-failure';
+  else if (diceSanCheck && roll >= 96) type = 'crit-failure';
+  else if (roll === 1) type = 'crit-success';
+  else if (roll <= fifth) type = 'extreme-success';
+  else if (roll <= half) type = 'hard-success';
+  else if (roll <= target) type = 'success';
+  else if (!diceSanCheck && target < 50 && roll >= 96) type = 'crit-failure';
+  else type = 'failure';
+
+  const bar = document.getElementById('diceResultBar');
+  bar.className = 'dice-result-bar';
+  const main = document.getElementById('diceResultMain');
+  const sub = document.getElementById('diceResultSub');
+  const badgeMap = { 'crit-success':'大成功', 'extreme-success':'极限成功', 'hard-success':'困难成功', 'success':'一般成功', 'failure':'失败', 'crit-failure':'大失败' };
+  main.textContent = '玩家 ' + String(roll).padStart(2,'0') + ' / ' + target + ' — ' + badgeMap[type];
+  sub.textContent = '极=' + fifth + ' | 困=' + half + (diceBonus !== 0 ? (' | ' + (diceBonus > 0 ? '奖' : '惩') + '骰十位=' + bonusTens) : '') + (diceSanCheck ? ' | SAN模式' : '');
+
+  if (type.includes('success')) bar.classList.add('success');
+  else if (type.includes('failure')) bar.classList.add('failure');
+  if (type === 'crit-success' || type === 'crit-failure') bar.classList.add('crit');
+
+  if (diceMode === 'opposed') {
+    const oppRoll = d100Result(oppTens, oppOnes);
+    let oppType;
+    if (oppRoll === 100) oppType = 'crit-failure';
+    else if (oppRoll === 1) oppType = 'crit-success';
+    else if (oppRoll <= fifth) oppType = 'extreme-success';
+    else if (oppRoll <= half) oppType = 'hard-success';
+    else if (oppRoll <= target) oppType = 'success';
+    else oppType = 'failure';
+    sub.textContent += ' | 对方 ' + String(oppRoll).padStart(2,'0') + ' — ' + badgeMap[oppType];
+    // Opposed: compare levels
+    const levels = { 'crit-success':5, 'extreme-success':4, 'hard-success':3, 'success':2, 'failure':1, 'crit-failure':1 };
+    if (levels[type] > levels[oppType]) sub.textContent += ' | 玩家胜';
+    else if (levels[type] < levels[oppType]) sub.textContent += ' | 对方胜';
+    else sub.textContent += ' | 平局（高值胜）';
+  }
+
+  addDiceRecord('检定', String(roll).padStart(2,'0'), String(target), type);
+  playResultSound(type);
+
+  // Visual effects for check mode
+  if (diceMode === 'check' || diceMode === 'opposed') {
+    if (type === 'crit-success' || type === 'crit-failure') {
+      const flash = document.getElementById('screenFlash');
+      const flashColor = type === 'crit-success' ? 'rgba(232,200,101,0.12)' : 'rgba(139,26,26,0.15)';
+      flash.style.setProperty('--flash-color', flashColor);
+      flash.style.animation = 'screenFlashAnim 0.6s ease-out';
+      setTimeout(() => { flash.style.animation = 'none'; flash.style.background = 'transparent'; }, 600);
+      const pColor = type === 'crit-success' ? '#e8c865' : '#cc3333';
+      spawnParticles(25, pColor, document.getElementById('dicePanel'));
+      spawnParticles(15, type === 'crit-success' ? '#c4a855' : '#6b1a1a', document.getElementById('dicePanel'));
+    }
+    if (type === 'crit-failure') {
+      const vignette = document.getElementById('diceVignette');
+      vignette.classList.add('active');
+      setTimeout(() => vignette.classList.remove('active'), 1800);
+      const book = document.getElementById('book');
+      book.classList.add('dimmed');
+      setTimeout(() => book.classList.remove('dimmed'), 4000);
+    }
+    if (type === 'crit-success') {
+      const book = document.getElementById('book');
+      book.style.filter = 'brightness(1.1)';
+      setTimeout(() => { book.style.filter = ''; }, 3000);
+    }
+  }
+
+  // Auto-fill input bar with result for check/opposed mode
+  if (diceMode === 'check' || diceMode === 'opposed') {
+    const input = document.getElementById('mainInput');
+    const resultText = '检定 ' + String(roll).padStart(2,'0') + '/' + target + ' — ' + badgeMap[type] + (diceSanCheck ? ' [SAN]' : '');
+    input.value = resultText;
+    input.focus();
+  }
+}
+
+function playResultSound(type) {
+  if (type === 'crit-success') sfxCritSuccess();
+  else if (type === 'crit-failure') sfxCritFailure();
+  else if (type.includes('success')) sfxSuccess();
+  else sfxFailure();
+}
+
+function showDicePanel() {
+  document.getElementById('diceOverlay').classList.add('active');
+}
+
+// ---- Book utility buttons ----
+let pageEditOverlay = null;
+
+function editCurrentPage() {
+  if (!pageEditOverlay) {
+    pageEditOverlay = document.createElement('div');
+    pageEditOverlay.className = 'generic-overlay';
+    pageEditOverlay.id = 'pageEditOverlay';
+    pageEditOverlay.innerHTML = '<div class="generic-backdrop" onclick="closePageEdit()"></div><div class="generic-panel" style="width:540px;"><div class="panel-title" id="peTitle">编辑楼层</div><div class="panel-sub">FLOOR EDITOR — 左页正文（右页由 MVU 输出）</div><div style="margin-bottom:10px;"><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">左页标题</label><input id="peLeftTitle" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:6px 8px;border-radius:3px;font-family:var(--font-ui);font-size:11px;margin-top:4px;outline:none;"></div><div style="margin-bottom:10px;"><label style="font-size:10px;color:var(--ink-subtle);letter-spacing:2px;">左页正文 (支持 HTML)</label><textarea id="peLeftContent" rows="10" style="width:100%;background:rgba(42,31,20,0.6);border:1px solid var(--brass);color:var(--text-light);padding:8px;border-radius:3px;font-family:var(--font-mono);font-size:10px;margin-top:4px;resize:vertical;outline:none;line-height:1.6;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="settings-close-btn" onclick="closePageEdit()">取消</button><button class="settings-close-btn" style="border-color:var(--gold);color:var(--gold);" onclick="savePageEdit()">保存修改</button></div></div>';
+    document.body.appendChild(pageEditOverlay);
+  }
+  const p = pages[pageIndex];
+  document.getElementById('peTitle').textContent = '编辑楼层 — 第 ' + (pageIndex + 1) + ' 层';
+  document.getElementById('peLeftTitle').value = p.leftHeader;
+  document.getElementById('peLeftContent').value = p.leftContent.replace(/<[^>]+>/g, '');
+  pageEditOverlay.classList.add('open');
+  dlog('info', '打开楼层编辑器: pageIndex=' + pageIndex);
+}
+
+function closePageEdit() {
+  if (pageEditOverlay) pageEditOverlay.classList.remove('open');
+}
+
+function savePageEdit() {
+  const p = pages[pageIndex];
+  p.leftHeader = document.getElementById('peLeftTitle').value;
+  p.leftContent = document.getElementById('peLeftContent').value;
+  renderPageContent(pageIndex, false);
+  closePageEdit();
+  flashNotification('楼层内容已保存');
+  dlog('info', '保存楼层编辑: pageIndex=' + pageIndex);
+}
+
+function deleteCurrentPage() {
+  if (!confirm('确定删除当前页面？')) return;
+  flashNotification('页面已删除');
+  dlog('warn', '删除页面: pageIndex=' + pageIndex);
+}
+
+// Simulate token usage per page
+let pageTokens = {};
+function updateTokens() {
+  const tt = Object.values(pageTokens).reduce((a,b)=>a+b, 0);
+  document.getElementById('tokenDisplay').textContent = formatTokens(tt);
+}
+function formatTokens(n) {
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k tokens';
+  return n + ' tokens';
+}
+const origRender = renderPageContent;
+renderPageContent = function(idx, animate) {
+  origRender(idx, animate);
+  const t = Math.floor(Math.random() * 1200) + 300;
+  pageTokens[idx] = t;
+  updateTokens();
+  dlog('info', '页面 ' + idx + ' 渲染完成 | 本页: ' + t + 't | 总计: ' + formatTokens(Object.values(pageTokens).reduce((a,b)=>a+b,0)));
+};
+
+// ---- Debug log ----
+function dlog(level, msg) {
+  const log = document.getElementById('debugLog');
+  const now = new Date().toLocaleTimeString();
+  const cls = level === 'info' ? 'dl-info' : level === 'warn' ? 'dl-warn' : 'dl-err';
+  log.innerHTML += '<div class="debug-log-entry"><span class="dl-time">' + now + '</span><span class="' + cls + '">[' + level.toUpperCase() + ']</span> ' + msg + '</div>';
+  log.scrollTop = log.scrollHeight;
+  if (log.children.length > 50) log.removeChild(log.firstChild);
+}
+
+function toggleDebugLog() {
+  const log = document.getElementById('debugLog');
+  log.classList.toggle('open');
+  if (log.classList.contains('open')) dlog('info', '调试日志已开启');
+}
+
+// Initial log entries
+pageTokens[0] = 350;
+updateTokens();
+dlog('info', '深渊档案馆 v0.1.0 初始化完成');
+dlog('info', 'localStorage 已就绪');
+
+// Persist dice settings to localStorage
+function saveDiceSettings() {
+  try { localStorage.setItem('coc_dice_settings', JSON.stringify({ bonus: diceBonus, san: diceSanCheck, mode: diceMode, target: document.getElementById('diceTarget').value })); } catch(e) {}
+}
+function loadDiceSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('coc_dice_settings'));
+    if (!s) return;
+    if (s.bonus) { diceBonus = s.bonus; document.getElementById(diceBonus>0?'diceBonusBtn':'dicePenaltyBtn').classList.add('active'); document.getElementById('d10Bonus').style.display='flex'; }
+    if (s.san) { diceSanCheck = true; document.getElementById('diceSanBtn').classList.add('active'); }
+    if (s.mode) { diceMode = s.mode; document.getElementById('diceMode').value = s.mode; onDiceModeChange(); }
+    if (s.target) document.getElementById('diceTarget').value = s.target;
+  } catch(e) {}
+}
+
+// ---- Dice history ----
+let diceHistory = [];
+
+function addDiceRecord(skill, roll, target, resultType) {
+  diceHistory.unshift({ skill, roll, target, type: resultType, time: Date.now() });
+  if (diceHistory.length > 20) diceHistory.pop();
+  renderDiceHistory();
+}
+
+function renderDiceHistory() {
+  const tbody = document.getElementById('dhTableBody');
+  if (diceHistory.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="dh-empty">尚无检定记录</td></tr>';
+    return;
+  }
+  tbody.innerHTML = diceHistory.map(r => {
+    const clsMap = { 'crit-success':'dh-crit-success', 'extreme-success':'dh-extreme-success', 'hard-success':'dh-hard-success', 'success':'dh-success', 'failure':'dh-failure', 'crit-failure':'dh-crit-failure' };
+    const badgeMap = { 'crit-success':'大成功', 'extreme-success':'极限成功', 'hard-success':'困难成功', 'success':'一般成功', 'failure':'失败', 'crit-failure':'大失败' };
+    const cls = clsMap[r.type] || 'dh-failure';
+    const badge = badgeMap[r.type] || '失败';
+    return '<tr class="' + cls + '"><td>' + r.skill + '</td><td>' + r.roll + '</td><td>' + r.target + '</td><td>' + badge + '</td></tr>';
+  }).join('');
+}
+
+function toggleDiceHistory() {
+  document.getElementById('diceHistoryOverlay').classList.toggle('active');
+}
+
+function hideDice() {
+  document.getElementById('diceOverlay').classList.remove('active');
+  document.getElementById('diceHistoryOverlay').classList.remove('active');
+  document.getElementById('diceVignette').classList.remove('active');
+  document.getElementById('book').classList.remove('dimmed', 'shaking');
+  document.getElementById('particles').innerHTML = '';
+  if (diceTimeout) clearTimeout(diceTimeout);
+  if (diceVignetteTimer) clearTimeout(diceVignetteTimer);
+}
+
+function resetUI() {
+  hideDice();
+  toggleCharSheet(false);
+  document.getElementById('book').classList.remove('dimmed', 'shaking');
+  document.getElementById('screenFlash').style.animation = 'none';
+  document.getElementById('screenFlash').style.background = 'transparent';
+  document.getElementById('mainInput').value = '';
+}
+
+// ESC to close panels
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeSettings();
+    closePanel('worldbook');
+    closePanel('preset');
+    closePanel('chatlist');
+    closePanel('lorebookEditor');
+    closePanel('presetEditor');
+    closePanel('extImport');
+    closePanel('extManager');
+    closePageEdit();
+    resetUI();
+  }
+});
+</script>
+
+</body>
+</html>

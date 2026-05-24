@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0a07;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; font-family: 'Georgia', 'Noto Serif SC', serif;
+    overflow: hidden;
+  }
+
+  .scene { position: relative; display: flex; justify-content: center; align-items: center; }
+
+  /* Book */
+  .book {
+    display: flex;
+    background: linear-gradient(to right, #3d2b13 0%, #2a1f14 50%, #3d2b13 100%);
+    border-radius: 8px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 60px rgba(196,168,85,0.06);
+    position: relative; transition: filter 0.6s;
+  }
+  .book.dimmed { filter: brightness(0.3) saturate(0.5); }
+  .book.shaking { animation: bookShake 0.4s ease-out; }
+
+  .page {
+    width: 340px; height: 480px;
+    position: relative; padding: 32px 24px 32px 32px;
+  }
+  .page-left {
+    background: linear-gradient(135deg, #f4e4c1 0%, #e8d5a3 50%, #d4c4a0 100%);
+    border-radius: 4px 1px 1px 4px;
+    box-shadow: inset -10px 0 16px rgba(0,0,0,0.08);
+  }
+  .page-right {
+    background: linear-gradient(135deg, #e8d5a3 0%, #f4e4c1 50%, #d4c4a0 100%);
+    border-radius: 1px 4px 4px 1px;
+    box-shadow: inset 10px 0 16px rgba(0,0,0,0.08);
+    padding: 32px 32px 32px 24px;
+  }
+  .chapter-label {
+    color: #8b3a3a; font-size: 12px; letter-spacing: 4px;
+    border-bottom: 2px solid #c4a855; padding-bottom: 10px; margin-bottom: 20px;
+  }
+  .narrative {
+    color: #2a1f14; font-size: 15px; line-height: 2.1;
+  }
+  .page-num {
+    position: absolute; bottom: 24px; right: 32px; color: #8b3a3a; font-size: 11px;
+  }
+  .page-num-right {
+    position: absolute; bottom: 24px; left: 32px; color: #8b3a3a; font-size: 11px;
+  }
+  .spine {
+    width: 2px; background: linear-gradient(to bottom, transparent, #c4a855 20%, #c4a855 80%, transparent);
+    position: absolute; left: 50%; top: 0; bottom: 0; transform: translateX(-50%);
+  }
+
+  /* Ambient particles container */
+  .particles {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 20;
+  }
+
+  /* Dice Panel base */
+  .dice-panel {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 260px;
+    background: linear-gradient(165deg, #1f1810 0%, #15100c 100%);
+    border: 1px solid #3d2b13;
+    border-radius: 8px;
+    padding: 28px 24px 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    z-index: 10;
+    pointer-events: auto;
+    transition: border-color 0.5s, box-shadow 0.5s;
+  }
+
+  .dice-cube {
+    display: inline-block;
+    width: 80px; height: 80px;
+    background: linear-gradient(150deg, #2a1f14 0%, #1a1210 60%, #0d0a07 100%);
+    border: 2px solid #c4a855;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    position: relative;
+    transition: border-color 0.5s, box-shadow 0.5s, transform 0.3s;
+  }
+  .dice-dot {
+    position: absolute; width: 8px; height: 8px;
+    background: #c4a855; border-radius: 50%;
+    transition: background 0.5s, box-shadow 0.5s;
+  }
+  .dice-pip {
+    position: absolute; width: 4px; height: 4px;
+    background: #8b7858; border-radius: 50%;
+  }
+
+  .roll-number {
+    font-size: 48px; font-weight: bold; font-family: 'Georgia', serif;
+    line-height: 1; transition: color 0.4s, text-shadow 0.4s, font-size 0.4s;
+  }
+  .stat-label { color: #8b7858; font-size: 10px; letter-spacing: 3px; margin-bottom: 4px; transition: color 0.4s; }
+  .target-row {
+    display: flex; justify-content: center; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .target-value { color: #c4a855; font-size: 22px; font-weight: bold; font-family: 'Georgia', serif; }
+  .separator { color: #8b7858; font-size: 14px; }
+
+  .result-badge {
+    display: inline-block; padding: 5px 18px; border-radius: 3px;
+    font-size: 13px; letter-spacing: 2px; transition: all 0.4s;
+  }
+
+  /* ============ SUCCESS STATE ============ */
+  .success .dice-cube {
+    border-color: #3a6b5a;
+    box-shadow: inset 0 2px 0 rgba(58,107,90,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(58,107,90,0.15);
+  }
+  .success .roll-number { color: #5aab7a; text-shadow: 0 0 16px rgba(90,171,122,0.25); }
+  .success .result-badge {
+    color: #5aab7a; border: 1px solid #3a6b5a;
+    background: rgba(58,107,90,0.1);
+  }
+  .success .dice-panel { border-color: #3a6b5a; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(58,107,90,0.1); }
+
+  /* ============ FAILURE STATE ============ */
+  .failure .dice-cube {
+    border-color: #8b3a3a;
+    box-shadow: inset 0 2px 0 rgba(139,58,58,0.1), 0 6px 24px rgba(0,0,0,0.6), 0 0 20px rgba(139,58,58,0.15);
+  }
+  .failure .roll-number { color: #c44a4a; text-shadow: 0 0 16px rgba(196,74,74,0.25); }
+  .failure .result-badge {
+    color: #c44a4a; border: 1px solid #8b3a3a;
+    background: rgba(139,58,58,0.1);
+  }
+  .failure .dice-panel { border-color: #8b3a3a; box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(139,58,58,0.1); }
+
+  /* ============ CRITICAL SUCCESS (大成功 01) ============ */
+  .crit-success .dice-cube {
+    border-color: #c4a855;
+    box-shadow:
+      inset 0 2px 0 rgba(196,168,85,0.15),
+      0 0 24px rgba(196,168,85,0.4),
+      0 0 60px rgba(196,168,85,0.25),
+      0 0 100px rgba(196,168,85,0.1);
+    animation: critCubeGlow 1.5s ease-in-out infinite;
+  }
+  .crit-success .dice-dot {
+    background: #e8c865;
+    box-shadow: 0 0 12px rgba(232,200,101,0.8), 0 0 24px rgba(232,200,101,0.4);
+  }
+  .crit-success .roll-number {
+    color: #e8c865;
+    font-size: 56px;
+    text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3), 0 0 72px rgba(196,168,85,0.2);
+    animation: critNumberPulse 0.8s ease-in-out infinite;
+  }
+  .crit-success .result-badge {
+    color: #e8c865;
+    border: 1px solid #c4a855;
+    background: rgba(196,168,85,0.15);
+    font-size: 16px;
+    letter-spacing: 6px;
+    text-shadow: 0 0 12px rgba(232,200,101,0.4);
+    animation: critBadgePulse 1.2s ease-in-out infinite;
+  }
+  .crit-success .dice-panel {
+    border-color: #c4a855;
+    box-shadow:
+      0 20px 60px rgba(0,0,0,0.8),
+      0 0 40px rgba(196,168,85,0.25),
+      0 0 80px rgba(196,168,85,0.1);
+  }
+  .crit-success .stat-label { color: #c4a855; }
+
+  /* ============ CRITICAL FAILURE (大失败 100) ============ */
+  .crit-failure .dice-cube {
+    border-color: #6b1a1a;
+    box-shadow:
+      inset 0 2px 0 rgba(139,26,26,0.2),
+      0 0 24px rgba(139,26,26,0.5),
+      0 0 60px rgba(139,26,26,0.3),
+      0 0 100px rgba(139,26,26,0.15);
+    animation: critFailCubeShake 0.3s ease-in-out infinite;
+  }
+  .crit-failure .dice-dot {
+    background: #cc3333;
+    box-shadow: 0 0 12px rgba(204,51,51,0.8), 0 0 24px rgba(204,51,51,0.4);
+  }
+  .crit-failure .roll-number {
+    color: #cc3333;
+    font-size: 56px;
+    text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3), 0 0 72px rgba(139,26,26,0.2);
+    animation: critFailNumberPulse 0.6s ease-in-out infinite;
+  }
+  .crit-failure .result-badge {
+    color: #cc3333;
+    border: 1px solid #6b1a1a;
+    background: rgba(139,26,26,0.2);
+    font-size: 16px;
+    letter-spacing: 6px;
+    text-shadow: 0 0 12px rgba(204,51,51,0.4);
+    animation: critFailBadgeShake 0.4s ease-in-out infinite;
+  }
+  .crit-failure .dice-panel {
+    border-color: #6b1a1a;
+    box-shadow:
+      0 20px 60px rgba(0,0,0,0.8),
+      0 0 40px rgba(139,26,26,0.3),
+      0 0 80px rgba(139,26,26,0.15);
+  }
+  .crit-failure .stat-label { color: #cc3333; }
+
+  /* ============ ANIMATIONS ============ */
+
+  /* Normal dice lifecycle */
+  @keyframes diceLifecycle {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); filter: blur(6px); }
+    10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); filter: blur(0); }
+    15%  { transform: translate(-50%, -50%) scale(1); }
+    65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+    80%  { opacity: 0.5; transform: translate(-50%, -50%) scale(0.5); filter: blur(3px); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(8px); }
+  }
+
+  /* Critical success lifecycle — more dramatic */
+  @keyframes critLifecycle {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.05); filter: blur(8px); }
+    6%   { opacity: 1; transform: translate(-50%, -50%) scale(1.15); filter: blur(0); }
+    10%  { transform: translate(-50%, -50%) scale(0.95); }
+    13%  { transform: translate(-50%, -50%) scale(1.03); }
+    16%  { transform: translate(-50%, -50%) scale(1); }
+    65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+    75%  { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); filter: blur(4px); }
+  }
+
+  /* Critical failure lifecycle — aggressive entrance, trembling exit */
+  @keyframes critFailLifecycle {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.1); filter: blur(4px); }
+    5%   { opacity: 1; transform: translate(-50%, -50%) scale(1.2); filter: blur(0); }
+    8%   { transform: translate(-48%, -52%) scale(1.05); }
+    10%  { transform: translate(-52%, -48%) scale(1.1); }
+    13%  { transform: translate(-50%, -50%) scale(1); }
+    30%  { transform: translate(-49%, -51%) scale(1.01); }
+    32%  { transform: translate(-51%, -49%) scale(0.99); }
+    34%  { transform: translate(-50%, -50%) scale(1); }
+    65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80%  { opacity: 0.3; transform: translate(-49%, -51%) scale(0.7); filter: blur(2px); }
+    100% { opacity: 0; transform: translate(-52%, -48%) scale(0.2); filter: blur(6px); }
+  }
+
+  /* Critical cube glow pulse */
+  @keyframes critCubeGlow {
+    0%, 100% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.15), 0 0 24px rgba(196,168,85,0.4), 0 0 60px rgba(196,168,85,0.25); }
+    50% { box-shadow: inset 0 2px 0 rgba(196,168,85,0.25), 0 0 40px rgba(232,200,101,0.6), 0 0 80px rgba(196,168,85,0.4), 0 0 120px rgba(196,168,85,0.15); }
+  }
+
+  @keyframes critNumberPulse {
+    0%, 100% { text-shadow: 0 0 24px rgba(232,200,101,0.6), 0 0 48px rgba(232,200,101,0.3); }
+    50% { text-shadow: 0 0 36px rgba(232,200,101,0.9), 0 0 72px rgba(232,200,101,0.5), 0 0 100px rgba(196,168,85,0.3); }
+  }
+
+  @keyframes critBadgePulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(196,168,85,0.3); }
+    50% { box-shadow: 0 0 20px rgba(232,200,101,0.6), 0 0 40px rgba(196,168,85,0.2); }
+  }
+
+  @keyframes critFailCubeShake {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(-1.5px, 1px) rotate(-0.5deg); }
+    50% { transform: translate(1.5px, -1px) rotate(0.5deg); }
+    75% { transform: translate(-0.5px, -0.5px) rotate(-0.3deg); }
+  }
+
+  @keyframes critFailNumberPulse {
+    0%, 100% { text-shadow: 0 0 24px rgba(204,51,51,0.6), 0 0 48px rgba(204,51,51,0.3); }
+    50% { text-shadow: 0 0 36px rgba(255,60,60,0.9), 0 0 72px rgba(204,51,51,0.5), 0 0 100px rgba(139,26,26,0.3); }
+  }
+
+  @keyframes critFailBadgeShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    50% { transform: translateX(2px); }
+    75% { transform: translateX(-1px); }
+  }
+
+  @keyframes bookShake {
+    0%, 100% { transform: translateX(0); }
+    10% { transform: translateX(-6px); }
+    20% { transform: translateX(5px); }
+    30% { transform: translateX(-4px); }
+    40% { transform: translateX(3px); }
+    50% { transform: translateX(-2px); }
+    60% { transform: translateX(1px); }
+  }
+
+  /* Screen vignette for crit failure */
+  .vignette {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 15;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(139,26,26,0.3) 100%);
+    opacity: 0; transition: opacity 0.4s;
+  }
+  .vignette.active { opacity: 1; }
+
+  /* Golden particle */
+  .particle {
+    position: absolute; border-radius: 50%; pointer-events: none;
+  }
+
+  @keyframes particleFly {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  @keyframes screenFlash {
+    0% { background: transparent; }
+    50% { background: var(--flash-color); }
+    100% { background: transparent; }
+  }
+  .screen-flash {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 19; animation: none;
+  }
+
+  /* Controls */
+  .controls {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 100;
+  }
+  .btn {
+    background: rgba(42,31,20,0.85); border: 1px solid #3d2b13; color: #8b7858;
+    padding: 10px 20px; border-radius: 3px; cursor: pointer; font-size: 12px;
+    font-family: inherit; letter-spacing: 1px; transition: all 0.25s;
+  }
+  .btn:hover { background: rgba(196,168,85,0.12); border-color: #c4a855; color: #c4a855; }
+  .btn.active { background: rgba(196,168,85,0.18); border-color: #c4a855; color: #c4a855; }
+</style>
+</head>
+<body>
+
+<div class="screen-flash" id="screenFlash"></div>
+<div class="vignette" id="vignette"></div>
+<div class="particles" id="particles"></div>
+
+<div class="scene">
+  <div class="book" id="book">
+    <div class="page page-left">
+      <div class="chapter-label">第三章</div>
+      <div class="narrative">
+        你推开沉重的橡木门，一股霉味扑面而来。房间里散落着发黄的报纸和手稿，书桌上放着一盏早已熄灭的油灯...
+      </div>
+      <div class="page-num">— 3 —</div>
+    </div>
+    <div class="spine"></div>
+    <div class="page page-right">
+      <div class="chapter-label">调查</div>
+      <div class="narrative">
+        角落里，一个上了锁的铁柜引起了你的注意。柜门上刻着奇怪的符号——那是一种你从未在任何典籍中见过的图案...
+      </div>
+      <div class="page-num-right">— 4 —</div>
+    </div>
+  </div>
+
+  <div class="dice-panel" id="dicePanel">
+    <div class="dice-cube" id="diceCube">
+      <div class="dice-dot" style="top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;"></div>
+      <div class="dice-pip" style="top:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="bottom:12px;left:50%;transform:translateX(-50%);"></div>
+      <div class="dice-pip" style="left:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="right:12px;top:50%;transform:translateY(-50%);"></div>
+      <div class="dice-pip" style="top:14px;left:14px;"></div>
+      <div class="dice-pip" style="bottom:14px;right:14px;"></div>
+    </div>
+
+    <div class="stat-label" id="statLabel">侦查检定</div>
+
+    <div class="target-row">
+      <div class="roll-number" id="rollNumber">42</div>
+      <div class="separator">/</div>
+      <div class="target-value">65</div>
+    </div>
+
+    <div class="result-badge" id="resultBadge">普通成功</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" onclick="playAnimation('crit-success')" id="btnCritSuccess">大成功 (01)</button>
+  <button class="btn active" onclick="playAnimation('success')" id="btnSuccess">普通成功 (42)</button>
+  <button class="btn" onclick="playAnimation('failure')" id="btnFailure">失败 (78)</button>
+  <button class="btn" onclick="playAnimation('crit-failure')" id="btnCritFailure">大失败 (100)</button>
+</div>
+
+<script>
+function spawnParticles(count, color, fromEl) {
+  const container = document.getElementById('particles');
+  const rect = fromEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 5;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 60 + Math.random() * 160;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance - 40;
+    const duration = 1 + Math.random() * 2;
+
+    p.style.cssText = `
+      left: ${cx}px; top: ${cy}px;
+      width: ${size}px; height: ${size}px;
+      background: ${color};
+      box-shadow: 0 0 ${size*2}px ${color};
+      --dx: ${dx}px; --dy: ${dy}px;
+      animation: particleFly ${duration}s ease-out forwards;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), duration * 1000);
+  }
+}
+
+function playAnimation(type) {
+  const panel = document.getElementById('dicePanel');
+  const book = document.getElementById('book');
+  const rollNum = document.getElementById('rollNumber');
+  const badge = document.getElementById('resultBadge');
+  const statLabel = document.getElementById('statLabel');
+  const vignette = document.getElementById('vignette');
+  const flash = document.getElementById('screenFlash');
+  const diceCube = document.getElementById('diceCube');
+  const buttons = document.querySelectorAll('.btn');
+
+  // Reset
+  buttons.forEach(b => b.classList.remove('active'));
+  panel.style.animation = 'none';
+  panel.offsetHeight;
+  panel.className = 'dice-panel';
+  book.classList.remove('dimmed', 'shaking');
+  vignette.classList.remove('active');
+  flash.style.animation = 'none';
+  flash.style.background = 'transparent';
+  rollNum.style.fontSize = '';
+  badge.style.fontSize = '';
+  badge.style.letterSpacing = '';
+  diceCube.style.animation = '';
+
+  // Clear old particles
+  document.getElementById('particles').innerHTML = '';
+
+  if (type === 'success') {
+    document.getElementById('btnSuccess').classList.add('active');
+    panel.className = 'dice-panel success';
+    rollNum.textContent = '42';
+    badge.textContent = '普通成功';
+    statLabel.textContent = '侦查检定';
+    panel.style.animation = 'diceLifecycle 5s ease-in-out forwards';
+
+  } else if (type === 'failure') {
+    document.getElementById('btnFailure').classList.add('active');
+    panel.className = 'dice-panel failure';
+    rollNum.textContent = '78';
+    badge.textContent = '失败';
+    statLabel.textContent = '侦查检定';
+    panel.style.animation = 'diceLifecycle 5s ease-in-out forwards';
+
+  } else if (type === 'crit-success') {
+    document.getElementById('btnCritSuccess').classList.add('active');
+    panel.className = 'dice-panel crit-success';
+    rollNum.textContent = '01';
+    badge.textContent = '大成功！';
+    statLabel.textContent = '命运的眷顾';
+    panel.style.animation = 'critLifecycle 5.5s ease-in-out forwards';
+
+    // Screen flash — golden white
+    setTimeout(() => {
+      flash.style.setProperty('--flash-color', 'rgba(232,200,101,0.12)');
+      flash.style.animation = 'screenFlash 0.6s ease-out';
+      setTimeout(() => { flash.style.animation = 'none'; flash.style.background = 'transparent'; }, 600);
+    }, 300);
+
+    // Spawn golden particles on emerge
+    setTimeout(() => {
+      spawnParticles(25, '#e8c865', diceCube);
+      spawnParticles(15, '#c4a855', diceCube);
+    }, 350);
+    setTimeout(() => spawnParticles(12, '#e8c865', diceCube), 1800);
+
+    // Book brightens slightly
+    setTimeout(() => { book.style.filter = 'brightness(1.1)'; }, 300);
+    setTimeout(() => { book.style.filter = ''; }, 3000);
+
+  } else if (type === 'crit-failure') {
+    document.getElementById('btnCritFailure').classList.add('active');
+    panel.className = 'dice-panel crit-failure';
+    rollNum.textContent = '100';
+    badge.textContent = '大失败';
+    statLabel.textContent = '深渊的注视';
+    panel.style.animation = 'critFailLifecycle 5.5s ease-in-out forwards';
+
+    // Book dims
+    setTimeout(() => book.classList.add('dimmed'), 200);
+
+    // Red vignette pulses
+    setTimeout(() => vignette.classList.add('active'), 300);
+    setTimeout(() => vignette.classList.remove('active'), 1800);
+    setTimeout(() => vignette.classList.add('active'), 2200);
+    setTimeout(() => vignette.classList.remove('active'), 3500);
+
+    // Screen flash — dark red
+    setTimeout(() => {
+      flash.style.setProperty('--flash-color', 'rgba(139,26,26,0.15)');
+      flash.style.animation = 'screenFlash 0.8s ease-out';
+      setTimeout(() => { flash.style.animation = 'none'; flash.style.background = 'transparent'; }, 800);
+    }, 250);
+
+    // Red particles
+    setTimeout(() => {
+      spawnParticles(30, '#cc3333', diceCube);
+      spawnParticles(15, '#6b1a1a', diceCube);
+    }, 300);
+
+    // Book shakes on entrance
+    setTimeout(() => {
+      book.classList.add('shaking');
+      setTimeout(() => book.classList.remove('shaking'), 400);
+    }, 200);
+
+    // Book stays dimmed
+    setTimeout(() => book.classList.remove('dimmed'), 4000);
+  }
+}
+
+// Auto-play on load
+setTimeout(() => playAnimation('success'), 600);
+</script>
+
+</body>
+</html>
