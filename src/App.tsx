@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { ChangelogModal } from './components/Landing/ChangelogModal';
 import { CharacterCreator } from './components/CharSheet/CharacterCreator';
 import { GameView } from './components/Layout/GameView';
+import { initBuiltinCommands } from './sillytavern/slash-commands';
 
 export default function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
+
+  useEffect(() => { initBuiltinCommands(); }, []);
   return (
     <>
       {screen === 'landing' && (
