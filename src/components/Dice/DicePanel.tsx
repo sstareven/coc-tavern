@@ -9,12 +9,6 @@ import {
   sfxCritFailure,
 } from '../../audio/sfx';
 
-const modeLabels: Record<DiceMode, string> = {
-  check: '技能检定',
-  opposed: '对抗检定',
-  free: '自由掷骰',
-};
-
 const resultLabel: Record<DiceResultType, string> = {
   'crit-success': '大成功！',
   'extreme-success': '极难成功',
@@ -59,12 +53,6 @@ export function DicePanel() {
   const target = useDiceStore((s) => s.target);
   const bonusDice = useDiceStore((s) => s.bonusDice);
   const sanCheck = useDiceStore((s) => s.sanCheck);
-  const tens = useDiceStore((s) => s.tens);
-  const ones = useDiceStore((s) => s.ones);
-  const bonusTens = useDiceStore((s) => s.bonusTens);
-  const oppTens = useDiceStore((s) => s.oppTens);
-  const oppOnes = useDiceStore((s) => s.oppOnes);
-  const resultType = useDiceStore((s) => s.resultType);
   const close = useDiceStore((s) => s.close);
   const setMode = useDiceStore((s) => s.setMode);
   const setTarget = useDiceStore((s) => s.setTarget);
@@ -249,7 +237,6 @@ export function DicePanel() {
             max={100}
             value={localTarget}
             onChange={(e) => setLocalTarget(e.target.value)}
-            onBlur={handleTargetBlur}
             onKeyDown={(e) => { if (e.key === 'Enter') handleTargetBlur(); }}
             style={{
               width: 56,

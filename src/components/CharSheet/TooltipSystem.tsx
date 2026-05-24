@@ -57,7 +57,7 @@ function HighlightedText({ text }: { text: string }) {
   );
 }
 
-function TooltipTrigger({ keyword }: { keyword: string }) {
+function TooltipTrigger({ keyword, children }: { keyword: string; children?: React.ReactNode }) {
   const tooltipText = KEYWORD_DB[keyword];
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -114,7 +114,7 @@ function TooltipTrigger({ keyword }: { keyword: string }) {
       onMouseEnter={startHover}
       onMouseLeave={endHover}
     >
-      {keyword}
+      {children ?? keyword}
       {/* Progress ring */}
       {hovered && !visible && progress > 0 && (
         <span

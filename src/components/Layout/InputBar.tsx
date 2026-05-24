@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useBookStore } from '../../stores/useBookStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 
 export function InputBar() {
   const [input, setInput] = useState('');
@@ -16,6 +17,15 @@ export function InputBar() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       submit();
+    }
+  };
+
+  const toggleDiceHistory = () => {
+    const panelStore = usePanelStore.getState();
+    if (panelStore.openPanel === 'diceHistory') {
+      panelStore.closeAll();
+    } else {
+      panelStore.open('diceHistory');
     }
   };
 
@@ -41,6 +51,17 @@ export function InputBar() {
         onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
         onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
       />
+      <button onClick={toggleDiceHistory} title="检定记录" style={{
+        padding: '10px 12px', border: '1px solid var(--brass)',
+        background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
+        fontFamily: 'var(--font-display)', fontSize: 14,
+        borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
+      }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+      >
+        &#9861;
+      </button>
       <button onClick={submit} style={{
         padding: '10px 28px', border: '1px solid var(--gold)',
         background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',

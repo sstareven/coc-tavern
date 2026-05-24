@@ -3,7 +3,7 @@ import type { LoreBook, LoreEntry } from '../types';
 export function matchLorebooks(input: string, books: LoreBook[]): Array<{ book: string; entry: LoreEntry }> {
   const results: Array<{ book: string; entry: LoreEntry }> = [];
   for (const book of books) {
-    for (const [id, entry] of Object.entries(book.entries)) {
+    for (const [_id, entry] of Object.entries(book.entries)) {
       const keys = entry.keys.split(',').map(k => k.trim().toLowerCase());
       const inputLower = input.toLowerCase();
       const matches = entry.logic === 'AND'

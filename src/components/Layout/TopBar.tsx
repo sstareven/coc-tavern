@@ -1,6 +1,14 @@
+import { usePanelStore } from '../../stores/usePanelStore';
+import { useDiceStore } from '../../stores/useDiceStore';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
+
 interface Props { onReturnToMenu: () => void }
 
 export function TopBar({ onReturnToMenu }: Props) {
+  const openPanel = usePanelStore((s) => s.open);
+  const openDice = useDiceStore((s) => s.open);
+  const toggleCharSheet = useCharSheetStore((s) => s.toggle);
+
   return (
     <header style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -18,10 +26,12 @@ export function TopBar({ onReturnToMenu }: Props) {
         <span style={{ color: 'var(--ink-subtle)', fontSize: 10, letterSpacing: 2 }}>ABYSSAL ARCHIVE</span>
       </div>
       <nav style={{ display: 'flex', gap: 8 }}>
-        <NavButton label="设 置" onClick={() => console.log('settings')} />
-        <NavButton label="世 界 书" onClick={() => console.log('worldbook')} />
-        <NavButton label="预 设" onClick={() => console.log('presets')} />
-        <NavButton label="对 话" onClick={() => console.log('chat')} />
+        <NavButton label="掷 骰" onClick={() => openDice()} />
+        <NavButton label="角 色 卡" onClick={() => toggleCharSheet()} />
+        <NavButton label="设 置" onClick={() => openPanel('settings')} />
+        <NavButton label="世 界 书" onClick={() => openPanel('worldbook')} />
+        <NavButton label="预 设" onClick={() => openPanel('preset')} />
+        <NavButton label="对 话" onClick={() => openPanel('chatlist')} />
         <NavButton label="菜 单" onClick={onReturnToMenu} />
       </nav>
     </header>
