@@ -9,6 +9,41 @@ export function stagedProgress(rawT: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
 
+// ── Bezier curve helpers ──
+
+/** Evaluate cubic-bezier(P1x,P1y, P2x,P2y) at input t */
+function cubicBezier(t: number, p1: number, p2: number): number {
+  return 3 * (1 - t) * (1 - t) * t * p1 + 3 * (1 - t) * t * t * p2 + t * t * t;
+}
+
+/** Solve cubic-bezier x→y for a given input x using Newton-Raphson */
+function solveBezier(x: number, x1: number, x2: number, y1: number, y2: number): number {
+  let t = x; // initial guess
+  for (let i = 0; i < 8; i++) {
+    const dx = cubicBezier(t, x1, x2) - x;
+    if (Math.abs(dx) < 0.001) break;
+    const deriv = 3 * (1 - t) * (1 - t) * x1 + 6 * (1 - t) * t * (x2 - x1) + 3 * t * t * (1 - x2);
+    if (Math.abs(deriv) < 0.001) break;
+    t -= dx / deriv;
+    t = Math.max(0, Math.min(1, t));
+  }
+  return cubicBezier(t, y1, y2);
+}
+
+// fade-out: cubic-bezier(0.5, 0, 0.8, 0.2) — slow start, fast end, vanishes by 90°
+function easeOutFade(raw: number): number {
+  if (raw <= 0) return 1;
+  if (raw >= 0.5) return 0;
+  return 1 - solveBezier(raw / 0.5, 0.5, 0.8, 0, 0.2);
+}
+
+// fade-in: cubic-bezier(0.2, 0, 0.4, 1) — gentle ease-in
+function easeInFade(raw: number): number {
+  if (raw <= 0) return 0;
+  if (raw >= 1) return 1;
+  return solveBezier(raw, 0.2, 0.4, 0, 1);
+}
+
 // ── Paper backgrounds ──
 const FRONT_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
 const BACK_BG = 'linear-gradient(225deg, #e8d8b8 0%, #dfceaa 100%)';
@@ -37,8 +72,8 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
 
-  // Text vanishes by raw=0.5 (90° vertical — page edge-on to viewer)
-  const textOpacity = Math.max(0, 1 - raw / 0.5);
+  // Text fades with bezier: slow start, fast end, gone by 90°
+  const textOpacity = easeOutFade(raw);
 
   return (
     <div
@@ -93,7 +128,7 @@ interface FadingPageProps {
  */
 export function FadingPage({ progress, children }: FadingPageProps) {
   const raw = Math.max(0, Math.min(1, progress));
-  const textOpacity = Math.max(0, 1 - raw / 0.5);
+  const textOpacity = easeOutFade(raw);
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: textOpacity, transition: 'none' }}>
       {children}
@@ -118,7 +153,7 @@ export function AppearPage({ pageIndex, children }: AppearProps) {
       key={pageIndex}
       style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        animation: 'pageFadeIn 0.8s ease-out',
+        animation: 'pageFadeIn 0.8s cubic-bezier(0.2,0,0.4,1)',
       }}
     >
       <style>{`
