@@ -35,7 +35,9 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-  const textOpacity = 1 - p;
+  // Hold visible through most of the turn, then fade quickly at the end
+  // p=0→0.65: stays near 1, p=0.65→1: drops to 0
+  const textOpacity = p < 0.65 ? 1 : Math.max(0, 1 - (p - 0.65) / 0.35);
 
   return (
     <div
