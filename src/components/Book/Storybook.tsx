@@ -145,24 +145,23 @@ export function Storybook() {
             zIndex: 1,
           }} />
 
-          {/* [A] 左页 */}
-          <div style={{ flex: 1, position: 'relative' }}>
+          {/* [A] 左页 — 容器自带paper背景填充，永不露底 */}
+          <div style={{
+            flex: 1, position: 'relative',
+            background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
+            borderRadius: '3px 0 0 3px',
+            overflow: 'hidden',
+          }}>
             {isFlipping ? (
-              <>
-                {/* 翻页中：空白纸底 + FlipCard/Placeholder */}
-                <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+              <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
+                {direction === 'backward' ? (
+                  <CSSFlipPage progress={flipProgress} direction="backward">
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                  </CSSFlipPage>
+                ) : (
                   <BlankPaper side="left" />
-                </div>
-                <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
-                  {direction === 'backward' ? (
-                    <CSSFlipPage progress={flipProgress} direction="backward">
-                      <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
-                    </CSSFlipPage>
-                  ) : (
-                    <BlankPaper side="left" />
-                  )}
-                </div>
-              </>
+                )}
+              </div>
             ) : (
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             )}
@@ -174,24 +173,23 @@ export function Storybook() {
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
-          {/* [B] 右页 */}
-          <div style={{ flex: 1, position: 'relative' }}>
+          {/* [B] 右页 — 容器自带paper背景 */}
+          <div style={{
+            flex: 1, position: 'relative',
+            background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
+            borderRadius: '0 3px 3px 0',
+            overflow: 'hidden',
+          }}>
             {isFlipping ? (
-              <>
-                {/* 翻页中：空白纸底 + FlipCard/Placeholder */}
-                <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+              <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
+                {direction === 'forward' ? (
+                  <CSSFlipPage progress={flipProgress} direction="forward">
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+                  </CSSFlipPage>
+                ) : (
                   <BlankPaper side="right" />
-                </div>
-                <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
-                  {direction === 'forward' ? (
-                    <CSSFlipPage progress={flipProgress} direction="forward">
-                      <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
-                    </CSSFlipPage>
-                  ) : (
-                    <BlankPaper side="right" />
-                  )}
-                </div>
-              </>
+                )}
+              </div>
             ) : (
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
             )}
