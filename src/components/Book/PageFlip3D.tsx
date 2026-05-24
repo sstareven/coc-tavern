@@ -30,14 +30,15 @@ interface CSSFlipProps {
  * Backward: origin at right edge (left page flips to right), rotateY 0→180
  */
 export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
-  const p = stagedProgress(Math.max(0, Math.min(1, progress)));
+  const raw = Math.max(0, Math.min(1, progress));
+  // Rotation uses eased curve
+  const p = stagedProgress(raw);
   const isForward = direction === 'forward';
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-  // Hold visible through most of the turn, then fade quickly at the end
-  // p=0→0.65: stays near 1, p=0.65→1: drops to 0
-  const textOpacity = p < 0.65 ? 1 : Math.max(0, 1 - (p - 0.65) / 0.35);
+  // Text fades on linear raw time, not eased: holds at 1 until 70% elapsed
+  const textOpacity = raw < 0.7 ? 1 : Math.max(0, 1 - (raw - 0.7) / 0.3);
 
   return (
     <div
