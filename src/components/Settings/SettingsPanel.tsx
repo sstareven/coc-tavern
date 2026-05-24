@@ -312,6 +312,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
+  const setApiModel = useSettingsStore((s) => s.setApiModel);
+  const setApiBaseUrl = useSettingsStore((s) => s.setApiBaseUrl);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const setApiKey = useSettingsStore((s) => s.setApiKey);
   const availableModels = useSettingsStore((s) => s.availableModels);
@@ -517,7 +519,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <div style={rowStyle}>
                     <span style={labelStyle}>API 地址</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input value={localApiUrl} onChange={(e) => setLocalApiUrl(e.target.value)}
+                      <input value={localApiUrl}
+                        onChange={(e) => { setLocalApiUrl(e.target.value); setApiBaseUrl(e.target.value); }}
                         style={{ ...inputStyle, width: 160 }}
                         onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                         onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
@@ -543,7 +546,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <div style={rowStyle}>
                     <span style={labelStyle}>模型</span>
                     <div style={{ position: 'relative', width: 200 }}>
-                      <select value={localApiModel} onChange={(e) => setLocalApiModel(e.target.value)}
+                      <select value={localApiModel}
+                        onChange={(e) => { setLocalApiModel(e.target.value); setApiModel(e.target.value); }}
                         disabled={availableModels.length === 0 && !modelsLoading}
                         style={{ ...inputStyle, width: '100%', appearance: 'none', cursor: availableModels.length === 0 ? 'not-allowed' : 'pointer', opacity: availableModels.length === 0 ? 0.5 : 1 }}>
                         <option value="">{modelsLoading ? '加载中...' : availableModels.length === 0 ? '请先测试连接' : '选择模型'}</option>
@@ -555,7 +559,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                   <div style={rowStyle}>
                     <span style={labelStyle}>模型名</span>
-                    <input value={localApiModel} onChange={(e) => setLocalApiModel(e.target.value)}
+                    <input value={localApiModel}
+                      onChange={(e) => { setLocalApiModel(e.target.value); setApiModel(e.target.value); }}
                       placeholder="deepseek-v4-pro" style={inputStyle}
                       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                       onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}

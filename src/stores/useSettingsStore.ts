@@ -1,7 +1,24 @@
 import { create } from 'zustand';
 
-interface SettingsStore {
-  // Global API
+const STORAGE_KEY = 'coc_settings_v2';
+
+function load(): Partial<SettingsState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function save(state: SettingsState) {
+  try {
+    const { toggleSound, setTooltipDelay, setMusicVolume, setApiKey, setAvailableModels, setMvuUseIndependentApi, setMvuApiBaseUrl, setMvuApiModel, setMvuApiKey, setMvuTemperature, setMvuRetryCount, setApiBaseUrl, setApiModel, ...data } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+interface SettingsState {
   soundEnabled: boolean;
   tooltipDelay: number;
   musicVolume: number;
@@ -10,18 +27,20 @@ interface SettingsStore {
   apiKey: string;
   availableModels: string[];
 
-  // MVU independent API
   mvuUseIndependentApi: boolean;
   mvuApiBaseUrl: string;
   mvuApiModel: string;
   mvuApiKey: string;
   mvuTemperature: number;
   mvuRetryCount: number;
+}
 
-  // Actions
+interface SettingsStore extends SettingsState {
   toggleSound: () => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
+  setApiBaseUrl: (url: string) => void;
+  setApiModel: (model: string) => void;
   setApiKey: (k: string) => void;
   setAvailableModels: (models: string[]) => void;
   setMvuUseIndependentApi: (v: boolean) => void;
@@ -32,7 +51,7 @@ interface SettingsStore {
   setMvuRetryCount: (n: number) => void;
 }
 
-export const useSettingsStore = create<SettingsStore>((set) => ({
+const defaults: SettingsState = {
   soundEnabled: true,
   tooltipDelay: 600,
   musicVolume: 40,
@@ -47,16 +66,65 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   mvuApiKey: '',
   mvuTemperature: 1,
   mvuRetryCount: 1,
+};
 
-  toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
-  setTooltipDelay: (d) => set({ tooltipDelay: d }),
-  setMusicVolume: (v) => set({ musicVolume: v }),
-  setApiKey: (k) => set({ apiKey: k }),
-  setAvailableModels: (models) => set({ availableModels: models }),
-  setMvuUseIndependentApi: (v) => set({ mvuUseIndependentApi: v }),
-  setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
-  setMvuApiModel: (model) => set({ mvuApiModel: model }),
-  setMvuApiKey: (key) => set({ mvuApiKey: key }),
-  setMvuTemperature: (t) => set({ mvuTemperature: t }),
-  setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
+const persisted = load();
+
+export const useSettingsStore = create<SettingsStore>((set, get) => ({
+  ...defaults,
+  ...persisted,
+
+  toggleSound: () => set((s) => {
+    const next = { ...s, soundEnabled: !s.soundEnabled };
+    save(next);
+    return { soundEnabled: next.soundEnabled };
+  }),
+  setTooltipDelay: (d) => set((s) => {
+    save({ ...s, tooltipDelay: d });
+    return { tooltipDelay: d };
+  }),
+  setMusicVolume: (v) => set((s) => {
+    save({ ...s, musicVolume: v });
+    return { musicVolume: v };
+  }),
+  setApiBaseUrl: (url) => set((s) => {
+    save({ ...s, apiBaseUrl: url });
+    return { apiBaseUrl: url };
+  }),
+  setApiModel: (model) => set((s) => {
+    save({ ...s, apiModel: model });
+    return { apiModel: model };
+  }),
+  setApiKey: (k) => set((s) => {
+    save({ ...s, apiKey: k });
+    return { apiKey: k };
+  }),
+  setAvailableModels: (models) => set((s) => {
+    save({ ...s, availableModels: models });
+    return { availableModels: models };
+  }),
+  setMvuUseIndependentApi: (v) => set((s) => {
+    save({ ...s, mvuUseIndependentApi: v });
+    return { mvuUseIndependentApi: v };
+  }),
+  setMvuApiBaseUrl: (url) => set((s) => {
+    save({ ...s, mvuApiBaseUrl: url });
+    return { mvuApiBaseUrl: url };
+  }),
+  setMvuApiModel: (model) => set((s) => {
+    save({ ...s, mvuApiModel: model });
+    return { mvuApiModel: model };
+  }),
+  setMvuApiKey: (key) => set((s) => {
+    save({ ...s, mvuApiKey: key });
+    return { mvuApiKey: key };
+  }),
+  setMvuTemperature: (t) => set((s) => {
+    save({ ...s, mvuTemperature: t });
+    return { mvuTemperature: t };
+  }),
+  setMvuRetryCount: (n) => set((s) => {
+    save({ ...s, mvuRetryCount: n });
+    return { mvuRetryCount: n };
+  }),
 }));
