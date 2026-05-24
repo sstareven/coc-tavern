@@ -118,7 +118,7 @@ export function AppearPage({ pageIndex, children }: AppearProps) {
       key={pageIndex}
       style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        animation: 'pageFadeIn 0.45s ease-out',
+        animation: 'pageFadeIn 0.8s ease-out',
       }}
     >
       <style>{`
