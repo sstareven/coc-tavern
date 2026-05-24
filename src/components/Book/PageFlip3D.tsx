@@ -37,8 +37,8 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-  // Text fades on linear raw time, not eased: holds at 1 until 70% elapsed
-  const textOpacity = raw < 0.7 ? 1 : Math.max(0, 1 - (raw - 0.7) / 0.3);
+  // Hold visible for first 50%, then fade out by 75% elapsed
+  const textOpacity = raw < 0.5 ? 1 : Math.max(0, 1 - (raw - 0.5) / 0.25);
 
   return (
     <div
@@ -93,8 +93,7 @@ interface FadingPageProps {
  */
 export function FadingPage({ progress, children }: FadingPageProps) {
   const raw = Math.max(0, Math.min(1, progress));
-  // Hold visible through 70% of elapsed, then fade
-  const textOpacity = raw < 0.7 ? 1 : Math.max(0, 1 - (raw - 0.7) / 0.3);
+  const textOpacity = raw < 0.5 ? 1 : Math.max(0, 1 - (raw - 0.5) / 0.25);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: textOpacity, transition: 'none' }}>
