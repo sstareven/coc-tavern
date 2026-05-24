@@ -100,3 +100,34 @@ export function FadingPage({ progress, children }: FadingPageProps) {
     </div>
   );
 }
+
+// ── Content fade-in after flip completes ──
+
+interface AppearProps {
+  pageIndex: number;
+  children: React.ReactNode;
+}
+
+/**
+ * Fades in page content after a page turn completes.
+ * Uses key on pageIndex to trigger re-mount animation.
+ */
+export function AppearPage({ pageIndex, children }: AppearProps) {
+  return (
+    <div
+      key={pageIndex}
+      style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        animation: 'pageFadeIn 0.45s ease-out',
+      }}
+    >
+      <style>{`
+        @keyframes pageFadeIn {
+          from { opacity: 0.3; }
+          to   { opacity: 1; }
+        }
+      `}</style>
+      {children}
+    </div>
+  );
+}
