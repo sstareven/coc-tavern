@@ -360,9 +360,25 @@ export function InputBar() {
           </div>
         )}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
           padding: '10px 24px',
         }}>
+          {/* Wand buttons — left side */}
+          <button onClick={toggleDiceHistory} title="检定记录"
+            style={wandBtnStyle}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          >
+            ✦
+          </button>
+          <button onClick={openTokenCounter} title="Token计数"
+            style={wandBtnStyle}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          >
+            T
+          </button>
+
           <input
             type="text"
             value={input}
@@ -381,29 +397,6 @@ export function InputBar() {
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
           />
-          <button onClick={toggleDiceHistory} title="检定记录" style={{
-            padding: '10px 12px', border: '1px solid var(--brass)',
-            background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
-            fontFamily: 'var(--font-display)', fontSize: 14,
-            borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-          >
-            &#9861;
-          </button>
-
-          <button onClick={openTokenCounter} title="Token计数" style={{
-            padding: '10px 12px', border: '1px solid var(--brass)',
-            background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
-            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 'bold',
-            borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-          >
-            T
-          </button>
           <button onClick={submit} disabled={loading} title="预览提示词后发送" style={{
             padding: '10px 28px', border: '1px solid var(--gold)',
             background: loading ? 'rgba(196,168,85,0.05)' : 'rgba(196,168,85,0.1)',
@@ -423,3 +416,21 @@ export function InputBar() {
     </>
   );
 }
+
+const wandBtnStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  border: '1px solid var(--brass)',
+  background: 'rgba(0,0,0,0.2)',
+  color: 'var(--ink-subtle)',
+  fontFamily: 'var(--font-ui)',
+  fontSize: 14,
+  borderRadius: 3,
+  cursor: 'pointer',
+  transition: 'var(--transition-smooth)',
+  flexShrink: 0,
+};
