@@ -71,13 +71,15 @@ export function Storybook() {
         {/* BookUtils — outside the book at top-right */}
         <BookUtils onDeletePage={deletePage} onToggleDebug={toggleDebug} />
 
-        {/* Book container */}
+        {/* Book container — perspective for 3D page flip */}
         <div style={{
           position: 'relative',
           zIndex: 3,
           display: 'flex',
           width: '100%',
           height: 520,
+          perspective: '1400px',
+          perspectiveOrigin: 'center center',
           borderRadius: 4,
           background: 'linear-gradient(180deg, rgba(42,31,20,0.95) 0%, rgba(32,24,16,0.98) 100%)',
           boxShadow: [
@@ -145,12 +147,11 @@ export function Storybook() {
             zIndex: 1,
           }} />
 
-          {/* [A] 左页 — 容器自带paper背景填充，永不露底 */}
+          {/* [A] 左页 */}
           <div style={{
-            flex: 1, position: 'relative',
+            flex: 1, display: 'flex', position: 'relative',
             background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
-            borderRadius: '3px 0 0 3px',
-            overflow: 'hidden',
+            borderRadius: '3px 0 0 3px', overflow: 'hidden',
           }}>
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
@@ -173,12 +174,11 @@ export function Storybook() {
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
-          {/* [B] 右页 — 容器自带paper背景 */}
+          {/* [B] 右页 */}
           <div style={{
-            flex: 1, position: 'relative',
+            flex: 1, display: 'flex', position: 'relative',
             background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
-            borderRadius: '0 3px 3px 0',
-            overflow: 'hidden',
+            borderRadius: '0 3px 3px 0', overflow: 'hidden',
           }}>
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
