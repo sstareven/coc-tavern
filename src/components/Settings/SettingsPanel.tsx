@@ -19,11 +19,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const apiModel = useSettingsStore((s) => s.apiModel);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const setApiKey = useSettingsStore((s) => s.setApiKey);
+  const availableModels = useSettingsStore((s) => s.availableModels);
+  const setAvailableModels = useSettingsStore((s) => s.setAvailableModels);
 
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
   const [localApiKey, setLocalApiKey] = useState(apiKey);
   const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
+  const [modelsLoading, setModelsLoading] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
@@ -34,9 +37,29 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const testConnection = () => {
     if (!localApiUrl.trim()) return;
     setConnStatus('testing');
-    fetch(localApiUrl.trim(), { method: 'GET', headers: { 'Accept': 'application/json' } })
-      .then(() => setConnStatus('connected'))
-      .catch(() => setConnStatus('failed'));
+    setModelsLoading(true);
+    const base = localApiUrl.trim().replace(/\/+$/, '');
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    if (localApiKey.trim()) {
+      headers['Authorization'] = `Bearer ${localApiKey.trim()}`;
+    }
+    fetch(`${base}/models`, { method: 'GET', headers })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const models: string[] = Array.isArray(data?.data)
+          ? data.data.map((m: any) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
+          : [];
+        setAvailableModels(models);
+        setConnStatus('connected');
+      })
+      .catch(() => {
+        setAvailableModels([]);
+        setConnStatus('failed');
+      })
+      .finally(() => {
+        setModelsLoading(false);
+      });
   };
 
   if (!visible) return null;
@@ -169,10 +192,49 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             </div>
           </div>
 
+          {/* Model List dropdown */}
           <div style={rowStyle}>
-            <span style={labelStyle}>模型</span>
+            <span style={labelStyle}>模组列表</span>
+            <div style={{ position: 'relative', width: 240 }}>
+              <select
+                value={localApiModel}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLocalApiModel(val);
+                }}
+                disabled={availableModels.length === 0 && !modelsLoading}
+                style={{
+                  ...inputStyle,
+                  width: '100%',
+                  appearance: 'none',
+                  cursor: availableModels.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: availableModels.length === 0 ? 0.5 : 1,
+                }}
+              >
+                <option value="">{modelsLoading ? '加载中...' : availableModels.length === 0 ? '请先测试连接' : '请选择模型'}</option>
+                {availableModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              {/* Dropdown chevron */}
+              <span style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                fontSize: 10,
+                color: 'var(--brass)',
+              }}>▼</span>
+            </div>
+          </div>
+
+          {/* Model Name text input */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>模型名称</span>
             <input value={localApiModel}
               onChange={(e) => setLocalApiModel(e.target.value)}
+              placeholder="deepseek-v4-pro"
               style={inputStyle}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}

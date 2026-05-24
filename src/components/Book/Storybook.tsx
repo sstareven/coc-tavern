@@ -31,27 +31,19 @@ export function Storybook() {
 
   // --- bookmark tab styles ---
   const bookmarkTab: React.CSSProperties = {
-    position: 'absolute',
-    left: -48,
-    bottom: -6,
-    width: 120,
-    height: 24,
-    transform: 'rotate(-90deg)',
-    transformOrigin: 'top right',
+    width: 130,
+    height: 30,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingLeft: 12,
     fontFamily: 'var(--font-ui)',
-    fontSize: 10,
-    letterSpacing: 1,
+    fontSize: 11,
+    letterSpacing: 1.5,
     color: 'var(--text-light)',
-    background: 'linear-gradient(180deg, rgba(212,196,160,0.18) 0%, rgba(180,164,130,0.1) 100%)',
-    border: '1px solid rgba(196,168,85,0.15)',
-    borderLeft: '2px solid var(--blood)',
-    borderBottom: 'none',
-    borderRadius: '4px 4px 0 0',
+    background: 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)',
+    borderLeft: '3px solid var(--blood)',
+    borderRadius: '4px 0 0 4px',
     cursor: 'pointer',
-    padding: '2px 8px',
     backdropFilter: 'blur(2px)',
     transition: 'var(--transition-smooth)',
   };
@@ -77,6 +69,7 @@ export function Storybook() {
         {/* Book container */}
         <div style={{
           position: 'relative',
+          zIndex: 3,
           display: 'flex',
           width: '100%',
           height: 520,
@@ -216,31 +209,28 @@ export function Storybook() {
           />
         </div>
 
-        {/* Bookmark tabs — positioned below and to the LEFT of the book */}
+        {/* Bookmark tabs — positioned on the LEFT, tucked under book edge */}
         <div style={{
           position: 'absolute',
-          left: -34,
-          bottom: -96,
+          left: 0,
+          top: '20%',
+          transform: 'translateX(-85%)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 28,
-          zIndex: 5,
+          gap: 14,
+          zIndex: 2,
         }}>
           {/* Tab 1: 调查员记录 → character sheet */}
           <button
             onClick={() => useCharSheetStore.getState().toggle()}
-            style={{
-              ...bookmarkTab,
-              bottom: 30,
-              left: -32,
-            }}
+            style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.3) 0%, rgba(180,164,130,0.18) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.18) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
             }}
           >
             调查员记录
@@ -249,18 +239,14 @@ export function Storybook() {
           {/* Tab 2: 掷骰 → dice panel */}
           <button
             onClick={() => useDiceStore.getState().open()}
-            style={{
-              ...bookmarkTab,
-              bottom: -8,
-              left: -32,
-            }}
+            style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.3) 0%, rgba(180,164,130,0.18) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.18) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
             }}
           >
             掷骰
@@ -269,18 +255,14 @@ export function Storybook() {
           {/* Tab 3: 检定记录 → dice history */}
           <button
             onClick={() => usePanelStore.getState().open('diceHistory')}
-            style={{
-              ...bookmarkTab,
-              bottom: -46,
-              left: -32,
-            }}
+            style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--gold)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.3) 0%, rgba(180,164,130,0.18) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.35) 0%, rgba(180,164,130,0.2) 100%)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = 'var(--text-light)';
-              e.currentTarget.style.background = 'linear-gradient(180deg, rgba(212,196,160,0.18) 0%, rgba(180,164,130,0.1) 100%)';
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(212,196,160,0.22) 0%, rgba(180,164,130,0.1) 100%)';
             }}
           >
             检定记录
