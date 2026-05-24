@@ -1,25 +1,20 @@
 // ── Tunable parameters ──
 export const FLIP_CONFIG = {
-  TOTAL: 1800,
+  TOTAL: 600,
   PERSPECTIVE: 1400,
 };
 
-// ── Smooth easing ──
-function easeOutExpo(t: number): number {
-  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
-}
-
+// ── Smooth easing (compact for short duration) ──
 export function stagedProgress(rawT: number): number {
-  const s1 = rawT * rawT * (3 - 2 * rawT);
-  const s2 = easeOutExpo(rawT);
-  return s1 * 0.3 + s2 * 0.7;
+  const t = Math.max(0, Math.min(1, rawT));
+  // Cubic ease-in-out — smooth acceleration then deceleration
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
 
-// ── Paper background (always solid, never fades) ──
-
+// ── Paper background ──
 const paperBg = 'linear-gradient(180deg, var(--parchment) 0%, var(--parchment-deep) 50%, #e0cda0 100%)';
 
-// ── Page containers ──
+// ── Flipping page ──
 
 interface CSSFlipProps {
   progress: number;
@@ -29,62 +24,65 @@ interface CSSFlipProps {
 }
 
 /**
- * Rotating page: paper stays solid, text fades out.
+ * Rotating page with SOLID paper backing behind it.
+ * When the page rotates past 90°, the paper backing fills the gap.
  */
 export function CSSFlipPage({ progress, direction, children, style }: CSSFlipProps) {
   const p = stagedProgress(progress);
   const isForward = direction === 'forward';
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
-
-  // Only text fades — paper stays opaque
-  const textOpacity = Math.max(0, 1 - p * 2.8);
+  const textOpacity = Math.max(0, 1 - p * 3);
 
   return (
-    <div
-      style={{
-        ...style,
-        flex: 1, display: 'flex', position: 'relative',
+    <div style={{ ...style, flex: 1, position: 'relative', overflow: 'hidden' }}>
+      {/* ── Static paper backing — always visible, fills the void when flipping page rotates away ── */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: paperBg,
+        borderRadius: isForward ? '0 4px 4px 0' : '4px 0 0 4px',
+      }} />
+
+      {/* ── Rotating page ── */}
+      <div style={{
+        position: 'absolute', inset: 0,
         transformOrigin: `${originX} 50%`,
         transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
         backfaceVisibility: 'hidden' as const,
         transition: 'none',
-        zIndex: p > 0.01 && p < 0.99 ? 5 : 1,
+        zIndex: 2,
         background: paperBg,
         borderRadius: isForward ? '0 4px 4px 0' : '4px 0 0 4px',
+        display: 'flex',
         overflow: 'hidden',
-      }}
-    >
-      {/* Text layer — only this fades, paper underneath stays solid */}
-      <div style={{ flex: 1, opacity: textOpacity, transition: 'none' }}>
-        {children}
+      }}>
+        <div style={{ flex: 1, opacity: textOpacity, transition: 'none' }}>
+          {children}
+        </div>
       </div>
     </div>
   );
 }
+
+// ── Revealed page (fade in on opposite side) ──
 
 interface FadeInProps {
   progress: number;
   children: React.ReactNode;
 }
 
-/**
- * Revealed page: paper always visible, text fades in.
- */
 export function FadeInPage({ progress, children }: FadeInProps) {
   const p = stagedProgress(progress);
-  // Text fades in during second half, paper always solid
-  const textOpacity = p < 0.45 ? 0 : Math.min(1, (p - 0.45) / 0.45);
+  const textOpacity = p < 0.4 ? 0 : Math.min(1, (p - 0.4) / 0.35);
 
   return (
     <div style={{
-      flex: 1, display: 'flex', position: 'relative',
+      flex: 1, display: 'flex', flexDirection: 'column', position: 'relative',
       background: paperBg,
       borderRadius: 4,
       overflow: 'hidden',
     }}>
-      {/* Text layer — only this fades, paper stays solid */}
-      <div style={{ flex: 1, opacity: textOpacity, transition: 'none' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: textOpacity, transition: 'none' }}>
         {children}
       </div>
     </div>
