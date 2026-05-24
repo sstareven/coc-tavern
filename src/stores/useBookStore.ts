@@ -11,6 +11,10 @@ const defaultPages: BookPage[] = [
       { num: 'III', text: '观察符号', action: '仔细观察墙上的符号' },
       { num: 'IV', text: '离开房间', action: '离开这个房间' },
     ],
+    sceneInfo: {
+      date: '1925年3月21日', weekday: '星期五', time: '深夜',
+      weather: '雷雨交加', location: '阿卡姆·温迪尔街13号',
+    },
   },
   {
     leftHeader: '侦查结果', leftContent: '你用力撬开了锈蚀的铁柜。柜内躺着一叠泛黄的信件和一本皮质封面的日记。信件的纸张已经脆弱发黄，日期停留在 1923 年。', leftPage: '— 5 —',
@@ -21,6 +25,10 @@ const defaultPages: BookPage[] = [
       { num: 'III', text: '搜索房间', action: '彻底搜索房间的每个角落' },
       { num: 'IV', text: '带着证据离开', action: '带着信件和日记离开这里' },
     ],
+    sceneInfo: {
+      date: '1925年3月21日', weekday: '星期五', time: '午夜过后',
+      weather: '雷雨渐歇', location: '阿卡姆·温迪尔街13号',
+    },
   },
 ];
 

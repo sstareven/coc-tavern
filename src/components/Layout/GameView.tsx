@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
+import { StatusBar } from '../Book/StatusBar';
 import { DicePanel } from '../Dice/DicePanel';
 import { DiceHistory } from '../Dice/DiceHistory';
 import { CharSheetPanel } from '../CharSheet/CharSheetPanel';
@@ -44,12 +45,31 @@ export function GameView({ onReturnToMenu }: Props) {
       <main style={{
         flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
         overflow: 'hidden',
+        padding: '12px 0',
       }}>
+        {/* Status bar above book */}
+        <StatusBar />
+
         <Storybook />
+
+        {/* Desk surface below book */}
+        <div style={{
+          width: '78%',
+          maxWidth: 900,
+          height: 28,
+          flexShrink: 0,
+          marginTop: -8,
+          borderRadius: 4,
+          background: 'linear-gradient(180deg, rgba(61,43,19,0.55) 0%, rgba(42,31,20,0.35) 40%, rgba(13,10,7,0.6) 100%)',
+          border: '1px solid rgba(61,43,19,0.4)',
+          borderTop: 'none',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 2px 6px rgba(196,168,85,0.04)',
+        }} />
       </main>
 
       <InputBar />

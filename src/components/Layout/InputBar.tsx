@@ -7,11 +7,18 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { assemblePrompt, matchLoreEntries } from '../../sillytavern/prompt-assembler';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { PromptViewer } from '../Settings/PromptViewer';
-import type { BookPage, ChatPreset, LoreEntry } from '../../types';
+import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
 const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复，不要包含任何其他文字。JSON格式如下：
 {
+  "sceneInfo": {
+    "date": "当前游戏内日期，如 1923年10月15日",
+    "weekday": "星期几，如 星期一",
+    "time": "当前时间段，如 深夜、清晨、午后",
+    "weather": "当前天气，如 阴雨绵绵、大雾弥漫、月朗星稀",
+    "location": "当前地点，如 阿卡姆·密斯卡塔尼克大学图书馆"
+  },
   "leftHeader": "左页章节标题（如：调查结果、深入探索、战斗等）",
   "leftContent": "左页的叙事内容，包含环境描写、NPC对话、检定结果等。使用中文。",
   "rightHeader": "右页行动标题（如：行动选项、选择等）",
@@ -23,7 +30,7 @@ const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复，不要包含任
     {"num": "IV", "text": "选项四的简短描述", "action": "选项四的具体行动内容"}
   ]
 }
-必须提供恰好4个选项。`;
+必须提供恰好4个选项，sceneInfo中的日期要符合1920年代COC世界观。`;
 
 const DEFAULT_PRESET: ChatPreset = {
   id: 'default',
@@ -64,9 +71,17 @@ function buildCharacterVariables(): Record<string, string> {
 function buildContextFromPages(): string {
   const { pages, pageIndex } = useBookStore.getState();
   const relevantPages = pages.slice(Math.max(0, pageIndex - 2), pageIndex + 1);
-  return relevantPages
+  let ctx = relevantPages
     .map((p) => `【${p.leftHeader}】${p.leftContent}\n【${p.rightHeader}】${p.rightContent}`)
     .join('\n\n');
+
+  // Append current scene info as context for continuity
+  const currentPage = pages[pageIndex];
+  if (currentPage?.sceneInfo) {
+    const si = currentPage.sceneInfo;
+    ctx += `\n\n[当前场景: ${si.date} ${si.weekday} ${si.time} | 天气: ${si.weather} | 地点: ${si.location}]`;
+  }
+  return ctx;
 }
 
 function computeNextPageNumber(): string {
@@ -94,6 +109,19 @@ function parseLlmResponse(raw: string, userAction: string): BookPage | null {
 
   try {
     const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+
+    // Extract scene info if present
+    let sceneInfo: SceneInfo | undefined;
+    if (parsed.sceneInfo && typeof parsed.sceneInfo === 'object') {
+      const si = parsed.sceneInfo as Record<string, unknown>;
+      sceneInfo = {
+        date: String(si.date ?? ''),
+        weekday: String(si.weekday ?? ''),
+        time: String(si.time ?? ''),
+        weather: String(si.weather ?? ''),
+        location: String(si.location ?? ''),
+      };
+    }
 
     const leftHeader = String(parsed.leftHeader ?? '探索');
     const leftContent = String(parsed.leftContent ?? raw);
@@ -128,6 +156,7 @@ function parseLlmResponse(raw: string, userAction: string): BookPage | null {
       rightHeader,
       rightContent,
       rightChoices: choices,
+      sceneInfo,
     };
   } catch {
     // JSON parse failed — use the raw text as narrative with default choices
@@ -137,6 +166,7 @@ function parseLlmResponse(raw: string, userAction: string): BookPage | null {
       leftPage: computeNextPageNumber(),
       rightHeader: '行动',
       rightContent: '接下来你打算怎么做？',
+      sceneInfo: undefined,
       rightChoices: [
         { num: 'I', text: '继续探索', action: '继续探索周围环境' },
         { num: 'II', text: '仔细观察', action: '仔细观察你注意到的事物' },

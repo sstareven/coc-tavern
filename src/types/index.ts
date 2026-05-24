@@ -25,6 +25,15 @@ export interface CharacterSheet {
   };
 }
 
+// ===== Scene Info =====
+export interface SceneInfo {
+  date: string;
+  weekday: string;
+  time: string;
+  weather: string;
+  location: string;
+}
+
 // ===== Storybook Pages =====
 export interface BookPage {
   leftHeader: string;
@@ -33,6 +42,7 @@ export interface BookPage {
   rightHeader: string;
   rightContent: string;
   rightChoices: ChoiceItem[];
+  sceneInfo?: SceneInfo;
 }
 
 export interface ChoiceItem {
