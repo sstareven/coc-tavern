@@ -173,24 +173,14 @@ export function CSSFlipPage({ progress, direction, children, style }: CSSFlipPro
         transformOrigin: `${originX} 50%`,
         transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
         boxShadow: `${shadowX}px 2px ${curl * 16}px rgba(0,0,0,${shadowAlpha})`,
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden' as const,
         transition: 'none',
         background: `${PAPER_BG}, ${PAPER_EDGE}`,
-        backgroundBlendMode: 'normal, multiply',
         borderRadius: '0 2px 2px 0',
         position: 'relative',
       }}
     >
       {children}
-      {/* Paper grain overlay */}
-      <div
-        style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.04\'/%3E%3C/svg%3E")',
-          opacity: 0.5,
-        }}
-      />
     </div>
   );
 }
