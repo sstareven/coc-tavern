@@ -147,11 +147,11 @@ export function Storybook() {
 
           {/* Left page */}
           <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'backward' ? (
-              <CSSFlipPage progress={flipProgress} direction="backward">
+            {isFlipping && direction === 'forward' ? (
+              <CSSFlipPage progress={flipProgress} direction="forward">
                 <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'forward' ? (
+            ) : isFlipping && direction === 'backward' ? (
               <BlankPaper side="left" />
             ) : (
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
@@ -166,11 +166,11 @@ export function Storybook() {
 
           {/* Right page */}
           <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'forward' ? (
-              <CSSFlipPage progress={flipProgress} direction="forward">
+            {isFlipping && direction === 'backward' ? (
+              <CSSFlipPage progress={flipProgress} direction="backward">
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
               </CSSFlipPage>
-            ) : isFlipping && direction === 'backward' ? (
+            ) : isFlipping && direction === 'forward' ? (
               <BlankPaper side="right" />
             ) : (
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
