@@ -145,19 +145,19 @@ export function Storybook() {
             zIndex: 1,
           }} />
 
-          {/* [A] 左页 */}
-          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
-            {/* [A-underlay] 底下静态拷贝 — 始终可见 */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          {/* [A] 左页 — underlay在底层始终可见，overlay盖上FlipCard/BlankPaper */}
+          <div style={{ flex: 1, position: 'relative' }}>
+            {/* [A-underlay] */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex' }}>
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
             </div>
-            {/* [A-overlay] 翻页层 */}
-            <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex' }}>
+            {/* [A-overlay] */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
               {isFlipping && direction === 'backward' ? (
                 <CSSFlipPage progress={flipProgress} direction="backward">
                   <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
                 </CSSFlipPage>
-              ) : isFlipping && direction === 'forward' ? (
+              ) : (isFlipping && direction === 'forward') ? (
                 <BlankPaper side="left" />
               ) : null}
             </div>
@@ -169,19 +169,19 @@ export function Storybook() {
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
-          {/* [B] 右页 */}
-          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
-            {/* [B-underlay] 底下静态拷贝 */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          {/* [B] 右页 — underlay底层 + overlay上层 */}
+          <div style={{ flex: 1, position: 'relative' }}>
+            {/* [B-underlay] */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex' }}>
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
             </div>
-            {/* [B-overlay] 翻页层 */}
-            <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex' }}>
+            {/* [B-overlay] */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
               {isFlipping && direction === 'forward' ? (
                 <CSSFlipPage progress={flipProgress} direction="forward">
                   <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
                 </CSSFlipPage>
-              ) : isFlipping && direction === 'backward' ? (
+              ) : (isFlipping && direction === 'backward') ? (
                 <BlankPaper side="right" />
               ) : null}
             </div>
