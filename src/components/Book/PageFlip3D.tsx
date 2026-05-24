@@ -1,7 +1,6 @@
 // ── Tunable parameters ──
 export const FLIP_CONFIG = {
   TOTAL: 1500,
-  PERSPECTIVE: 1400,
 };
 
 // ── Smooth easing ──
@@ -24,12 +23,11 @@ interface CSSFlipProps {
 }
 
 /**
- * [FlipCard] A physical paper page that rotates around the spine.
+ * [FlipCard] Physical page rotating around the spine.
+ * Parent book container provides perspective; this card just rotates on Y axis.
  *
- * Structure:
- *   FlipCard (outer, rotates)         ← 3D旋转容器
- *   ├─ FlipFront (front face)         ← 正面：当前内容+纸底
- *   └─ FlipBack (back face, 180°)     ← 背面：空白纸色
+ * Forward: origin at left edge (right page flips to left), rotateY 0→-180
+ * Backward: origin at right edge (left page flips to right), rotateY 0→180
  */
 export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const p = stagedProgress(Math.max(0, Math.min(1, progress)));
@@ -37,7 +35,6 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-  // Text fades at same speed as page rotation
   const textOpacity = 1 - p;
 
   return (
@@ -46,7 +43,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
+        transform: `rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
@@ -80,12 +77,8 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   );
 }
 
-// ── Blank paper placeholder (no text, just solid paper) ──
+// ── Blank paper placeholder ──
 
-/**
- * [Placeholder] Static blank paper shown on the opposite side during a flip.
- * No text, just solid paper color.
- */
 export function BlankPaper({ side }: { side: 'left' | 'right' }) {
   const radius = side === 'left' ? '3px 0 0 3px' : '0 3px 3px 0';
   return (
