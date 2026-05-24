@@ -37,8 +37,8 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
 
-  // Page slowly fades out as it flips over
-  const cardOpacity = Math.max(0.1, 1 - raw * 0.9);
+  // Text vanishes by raw=0.5 (90° vertical — page edge-on to viewer)
+  const textOpacity = Math.max(0, 1 - raw / 0.5);
 
   return (
     <div
@@ -49,7 +49,6 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
         transform: `rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
-        opacity: cardOpacity,
       }}
     >
       {/* [FlipFront] */}
@@ -62,7 +61,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
           display: 'flex',
         }}
       >
-        <div style={{ flex: 1, display: 'flex' }}>
+        <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none' }}>
           {children}
         </div>
       </div>
@@ -94,8 +93,7 @@ interface FadingPageProps {
  */
 export function FadingPage({ progress, children }: FadingPageProps) {
   const raw = Math.max(0, Math.min(1, progress));
-  const textOpacity = raw < 0.35 ? 1 : Math.max(0, 1 - (raw - 0.35) / 0.2);
-
+  const textOpacity = Math.max(0, 1 - raw / 0.5);
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: textOpacity, transition: 'none' }}>
       {children}
