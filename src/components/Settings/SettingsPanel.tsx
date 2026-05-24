@@ -268,13 +268,13 @@ function RegexSettingsContent() {
 
 // ── Extensions section content ──
 
-function ExtensionsSettingsContent({ onClose }: { onClose: () => void }) {
+function ExtensionsSettingsContent() {
   return (
     <div>
       <p style={{ fontSize: 11, color: 'var(--ink-subtle)', marginBottom: 14 }}>
         管理已安装的扩展脚本，启用或禁用功能模块。
       </p>
-      <button onClick={() => { usePanelStore.getState().open('extManager'); onClose(); }} style={{
+      <button onClick={() => { usePanelStore.getState().open('extManager'); }} style={{
         width: '100%', padding: '10px 0', border: '1px solid var(--brass)',
         borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
         fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
@@ -570,7 +570,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
             {section === 'extensions' && (
               <motion.div key="extensions" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
-                <ExtensionsSettingsContent onClose={onClose} />
+                <ExtensionsSettingsContent />
               </motion.div>
             )}
           </AnimatePresence>

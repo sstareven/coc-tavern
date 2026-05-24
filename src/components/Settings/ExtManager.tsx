@@ -2,14 +2,9 @@ import { useState, useEffect } from 'react';
 import type { Extension } from '../../types';
 
 const STORAGE_KEY = 'coc_extensions';
-const DEFAULT_EXTS: Extension[] = [
-  { id: 'ext-1', name: 'MVU 变量引擎', version: '1.2.0', author: 'Tavern Team', description: 'MVU 模式游戏状态管理，变量追踪、自动提取与合并。', enabled: true, entryPoint: 'window.__mvu_engine__' },
-  { id: 'ext-2', name: '酒馆助手', version: '0.8.1', author: 'COC Tools', description: 'LLM 上下文优化，智能裁剪历史、注入世界书条目。', enabled: false, entryPoint: 'window.__tavern_helper__' },
-  { id: 'ext-3', name: '骰子宏脚本', version: '2.0.0', author: 'DiceMaster', description: '复杂骰子表达式、CoC 奖励骰/惩罚骰、/r 快捷指令。', enabled: true, entryPoint: '/r, /roll 命令' },
-];
 
 function loadExts(): Extension[] {
-  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : DEFAULT_EXTS; } catch { return DEFAULT_EXTS; }
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
 }
 function saveExts(exts: Extension[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(exts)); } catch {}
