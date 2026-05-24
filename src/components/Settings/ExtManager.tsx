@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Extension } from '../../types';
 
-const STORAGE_KEY = 'coc_extensions';
+const STORAGE_KEY = 'coc_extensions_v2';
 
 function loadExts(): Extension[] {
   try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
