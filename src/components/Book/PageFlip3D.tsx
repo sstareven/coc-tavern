@@ -29,16 +29,6 @@ export function stagedProgress(rawT: number): number {
   return 0.75 + easeOutQuad((rawT - 0.74) / 0.26) * 0.25;
 }
 
-// ── Paper texture CSS ──
-
-const PAPER_BG = `
-  linear-gradient(135deg, #f4e4c1 0%, #ead5a8 40%, #e8d0a0 60%, #f2e0c0 100%)
-`;
-
-const PAPER_EDGE = `
-  repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(139,100,60,0.03) 3px, rgba(139,100,60,0.03) 4px)
-`;
-
 interface Props {
   direction: 'forward' | 'backward';
   onComplete: () => void;
@@ -158,29 +148,33 @@ interface CSSFlipProps {
 }
 
 export function CSSFlipPage({ progress, direction, children, style }: CSSFlipProps) {
-  const isForward = direction === 'forward';
   const p = stagedProgress(progress);
-  const rotateY = isForward ? -p * 170 : p * 170;
+
+  // Forward: right page flips left around its left edge (spine)
+  // Backward: left page flips right around its right edge (spine)
+  const isForward = direction === 'forward';
+  const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
-  const curl = Math.sin(p * Math.PI);
-  const shadowX = (isForward ? 1 : -1) * curl * 24;
-  const shadowAlpha = 0.1 + curl * 0.18;
 
   return (
     <div
       style={{
         ...style,
+        flex: 1,
+        display: 'flex',
         transformOrigin: `${originX} 50%`,
         transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
-        boxShadow: `${shadowX}px 2px ${curl * 16}px rgba(0,0,0,${shadowAlpha})`,
         backfaceVisibility: 'hidden' as const,
         transition: 'none',
-        background: `${PAPER_BG}, ${PAPER_EDGE}`,
-        borderRadius: '0 2px 2px 0',
         position: 'relative',
+        zIndex: isFlippingLike(p) ? 5 : 1,
       }}
     >
       {children}
     </div>
   );
+}
+
+function isFlippingLike(p: number): boolean {
+  return p > 0.01 && p < 0.99;
 }
