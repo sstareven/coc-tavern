@@ -4,6 +4,7 @@ interface Props {
   header: string;
   content: string;
   choices: ChoiceItem[];
+  isFlipping?: boolean;
 }
 
 function fillInputBar(text: string) {
@@ -18,51 +19,16 @@ function fillInputBar(text: string) {
   input.focus();
 }
 
-export function RightPage({ header, content, choices }: Props) {
+export function RightPage({ header, content, choices, isFlipping }: Props) {
+  const fadeStyle = {
+    opacity: isFlipping ? 0 : 1,
+    transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',
+  };
   return (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '28px 28px 20px 24px',
-      background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
-      borderTopRightRadius: 4,
-      borderBottomRightRadius: 4,
-      boxShadow: 'inset 6px 0 16px rgba(0,0,0,0.08)',
-      color: 'var(--ink)',
-      fontFamily: 'var(--font-body)',
-      fontSize: 15,
-      lineHeight: 1.75,
-      position: 'relative',
-    }}>
-      <h3 style={{
-        fontFamily: 'var(--font-display)',
-        fontSize: 18,
-        color: 'var(--ink)',
-        letterSpacing: 4,
-        marginBottom: 16,
-        borderBottom: '1px solid rgba(107,90,58,0.25)',
-        paddingBottom: 10,
-      }}>
-        {header}
-      </h3>
-      <p style={{
-        textIndent: '2em',
-        marginBottom: 18,
-        color: 'var(--ink)',
-      }}>
-        {content}
-      </p>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        flex: 1,
-        overflowY: 'auto',
-        paddingRight: 4,
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'var(--ink-faded) transparent',
-      }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 6px 0 16px rgba(0,0,0,0.08)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, ...fadeStyle }}>{header}</h3>
+      <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)', ...fadeStyle }}>{content}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--ink-faded) transparent', ...fadeStyle }}>
         {choices.map((ch) => (
           <button
             key={ch.num}

@@ -6,7 +6,13 @@ import type { CharacterSheet, COC7Characteristic } from '../../types';
 
 const STEPS = ['身份信息', '基础属性', '衍生属性', '职业与技能', '背景故事', '确认创建'];
 
-const POOL_VALUES = [40, 50, 50, 50, 60, 60, 70, 80];
+function roll3D6() { return Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1; }
+function roll2D6() { return Math.floor(Math.random()*6)+1 + Math.floor(Math.random()*6)+1; }
+
+const CHAR_ROLL: Record<string, () => number> = {
+  STR: () => roll3D6()*5, CON: () => roll3D6()*5, POW: () => roll3D6()*5, DEX: () => roll3D6()*5,
+  APP: () => roll3D6()*5, SIZ: () => (roll2D6()+6)*5, INT: () => (roll2D6()+6)*5, EDU: () => Math.min(99, (roll3D6()+3)*5),
+};
 
 const CHAR_ORDER: { key: COC7Characteristic; zh: string }[] = [
   { key: 'STR', zh: '力量' },
@@ -28,8 +34,6 @@ const ALL_SKILLS: { name: string; en: string; base: number | 'DEX_HALF' | 'EDU' 
   { name: '魅惑', en: 'Charm', base: 15 },
   { name: '攀爬', en: 'Climb', base: 20 },
   { name: '计算机使用', en: 'Computer Use', base: 5 },
-  { name: '信用评级', en: 'Credit Rating', base: 0 },
-  { name: '克苏鲁神话', en: 'Cthulhu Mythos', base: 0 },
   { name: '乔装', en: 'Disguise', base: 5 },
   { name: '躲闪', en: 'Dodge', base: 'DEX_HALF' },
   { name: '汽车驾驶', en: 'Drive Auto', base: 20 },
@@ -71,19 +75,7 @@ const ALL_SKILLS: { name: string; en: string; base: number | 'DEX_HALF' | 'EDU' 
 
 /* ============================== Helpers ============================== */
 
-function getAvailableValues(
-  assigned: Partial<Record<COC7Characteristic, number>>,
-  excludeKey: COC7Characteristic,
-): number[] {
-  const remaining = [...POOL_VALUES];
-  for (const [key, val] of Object.entries(assigned)) {
-    if (key !== excludeKey && typeof val === 'number') {
-      const idx = remaining.indexOf(val);
-      if (idx !== -1) remaining.splice(idx, 1);
-    }
-  }
-  return [...new Set(remaining)].sort((a, b) => a - b);
-}
+
 
 function getDBBuild(strPlusSiz: number): { db: string; build: number } {
   if (strPlusSiz >= 2 && strPlusSiz <= 64) return { db: '-2', build: -2 };
@@ -136,6 +128,7 @@ const selectStyle: React.CSSProperties = {
   backgroundPosition: 'right 10px center',
   paddingRight: 30,
 };
+  const plusMinusBtn: React.CSSProperties = { width: 32, height: 28, border: "1px solid var(--brass)", borderRadius: 3, background: "rgba(0,0,0,0.3)", color: "var(--ink-subtle)", fontFamily: "var(--font-mono)", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
 
 const btnBase: React.CSSProperties = {
   padding: '8px 24px',
@@ -170,10 +163,11 @@ const sectionTitle: React.CSSProperties = {
 /* ============================== Component ============================== */
 
 interface Props {
+  onComplete: () => void;
   onClose: () => void;
 }
 
-export function CharacterCreator({ onClose }: Props) {
+export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
   const [step, setStep] = useState(0);
 
@@ -187,14 +181,32 @@ export function CharacterCreator({ onClose }: Props) {
   const [birthplace, setBirthplace] = useState('');
 
   /* ---- Step 2: Characteristics ---- */
-  const [charValues, setCharValues] = useState<Partial<Record<COC7Characteristic, number>>>({});
+  const defaultChars: Record<COC7Characteristic, number> = { STR: 50, CON: 50, POW: 50, DEX: 50, APP: 50, SIZ: 50, INT: 50, EDU: 50 };
+  const [charValues, setCharValues] = useState<Record<COC7Characteristic, number>>(defaultChars);
 
-  const setCharValue = useCallback((key: COC7Characteristic, value: number) => {
-    setCharValues((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  const POOL_VALUES = [40, 50, 50, 50, 60, 60, 70, 80];
+  const [poolMode, setPoolMode] = useState(true);
+  const [poolAssignments, setPoolAssignments] = useState<Record<COC7Characteristic, number | null>>(() => {
+    const init = {} as Record<COC7Characteristic, number | null>;
+    CHAR_ORDER.forEach((c) => { init[c.key] = null; });
+    return init;
+  });
 
-  const allCharsAssigned =
-    CHAR_ORDER.every((c) => typeof charValues[c.key] === 'number');
+  const availablePoolValues = useMemo(() => {
+    const remaining = [...POOL_VALUES];
+    const assigned = (Object.values(poolAssignments) as (number | null)[]).filter((v): v is number => v != null);
+    for (const v of assigned) {
+      const idx = remaining.indexOf(v);
+      if (idx >= 0) remaining.splice(idx, 1);
+    }
+    return remaining;
+  }, [poolAssignments]);
+
+  const allCharsAssigned = poolMode
+    ? CHAR_ORDER.every((c) => poolAssignments[c.key] != null)
+    : CHAR_ORDER.every((c) => typeof charValues[c.key] === 'number');
+
+  const [luckValue, setLuckValue] = useState<number | null>(null);
 
   /* ---- Step 3: Derived (auto-calc) ---- */
   const derived = useMemo(() => {
@@ -225,8 +237,6 @@ export function CharacterCreator({ onClose }: Props) {
     () => Object.values(occPoints).reduce((a, b) => a + b, 0),
     [occPoints],
   );
-  const remainingOccPoints = occPointPool - totalOccAllocated;
-
   const toggleOccSkill = useCallback((skillName: string) => {
     setOccSkills((prev) => {
       if (prev.includes(skillName)) {
@@ -250,7 +260,9 @@ export function CharacterCreator({ onClose }: Props) {
     });
   }, []);
 
-  const canProceedStep4 = creditRating >= 0 && creditRating <= 99 && occSkills.length === 8;
+  const occTotalAllocated = Object.values(occPoints).reduce((a, b) => a + b, 0) + creditRating;
+  const occRemaining = occPointPool - occTotalAllocated;
+  const canProceedStep4 = occRemaining === 0 && occSkills.length === 8;
 
   /* ---- Step 5: Background ---- */
   const [description, setDescription] = useState('');
@@ -262,8 +274,37 @@ export function CharacterCreator({ onClose }: Props) {
   const [injuries, setInjuries] = useState('');
   const [phobias, setPhobias] = useState('');
 
+  /* ---- Presets ---- */
+  const [presets, setPresets] = useState<{ name: string; data: any }[]>(() => {
+    try { const raw = localStorage.getItem('coc_char_presets'); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+  const [showPresetLoad, setShowPresetLoad] = useState(false);
+
+  const savePreset = useCallback(() => {
+    const pn = (typeof prompt === 'function' ? prompt('请输入预设名称:') : '')?.trim();
+    if (!pn) return;
+    const data = { name, player, occupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias };
+    const filtered = presets.filter((p: any) => p.name !== pn);
+    const np = [...filtered, { name: pn, data }].slice(-10);
+    setPresets(np);
+    try { localStorage.setItem('coc_char_presets', JSON.stringify(np)); } catch {}
+  }, [presets, name, player, occupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias]);
+
+  const loadPreset = useCallback((preset: { name: string; data: any }) => {
+    const d = preset.data;
+    setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setAge(d.age??25); setSex(d.sex||''); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
+    setCharValues(d.charValues||defaultChars); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]);
+    setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setPhobias(d.phobias||'');
+    setPoolMode(false); setShowPresetLoad(false);
+  }, [defaultChars]);
+
+  const deletePreset = useCallback((pn: string) => {
+    const np = presets.filter((p:any) => p.name !== pn);
+    setPresets(np);
+    try { localStorage.setItem('coc_char_presets', JSON.stringify(np)); } catch {}
+  }, [presets]);
+
   /* ---- Step 3: Luck roll ---- */
-  const [luckValue, setLuckValue] = useState<number | null>(null);
 
   const rollLuck = useCallback(() => {
     const d1 = Math.ceil(Math.random() * 6);
@@ -303,6 +344,9 @@ export function CharacterCreator({ onClose }: Props) {
 
     // Credit Rating
     skills['信用评级'] = { base: 0, current: creditRating };
+
+    // Cthulhu Mythos — always 0, never increases through creation
+    skills['克苏鲁神话'] = { base: 0, current: 0 };
 
     // Occupation skills
     for (const skillName of occSkills) {
@@ -410,25 +454,83 @@ export function CharacterCreator({ onClose }: Props) {
       { label: '玩家 Player', value: player, set: setPlayer },
       { label: '职业 Occupation', value: occupation, set: setOccupation },
       { label: '年龄 Age', value: age, set: (v) => setAge(Number(v) || 0), type: 'number' },
-      { label: '性别 Sex', value: sex, set: setSex },
+      { label: '性别 Sex', value: sex, set: setSex, dropdown: ['男', '女', '其他'] },
       { label: '居住地 Residence', value: residence, set: setResidence },
       { label: '出生地 Birthplace', value: birthplace, set: setBirthplace },
     ];
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Preset load */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowPresetLoad(!showPresetLoad)}
+              style={{
+                padding: '4px 12px', border: '1px solid rgba(196,168,85,0.25)',
+                borderRadius: 3, background: 'rgba(196,168,85,0.08)',
+                color: 'var(--gold)', fontFamily: 'var(--font-ui)',
+                fontSize: 10, cursor: 'pointer', letterSpacing: 1,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >加载预设 {presets.length > 0 ? `(${presets.length})` : ''}</button>
+            {showPresetLoad && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                background: 'var(--abyss)', border: '1px solid rgba(196,168,85,0.25)',
+                borderRadius: 4, padding: 4, zIndex: 900,
+                minWidth: 180, maxHeight: 200, overflowY: 'auto',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              }}>
+                {presets.length === 0 ? (
+                  <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)' }}>
+                    暂无预设
+                  </div>
+                ) : (
+                  presets.map((p) => (
+                    <div key={p.name} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '6px 10px', cursor: 'pointer', borderRadius: 3,
+                      transition: 'var(--transition-smooth)',
+                    }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span
+                        onClick={() => { loadPreset(p); setStep(5); }}
+                        style={{
+                          flex: 1, fontSize: 11, color: 'var(--text-light)',
+                          fontFamily: 'var(--font-body)',
+                        }}
+                      >{p.name}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deletePreset(p.name); }}
+                        style={{
+                          width: 18, height: 18, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', border: 'none', borderRadius: 2,
+                          background: 'transparent', color: 'var(--ink-subtle)',
+                          fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+                        }}
+                      >x</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         <div style={sectionTitle}>身份信息 IDENTITY</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {fields.map((f) => (
             <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={labelStyle}>{f.label}</span>
-              <input
-                type={f.type ?? 'text'}
-                value={f.value}
-                onChange={(e) => f.set(e.target.value)}
-                style={inputStyle}
-                placeholder="--"
-              />
+              {f.dropdown ? (
+                <select value={f.value} onChange={(e) => f.set(e.target.value)} style={inputStyle}>
+                  {f.dropdown.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              ) : (
+                <input type={f.type ?? 'text'} value={f.value} onChange={(e) => f.set(e.target.value)} style={inputStyle} placeholder="--" />
+              )}
             </div>
           ))}
         </div>
@@ -438,65 +540,179 @@ export function CharacterCreator({ onClose }: Props) {
 
   /* ===== Step 2: Characteristics ===== */
   function renderCharacteristics() {
+    const adjChar = (key: COC7Characteristic, delta: number) => {
+      setCharValues(prev => {
+        const v = (prev[key] || 50) + delta;
+        return { ...prev, [key]: Math.max(1, Math.min(99, v)) };
+      });
+    };
+    const rollChar = (key: COC7Characteristic) => {
+      const fn = CHAR_ROLL[key];
+      const val = fn ? fn() : 50;
+      setCharValues(prev => ({ ...prev, [key]: val }));
+    };
+    const randomAll = () => {
+      const newVals: Record<string, number> = {};
+      CHAR_ORDER.forEach(({key}) => { const fn = CHAR_ROLL[key]; newVals[key] = fn ? fn() : 50; });
+      setCharValues(prev => ({ ...prev, ...newVals }));
+    };
+
+    const handlePoolAssign = (key: COC7Characteristic, value: number | null) => {
+      setPoolAssignments((prev) => {
+        const next = { ...prev, [key]: value };
+        if (value != null) {
+          setCharValues((cv) => ({ ...cv, [key]: value }));
+        }
+        return next;
+      });
+    };
+
+    const switchToFreeMode = () => {
+      const newChars = { ...charValues };
+      CHAR_ORDER.forEach(({ key }) => {
+        if (poolAssignments[key] != null) {
+          newChars[key] = poolAssignments[key]!;
+        }
+      });
+      setCharValues(newChars);
+      setPoolMode(false);
+    };
+
+    const switchToPoolMode = () => {
+      const newAssignments = {} as Record<COC7Characteristic, number | null>;
+      const remaining = [...POOL_VALUES];
+      CHAR_ORDER.forEach(({ key }) => {
+        const val = charValues[key] ?? 50;
+        const idx = remaining.indexOf(val);
+        if (idx >= 0) {
+          newAssignments[key] = val;
+          remaining.splice(idx, 1);
+        } else {
+          newAssignments[key] = null;
+        }
+      });
+      setPoolAssignments(newAssignments);
+      setPoolMode(true);
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={sectionTitle}>基础属性 CHARACTERISTICS</div>
-        <div style={{
-          padding: '8px 12px',
-          border: '1px solid rgba(196,168,85,0.12)',
-          borderRadius: 4,
-          background: 'rgba(196,168,85,0.04)',
-          fontSize: 12,
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--ink-subtle)',
-        }}>
-          可用点数池: [{getAvailableValues(charValues, 'STR' as COC7Characteristic).join(', ')}]
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div style={sectionTitle}>基础属性 CHARACTERISTICS</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Mode toggle */}
+            <div style={{
+              display: 'flex', border: '1px solid rgba(196,168,85,0.25)', borderRadius: 4,
+              overflow: 'hidden',
+            }}>
+              <button onClick={switchToPoolMode} style={{
+                padding: '5px 12px', border: 'none',
+                background: poolMode ? 'rgba(196,168,85,0.18)' : 'transparent',
+                color: poolMode ? 'var(--gold)' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                letterSpacing: 1, transition: 'var(--transition-smooth)',
+              }}>点数池分配</button>
+              <button onClick={switchToFreeMode} style={{
+                padding: '5px 12px', border: 'none',
+                background: !poolMode ? 'rgba(196,168,85,0.18)' : 'transparent',
+                color: !poolMode ? 'var(--gold)' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                letterSpacing: 1, transition: 'var(--transition-smooth)',
+              }}>自由调整</button>
+            </div>
+            {!poolMode && (
+              <button onClick={randomAll} style={{
+                padding: '6px 16px', border: '1px solid var(--gold)', borderRadius: 4,
+                background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
+                fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer', letterSpacing: 2,
+              }}>全随机</button>
+            )}
+          </div>
         </div>
+
+        {poolMode && (
+          <div style={{
+            padding: '8px 12px', border: '1px solid rgba(196,168,85,0.12)',
+            borderRadius: 4, background: 'rgba(196,168,85,0.04)',
+            fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)',
+            display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+          }}>
+            <span style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+              剩余数值:
+            </span>
+            {availablePoolValues.length > 0 ? availablePoolValues.map((v, i) => (
+              <span key={i} style={{
+                padding: '2px 8px', border: '1px solid rgba(196,168,85,0.2)',
+                borderRadius: 3, color: 'var(--gold)', fontWeight: 600,
+              }}>{v}</span>
+            )) : (
+              <span style={{ color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                全部已分配
+              </span>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {CHAR_ORDER.map(({ key, zh }) => {
-            const val = charValues[key];
-            const available = getAvailableValues(charValues, key);
-            const half = val != null ? Math.floor(val / 2) : '-';
-            const fifth = val != null ? Math.floor(val / 5) : '-';
-            return (
-              <div key={key} style={{
-                padding: '10px 12px',
-                border: '1px solid rgba(196,168,85,0.15)',
-                borderRadius: 4,
-                background: 'rgba(0,0,0,0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
-                    {zh} ({key})
-                  </span>
-                  {val != null && (
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
-                      1/2:{half} 1/5:{fifth}
-                    </span>
+            const val = charValues[key] || 50;
+            const half = Math.floor(val / 2);
+            const fifth = Math.floor(val / 5);
+            const assignedPool = poolAssignments[key];
+
+            if (poolMode) {
+              const options = assignedPool != null
+                ? [assignedPool, ...availablePoolValues]
+                : availablePoolValues;
+              return (
+                <div key={key} style={{ padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
+                    <button onClick={() => handlePoolAssign(key, null)} style={{
+                      padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+                      background: 'transparent', color: 'var(--ink-subtle)',
+                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
+                    }}>清除</button>
+                  </div>
+                  <select
+                    value={assignedPool ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value ? Number(e.target.value) : null;
+                      handlePoolAssign(key, v);
+                    }}
+                    style={selectStyle}
+                  >
+                    <option value="">-- 选择数值 --</option>
+                    {options.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  {assignedPool != null && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+                      <span>1/2: {half}</span><span>1/5: {fifth}</span>
+                    </div>
                   )}
                 </div>
-                <select
-                  value={val ?? ''}
-                  onChange={(e) => setCharValue(key, Number(e.target.value))}
-                  style={selectStyle}
-                >
-                  <option value="" disabled>
-                    -- 选择点数 --
-                  </option>
-                  {val != null && (
-                    <option value={val}>
-                      {val} (当前)
-                    </option>
-                  )}
-                  {available.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+              );
+            }
+
+            // Free mode
+            return (
+              <div key={key} style={{ padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
+                  <button onClick={() => rollChar(key)} style={{ padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer' }}>ROLL</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <button onClick={() => adjChar(key, -5)} style={plusMinusBtn}>-5</button>
+                  <button onClick={() => adjChar(key, -1)} style={plusMinusBtn}>-1</button>
+                  <span style={{ fontSize: 22, fontFamily: 'var(--font-mono)', color: 'var(--text-light)', fontWeight: 700, minWidth: 40, textAlign: 'center' }}>{val}</span>
+                  <button onClick={() => adjChar(key, +1)} style={plusMinusBtn}>+1</button>
+                  <button onClick={() => adjChar(key, +5)} style={plusMinusBtn}>+5</button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+                  <span>1/2: {half}</span><span>1/5: {fifth}</span>
+                </div>
               </div>
             );
           })}
@@ -659,13 +875,17 @@ export function CharacterCreator({ onClose }: Props) {
           <input
             type="range"
             min={0}
-            max={99}
+            max={Math.min(99, creditRating + occRemaining)}
             value={creditRating}
-            onChange={(e) => setCreditRating(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value) || 0;
+              const maxAllowed = creditRating + occRemaining;
+              setCreditRating(Math.max(0, Math.min(v, maxAllowed, 99)));
+            }}
             style={{ width: '100%', accentColor: 'var(--gold)' }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-            <span>0</span><span>99</span>
+            <span>0</span><span>{Math.min(99, creditRating + occRemaining)}</span>
           </div>
         </div>
 
@@ -682,7 +902,7 @@ export function CharacterCreator({ onClose }: Props) {
             职业技能点 (EDU x 4 = {eduVal} x 4):
           </span>
           <span style={{ color: 'var(--gold)', fontWeight: 700 }}>
-            {remainingOccPoints} / {occPointPool} 剩余
+            {occRemaining} / {occPointPool} 剩余
           </span>
         </div>
 
@@ -715,25 +935,28 @@ export function CharacterCreator({ onClose }: Props) {
                       {baseDisplay}
                     </span>
                   </div>
-                  {selected && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                      <input
-                        type="number"
-                        min={0}
-                        max={occPointPool}
-                        value={points}
-                        onChange={(e) => {
-                          const v = Math.max(0, Math.min(occPointPool, Number(e.target.value) || 0));
-                          setOccPoints((p) => ({ ...p, [sk.name]: v }));
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ ...inputStyle, width: 60, padding: '2px 6px', fontSize: 11 }}
-                      />
-                      <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-                        +{points}%
-                      </span>
+                  {selected && (() => {
+                    const base = typeof sk.base === 'number' ? sk.base : (sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50));
+                    const total = base + points;
+                    const maxByPool = points + occRemaining;
+                    const maxByCap = Math.max(0, 99 - base);
+                    const maxAllowed = Math.min(maxByPool, maxByCap);
+                    return (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <button onClick={(e) => { e.stopPropagation(); const v = Math.min(points + 10, maxAllowed); setOccPoints(p => ({ ...p, [sk.name]: v })); }} style={{ padding: '1px 5px', border: '1px solid var(--brass)', borderRadius: 2, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 8, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>+10</button>
+                        <button onClick={(e) => { e.stopPropagation(); const v = Math.min(points + 20, maxAllowed); setOccPoints(p => ({ ...p, [sk.name]: v })); }} style={{ padding: '1px 5px', border: '1px solid var(--brass)', borderRadius: 2, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 8, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>+20</button>
+                        <input type="number" min={0} max={maxAllowed} value={points}
+                          onChange={(e) => { const v = Math.max(0, Math.min(maxAllowed, Number(e.target.value) || 0)); setOccPoints((p) => ({ ...p, [sk.name]: v })); }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ ...inputStyle, width: 50, padding: '2px 4px', fontSize: 10 }} />
+                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
+                          {base}+{points}={total}
+                        </span>
+                      </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -837,6 +1060,11 @@ export function CharacterCreator({ onClose }: Props) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={sectionTitle}>确认创建 REVIEW</div>
+
+        {/* Preset save */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <button onClick={savePreset} style={{ padding: '4px 12px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(196,168,85,0.1)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer', letterSpacing: 2 }}>保存为预设</button>
+        </div>
 
         {/* Identity summary */}
         <div style={{
@@ -976,7 +1204,7 @@ export function CharacterCreator({ onClose }: Props) {
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
+        onClick={() => {}}
         style={{
           position: 'fixed',
           inset: 0,
@@ -1014,15 +1242,27 @@ export function CharacterCreator({ onClose }: Props) {
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 18,
-              color: 'var(--gold)',
-              letterSpacing: 4,
-              margin: 0,
-            }}>
-              创建调查员角色
-            </h2>
+            <div>
+              <h2 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 18,
+                color: 'var(--gold)',
+                letterSpacing: 4,
+                margin: 0,
+                lineHeight: 1.3,
+              }}>
+                创建调查员角色
+              </h2>
+              <div style={{
+                fontFamily: 'var(--font-ui)',
+                fontSize: 10,
+                color: 'var(--ink-subtle)',
+                letterSpacing: 2,
+                marginTop: 2,
+              }}>
+                INVESTIGATOR CREATOR
+              </div>
+            </div>
             <button onClick={onClose} style={{
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1083,6 +1323,7 @@ export function CharacterCreator({ onClose }: Props) {
               );
             })}
           </div>
+
         </div>
 
         {/* Content */}

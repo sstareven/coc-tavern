@@ -1,53 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Extension } from '../../types';
 
+const STORAGE_KEY = 'coc_extensions';
 const DEFAULT_EXTS: Extension[] = [
-  {
-    id: 'ext-1', name: '深渊角色生成器', version: '1.2.0', author: 'Abyssal Team',
-    description: '随机生成COC 7版调查员角色卡，支持自定义参数与种族选项。',
-    enabled: true, entryPoint: 'ext_char_gen.js',
-  },
-  {
-    id: 'ext-2', name: '骰子特效包', version: '0.8.1', author: 'DiceMaster',
-    description: '为骰子检定结果添加自定义视觉效果，支持主题切换。',
-    enabled: false, entryPoint: 'ext_dice_fx.js',
-  },
-  {
-    id: 'ext-3', name: '剧情树编辑器', version: '2.0.0', author: 'StoryForge',
-    description: '可视化编辑COC模组的剧情分支与选择节点。',
-    enabled: true, entryPoint: 'ext_story_tree.js',
-  },
+  { id: 'ext-1', name: 'MVU 变量引擎', version: '1.2.0', author: 'Tavern Team', description: 'MVU 模式游戏状态管理，变量追踪、自动提取与合并。', enabled: true, entryPoint: 'window.__mvu_engine__' },
+  { id: 'ext-2', name: '酒馆助手', version: '0.8.1', author: 'COC Tools', description: 'LLM 上下文优化，智能裁剪历史、注入世界书条目。', enabled: false, entryPoint: 'window.__tavern_helper__' },
+  { id: 'ext-3', name: '骰子宏脚本', version: '2.0.0', author: 'DiceMaster', description: '复杂骰子表达式、CoC 奖励骰/惩罚骰、/r 快捷指令。', enabled: true, entryPoint: '/r, /roll 命令' },
 ];
 
-interface Props {
-  onClose: () => void;
+function loadExts(): Extension[] {
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : DEFAULT_EXTS; } catch { return DEFAULT_EXTS; }
+}
+function saveExts(exts: Extension[]) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(exts)); } catch {}
 }
 
+interface Props { onClose: () => void; }
+
 export function ExtManager({ onClose }: Props) {
-  const [exts, setExts] = useState(DEFAULT_EXTS);
+  const [exts, setExts] = useState<Extension[]>(loadExts);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importPath, setImportPath] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => { saveExts(exts); }, [exts]);
 
   const handleImport = () => {
     if (!importPath.trim()) return;
     const name = importPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '新扩展';
-    const newExt: Extension = {
-      id: 'ext-' + Date.now(),
-      name,
-      version: '0.1.0',
-      author: '未知',
-      description: '从 ' + importPath.trim() + ' 导入',
-      enabled: false,
-      entryPoint: importPath.trim(),
-    };
-    setExts((prev) => [...prev, newExt]);
-    setImportPath('');
-    setShowImport(false);
+    const newExt: Extension = { id: 'ext-' + Date.now(), name, version: '0.1.0', author: '未知', description: '从 ' + importPath.trim() + ' 导入', enabled: false, entryPoint: importPath.trim() };
+    setExts((prev) => { const n = [...prev, newExt]; saveExts(n); return n; });
+    setImportPath(''); setShowImport(false);
   };
 
   const toggleExt = (id: string) => {
-    setExts((prev) => prev.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e)));
+    setExts((prev) => { const n = prev.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e)); saveExts(n); return n; });
+  };
+
+  const deleteExt = (id: string) => {
+    setExts((prev) => { const n = prev.filter((e) => e.id !== id); saveExts(n); return n; });
+    if (expandedId === id) setExpandedId(null);
+    setDeleteConfirm(null);
+  };
+
+  const updateExtParam = (id: string, field: keyof Extension, value: string | boolean) => {
+    setExts((prev) => { const n = prev.map((e) => (e.id === id ? { ...e, [field]: value } : e)); saveExts(n); return n; });
   };
 
   return (
@@ -124,14 +122,51 @@ export function ExtManager({ onClose }: Props) {
 
                 {/* Expanded detail */}
                 {expanded && (
-                  <div style={{
-                    padding: '0 14px 14px', borderTop: '1px solid rgba(196,168,85,0.08)',
-                  }}>
-                    <p style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.6, margin: '10px 0' }}>
-                      {ext.description}
-                    </p>
-                    <div style={{ fontSize: 10, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>
-                      入口: {ext.entryPoint}
+                  <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(196,168,85,0.08)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', margin: '10px 0' }}>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>名称</label>
+                        <input value={ext.name} onChange={(e) => updateExtParam(ext.id, 'name', e.target.value)}
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>版本</label>
+                        <input value={ext.version} onChange={(e) => updateExtParam(ext.id, 'version', e.target.value)}
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>作者</label>
+                        <input value={ext.author} onChange={(e) => updateExtParam(ext.id, 'author', e.target.value)}
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>入口文件</label>
+                        <input value={ext.entryPoint} onChange={(e) => updateExtParam(ext.id, 'entryPoint', e.target.value)}
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none' }} />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>描述</label>
+                      <textarea value={ext.description} onChange={(e) => updateExtParam(ext.id, 'description', e.target.value)}
+                        rows={2} style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 10, outline: 'none', resize: 'vertical' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, color: ext.enabled ? 'var(--success)' : 'var(--ink-faded)', letterSpacing: 1 }}>
+                        {ext.enabled ? '已启用' : '已禁用'}
+                      </span>
+                      {deleteConfirm === ext.id ? (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: 'var(--blood)' }}>确认删除？</span>
+                          <button onClick={() => deleteExt(ext.id)} style={{ padding: '2px 10px', border: '1px solid var(--blood)', borderRadius: 3, background: 'rgba(139,58,58,0.15)', color: 'var(--blood)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}>确认</button>
+                          <button onClick={() => setDeleteConfirm(null)} style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}>取消</button>
+                        </div>
+                      ) : (
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(ext.id); }}
+                          style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}
+                          onMouseEnter={(e2) => { e2.currentTarget.style.borderColor = 'var(--blood)'; e2.currentTarget.style.color = 'var(--blood)'; }}
+                          onMouseLeave={(e2) => { e2.currentTarget.style.borderColor = 'var(--brass)'; e2.currentTarget.style.color = 'var(--ink-subtle)'; }}
+                        >删除扩展</button>
+                      )}
                     </div>
                   </div>
                 )}

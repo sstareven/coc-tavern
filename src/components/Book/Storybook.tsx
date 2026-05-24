@@ -141,16 +141,12 @@ export function Storybook() {
           }} />
 
           {/* Left page */}
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            opacity: isFlipping ? 0.25 : 1,
-            transition: 'opacity 0.35s ease-in-out',
-          }}>
+          <div style={{ flex: 1, display: 'flex' }}>
             <LeftPage
               header={page.leftHeader}
               content={page.leftContent}
               pageNum={page.leftPage}
+              isFlipping={isFlipping}
             />
           </div>
 
@@ -181,16 +177,12 @@ export function Storybook() {
           </div>
 
           {/* Right page */}
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            opacity: isFlipping ? 0.25 : 1,
-            transition: 'opacity 0.35s ease-in-out',
-          }}>
+          <div style={{ flex: 1, display: 'flex' }}>
             <RightPage
               header={page.rightHeader}
               content={page.rightContent}
               choices={page.rightChoices}
+              isFlipping={isFlipping}
             />
           </div>
 
