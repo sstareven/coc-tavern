@@ -13,7 +13,6 @@ import { PresetPanel } from '../Settings/PresetPanel';
 import { PresetEditor } from '../Settings/PresetEditor';
 import { ChatlistPanel } from '../Settings/ChatlistPanel';
 import { ExtManager } from '../Settings/ExtManager';
-import { RegexPanel } from '../Settings/RegexPanel';
 import { RegexEditor } from '../Settings/RegexEditor';
 import { usePanelStore } from '../../stores/usePanelStore';
 
@@ -102,10 +101,6 @@ export function GameView({ onReturnToMenu }: Props) {
 
       {openPanel === 'diceHistory' && (
         <DiceHistory onClose={closeAll} />
-      )}
-
-      {openPanel === 'regex' && (
-        <RegexPanel visible={true} onClose={closeAll} />
       )}
 
       <RegexEditor />

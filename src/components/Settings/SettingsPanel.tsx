@@ -1,6 +1,12 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePanelStore } from '../../stores/usePanelStore';
+import { useRegexStore } from '../../stores/useRegexStore';
+import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
+
+// ── Section type ──
+type SettingsSection = 'general' | 'regex' | 'extensions';
 
 interface Props {
   visible: boolean;
@@ -8,7 +14,296 @@ interface Props {
   onReturnToMenu: () => void;
 }
 
+// ── Regex sub-components ──
+
+const PLACEMENT_LABELS: Record<RegexPlacement, string> = {
+  1: '用户输入',
+  2: 'AI输出',
+  3: '命令',
+  5: '世界信息',
+  6: '推理',
+};
+
+function RegexSettingsContent() {
+  const globalScripts = useRegexStore((s) => s.globalScripts);
+  const presetScripts = useRegexStore((s) => s.presetScripts);
+  const openEditor = useRegexStore((s) => s.openEditor);
+  const toggleScript = useRegexStore((s) => s.toggleScript);
+  const deleteScript = useRegexStore((s) => s.deleteScript);
+  const exportScript = useRegexStore((s) => s.exportScript);
+  const importScript = useRegexStore((s) => s.importScript);
+  const exportAllScripts = useRegexStore((s) => s.exportAllScripts);
+  const moveScript = useRegexStore((s) => s.moveScript);
+  const bulkToggleAll = useRegexStore((s) => s.bulkToggleAll);
+  const bulkDelete = useRegexStore((s) => s.bulkDelete);
+
+  const [activeTab, setActiveTab] = useState<RegexScriptType>('global');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importType, setImportType] = useState<RegexScriptType>('global');
+  const [importJson, setImportJson] = useState('');
+
+  const getScripts = (): RegexScript[] => {
+    switch (activeTab) {
+      case 'global': return globalScripts;
+      case 'preset': return presetScripts;
+    }
+  };
+
+  const scripts = getScripts().filter((s) =>
+    !search || s.scriptName.toLowerCase().includes(search.toLowerCase()) ||
+    s.findRegex.toLowerCase().includes(search.toLowerCase()));
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = scripts.length > 0 && scripts.every((s) => selected.has(s.id));
+
+  const handleImport = () => {
+    if (importJson.trim() && importScript(importJson, importType)) {
+      setImportJson('');
+      setShowImport(false);
+    }
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && importScript(reader.result, activeTab)) {
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExportAll = () => {
+    const json = exportAllScripts();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `regex-scripts-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const TABS: { type: RegexScriptType; label: string }[] = [
+    { type: 'global', label: `全局 (${globalScripts.length})` },
+    { type: 'preset', label: `预设 (${presetScripts.length})` },
+  ];
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid var(--brass)', paddingBottom: 6 }}>
+        {TABS.map((tab) => (
+          <button key={tab.type} onClick={() => { setActiveTab(tab.type); setSelected(new Set()); }}
+            style={{
+              padding: '4px 14px', borderRadius: '4px 4px 0 0', border: 'none',
+              background: activeTab === tab.type ? 'rgba(196,168,85,0.15)' : 'transparent',
+              color: activeTab === tab.type ? 'var(--gold)' : 'var(--ink-faded)',
+              cursor: 'pointer', fontSize: 12, fontWeight: activeTab === tab.type ? 'bold' : 'normal',
+              fontFamily: 'var(--font-ui)',
+            }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search + Toolbar */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索脚本..."
+          style={{
+            flex: 1, minWidth: 100, padding: '5px 8px', borderRadius: 4,
+            border: '1px solid rgba(196,168,85,0.2)', fontSize: 11,
+            background: 'rgba(0,0,0,0.25)', color: 'var(--text-light)',
+            fontFamily: 'var(--font-ui)', outline: 'none',
+          }}
+        />
+        <button onClick={() => openEditor(null, activeTab)} style={miniBtnStyle}>
+          + 新建
+        </button>
+        <button onClick={() => { bulkToggleAll(activeTab, !scripts.every((s) => s.disabled)); }} style={miniBtnStyle}>
+          {scripts.every((s) => s.disabled) ? '启用全部' : '禁用全部'}
+        </button>
+        <label style={{ ...miniBtnStyle, cursor: 'pointer' }}>
+          导入
+          <input type="file" accept=".json" onChange={handleFileImport} style={{ display: 'none' }} />
+        </label>
+        <button onClick={() => setShowImport(!showImport)} style={miniBtnStyle}>JSON</button>
+        <button onClick={handleExportAll} style={miniBtnStyle}>导出全部</button>
+        {selected.size > 0 && (
+          <button onClick={() => { bulkDelete([...selected], activeTab); setSelected(new Set()); }}
+            style={{ ...miniBtnStyle, color: 'var(--blood)' }}>
+            删除({selected.size})
+          </button>
+        )}
+      </div>
+
+      {/* Import JSON */}
+      <AnimatePresence>
+        {showImport && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            style={{ overflow: 'hidden', marginBottom: 10 }}>
+            <div style={{ padding: 8, background: 'rgba(0,0,0,0.2)', borderRadius: 6 }}>
+              <select value={importType} onChange={(e) => setImportType(e.target.value as RegexScriptType)}
+                style={{
+                  marginBottom: 6, padding: '3px 6px', borderRadius: 3,
+                  border: '1px solid rgba(196,168,85,0.2)', fontSize: 11,
+                  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
+                }}>
+                <option value="global">导入为全局</option>
+                <option value="preset">导入为预设</option>
+              </select>
+              <textarea value={importJson} onChange={(e) => setImportJson(e.target.value)}
+                placeholder="粘贴 JSON..."
+                rows={3}
+                style={{
+                  width: '100%', padding: '6px', borderRadius: 3,
+                  border: '1px solid rgba(196,168,85,0.2)', fontFamily: 'var(--font-mono)',
+                  fontSize: 10, background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+                  resize: 'vertical',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <button onClick={handleImport} style={{ ...miniBtnStyle, background: 'var(--gold)', color: 'var(--abyss)' }}>导入</button>
+                <button onClick={() => setShowImport(false)} style={miniBtnStyle}>取消</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Select All */}
+      {scripts.length > 0 && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 4, paddingLeft: 2 }}>
+          <input type="checkbox" checked={allSelected} onChange={() => {
+            if (allSelected) setSelected(new Set());
+            else setSelected(new Set(scripts.map((s) => s.id)));
+          }} />
+          全选 {scripts.length} 个
+        </label>
+      )}
+
+      {/* Script List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 340, overflowY: 'auto' }}>
+        <AnimatePresence>
+          {scripts.map((script) => (
+            <motion.div key={script.id} initial={{ opacity: 0, y: -2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 4,
+                background: script.disabled ? 'rgba(0,0,0,0.12)' : 'rgba(196,168,85,0.04)',
+                border: selected.has(script.id) ? '1px solid rgba(196,168,85,0.3)' : '1px solid transparent',
+                opacity: script.disabled ? 0.55 : 1,
+                fontSize: 11,
+              }}>
+              <input type="checkbox" checked={selected.has(script.id)} onChange={() => toggleSelect(script.id)}
+                style={{ transform: 'scale(0.9)' }} />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--text-light)' }}>
+                  {script.scriptName}
+                  {script.disabled && <span style={{ color: 'var(--blood)', marginLeft: 6, fontSize: 9 }}>已禁用</span>}
+                </div>
+                <div style={{
+                  fontSize: 9, color: 'var(--ink-subtle)', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)',
+                }}>
+                  {script.findRegex.substring(0, 50)}
+                  {script.replaceString && <span style={{ marginLeft: 4 }}>→ {script.replaceString.substring(0, 25)}</span>}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--ink-faded)', marginTop: 1 }}>
+                  {script.placement.map((p) => PLACEMENT_LABELS[p] ?? '').filter(Boolean).join(' · ')}
+                  {script.markdownOnly && ' · 显示'}{script.promptOnly && ' · 提示词'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                <button onClick={() => toggleScript(script.id, activeTab)} title={script.disabled ? '启用' : '禁用'}
+                  style={{ ...iconBtn, color: script.disabled ? 'var(--blood)' : 'var(--success)' }}>
+                  {script.disabled ? '⊘' : '●'}
+                </button>
+                <button onClick={() => openEditor(script, activeTab)} title="编辑" style={iconBtn}>✎</button>
+                {activeTab === 'global'
+                  ? <button onClick={() => moveScript(script.id, 'global', 'preset')} title="移至预设" style={iconBtn}>⚙</button>
+                  : <button onClick={() => moveScript(script.id, 'preset', 'global')} title="移至全局" style={iconBtn}>🌐</button>
+                }
+                <button onClick={() => {
+                  const json = exportScript(script.id, activeTab);
+                  if (json) {
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `regex-${script.scriptName}.json`; a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }} title="导出" style={iconBtn}>⤓</button>
+                <button onClick={() => {
+                  deleteScript(script.id, activeTab);
+                  setSelected((prev) => { const n = new Set(prev); n.delete(script.id); return n; });
+                }} title="删除" style={{ ...iconBtn, color: 'var(--blood)' }}>✕</button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {scripts.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 28, color: 'var(--ink-subtle)', fontSize: 11 }}>
+            {search ? '没有找到匹配的脚本' : `暂无${activeTab === 'global' ? '全局' : '预设'}正则脚本`}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Extensions section content ──
+
+function ExtensionsSettingsContent({ onClose }: { onClose: () => void }) {
+  return (
+    <div>
+      <p style={{ fontSize: 11, color: 'var(--ink-subtle)', marginBottom: 14 }}>
+        管理已安装的扩展脚本，启用或禁用功能模块。
+      </p>
+      <button onClick={() => { usePanelStore.getState().open('extManager'); onClose(); }} style={{
+        width: '100%', padding: '10px 0', border: '1px solid var(--brass)',
+        borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
+        fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+      }}>
+        打开扩展管理器
+      </button>
+    </div>
+  );
+}
+
+// ── Sidebar ──
+
+interface SidebarItem {
+  key: SettingsSection;
+  label: string;
+  icon: string;
+}
+
+const SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'general', label: '基本设置', icon: '⚙' },
+  { key: 'regex', label: '正则脚本', icon: '✧' },
+  { key: 'extensions', label: '扩展管理', icon: '⊞' },
+];
+
+// ── Main Settings Panel ──
+
 export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
+  const [section, setSection] = useState<SettingsSection>('general');
+
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
   const tooltipDelay = useSettingsStore((s) => s.tooltipDelay);
@@ -40,9 +335,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
     setModelsLoading(true);
     const base = localApiUrl.trim().replace(/\/+$/, '');
     const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (localApiKey.trim()) {
-      headers['Authorization'] = `Bearer ${localApiKey.trim()}`;
-    }
+    if (localApiKey.trim()) headers['Authorization'] = `Bearer ${localApiKey.trim()}`;
     fetch(`${base}/models`, { method: 'GET', headers })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -57,9 +350,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         setAvailableModels([]);
         setConnStatus('failed');
       })
-      .finally(() => {
-        setModelsLoading(false);
-      });
+      .finally(() => setModelsLoading(false));
   };
 
   if (!visible) return null;
@@ -67,230 +358,263 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 900,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.75)',
-        backdropFilter: 'blur(6px)',
+        position: 'fixed', inset: 0, zIndex: 900,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        style={{
-          background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
-          border: '1px solid var(--gold)',
-          borderRadius: 8,
-          padding: '28px 32px',
-          minWidth: 420,
-          maxWidth: 520,
-          width: '90%',
-          boxShadow: '0 0 80px rgba(0,0,0,0.6)',
-        }}
-      >
-        {/* Title */}
+      <div style={{
+        display: 'flex',
+        width: 820, maxWidth: '95vw', height: 560, maxHeight: '90vh',
+        background: 'linear-gradient(135deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--gold)',
+        borderRadius: 8,
+        boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+        overflow: 'hidden',
+      }}>
+        {/* ── Sidebar ── */}
         <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: 24, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 14,
+          width: 180, flexShrink: 0,
+          background: 'rgba(0,0,0,0.25)',
+          borderRight: '1px solid rgba(196,168,85,0.1)',
+          display: 'flex', flexDirection: 'column',
+          padding: '16px 0',
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
-            设置 / SETTINGS
-          </h3>
-          <button onClick={onClose} style={closeBtnStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
-          >✕</button>
-        </div>
-
-        {/* Sound toggle */}
-        <div style={rowStyle}>
-          <span style={labelStyle}>环境音效</span>
-          <button onClick={toggleSound} style={{
-            padding: '6px 20px', border: soundEnabled ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
-            borderRadius: 3, background: soundEnabled ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
-            color: soundEnabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)',
-            fontSize: 12, letterSpacing: 2, cursor: 'pointer', transition: 'var(--transition-smooth)',
+          <div style={{
+            padding: '0 16px 12px', borderBottom: '1px solid rgba(196,168,85,0.12)', marginBottom: 8,
+            fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 2,
+            textAlign: 'center',
           }}>
-            {soundEnabled ? 'ON' : 'OFF'}
+            设置
+          </div>
+
+          {SIDEBAR_ITEMS.map((item) => (
+            <button key={item.key}
+              onClick={() => setSection(item.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px', margin: '2px 8px',
+                border: 'none', borderRadius: 4,
+                background: section === item.key ? 'rgba(196,168,85,0.1)' : 'transparent',
+                color: section === item.key ? 'var(--gold)' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1,
+                cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.2s, color 0.2s',
+              }}
+              onMouseEnter={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--text-light)'; e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; } }}
+              onMouseLeave={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.background = 'transparent'; } }}
+            >
+              <span style={{ fontSize: 14 }}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+
+          <div style={{ flex: 1 }} />
+
+          <button onClick={onClose} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 16px', margin: '8px 8px 0',
+            border: 'none', borderRadius: 4,
+            background: 'transparent', color: 'var(--ink-subtle)',
+            fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+            cursor: 'pointer', textAlign: 'left',
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; }}
+          >
+            <span>✕</span>
+            <span>关闭</span>
           </button>
         </div>
 
-        {/* Music volume */}
-        <div style={rowStyle}>
-          <span style={labelStyle}>音乐音量</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="range" min={0} max={100} value={musicVolume}
-              onChange={(e) => setMusicVolume(Number(e.target.value))}
-              style={{ width: 120, accentColor: 'var(--gold)' }}
-            />
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{musicVolume}%</span>
-          </div>
-        </div>
-
-        {/* Tooltip delay */}
-        <div style={rowStyle}>
-          <span style={labelStyle}>提示延迟</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="range" min={200} max={2000} step={100} value={tooltipDelay}
-              onChange={(e) => setTooltipDelay(Number(e.target.value))}
-              style={{ width: 120, accentColor: 'var(--gold)' }}
-            />
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 40 }}>{tooltipDelay}ms</span>
-          </div>
-        </div>
-
-        {/* API section */}
-        <div style={{ marginTop: 20, borderTop: '1px solid rgba(196,168,85,0.12)', paddingTop: 18 }}>
-          <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
-            API 配置
-          </div>
-
-          {/* API Key */}
-          <div style={rowStyle}>
-            <span style={labelStyle}>API Key</span>
-            <input type="password" value={localApiKey}
-              onChange={(e) => { setLocalApiKey(e.target.value); setApiKey(e.target.value); }}
-              placeholder="sk-..."
-              style={inputStyle}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            />
-          </div>
-
-          {/* API Base URL with connection test */}
-          <div style={rowStyle}>
-            <span style={labelStyle}>API 地址</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input value={localApiUrl}
-                onChange={(e) => setLocalApiUrl(e.target.value)}
-                style={{ ...inputStyle, width: 180 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-              />
-              <button onClick={testConnection} disabled={connStatus === 'testing'}
-                style={{
-                  padding: '6px 12px', border: '1px solid var(--brass)', borderRadius: 3,
-                  background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-                  fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
-                  opacity: connStatus === 'testing' ? 0.5 : 1,
-                }}
-              >
-                {connStatus === 'testing' ? '...' : '测试连接'}
-              </button>
-              {connStatus === 'connected' && (
-                <span style={{ fontSize: 10, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                  已连接
-                </span>
-              )}
-              {connStatus === 'failed' && (
-                <span style={{ fontSize: 10, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                  连接失败
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Model List dropdown */}
-          <div style={rowStyle}>
-            <span style={labelStyle}>模组列表</span>
-            <div style={{ position: 'relative', width: 240 }}>
-              <select
-                value={localApiModel}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setLocalApiModel(val);
-                }}
-                disabled={availableModels.length === 0 && !modelsLoading}
-                style={{
-                  ...inputStyle,
-                  width: '100%',
-                  appearance: 'none',
-                  cursor: availableModels.length === 0 ? 'not-allowed' : 'pointer',
-                  opacity: availableModels.length === 0 ? 0.5 : 1,
-                }}
-              >
-                <option value="">{modelsLoading ? '加载中...' : availableModels.length === 0 ? '请先测试连接' : '请选择模型'}</option>
-                {availableModels.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              {/* Dropdown chevron */}
-              <span style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                fontSize: 10,
-                color: 'var(--brass)',
-              }}>▼</span>
-            </div>
-          </div>
-
-          {/* Model Name text input */}
-          <div style={rowStyle}>
-            <span style={labelStyle}>模型名称</span>
-            <input value={localApiModel}
-              onChange={(e) => setLocalApiModel(e.target.value)}
-              placeholder="deepseek-v4-pro"
-              style={inputStyle}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            />
-          </div>
-        </div>
-
-        {/* Extensions section */}
-        <div style={{ marginTop: 20, borderTop: '1px solid rgba(196,168,85,0.12)', paddingTop: 18 }}>
-          <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
-            扩展管理
-          </div>
-          <button onClick={() => usePanelStore.getState().open('extManager')} style={{
-            width: '100%', padding: '10px 0', border: '1px solid var(--brass)',
-            borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-            fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+        {/* ── Content ── */}
+        <div style={{
+          flex: 1, padding: '24px 28px', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', minWidth: 0,
+        }}>
+          {/* Section title */}
+          <div style={{
+            paddingBottom: 12, marginBottom: 16,
+            borderBottom: '1px solid rgba(196,168,85,0.12)',
+            fontFamily: 'var(--font-display)', fontSize: 15, color: 'var(--gold)', letterSpacing: 2,
           }}>
-            管理扩展程序
-          </button>
-        </div>
+            {SIDEBAR_ITEMS.find((i) => i.key === section)?.label ?? ''}
+          </div>
 
-        {/* Return to menu */}
-        <button onClick={handleReturnToMenu} style={{
-          width: '100%', marginTop: 24, padding: '10px 0',
-          border: '1px solid var(--blood)', borderRadius: 3,
-          background: 'rgba(139,58,58,0.08)', color: 'var(--blood)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 4, cursor: 'pointer',
-          transition: 'var(--transition-smooth)',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.18)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.08)'; }}
-        >
-          返回主菜单
-        </button>
+          <AnimatePresence mode="wait">
+            {section === 'general' && (
+              <motion.div key="general" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                {/* Sound toggle */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>环境音效</span>
+                  <button onClick={toggleSound} style={{
+                    padding: '5px 18px', border: soundEnabled ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
+                    borderRadius: 3, background: soundEnabled ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
+                    color: soundEnabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)',
+                    fontSize: 11, letterSpacing: 2, cursor: 'pointer',
+                  }}>
+                    {soundEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+
+                {/* Music volume */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>音乐音量</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="range" min={0} max={100} value={musicVolume}
+                      onChange={(e) => setMusicVolume(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{musicVolume}%</span>
+                  </div>
+                </div>
+
+                {/* Tooltip delay */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>提示延迟</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="range" min={200} max={2000} step={100} value={tooltipDelay}
+                      onChange={(e) => setTooltipDelay(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{tooltipDelay}ms</span>
+                  </div>
+                </div>
+
+                {/* API section */}
+                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
+                    API 配置
+                  </div>
+
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>API Key</span>
+                    <input type="password" value={localApiKey}
+                      onChange={(e) => { setLocalApiKey(e.target.value); setApiKey(e.target.value); }}
+                      placeholder="sk-..." style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                    />
+                  </div>
+
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>API 地址</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input value={localApiUrl} onChange={(e) => setLocalApiUrl(e.target.value)}
+                        style={{ ...inputStyle, width: 160 }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                      />
+                      <button onClick={testConnection} disabled={connStatus === 'testing'}
+                        style={{
+                          padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+                          background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
+                          fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+                          opacity: connStatus === 'testing' ? 0.5 : 1,
+                        }}>
+                        {connStatus === 'testing' ? '...' : '测试'}
+                      </button>
+                      {connStatus === 'connected' && (
+                        <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
+                      )}
+                      {connStatus === 'failed' && (
+                        <span style={{ fontSize: 9, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>模型</span>
+                    <div style={{ position: 'relative', width: 200 }}>
+                      <select value={localApiModel} onChange={(e) => setLocalApiModel(e.target.value)}
+                        disabled={availableModels.length === 0 && !modelsLoading}
+                        style={{ ...inputStyle, width: '100%', appearance: 'none', cursor: availableModels.length === 0 ? 'not-allowed' : 'pointer', opacity: availableModels.length === 0 ? 0.5 : 1 }}>
+                        <option value="">{modelsLoading ? '加载中...' : availableModels.length === 0 ? '请先测试连接' : '选择模型'}</option>
+                        {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 9, color: 'var(--brass)' }}>▼</span>
+                    </div>
+                  </div>
+
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>模型名</span>
+                    <input value={localApiModel} onChange={(e) => setLocalApiModel(e.target.value)}
+                      placeholder="deepseek-v4-pro" style={inputStyle}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                    />
+                  </div>
+                </div>
+
+                {/* Return to menu */}
+                <button onClick={handleReturnToMenu} style={{
+                  width: '100%', marginTop: 20, padding: '8px 0',
+                  border: '1px solid var(--blood)', borderRadius: 3,
+                  background: 'rgba(139,58,58,0.08)', color: 'var(--blood)',
+                  fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 4, cursor: 'pointer',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.18)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.08)'; }}
+                >
+                  返回主菜单
+                </button>
+              </motion.div>
+            )}
+
+            {section === 'regex' && (
+              <motion.div key="regex" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <RegexSettingsContent />
+              </motion.div>
+            )}
+
+            {section === 'extensions' && (
+              <motion.div key="extensions" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <ExtensionsSettingsContent onClose={onClose} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
 }
 
+// ── Shared styles ──
+
 const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.03)',
+  padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)',
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-};
-
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+  fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
 };
 
 const inputStyle: React.CSSProperties = {
-  width: 240, padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+  width: 200, padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+  fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
+};
+
+const miniBtnStyle: React.CSSProperties = {
+  background: 'rgba(196,168,85,0.08)',
+  color: 'var(--text-light)',
+  border: '1px solid rgba(196,168,85,0.15)',
+  borderRadius: 4,
+  padding: '4px 10px',
+  cursor: 'pointer',
+  fontSize: 10,
+  fontFamily: 'var(--font-ui)',
+  letterSpacing: 1,
+};
+
+const iconBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '2px 5px',
+  fontSize: 12,
+  color: 'var(--ink-faded)',
+  borderRadius: 3,
 };

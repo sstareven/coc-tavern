@@ -9,8 +9,6 @@ export type Panel =
   | 'chatlist'
   | 'extManager'
   | 'diceHistory'
-  | 'regex'
-  | 'promptViewer'
   | null;
 
 interface PanelStore {
