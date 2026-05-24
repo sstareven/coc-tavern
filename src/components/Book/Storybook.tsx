@@ -15,7 +15,6 @@ import { TokenDisplay } from '../Shared/TokenDisplay';
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
-  const isFlipping = useBookStore((s) => s.isFlipping);
   const { flipForward, flipBackward, canGoNext, canGoPrev, direction, isFlipping, flipProgress } = usePageFlip();
 
   const page = pages[pageIndex];
