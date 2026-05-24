@@ -4,7 +4,7 @@ import { useAudio } from './useAudio';
 
 export type FlipDirection = 'forward' | 'backward';
 
-const FLIP_DURATION = 1800; // ms — matches FLIP_CONFIG.TOTAL
+const FLIP_DURATION = 600; // ms — matches FLIP_CONFIG.TOTAL
 
 export function usePageFlip() {
   const pageIndex = useBookStore((s) => s.pageIndex);
