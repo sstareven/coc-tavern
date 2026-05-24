@@ -1,6 +1,6 @@
 // ── Tunable parameters ──
 export const FLIP_CONFIG = {
-  TOTAL: 1080,
+  TOTAL: 1800,
   PERSPECTIVE: 1400,
 };
 
@@ -15,7 +15,11 @@ export function stagedProgress(rawT: number): number {
   return s1 * 0.3 + s2 * 0.7;
 }
 
-// ── CSS-only page flip ──
+// ── Paper background (always solid, never fades) ──
+
+const paperBg = 'linear-gradient(180deg, var(--parchment) 0%, var(--parchment-deep) 50%, #e0cda0 100%)';
+
+// ── Page containers ──
 
 interface CSSFlipProps {
   progress: number;
@@ -25,10 +29,7 @@ interface CSSFlipProps {
 }
 
 /**
- * Wraps a page in a 3D flip container with:
- * - Solid paper background filling the ENTIRE area (no transparent gaps)
- * - Content that fades out as the page rotates away
- * - Preserve-3d disabled to keep the background flat
+ * Rotating page: paper stays solid, text fades out.
  */
 export function CSSFlipPage({ progress, direction, children, style }: CSSFlipProps) {
   const p = stagedProgress(progress);
@@ -36,44 +37,31 @@ export function CSSFlipPage({ progress, direction, children, style }: CSSFlipPro
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
 
-  // Content fades out in first half of the flip
-  const contentOpacity = Math.max(0.05, 1 - p * 2.5);
+  // Only text fades — paper stays opaque
+  const textOpacity = Math.max(0, 1 - p * 2.8);
 
   return (
     <div
       style={{
         ...style,
-        flex: 1, display: 'flex', flexDirection: 'column', position: 'relative',
+        flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
         transform: `perspective(${FLIP_CONFIG.PERSPECTIVE}px) rotateY(${rotateY}deg)`,
         backfaceVisibility: 'hidden' as const,
         transition: 'none',
         zIndex: p > 0.01 && p < 0.99 ? 5 : 1,
-        // Solid paper fill
-        background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
+        background: paperBg,
         borderRadius: isForward ? '0 4px 4px 0' : '4px 0 0 4px',
         overflow: 'hidden',
       }}
     >
-      {/* Solid paper fill layer — always opaque, fills bottom */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'linear-gradient(180deg, var(--parchment) 0%, var(--parchment-deep) 50%, #e0cda0 100%)',
-      }} />
-
-      {/* Content layer — fades out during flip */}
-      <div style={{
-        position: 'relative', flex: 1, display: 'flex', flexDirection: 'column',
-        opacity: contentOpacity,
-        transition: 'none',
-      }}>
+      {/* Text layer — only this fades, paper underneath stays solid */}
+      <div style={{ flex: 1, opacity: textOpacity, transition: 'none' }}>
         {children}
       </div>
     </div>
   );
 }
-
-// ── Fade-in wrapper for revealed adjacent page ──
 
 interface FadeInProps {
   progress: number;
@@ -81,30 +69,22 @@ interface FadeInProps {
 }
 
 /**
- * Fades in the adjacent page content as the flip reveals it.
- * Content starts hidden (0) and appears (1) as flip progresses past halfway.
+ * Revealed page: paper always visible, text fades in.
  */
 export function FadeInPage({ progress, children }: FadeInProps) {
   const p = stagedProgress(progress);
-  // Fade in during second half of the flip
-  const opacity = p < 0.45 ? 0 : Math.min(1, (p - 0.45) / 0.45);
+  // Text fades in during second half, paper always solid
+  const textOpacity = p < 0.45 ? 0 : Math.min(1, (p - 0.45) / 0.45);
 
   return (
     <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      opacity,
-      transition: 'none',
-      // Solid paper background so revealed area isn't transparent
-      background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
+      flex: 1, display: 'flex', position: 'relative',
+      background: paperBg,
       borderRadius: 4,
       overflow: 'hidden',
     }}>
-      {/* Paper fill */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'linear-gradient(180deg, var(--parchment) 0%, var(--parchment-deep) 50%, #e0cda0 100%)',
-      }} />
-      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Text layer — only this fades, paper stays solid */}
+      <div style={{ flex: 1, opacity: textOpacity, transition: 'none' }}>
         {children}
       </div>
     </div>
