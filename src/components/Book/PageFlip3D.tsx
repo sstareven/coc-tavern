@@ -36,9 +36,10 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-  const textOpacity = raw < 0.35 ? 1 : Math.max(0, 1 - (raw - 0.35) / 0.2);
 
-  // Pure rotateY only — spine is a fixed vertical line, page rotates strictly left↔right
+  // Page slowly fades out as it flips over
+  const cardOpacity = Math.max(0.1, 1 - raw * 0.9);
+
   return (
     <div
       data-flip="card"
@@ -48,6 +49,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
         transform: `rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
+        opacity: cardOpacity,
       }}
     >
       {/* [FlipFront] */}
@@ -60,7 +62,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
           display: 'flex',
         }}
       >
-        <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none' }}>
+        <div style={{ flex: 1, display: 'flex' }}>
           {children}
         </div>
       </div>
