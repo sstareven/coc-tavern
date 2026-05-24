@@ -46,7 +46,6 @@ function easeInFade(raw: number): number {
 
 // ── Paper backgrounds ──
 const FRONT_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
-const BACK_BG = 'linear-gradient(225deg, #e8d8b8 0%, #dfceaa 100%)';
 const PLACEHOLDER_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
 
 // ── 3D page flip component ──
@@ -72,7 +71,10 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
 
-  // Text fades with bezier: slow start, fast end, gone by 90°
+  // Forward: page moves from right [B] toward left [A]; backward: opposite
+  const shiftX = isForward ? -p * 100 : p * 100;
+
+  // Text fades with bezier
   const textOpacity = easeOutFade(raw);
 
   return (
@@ -81,7 +83,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `rotateY(${rotateY}deg)`,
+        transform: `rotateY(${rotateY}deg) translateX(${shiftX}%)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
@@ -101,14 +103,14 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
         </div>
       </div>
 
-      {/* [FlipBack] */}
+      {/* [FlipBack] — transparent, shows container's paper color underneath */}
       <div
         data-flip="back"
         style={{
           position: 'absolute', inset: 0,
           transform: 'rotateY(180deg)',
           backfaceVisibility: 'hidden',
-          background: BACK_BG, borderRadius: radius,
+          borderRadius: radius,
         }}
       />
     </div>
