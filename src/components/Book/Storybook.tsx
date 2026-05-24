@@ -6,7 +6,7 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { CSSFlipPage, BlankPaper } from './PageFlip3D';
+import { CSSFlipPage, FadingPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 
@@ -156,11 +156,15 @@ export function Storybook() {
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
                 {direction === 'backward' ? (
+                  /* [A] flips to the right — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="backward">
                     <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
                   </CSSFlipPage>
                 ) : (
-                  <BlankPaper side="left" />
+                  /* Forward: [A] stays static, text fades out gradually */
+                  <FadingPage progress={flipProgress}>
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                  </FadingPage>
                 )}
               </div>
             ) : (
@@ -183,11 +187,15 @@ export function Storybook() {
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
                 {direction === 'forward' ? (
+                  /* [B] flips to the left — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="forward">
                     <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
                   </CSSFlipPage>
                 ) : (
-                  <BlankPaper side="right" />
+                  /* Backward: [B] stays static, text fades out gradually */
+                  <FadingPage progress={flipProgress}>
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+                  </FadingPage>
                 )}
               </div>
             ) : (

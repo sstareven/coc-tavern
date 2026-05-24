@@ -80,18 +80,25 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   );
 }
 
-// ── Blank paper placeholder ──
+// ── Static fading page (opposite side, fades out) ──
 
-export function BlankPaper({ side }: { side: 'left' | 'right' }) {
-  const radius = side === 'left' ? '3px 0 0 3px' : '0 3px 3px 0';
+interface FadingPageProps {
+  progress: number;
+  children: React.ReactNode;
+}
+
+/**
+ * Non-rotating page that fades out its text during the flip.
+ * Paper stays solid, only text content fades.
+ */
+export function FadingPage({ progress, children }: FadingPageProps) {
+  const raw = Math.max(0, Math.min(1, progress));
+  // Hold visible through 70% of elapsed, then fade
+  const textOpacity = raw < 0.7 ? 1 : Math.max(0, 1 - (raw - 0.7) / 0.3);
+
   return (
-    <div
-      data-flip="placeholder"
-      data-side={side}
-      style={{
-        width: '100%', height: '100%',
-        background: PLACEHOLDER_BG, borderRadius: radius,
-      }}
-    />
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: textOpacity, transition: 'none' }}>
+      {children}
+    </div>
   );
 }
