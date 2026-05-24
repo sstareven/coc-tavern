@@ -83,7 +83,7 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `rotateY(${rotateY}deg) translateX(${shiftX}%)`,
+        transform: `translateX(${shiftX}%) rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
