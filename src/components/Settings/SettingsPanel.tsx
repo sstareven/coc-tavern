@@ -325,6 +325,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMvuApiModel = useSettingsStore((s) => s.setMvuApiModel);
   const mvuApiKey = useSettingsStore((s) => s.mvuApiKey);
   const setMvuApiKey = useSettingsStore((s) => s.setMvuApiKey);
+  const mvuTemperature = useSettingsStore((s) => s.mvuTemperature);
+  const setMvuTemperature = useSettingsStore((s) => s.setMvuTemperature);
+  const mvuRetryCount = useSettingsStore((s) => s.mvuRetryCount);
+  const setMvuRetryCount = useSettingsStore((s) => s.setMvuRetryCount);
 
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
@@ -614,6 +618,28 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                           placeholder="deepseek-chat" style={inputStyle}
                           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                         />
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>温度</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="range" min={0} max={2} step={0.1} value={mvuTemperature}
+                            onChange={(e) => setMvuTemperature(Number(e.target.value))}
+                            style={{ width: 100, accentColor: 'var(--gold)' }}
+                          />
+                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 24 }}>{mvuTemperature}</span>
+                        </div>
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>重试次数</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="range" min={1} max={5} step={1} value={mvuRetryCount}
+                            onChange={(e) => setMvuRetryCount(Number(e.target.value))}
+                            style={{ width: 100, accentColor: 'var(--gold)' }}
+                          />
+                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuRetryCount}</span>
+                        </div>
                       </div>
                     </>
                   )}

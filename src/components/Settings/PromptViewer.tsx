@@ -72,7 +72,14 @@ export function PromptViewer({ visible, messages, onClose, onSend }: Props) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 920,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+      }}
+    >
       <motion.div
         className="panel prompt-viewer-panel"
         initial={{ opacity: 0, scale: 0.95 }}

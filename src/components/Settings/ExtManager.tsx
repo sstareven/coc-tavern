@@ -46,7 +46,7 @@ export function ExtManager({ onClose }: Props) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 900,
+        position: 'fixed', inset: 0, zIndex: 910,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
       }}

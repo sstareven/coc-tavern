@@ -15,6 +15,8 @@ interface SettingsStore {
   mvuApiBaseUrl: string;
   mvuApiModel: string;
   mvuApiKey: string;
+  mvuTemperature: number;
+  mvuRetryCount: number;
 
   // Actions
   toggleSound: () => void;
@@ -26,6 +28,8 @@ interface SettingsStore {
   setMvuApiBaseUrl: (url: string) => void;
   setMvuApiModel: (model: string) => void;
   setMvuApiKey: (key: string) => void;
+  setMvuTemperature: (t: number) => void;
+  setMvuRetryCount: (n: number) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -41,6 +45,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   mvuApiBaseUrl: 'https://api.deepseek.com',
   mvuApiModel: 'deepseek-chat',
   mvuApiKey: '',
+  mvuTemperature: 1,
+  mvuRetryCount: 1,
 
   toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
   setTooltipDelay: (d) => set({ tooltipDelay: d }),
@@ -51,4 +57,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
   setMvuApiModel: (model) => set({ mvuApiModel: model }),
   setMvuApiKey: (key) => set({ mvuApiKey: key }),
+  setMvuTemperature: (t) => set({ mvuTemperature: t }),
+  setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
 }));

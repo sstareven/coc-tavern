@@ -77,7 +77,7 @@ export function VariablePanel({ visible, onClose }: Props) {
   return (
     <div className="panel-overlay" onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 850,
+        position: 'fixed', inset: 0, zIndex: 920,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
       }}>
