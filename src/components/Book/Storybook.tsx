@@ -146,16 +146,21 @@ export function Storybook() {
           }} />
 
           {/* [A] 左页 */}
-          <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'backward' ? (
-              <CSSFlipPage progress={flipProgress} direction="backward">
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
-              </CSSFlipPage>
-            ) : isFlipping && direction === 'forward' ? (
-              <BlankPaper side="left" />
-            ) : (
+          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+            {/* [A-underlay] 底下静态拷贝 — 始终可见 */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
-            )}
+            </div>
+            {/* [A-overlay] 翻页层 */}
+            <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex' }}>
+              {isFlipping && direction === 'backward' ? (
+                <CSSFlipPage progress={flipProgress} direction="backward">
+                  <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                </CSSFlipPage>
+              ) : isFlipping && direction === 'forward' ? (
+                <BlankPaper side="left" />
+              ) : null}
+            </div>
           </div>
 
           {/* [C] 书脊 */}
@@ -165,16 +170,21 @@ export function Storybook() {
           }} />
 
           {/* [B] 右页 */}
-          <div style={{ flex: 1, display: 'flex' }}>
-            {isFlipping && direction === 'forward' ? (
-              <CSSFlipPage progress={flipProgress} direction="forward">
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
-              </CSSFlipPage>
-            ) : isFlipping && direction === 'backward' ? (
-              <BlankPaper side="right" />
-            ) : (
+          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+            {/* [B-underlay] 底下静态拷贝 */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
-            )}
+            </div>
+            {/* [B-overlay] 翻页层 */}
+            <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex' }}>
+              {isFlipping && direction === 'forward' ? (
+                <CSSFlipPage progress={flipProgress} direction="forward">
+                  <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+                </CSSFlipPage>
+              ) : isFlipping && direction === 'backward' ? (
+                <BlankPaper side="right" />
+              ) : null}
+            </div>
           </div>
 
           {/* TokenDisplay — inside book at bottom-right */}
