@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { DicePanel } from '../Dice/DicePanel';
 import { DiceHistory } from '../Dice/DiceHistory';
 import { CharSheetPanel } from '../CharSheet/CharSheetPanel';
+import { CharacterCreator } from '../CharSheet/CharacterCreator';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 import { WorldbookPanel } from '../Settings/WorldbookPanel';
 import { LorebookEditor } from '../Settings/LorebookEditor';
@@ -24,6 +25,8 @@ export function GameView({ onReturnToMenu }: Props) {
   const openLorebookEditor = usePanelStore((s) => s.openLorebookEditor);
   const openPresetEditor = usePanelStore((s) => s.openPresetEditor);
 
+  const [showCreator, setShowCreator] = useState(false);
+
   // Esc key to close all panels
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -35,7 +38,7 @@ export function GameView({ onReturnToMenu }: Props) {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopBar onReturnToMenu={onReturnToMenu} />
+      <TopBar onReturnToMenu={onReturnToMenu} onCreateCharacter={() => setShowCreator(true)} />
 
       <main style={{
         flex: 1,
@@ -97,6 +100,11 @@ export function GameView({ onReturnToMenu }: Props) {
 
       {openPanel === 'diceHistory' && (
         <DiceHistory onClose={closeAll} />
+      )}
+
+      {/* Character Creator */}
+      {showCreator && (
+        <CharacterCreator onClose={() => setShowCreator(false)} />
       )}
     </div>
   );

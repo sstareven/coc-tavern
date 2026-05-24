@@ -2,9 +2,9 @@ import { usePanelStore } from '../../stores/usePanelStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
-interface Props { onReturnToMenu: () => void }
+interface Props { onReturnToMenu: () => void; onCreateCharacter: () => void }
 
-export function TopBar({ onReturnToMenu }: Props) {
+export function TopBar({ onReturnToMenu, onCreateCharacter }: Props) {
   const openPanel = usePanelStore((s) => s.open);
   const openDice = useDiceStore((s) => s.open);
   const toggleCharSheet = useCharSheetStore((s) => s.toggle);
@@ -28,6 +28,7 @@ export function TopBar({ onReturnToMenu }: Props) {
       <nav style={{ display: 'flex', gap: 8 }}>
         <NavButton label="掷 骰" onClick={() => openDice()} />
         <NavButton label="角 色 卡" onClick={() => toggleCharSheet()} />
+        <NavButton label="创 建 角 色" onClick={onCreateCharacter} />
         <NavButton label="设 置" onClick={() => openPanel('settings')} />
         <NavButton label="世 界 书" onClick={() => openPanel('worldbook')} />
         <NavButton label="预 设" onClick={() => openPanel('preset')} />
