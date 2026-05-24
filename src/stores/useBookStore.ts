@@ -32,6 +32,7 @@ interface BookStore {
   prevPage: () => void;
   setFlipping: (v: boolean) => void;
   updateLeftPage: (index: number, header: string, content: string) => void;
+  appendPage: (page: BookPage) => void;
 }
 
 export const useBookStore = create<BookStore>((set, get) => ({
@@ -45,5 +46,9 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const pages = [...s.pages];
     pages[index] = { ...pages[index], leftHeader: header, leftContent: content };
     return { pages };
+  }),
+  appendPage: (page) => set((s) => {
+    const pages = [...s.pages, page];
+    return { pages, pageIndex: pages.length - 1 };
   }),
 }));

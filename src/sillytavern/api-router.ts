@@ -17,26 +17,47 @@ export async function sendChatCompletion(
   preset: ChatPreset,
   baseUrl: string,
   apiKey: string,
+  model: string,
   stream = false,
 ): Promise<ChatCompletionResponse> {
-  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
-      messages,
-      temperature: preset.temperature,
-      top_p: preset.topP,
-      max_tokens: preset.maxTokens,
-      stream,
-    }),
-  });
+  const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: preset.temperature,
+        top_p: preset.topP,
+        max_tokens: preset.maxTokens,
+        stream,
+      }),
+    });
+  } catch (err) {
+    throw new Error(`网络请求失败: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   if (!response.ok) {
-    throw new Error(`Chat API error: ${response.status} ${response.statusText}`);
+    let detail = '';
+    try {
+      const errorBody = await response.json();
+      detail = errorBody?.error?.message ?? JSON.stringify(errorBody);
+    } catch {
+      try {
+        detail = await response.text();
+      } catch {
+        // ignore
+      }
+    }
+    throw new Error(
+      `API错误 ${response.status}${detail ? `: ${detail}` : ''}`
+    );
   }
 
   if (stream && response.body) {
@@ -58,6 +79,7 @@ export async function sendChatCompletion(
         const tokens = parseStreamChunk(line);
         for (const token of tokens) {
           if (token.content) fullContent += token.content;
+          if (token.done) break;
         }
       }
     }
