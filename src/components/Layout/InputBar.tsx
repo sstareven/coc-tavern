@@ -7,6 +7,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { assemblePrompt, matchLoreEntries } from '../../sillytavern/prompt-assembler';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { PromptViewer } from '../Settings/PromptViewer';
+import { TokenCounter } from '../Shared/TokenCounter';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -186,6 +187,38 @@ export function InputBar() {
   const [previewMessages, setPreviewMessages] = useState<AssembledMessage[]>([]);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Token counter state
+  const [showTokenCounter, setShowTokenCounter] = useState(false);
+  const [tokenContext, setTokenContext] = useState<{
+    systemPrompt: string;
+    loreEntryContents: string[];
+    formatInstruction: string;
+    chatHistoryMessages: string[];
+    userMessage: string;
+  } | undefined>();
+
+  const openTokenCounter = () => {
+    const trimmed = input.trim();
+    const contextText = buildContextFromPages();
+    const allBooks = useLorebookStore.getState().books;
+    let matchedLore: LoreEntry[] = [];
+    for (const book of Object.values(allBooks)) {
+      for (const entry of Object.values(book.entries)) {
+        matchedLore.push(entry);
+      }
+    }
+    matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
+
+    setTokenContext({
+      systemPrompt: DEFAULT_PRESET.systemPrompt,
+      loreEntryContents: matchedLore.map((e) => e.content),
+      formatInstruction: FORMAT_INSTRUCTION,
+      chatHistoryMessages: [],
+      userMessage: trimmed || '(空)',
+    });
+    setShowTokenCounter(true);
+  };
+
   const buildPromptMessages = (): { messages: AssembledMessage[] } | null => {
     const trimmed = input.trim();
     if (!trimmed) return null;
@@ -298,6 +331,13 @@ export function InputBar() {
         onClose={handleClosePreview}
         onSend={handleSendFromPreview}
       />
+
+      <TokenCounter
+        visible={showTokenCounter}
+        onClose={() => setShowTokenCounter(false)}
+        contextBreakdown={tokenContext}
+        model={useSettingsStore.getState().apiModel}
+      />
       <footer style={{
         display: 'flex', flexDirection: 'column', flexShrink: 0,
         borderTop: '1px solid rgba(196,168,85,0.15)',
@@ -351,6 +391,18 @@ export function InputBar() {
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
           >
             &#9861;
+          </button>
+
+          <button onClick={openTokenCounter} title="Token计数" style={{
+            padding: '10px 12px', border: '1px solid var(--brass)',
+            background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
+            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 'bold',
+            borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          >
+            T
           </button>
           <button onClick={submit} disabled={loading} title="预览提示词后发送" style={{
             padding: '10px 28px', border: '1px solid var(--gold)',
