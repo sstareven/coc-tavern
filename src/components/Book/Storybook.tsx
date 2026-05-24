@@ -16,6 +16,8 @@ export function Storybook() {
   const { flipForward, flipBackward, canGoNext, canGoPrev, direction, isFlipping, flipProgress } = usePageFlip();
 
   const page = pages[pageIndex];
+  const nextPage = pages[pageIndex + 1] ?? null;
+  const prevPageData = pages[pageIndex - 1] ?? null;
   if (!page) return null;
 
   const deletePage = () => {
@@ -155,6 +157,13 @@ export function Storybook() {
                   pageNum={page.leftPage}
                 />
               </CSSFlipPage>
+            ) : isFlipping && direction === 'forward' && nextPage ? (
+              /* Forward flip: show next page's left content revealed underneath */
+              <LeftPage
+                header={nextPage.leftHeader}
+                content={nextPage.leftContent}
+                pageNum={nextPage.leftPage}
+              />
             ) : (
               <LeftPage
                 header={page.leftHeader}
@@ -181,6 +190,13 @@ export function Storybook() {
                   choices={page.rightChoices}
                 />
               </CSSFlipPage>
+            ) : isFlipping && direction === 'backward' && prevPageData ? (
+              /* Backward flip: show previous page's right content revealed underneath */
+              <RightPage
+                header={prevPageData.rightHeader}
+                content={prevPageData.rightContent}
+                choices={prevPageData.rightChoices}
+              />
             ) : (
               <RightPage
                 header={page.rightHeader}

@@ -14,19 +14,20 @@ export const FLIP_CONFIG = {
   PAPER_THICKNESS: 3,
 };
 
-// ── Three-phase easing ──
+// ── Smooth cubic bezier easing ──
+// Equivalent to CSS cubic-bezier(0.4, 0.0, 0.2, 1.0) with gentle start
 
-function easeInQuad(t: number) { return t * t; }
-function easeOutQuad(t: number) { return 1 - (1 - t) * (1 - t); }
-function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+function easeOutExpo(t: number): number {
+  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
 }
 
-/** Maps raw 0→1 time to staged progress */
+/** Single smooth curve: slow start → accelerate → gentle settle */
 export function stagedProgress(rawT: number): number {
-  if (rawT <= 0.26) return easeInQuad(rawT / 0.26) * 0.3;
-  if (rawT <= 0.74) return 0.3 + easeInOutCubic((rawT - 0.26) / 0.48) * 0.45;
-  return 0.75 + easeOutQuad((rawT - 0.74) / 0.26) * 0.25;
+  // Smoothstep-like curve with weighted blend
+  const s1 = rawT * rawT * (3 - 2 * rawT); // smoothstep
+  const s2 = easeOutExpo(rawT);             // exponential ease-out
+  // Blend: 30% smoothstep + 70% expo for natural page turn feel
+  return s1 * 0.3 + s2 * 0.7;
 }
 
 interface Props {
