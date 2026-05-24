@@ -1,23 +1,20 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { useBookStore } from '../stores/useBookStore';
 import { useAudio } from './useAudio';
 
 export type FlipDirection = 'forward' | 'backward';
 
-const FLIP_DURATION = 1500; // ms — matches FLIP_CONFIG.TOTAL
+const FLIP_DURATION = 1500;
 
 export function usePageFlip() {
-  const pageIndex = useBookStore((s) => s.pageIndex);
   const isFlipping = useBookStore((s) => s.isFlipping);
   const nextPage = useBookStore((s) => s.nextPage);
   const prevPage = useBookStore((s) => s.prevPage);
   const setFlipping = useBookStore((s) => s.setFlipping);
   const pagesLen = useBookStore((s) => s.pages.length);
+  const pageIndex = useBookStore((s) => s.pageIndex);
   const audio = useAudio();
 
-  const [direction, setDirection] = useState<FlipDirection>('forward');
-  const [flipProgress, setFlipProgress] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
 
@@ -27,31 +24,28 @@ export function usePageFlip() {
       if (dir === 'forward' && pageIndex >= pagesLen - 1) return;
       if (dir === 'backward' && pageIndex <= 0) return;
 
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      if (rafRef.current) { cancelAnimationFrame(rafRef.current); }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
-      setDirection(dir);
-      setFlipping(true);
-      setFlipProgress(0);
+      useBookStore.setState({ isFlipping: true, flipProgress: 0, flipDirection: dir });
       audio.playFlip();
 
       startRef.current = performance.now();
       const tick = (now: number) => {
         const elapsed = now - startRef.current;
         const raw = Math.min(1, elapsed / FLIP_DURATION);
-        setFlipProgress(raw);
+        useBookStore.setState({ flipProgress: raw });
         if (raw < 1) {
           rafRef.current = requestAnimationFrame(tick);
         } else {
-          setFlipProgress(1);
+          useBookStore.setState({ flipProgress: 1 });
           if (dir === 'forward') nextPage();
           else prevPage();
-          setFlipping(false);
+          useBookStore.setState({ isFlipping: false, flipProgress: 0 });
         }
       };
       rafRef.current = requestAnimationFrame(tick);
     },
-    [isFlipping, pageIndex, pagesLen, setFlipping, audio, nextPage, prevPage],
+    [isFlipping, pageIndex, pagesLen, audio, nextPage, prevPage],
   );
 
   useEffect(() => {
@@ -66,10 +60,6 @@ export function usePageFlip() {
   return {
     flipForward,
     flipBackward,
-    isFlipping,
-    flipProgress,
-    pageIndex,
-    direction,
     canGoNext: pageIndex < pagesLen - 1,
     canGoPrev: pageIndex > 0,
   };
