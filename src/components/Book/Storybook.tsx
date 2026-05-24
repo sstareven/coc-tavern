@@ -145,22 +145,27 @@ export function Storybook() {
             zIndex: 1,
           }} />
 
-          {/* [A] 左页 — underlay在底层始终可见，overlay盖上FlipCard/BlankPaper */}
+          {/* [A] 左页 */}
           <div style={{ flex: 1, position: 'relative' }}>
-            {/* [A-underlay] 空白纸底 — absolute填充 */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-              <BlankPaper side="left" />
-            </div>
-            {/* [A-overlay] */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
-              {isFlipping && direction === 'backward' ? (
-                <CSSFlipPage progress={flipProgress} direction="backward">
-                  <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
-                </CSSFlipPage>
-              ) : (isFlipping && direction === 'forward') ? (
-                <BlankPaper side="left" />
-              ) : null}
-            </div>
+            {isFlipping ? (
+              <>
+                {/* 翻页中：空白纸底 + FlipCard/Placeholder */}
+                <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+                  <BlankPaper side="left" />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
+                  {direction === 'backward' ? (
+                    <CSSFlipPage progress={flipProgress} direction="backward">
+                      <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                    </CSSFlipPage>
+                  ) : (
+                    <BlankPaper side="left" />
+                  )}
+                </div>
+              </>
+            ) : (
+              <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+            )}
           </div>
 
           {/* [C] 书脊 */}
@@ -169,22 +174,27 @@ export function Storybook() {
             background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
           }} />
 
-          {/* [B] 右页 — underlay底层 + overlay上层 */}
+          {/* [B] 右页 */}
           <div style={{ flex: 1, position: 'relative' }}>
-            {/* [B-underlay] 空白纸底 */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-              <BlankPaper side="right" />
-            </div>
-            {/* [B-overlay] */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
-              {isFlipping && direction === 'forward' ? (
-                <CSSFlipPage progress={flipProgress} direction="forward">
-                  <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
-                </CSSFlipPage>
-              ) : (isFlipping && direction === 'backward') ? (
-                <BlankPaper side="right" />
-              ) : null}
-            </div>
+            {isFlipping ? (
+              <>
+                {/* 翻页中：空白纸底 + FlipCard/Placeholder */}
+                <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+                  <BlankPaper side="right" />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
+                  {direction === 'forward' ? (
+                    <CSSFlipPage progress={flipProgress} direction="forward">
+                      <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+                    </CSSFlipPage>
+                  ) : (
+                    <BlankPaper side="right" />
+                  )}
+                </div>
+              </>
+            ) : (
+              <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+            )}
           </div>
 
           {/* TokenDisplay — inside book at bottom-right */}
