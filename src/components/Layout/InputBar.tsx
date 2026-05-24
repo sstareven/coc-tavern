@@ -351,6 +351,8 @@ export function InputBar() {
             mvuSettings.mvuApiBaseUrl,
             mvuSettings.mvuApiKey,
             mvuSettings.mvuApiModel,
+            mvuSettings.mvuTemperature,
+            mvuSettings.mvuRetryCount,
           );
           cleanedText = result.cleanedText;
           // Merge extracted variables

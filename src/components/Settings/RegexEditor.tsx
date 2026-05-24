@@ -154,7 +154,14 @@ export function RegexEditor() {
   if (!isOpen) return null;
 
   return (
-    <div className="panel-overlay" onClick={closeEditor}>
+    <div
+      onClick={closeEditor}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 950,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+      }}
+    >
       <motion.div
         className="panel regex-editor-panel"
         initial={{ opacity: 0, scale: 0.95 }}

@@ -27,60 +27,75 @@ export async function extractVariablesWithLLM(
   apiBaseUrl: string,
   apiKey: string,
   model: string,
+  temperature = 1,
+  retries = 1,
 ): Promise<{ variables: Record<string, string>; cleanedText: string }> {
   const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
+  let lastError: Error | null = null;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: EXTRACTOR_PROMPT },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.1,
-      max_tokens: 1024,
-    }),
-  });
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: EXTRACTOR_PROMPT },
+            { role: 'user', content: text },
+          ],
+          temperature,
+          max_tokens: 1024,
+        }),
+      });
 
-  if (!response.ok) {
-    throw new Error(`MVU API error ${response.status}`);
-  }
+      if (!response.ok) {
+        throw new Error(`MVU API error ${response.status}`);
+      }
 
-  const json = await response.json();
-  const content: string = json.choices?.[0]?.message?.content ?? '';
+      const json = await response.json();
+      const content: string = json.choices?.[0]?.message?.content ?? '';
 
-  // Try to parse the LLM's JSON response
-  let variables: Record<string, string> = {};
-  try {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed.variables)) {
-        for (const v of parsed.variables) {
-          if (v.name && v.value !== undefined) {
-            variables[v.name] = String(v.value);
+      // Try to parse the LLM's JSON response
+      let variables: Record<string, string> = {};
+      try {
+        const match = content.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (Array.isArray(parsed.variables)) {
+            for (const v of parsed.variables) {
+              if (v.name && v.value !== undefined) {
+                variables[v.name] = String(v.value);
+              }
+            }
           }
         }
+      } catch {
+        // Fallback to regex extraction
+      }
+
+      // Always run regex extraction as fallback/complement
+      const regexVars = extractAllVariables(text);
+      const statVars = parseStatChanges(text);
+      variables = { ...variables, ...regexVars, ...statVars };
+
+      // Strip variable markup from text
+      const cleanedText = text
+        .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
+        .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
+
+      return { variables, cleanedText };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < retries - 1) {
+        // Wait briefly before retry
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
-  } catch {
-    // Fallback to regex extraction
   }
 
-  // Always run regex extraction as fallback/complement
-  const regexVars = extractAllVariables(text);
-  const statVars = parseStatChanges(text);
-  variables = { ...variables, ...regexVars, ...statVars };
-
-  // Strip variable markup from text
-  const cleanedText = text
-    .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
-    .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
-
-  return { variables, cleanedText };
+  throw lastError ?? new Error('MVU extraction failed');
 }
