@@ -6,7 +6,7 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { CSSFlipPage, FadingPage } from './PageFlip3D';
+import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 
@@ -168,7 +168,9 @@ export function Storybook() {
                 )}
               </div>
             ) : (
-              <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+              <AppearPage pageIndex={pageIndex}>
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+              </AppearPage>
             )}
           </div>
 
@@ -199,7 +201,9 @@ export function Storybook() {
                 )}
               </div>
             ) : (
-              <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+              <AppearPage pageIndex={pageIndex}>
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} />
+              </AppearPage>
             )}
           </div>
 
