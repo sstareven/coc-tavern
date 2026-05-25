@@ -253,10 +253,10 @@ export function PresetEditor({ presetId, onClose }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={s.sectionTitle}>推理强度</div>
             <a href="https://docs.sillytavern.app/usage/prompts/reasoning/#reasoning-effort" target="_blank" title="限定模型推理的强度，当前支持低、中、高三种强度，降低推理强度可以让模型更快回复，并节省推理所用的token数。" style={{
-              width: 16, height: 16, borderRadius: '50%', border: '1px solid var(--brass)',
+              width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--ink-subtle)', textDecoration: 'none',
-              fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold',
+              color: 'var(--ink-subtle)', textDecoration: 'none', lineHeight: '15px',
+              fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', verticalAlign: 'middle',
             }}>?</a>
           </div>
           <Dropdown value="自动" onChange={() => {}} options={[
