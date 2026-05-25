@@ -156,7 +156,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   <td style={{ ...tdStyle, padding: '7px 4px' }} onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.has(id)} onChange={() => {
                       setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-                    }} style={{ cursor: 'pointer', accentColor: 'var(--brass)', filter: 'brightness(0.7)', position: 'relative', top: 3 }} />
+                    }} style={{ cursor: 'pointer', accentColor: 'var(--brass)', filter: 'brightness(0.7)', position: 'relative', top: 2 }} />
                   </td>
                   <td style={tdStyle}>
                     <button onClick={(e) => { e.stopPropagation(); handleToggle(id); }} style={{
@@ -205,49 +205,46 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           )}
         </div>
 
-        {/* Move to other book */}
-        {Object.keys(books).length > 1 && (
-          <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,168,85,0.12)', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
-              {selected.size > 0 ? `已选 ${selected.size} 条 →` : '勾选条目后移至:'}
-            </span>
-            <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
-              options={Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))} />
-            <button onClick={() => {
-              if (selected.size === 0 || !moveTarget) return;
-              useLorebookStore.setState((s) => {
-                const books = { ...s.books };
-                const srcEntries = { ...books[bookId].entries };
-                const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
-                selected.forEach((id) => {
-                  if (srcEntries[id]) {
-                    tgtEntries[id] = { ...srcEntries[id] };
-                    delete srcEntries[id];
-                  }
-                });
-                books[bookId] = { ...books[bookId], entries: srcEntries };
-                books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
-                return { books };
+        {/* Move/Copy between books */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,168,85,0.12)', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
+            {selected.size > 0 ? `已选 ${selected.size} 条 →` : '勾选条目 →'}
+          </span>
+          <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
+            options={[{ label: `「${book.name}」(本地)`, value: bookId }, ...Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))]} />
+          <button onClick={() => {
+            if (selected.size === 0 || !moveTarget || moveTarget === bookId) return;
+            useLorebookStore.setState((s) => {
+              const books = { ...s.books };
+              const srcEntries = { ...books[bookId].entries };
+              const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
+              selected.forEach((id) => {
+                if (srcEntries[id]) { tgtEntries[id] = { ...srcEntries[id] }; delete srcEntries[id]; }
               });
-              setSelected(new Set()); setMoveTarget('');
-            }} disabled={selected.size === 0} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>移动已选</button>
-            <button onClick={() => {
-              if (selected.size === 0 || !moveTarget) return;
-              useLorebookStore.setState((s) => {
-                const books = { ...s.books };
-                const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
-                selected.forEach((id) => {
-                  if (s.books[bookId]?.entries[id]) {
-                    tgtEntries[id + '_copy'] = { ...s.books[bookId].entries[id], name: s.books[bookId].entries[id].name + '(副)' };
-                  }
-                });
-                books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
-                return { books };
+              books[bookId] = { ...books[bookId], entries: srcEntries };
+              books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
+              return { books };
+            });
+            setSelected(new Set()); setMoveTarget('');
+          }} disabled={selected.size === 0 || moveTarget === bookId}
+            style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: (selected.size === 0 || moveTarget === bookId) ? 0.4 : 1 }}>移动已选</button>
+          <button onClick={() => {
+            if (selected.size === 0 || !moveTarget) return;
+            useLorebookStore.setState((s) => {
+              const books = { ...s.books };
+              const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
+              selected.forEach((id) => {
+                if (s.books[bookId]?.entries[id]) {
+                  tgtEntries[id + '_copy'] = { ...s.books[bookId].entries[id], name: s.books[bookId].entries[id].name + '(副)' };
+                }
               });
-              setSelected(new Set()); setMoveTarget('');
-            }} disabled={selected.size === 0} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>复制已选</button>
-          </div>
-        )}
+              books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
+              return { books };
+            });
+            setSelected(new Set()); setMoveTarget('');
+          }} disabled={selected.size === 0}
+            style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>复制已选</button>
+        </div>
       </div>
 
       {/* Detail modal */}
