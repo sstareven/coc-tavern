@@ -160,7 +160,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   </td>
                   <td style={{ ...tdStyle, fontWeight: 'bold', color: 'var(--text-light)' }}>
                     {entry.name || '(未命名)'}
-                    {entry.constant && <span style={{ fontSize: 8, color: 'var(--gold)', marginLeft: 4 }}>永久</span>}
+                    <span style={{ color: entry.constant ? '#5b9bd5' : 'var(--success)', marginLeft: 4, fontSize: 8 }}>●</span>
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.keys || '—'}
