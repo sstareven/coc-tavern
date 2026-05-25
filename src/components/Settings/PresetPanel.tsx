@@ -136,6 +136,13 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
+                  {id !== 'p1' && (
+                    <button onClick={(e) => { e.stopPropagation();
+                      const updated = { ...presets }; delete updated[id];
+                      setPresets(updated); savePresets(updated);
+                      if (selectedId === id) setSelectedId('p1');
+                    }} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
+                  )}
                 </div>
               </div>
             );
