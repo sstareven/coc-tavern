@@ -279,6 +279,40 @@ export function PresetEditor({ presetId, onClose }: Props) {
           ]} />
         </div>
 
+        {/* Seed */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>种子</div>
+          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>设置此值以获得确定性结果。使用-1代表随机种子。</span>
+          <input type="number" defaultValue={-1} style={{ ...s.numInput, width: 100 }} />
+        </div>
+
+        {/* Char name behavior */}
+        <div style={s.section}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={s.sectionTitle}>角色名称行为</div>
+            <a href="#" title="有助于模型将消息与角色关联起来。" style={helpLinkStyle}>?</a>
+          </div>
+          <Dropdown value="无" onChange={() => {}} options={[
+            { label: '无 — 不添加角色名称前缀', value: '无' },
+            { label: '补全对象 — 仅限拉丁字母数字和下划线', value: '补全对象' },
+            { label: '消息内容 — 在消息内容中添加角色名称', value: '消息内容' },
+          ]} />
+        </div>
+
+        {/* Continue suffix */}
+        <div style={s.section}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={s.sectionTitle}>续写后缀</div>
+            <a href="#" title="将以此分隔续写消息和原消息。" style={helpLinkStyle}>?</a>
+          </div>
+          <Dropdown value="无" onChange={() => {}} options={[
+            { label: '无', value: '无' },
+            { label: '空格', value: '空格' },
+            { label: '换行', value: '换行' },
+            { label: '双换行', value: '双换行' },
+          ]} />
+        </div>
+
         {/* Unified prompt list — SillyTavern-style: markers + user prompts in one list */}
         <div style={s.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -532,6 +566,13 @@ const s = {
   miniBtn: { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' },
   iconBtn: { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', fontSize: 12, cursor: 'pointer', opacity: 0.5 } as React.CSSProperties,
 } as const;
+
+const helpLinkStyle: React.CSSProperties = {
+  width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  color: 'var(--ink-subtle)', textDecoration: 'none', lineHeight: '15px',
+  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', verticalAlign: 'middle',
+};
 
 const resetBtn: React.CSSProperties = {
   padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
