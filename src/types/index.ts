@@ -97,6 +97,10 @@ export interface PromptItem {
   order: number;
   content: string;
   enabled: boolean;
+  /** 'marker' = fixed system item (Main Prompt, World Info etc.), 'prompt' = user-created */
+  kind: 'marker' | 'prompt';
+  /** If true, only toggle allowed (no edit/remove). Chat Examples, Chat History */
+  readOnly?: boolean;
 }
 
 export interface ChatPreset {
