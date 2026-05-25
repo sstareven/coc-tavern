@@ -128,6 +128,16 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
+                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
+                {deleteConfirm === id ? (
+                  <>
+                    <button onClick={() => handleDeleteBook(id)} style={{ ...actionBtnStyle, color: 'var(--blood)', borderColor: 'var(--blood)' }}>确认删除</button>
+                    <button onClick={() => setDeleteConfirm(null)} style={actionBtnStyle}>取消</button>
+                  </>
+                ) : (
+                  <button onClick={() => setDeleteConfirm(id)} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
+                )}
                 <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)' }}>
                   <button onClick={() => { if (book.enabled === false) toggleBook(id); }} style={{
                     padding: '4px 8px', border: 'none', cursor: book.enabled === false ? 'pointer' : 'default',
@@ -144,16 +154,6 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                     transition: 'background 0.15s',
                   }}>关</button>
                 </div>
-                <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
-                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
-                {deleteConfirm === id ? (
-                  <>
-                    <button onClick={() => handleDeleteBook(id)} style={{ ...actionBtnStyle, color: 'var(--blood)', borderColor: 'var(--blood)' }}>确认删除</button>
-                    <button onClick={() => setDeleteConfirm(null)} style={actionBtnStyle}>取消</button>
-                  </>
-                ) : (
-                  <button onClick={() => setDeleteConfirm(id)} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
-                )}
               </div>
             </div>
           ))}
