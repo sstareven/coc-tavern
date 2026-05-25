@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ChatPreset } from '../types';
 
 export type Panel =
   | 'settings'
@@ -15,35 +16,35 @@ export type Panel =
 interface PanelStore {
   openPanel: Panel;
   lorebookEditorBookId: string | null;
-  presetEditorPresetId: string | null;
+  presetEditorPreset: ChatPreset | null;
   open: (p: Panel) => void;
   openLorebookEditor: (bookId: string) => void;
-  openPresetEditor: (presetId: string) => void;
+  openPresetEditor: (preset: ChatPreset) => void;
   closeAll: () => void;
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
   openPanel: null,
   lorebookEditorBookId: null,
-  presetEditorPresetId: null,
+  presetEditorPreset: null,
 
   open: (p) =>
     set({
       openPanel: p,
       lorebookEditorBookId: null,
-      presetEditorPresetId: null,
+      presetEditorPreset: null,
     }),
 
   openLorebookEditor: (bookId) =>
     set({ openPanel: 'lorebookEditor', lorebookEditorBookId: bookId }),
 
-  openPresetEditor: (presetId) =>
-    set({ openPanel: 'presetEditor', presetEditorPresetId: presetId }),
+  openPresetEditor: (preset) =>
+    set({ openPanel: 'presetEditor', presetEditorPreset: preset }),
 
   closeAll: () =>
     set({
       openPanel: null,
       lorebookEditorBookId: null,
-      presetEditorPresetId: null,
+      presetEditorPreset: null,
     }),
 }));
