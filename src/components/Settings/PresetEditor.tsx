@@ -48,6 +48,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
     Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
   );
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
+  const [selectedLibId, setSelectedLibId] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -316,39 +317,32 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </span>
           </div>
 
-          {/* Prompt library dropdown */}
+          {/* Prompt library — dropdown + action buttons outside */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
             <div style={{ flex: 1 }}>
-              <Dropdown value="" onChange={(v) => {
-                if (!v) return;
-                if (v === '__new__') {
-                  setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
-                  return;
-                }
-                const item = libraryItems.find((p: any) => p.id === v);
-                if (item) {
-                  if (v.startsWith('__insert_')) {
-                    const realId = v.replace('__insert_', '');
-                    const src = libraryItems.find((p: any) => p.id === realId);
-                    if (src) {
-                      const newItem = { ...src, id: 'pi_' + Date.now(), _library: false };
-                      set('promptItems', [...allItems, newItem] as unknown as string);
-                    }
-                    return;
-                  }
-                  setEditingPrompt(item);
-                }
-              }} options={[
-                { label: '选择提示词...', value: '' },
-                { label: '─── 插入 ───', value: '__sep__' },
-                ...libraryItems.map((p: any) => ({ label: `↪ ${p.name || '(未命名)'} [${p.role}]`, value: `__insert_${p.id}` })),
-                { label: '─── 编辑 ───', value: '__sep2__' },
-                ...libraryItems.map((p: any) => ({ label: `✎ ${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
-                { label: '─── 操作 ───', value: '__sep3__' },
-                { label: '+ 新建提示词', value: '__new__' },
-              ]} />
+              <Dropdown value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
+                options={[
+                  { label: '选择提示词...', value: '' },
+                  ...libraryItems.map((p: any) => ({ label: `${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
+                ]} />
             </div>
+            <button onClick={() => {
+              if (!selectedLibId) return;
+              const src = libraryItems.find((p: any) => p.id === selectedLibId);
+              if (src) {
+                const newItem = { ...src, id: 'pi_' + Date.now(), _library: false };
+                set('promptItems', [...allItems, newItem] as unknown as string);
+              }
+            }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)', opacity: selectedLibId ? 1 : 0.4 }}>插入</button>
+            <button onClick={() => {
+              if (!selectedLibId) return;
+              const item = libraryItems.find((p: any) => p.id === selectedLibId);
+              if (item) setEditingPrompt(item);
+            }} disabled={!selectedLibId} style={{ ...s.miniBtn, opacity: selectedLibId ? 1 : 0.4 }}>编辑</button>
+            <button onClick={() => {
+              setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
+            }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
           </div>
 
           {/* Prompt editor modal */}
@@ -481,7 +475,8 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
       {open && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
+          <div className="dropdown-scroll" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+            <style>{`.dropdown-scroll::-webkit-scrollbar{width:5px}.dropdown-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.dropdown-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.dropdown-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
             {options.map((opt) => {
               if (opt.value.startsWith('__sep')) {
                 return <div key={opt.value} style={{ padding: '4px 8px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{opt.label}</div>;
