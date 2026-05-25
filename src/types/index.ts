@@ -98,6 +98,10 @@ export interface ChatPreset {
   systemPrompt: string;
   userPrefix: string;
   assistantPrefix: string;
+  unlockContext: boolean;
+  contextLength: number;
+  maxResponseTokens: number;
+  alternativeReplies: number;
 }
 
 // ===== Chat Sessions =====
