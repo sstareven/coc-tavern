@@ -31,6 +31,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
   const entries = book ? Object.entries(book.entries) : [];
   const [selectedId, setSelectedId] = useState<string | null>(entries[0]?.[0] ?? null);
   const [form, setForm] = useState<LoreEntry>(EMPTY_ENTRY);
+  const [moveTarget, setMoveTarget] = useState('');
 
   // Load selected entry into form
   useEffect(() => {
@@ -181,11 +182,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
           {/* Status type */}
           <FieldGroup label="状态清单">
-            <select value={form.constant ? 'constant' : 'keyword'} onChange={(e) => setForm({ ...form, constant: e.target.value === 'constant' })}
-              style={fieldInputStyle}>
-              <option value="keyword">关键词匹配</option>
-              <option value="constant">永久激活</option>
-            </select>
+            <Dropdown value={form.constant ? 'constant' : 'keyword'} onChange={(v) => setForm({ ...form, constant: v === 'constant' })}
+              options={[{ label: '关键词匹配', value: 'keyword' }, { label: '永久激活', value: 'constant' }]} />
           </FieldGroup>
 
           {/* Name */}
@@ -208,11 +206,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
           {/* Insertion position */}
           <FieldGroup label="插入位置">
-            <select value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value as 'before_char' | 'after_char' })}
-              style={fieldInputStyle}>
-              <option value="before_char">角色定义之前</option>
-              <option value="after_char">角色定义之后</option>
-            </select>
+            <Dropdown value={form.position} onChange={(v) => setForm({ ...form, position: v as 'before_char' | 'after_char' })}
+              options={[{ label: '角色定义之前', value: 'before_char' }, { label: '角色定义之后', value: 'after_char' }]} />
           </FieldGroup>
 
           {/* Depth + Priority row */}
@@ -228,12 +223,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           {/* Logic + Probability row */}
           <div style={{ display: 'flex', gap: 16 }}>
             <FieldGroup label="逻辑">
-              <select value={form.logic} onChange={(e) => setForm({ ...form, logic: e.target.value as LoreEntry['logic'] })}
-                style={{ ...fieldInputStyle, width: 100 }}>
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
-                <option value="NOT">NOT</option>
-              </select>
+              <Dropdown value={form.logic} onChange={(v) => setForm({ ...form, logic: v as LoreEntry['logic'] })}
+                options={[{ label: 'AND', value: 'AND' }, { label: 'OR', value: 'OR' }, { label: 'NOT', value: 'NOT' }]} />
             </FieldGroup>
             <FieldGroup label="触发概率%">
               <SpinField value={form.probability} min={0} max={100} onChange={(v) => setForm({ ...form, probability: v })} />
@@ -262,15 +253,11 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           {Object.keys(books).length > 1 && (
             <FieldGroup label="移至其他世界书">
               <div style={{ display: 'flex', gap: 4 }}>
-                <select id="move-target" style={{ ...fieldInputStyle, flex: 1 }}>
-                  {Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => (
-                    <option key={id} value={id}>{b.name}</option>
-                  ))}
-                </select>
+                <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
+                  options={Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))} />
                 <button onClick={() => {
-                  if (!selectedId) return;
-                  const targetId = (document.getElementById('move-target') as HTMLSelectElement)?.value;
-                  if (!targetId) return;
+                  if (!selectedId || !moveTarget) return;
+                  const targetId = moveTarget;
                   useLorebookStore.setState((s) => {
                     const books = { ...s.books };
                     books[targetId] = { ...books[targetId], entries: { ...books[targetId].entries, [selectedId]: { ...form } } };
@@ -282,13 +269,11 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   setSelectedId(null);
                 }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>移动</button>
                 <button onClick={() => {
-                  if (!selectedId) return;
-                  const targetId = (document.getElementById('move-target') as HTMLSelectElement)?.value;
-                  if (!targetId) return;
+                  if (!selectedId || !moveTarget) return;
                   useLorebookStore.setState((s) => ({
-                    books: { ...s.books, [targetId]: { ...s.books[targetId], entries: { ...s.books[targetId].entries, [selectedId + '_copy']: { ...form, name: form.name + '(副本)' } } } },
+                    books: { ...s.books, [moveTarget]: { ...s.books[moveTarget], entries: { ...s.books[moveTarget].entries, [selectedId + '_copy']: { ...form, name: form.name + '(副本)' } } } },
                   }));
-                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>复制</button>
+                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>复制到</button>
               </div>
             </FieldGroup>
           )}
@@ -304,6 +289,49 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
       <label style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold' }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+/** Custom dropdown replacing native <select> for consistent dark theme styling */
+function Dropdown({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value)?.label ?? value;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{
+        width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+        background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+        fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        outline: 'none',
+      }}>
+        <span>{selected}</span>
+        <span style={{ fontSize: 9, color: 'var(--brass)' }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+            background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3,
+            marginTop: 2, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          }}>
+            {options.map((opt) => (
+              <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} style={{
+                padding: '8px 10px', cursor: 'pointer',
+                background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
+                color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
+                fontFamily: 'var(--font-ui)', fontSize: 12,
+                borderBottom: '1px solid rgba(196,168,85,0.06)',
+              }}
+                onMouseEnter={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                onMouseLeave={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'transparent'; }}
+              >{opt.label}</div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
