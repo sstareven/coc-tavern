@@ -54,12 +54,16 @@ export function PresetEditor({ preset, onClose }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // All items = markers + library prompts + inserted prompts
+  // All items = existing promptItems (markers stay where they are, no auto-adding)
   const allItems: any[] = (() => {
     const existing = [...form.promptItems];
-    for (const mod of MODULE_ITEMS) {
-      if (!existing.find((p: any) => p.id === mod.key)) {
-        existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'chat_examples' || mod.key === 'chat_history', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
+    const hasMarkers = existing.some((p: any) => p.kind === 'marker');
+    // Only auto-add missing markers for default presets with no markers
+    if (!hasMarkers) {
+      for (const mod of MODULE_ITEMS) {
+        if (!existing.find((p: any) => p.id === mod.key)) {
+          existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'dialogueExamples' || mod.key === 'chatHistory', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
+        }
       }
     }
     return existing;
