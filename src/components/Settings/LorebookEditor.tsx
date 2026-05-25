@@ -185,7 +185,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                         useLorebookStore.setState((s) => ({
                           books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...entry, name: entry.name + '(副)' } } } },
                         }));
-                      }} title="复制" className="entry-row-btn" style={{ color: 'var(--ink-subtle)', position: 'relative', top: 1 }}>⧉</button>
+                      }} title="复制" className="entry-row-btn" style={{ color: 'var(--ink-subtle)', position: 'relative', top: 3 }}>⧉</button>
                       <button onClick={() => deleteEntry(bookId, id)} title="删除" className="entry-row-btn" style={{ color: 'var(--blood)' }}>✕</button>
                     </div>
                   </td>
