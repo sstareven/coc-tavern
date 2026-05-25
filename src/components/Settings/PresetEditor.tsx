@@ -250,24 +250,21 @@ export function PresetEditor({ presetId, onClose }: Props) {
 
         {/* Reasoning effort */}
         <div style={s.section}>
-          <div style={s.sectionTitle}>推理强度</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={s.sectionTitle}>推理强度</div>
             <a href="https://docs.sillytavern.app/usage/prompts/reasoning/#reasoning-effort" target="_blank" title="限定模型推理的强度，当前支持低、中、高三种强度，降低推理强度可以让模型更快回复，并节省推理所用的token数。" style={{
-              width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--brass)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 16, height: 16, borderRadius: '50%', border: '1px solid var(--brass)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--ink-subtle)', textDecoration: 'none',
-              fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 'bold',
-              flexShrink: 0,
+              fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold',
             }}>?</a>
-            <Dropdown value="自动" onChange={() => {}} options={[
-              { label: '自动', value: '自动' },
-              { label: '极低', value: '极低' },
-              { label: '低', value: '低' },
-              { label: '中', value: '中' },
-              { label: '高', value: '高' },
-              { label: '极高', value: '极高' },
-            ]} />
           </div>
+          <Dropdown value="自动" onChange={() => {}} options={[
+            { label: '自动', value: '自动' },
+            { label: '低', value: '低' },
+            { label: '中', value: '中' },
+            { label: '高', value: '高' },
+          ]} />
         </div>
 
         {/* Unified prompt list — SillyTavern-style: markers + user prompts in one list */}
