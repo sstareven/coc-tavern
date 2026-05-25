@@ -44,11 +44,12 @@ const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复，不要包含任
 const DEFAULT_PRESET: ChatPreset = {
   id: 'default',
   name: '默认',
-  temperature: 0.8,
-  topP: 0.9,
+  temperature: 1.00,
+  frequencyPenalty: 0.00,
+  presencePenalty: 0.00,
+  topP: 1.00,
   topK: 40,
   maxTokens: 2048,
-  repetitionPenalty: 1.1,
   systemPrompt: `你是COC 7版（克苏鲁的呼唤）的守秘人（KP）。你的职责是：
 1. 根据玩家的行动描述推进剧情
 2. 进行检定判定并描述结果
@@ -66,6 +67,23 @@ const DEFAULT_PRESET: ChatPreset = {
 请在每次回复中有状态变化时输出对应变量标签。请始终以叙事者的身份进行回复，保持悬疑和恐怖的氛围。`,
   userPrefix: '玩家: ',
   assistantPrefix: '守秘人: ',
+  unlockContext: false,
+  contextLength: 65536,
+  maxResponseTokens: 2048,
+  alternativeReplies: 1,
+  mainPrompt: '',
+  auxiliaryPrompt: '',
+  postHistoryPrompt: '',
+  aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
+  worldBookTemplate: '[世界书: {0}]',
+  scenarioTemplate: '场景: {{scenario}}',
+  personalityTemplate: '性格: {{personality}}',
+  groupChatPrompt: '请以{{char}}的身份回复。',
+  newChatPrompt: '[新的聊天即将开始]',
+  newGroupChatPrompt: '[新的群聊即将开始]',
+  newExampleChatPrompt: '[新的示例聊天即将开始]',
+  continuePrompt: '[继续推进]',
+  emptyMessagePrompt: '',
 };
 
 function buildCharacterVariables(): Record<string, string> {
