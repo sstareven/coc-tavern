@@ -13,6 +13,8 @@ import { useVariableStore } from '../../stores/useVariableStore';
 import { extractVariablesWithLLM } from '../../sillytavern/mvu-extractor';
 import { processSlashCommands } from '../../sillytavern/slash-commands';
 import { renderTemplate } from '../../sillytavern/ejs-template';
+import { trimToBudget, getModelBudget } from '../../sillytavern/context-manager';
+import { estimateTokens } from '../../sillytavern/token-counter';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -290,7 +292,24 @@ export function InputBar() {
       processedFormat,
     );
 
-    return { messages };
+    // Context budget management — trim if over limit
+    const settings = useSettingsStore.getState();
+    const budget = getModelBudget(settings.apiModel);
+    const { trimmed, summary, trimmedCount } = trimToBudget(messages, budget);
+
+    if (summary) {
+      // Insert summary as additional system message before format instruction
+      const formatIdx = trimmed.findIndex((m) => m.content === processedFormat);
+      if (formatIdx >= 0) {
+        trimmed.splice(formatIdx, 0, { role: 'system', content: summary });
+      }
+    }
+
+    if (trimmedCount > 0) {
+      console.debug(`[Context Manager] Trimmed ${trimmedCount} messages, final tokens: ~${estimateTokens(JSON.stringify(trimmed))}`);
+    }
+
+    return { messages: trimmed };
   };
 
   const submit = async () => {
