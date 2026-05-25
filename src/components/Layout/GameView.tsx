@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
-import { CharacterCreator } from '../CharSheet/CharacterCreator';
 import { usePanelStore } from '../../stores/usePanelStore';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
   const closeAll = usePanelStore((s) => s.closeAll);
-  const [showCreator, setShowCreator] = useState(false);
 
   // Esc key to close all panels
   useEffect(() => {
@@ -23,7 +21,7 @@ export function GameView({ onReturnToMenu }: Props) {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TopBar onReturnToMenu={onReturnToMenu} onCreateCharacter={() => setShowCreator(true)} />
+      <TopBar onReturnToMenu={onReturnToMenu} />
 
       <main style={{
         flex: 1,
@@ -85,10 +83,6 @@ export function GameView({ onReturnToMenu }: Props) {
 
       <InputBar />
 
-      {/* Character Creator */}
-      {showCreator && (
-        <CharacterCreator onComplete={() => setShowCreator(false)} onClose={() => setShowCreator(false)} />
-      )}
     </div>
   );
 }

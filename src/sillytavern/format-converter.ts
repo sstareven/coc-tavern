@@ -10,7 +10,7 @@
  *   { name, temperature, top_p, top_k, max_tokens, repetition_penalty,
  *     system_prompt, user_prefix, assistant_prefix, ... }
  */
-import type { LoreBook, LoreEntry, ChatPreset } from '../types';
+import type { LoreBook, LoreEntry, ChatPreset, RegexScript } from '../types';
 
 // ── ST module identifier → label map ──
 const MODULE_ID_MAP: Record<string, string> = {
@@ -112,7 +112,7 @@ interface STPreset {
   prompt_order?: Array<{ identifier: string; enabled: boolean; name?: string; content?: string; role?: string }>;
 }
 
-export function exportPresetToST(preset: ChatPreset): string {
+export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[]): string {
   const data: any = {
     name: preset.name, temperature: preset.temperature,
     top_p: preset.topP, top_k: preset.topK, max_tokens: preset.maxTokens,
@@ -120,16 +120,67 @@ export function exportPresetToST(preset: ChatPreset): string {
     system_prompt: preset.systemPrompt, user_prefix: preset.userPrefix, assistant_prefix: preset.assistantPrefix,
     unlock_context: preset.unlockContext, context_length: preset.contextLength,
     max_response_length: preset.maxResponseTokens, alternative_replies: preset.alternativeReplies,
+    reasoning_effort: preset.reasoningEffort, response_length: preset.responseLength,
+    seed: preset.seed, char_name_behavior: preset.charNameBehavior,
+    continue_suffix: preset.continueSuffix,
     prompt_order: preset.promptItems.map((p: any) => ({
       identifier: p.id, name: p.name, enabled: p.enabled, content: p.content, role: p.role,
     })),
   };
+  if (regexScripts && regexScripts.length > 0) {
+    data.extensions = {
+      regex_scripts: regexScripts.map((s) => ({
+        scriptName: s.scriptName,
+        findRegex: s.findRegex,
+        replaceString: s.replaceString,
+        trimStrings: s.trimStrings,
+        placement: s.placement,
+        disabled: s.disabled,
+        markdownOnly: s.markdownOnly,
+        promptOnly: s.promptOnly,
+        runOnEdit: s.runOnEdit,
+        substituteRegex: s.substituteRegex,
+        minDepth: s.minDepth,
+        maxDepth: s.maxDepth,
+      })),
+    };
+  }
   return JSON.stringify(data, null, 2);
 }
 
-export function importPresetFromST(json: string, fileName?: string): ChatPreset | null {
+export interface ImportedPreset {
+  preset: ChatPreset;
+  regexScripts: RegexScript[];
+}
+
+function parseRegexScripts(data: any): RegexScript[] {
+  const rawScripts = data.extensions?.regex_scripts;
+  if (!Array.isArray(rawScripts)) return [];
+  return rawScripts
+    .filter((r: any) => r.scriptName && r.findRegex)
+    .map((r: any) => ({
+      id: '', // caller assigns
+      scriptName: String(r.scriptName ?? ''),
+      findRegex: String(r.findRegex ?? ''),
+      replaceString: String(r.replaceString ?? ''),
+      trimStrings: Array.isArray(r.trimStrings) ? r.trimStrings : [],
+      placement: (Array.isArray(r.placement) ? r.placement : [r.placement])
+        .map((p: number) => p as 1 | 2 | 3 | 5 | 6)
+        .filter((p: number) => [1, 2, 3, 5, 6].includes(p)),
+      disabled: r.disabled === true,
+      markdownOnly: r.markdownOnly === true,
+      promptOnly: r.promptOnly === true,
+      runOnEdit: r.runOnEdit !== false,
+      substituteRegex: (r.substituteRegex ?? 0) as 0 | 1 | 2,
+      minDepth: typeof r.minDepth === 'number' ? r.minDepth : null,
+      maxDepth: typeof r.maxDepth === 'number' ? r.maxDepth : null,
+    }));
+}
+
+export function importPresetFromST(json: string, fileName?: string): ImportedPreset | null {
   try {
     const data: any = JSON.parse(json);
+    const regexScripts = parseRegexScripts(data);
     // Get prompt_order (root or nested in extensions)
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
@@ -146,16 +197,30 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       }
     }
 
-    // Collect ordered (identifier, enabled) pairs from prompt_order
+    // Collect ordered (identifier, enabled) pairs from prompt_order.
+    // When multiple character_id entries exist, prefer the one with actual
+    // user prompts (UUID identifiers) — that's the real order. Entries that
+    // contain only system markers are just marker-definition stubs.
     const orderedItems: Array<{ id: string; enabled: boolean }> = [];
     if (Array.isArray(promptOrder)) {
+      let bestEntry: { order: any[] } | null = null;
+      let bestNonMarkerCount = -1;
       for (const item of promptOrder) {
-        if (item.order) {
-          for (const o of item.order) {
-            orderedItems.push({ id: String(o.identifier), enabled: o.enabled !== false });
+        if (Array.isArray(item.order)) {
+          const nonMarkerCount = item.order.filter((o: any) => !(String(o.identifier) in MODULE_ID_MAP)).length;
+          if (nonMarkerCount > bestNonMarkerCount) {
+            bestNonMarkerCount = nonMarkerCount;
+            bestEntry = item;
           }
-        } else if (item.identifier) {
-          orderedItems.push({ id: String(item.identifier), enabled: item.enabled !== false });
+        }
+      }
+      // Fallback: use the first entry if none had non-marker identifiers
+      if (!bestEntry && promptOrder.length > 0 && Array.isArray(promptOrder[0].order)) {
+        bestEntry = promptOrder[0];
+      }
+      if (bestEntry?.order) {
+        for (const o of bestEntry.order) {
+          orderedItems.push({ id: String(o.identifier), enabled: o.enabled !== false });
         }
       }
     }
@@ -170,20 +235,25 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       const isKnownModule = id in MODULE_ID_MAP;
       if (isKnownModule) {
         const label = MODULE_ID_MAP[id];
+        // Look up custom name/content from the prompts map
+        const promptData = identifierMap[id];
+        const markerName = (promptData && (promptData as any).name) || label;
+        const markerContent = (promptData && (promptData as any).content) || '';
         promptItems.push({
-          id, name: label, role: 'system', trigger: 'normal' as const,
-          position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
-          enabled, kind: 'marker' as const,
+          id, name: markerName, role: 'system', trigger: [] as string[],
+          position: 'relative' as const, depth: 0, order: promptItems.length,
+          content: markerContent, enabled, kind: 'marker' as const,
           readOnly: id === 'dialogueExamples' || id === 'chatHistory',
           _library: false,
         });
+        usedIds.add(id);
       } else {
         // User-created prompt — look up in prompts map
         const p = identifierMap[id];
         if (p && (p as any).name) {
           promptItems.push({
             id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
-            trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: promptItems.length,
+            trigger: [] as string[], position: 'relative' as const, depth: 4, order: promptItems.length,
             content: (p as any).content || '', enabled, kind: 'prompt' as const,
             _library: false, _originalName: (p as any).name,
           });
@@ -199,13 +269,13 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       if (!usedIds.has(ident) && p && typeof p === 'object' && (p as any).name) {
         promptItems.push({
           id: 'lib_' + key, name: (p as any).name, role: (p as any).role || 'system',
-          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
+          trigger: [] as string[], position: 'relative' as const, depth: 4, order: 100,
           content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
           _library: true, _originalName: (p as any).name,
         });
       }
     }
-    return {
+    const preset: ChatPreset = {
       id: `preset-imported-${Date.now()}`, name,
       temperature: data.temperature ?? 1.00, topP: data.top_p ?? 1.00, topK: data.top_k ?? 40,
       maxTokens: data.max_tokens ?? 2048,
@@ -214,6 +284,12 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       systemPrompt: data.system_prompt ?? '', userPrefix: data.user_prefix ?? '玩家: ', assistantPrefix: data.assistant_prefix ?? '守秘人: ',
       unlockContext: data.unlock_context ?? false, contextLength: data.context_length ?? 65536,
       maxResponseTokens: data.max_response_length ?? data.max_tokens ?? 2048, alternativeReplies: 1,
+      streamEnabled: data.stream_enabled ?? false,
+      reasoningEffort: data.reasoning_effort ?? 'auto',
+      responseLength: data.response_length ?? 'auto',
+      seed: data.seed ?? -1,
+      charNameBehavior: data.char_name_behavior ?? 'none',
+      continueSuffix: data.continue_suffix ?? 'none',
       mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
       aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动', worldBookTemplate: '[世界书: {0}]',
       scenarioTemplate: '场景: {{scenario}}', personalityTemplate: '性格: {{personality}}',
@@ -221,6 +297,7 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       newGroupChatPrompt: '[新的群聊即将开始]', newExampleChatPrompt: '[新的示例聊天即将开始]',
       continuePrompt: '[继续推进]', emptyMessagePrompt: '', promptItems,
     };
+    return { preset, regexScripts };
   } catch { return null; }
 }
 
@@ -256,6 +333,8 @@ export function exportAllPresetsToST(presets: ChatPreset[]): string {
     max_tokens: p.maxTokens, frequency_penalty: p.frequencyPenalty, presence_penalty: p.presencePenalty,
     system_prompt: p.systemPrompt, user_prefix: p.userPrefix, assistant_prefix: p.assistantPrefix,
     unlock_context: p.unlockContext, context_length: p.contextLength, max_response_length: p.maxResponseTokens,
+    reasoning_effort: p.reasoningEffort, response_length: p.responseLength, seed: p.seed,
+    char_name_behavior: p.charNameBehavior, continue_suffix: p.continueSuffix,
     prompt_order: p.promptItems.map((pi: any) => ({ identifier: pi.id, name: pi.name, enabled: pi.enabled, content: pi.content, role: pi.role })),
   })), null, 2);
 }
