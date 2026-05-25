@@ -571,7 +571,8 @@ const helpLinkStyle: React.CSSProperties = {
   width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   color: 'var(--ink-subtle)', textDecoration: 'none', lineHeight: '15px',
-  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', verticalAlign: 'middle',
+  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold',
+  position: 'relative', top: -5,
 };
 
 const resetBtn: React.CSSProperties = {
