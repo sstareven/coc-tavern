@@ -32,7 +32,7 @@ export const useLorebookStore = create<LorebookStore>((set) => ({
   setActiveBook: (id) => set({ activeBook: id }),
   updateEntry: (b, e, entry) => set((s) => { const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [e]:entry}}; return {books}; }),
   deleteEntry: (b, e) => set((s) => { const books={...s.books}; const entries={...books[b].entries}; delete entries[e]; books[b]={...books[b], entries}; return {books}; }),
-  addEntry: (b) => set((s) => { const id='e'+(++entryCounter); const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [id]:{name:'新条目',keys:'',content:'',logic:'AND',priority:10,disabled:false,constant:false,position:'before_char',depth:0,probability:100}}}; return {books}; }),
+  addEntry: (b) => set((s) => { const id='e'+(++entryCounter); const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [id]:{name:'新条目',keys:'',content:'',logic:'AND',priority:10,disabled:false,constant:false,position:0,depth:0,probability:100}}}; return {books}; }),
   addBook: (name) => { const id = 'wb-' + Date.now(); set((s) => ({ books: { ...s.books, [id]: { name, entries: {}, enabled: true } } })); return id; },
   toggleBook: (id) => set((s) => ({ books: { ...s.books, [id]: { ...s.books[id], enabled: !s.books[id]?.enabled } } })),
 }));
