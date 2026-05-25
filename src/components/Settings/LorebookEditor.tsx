@@ -95,11 +95,19 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
         <div style={{ display: 'flex', flexDirection: 'row' }}>
         {/* Left: entry list */}
-        <div style={{
+        <div className="lorebook-entry-list" style={{
           width: 200, borderRight: '1px solid rgba(196,168,85,0.12)',
           paddingRight: 16, display: 'flex', flexDirection: 'column', gap: 4,
           maxHeight: 420, overflowY: 'auto',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
         }}>
+          <style>{`
+            .lorebook-entry-list::-webkit-scrollbar { width: 5px; }
+            .lorebook-entry-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
+            .lorebook-entry-list::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
+            .lorebook-entry-list::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+          `}</style>
           <div style={{
             fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 2, fontFamily: 'var(--font-ui)',
             marginBottom: 8, textTransform: 'uppercase',
