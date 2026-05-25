@@ -48,37 +48,31 @@ export function PresetEditor({ presetId, onClose }: Props) {
     Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
   );
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
-  const [markerOrder, setMarkerOrder] = useState<string[]>(MODULE_ITEMS.map((m) => m.key));
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const editMarker = (key: string) => { /* placeholder */ };
+  // Ensure markers are always present in promptItems (cannot be removed)
+  const mergedItems: any[] = (() => {
+    const existing = [...form.promptItems];
+    for (const mod of MODULE_ITEMS) {
+      if (!existing.find((p: any) => p.id === mod.key)) {
+        existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'chat_examples' || mod.key === 'chat_history', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true });
+      }
+    }
+    return existing;
+  })();
 
   const handleDragStart = (id: string) => setDragId(id);
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
 
-  const handleMarkerDrop = (targetKey: string) => {
-    if (!dragId || dragId === targetKey) { setDragId(null); setDragOverId(null); return; }
-    if (!MODULE_ITEMS.find((m) => m.key === dragId)) { setDragId(null); setDragOverId(null); return; }
-    setMarkerOrder((prev) => {
-      const fromIdx = prev.indexOf(dragId);
-      const toIdx = prev.indexOf(targetKey);
-      if (fromIdx < 0 || toIdx < 0) return prev;
-      const next = [...prev];
-      next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, dragId);
-      return next;
-    });
-    setDragId(null); setDragOverId(null);
-  };
-
-  const handlePromptDrop = (targetIdx: number) => {
-    if (!dragId || !dragId.startsWith('pi_')) { setDragId(null); setDragOverId(null); return; }
-    const fromIdx = form.promptItems.findIndex((p: any) => p.id === dragId);
-    if (fromIdx < 0 || fromIdx === targetIdx) { setDragId(null); setDragOverId(null); return; }
-    const items: any[] = [...form.promptItems];
+  const handleDrop = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
+    const fromIdx = mergedItems.findIndex((p: any) => p.id === dragId);
+    const toIdx = mergedItems.findIndex((p: any) => p.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) { setDragId(null); setDragOverId(null); return; }
+    const items = [...mergedItems];
     const [moved] = items.splice(fromIdx, 1);
-    items.splice(targetIdx, 0, moved);
+    items.splice(toIdx, 0, moved);
     set('promptItems', items as unknown as string);
     setDragId(null); setDragOverId(null);
   };
@@ -314,11 +308,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={s.sectionTitle}>提示词列表</div>
             <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-              Token: ~{(() => {
-                const modTokens = MODULE_ITEMS.filter((m) => moduleEnabled[m.key]).reduce((sum, m) => sum + Math.round(m.content.length / 2.5), 0);
-                const itemTokens = form.promptItems.filter((p: any) => p.enabled && p.kind === 'prompt').reduce((sum: number, p: any) => sum + Math.round((p.content || '').length / 2.5), 0);
-                return modTokens + itemTokens;
-              })()}
+              Token: ~{mergedItems.filter((p: any) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: any) => sum + Math.round((p.content || '').length / 2.5), 0)}
             </span>
           </div>
 
@@ -377,7 +367,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
                   const id = editingPrompt.id || 'pi_' + Date.now();
-                  set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt' }] as unknown as string);
+                  set('promptItems', [...mergedItems, { ...editingPrompt, id, kind: 'prompt' }] as unknown as string);
                   setEditingPrompt(null);
                 }} style={s.btn}>保存</button>
                 <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>取消</button>
@@ -385,51 +375,49 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </div>
           )}
 
-          {/* Unified list: markers + user prompts */}
+          {/* Unified list — all items (markers + prompts) in one combined array */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 360, overflowY: 'auto' }}>
-            {/* System markers — ordered by markerOrder */}
-            {markerOrder.map((key) => {
-              const mod = MODULE_ITEMS.find((m) => m.key === key)!;
-              const enabled = moduleEnabled[mod.key];
-              const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
+            {mergedItems.map((item: any, idx: number) => {
+              const isMarker = item.kind === 'marker';
+              const isReadOnly = item.readOnly === true;
+              const enabled = isMarker ? (moduleEnabled[item.id] !== false) : item.enabled;
               return (
-                <div key={mod.key} draggable onDragStart={() => handleDragStart(mod.key)} onDragOver={handleDragOver} onDrop={() => handleMarkerDrop(mod.key)}
-                  onDragEnter={() => setDragOverId(mod.key)} onDragLeave={() => setDragOverId((prev) => prev === mod.key ? null : prev)}
+                <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(item.id)}
+                  onDragEnter={() => setDragOverId(item.id)} onDragLeave={() => setDragOverId((prev) => prev === item.id ? null : prev)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', cursor: 'grab',
-                    border: dragOverId === mod.key ? '2px dashed var(--gold)' : '1px solid rgba(196,168,85,0.06)',
-                    borderRadius: 3, background: dragId === mod.key ? 'rgba(196,168,85,0.12)' : 'rgba(0,0,0,0.08)',
-                    opacity: enabled ? (dragId === mod.key ? 0.6 : 1) : 0.4 }}>
-                  <span style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>System</span>
-                  <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>{mod.label}</span>
-                  <button onClick={() => { editMarker(mod.key); }} title="配置" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
-                  <button onClick={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} disabled={readOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>-</span>
+                    border: dragOverId === item.id ? '2px dashed var(--gold)'
+                      : isMarker ? '1px solid rgba(196,168,85,0.06)' : '1px solid rgba(196,168,85,0.12)',
+                    borderLeft: isMarker ? undefined : '2px solid var(--gold)',
+                    borderRadius: 3,
+                    background: dragId === item.id ? 'rgba(196,168,85,0.12)'
+                      : isMarker ? 'rgba(0,0,0,0.08)' : 'rgba(196,168,85,0.03)',
+                    opacity: enabled ? (dragId === item.id ? 0.6 : 1) : 0.4 }}>
+                  <span style={{ fontSize: 8, color: isMarker ? 'var(--gold)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>
+                    {isMarker ? 'System' : 'Prompt'}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                    {item.name || '(未命名)'}
+                    {!isMarker && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>}
+                  </span>
+                  {!isMarker && (
+                    <button onClick={() => { set('promptItems', mergedItems.filter((_: any, i: number) => i !== idx) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                  )}
+                  {!isReadOnly && (
+                    <button onClick={() => { if (isMarker) { /* edit marker */ } else { setEditingPrompt(item); } }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
+                  )}
+                  <button onClick={() => {
+                    if (isReadOnly) return;
+                    if (isMarker) { setModuleEnabled((p) => ({ ...p, [item.id]: !(p[item.id] !== false) })); return; }
+                    const items: any[] = [...mergedItems]; items[idx] = { ...items[idx], enabled: !items[idx].enabled };
+                    set('promptItems', items as unknown as string);
+                  }} disabled={isReadOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
+                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
+                    {isMarker ? '-' : ((item.content || '').length > 0 ? `~${Math.round(item.content.length / 2.5)}t` : '-')}
+                  </span>
                 </div>
               );
             })}
-            {/* User prompts — created by user */}
-            {form.promptItems.filter((p: any) => p.kind !== 'marker').map((item: any, idx: number) => (
-              <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={handleDragOver} onDrop={() => handlePromptDrop(idx)}
-                onDragEnter={() => setDragOverId(item.id)} onDragLeave={() => setDragOverId((prev) => prev === item.id ? null : prev)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', cursor: 'grab',
-                  border: dragOverId === item.id ? '2px dashed var(--gold)' : '1px solid rgba(196,168,85,0.12)',
-                  borderLeft: dragOverId === item.id ? '2px dashed var(--gold)' : '2px solid var(--gold)',
-                  borderRadius: 3, background: dragId === item.id ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.03)' }}>
-                <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>Prompt</span>
-                <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
-                  {item.name || '(未命名)'}
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>
-                </span>
-                <button onClick={() => { set('promptItems', form.promptItems.filter((_: any, i: number) => i !== idx) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
-                <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
-                <button onClick={() => {
-                  const items: any[] = [...form.promptItems];
-                  items[items.indexOf(item)] = { ...item, enabled: !item.enabled };
-                  set('promptItems', items as unknown as string);
-                }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)', background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{item.enabled ? 'ON' : 'OFF'}</button>
-                <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>{(item.content || '').length > 0 ? `~${Math.round(item.content.length / 2.5)}t` : '-'}</span>
-              </div>
-            ))}
           </div>
         </div>
 
