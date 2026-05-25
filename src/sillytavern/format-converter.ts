@@ -132,6 +132,7 @@ export function importPresetFromST(json: string): ChatPreset | null {
       contextLength: 65536,
       maxResponseTokens: data.max_tokens ?? 2048,
       alternativeReplies: 1,
+      promptItems: [],
     };
   } catch {
     return null;

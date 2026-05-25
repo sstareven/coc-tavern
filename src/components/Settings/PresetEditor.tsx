@@ -21,31 +21,14 @@ const DEFAULT_DATA: Record<string, ChatPreset> = {
     newExampleChatPrompt: '[新的示例聊天即将开始]',
     continuePrompt: '[继续推进]',
     emptyMessagePrompt: '',
+    promptItems: [],
   },
 };
-
-const MODULES = [
-  { key: 'main_prompt', label: 'Main Prompt' },
-  { key: 'world_info_before', label: 'World Info (before)' },
-  { key: 'persona', label: 'Persona Description' },
-  { key: 'char_desc', label: 'Char Description' },
-  { key: 'char_personality', label: 'Char Personality' },
-  { key: 'scenario', label: 'Scenario' },
-  { key: 'enhance', label: 'Enhance Definitions' },
-  { key: 'auxiliary', label: 'Auxiliary Prompt' },
-  { key: 'world_info_after', label: 'World Info (after)' },
-  { key: 'chat_examples', label: 'Chat Examples' },
-  { key: 'chat_history', label: 'Chat History' },
-  { key: 'post_history', label: 'Post-History Instructions' },
-];
 
 export function PresetEditor({ presetId, onClose }: Props) {
   const base = DEFAULT_DATA[presetId];
   const [form, setForm] = useState<ChatPreset>(base ? { ...base } : DEFAULT_DATA.p1);
   const [viewStream, setViewStream] = useState(true);
-  const [moduleStates, setModuleStates] = useState<Record<string, boolean>>(
-    Object.fromEntries(MODULES.map((m) => [m.key, true]))
-  );
 
   if (!base) {
     return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
@@ -273,29 +256,90 @@ export function PresetEditor({ presetId, onClose }: Props) {
           </div>
         </div>
 
-        {/* Module list */}
+        {/* Prompt item list */}
         <div style={s.section}>
-          <div style={s.sectionTitle}>模块列表</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={s.sectionTitle}>提示词列表</div>
+            <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+              Token 使用总数: ~{form.promptItems.filter((p) => p.enabled).reduce((sum, p) => sum + Math.round(p.content.length / 2.5), 0)}
+            </span>
+          </div>
+          {/* Toolbar */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+            <button onClick={() => {
+              const id = 'pi_' + Date.now();
+              set('promptItems', [...form.promptItems, { id, label: '新提示词', content: '', enabled: true, order: form.promptItems.length }] as unknown as string);
+            }} style={s.miniBtn}>+ 添加提示词</button>
+            <button onClick={() => {
+              const filtered = form.promptItems.filter((p, i) => i !== form.promptItems.length - 1);
+              set('promptItems', filtered as unknown as string);
+            }} style={s.miniBtn}>- 删除最后</button>
+            <button onClick={() => {
+              const placeholder = { id: 'pi_' + Date.now(), label: '导入提示词', content: '', enabled: true, order: form.promptItems.length };
+              set('promptItems', [...form.promptItems, placeholder] as unknown as string);
+            }} style={s.miniBtn}>导入提示词</button>
+            <button onClick={() => {
+              set('promptItems', [...form.promptItems].sort((a, b) => a.order - b.order) as unknown as string);
+            }} style={s.miniBtn}>重置顺序</button>
+          </div>
+          {/* Items */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {MODULES.map((mod) => (
-              <div key={mod.key} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 12px', border: '1px solid rgba(196,168,85,0.1)',
+            {form.promptItems.map((item, idx) => (
+              <div key={item.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 10px', border: '1px solid rgba(196,168,85,0.1)',
                 borderRadius: 4, background: 'rgba(0,0,0,0.15)',
               }}>
-                <span style={{ fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                  {mod.label}
-                </span>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <button onClick={() => setModuleStates((p) => ({ ...p, [mod.key]: !p[mod.key] }))} style={{
-                    padding: '3px 10px', borderRadius: 2, border: '1px solid',
-                    borderColor: moduleStates[mod.key] ? 'var(--success)' : 'var(--ink-faded)',
-                    background: moduleStates[mod.key] ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
-                    color: moduleStates[mod.key] ? 'var(--success)' : 'var(--ink-faded)',
-                    fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
-                  }}>{moduleStates[mod.key] ? '启用' : '禁用'}</button>
-                  <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)' }}>✎</button>
+                {/* Reorder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <button onClick={() => {
+                    if (idx === 0) return;
+                    const items = [...form.promptItems];
+                    [items[idx - 1], items[idx]] = [items[idx], items[idx - 1]];
+                    items.forEach((p, i) => p.order = i);
+                    set('promptItems', items as unknown as string);
+                  }} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
+                  <button onClick={() => {
+                    if (idx === form.promptItems.length - 1) return;
+                    const items = [...form.promptItems];
+                    [items[idx], items[idx + 1]] = [items[idx + 1], items[idx]];
+                    items.forEach((p, i) => p.order = i);
+                    set('promptItems', items as unknown as string);
+                  }} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
                 </div>
+                {/* Label + content */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input value={item.label} onChange={(e) => {
+                      const items = [...form.promptItems];
+                      items[idx] = { ...items[idx], label: e.target.value };
+                      set('promptItems', items as unknown as string);
+                    }} style={{ ...s.input, flex: 1, fontWeight: 'bold', fontSize: 11 }} placeholder="标题" />
+                    <button onClick={() => {
+                      const items = [...form.promptItems];
+                      items[idx] = { ...items[idx], enabled: !items[idx].enabled };
+                      set('promptItems', items as unknown as string);
+                    }} style={{
+                      padding: '2px 8px', borderRadius: 2, border: '1px solid',
+                      borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)',
+                      background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
+                      color: item.enabled ? 'var(--success)' : 'var(--ink-faded)',
+                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
+                    }}>{item.enabled ? 'ON' : 'OFF'}</button>
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>
+                      ~{Math.round(item.content.length / 2.5)}t
+                    </span>
+                  </div>
+                  <textarea value={item.content} onChange={(e) => {
+                    const items = [...form.promptItems];
+                    items[idx] = { ...items[idx], content: e.target.value };
+                    set('promptItems', items as unknown as string);
+                  }} style={{ ...s.textarea, minHeight: 30, fontSize: 10 }} placeholder="提示词内容..." />
+                </div>
+                <button onClick={() => {
+                  const items = form.promptItems.filter((_, i) => i !== idx);
+                  set('promptItems', items as unknown as string);
+                }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 14 }}>✕</button>
               </div>
             ))}
           </div>
@@ -354,6 +398,13 @@ const resetBtn: React.CSSProperties = {
   padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'transparent', color: 'var(--ink-subtle)',
   fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+};
+
+const arrowBtnStyle: React.CSSProperties = {
+  width: 18, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  border: '1px solid rgba(196,168,85,0.15)', borderRadius: 2,
+  background: 'transparent', color: 'var(--ink-subtle)',
+  fontSize: 8, cursor: 'pointer', padding: 0, opacity: 0.6,
 };
 
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' };

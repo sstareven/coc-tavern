@@ -87,6 +87,14 @@ export interface LoreBook {
 }
 
 // ===== Presets =====
+export interface PromptItem {
+  id: string;
+  label: string;
+  content: string;
+  enabled: boolean;
+  order: number;
+}
+
 export interface ChatPreset {
   id: string;
   name: string;
@@ -118,6 +126,7 @@ export interface ChatPreset {
   newExampleChatPrompt: string;
   continuePrompt: string;
   emptyMessagePrompt: string;
+  promptItems: PromptItem[];
 }
 
 // ===== Chat Sessions =====
