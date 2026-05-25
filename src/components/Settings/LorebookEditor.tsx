@@ -153,11 +153,10 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   onMouseEnter={(e) => { if (editingId !== id) e.currentTarget.style.background = 'rgba(196,168,85,0.03)'; }}
                   onMouseLeave={(e) => { if (editingId !== id) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <td style={{ ...tdStyle, padding: '7px 4px' }}>
-                    <input type="checkbox" checked={selected.has(id)} onChange={(e) => {
-                      e.stopPropagation();
+                  <td style={{ ...tdStyle, padding: '7px 4px' }} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(id)} onChange={() => {
                       setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-                    }} style={{ cursor: 'pointer', accentColor: 'var(--gold)' }} />
+                    }} style={{ cursor: 'pointer', accentColor: 'var(--brass)', filter: 'brightness(0.7)', position: 'relative', top: 3 }} />
                   </td>
                   <td style={tdStyle}>
                     <button onClick={(e) => { e.stopPropagation(); handleToggle(id); }} style={{
