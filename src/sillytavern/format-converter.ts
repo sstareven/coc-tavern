@@ -19,7 +19,6 @@ const MODULE_ID_MAP: Record<string, string> = {
   charPersonality: 'Char Personality', scenario: 'Scenario',
   enhanceDefinitions: 'Enhance Definitions', worldInfoAfter: 'World Info (after)',
   dialogueExamples: 'Chat Examples', chatHistory: 'Chat History',
-  postHistoryInstructions: 'Post-History Instructions', auxiliary: 'Auxiliary Prompt',
   nsfw: 'Enhance Definitions', character_id: '角色定义',
 };
 
@@ -128,42 +127,44 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
     const rootPromptOrder = data.prompt_order || [];
     const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
 
-    // Parse prompts object (identifier → {name, role, content, ...})
+    // Parse prompts library (numbered keys 0..N → {name, role, content})
     const promptsMap: Record<string, any> = data.prompts || {};
 
-    // Collect ordered identifiers from prompt_order
-    const orderedIds: string[] = [];
+    // prompt_order orders the standard module markers (main, worldInfoBefore, etc.)
+    const orderedMarkerIds: string[] = [];
     if (Array.isArray(promptOrder)) {
       for (const item of promptOrder) {
         if (item.order) {
-          for (const o of item.order) { orderedIds.push(o.identifier); }
+          for (const o of item.order) { orderedMarkerIds.push(o.identifier); }
         } else if (item.identifier) {
-          orderedIds.push(item.identifier);
+          orderedMarkerIds.push(item.identifier);
         }
       }
     }
 
     const name = fileName || data.name || '';
     const promptItems: any[] = [];
-    for (const id of orderedIds) {
-      const p = promptsMap[id];
-      if (p) {
-        // Custom prompt — has name/role/content in prompts map
+
+    // Add standard module markers from prompt_order
+    for (const id of orderedMarkerIds) {
+      const label = MODULE_ID_MAP[id] || id;
+      promptItems.push({
+        id, name: label, role: 'system', trigger: 'normal' as const,
+        position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
+        enabled: true, kind: 'marker' as const,
+        readOnly: id === 'dialogueExamples' || id === 'chatHistory',
+        _library: false,
+      });
+    }
+
+    // Add all prompts from the prompts library as cache items
+    for (const [key, p] of Object.entries(promptsMap)) {
+      if (p && typeof p === 'object' && (p as any).name) {
         promptItems.push({
-          id, name: p.name || id, role: p.role || 'system',
+          id: 'pi_' + key, name: (p as any).name, role: (p as any).role || 'system',
           trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
-          content: p.content || '', enabled: p.enabled !== false, kind: 'prompt' as const,
-          _library: false, _originalName: p.name,
-        });
-      } else {
-        // Standard module marker (main, worldInfoBefore, etc.)
-        const label = MODULE_ID_MAP[id] || id;
-        promptItems.push({
-          id, name: label, role: 'system', trigger: 'normal' as const,
-          position: 'relative' as const, depth: 0, order: 0, content: '',
-          enabled: true, kind: 'marker' as const,
-          readOnly: id === 'dialogueExamples' || id === 'chatHistory',
-          _library: false,
+          content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
+          _library: true, _originalName: (p as any).name,
         });
       }
     }
