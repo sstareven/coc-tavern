@@ -33,8 +33,9 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
     reader.onload = () => {
       const book = importWorldBookFromST(reader.result as string);
       if (book) {
+        const fileName = file.name.replace(/\.json$/i, '');
         const id = `wb-${Date.now()}`;
-        useLorebookStore.setState((s) => ({ books: { ...s.books, [id]: book } }));
+        useLorebookStore.setState((s) => ({ books: { ...s.books, [id]: { ...book, name: book.name !== '导入的世界书' ? book.name : fileName } } }));
       }
     };
     reader.readAsText(file);

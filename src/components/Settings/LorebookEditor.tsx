@@ -98,6 +98,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         <div style={{
           width: 200, borderRight: '1px solid rgba(196,168,85,0.12)',
           paddingRight: 16, display: 'flex', flexDirection: 'column', gap: 4,
+          maxHeight: 420, overflowY: 'auto',
         }}>
           <div style={{
             fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 2, fontFamily: 'var(--font-ui)',
