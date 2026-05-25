@@ -15,6 +15,7 @@ import { ChatlistPanel } from './components/Settings/ChatlistPanel';
 import { ExtManager } from './components/Settings/ExtManager';
 import { RegexEditor } from './components/Settings/RegexEditor';
 import { VariablePanel } from './components/Settings/VariablePanel';
+import { DebugLog } from './components/Shared/DebugLog';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 
@@ -90,6 +91,7 @@ export default function App() {
       )}
 
       <RegexEditor />
+      <DebugLog />
     </>
   );
 }

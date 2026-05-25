@@ -61,51 +61,23 @@ export function DebugLog() {
     return () => { listeners.delete(handler); };
   }, [refresh]);
 
-  // Refresh trigger
+  // Listen for toggle-debug-log custom event from wand menu
+  useEffect(() => {
+    const toggle = () => setVisible((v) => { refresh(); return !v; });
+    document.addEventListener('toggle-debug-log', toggle);
+    return () => document.removeEventListener('toggle-debug-log', toggle);
+  }, [refresh]);
+
+  // Refresh logs when visible
   useEffect(() => {
     if (!visible) return;
-    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    setLogs([...getLogs()]);
+    const interval = setInterval(() => setLogs([...getLogs()]), 1000);
     return () => clearInterval(interval);
   }, [visible]);
 
-  // Update logs when tick changes
-  useEffect(() => {
-    if (visible) setLogs([...getLogs()]);
-  }, []);
-
-  // Also update on tick
-  useTickEffect(visible, () => { setLogs([...getLogs()]); });
-
   return (
     <>
-      {/* Toggle button */}
-      <button
-        onClick={() => setVisible(!visible)}
-        title="调试日志"
-        style={{
-          position: 'fixed',
-          top: 52,
-          left: 12,
-          zIndex: 601,
-          width: 30,
-          height: 30,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px solid rgba(196,168,85,0.25)',
-          borderRadius: 4,
-          background: 'rgba(13,10,7,0.85)',
-          color: 'var(--ink-subtle)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          cursor: 'pointer',
-          backdropFilter: 'blur(4px)',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; }}
-      >
-        DBG
-      </button>
 
       {/* Log panel */}
       {visible && (
