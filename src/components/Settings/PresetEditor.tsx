@@ -359,7 +359,16 @@ export function PresetEditor({ preset, onClose }: Props) {
           {/* Prompt editor modal */}
           {editingPrompt && (
             <div style={{ border: '1px solid var(--gold)', borderRadius: 4, padding: 10, marginBottom: 8, background: 'rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              {(editingPrompt as any)._readOnlyMarker ? (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 8, lineHeight: 1.6 }}>
+                    此提示词的内容是从其他地方提取的，无法在此处进行编辑。<br />
+                    （如来源：{(editingPrompt as any)._markerNote || '角色设定'}）
+                  </div>
+                  <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>关闭</button>
+                </div>
+              ) : (
+              <><div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>名称</span>
                   <input value={editingPrompt.name} onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })} style={{ ...s.input, fontSize: 10 }} />
@@ -419,7 +428,7 @@ export function PresetEditor({ preset, onClose }: Props) {
                   setEditingPrompt(null);
                 }} style={s.btn}>保存</button>
                 <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>取消</button>
-              </div>
+              </div></>)}
             </div>
           )}
 
@@ -452,7 +461,10 @@ export function PresetEditor({ preset, onClose }: Props) {
                     <button onClick={() => { set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
                   )}
                   {!isReadOnly && (
-                    <button onClick={() => { if (isMarker) { /* edit marker */ } else { setEditingPrompt({ ...item, _originalName: item._originalName || item.name }); } }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
+                    <button onClick={() => {
+                      if (isMarker) { setEditingPrompt({ ...item, _originalName: item.name, _markerNote: item.name, _readOnlyMarker: true } as any); }
+                      else { setEditingPrompt({ ...item, _originalName: item._originalName || item.name }); }
+                    }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                   )}
                   <button onClick={() => {
                     if (isReadOnly) return;
