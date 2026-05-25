@@ -344,7 +344,13 @@ export function PresetEditor({ presetId, onClose }: Props) {
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, opacity: selectedLibId ? 1 : 0.4 }}>编辑</button>
             <button onClick={() => {
               if (!selectedLibId) return;
-              set('promptItems', allItems.filter((p: any) => p.id !== selectedLibId) as unknown as string);
+              const src = libraryItems.find((p: any) => p.id === selectedLibId);
+              // Remove from library AND any active copies
+              set('promptItems', allItems.filter((p: any) => {
+                if (p.id === selectedLibId) return false;
+                if (src && p.kind === 'prompt' && p.name === src.name && p.content === src.content) return false;
+                return true;
+              }) as unknown as string);
               setSelectedLibId('');
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--blood)', opacity: selectedLibId ? 1 : 0.4 }}>删除</button>
             <button onClick={() => {
