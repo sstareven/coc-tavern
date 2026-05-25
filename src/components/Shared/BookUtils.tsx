@@ -3,10 +3,9 @@ import { PageEditor } from './PageEditor';
 
 interface Props {
   onDeletePage: () => void;
-  onToggleDebug: () => void;
 }
 
-export function BookUtils({ onDeletePage, onToggleDebug }: Props) {
+export function BookUtils({ onDeletePage }: Props) {
   const [showEditor, setShowEditor] = useState(false);
 
   return (
@@ -55,22 +54,6 @@ export function BookUtils({ onDeletePage, onToggleDebug }: Props) {
           &#10005;
         </button>
 
-        {/* Debug button */}
-        <button
-          onClick={onToggleDebug}
-          title="调试日志"
-          style={buttonStyle}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'var(--gold)';
-            e.currentTarget.style.borderColor = 'var(--gold)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = 'var(--ink-subtle)';
-            e.currentTarget.style.borderColor = 'rgba(196,168,85,0.15)';
-          }}
-        >
-          &#9881;
-        </button>
       </div>
 
       {/* Page editor modal */}

@@ -21,13 +21,10 @@ export function Storybook() {
   const page = pages[pageIndex];
   if (!page) return null;
 
+  const deletePageStore = useBookStore((s) => s.deletePage);
+
   const deletePage = () => {
-    // Placeholder: would remove current page in a full implementation
-    console.log('[Storybook] Delete page requested:', pageIndex);
-  };
-  const toggleDebug = () => {
-    const event = new CustomEvent('toggle-debug-log');
-    document.dispatchEvent(event);
+    deletePageStore(pageIndex);
   };
 
   // --- paper-style bookmark tab ---
@@ -72,7 +69,7 @@ export function Storybook() {
         maxWidth: 880,
       }}>
         {/* BookUtils — outside the book at top-right */}
-        <BookUtils onDeletePage={deletePage} onToggleDebug={toggleDebug} />
+        <BookUtils onDeletePage={deletePage} />
 
         {/* Book container — perspective for 3D page flip */}
         <div style={{
