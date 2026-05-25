@@ -86,28 +86,25 @@ export function importWorldBookFromST(json: string): LoreBook | null {
 // ── Preset ──
 
 interface STPreset {
-  name?: string;
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  max_tokens?: number;
-  repetition_penalty?: number;
-  system_prompt?: string;
-  user_prefix?: string;
-  assistant_prefix?: string;
+  name?: string; temperature?: number; top_p?: number; top_k?: number;
+  max_tokens?: number; frequency_penalty?: number; presence_penalty?: number; repetition_penalty?: number;
+  system_prompt?: string; user_prefix?: string; assistant_prefix?: string;
+  unlock_context?: boolean; context_length?: number; max_response_length?: number;
+  reasoning_effort?: string; response_length?: string; seed?: number;
+  prompt_order?: Array<{ identifier: string; enabled: boolean; name?: string; content?: string; role?: string }>;
 }
 
 export function exportPresetToST(preset: ChatPreset): string {
-  const data: STPreset = {
-    name: preset.name,
-    temperature: preset.temperature,
-    top_p: preset.topP,
-    top_k: preset.topK,
-    max_tokens: preset.maxTokens,
-    repetition_penalty: preset.frequencyPenalty,
-    system_prompt: preset.systemPrompt,
-    user_prefix: preset.userPrefix,
-    assistant_prefix: preset.assistantPrefix,
+  const data: any = {
+    name: preset.name, temperature: preset.temperature,
+    top_p: preset.topP, top_k: preset.topK, max_tokens: preset.maxTokens,
+    frequency_penalty: preset.frequencyPenalty, presence_penalty: preset.presencePenalty,
+    system_prompt: preset.systemPrompt, user_prefix: preset.userPrefix, assistant_prefix: preset.assistantPrefix,
+    unlock_context: preset.unlockContext, context_length: preset.contextLength,
+    max_response_length: preset.maxResponseTokens, alternative_replies: preset.alternativeReplies,
+    prompt_order: preset.promptItems.map((p: any) => ({
+      identifier: p.id, name: p.name, enabled: p.enabled, content: p.content, role: p.role,
+    })),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -116,27 +113,29 @@ export function importPresetFromST(json: string): ChatPreset | null {
   try {
     const data: STPreset = JSON.parse(json);
     const name = data.name ?? '导入的预设';
+    const promptItems: any[] = (data.prompt_order || []).map((p: any) => ({
+      id: p.identifier || 'pi_' + Math.random().toString(36).slice(2),
+      name: p.name || p.identifier || '', role: p.role || 'system', trigger: 'normal' as const,
+      position: 'relative' as const, depth: 4, order: 100,
+      content: p.content || '', enabled: p.enabled !== false, kind: 'prompt' as const, _library: false,
+    }));
     return {
-      id: `preset-imported-${Date.now()}`,
-      name,
-      temperature: data.temperature ?? 0.8,
-      topP: data.top_p ?? 0.9,
-      topK: data.top_k ?? 40,
+      id: `preset-imported-${Date.now()}`, name,
+      temperature: data.temperature ?? 1.00, topP: data.top_p ?? 1.00, topK: data.top_k ?? 40,
       maxTokens: data.max_tokens ?? 2048,
-      frequencyPenalty: 0.00,
-    presencePenalty: 0.00,
-      systemPrompt: data.system_prompt ?? '',
-      userPrefix: data.user_prefix ?? '玩家: ',
-      assistantPrefix: data.assistant_prefix ?? '守秘人: ',
-      unlockContext: false,
-      contextLength: 65536,
-      maxResponseTokens: data.max_tokens ?? 2048,
-      alternativeReplies: 1,
-      promptItems: [],
+      frequencyPenalty: data.frequency_penalty ?? data.repetition_penalty ?? 0.00,
+      presencePenalty: data.presence_penalty ?? 0.00,
+      systemPrompt: data.system_prompt ?? '', userPrefix: data.user_prefix ?? '玩家: ', assistantPrefix: data.assistant_prefix ?? '守秘人: ',
+      unlockContext: data.unlock_context ?? false, contextLength: data.context_length ?? 65536,
+      maxResponseTokens: data.max_response_length ?? data.max_tokens ?? 2048, alternativeReplies: 1,
+      mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
+      aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动', worldBookTemplate: '[世界书: {0}]',
+      scenarioTemplate: '场景: {{scenario}}', personalityTemplate: '性格: {{personality}}',
+      groupChatPrompt: '请以{{char}}的身份回复。', newChatPrompt: '[新的聊天即将开始]',
+      newGroupChatPrompt: '[新的群聊即将开始]', newExampleChatPrompt: '[新的示例聊天即将开始]',
+      continuePrompt: '[继续推进]', emptyMessagePrompt: '', promptItems,
     };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 // ── Bulk ──
@@ -167,14 +166,10 @@ export function exportAllWorldBooksToST(books: Record<string, LoreBook>): string
 
 export function exportAllPresetsToST(presets: ChatPreset[]): string {
   return JSON.stringify(presets.map((p) => ({
-    name: p.name,
-    temperature: p.temperature,
-    top_p: p.topP,
-    top_k: p.topK,
-    max_tokens: p.maxTokens,
-    repetition_penalty: p.frequencyPenalty,
-    system_prompt: p.systemPrompt,
-    user_prefix: p.userPrefix,
-    assistant_prefix: p.assistantPrefix,
+    name: p.name, temperature: p.temperature, top_p: p.topP, top_k: p.topK,
+    max_tokens: p.maxTokens, frequency_penalty: p.frequencyPenalty, presence_penalty: p.presencePenalty,
+    system_prompt: p.systemPrompt, user_prefix: p.userPrefix, assistant_prefix: p.assistantPrefix,
+    unlock_context: p.unlockContext, context_length: p.contextLength, max_response_length: p.maxResponseTokens,
+    prompt_order: p.promptItems.map((pi: any) => ({ identifier: pi.id, name: pi.name, enabled: pi.enabled, content: pi.content, role: pi.role })),
   })), null, 2);
 }
