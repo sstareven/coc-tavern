@@ -146,14 +146,16 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
       }
     }
 
-    // Collect ordered identifiers from prompt_order
-    const orderedIds: string[] = [];
+    // Collect ordered (identifier, enabled) pairs from prompt_order
+    const orderedItems: Array<{ id: string; enabled: boolean }> = [];
     if (Array.isArray(promptOrder)) {
       for (const item of promptOrder) {
         if (item.order) {
-          for (const o of item.order) { orderedIds.push(String(o.identifier)); }
+          for (const o of item.order) {
+            orderedItems.push({ id: String(o.identifier), enabled: o.enabled !== false });
+          }
         } else if (item.identifier) {
-          orderedIds.push(String(item.identifier));
+          orderedItems.push({ id: String(item.identifier), enabled: item.enabled !== false });
         }
       }
     }
@@ -162,15 +164,15 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
     const promptItems: any[] = [];
     const usedIds = new Set<string>();
 
-    // Process prompt_order identifiers in order
-    for (const id of orderedIds) {
+    // Process prompt_order entries in order, respecting enabled state
+    for (const { id, enabled } of orderedItems) {
       const p = identifierMap[id];
       if (p && (p as any).name) {
-        // Found a prompt — add it as Prompt
+        // Found a prompt — add with the enabled state from prompt_order
         promptItems.push({
           id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
           trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: promptItems.length,
-          content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
+          content: (p as any).content || '', enabled, kind: 'prompt' as const,
           _library: false, _originalName: (p as any).name,
         });
         usedIds.add(id);
@@ -178,11 +180,11 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
         // Standard module marker
         const label = MODULE_ID_MAP[id] || id;
         const isNum = /^\d+$/.test(id);
-        if (isNum && !p) continue; // skip orphan numeric IDs with no prompt data
+        if (isNum && !p) continue;
         promptItems.push({
           id, name: label, role: 'system', trigger: 'normal' as const,
           position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
-          enabled: true, kind: 'marker' as const,
+          enabled, kind: 'marker' as const,
           readOnly: id === 'dialogueExamples' || id === 'chatHistory',
           _library: false,
         });
