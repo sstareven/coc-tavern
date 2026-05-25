@@ -11,6 +11,7 @@ interface Props {
 export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
+  const toggleBook = useLorebookStore((s) => s.toggleBook);
   const fileRef = useRef<HTMLInputElement>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -126,7 +127,12 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                   {Object.keys(book.entries).length} 条词条
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                <button onClick={() => toggleBook(id)} title={book.enabled !== false ? '关闭' : '开启'} style={{
+                  ...actionBtnStyle, width: 28, padding: '4px 0', fontSize: 12,
+                  color: book.enabled !== false ? 'var(--success)' : 'var(--ink-faded)',
+                  borderColor: book.enabled !== false ? 'rgba(58,107,90,0.3)' : 'rgba(196,168,85,0.1)',
+                }}>{book.enabled !== false ? '●' : '○'}</button>
                 <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
                 <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
                 {deleteConfirm === id ? (
