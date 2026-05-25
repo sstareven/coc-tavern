@@ -250,7 +250,7 @@ export function InputBar() {
     setShowTokenCounter(true);
   };
 
-  const buildPromptMessages = (): { messages: AssembledMessage[] } | null => {
+  const buildPromptMessages = (): { messages: AssembledMessage[]; tokenCount: number } | null => {
     const trimmed = input.trim();
     if (!trimmed) return null;
 
@@ -305,11 +305,12 @@ export function InputBar() {
       }
     }
 
+    const finalTokens = estimateTokens(JSON.stringify(result.trimmed));
     if (result.trimmedCount > 0) {
-      console.debug(`[Context Manager] Trimmed ${result.trimmedCount} messages, final tokens: ~${estimateTokens(JSON.stringify(result.trimmed))}`);
+      pushLog('warn', `上下文裁剪: ${result.trimmedCount}条 → 剩余~${finalTokens} tokens / 上限${budget.maxTokens}`);
     }
 
-    return { messages: result.trimmed };
+    return { messages: result.trimmed, tokenCount: finalTokens };
   };
 
   const submit = async () => {
@@ -337,7 +338,8 @@ export function InputBar() {
     const result = buildPromptMessages();
     if (!result) return;
 
-    // Send directly — no prompt viewer
+    // Send directly
+    pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
     await handleSendFromPreview(result.messages);
   };
 
@@ -392,7 +394,7 @@ export function InputBar() {
         cleanedText = result.cleanedText;
       }
 
-      pushLog('info', `API响应成功 — 长度: ${response.content.length} 字符`);
+      pushLog('info', `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(response.content)} tokens`);
       const newPage = parseLlmResponse(cleanedText, trimmed);
       if (!newPage) {
         throw new Error('无法解析AI回复');
