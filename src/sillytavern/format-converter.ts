@@ -120,43 +120,51 @@ export function exportPresetToST(preset: ChatPreset): string {
   return JSON.stringify(data, null, 2);
 }
 
-export function importPresetFromST(json: string): ChatPreset | null {
+export function importPresetFromST(json: string, fileName?: string): ChatPreset | null {
   try {
     const data: any = JSON.parse(json);
-    // Support nested or root-level prompt_order
+    // Get prompt_order (root or nested in extensions)
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
     const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
 
-    // Parse prompts object (maps identifier → {name, role, content})
+    // Parse prompts object (identifier → {name, role, content, ...})
     const promptsMap: Record<string, any> = data.prompts || {};
-    const promptIdentifiers: string[] = [];
+
+    // Collect ordered identifiers from prompt_order
+    const orderedIds: string[] = [];
     if (Array.isArray(promptOrder)) {
       for (const item of promptOrder) {
-        if (Array.isArray(item.order)) {
-          for (const o of item.order) { promptIdentifiers.push(o.identifier); }
+        if (item.order) {
+          for (const o of item.order) { orderedIds.push(o.identifier); }
         } else if (item.identifier) {
-          promptIdentifiers.push(item.identifier);
+          orderedIds.push(item.identifier);
         }
       }
     }
 
-    const name = data.name || promptIdentifiers[0] || '';
+    const name = fileName || data.name || '';
     const promptItems: any[] = [];
-    for (const id of promptIdentifiers) {
+    for (const id of orderedIds) {
       const p = promptsMap[id];
       if (p) {
+        // Custom prompt — has name/role/content in prompts map
         promptItems.push({
-          id: id, name: p.name || id, role: p.role || 'system',
+          id, name: p.name || id, role: p.role || 'system',
           trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
-          content: p.content || '', enabled: true, kind: 'prompt' as const, _library: false,
+          content: p.content || '', enabled: p.enabled !== false, kind: 'prompt' as const,
+          _library: true, _originalName: p.name,
         });
       } else {
-        // Standard module identifier -> add as marker reference
+        // Standard module marker (main, worldInfoBefore, etc.)
         const label = MODULE_ID_MAP[id] || id;
-        promptItems.push({ id, name: label, role: 'system', trigger: 'normal' as const,
-          position: 'relative' as const, depth: 0, order: 0, content: '', enabled: true,
-          kind: 'marker' as const, readOnly: id === 'dialogueExamples' || id === 'chatHistory', _library: false });
+        promptItems.push({
+          id, name: label, role: 'system', trigger: 'normal' as const,
+          position: 'relative' as const, depth: 0, order: 0, content: '',
+          enabled: true, kind: 'marker' as const,
+          readOnly: id === 'dialogueExamples' || id === 'chatHistory',
+          _library: false,
+        });
       }
     }
     return {
