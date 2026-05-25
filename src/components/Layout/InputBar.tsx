@@ -235,6 +235,7 @@ export function InputBar() {
     const allBooks = useLorebookStore.getState().books;
     let matchedLore: LoreEntry[] = [];
     for (const book of Object.values(allBooks)) {
+      if (book.enabled === false) continue;
       for (const entry of Object.values(book.entries)) {
         matchedLore.push(entry);
       }
@@ -258,10 +259,11 @@ export function InputBar() {
     // Build context from recent pages
     const contextText = buildContextFromPages();
 
-    // Match lorebook entries against context + user input
+    // Match lorebook entries against context + user input (skip disabled books)
     const allBooks = useLorebookStore.getState().books;
     let matchedLore: LoreEntry[] = [];
     for (const book of Object.values(allBooks)) {
+      if (book.enabled === false) continue;
       for (const entry of Object.values(book.entries)) {
         matchedLore.push(entry);
       }
