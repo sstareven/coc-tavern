@@ -14,6 +14,11 @@ const EMPTY_ENTRY: LoreEntry = {
   content: '',
   logic: 'AND',
   priority: 10,
+  disabled: false,
+  constant: false,
+  position: 'before_char',
+  depth: 0,
+  probability: 100,
 };
 
 export function LorebookEditor({ bookId, onClose }: Props) {
@@ -130,7 +135,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
               onMouseEnter={(e) => { if (selectedId !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
               onMouseLeave={(e) => { if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
             >
-              {entry.name || '(未命名)'}
+              <span style={{ opacity: entry.disabled ? 0.4 : 1 }}>{entry.name || '(未命名)'}</span>
+              {entry.disabled && <span style={{ fontSize: 9, color: 'var(--blood)', marginLeft: 4 }}>OFF</span>}
             </button>
           ))}
           <button onClick={handleNew} style={{
@@ -144,16 +150,34 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         </div>
 
         {/* Right: entry form */}
-        <div style={{ flex: 1, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
-              {book.name}
-            </span>
-            <button onClick={onClose} style={closeBtnStyle}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
-            >✕</button>
+        <div style={{ flex: 1, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto' }}>
+          {/* State toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>状态</span>
+            <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)' }}>
+              <button onClick={() => setForm({ ...form, disabled: false })} style={{
+                padding: '3px 10px', border: 'none', cursor: 'pointer',
+                background: !form.disabled ? 'var(--success)' : 'transparent',
+                color: !form.disabled ? '#fff' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 10,
+              }}>激活</button>
+              <button onClick={() => setForm({ ...form, disabled: true })} style={{
+                padding: '3px 10px', border: 'none', cursor: 'pointer',
+                background: form.disabled ? 'var(--blood)' : 'transparent',
+                color: form.disabled ? '#fff' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 10,
+              }}>禁用</button>
+            </div>
           </div>
+
+          {/* Status type */}
+          <FieldGroup label="状态清单">
+            <select value={form.constant ? 'constant' : 'keyword'} onChange={(e) => setForm({ ...form, constant: e.target.value === 'constant' })}
+              style={fieldInputStyle}>
+              <option value="keyword">关键词匹配</option>
+              <option value="constant">永久激活</option>
+            </select>
+          </FieldGroup>
 
           {/* Name */}
           <FieldGroup label="词条名称">
@@ -170,33 +194,101 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           {/* Content */}
           <FieldGroup label="内容">
             <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="词条正文内容..." style={{ ...fieldInputStyle, minHeight: 100, resize: 'vertical', fontFamily: 'var(--font-body)' }} />
+              placeholder="词条正文内容..." style={{ ...fieldInputStyle, minHeight: 80, resize: 'vertical', fontFamily: 'var(--font-body)' }} />
           </FieldGroup>
 
-          {/* Logic + Priority row */}
+          {/* Insertion position */}
+          <FieldGroup label="插入位置">
+            <select value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value as 'before_char' | 'after_char' })}
+              style={fieldInputStyle}>
+              <option value="before_char">角色定义之前</option>
+              <option value="after_char">角色定义之后</option>
+            </select>
+          </FieldGroup>
+
+          {/* Depth + Priority row */}
           <div style={{ display: 'flex', gap: 16 }}>
-            <FieldGroup label="逻辑">
-              <select value={form.logic} onChange={(e) => setForm({ ...form, logic: e.target.value as LoreEntry['logic'] })}
-                style={fieldInputStyle}>
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
-                <option value="NOT">NOT</option>
-              </select>
+            <FieldGroup label="深度">
+              <input type="number" min={0} max={10} value={form.depth}
+                onChange={(e) => setForm({ ...form, depth: Number(e.target.value) || 0 })}
+                style={{ ...fieldInputStyle, width: 80 }} />
             </FieldGroup>
-            <FieldGroup label="优先级">
-              <input type="number" min={1} max={100} value={form.priority}
+            <FieldGroup label="顺序">
+              <input type="number" min={1} max={999} value={form.priority}
                 onChange={(e) => setForm({ ...form, priority: Number(e.target.value) || 10 })}
                 style={{ ...fieldInputStyle, width: 80 }} />
             </FieldGroup>
           </div>
 
+          {/* Logic + Probability row */}
+          <div style={{ display: 'flex', gap: 16 }}>
+            <FieldGroup label="逻辑">
+              <select value={form.logic} onChange={(e) => setForm({ ...form, logic: e.target.value as LoreEntry['logic'] })}
+                style={{ ...fieldInputStyle, width: 100 }}>
+                <option value="AND">AND</option>
+                <option value="OR">OR</option>
+                <option value="NOT">NOT</option>
+              </select>
+            </FieldGroup>
+            <FieldGroup label="触发概率%">
+              <input type="number" min={0} max={100} value={form.probability}
+                onChange={(e) => setForm({ ...form, probability: Number(e.target.value) || 100 })}
+                style={{ ...fieldInputStyle, width: 80 }} />
+            </FieldGroup>
+          </div>
+
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
             <button onClick={handleSave} style={saveBtnStyle}>保存</button>
             <button onClick={handleDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.3)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>
               删除
             </button>
+            <button onClick={() => {
+              if (!selectedId) return;
+              const newId = 'e' + Date.now();
+              useLorebookStore.setState((s) => ({
+                books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...form, name: form.name + '(副本)' } } } },
+              }));
+              setSelectedId(newId);
+            }} style={{ ...saveBtnStyle, borderColor: 'rgba(196,168,85,0.3)', color: 'var(--gold)', background: 'rgba(196,168,85,0.06)' }}>
+              复制条目
+            </button>
           </div>
+
+          {/* Move/Copy to other book */}
+          {Object.keys(books).length > 1 && (
+            <FieldGroup label="移至其他世界书">
+              <div style={{ display: 'flex', gap: 4 }}>
+                <select id="move-target" style={{ ...fieldInputStyle, flex: 1 }}>
+                  {Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => (
+                    <option key={id} value={id}>{b.name}</option>
+                  ))}
+                </select>
+                <button onClick={() => {
+                  if (!selectedId) return;
+                  const targetId = (document.getElementById('move-target') as HTMLSelectElement)?.value;
+                  if (!targetId) return;
+                  useLorebookStore.setState((s) => {
+                    const books = { ...s.books };
+                    books[targetId] = { ...books[targetId], entries: { ...books[targetId].entries, [selectedId]: { ...form } } };
+                    const srcEntries = { ...books[bookId].entries };
+                    delete srcEntries[selectedId];
+                    books[bookId] = { ...books[bookId], entries: srcEntries };
+                    return { books };
+                  });
+                  setSelectedId(null);
+                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>移动</button>
+                <button onClick={() => {
+                  if (!selectedId) return;
+                  const targetId = (document.getElementById('move-target') as HTMLSelectElement)?.value;
+                  if (!targetId) return;
+                  useLorebookStore.setState((s) => ({
+                    books: { ...s.books, [targetId]: { ...s.books[targetId], entries: { ...s.books[targetId].entries, [selectedId + '_copy']: { ...form, name: form.name + '(副本)' } } } },
+                  }));
+                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>复制</button>
+              </div>
+            </FieldGroup>
+          )}
         </div>
       </div>
     </div>

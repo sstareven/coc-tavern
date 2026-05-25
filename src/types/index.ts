@@ -70,6 +70,11 @@ export interface LoreEntry {
   content: string;
   logic: 'AND' | 'OR' | 'NOT';
   priority: number;
+  disabled: boolean;
+  constant: boolean;
+  position: 'before_char' | 'after_char';
+  depth: number;
+  probability: number;
 }
 
 export interface LoreBook {
