@@ -128,11 +128,22 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
-                <button onClick={() => toggleBook(id)} title={book.enabled !== false ? '关闭' : '开启'} style={{
-                  ...actionBtnStyle, width: 28, padding: '4px 0', fontSize: 12,
-                  color: book.enabled !== false ? 'var(--success)' : 'var(--ink-faded)',
-                  borderColor: book.enabled !== false ? 'rgba(58,107,90,0.3)' : 'rgba(196,168,85,0.1)',
-                }}>{book.enabled !== false ? '●' : '○'}</button>
+                <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)' }}>
+                  <button onClick={() => { if (book.enabled === false) toggleBook(id); }} style={{
+                    padding: '3px 8px', border: 'none', cursor: book.enabled === false ? 'pointer' : 'default',
+                    background: book.enabled !== false ? 'var(--success)' : 'transparent',
+                    color: book.enabled !== false ? '#fff' : 'var(--ink-subtle)',
+                    fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1,
+                    transition: 'background 0.15s',
+                  }}>开</button>
+                  <button onClick={() => { if (book.enabled !== false) toggleBook(id); }} style={{
+                    padding: '3px 8px', border: 'none', cursor: book.enabled !== false ? 'pointer' : 'default',
+                    background: book.enabled === false ? 'var(--blood)' : 'transparent',
+                    color: book.enabled === false ? '#fff' : 'var(--ink-subtle)',
+                    fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1,
+                    transition: 'background 0.15s',
+                  }}>关</button>
+                </div>
                 <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
                 <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
                 {deleteConfirm === id ? (
