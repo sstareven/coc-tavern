@@ -12,6 +12,7 @@ import { LorebookEditor } from './components/Settings/LorebookEditor';
 import { PresetPanel } from './components/Settings/PresetPanel';
 import { PresetEditor } from './components/Settings/PresetEditor';
 import { ChatlistPanel } from './components/Settings/ChatlistPanel';
+import type { ChatPreset } from './types';
 import { ExtManager } from './components/Settings/ExtManager';
 import { RegexEditor } from './components/Settings/RegexEditor';
 import { VariablePanel } from './components/Settings/VariablePanel';
@@ -27,7 +28,7 @@ export default function App() {
   const openPanel = usePanelStore((s) => s.openPanel);
   const closeAll = usePanelStore((s) => s.closeAll);
   const lorebookEditorBookId = usePanelStore((s) => s.lorebookEditorBookId);
-  const presetEditorPresetId = usePanelStore((s) => s.presetEditorPresetId);
+  const presetEditorPreset = usePanelStore((s) => s.presetEditorPreset);
   const openLorebookEditor = usePanelStore((s) => s.openLorebookEditor);
   const openPresetEditor = usePanelStore((s) => s.openPresetEditor);
 
@@ -69,10 +70,10 @@ export default function App() {
         <WorldbookPanel onClose={closeAll} onEditBook={(bookId: string) => openLorebookEditor(bookId)} />
       )}
       {openPanel === 'preset' && (
-        <PresetPanel onClose={closeAll} onEditPreset={(id: string) => openPresetEditor(id)} />
+        <PresetPanel onClose={closeAll} onEditPreset={(preset) => openPresetEditor(preset)} />
       )}
-      {openPanel === 'presetEditor' && presetEditorPresetId && (
-        <PresetEditor presetId={presetEditorPresetId} onClose={closeAll} />
+      {openPanel === 'presetEditor' && presetEditorPreset && (
+        <PresetEditor preset={presetEditorPreset} onClose={closeAll} />
       )}
       {openPanel === 'chatlist' && (
         <ChatlistPanel onClose={closeAll} />

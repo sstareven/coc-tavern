@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import type { ChatPreset, PromptItem } from '../../types';
 
-interface Props { presetId: string; onClose: () => void; }
+interface Props { preset: ChatPreset; onClose: () => void; }
 
-const DEFAULT_DATA: Record<string, ChatPreset> = {
-  p1: {
-    id: 'p1', name: '默认预设',
-    temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, topP: 1.00, topK: 40, maxTokens: 2048,
-    systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
-    userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
-    unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
-    mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
-    aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
-    worldBookTemplate: '[世界书: {0}]',
-    scenarioTemplate: '场景: {{scenario}}',
-    personalityTemplate: '性格: {{personality}}',
-    groupChatPrompt: '请以{{char}}的身份回复。',
-    newChatPrompt: '[新的聊天即将开始]',
-    newGroupChatPrompt: '[新的群聊即将开始]',
-    newExampleChatPrompt: '[新的示例聊天即将开始]',
-    continuePrompt: '[继续推进]',
-    emptyMessagePrompt: '',
-    promptItems: [],
-  },
+const DEFAULT_PRESET: ChatPreset = {
+  id: 'p1', name: '默认预设',
+  temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, topP: 1.00, topK: 40, maxTokens: 2048,
+  systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
+  userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
+  unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
+  mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
+  aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
+  worldBookTemplate: '[世界书: {0}]',
+  scenarioTemplate: '场景: {{scenario}}',
+  personalityTemplate: '性格: {{personality}}',
+  groupChatPrompt: '请以{{char}}的身份回复。',
+  newChatPrompt: '[新的聊天即将开始]',
+  newGroupChatPrompt: '[新的群聊即将开始]',
+  newExampleChatPrompt: '[新的示例聊天即将开始]',
+  continuePrompt: '[继续推进]',
+  emptyMessagePrompt: '',
+  promptItems: [],
 };
 
 const MODULE_ITEMS = [
@@ -40,9 +38,8 @@ const MODULE_ITEMS = [
   { key: 'post_history', label: 'Post-History Instructions', content: '' },
 ];
 
-export function PresetEditor({ presetId, onClose }: Props) {
-  const base = DEFAULT_DATA[presetId];
-  const [form, setForm] = useState<ChatPreset>(base ? { ...base } : DEFAULT_DATA.p1);
+export function PresetEditor({ preset, onClose }: Props) {
+  const [form, setForm] = useState<ChatPreset>({ ...preset });
   const [viewStream, setViewStream] = useState(true);
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
@@ -81,10 +78,6 @@ export function PresetEditor({ presetId, onClose }: Props) {
     set('promptItems', newAll as unknown as string);
     setDragId(null); setDragOverId(null);
   };
-
-  if (!base) {
-    return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
-  }
 
   type FK = keyof ChatPreset;
   const set = (k: FK, v: string | number | boolean) => setForm((p) => ({ ...p, [k]: v }));
@@ -180,21 +173,21 @@ export function PresetEditor({ presetId, onClose }: Props) {
               <div style={s.fieldCol}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>主要</span>
-                  <button onClick={() => set('mainPrompt', DEFAULT_DATA.p1.mainPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('mainPrompt', DEFAULT_PRESET.mainPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.mainPrompt} onChange={(e) => set('mainPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>辅助</span>
-                  <button onClick={() => set('auxiliaryPrompt', DEFAULT_DATA.p1.auxiliaryPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('auxiliaryPrompt', DEFAULT_PRESET.auxiliaryPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.auxiliaryPrompt} onChange={(e) => set('auxiliaryPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>历史后置指令</span>
-                  <button onClick={() => set('postHistoryPrompt', DEFAULT_DATA.p1.postHistoryPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('postHistoryPrompt', DEFAULT_PRESET.postHistoryPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.postHistoryPrompt} onChange={(e) => set('postHistoryPrompt', e.target.value)} style={s.textarea} />
               </div>
@@ -202,14 +195,14 @@ export function PresetEditor({ presetId, onClose }: Props) {
                 <div style={s.fieldCol}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>用户前缀</span>
-                    <button onClick={() => set('userPrefix', DEFAULT_DATA.p1.userPrefix)} style={resetBtn}>重置</button>
+                    <button onClick={() => set('userPrefix', DEFAULT_PRESET.userPrefix)} style={resetBtn}>重置</button>
                   </div>
                   <input value={form.userPrefix} onChange={(e) => set('userPrefix', e.target.value)} style={s.input} />
                 </div>
                 <div style={s.fieldCol}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>助手前缀</span>
-                    <button onClick={() => set('assistantPrefix', DEFAULT_DATA.p1.assistantPrefix)} style={resetBtn}>重置</button>
+                    <button onClick={() => set('assistantPrefix', DEFAULT_PRESET.assistantPrefix)} style={resetBtn}>重置</button>
                   </div>
                   <input value={form.assistantPrefix} onChange={(e) => set('assistantPrefix', e.target.value)} style={s.input} />
                 </div>
@@ -231,7 +224,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
                 <div key={item.k} style={{ ...s.fieldCol, marginTop: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>{item.label} <span style={{ color: 'var(--ink-faded)', fontWeight: 'normal' }}>{item.sub}</span></span>
-                    <button onClick={() => set(item.k, DEFAULT_DATA.p1[item.k] as string)} title="重置为默认值" style={{
+                    <button onClick={() => set(item.k, DEFAULT_PRESET[item.k] as string)} title="重置为默认值" style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'transparent', color: 'var(--ink-subtle)',
                       fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
