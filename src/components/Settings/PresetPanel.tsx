@@ -6,10 +6,21 @@ import type { ChatPreset } from '../../types';
 const DEFAULT_PRESETS: Record<string, ChatPreset> = {
   p1: {
     id: 'p1', name: '默认预设',
-    temperature: 0.8, topP: 0.9, topK: 40, maxTokens: 2048, repetitionPenalty: 1.1,
+    temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, topP: 1.00, topK: 40, maxTokens: 2048,
     systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
     userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
     unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
+    mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
+    aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
+    worldBookTemplate: '[世界书: {0}]',
+    scenarioTemplate: '场景: {{scenario}}',
+    personalityTemplate: '性格: {{personality}}',
+    groupChatPrompt: '请以{{char}}的身份回复。',
+    newChatPrompt: '[新的聊天即将开始]',
+    newGroupChatPrompt: '[新的群聊即将开始]',
+    newExampleChatPrompt: '[新的示例聊天即将开始]',
+    continuePrompt: '[继续推进]',
+    emptyMessagePrompt: '',
   },
 };
 
