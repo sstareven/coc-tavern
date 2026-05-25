@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
@@ -11,7 +11,6 @@ interface Props {
 export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -141,19 +140,21 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           ))}
         </div>
 
-        {/* Import ST format — uses a real button to trigger hidden file input */}
-        <input type="file" accept=".json" ref={fileRef} onChange={handleFileImport} style={{ display: 'none' }} />
-        <button onClick={() => fileRef.current?.click()} style={{
+        {/* Import ST format — use label wrapping for reliable file dialog */}
+        <label style={{
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--success)', borderRadius: 4,
           background: 'transparent', color: 'var(--success)',
           fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          textAlign: 'center', display: 'block',
+          transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.color = 'var(--success)'; }}
         >
           导入 ST 世界书
-        </button>
+          <input type="file" accept=".json" onChange={handleFileImport} style={{ display: 'none' }} />
+        </label>
 
         <button onClick={() => {
           const newId = addBook('新建世界书');
