@@ -251,8 +251,8 @@ export function InputBar() {
     setShowTokenCounter(true);
   };
 
-  const buildPromptMessages = (): { messages: AssembledMessage[]; tokenCount: number } | null => {
-    const trimmed = input.trim();
+  const buildPromptMessages = (overrideInput?: string): { messages: AssembledMessage[]; tokenCount: number } | null => {
+    const trimmed = (overrideInput ?? input).trim();
     if (!trimmed) return null;
 
     // Build context from recent pages
@@ -349,13 +349,16 @@ export function InputBar() {
     const lastInput = lastInputRef.current || input.trim();
     if (!lastInput) { setError('没有可重新生成的内容'); return; }
 
+    pushLog('info', `[重新生成] 使用上次输入: "${lastInput.slice(0, 50)}..."`);
+
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) { setError('请先在设置中配置API'); return; }
 
-    const result = buildPromptMessages();
-    if (!result) return;
+    // Use lastInput as the prompt input instead of the (cleared) current input
+    const result = buildPromptMessages(lastInput);
+    if (!result) { pushLog('error', '[重新生成] 提示词组装失败'); return; }
 
-    pushLog('info', `重新生成当前楼层 — ~${result.tokenCount} tokens`);
+    pushLog('info', `[重新生成] 提示词已组装 — ~${result.tokenCount} tokens, ${result.messages.length} 条消息`);
     await handleSendFromPreview(result.messages, true);
   };
 
