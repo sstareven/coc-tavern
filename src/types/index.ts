@@ -91,10 +91,11 @@ export interface ChatPreset {
   id: string;
   name: string;
   temperature: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
   topP: number;
   topK: number;
   maxTokens: number;
-  repetitionPenalty: number;
   systemPrompt: string;
   userPrefix: string;
   assistantPrefix: string;
@@ -102,6 +103,21 @@ export interface ChatPreset {
   contextLength: number;
   maxResponseTokens: number;
   alternativeReplies: number;
+  // Quick prompts
+  mainPrompt: string;
+  auxiliaryPrompt: string;
+  postHistoryPrompt: string;
+  // Utility prompts
+  aiAssistPrompt: string;
+  worldBookTemplate: string;
+  scenarioTemplate: string;
+  personalityTemplate: string;
+  groupChatPrompt: string;
+  newChatPrompt: string;
+  newGroupChatPrompt: string;
+  newExampleChatPrompt: string;
+  continuePrompt: string;
+  emptyMessagePrompt: string;
 }
 
 // ===== Chat Sessions =====
