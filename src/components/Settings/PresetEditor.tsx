@@ -263,7 +263,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
           <div style={s.rowWrap}>
             <div style={s.fieldCol}>
               <span style={s.label}>交错输出</span>
-              <select style={s.select}><option>None</option></select>
+              <Dropdown value="None" onChange={() => {}} options={[{ label: 'None', value: 'None' }]} />
             </div>
             <div style={s.fieldCol}>
               <span style={s.label}>声音输出</span>
@@ -271,11 +271,11 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </div>
             <div style={s.fieldCol}>
               <span style={s.label}>图片尺寸</span>
-              <select style={s.select}><option>1024×1024</option></select>
+              <Dropdown value="1024×1024" onChange={() => {}} options={[{ label: '1024×1024', value: '1024×1024' }]} />
             </div>
             <div style={s.fieldCol}>
               <span style={s.label}>请求温维值</span>
-              <select style={s.select}><option>Default</option></select>
+              <Dropdown value="Default" onChange={() => {}} options={[{ label: 'Default', value: 'Default' }]} />
             </div>
           </div>
           <div style={{ ...s.rowWrap, marginTop: 8 }}>
@@ -289,7 +289,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </div>
             <div style={s.fieldCol}>
               <span style={s.label}>长度</span>
-              <select style={s.select}><option>自动</option><option>手动</option></select>
+              <Dropdown value="自动" onChange={() => {}} options={[{ label: '自动', value: '自动' }, { label: '手动', value: '手动' }]} />
             </div>
             <div style={s.fieldCol}>
               <span style={s.label}>Logit 位置</span>
@@ -302,9 +302,9 @@ export function PresetEditor({ presetId, onClose }: Props) {
         <div style={s.section}>
           <div style={s.sectionTitle}>查看/参数偏置预设</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select style={{ ...s.select, flex: 1 }}>
-              <option>Default (none)</option>
-            </select>
+            <div style={{ flex: 1 }}>
+              <Dropdown value="Default (none)" onChange={() => {}} options={[{ label: 'Default (none)', value: 'Default (none)' }]} />
+            </div>
             <button style={s.btn}>SPreset Editor</button>
           </div>
         </div>
@@ -339,21 +339,21 @@ export function PresetEditor({ presetId, onClose }: Props) {
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>身份</span>
-                  <select value={editingPrompt.role} onChange={(e) => setEditingPrompt({ ...editingPrompt, role: e.target.value as PromptItem['role'] })} style={s.select}>
-                    <option value="system">系统</option><option value="user">用户</option><option value="assistant">AI助手</option>
-                  </select>
+                  <Dropdown value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
+                    options={[{ label: '系统', value: 'system' }, { label: '用户', value: 'user' }, { label: 'AI助手', value: 'assistant' }]} />
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>触发器</span>
-                  <select value={editingPrompt.trigger} onChange={(e) => setEditingPrompt({ ...editingPrompt, trigger: e.target.value as PromptItem['trigger'] })} style={s.select}>
-                    <option value="normal">正常</option><option value="continue">续写</option><option value="ai_assist">AI帮答</option><option value="alt_reply">备选回复</option><option value="regenerate">重新生成</option><option value="silent">静默</option>
-                  </select>
+                  <Dropdown value={editingPrompt.trigger} onChange={(v) => setEditingPrompt({ ...editingPrompt, trigger: v as PromptItem['trigger'] })}
+                    options={[
+                      { label: '正常', value: 'normal' }, { label: '续写', value: 'continue' }, { label: 'AI帮答', value: 'ai_assist' },
+                      { label: '备选回复', value: 'alt_reply' }, { label: '重新生成', value: 'regenerate' }, { label: '静默', value: 'silent' },
+                    ]} />
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>位置</span>
-                  <select value={editingPrompt.position} onChange={(e) => setEditingPrompt({ ...editingPrompt, position: e.target.value as 'relative' | 'depth' })} style={s.select}>
-                    <option value="relative">相对</option><option value="depth">插入深度</option>
-                  </select>
+                  <Dropdown value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
+                    options={[{ label: '相对', value: 'relative' }, { label: '插入深度', value: 'depth' }]} />
                 </div>
               </div>
               {editingPrompt.position === 'depth' && (
@@ -440,6 +440,42 @@ export function PresetEditor({ presetId, onClose }: Props) {
           fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 3, cursor: 'pointer',
         }}>保存预设</button>
       </div>
+    </div>
+  );
+}
+
+function Dropdown({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value)?.label ?? value;
+  return (
+    <div style={{ position: 'relative', minWidth: 90 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+        background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
+      }}>
+        <span>{selected}</span>
+        <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
+            {options.map((opt) => (
+              <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} style={{
+                padding: '6px 8px', cursor: 'pointer',
+                background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
+                color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
+                fontFamily: 'var(--font-ui)', fontSize: 11,
+                borderBottom: '1px solid rgba(196,168,85,0.06)',
+              }} onMouseEnter={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                onMouseLeave={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'transparent'; }}
+              >{opt.label}</div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
