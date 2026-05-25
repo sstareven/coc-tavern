@@ -84,6 +84,7 @@ const DEFAULT_PRESET: ChatPreset = {
   newExampleChatPrompt: '[新的示例聊天即将开始]',
   continuePrompt: '[继续推进]',
   emptyMessagePrompt: '',
+  promptItems: [],
 };
 
 function buildCharacterVariables(): Record<string, string> {
