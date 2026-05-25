@@ -14,12 +14,20 @@ import type { LoreBook, LoreEntry, ChatPreset } from '../types';
 
 // ── ST module identifier → label map ──
 const MODULE_ID_MAP: Record<string, string> = {
-  main: 'Main Prompt', worldInfoBefore: 'World Info (before)',
-  personaDescription: 'Persona Description', charDescription: 'Char Description',
-  charPersonality: 'Char Personality', scenario: 'Scenario',
-  enhanceDefinitions: 'Enhance Definitions', worldInfoAfter: 'World Info (after)',
-  dialogueExamples: 'Chat Examples', chatHistory: 'Chat History',
-  nsfw: 'Enhance Definitions', character_id: '角色定义',
+  main: 'Main Prompt',
+  worldInfoBefore: 'World Info (before)',
+  worldInfoAfter: 'World Info (after)',
+  personaDescription: 'Persona Description',
+  charDescription: 'Char Description',
+  charPersonality: 'Char Personality',
+  scenario: 'Scenario',
+  enhanceDefinitions: 'Enhance Definitions',
+  dialogueExamples: 'Chat Examples',
+  chatHistory: 'Chat History',
+  postHistoryInstructions: 'Post-History Instructions',
+  auxiliary: 'Auxiliary Prompt',
+  jailbreak: 'Enhance Definitions',
+  nsfw: 'Enhance Definitions',
 };
 
 // ── World Book ──
