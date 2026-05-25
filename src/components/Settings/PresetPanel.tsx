@@ -27,7 +27,7 @@ const DEFAULT_PRESETS: Record<string, ChatPreset> = {
 
 interface Props {
   onClose: () => void;
-  onEditPreset: (id: string) => void;
+  onEditPreset: (preset: ChatPreset) => void;
 }
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
@@ -120,7 +120,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(id); }} style={actionBtnStyle}>编辑</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
                 </div>
               </div>
