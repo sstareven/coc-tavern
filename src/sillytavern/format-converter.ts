@@ -49,7 +49,7 @@ export function exportWorldBookToST(book: LoreBook): string {
       constant: false,
       selective: false,
       order: entry.priority,
-      position: 'before_char',
+      position: 0,
       disable: false,
       excludeRecursion: false,
       logic: entry.logic === 'AND' ? 'AND_ALL' : 'OR_ANY',

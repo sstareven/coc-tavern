@@ -1,14 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
-import type { LoreEntry } from '../../types';
+import type { LoreEntry, InsertPosition } from '../../types';
 
 interface Props { bookId: string; onClose: () => void; }
 
 const EMPTY_ENTRY: LoreEntry = {
   name: '', keys: '', content: '', logic: 'AND', priority: 10,
-  disabled: false, constant: false, position: 'before_char', depth: 0, probability: 100,
+  disabled: false, constant: false, position: 0, depth: 0, probability: 100,
 };
+
+const POSITION_LABELS: Record<number, string> = {
+  0: '↑Char', 1: '↓Char', 2: '↑EM', 3: '↓EM', 4: '↑AN',
+  5: '↓AN', 6: '系统@D', 7: '用户@D', 8: 'AI@D', 9: '锚点',
+};
+
+const POSITION_OPTIONS = [
+  { label: '角色定义前 ↑Char', value: '0' },
+  { label: '角色定义后 ↓Char', value: '1' },
+  { label: '示例消息前 ↑EM', value: '2' },
+  { label: '示例消息后 ↓EM', value: '3' },
+  { label: '作者註释前 ↑AN', value: '4' },
+  { label: '作者註释后 ↓AN', value: '5' },
+  { label: '[系统] 插入深度@D', value: '6' },
+  { label: '[用户] 插入深度@D', value: '7' },
+  { label: '[AI] 插入深度@D', value: '8' },
+  { label: '锚点', value: '9' },
+];
 
 export function LorebookEditor({ bookId, onClose }: Props) {
   const books = useLorebookStore((s) => s.books);
@@ -110,13 +128,14 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(196,168,85,0.15)', position: 'sticky', top: 0, background: 'var(--leather)', zIndex: 1 }}>
-                <th style={thStyle}>状态</th>
+                <th style={{ ...thStyle, width: 42 }}>状态</th>
                 <th style={thStyle}>名称</th>
                 <th style={thStyle}>关键词</th>
-                <th style={{ ...thStyle, width: 50 }}>匹配</th>
-                <th style={{ ...thStyle, width: 40 }}>顺序</th>
-                <th style={{ ...thStyle, width: 40 }}>概率</th>
-                <th style={{ ...thStyle, width: 80 }}>操作</th>
+                <th style={{ ...thStyle, width: 42 }}>位置</th>
+                <th style={{ ...thStyle, width: 38 }}>匹配</th>
+                <th style={{ ...thStyle, width: 34 }}>序</th>
+                <th style={{ ...thStyle, width: 34 }}>概率</th>
+                <th style={{ ...thStyle, width: 72 }}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -132,7 +151,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                 >
                   <td style={tdStyle}>
                     <button onClick={(e) => { e.stopPropagation(); handleToggle(id); }} style={{
-                      padding: '2px 8px', borderRadius: 2, border: '1px solid',
+                      width: 36, padding: '2px 0', borderRadius: 2, border: '1px solid', textAlign: 'center',
                       borderColor: entry.disabled ? 'var(--blood)' : 'var(--success)',
                       background: entry.disabled ? 'rgba(139,58,58,0.1)' : 'rgba(58,107,90,0.1)',
                       color: entry.disabled ? 'var(--blood)' : 'var(--success)',
@@ -145,6 +164,9 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.keys || '—'}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 9 }}>
+                    {POSITION_LABELS[entry.position] ?? '—'}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
                     <span style={{ color: entry.logic === 'AND' ? 'var(--gold)' : entry.logic === 'NOT' ? 'var(--blood)' : 'var(--success)' }}>
@@ -263,8 +285,8 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew 
 
           <div style={{ display: 'flex', gap: 12 }}>
             <FieldGroup label="插入位置">
-              <Dropdown value={form.position} onChange={(v) => onChange({ ...form, position: v as 'before_char' | 'after_char' })}
-                options={[{ label: '角色定义之前', value: 'before_char' }, { label: '角色定义之后', value: 'after_char' }]} />
+              <Dropdown value={String(form.position)} onChange={(v) => onChange({ ...form, position: Number(v) as InsertPosition })}
+                options={POSITION_OPTIONS} />
             </FieldGroup>
             <FieldGroup label="匹配逻辑">
               <Dropdown value={form.logic} onChange={(v) => onChange({ ...form, logic: v as LoreEntry['logic'] })}
