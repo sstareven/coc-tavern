@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 
 interface Props {
@@ -11,6 +12,9 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const handleExport = (bookId: string) => {
     const book = books[bookId];
@@ -38,33 +42,48 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
     e.target.value = '';
   };
 
+  const handleDeleteBook = (bookId: string) => {
+    const { books } = useLorebookStore.getState();
+    const remaining = Object.entries(books).filter(([id]) => id !== bookId);
+    if (remaining.length === 0) {
+      addBook('默认世界书');
+    }
+    useLorebookStore.setState({ books: Object.fromEntries(remaining) });
+    setDeleteConfirm(null);
+  };
+
+  const startRename = (bookId: string) => {
+    setRenameId(bookId);
+    setRenameValue(books[bookId]?.name ?? '');
+  };
+
+  const submitRename = () => {
+    if (renameId && renameValue.trim()) {
+      useLorebookStore.setState((s) => ({
+        books: {
+          ...s.books,
+          [renameId]: { ...s.books[renameId], name: renameValue.trim() },
+        },
+      }));
+    }
+    setRenameId(null);
+  };
+
   return (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 900,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.75)',
-        backdropFilter: 'blur(6px)',
+        position: 'fixed', inset: 0, zIndex: 900,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        style={{
-          background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
-          border: '1px solid var(--gold)',
-          borderRadius: 8,
-          padding: '24px 28px',
-          minWidth: 480,
-          maxWidth: 600,
-          width: '90%',
-          boxShadow: '0 0 80px rgba(0,0,0,0.6)',
-        }}
-      >
-        {/* Title */}
+      <div style={{
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--gold)', borderRadius: 8,
+        padding: '24px 28px', minWidth: 480, maxWidth: 600, width: '90%',
+        boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+      }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
@@ -78,45 +97,57 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           >✕</button>
         </div>
 
-        {/* Book list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {Object.entries(books).map(([id, book]) => (
-            <div
-              key={id}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '14px 16px', border: '1px solid rgba(196,168,85,0.12)',
-                borderRadius: 4, background: 'rgba(0,0,0,0.15)',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 14, color: 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2 }}>
-                  {book.name}
-                </span>
+            <div key={id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', border: '1px solid rgba(196,168,85,0.12)',
+              borderRadius: 4, background: 'rgba(0,0,0,0.15)',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                {renameId === id ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenameId(null); }}
+                      autoFocus
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button onClick={submitRename} style={miniBtn}>✓</button>
+                    <button onClick={() => setRenameId(null)} style={miniBtn}>✕</button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 14, color: 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: 'pointer' }}
+                    onClick={() => startRename(id)} title="点击修改标题">
+                    {book.name}
+                  </span>
+                )}
                 <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                   {Object.keys(book.entries).length} 条词条
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => onEditBook(id)} style={actionBtnStyle}>
-                  编辑
-                </button>
-                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">
-                  导出
-                </button>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
+                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
+                {deleteConfirm === id ? (
+                  <>
+                    <button onClick={() => handleDeleteBook(id)} style={{ ...actionBtnStyle, color: 'var(--blood)', borderColor: 'var(--blood)' }}>确认删除</button>
+                    <button onClick={() => setDeleteConfirm(null)} style={actionBtnStyle}>取消</button>
+                  </>
+                ) : (
+                  <button onClick={() => setDeleteConfirm(id)} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Import ST format */}
+        {/* Import ST format — uses a real button to trigger hidden file input */}
         <input type="file" accept=".json" ref={fileRef} onChange={handleFileImport} style={{ display: 'none' }} />
         <button onClick={() => fileRef.current?.click()} style={{
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--success)', borderRadius: 4,
           background: 'transparent', color: 'var(--success)',
           fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
-          transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.color = 'var(--success)'; }}
@@ -124,12 +155,11 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           导入 ST 世界书
         </button>
 
-        {/* Create new */}
         <button onClick={() => {
           const newId = addBook('新建世界书');
           onEditBook(newId);
         }} style={{
-          width: '100%', marginTop: 16, padding: '10px 0',
+          width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',
           fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
@@ -152,7 +182,19 @@ const closeBtnStyle: React.CSSProperties = {
 };
 
 const actionBtnStyle: React.CSSProperties = {
-  padding: '5px 14px', border: '1px solid rgba(196,168,85,0.2)',
+  padding: '4px 10px', border: '1px solid rgba(196,168,85,0.2)',
   borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)',
   fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, cursor: 'pointer',
+};
+
+const miniBtn: React.CSSProperties = {
+  padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
+  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: '4px 8px', borderRadius: 3, border: '1px solid var(--brass)',
+  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
+  fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none',
 };
