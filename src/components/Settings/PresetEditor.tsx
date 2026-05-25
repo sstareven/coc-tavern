@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ChatPreset } from '../../types';
+import type { ChatPreset, PromptItem } from '../../types';
 
 interface Props { presetId: string; onClose: () => void; }
 
@@ -287,75 +287,41 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </span>
           </div>
 
-          {/* Fixed modules — always present, Chat Examples + Chat History are read-only */}
-          <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>固定模块（不可删除）</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 10 }}>
+          {/* Unified prompt list — fixed modules + custom items interleaved */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button onClick={() => {
+                set('promptItems', [...form.promptItems, { id: 'pi_' + Date.now(), label: '自定义提示词', content: '', enabled: true, order: form.promptItems.length }] as unknown as string);
+              }} style={s.miniBtn}>+ 添加提示词</button>
+              <button onClick={() => {
+                // Keep only fixed modules (remove all custom items)
+                set('promptItems', DEFAULT_DATA.p1.promptItems as unknown as string);
+              }} style={s.miniBtn}>重置</button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Fixed modules */}
             {MODULE_ITEMS.map((mod) => {
               const enabled = moduleEnabled[mod.key];
               const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
-              return (
-                <div key={mod.key} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 10px', border: '1px solid rgba(196,168,85,0.08)',
-                  borderRadius: 3, background: 'rgba(0,0,0,0.1)',
-                  opacity: enabled ? 1 : 0.45,
-                }}>
-                  <button onClick={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} style={{
-                    width: 32, padding: '2px 0', borderRadius: 2, border: '1px solid', textAlign: 'center',
-                    borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)',
-                    background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
-                    color: enabled ? 'var(--success)' : 'var(--ink-faded)',
-                    fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer',
-                    opacity: readOnly ? 0.5 : 1,
-                  }}>{enabled ? 'ON' : 'OFF'}</button>
-                  <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                    {mod.label}
-                    {readOnly && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>只读</span>}
-                  </span>
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>
-                    ~{Math.round(mod.content.length / 2.5)}t
-                  </span>
-                  {!readOnly && <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 11 }}>✎</button>}
-                </div>
-              );
+              return <FixedModuleRow key={mod.key} mod={mod} enabled={enabled} readOnly={readOnly} onToggle={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} />;
             })}
-          </div>
-
-          {/* Custom prompt items — user managed */}
-          <div style={{ borderTop: '1px solid rgba(196,168,85,0.12)', paddingTop: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>自定义提示词（可排序）</span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => {
-                  const id = 'pi_' + Date.now();
-                  set('promptItems', [...form.promptItems, { id, label: '新提示词', content: '', enabled: true, order: form.promptItems.length }] as unknown as string);
-                }} style={s.miniBtn}>+ 添加</button>
-                <button onClick={() => { set('promptItems', DEFAULT_DATA.p1.promptItems as unknown as string); }} style={s.miniBtn}>重置</button>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {form.promptItems.map((item, idx) => (
-                <div key={item.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 8px', border: '1px solid rgba(196,168,85,0.1)',
-                  borderRadius: 3, background: 'rgba(0,0,0,0.15)',
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <button onClick={() => { if (idx === 0) return; const items = [...form.promptItems]; [items[idx-1], items[idx]] = [items[idx], items[idx-1]]; items.forEach((p,i) => p.order=i); set('promptItems', items as unknown as string); }} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
-                    <button onClick={() => { if (idx === form.promptItems.length-1) return; const items = [...form.promptItems]; [items[idx], items[idx+1]] = [items[idx+1], items[idx]]; items.forEach((p,i) => p.order=i); set('promptItems', items as unknown as string); }} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 3 }}>
-                      <input value={item.label} onChange={(e) => { const items = [...form.promptItems]; items[idx] = { ...items[idx], label: e.target.value }; set('promptItems', items as unknown as string); }} style={{ ...s.input, flex: 1, fontWeight: 'bold', fontSize: 10, padding: '2px 6px' }} placeholder="标题" />
-                      <button onClick={() => { const items = [...form.promptItems]; items[idx] = { ...items[idx], enabled: !items[idx].enabled }; set('promptItems', items as unknown as string); }} style={{ padding: '1px 6px', borderRadius: 2, border: '1px solid', borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)', background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{item.enabled ? 'ON' : 'OFF'}</button>
-                      <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>~{Math.round(item.content.length / 2.5)}t</span>
-                    </div>
-                    <textarea value={item.content} onChange={(e) => { const items = [...form.promptItems]; items[idx] = { ...items[idx], content: e.target.value }; set('promptItems', items as unknown as string); }} style={{ ...s.textarea, minHeight: 24, fontSize: 10, padding: '4px 6px' }} placeholder="提示词内容..." />
-                  </div>
-                  <button onClick={() => { const items = form.promptItems.filter((_, i) => i !== idx); set('promptItems', items as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 12 }}>✕</button>
-                </div>
-              ))}
-            </div>
+            {/* Custom prompt items interleaved by order */}
+            {form.promptItems.map((item, idx) => (
+              <CustomItemRow key={item.id} item={item} idx={idx} total={form.promptItems.length} onMove={(dir) => {
+                if (idx + dir < 0 || idx + dir >= form.promptItems.length) return;
+                const items = [...form.promptItems];
+                [items[idx], items[idx + dir]] = [items[idx + dir], items[idx]];
+                items.forEach((p, i) => p.order = i);
+                set('promptItems', items as unknown as string);
+              }} onUpdate={(upd) => {
+                const items = [...form.promptItems];
+                items[idx] = { ...items[idx], ...upd };
+                set('promptItems', items as unknown as string);
+              }} onDelete={() => {
+                set('promptItems', form.promptItems.filter((_, i) => i !== idx) as unknown as string);
+              }} />
+            ))}
           </div>
         </div>
 
@@ -366,6 +332,61 @@ export function PresetEditor({ presetId, onClose }: Props) {
           fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 3, cursor: 'pointer',
         }}>保存预设</button>
       </div>
+    </div>
+  );
+}
+
+function FixedModuleRow({ mod, enabled, readOnly, onToggle }: { mod: { key: string; label: string; content: string }; enabled: boolean; readOnly: boolean; onToggle: () => void }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '6px 10px', border: '1px solid rgba(196,168,85,0.08)',
+      borderRadius: 3, background: 'rgba(0,0,0,0.1)',
+      opacity: enabled ? 1 : 0.45,
+    }}>
+      <button onClick={onToggle} disabled={readOnly} style={{
+        minWidth: 32, padding: '2px 0', borderRadius: 2, border: '1px solid', textAlign: 'center' as const,
+        borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)',
+        background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
+        color: enabled ? 'var(--success)' : 'var(--ink-faded)',
+        fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer',
+        opacity: readOnly ? 0.5 : 1,
+      }}>{enabled ? 'ON' : 'OFF'}</button>
+      <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+        {mod.label}
+        {readOnly && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>只读</span>}
+      </span>
+      <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>~{Math.round(mod.content.length / 2.5)}t</span>
+      {!readOnly && <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 11 }}>✎</button>}
+    </div>
+  );
+}
+
+function CustomItemRow({ item, idx, total, onMove, onUpdate, onDelete }: {
+  item: PromptItem; idx: number; total: number;
+  onMove: (dir: number) => void;
+  onUpdate: (upd: Partial<PromptItem>) => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '6px 8px', border: '1px solid rgba(196,168,85,0.1)', borderLeft: '2px solid var(--gold)',
+      borderRadius: 3, background: 'rgba(0,0,0,0.15)',
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <button onClick={() => onMove(-1)} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
+        <button onClick={() => onMove(1)} disabled={idx === total - 1} style={arrowBtnStyle}>▼</button>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 3 }}>
+          <input value={item.label} onChange={(e) => onUpdate({ label: e.target.value })} style={{ ...s.input, flex: 1, fontWeight: 'bold', fontSize: 10, padding: '2px 6px' }} placeholder="标题" />
+          <button onClick={() => onUpdate({ enabled: !item.enabled })} style={{ padding: '1px 6px', borderRadius: 2, border: '1px solid', borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)', background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{item.enabled ? 'ON' : 'OFF'}</button>
+          <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>~{Math.round(item.content.length / 2.5)}t</span>
+        </div>
+        <textarea value={item.content} onChange={(e) => onUpdate({ content: e.target.value })} style={{ ...s.textarea, minHeight: 24, fontSize: 10, padding: '4px 6px' }} placeholder="提示词内容..." />
+      </div>
+      <button onClick={onDelete} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 12 }}>✕</button>
     </div>
   );
 }
