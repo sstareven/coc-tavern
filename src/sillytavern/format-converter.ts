@@ -127,44 +127,69 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
     const rootPromptOrder = data.prompt_order || [];
     const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
 
-    // Parse prompts library (numbered keys 0..N → {name, role, content})
+    // Build lookup: identifier → prompt data from the library
     const promptsMap: Record<string, any> = data.prompts || {};
+    const identifierMap: Record<string, any> = {};
+    // If prompts have an 'identifier' field, use that; otherwise use the key
+    for (const [key, p] of Object.entries(promptsMap)) {
+      if (p && typeof p === 'object') {
+        const ident = (p as any).identifier || key;
+        identifierMap[String(ident)] = p;
+      }
+    }
 
-    // prompt_order orders the standard module markers (main, worldInfoBefore, etc.)
-    const orderedMarkerIds: string[] = [];
+    // Collect ordered identifiers from prompt_order
+    const orderedIds: string[] = [];
     if (Array.isArray(promptOrder)) {
       for (const item of promptOrder) {
         if (item.order) {
-          for (const o of item.order) { orderedMarkerIds.push(o.identifier); }
+          for (const o of item.order) { orderedIds.push(String(o.identifier)); }
         } else if (item.identifier) {
-          orderedMarkerIds.push(item.identifier);
+          orderedIds.push(String(item.identifier));
         }
       }
     }
 
     const name = fileName || data.name || '';
     const promptItems: any[] = [];
+    const usedIds = new Set<string>();
 
-    // Add standard module markers from prompt_order
-    for (const id of orderedMarkerIds) {
-      const label = MODULE_ID_MAP[id] || id;
-      promptItems.push({
-        id, name: label, role: 'system', trigger: 'normal' as const,
-        position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
-        enabled: true, kind: 'marker' as const,
-        readOnly: id === 'dialogueExamples' || id === 'chatHistory',
-        _library: false,
-      });
-    }
-
-    // Add all prompts from the prompts library as cache items
-    for (const [key, p] of Object.entries(promptsMap)) {
-      if (p && typeof p === 'object' && (p as any).name) {
+    // Process prompt_order identifiers in order
+    for (const id of orderedIds) {
+      const p = identifierMap[id];
+      if (p && (p as any).name) {
+        // Found a prompt — add it as Prompt
         promptItems.push({
-          id: 'pi_' + key, name: (p as any).name, role: (p as any).role || 'system',
-          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
+          id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
+          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: promptItems.length,
           content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
           _library: false, _originalName: (p as any).name,
+        });
+        usedIds.add(id);
+      } else {
+        // Standard module marker
+        const label = MODULE_ID_MAP[id] || id;
+        const isNum = /^\d+$/.test(id);
+        if (isNum && !p) continue; // skip orphan numeric IDs with no prompt data
+        promptItems.push({
+          id, name: label, role: 'system', trigger: 'normal' as const,
+          position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
+          enabled: true, kind: 'marker' as const,
+          readOnly: id === 'dialogueExamples' || id === 'chatHistory',
+          _library: false,
+        });
+      }
+    }
+
+    // Add remaining library prompts NOT in prompt_order as cache items
+    for (const [key, p] of Object.entries(promptsMap)) {
+      const ident = String((p as any).identifier || key);
+      if (!usedIds.has(ident) && p && typeof p === 'object' && (p as any).name) {
+        promptItems.push({
+          id: 'lib_' + key, name: (p as any).name, role: (p as any).role || 'system',
+          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
+          content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
+          _library: true, _originalName: (p as any).name,
         });
       }
     }
