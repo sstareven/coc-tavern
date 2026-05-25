@@ -111,9 +111,13 @@ export function exportPresetToST(preset: ChatPreset): string {
 
 export function importPresetFromST(json: string): ChatPreset | null {
   try {
-    const data: STPreset = JSON.parse(json);
-    const name = data.name ?? '导入的预设';
-    const promptItems: any[] = (data.prompt_order || []).map((p: any) => ({
+    const data: any = JSON.parse(json);
+    // Support nested extensions.prompt_order
+    const extPromptOrder = data.extensions?.prompt_order || [];
+    const rootPromptOrder = data.prompt_order || [];
+    const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
+    const name = data.name || '';
+    const promptItems: any[] = promptOrder.map((p: any) => ({
       id: p.identifier || 'pi_' + Math.random().toString(36).slice(2),
       name: p.name || p.identifier || '', role: p.role || 'system', trigger: 'normal' as const,
       position: 'relative' as const, depth: 4, order: 100,
