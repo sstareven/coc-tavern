@@ -525,6 +525,15 @@ export function InputBar() {
                         <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: '#7b9fc1', fontSize: 12 }}>⬡</td>
                         <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>变量引擎</td>
                       </tr>
+                      <tr
+                        onClick={() => { document.dispatchEvent(new CustomEvent('toggle-debug-log')); setWandOpen(false); }}
+                        style={{ cursor: 'pointer', borderTop: '1px solid rgba(196,168,85,0.1)', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>&#9881;</td>
+                        <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>调试日志</td>
+                      </tr>
                     </tbody>
                   </table>
                 </motion.div>

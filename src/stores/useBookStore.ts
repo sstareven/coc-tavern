@@ -51,6 +51,7 @@ interface BookStore {
   setFlipping: (v: boolean) => void;
   updateLeftPage: (index: number, header: string, content: string) => void;
   appendPage: (page: BookPage) => void;
+  deletePage: (index: number) => void;
   /** Animated flip to the freshly appended page */
   autoFlipForward: () => void;
 }
@@ -84,6 +85,19 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const newIdx = s.pages.length;
     const pages = [...s.pages, { ...page, leftPage: pageNum(newIdx) }];
     return { pages };
+  }),
+
+  deletePage: (index) => set((s) => {
+    if (s.pages.length <= 1) return s; // keep at least one page
+    const pages = s.pages.filter((_, i) => i !== index);
+    // Fix page numbers for remaining pages
+    const fixed = pages.map((p, i) => ({ ...p, leftPage: pageNum(i) }));
+    // Adjust pageIndex if needed
+    let pageIndex = s.pageIndex;
+    if (pageIndex >= fixed.length) pageIndex = fixed.length - 1;
+    // If deleted page was before current, decrement
+    if (index < s.pageIndex) pageIndex = s.pageIndex - 1;
+    return { pages: fixed, pageIndex };
   }),
 
   autoFlipForward: () => {
