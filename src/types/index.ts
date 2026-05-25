@@ -75,6 +75,7 @@ export interface LoreEntry {
 export interface LoreBook {
   name: string;
   entries: Record<string, LoreEntry>;
+  enabled: boolean;
 }
 
 // ===== Presets =====
