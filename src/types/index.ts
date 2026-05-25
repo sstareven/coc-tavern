@@ -89,10 +89,14 @@ export interface LoreBook {
 // ===== Presets =====
 export interface PromptItem {
   id: string;
-  label: string;
+  name: string;
+  role: 'system' | 'user' | 'assistant';
+  trigger: 'normal' | 'continue' | 'ai_assist' | 'alt_reply' | 'regenerate' | 'silent';
+  position: 'relative' | 'depth';
+  depth: number;
+  order: number;
   content: string;
   enabled: boolean;
-  order: number;
 }
 
 export interface ChatPreset {

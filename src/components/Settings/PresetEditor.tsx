@@ -47,6 +47,8 @@ export function PresetEditor({ presetId, onClose }: Props) {
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
   );
+  const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
+  const [activeItems, setActiveItems] = useState<PromptItem[]>([]);
 
   if (!base) {
     return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
