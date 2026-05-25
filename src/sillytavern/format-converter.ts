@@ -153,7 +153,7 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
           id, name: p.name || id, role: p.role || 'system',
           trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
           content: p.content || '', enabled: p.enabled !== false, kind: 'prompt' as const,
-          _library: true, _originalName: p.name,
+          _library: false, _originalName: p.name,
         });
       } else {
         // Standard module marker (main, worldInfoBefore, etc.)
