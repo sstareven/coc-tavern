@@ -143,24 +143,39 @@ export function PresetEditor({ presetId, onClose }: Props) {
           <div style={{ marginTop: 10 }}>
             <Collapse title="快速提示词编辑">
               <div style={s.fieldCol}>
-                <span style={s.label}>主要</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={s.label}>主要</span>
+                  <button onClick={() => set('mainPrompt', DEFAULT_DATA.p1.mainPrompt)} style={resetBtn}>重置</button>
+                </div>
                 <textarea value={form.mainPrompt} onChange={(e) => set('mainPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
-                <span style={s.label}>辅助</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={s.label}>辅助</span>
+                  <button onClick={() => set('auxiliaryPrompt', DEFAULT_DATA.p1.auxiliaryPrompt)} style={resetBtn}>重置</button>
+                </div>
                 <textarea value={form.auxiliaryPrompt} onChange={(e) => set('auxiliaryPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
-                <span style={s.label}>历史后置指令</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={s.label}>历史后置指令</span>
+                  <button onClick={() => set('postHistoryPrompt', DEFAULT_DATA.p1.postHistoryPrompt)} style={resetBtn}>重置</button>
+                </div>
                 <textarea value={form.postHistoryPrompt} onChange={(e) => set('postHistoryPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <div style={s.fieldCol}>
-                  <span style={s.label}>用户前缀</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={s.label}>用户前缀</span>
+                    <button onClick={() => set('userPrefix', DEFAULT_DATA.p1.userPrefix)} style={resetBtn}>重置</button>
+                  </div>
                   <input value={form.userPrefix} onChange={(e) => set('userPrefix', e.target.value)} style={s.input} />
                 </div>
                 <div style={s.fieldCol}>
-                  <span style={s.label}>助手前缀</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={s.label}>助手前缀</span>
+                    <button onClick={() => set('assistantPrefix', DEFAULT_DATA.p1.assistantPrefix)} style={resetBtn}>重置</button>
+                  </div>
                   <input value={form.assistantPrefix} onChange={(e) => set('assistantPrefix', e.target.value)} style={s.input} />
                 </div>
               </div>
@@ -179,7 +194,14 @@ export function PresetEditor({ presetId, onClose }: Props) {
                 { k: 'emptyMessagePrompt' as FK, label: '替换空消息', sub: '当输入框为空时发送此文本' },
               ].map((item) => (
                 <div key={item.k} style={{ ...s.fieldCol, marginTop: 6 }}>
-                  <span style={s.label}>{item.label} <span style={{ color: 'var(--ink-faded)', fontWeight: 'normal' }}>（{item.sub}）</span></span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={s.label}>{item.label} <span style={{ color: 'var(--ink-faded)', fontWeight: 'normal' }}>{item.sub}</span></span>
+                    <button onClick={() => set(item.k, DEFAULT_DATA.p1[item.k] as string)} title="重置为默认值" style={{
+                      padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+                      background: 'transparent', color: 'var(--ink-subtle)',
+                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                    }}>重置</button>
+                  </div>
                   {item.k === 'emptyMessagePrompt' ? (
                     <textarea value={form[item.k] as string} onChange={(e) => set(item.k, e.target.value)} placeholder="（留空）" style={{ ...s.textarea, minHeight: 40 }} />
                   ) : (
@@ -327,6 +349,12 @@ const s = {
   miniBtn: { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' },
   iconBtn: { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', fontSize: 12, cursor: 'pointer', opacity: 0.5 } as React.CSSProperties,
 } as const;
+
+const resetBtn: React.CSSProperties = {
+  padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'transparent', color: 'var(--ink-subtle)',
+  fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+};
 
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' };
 const panel: React.CSSProperties = { background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', maxWidth: 660, width: '90%', boxShadow: '0 0 80px rgba(0,0,0,0.6)' };
