@@ -30,9 +30,20 @@ interface Props {
   onEditPreset: (preset: ChatPreset) => void;
 }
 
+const PRESET_STORAGE_KEY = 'coc_presets_v1';
+
+function loadPresets(): Record<string, ChatPreset> {
+  try { const raw = localStorage.getItem(PRESET_STORAGE_KEY); return raw ? { ...DEFAULT_PRESETS, ...JSON.parse(raw) } : { ...DEFAULT_PRESETS }; } catch { return { ...DEFAULT_PRESETS }; }
+}
+function savePresets(p: Record<string, ChatPreset>) {
+  const extra: Record<string, ChatPreset> = {};
+  for (const [k, v] of Object.entries(p)) { if (!DEFAULT_PRESETS[k]) extra[k] = v; }
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(extra));
+}
+
 export function PresetPanel({ onClose, onEditPreset }: Props) {
-  const [presets, setPresets] = useState(DEFAULT_PRESETS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [presets, setPresets] = useState(loadPresets);
+  const [selectedId, setSelectedId] = useState<string>('p1');
   const activeSessionId = useChatStore((s) => s.activeId);
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -55,7 +66,10 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
     reader.onload = () => {
       const preset = importPresetFromST(reader.result as string);
       if (preset) {
-        setPresets((prev) => ({ ...prev, [preset.id]: preset }));
+        const updated = { ...presets, [preset.id]: preset };
+        setPresets(updated);
+        savePresets(updated);
+        setSelectedId(preset.id);
       }
     };
     reader.readAsText(file);
