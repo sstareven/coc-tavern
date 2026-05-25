@@ -52,6 +52,7 @@ interface BookStore {
   updateLeftPage: (index: number, header: string, content: string) => void;
   appendPage: (page: BookPage) => void;
   deletePage: (index: number) => void;
+  replacePage: (index: number, page: BookPage) => void;
   /** Animated flip to the freshly appended page */
   autoFlipForward: () => void;
 }
@@ -84,6 +85,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
   appendPage: (page) => set((s) => {
     const newIdx = s.pages.length;
     const pages = [...s.pages, { ...page, leftPage: pageNum(newIdx) }];
+    return { pages };
+  }),
+
+  replacePage: (index, page) => set((s) => {
+    const pages = [...s.pages];
+    pages[index] = { ...page, leftPage: pageNum(index) };
     return { pages };
   }),
 
