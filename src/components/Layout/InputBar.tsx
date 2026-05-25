@@ -15,6 +15,7 @@ import { processSlashCommands } from '../../sillytavern/slash-commands';
 import { renderTemplate } from '../../sillytavern/ejs-template';
 import { trimToBudget, getModelBudget } from '../../sillytavern/context-manager';
 import { estimateTokens } from '../../sillytavern/token-counter';
+import { pushLog } from '../Shared/DebugLog';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
@@ -347,6 +348,7 @@ export function InputBar() {
 
     setLoading(true);
     setError('');
+    pushLog('info', `发送API请求 — 模型: ${settings.apiModel}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`);
 
     try {
       const response = await sendChatCompletion(
@@ -390,17 +392,19 @@ export function InputBar() {
         cleanedText = result.cleanedText;
       }
 
+      pushLog('info', `API响应成功 — 长度: ${response.content.length} 字符`);
       const newPage = parseLlmResponse(cleanedText, trimmed);
       if (!newPage) {
         throw new Error('无法解析AI回复');
       }
 
       useBookStore.getState().appendPage(newPage);
-      // Trigger flip animation to newly appended page
+      pushLog('info', `新页面已生成 — ${newPage.leftHeader}`);
       useBookStore.getState().autoFlipForward();
       setInput('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI请求失败';
+      pushLog('error', `API请求失败: ${message}`);
       setError(message);
     } finally {
       setLoading(false);

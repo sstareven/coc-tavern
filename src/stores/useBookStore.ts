@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { BookPage } from '../types';
+import { sfxPageFlip } from '../audio/sfx';
 
 const defaultPages: BookPage[] = [
   {
@@ -89,6 +90,9 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const { isFlipping, pages, pageIndex } = get();
     if (isFlipping || pageIndex >= pages.length - 1) return;
     if (flipRaf) cancelAnimationFrame(flipRaf);
+
+    // Play flip sound
+    try { sfxPageFlip(); } catch { /* audio not available */ }
 
     set({ isFlipping: true, flipProgress: 0, flipDirection: 'forward' });
     const start = performance.now();
