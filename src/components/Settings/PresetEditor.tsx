@@ -331,6 +331,8 @@ export function PresetEditor({ presetId, onClose }: Props) {
               if (!selectedLibId) return;
               const src = libraryItems.find((p: any) => p.id === selectedLibId);
               if (src) {
+                // Check if already inserted — skip if duplicate found
+                if (activeItems.some((p: any) => p.kind === 'prompt' && p.name === src.name && p.content === src.content)) return;
                 const newItem = { ...src, id: 'pi_' + Date.now(), _library: false };
                 set('promptItems', [...allItems, newItem] as unknown as string);
               }
@@ -340,6 +342,11 @@ export function PresetEditor({ presetId, onClose }: Props) {
               const item = libraryItems.find((p: any) => p.id === selectedLibId);
               if (item) setEditingPrompt(item);
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, opacity: selectedLibId ? 1 : 0.4 }}>编辑</button>
+            <button onClick={() => {
+              if (!selectedLibId) return;
+              set('promptItems', allItems.filter((p: any) => p.id !== selectedLibId) as unknown as string);
+              setSelectedLibId('');
+            }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--blood)', opacity: selectedLibId ? 1 : 0.4 }}>删除</button>
             <button onClick={() => {
               setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
             }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
