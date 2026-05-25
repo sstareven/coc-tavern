@@ -177,14 +177,14 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.probability}%</td>
                   <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <button onClick={() => openDetail(id)} style={rowBtn}>编</button>
+                      <button onClick={() => openDetail(id)} title="编辑" style={rowBtn}>✎</button>
                       <button onClick={() => {
                         const newId = 'e' + Date.now();
                         useLorebookStore.setState((s) => ({
                           books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...entry, name: entry.name + '(副)' } } } },
                         }));
-                      }} style={rowBtn}>复</button>
-                      <button onClick={() => deleteEntry(bookId, id)} style={{ ...rowBtn, color: 'var(--blood)' }}>删</button>
+                      }} title="复制" style={rowBtn}>📋</button>
+                      <button onClick={() => deleteEntry(bookId, id)} title="删除" style={{ ...rowBtn, color: 'var(--blood)' }}>✕</button>
                     </div>
                   </td>
                 </tr>
