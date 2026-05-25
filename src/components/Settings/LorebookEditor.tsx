@@ -39,6 +39,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LoreEntry>(EMPTY_ENTRY);
   const [moveTarget, setMoveTarget] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const openDetail = (id: string) => {
     const e = book?.entries[id];
@@ -130,6 +131,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(196,168,85,0.15)', position: 'sticky', top: 0, background: 'var(--leather)', zIndex: 1 }}>
+                <th style={{ ...thStyle, width: 24 }}></th>
                 <th style={{ ...thStyle, width: 42 }}>状态</th>
                 <th style={thStyle}>名称</th>
                 <th style={thStyle}>关键词</th>
@@ -151,6 +153,12 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   onMouseEnter={(e) => { if (editingId !== id) e.currentTarget.style.background = 'rgba(196,168,85,0.03)'; }}
                   onMouseLeave={(e) => { if (editingId !== id) e.currentTarget.style.background = 'transparent'; }}
                 >
+                  <td style={{ ...tdStyle, padding: '7px 4px' }}>
+                    <input type="checkbox" checked={selected.has(id)} onChange={(e) => {
+                      e.stopPropagation();
+                      setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+                    }} style={{ cursor: 'pointer', accentColor: 'var(--gold)' }} />
+                  </td>
                   <td style={tdStyle}>
                     <button onClick={(e) => { e.stopPropagation(); handleToggle(id); }} style={{
                       width: 36, padding: '2px 0', borderRadius: 2, border: '1px solid', textAlign: 'center',
@@ -201,20 +209,44 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         {/* Move to other book */}
         {Object.keys(books).length > 1 && (
           <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,168,85,0.12)', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>移至:</span>
+            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
+              {selected.size > 0 ? `已选 ${selected.size} 条 →` : '勾选条目后移至:'}
+            </span>
             <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
               options={Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))} />
             <button onClick={() => {
-              if (!editingId || !moveTarget || editingId === '__new__') return;
+              if (selected.size === 0 || !moveTarget) return;
               useLorebookStore.setState((s) => {
                 const books = { ...s.books };
-                books[moveTarget] = { ...books[moveTarget], entries: { ...books[moveTarget].entries, [editingId]: { ...form } } };
-                const src = { ...books[bookId].entries }; delete src[editingId];
-                books[bookId] = { ...books[bookId], entries: src };
+                const srcEntries = { ...books[bookId].entries };
+                const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
+                selected.forEach((id) => {
+                  if (srcEntries[id]) {
+                    tgtEntries[id] = { ...srcEntries[id] };
+                    delete srcEntries[id];
+                  }
+                });
+                books[bookId] = { ...books[bookId], entries: srcEntries };
+                books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
                 return { books };
               });
-              setEditingId(null); setMoveTarget('');
-            }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>移动选中</button>
+              setSelected(new Set()); setMoveTarget('');
+            }} disabled={selected.size === 0} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>移动已选</button>
+            <button onClick={() => {
+              if (selected.size === 0 || !moveTarget) return;
+              useLorebookStore.setState((s) => {
+                const books = { ...s.books };
+                const tgtEntries = { ...(books[moveTarget]?.entries ?? {}) };
+                selected.forEach((id) => {
+                  if (s.books[bookId]?.entries[id]) {
+                    tgtEntries[id + '_copy'] = { ...s.books[bookId].entries[id], name: s.books[bookId].entries[id].name + '(副)' };
+                  }
+                });
+                books[moveTarget] = { ...books[moveTarget], entries: tgtEntries };
+                return { books };
+              });
+              setSelected(new Set()); setMoveTarget('');
+            }} disabled={selected.size === 0} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>复制已选</button>
           </div>
         )}
       </div>
