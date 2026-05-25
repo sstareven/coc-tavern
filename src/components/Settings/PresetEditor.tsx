@@ -248,63 +248,25 @@ export function PresetEditor({ presetId, onClose }: Props) {
           </div>
         </div>
 
-        {/* Advanced options */}
+        {/* Reasoning effort */}
         <div style={s.section}>
-          <div style={s.sectionTitle}>高级选项区</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
-            {['角色名称行为', '梦写预填充', '压缩系统指令', '启用角色识别'].map((label) => (
-              <label key={label} style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
-                <input type="checkbox" style={{ accentColor: 'var(--gold)' }} />
-                {label}
-              </label>
-            ))}
-          </div>
-          <div style={s.rowWrap}>
-            <div style={s.fieldCol}>
-              <span style={s.label}>交错输出</span>
-              <Dropdown value="None" onChange={() => {}} options={[{ label: 'None', value: 'None' }]} />
-            </div>
-            <div style={s.fieldCol}>
-              <span style={s.label}>声音输出</span>
-              <button style={{ ...s.btn, padding: '6px 10px' }}>♫</button>
-            </div>
-            <div style={s.fieldCol}>
-              <span style={s.label}>图片尺寸</span>
-              <Dropdown value="1024×1024" onChange={() => {}} options={[{ label: '1024×1024', value: '1024×1024' }]} />
-            </div>
-            <div style={s.fieldCol}>
-              <span style={s.label}>请求温维值</span>
-              <Dropdown value="Default" onChange={() => {}} options={[{ label: 'Default', value: 'Default' }]} />
-            </div>
-          </div>
-          <div style={{ ...s.rowWrap, marginTop: 8 }}>
-            <div style={s.fieldCol}>
-              <span style={s.label}>推理强度</span>
-              <div style={{ display: 'flex', gap: 2 }}>
-                {['低', '中', '高'].map((lvl) => (
-                  <button key={lvl} style={{ ...s.miniBtn, background: 'transparent', color: 'var(--ink-subtle)' }}>{lvl}</button>
-                ))}
-              </div>
-            </div>
-            <div style={s.fieldCol}>
-              <span style={s.label}>长度</span>
-              <Dropdown value="自动" onChange={() => {}} options={[{ label: '自动', value: '自动' }, { label: '手动', value: '手动' }]} />
-            </div>
-            <div style={s.fieldCol}>
-              <span style={s.label}>Logit 位置</span>
-              <input type="number" style={{ ...s.numInput, width: 70 }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Preset area */}
-        <div style={s.section}>
-          <div style={s.sectionTitle}>查看/参数偏置预设</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-              <Dropdown value="Default (none)" onChange={() => {}} options={[{ label: 'Default (none)', value: 'Default (none)' }]} />
-            </div>
-            <button style={s.btn}>SPreset Editor</button>
+          <div style={s.sectionTitle}>推理强度</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <a href="https://docs.sillytavern.app/usage/prompts/reasoning/#reasoning-effort" target="_blank" title="限定模型推理的强度，当前支持低、中、高三种强度，降低推理强度可以让模型更快回复，并节省推理所用的token数。" style={{
+              width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--brass)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--ink-subtle)', textDecoration: 'none',
+              fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 'bold',
+              flexShrink: 0,
+            }}>?</a>
+            <Dropdown value="自动" onChange={() => {}} options={[
+              { label: '自动', value: '自动' },
+              { label: '极低', value: '极低' },
+              { label: '低', value: '低' },
+              { label: '中', value: '中' },
+              { label: '高', value: '高' },
+              { label: '极高', value: '极高' },
+            ]} />
           </div>
         </div>
 
