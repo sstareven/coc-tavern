@@ -127,6 +127,10 @@ export function importPresetFromST(json: string): ChatPreset | null {
       systemPrompt: data.system_prompt ?? '',
       userPrefix: data.user_prefix ?? '玩家: ',
       assistantPrefix: data.assistant_prefix ?? '守秘人: ',
+      unlockContext: false,
+      contextLength: 65536,
+      maxResponseTokens: data.max_tokens ?? 2048,
+      alternativeReplies: 1,
     };
   } catch {
     return null;

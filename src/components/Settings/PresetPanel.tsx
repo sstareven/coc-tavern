@@ -6,21 +6,10 @@ import type { ChatPreset } from '../../types';
 const DEFAULT_PRESETS: Record<string, ChatPreset> = {
   p1: {
     id: 'p1', name: '默认预设',
-    temperature: 0.8, topP: 0.9, topK: 40, maxTokens: 1024, repetitionPenalty: 1.1,
+    temperature: 0.8, topP: 0.9, topK: 40, maxTokens: 2048, repetitionPenalty: 1.1,
     systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
     userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
-  },
-  p2: {
-    id: 'p2', name: '创意模式',
-    temperature: 1.2, topP: 0.95, topK: 60, maxTokens: 2048, repetitionPenalty: 1.0,
-    systemPrompt: '你是一个富有创造力的叙事者，擅长描绘洛夫克拉夫特式的恐怖氛围。',
-    userPrefix: '调查员: ', assistantPrefix: '旁白: ',
-  },
-  p3: {
-    id: 'p3', name: '严格规则',
-    temperature: 0.5, topP: 0.8, topK: 20, maxTokens: 512, repetitionPenalty: 1.2,
-    systemPrompt: '严格按照COC 7版规则书执行所有检定和判定。',
-    userPrefix: '玩家: ', assistantPrefix: 'KP: ',
+    unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
   },
 };
 
