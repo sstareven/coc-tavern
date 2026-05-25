@@ -164,7 +164,7 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
           id: 'pi_' + key, name: (p as any).name, role: (p as any).role || 'system',
           trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
           content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
-          _library: true, _originalName: (p as any).name,
+          _library: false, _originalName: (p as any).name,
         });
       }
     }
