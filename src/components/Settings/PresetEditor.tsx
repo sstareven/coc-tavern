@@ -267,6 +267,18 @@ export function PresetEditor({ presetId, onClose }: Props) {
           ]} />
         </div>
 
+        {/* Response length */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>长度</div>
+          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
+          <Dropdown value="自动" onChange={() => {}} options={[
+            { label: '自动', value: '自动' },
+            { label: '短', value: '短' },
+            { label: '中', value: '中' },
+            { label: '长', value: '长' },
+          ]} />
+        </div>
+
         {/* Unified prompt list — SillyTavern-style: markers + user prompts in one list */}
         <div style={s.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
