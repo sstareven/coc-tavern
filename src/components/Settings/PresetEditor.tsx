@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import type { ChatPreset } from '../../types';
 
-interface Props {
-  presetId: string;
-  onClose: () => void;
-}
+interface Props { presetId: string; onClose: () => void; }
 
 const DEFAULT_DATA: Record<string, ChatPreset> = {
   p1: {
@@ -16,240 +13,282 @@ const DEFAULT_DATA: Record<string, ChatPreset> = {
   },
 };
 
-type Tab = 'sampling' | 'prompts' | 'order';
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'sampling', label: '采样参数' },
-  { key: 'prompts', label: '提示模板' },
-  { key: 'order', label: '提示顺序' },
+const MODULES = [
+  { key: 'main_prompt', label: 'Main Prompt' },
+  { key: 'world_info_before', label: 'World Info (before)' },
+  { key: 'persona', label: 'Persona Description' },
+  { key: 'char_desc', label: 'Char Description' },
+  { key: 'char_personality', label: 'Char Personality' },
+  { key: 'scenario', label: 'Scenario' },
+  { key: 'enhance', label: 'Enhance Definitions' },
+  { key: 'auxiliary', label: 'Auxiliary Prompt' },
+  { key: 'world_info_after', label: 'World Info (after)' },
+  { key: 'chat_examples', label: 'Chat Examples' },
+  { key: 'chat_history', label: 'Chat History' },
+  { key: 'post_history', label: 'Post-History Instructions' },
 ];
 
 export function PresetEditor({ presetId, onClose }: Props) {
   const base = DEFAULT_DATA[presetId];
   const [form, setForm] = useState<ChatPreset>(base ? { ...base } : DEFAULT_DATA.p1);
-  const [tab, setTab] = useState<Tab>('sampling');
+  const [viewMainTx, setViewMainTx] = useState(false);
+  const [moduleStates, setModuleStates] = useState<Record<string, boolean>>(
+    Object.fromEntries(MODULES.map((m) => [m.key, true]))
+  );
 
   if (!base) {
-    return (
-      <div style={overlayStyle} onClick={onClose}>
-        <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
-          <p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p>
-        </div>
-      </div>
-    );
+    return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
   }
 
-  type FormKey = keyof ChatPreset;
-
-  const update = (key: FormKey, value: string | number | boolean) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  type FK = keyof ChatPreset;
+  const set = (k: FK, v: string | number | boolean) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
-    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ ...panelStyle, minWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+    <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ ...panel, minWidth: 600, maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+        <style>{`
+          .pe-scroll::-webkit-scrollbar { width: 5px; }
+          .pe-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
+          .pe-scroll::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
+          .pe-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+        `}</style>
+
         {/* Header */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: 18, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
-        }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>
-            {form.name}
-          </h3>
-          <button onClick={onClose} style={closeBtnStyle}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
-          >✕</button>
+        <div style={s.header}>
+          <h3 style={s.title}>预设编辑器 / PRESET EDITOR</h3>
+          <button onClick={onClose} style={s.closeBtn}>✕</button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 18 }}>
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                flex: 1, padding: '8px 0', border: tab === t.key ? '1px solid var(--gold)' : '1px solid transparent',
-                borderBottomColor: tab === t.key ? 'var(--gold)' : 'rgba(196,168,85,0.15)',
-                borderRadius: 3, background: tab === t.key ? 'rgba(196,168,85,0.1)' : 'transparent',
-                color: tab === t.key ? 'var(--gold)' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
-                transition: 'var(--transition-smooth)',
-              }}
-            >
-              {t.label}
-            </button>
+        {/* Top area */}
+        <div style={{ ...s.section, paddingBottom: 12 }}>
+          <div style={s.row}>
+            <span style={s.label}>预设</span>
+            <select value={presetId} onChange={() => {}} style={s.select}>
+              <option value="p1">Default</option>
+            </select>
+          </div>
+          <div style={{ ...s.row, marginTop: 8 }}>
+            <label style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={form.unlockContext} onChange={(e) => set('unlockContext', e.target.checked)}
+                style={{ accentColor: 'var(--gold)' }} />
+              解除上下文上限
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <div style={s.fieldCol}>
+              <span style={s.label}>上下文长度 (Token)</span>
+              <div style={s.sliderRow}>
+                <input type="range" min={1024} max={200000} step={1024} value={form.contextLength}
+                  onChange={(e) => set('contextLength', Number(e.target.value))} style={s.slider} />
+                <input type="number" value={form.contextLength} onChange={(e) => set('contextLength', Number(e.target.value))}
+                  style={s.numInput} />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <div style={s.fieldCol}>
+              <span style={s.label}>最大重复度 (Token)</span>
+              <div style={s.sliderRow}>
+                <input type="range" min={64} max={8192} step={64} value={form.maxTokens}
+                  onChange={(e) => set('maxTokens', Number(e.target.value))} style={s.slider} />
+                <input type="number" value={form.maxTokens} onChange={(e) => set('maxTokens', Number(e.target.value))}
+                  style={s.numInput} />
+              </div>
+            </div>
+          </div>
+          <div style={{ ...s.row, marginTop: 8 }}>
+            <span style={s.label}>每文生成多个备选重复</span>
+            <input type="number" value={form.alternativeReplies} onChange={(e) => set('alternativeReplies', Number(e.target.value))}
+              min={1} max={10} style={{ ...s.numInput, width: 60 }} />
+          </div>
+        </div>
+
+        {/* Parameter area */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>参数调节区</div>
+          <div style={{ ...s.row, marginBottom: 8 }}>
+            <label style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={viewMainTx} onChange={(e) => setViewMainTx(e.target.checked)}
+                style={{ accentColor: 'var(--gold)' }} />
+              查看主传输
+            </label>
+          </div>
+          {[
+            { k: 'temperature' as FK, label: '温度 (Temperature)', min: 0, max: 2, step: 0.05 },
+            { k: 'repetitionPenalty' as FK, label: '频率惩罚 (Frequency Penalty)', min: 0.5, max: 2, step: 0.05 },
+            { k: 'topP' as FK, label: '存在惩罚 (Presence Penalty)', min: 0, max: 1, step: 0.05 },
+            { k: 'topK' as FK, label: 'Top P', min: 1, max: 200, step: 1 },
+          ].map((item) => (
+            <div key={item.k} style={s.fieldCol}>
+              <span style={s.label}>{item.label}</span>
+              <div style={s.sliderRow}>
+                <input type="range" min={item.min} max={item.max} step={item.step} value={Number(form[item.k])}
+                  onChange={(e) => set(item.k, Number(e.target.value))} style={s.slider} />
+                <input type="number" value={Number(form[item.k])}
+                  onChange={(e) => set(item.k, Number(e.target.value))}
+                  min={item.min} max={item.max} step={item.step} style={s.numInput} />
+              </div>
+            </div>
           ))}
+          {/* Quick prompt edit */}
+          <div style={{ marginTop: 10 }}>
+            <Collapse title="快速提示词编辑与实用提示词">
+              <div style={s.fieldCol}>
+                <span style={s.label}>系统提示 (System Prompt)</span>
+                <textarea value={form.systemPrompt} onChange={(e) => set('systemPrompt', e.target.value)}
+                  style={s.textarea} />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={s.fieldCol}>
+                  <span style={s.label}>用户前缀</span>
+                  <input value={form.userPrefix} onChange={(e) => set('userPrefix', e.target.value)} style={s.input} />
+                </div>
+                <div style={s.fieldCol}>
+                  <span style={s.label}>助手前缀</span>
+                  <input value={form.assistantPrefix} onChange={(e) => set('assistantPrefix', e.target.value)} style={s.input} />
+                </div>
+              </div>
+            </Collapse>
+          </div>
         </div>
 
-        {/* Sampling params tab */}
-        {tab === 'sampling' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <SliderField label="Temperature" value={form.temperature} min={0} max={2} step={0.05}
-              onChange={(v) => update('temperature', v)} />
-            <SliderField label="Top P" value={form.topP} min={0} max={1} step={0.05}
-              onChange={(v) => update('topP', v)} />
-            <SliderField label="Top K" value={form.topK} min={1} max={200} step={1}
-              onChange={(v) => update('topK', v)} />
-            <SliderField label="Max Tokens" value={form.maxTokens} min={64} max={8192} step={64}
-              onChange={(v) => update('maxTokens', v)} />
-            <SliderField label="Repetition Penalty" value={form.repetitionPenalty} min={0.5} max={2} step={0.05}
-              onChange={(v) => update('repetitionPenalty', v)} />
-
-            {/* Context & Response limits */}
-            <div style={{ borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <label style={{ ...labelStyle, fontWeight: 'bold', color: 'var(--gold)' }}>解锁上下文上限</label>
-                <button onClick={() => update('unlockContext', !form.unlockContext)} style={{
-                  padding: '4px 16px', border: form.unlockContext ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
-                  borderRadius: 3, background: form.unlockContext ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
-                  color: form.unlockContext ? 'var(--gold)' : 'var(--ink-faded)',
-                  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
-                }}>{form.unlockContext ? '解锁' : '锁定'}</button>
-              </div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={labelStyle}>上下文长度 (Token)</label>
-                  <input type="number" value={form.contextLength} onChange={(e) => update('contextLength', Number(e.target.value))}
-                    min={1024} style={fieldInputStyle} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={labelStyle}>最大回复长度 (Token)</label>
-                  <input type="number" value={form.maxResponseTokens} onChange={(e) => update('maxResponseTokens', Number(e.target.value))}
-                    min={64} style={fieldInputStyle} />
-                </div>
-              </div>
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={labelStyle}>每次生成多个备选回复</label>
-                <input type="number" value={form.alternativeReplies} onChange={(e) => update('alternativeReplies', Number(e.target.value))}
-                  min={1} max={10} style={{ ...fieldInputStyle, width: 80 }} />
-              </div>
+        {/* Advanced options */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>高级选项区</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+            {['角色名称行为', '梦写预填充', '压缩系统指令', '启用角色识别'].map((label) => (
+              <label key={label} style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+                <input type="checkbox" style={{ accentColor: 'var(--gold)' }} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div style={s.rowWrap}>
+            <div style={s.fieldCol}>
+              <span style={s.label}>交错输出</span>
+              <select style={s.select}><option>None</option></select>
+            </div>
+            <div style={s.fieldCol}>
+              <span style={s.label}>声音输出</span>
+              <button style={{ ...s.btn, padding: '6px 10px' }}>♫</button>
+            </div>
+            <div style={s.fieldCol}>
+              <span style={s.label}>图片尺寸</span>
+              <select style={s.select}><option>1024×1024</option></select>
+            </div>
+            <div style={s.fieldCol}>
+              <span style={s.label}>请求温维值</span>
+              <select style={s.select}><option>Default</option></select>
             </div>
           </div>
-        )}
-
-        {/* Prompt templates tab */}
-        {tab === 'prompts' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={labelStyle}>预设名称</label>
-              <input value={form.name} onChange={(e) => update('name', e.target.value)}
-                style={fieldInputStyle} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={labelStyle}>系统提示 (System Prompt)</label>
-              <textarea value={form.systemPrompt} onChange={(e) => update('systemPrompt', e.target.value)}
-                style={{ ...fieldInputStyle, minHeight: 80, resize: 'vertical', fontFamily: 'var(--font-body)' }} />
-            </div>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                <label style={labelStyle}>用户前缀</label>
-                <input value={form.userPrefix} onChange={(e) => update('userPrefix', e.target.value)}
-                  style={fieldInputStyle} />
+          <div style={{ ...s.rowWrap, marginTop: 8 }}>
+            <div style={s.fieldCol}>
+              <span style={s.label}>推理强度</span>
+              <div style={{ display: 'flex', gap: 2 }}>
+                {['低', '中', '高'].map((lvl) => (
+                  <button key={lvl} style={{ ...s.miniBtn, background: 'transparent', color: 'var(--ink-subtle)' }}>{lvl}</button>
+                ))}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                <label style={labelStyle}>助手前缀</label>
-                <input value={form.assistantPrefix} onChange={(e) => update('assistantPrefix', e.target.value)}
-                  style={fieldInputStyle} />
-              </div>
+            </div>
+            <div style={s.fieldCol}>
+              <span style={s.label}>长度</span>
+              <select style={s.select}><option>自动</option><option>手动</option></select>
+            </div>
+            <div style={s.fieldCol}>
+              <span style={s.label}>Logit 位置</span>
+              <input type="number" style={{ ...s.numInput, width: 70 }} />
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Prompt order tab */}
-        {tab === 'order' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', lineHeight: 1.8, margin: 0 }}>
-              当前提示词组装顺序：
-            </p>
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 4,
-              padding: 14, border: '1px solid rgba(196,168,85,0.12)',
-              borderRadius: 4, background: 'rgba(0,0,0,0.15)',
-            }}>
-              {[
-                { num: 1, label: '系统提示 (System Prompt)' },
-                { num: 2, label: '世界书上下文 (Lorebook Context)' },
-                { num: 3, label: '对话历史 (Chat History)' },
-                { num: 4, label: '用户输入 (User Input)' },
-              ].map((item) => (
-                <div key={item.num} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
-                  fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
-                }}>
-                  <span style={{
-                    width: 20, height: 20, borderRadius: '50%',
-                    border: '1px solid var(--gold)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, color: 'var(--gold)', flexShrink: 0,
-                  }}>{item.num}</span>
-                  {item.label}
+        {/* Preset area */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>查看/参数偏置预设</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <select style={{ ...s.select, flex: 1 }}>
+              <option>Default (none)</option>
+            </select>
+            <button style={s.btn}>SPreset Editor</button>
+          </div>
+        </div>
+
+        {/* Module list */}
+        <div style={s.section}>
+          <div style={s.sectionTitle}>模块列表</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {MODULES.map((mod) => (
+              <div key={mod.key} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', border: '1px solid rgba(196,168,85,0.1)',
+                borderRadius: 4, background: 'rgba(0,0,0,0.15)',
+              }}>
+                <span style={{ fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                  {mod.label}
+                </span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button onClick={() => setModuleStates((p) => ({ ...p, [mod.key]: !p[mod.key] }))} style={{
+                    padding: '3px 10px', borderRadius: 2, border: '1px solid',
+                    borderColor: moduleStates[mod.key] ? 'var(--success)' : 'var(--ink-faded)',
+                    background: moduleStates[mod.key] ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
+                    color: moduleStates[mod.key] ? 'var(--success)' : 'var(--ink-faded)',
+                    fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                  }}>{moduleStates[mod.key] ? '启用' : '禁用'}</button>
+                  <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)' }}>✎</button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Save button */}
+        {/* Save */}
         <button style={{
-          width: '100%', marginTop: 24, padding: '10px 0',
+          width: '100%', marginTop: 20, padding: '10px 0',
           border: '1px solid var(--gold)', borderRadius: 4,
           background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
           fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 3, cursor: 'pointer',
-          transition: 'var(--transition-smooth)',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.1)'; }}
-        >
-          保存预设
-        </button>
+        }}>保存预设</button>
       </div>
     </div>
   );
 }
 
-function SliderField({ label, value, min, max, step, onChange }: {
-  label: string; value: number; min: number; max: number; step: number;
-  onChange: (v: number) => void;
-}) {
+function Collapse({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <label style={labelStyle}>{label}</label>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>{value}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: 'var(--gold)' }} />
+    <div>
+      <button onClick={() => setOpen(!open)} style={{
+        width: '100%', textAlign: 'left', padding: '8px 12px',
+        border: '1px solid rgba(196,168,85,0.12)', borderRadius: 3,
+        background: 'rgba(0,0,0,0.15)', color: 'var(--text-light)',
+        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+        display: 'flex', justifyContent: 'space-between',
+      }}>{title} <span>{open ? '▲' : '▼'}</span></button>
+      {open && <div style={{ marginTop: 8 }}>{children}</div>}
     </div>
   );
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 950,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
-};
+const s = {
+  header: { display: 'flex' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, marginBottom: 18, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12 },
+  title: { fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 },
+  closeBtn: { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)' } as React.CSSProperties,
+  section: { border: '1px solid rgba(196,168,85,0.1)', borderRadius: 4, padding: 12, marginBottom: 10, background: 'rgba(0,0,0,0.08)' },
+  sectionTitle: { fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' as const },
+  row: { display: 'flex' as const, alignItems: 'center' as const, gap: 8 },
+  rowWrap: { display: 'flex' as const, gap: 10, flexWrap: 'wrap' as const },
+  fieldCol: { flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 4, minWidth: 120 },
+  label: { fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' },
+  checkLabel: { fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' },
+  sliderRow: { display: 'flex' as const, gap: 8, alignItems: 'center' as const },
+  slider: { flex: 1, accentColor: 'var(--gold)' },
+  numInput: { width: 70, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center' as const, outline: 'none' },
+  input: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, outline: 'none' },
+  select: { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, outline: 'none', cursor: 'pointer', minWidth: 100 },
+  textarea: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 11, minHeight: 60, resize: 'vertical' as const, outline: 'none' },
+  btn: { padding: '6px 14px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer' },
+  miniBtn: { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' },
+  iconBtn: { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', fontSize: 12, cursor: 'pointer', opacity: 0.5 } as React.CSSProperties,
+} as const;
 
-const panelStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
-  border: '1px solid var(--gold)', borderRadius: 8,
-  padding: '24px 28px', maxWidth: 520, width: '90%',
-  boxShadow: '0 0 80px rgba(0,0,0,0.6)',
-};
-
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-};
-
-const fieldInputStyle: React.CSSProperties = {
-  width: '100%', padding: '8px 10px', border: '1px solid var(--brass)',
-  borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
-};
+const overlay: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' };
+const panel: React.CSSProperties = { background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', maxWidth: 640, width: '90%', boxShadow: '0 0 80px rgba(0,0,0,0.6)' };
