@@ -333,14 +333,14 @@ export function PresetEditor({ presetId, onClose }: Props) {
               if (src) {
                 // Check if already inserted — skip if duplicate found
                 if (activeItems.some((p: any) => p.kind === 'prompt' && p.name === src.name && p.content === src.content)) return;
-                const newItem = { ...src, id: 'pi_' + Date.now(), _library: false };
+                const newItem = { ...src, id: 'pi_' + Date.now(), _library: false, _originalName: src.name };
                 set('promptItems', [...allItems, newItem] as unknown as string);
               }
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)', opacity: selectedLibId ? 1 : 0.4 }}>插入</button>
             <button onClick={() => {
               if (!selectedLibId) return;
               const item = libraryItems.find((p: any) => p.id === selectedLibId);
-              if (item) setEditingPrompt(item);
+              if (item) setEditingPrompt({ ...item, _originalName: item.name });
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, opacity: selectedLibId ? 1 : 0.4 }}>编辑</button>
             <button onClick={() => {
               if (!selectedLibId) return;
@@ -354,7 +354,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
               setSelectedLibId('');
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--blood)', opacity: selectedLibId ? 1 : 0.4 }}>删除</button>
             <button onClick={() => {
-              setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
+              setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt', _originalName: '' });
             }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
           </div>
 
@@ -405,8 +405,19 @@ export function PresetEditor({ presetId, onClose }: Props) {
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
-                  const id = editingPrompt.id || 'pi_' + Date.now();
-                  set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt', _library: true }] as unknown as string);
+                  const isExisting = editingPrompt.id && libraryItems.some((p: any) => p.id === editingPrompt.id);
+                  if (isExisting) {
+                    // Update library item + any active copies with same name
+                    const updated = allItems.map((p: any) => {
+                      if (p.id === editingPrompt.id) return { ...editingPrompt, id: p.id, _library: true };
+                      if (p.kind === 'prompt' && p.name === editingPrompt._originalName) return { ...p, name: editingPrompt.name, role: editingPrompt.role, trigger: editingPrompt.trigger, position: editingPrompt.position, depth: editingPrompt.depth, order: editingPrompt.order, content: editingPrompt.content };
+                      return p;
+                    });
+                    set('promptItems', updated as unknown as string);
+                  } else {
+                    const id = editingPrompt.id || 'pi_' + Date.now();
+                    set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt', _library: true }] as unknown as string);
+                  }
                   setEditingPrompt(null);
                 }} style={s.btn}>保存</button>
                 <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>取消</button>
@@ -443,7 +454,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
                     <button onClick={() => { set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
                   )}
                   {!isReadOnly && (
-                    <button onClick={() => { if (isMarker) { /* edit marker */ } else { setEditingPrompt(item); } }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
+                    <button onClick={() => { if (isMarker) { /* edit marker */ } else { setEditingPrompt({ ...item, _originalName: item._originalName || item.name }); } }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                   )}
                   <button onClick={() => {
                     if (isReadOnly) return;
