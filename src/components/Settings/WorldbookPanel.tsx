@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
+import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 
 interface Props {
   onClose: () => void;
@@ -8,6 +10,33 @@ interface Props {
 export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = (bookId: string) => {
+    const book = books[bookId];
+    if (!book) return;
+    const json = exportWorldBookToST(book);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${book.name}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const book = importWorldBookFromST(reader.result as string);
+      if (book) {
+        const id = `wb-${Date.now()}`;
+        useLorebookStore.setState((s) => ({ books: { ...s.books, [id]: book } }));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   return (
     <div
@@ -72,13 +101,28 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 <button onClick={() => onEditBook(id)} style={actionBtnStyle}>
                   编辑
                 </button>
-                <button style={{ ...actionBtnStyle, color: 'var(--blood)', borderColor: 'rgba(139,58,58,0.3)' }}>
-                  删除
+                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">
+                  导出
                 </button>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Import ST format */}
+        <input type="file" accept=".json" ref={fileRef} onChange={handleFileImport} style={{ display: 'none' }} />
+        <button onClick={() => fileRef.current?.click()} style={{
+          width: '100%', marginTop: 8, padding: '10px 0',
+          border: '1px dashed var(--success)', borderRadius: 4,
+          background: 'transparent', color: 'var(--success)',
+          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          transition: 'var(--transition-smooth)',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.color = 'var(--success)'; }}
+        >
+          导入 ST 世界书
+        </button>
 
         {/* Create new */}
         <button onClick={() => {

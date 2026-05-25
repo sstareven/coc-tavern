@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import type { ChatPreset } from '../../types';
 
 const DEFAULT_PRESETS: Record<string, ChatPreset> = {
@@ -29,10 +30,36 @@ interface Props {
 }
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
-  const [presets] = useState(DEFAULT_PRESETS);
+  const [presets, setPresets] = useState(DEFAULT_PRESETS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const activeSessionId = useChatStore((s) => s.activeId);
   const setPreset = useChatStore((s) => s.setPreset);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = (id: string) => {
+    const preset = presets[id];
+    if (!preset) return;
+    const json = exportPresetToST(preset);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${preset.name}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const preset = importPresetFromST(reader.result as string);
+      if (preset) {
+        setPresets((prev) => ({ ...prev, [preset.id]: preset }));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -93,11 +120,26 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); onEditPreset(id); }} style={actionBtnStyle}>编辑</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
                 </div>
               </div>
             );
           })}
         </div>
+
+        {/* Import ST format */}
+        <input type="file" accept=".json" ref={fileRef} onChange={handleFileImport} style={{ display: 'none' }} />
+        <button onClick={() => fileRef.current?.click()} style={{
+          width: '100%', marginTop: 8, padding: '10px 0',
+          border: '1px dashed var(--success)', borderRadius: 4,
+          background: 'transparent', color: 'var(--success)',
+          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.color = 'var(--success)'; }}
+        >
+          导入 ST 预设
+        </button>
 
         <button style={{
           width: '100%', marginTop: 16, padding: '10px 0',
