@@ -49,26 +49,38 @@ export function PresetEditor({ presetId, onClose }: Props) {
   );
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
   const [markerOrder, setMarkerOrder] = useState<string[]>(MODULE_ITEMS.map((m) => m.key));
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const editMarker = (key: string) => {
-    // System marker configuration — placeholder for future expansion
-  };
+  const editMarker = (key: string) => { /* placeholder */ };
 
-  const moveMarker = (key: string, dir: number) => {
+  const handleDragStart = (id: string) => setDragId(id);
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+
+  const handleMarkerDrop = (targetKey: string) => {
+    if (!dragId || dragId === targetKey) { setDragId(null); setDragOverId(null); return; }
+    if (!MODULE_ITEMS.find((m) => m.key === dragId)) { setDragId(null); setDragOverId(null); return; }
     setMarkerOrder((prev) => {
-      const idx = prev.indexOf(key);
-      if (idx + dir < 0 || idx + dir >= prev.length) return prev;
+      const fromIdx = prev.indexOf(dragId);
+      const toIdx = prev.indexOf(targetKey);
+      if (fromIdx < 0 || toIdx < 0) return prev;
       const next = [...prev];
-      [next[idx], next[idx + dir]] = [next[idx + dir], next[idx]];
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, dragId);
       return next;
     });
+    setDragId(null); setDragOverId(null);
   };
 
-  const movePrompt = (idx: number, dir: number) => {
-    if (idx + dir < 0 || idx + dir >= form.promptItems.length) return;
+  const handlePromptDrop = (targetIdx: number) => {
+    if (!dragId || !dragId.startsWith('pi_')) { setDragId(null); setDragOverId(null); return; }
+    const fromIdx = form.promptItems.findIndex((p: any) => p.id === dragId);
+    if (fromIdx < 0 || fromIdx === targetIdx) { setDragId(null); setDragOverId(null); return; }
     const items: any[] = [...form.promptItems];
-    [items[idx], items[idx + dir]] = [items[idx + dir], items[idx]];
+    const [moved] = items.splice(fromIdx, 1);
+    items.splice(targetIdx, 0, moved);
     set('promptItems', items as unknown as string);
+    setDragId(null); setDragOverId(null);
   };
 
   if (!base) {
@@ -381,11 +393,12 @@ export function PresetEditor({ presetId, onClose }: Props) {
               const enabled = moduleEnabled[mod.key];
               const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
               return (
-                <div key={mod.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', border: '1px solid rgba(196,168,85,0.06)', borderRadius: 3, background: 'rgba(0,0,0,0.08)', opacity: enabled ? 1 : 0.4 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <button onClick={() => moveMarker(mod.key, -1)} style={arrowBtnStyle}>▲</button>
-                    <button onClick={() => moveMarker(mod.key, 1)} style={arrowBtnStyle}>▼</button>
-                  </div>
+                <div key={mod.key} draggable onDragStart={() => handleDragStart(mod.key)} onDragOver={handleDragOver} onDrop={() => handleMarkerDrop(mod.key)}
+                  onDragEnter={() => setDragOverId(mod.key)} onDragLeave={() => setDragOverId((prev) => prev === mod.key ? null : prev)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', cursor: 'grab',
+                    border: dragOverId === mod.key ? '2px dashed var(--gold)' : '1px solid rgba(196,168,85,0.06)',
+                    borderRadius: 3, background: dragId === mod.key ? 'rgba(196,168,85,0.12)' : 'rgba(0,0,0,0.08)',
+                    opacity: enabled ? (dragId === mod.key ? 0.6 : 1) : 0.4 }}>
                   <span style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>System</span>
                   <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>{mod.label}</span>
                   <button onClick={() => { editMarker(mod.key); }} title="配置" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
@@ -396,11 +409,12 @@ export function PresetEditor({ presetId, onClose }: Props) {
             })}
             {/* User prompts — created by user */}
             {form.promptItems.filter((p: any) => p.kind !== 'marker').map((item: any, idx: number) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', border: '1px solid rgba(196,168,85,0.12)', borderLeft: '2px solid var(--gold)', borderRadius: 3, background: 'rgba(196,168,85,0.03)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <button onClick={() => movePrompt(idx, -1)} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
-                  <button onClick={() => movePrompt(idx, 1)} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
-                </div>
+              <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={handleDragOver} onDrop={() => handlePromptDrop(idx)}
+                onDragEnter={() => setDragOverId(item.id)} onDragLeave={() => setDragOverId((prev) => prev === item.id ? null : prev)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', cursor: 'grab',
+                  border: dragOverId === item.id ? '2px dashed var(--gold)' : '1px solid rgba(196,168,85,0.12)',
+                  borderLeft: dragOverId === item.id ? '2px dashed var(--gold)' : '2px solid var(--gold)',
+                  borderRadius: 3, background: dragId === item.id ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.03)' }}>
                 <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>Prompt</span>
                 <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   {item.name || '(未命名)'}
