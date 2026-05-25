@@ -359,9 +359,8 @@ export function PresetEditor({ presetId, onClose }: Props) {
               const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
               return (
                 <div key={mod.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', border: '1px solid rgba(196,168,85,0.06)', borderRadius: 3, background: 'rgba(0,0,0,0.08)', opacity: enabled ? 1 : 0.4 }}>
-                  <span style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>Marker</span>
+                  <span style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>System</span>
                   <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>{mod.label}</span>
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', marginRight: 8 }}>-</span>
                   <button onClick={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} disabled={readOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
                   {!readOnly && <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>}
                 </div>
@@ -375,7 +374,6 @@ export function PresetEditor({ presetId, onClose }: Props) {
                   {item.name || '(未命名)'}
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>
                 </span>
-                <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', marginRight: 8 }}>~{Math.round((item.content || '').length / 2.5)}t</span>
                 <button onClick={() => {
                   const items: any[] = [...form.promptItems];
                   items[items.indexOf(item)] = { ...item, enabled: !item.enabled };
@@ -383,6 +381,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
                 }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)', background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{item.enabled ? 'ON' : 'OFF'}</button>
                 <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                 <button onClick={() => { set('promptItems', form.promptItems.filter((_: any, i: number) => i !== idx) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', marginLeft: 4, whiteSpace: 'nowrap' }}>~{Math.round((item.content || '').length / 2.5)}t</span>
               </div>
             ))}
           </div>
