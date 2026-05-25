@@ -338,13 +338,41 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [localMvuUrl, setLocalMvuUrl] = useState(mvuApiBaseUrl);
   const [localMvuModel, setLocalMvuModel] = useState(mvuApiModel);
   const [localMvuKey, setLocalMvuKey] = useState(mvuApiKey);
+  const mvuAvailableModels = useSettingsStore((s) => s.mvuAvailableModels);
+  const setMvuAvailableModels = useSettingsStore((s) => s.setMvuAvailableModels);
   const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [mvuConnStatus, setMvuConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
+  const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
     usePanelStore.getState().closeAll();
     onReturnToMenu();
+  };
+
+  const testMvuConnection = () => {
+    if (!localMvuUrl.trim()) return;
+    setMvuConnStatus('testing');
+    setMvuModelsLoading(true);
+    const base = localMvuUrl.trim().replace(/\/+$/, '');
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    if (localMvuKey.trim()) headers['Authorization'] = `Bearer ${localMvuKey.trim()}`;
+    fetch(`${base}/models`, { method: 'GET', headers })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const models: string[] = Array.isArray(data?.data)
+          ? data.data.map((m: any) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
+          : [];
+        setMvuAvailableModels(models);
+        setMvuConnStatus('connected');
+      })
+      .catch(() => {
+        setMvuAvailableModels([]);
+        setMvuConnStatus('failed');
+      })
+      .finally(() => setMvuModelsLoading(false));
   };
 
   const testConnection = () => {
@@ -607,19 +635,46 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         <span style={labelStyle}>API 地址</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <input value={localMvuUrl}
-                            onChange={(e) => setLocalMvuUrl(e.target.value)}
-                            onBlur={() => setMvuApiBaseUrl(localMvuUrl)}
+                            onChange={(e) => { setLocalMvuUrl(e.target.value); setMvuApiBaseUrl(e.target.value); }}
                             style={{ ...inputStyle, width: 160 }}
                             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                           />
+                          <button onClick={testMvuConnection} disabled={mvuConnStatus === 'testing'}
+                            style={{
+                              padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+                              background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
+                              fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+                              opacity: mvuConnStatus === 'testing' ? 0.5 : 1,
+                            }}>
+                            {mvuConnStatus === 'testing' ? '...' : '测试'}
+                          </button>
+                          {mvuConnStatus === 'connected' && (
+                            <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
+                          )}
+                          {mvuConnStatus === 'failed' && (
+                            <span style={{ fontSize: 9, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>模组列表</span>
+                        <div style={{ position: 'relative', width: 200 }}>
+                          <select value={localMvuModel}
+                            onChange={(e) => { setLocalMvuModel(e.target.value); setMvuApiModel(e.target.value); }}
+                            disabled={mvuAvailableModels.length === 0 && !mvuModelsLoading}
+                            style={{ ...inputStyle, width: '100%', appearance: 'none', cursor: mvuAvailableModels.length === 0 ? 'not-allowed' : 'pointer', opacity: mvuAvailableModels.length === 0 ? 0.5 : 1 }}>
+                            <option value="">{mvuModelsLoading ? '加载中...' : mvuAvailableModels.length === 0 ? '请先测试连接' : '选择模型'}</option>
+                            {mvuAvailableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                          <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: 9, color: 'var(--brass)' }}>▼</span>
                         </div>
                       </div>
 
                       <div style={rowStyle}>
                         <span style={labelStyle}>模型名</span>
                         <input value={localMvuModel}
-                          onChange={(e) => setLocalMvuModel(e.target.value)}
-                          onBlur={() => setMvuApiModel(localMvuModel)}
+                          onChange={(e) => { setLocalMvuModel(e.target.value); setMvuApiModel(e.target.value); }}
                           placeholder="deepseek-chat" style={inputStyle}
                           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                         />

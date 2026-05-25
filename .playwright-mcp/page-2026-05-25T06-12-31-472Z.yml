@@ -1,0 +1,177 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic [ref=e3]:
+      - generic [ref=e5]: ★
+      - heading "深渊档案馆" [level=1] [ref=e6]
+      - paragraph [ref=e7]: ABYSSAL ARCHIVE
+      - generic [ref=e8]:
+        - button "开 始 游 戏" [ref=e9] [cursor=pointer]
+        - button "读 取 游 戏" [ref=e10] [cursor=pointer]
+        - button "设 置" [ref=e11] [cursor=pointer]
+      - paragraph [ref=e12]: v0.1.0 · COC 7th Edition · 更新日志
+    - generic [ref=e14]:
+      - heading "更新日志" [level=2] [ref=e15]
+      - paragraph [ref=e16]: v0.1.0 — 首次发布
+      - list [ref=e17]:
+        - listitem [ref=e18]:
+          - generic [ref=e19]: ★
+          - text: 双页故事书阅读系统 — 仿古籍翻页体验
+        - listitem [ref=e20]:
+          - generic [ref=e21]: ★
+          - text: 骰子检定与历史记录 — 完整 COC 7th 规则支持
+        - listitem [ref=e22]:
+          - generic [ref=e23]: ★
+          - text: 角色卡管理系统 — 调查员属性与技能编辑
+        - listitem [ref=e24]:
+          - generic [ref=e25]: ★
+          - text: 世界书知识库 — 人物、地点、事件词条
+        - listitem [ref=e26]:
+          - generic [ref=e27]: ★
+          - text: AI 对话引擎 — 多会话、预设、流式输出
+        - listitem [ref=e28]:
+          - generic [ref=e29]: ★
+          - text: 预设编辑器 — 自定义 AI 参数与提示词
+        - listitem [ref=e30]:
+          - generic [ref=e31]: ★
+          - text: 环境音效与背景音乐系统
+        - listitem [ref=e32]:
+          - generic [ref=e33]: ★
+          - text: 数据持久化 — IndexedDB 本地存储
+      - button "开 始 探 索" [ref=e34] [cursor=pointer]
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - heading "调查员记录卡" [level=3] [ref=e37]
+        - button "✕" [ref=e38] [cursor=pointer]
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: 基础属性 · CHARACTERISTICS
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e45]: 力量
+              - generic [ref=e46]: "70"
+              - generic [ref=e47]:
+                - generic [ref=e48]: 1/2 35
+                - generic [ref=e49]: 1/5 14
+              - generic [ref=e50]: STR
+            - generic [ref=e51]:
+              - generic [ref=e52]: 体质
+              - generic [ref=e53]: "50"
+              - generic [ref=e54]:
+                - generic [ref=e55]: 1/2 25
+                - generic [ref=e56]: 1/5 10
+              - generic [ref=e57]: CON
+            - generic [ref=e58]:
+              - generic [ref=e60]: 意志
+              - generic [ref=e61]: "80"
+              - generic [ref=e62]:
+                - generic [ref=e63]: 1/2 40
+                - generic [ref=e64]: 1/5 16
+              - generic [ref=e65]: POW
+            - generic [ref=e66]:
+              - generic [ref=e68]: 敏捷
+              - generic [ref=e69]: "65"
+              - generic [ref=e70]:
+                - generic [ref=e71]: 1/2 32
+                - generic [ref=e72]: 1/5 13
+              - generic [ref=e73]: DEX
+            - generic [ref=e74]:
+              - generic [ref=e76]: 外貌
+              - generic [ref=e77]: "45"
+              - generic [ref=e78]:
+                - generic [ref=e79]: 1/2 22
+                - generic [ref=e80]: 1/5 9
+              - generic [ref=e81]: APP
+            - generic [ref=e82]:
+              - generic [ref=e84]: 体型
+              - generic [ref=e85]: "55"
+              - generic [ref=e86]:
+                - generic [ref=e87]: 1/2 27
+                - generic [ref=e88]: 1/5 11
+              - generic [ref=e89]: SIZ
+            - generic [ref=e90]:
+              - generic [ref=e92]: 智力
+              - generic [ref=e93]: "75"
+              - generic [ref=e94]:
+                - generic [ref=e95]: 1/2 37
+                - generic [ref=e96]: 1/5 15
+              - generic [ref=e97]: INT
+            - generic [ref=e98]:
+              - generic [ref=e100]: 教育
+              - generic [ref=e101]: "70"
+              - generic [ref=e102]:
+                - generic [ref=e103]: 1/2 35
+                - generic [ref=e104]: 1/5 14
+              - generic [ref=e105]: EDU
+        - generic [ref=e106]:
+          - generic [ref=e107]: 衍生属性 · SECONDARY
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]: HP 生命
+              - generic [ref=e111]: 10 / 10
+            - generic [ref=e112]:
+              - generic [ref=e113]: SAN 理智
+              - generic [ref=e114]: 72 / 80
+            - generic [ref=e115]:
+              - generic [ref=e116]: MP 魔法
+              - generic [ref=e117]: 16 / 16
+            - generic [ref=e118]:
+              - generic [ref=e119]: LUCK 幸运
+              - generic [ref=e120]: "55"
+            - generic [ref=e121]:
+              - generic [ref=e122]: MOV 移动
+              - generic [ref=e123]: "8"
+            - generic [ref=e124]:
+              - generic [ref=e125]: DB 伤害
+              - generic [ref=e126]: +1D4
+        - generic [ref=e127]:
+          - button "已习得技能 (3项) ▼" [ref=e128] [cursor=pointer]:
+            - generic [ref=e129]: 已习得技能 (3项)
+            - generic [ref=e130]: ▼
+          - table [ref=e131]:
+            - rowgroup [ref=e132]:
+              - row "技能名称 基础值 当前值 半值/五值" [ref=e133]:
+                - columnheader "技能名称" [ref=e134]
+                - columnheader "基础值" [ref=e135]
+                - columnheader "当前值" [ref=e136]
+                - columnheader "半值/五值" [ref=e137]
+            - rowgroup [ref=e138]:
+              - row "图书馆使用 20 60 30 / 12" [ref=e139]:
+                - cell "图书馆使用" [ref=e140]
+                - cell "20" [ref=e141]
+                - cell "60" [ref=e142]
+                - cell "30 / 12" [ref=e143]
+              - row "驾驶 20 50 25 / 10" [ref=e144]:
+                - cell "驾驶" [ref=e145]
+                - cell "20" [ref=e146]
+                - cell "50" [ref=e147]
+                - cell "25 / 10" [ref=e148]
+              - row "心理学 10 70 35 / 14" [ref=e149]:
+                - cell "心理学" [ref=e150]
+                - cell "10" [ref=e151]
+                - cell "70" [ref=e152]
+                - cell "35 / 14" [ref=e153]
+        - generic [ref=e154]:
+          - generic [ref=e155]: 身份信息 · IDENTITY
+          - generic [ref=e156]:
+            - generic [ref=e158]:
+              - generic [ref=e160]: ★
+              - generic [ref=e161]:
+                - generic [ref=e162]: 霍华德·菲利普斯
+                - generic [ref=e163]: 私家侦探
+                - generic [ref=e164]: "#042"
+            - generic [ref=e165]:
+              - generic [ref=e166]:
+                - generic [ref=e167]: "年龄:"
+                - generic [ref=e168]: "34"
+              - generic [ref=e169]:
+                - generic [ref=e170]: "性别:"
+                - generic [ref=e171]: 男
+              - generic [ref=e172]:
+                - generic [ref=e173]: "出生地:"
+                - generic [ref=e174]: 马萨诸塞州
+              - generic [ref=e175]:
+                - generic [ref=e176]: "居住地:"
+                - generic [ref=e177]: 阿卡姆
+            - generic [ref=e178]:
+              - generic [ref=e179]: INV-1925-042
+              - generic [ref=e180]: COC 7th Edition
