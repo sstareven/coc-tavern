@@ -316,32 +316,39 @@ export function PresetEditor({ presetId, onClose }: Props) {
             </span>
           </div>
 
-          {/* Library section */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>提示词缓存区</span>
-            <button onClick={() => {
-              setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
-            }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
-          </div>
-          {/* Library items — saved but not injected */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8, maxHeight: 160, overflowY: 'auto' }}>
-            {libraryItems.map((item: any) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', border: '1px solid rgba(196,168,85,0.08)', borderRadius: 3, background: 'rgba(0,0,0,0.1)' }}>
-                <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
-                  {item.name || '(未命名)'}
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>
-                </span>
-                <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
-                <button onClick={() => {
-                  // Insert into active list (add to activeItems as non-library)
-                  const newItem = { ...item, id: 'pi_' + Date.now(), _library: false };
-                  set('promptItems', [...allItems, newItem] as unknown as string);
-                }} title="插入到提示词列表" style={{ ...s.miniBtn, fontSize: 9, padding: '1px 6px', color: 'var(--gold)', borderColor: 'var(--gold)' }}>插入</button>
-                <button onClick={() => {
-                  set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string);
-                }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
-              </div>
-            ))}
+          {/* Prompt library dropdown */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
+            <div style={{ flex: 1 }}>
+              <Dropdown value="" onChange={(v) => {
+                if (!v) return;
+                if (v === '__new__') {
+                  setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
+                  return;
+                }
+                const item = libraryItems.find((p: any) => p.id === v);
+                if (item) {
+                  if (v.startsWith('__insert_')) {
+                    const realId = v.replace('__insert_', '');
+                    const src = libraryItems.find((p: any) => p.id === realId);
+                    if (src) {
+                      const newItem = { ...src, id: 'pi_' + Date.now(), _library: false };
+                      set('promptItems', [...allItems, newItem] as unknown as string);
+                    }
+                    return;
+                  }
+                  setEditingPrompt(item);
+                }
+              }} options={[
+                { label: '选择提示词...', value: '' },
+                { label: '─── 插入 ───', value: '__sep__' },
+                ...libraryItems.map((p: any) => ({ label: `↪ ${p.name || '(未命名)'} [${p.role}]`, value: `__insert_${p.id}` })),
+                { label: '─── 编辑 ───', value: '__sep2__' },
+                ...libraryItems.map((p: any) => ({ label: `✎ ${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
+                { label: '─── 操作 ───', value: '__sep3__' },
+                { label: '+ 新建提示词', value: '__new__' },
+              ]} />
+            </div>
           </div>
 
           {/* Prompt editor modal */}
@@ -475,17 +482,22 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
           <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
-            {options.map((opt) => (
-              <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} style={{
-                padding: '6px 8px', cursor: 'pointer',
-                background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
-                color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 11,
-                borderBottom: '1px solid rgba(196,168,85,0.06)',
-              }} onMouseEnter={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                onMouseLeave={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'transparent'; }}
-              >{opt.label}</div>
-            ))}
+            {options.map((opt) => {
+              if (opt.value.startsWith('__sep')) {
+                return <div key={opt.value} style={{ padding: '4px 8px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{opt.label}</div>;
+              }
+              return (
+                <div key={opt.value} onClick={() => { if (opt.value) { onChange(opt.value); setOpen(false); } }} style={{
+                  padding: '6px 8px', cursor: opt.value ? 'pointer' : 'default',
+                  background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
+                  color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
+                  fontFamily: 'var(--font-ui)', fontSize: 11,
+                  borderBottom: '1px solid rgba(196,168,85,0.06)',
+                }} onMouseEnter={(e) => { if (opt.value !== value && opt.value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                  onMouseLeave={(e) => { if (opt.value !== value && opt.value) e.currentTarget.style.background = 'transparent'; }}
+                >{opt.label}</div>
+              );
+            })}
           </div>
         </>
       )}
