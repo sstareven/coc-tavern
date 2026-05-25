@@ -12,6 +12,17 @@
  */
 import type { LoreBook, LoreEntry, ChatPreset } from '../types';
 
+// ── ST module identifier → label map ──
+const MODULE_ID_MAP: Record<string, string> = {
+  main: 'Main Prompt', worldInfoBefore: 'World Info (before)',
+  personaDescription: 'Persona Description', charDescription: 'Char Description',
+  charPersonality: 'Char Personality', scenario: 'Scenario',
+  enhanceDefinitions: 'Enhance Definitions', worldInfoAfter: 'World Info (after)',
+  dialogueExamples: 'Chat Examples', chatHistory: 'Chat History',
+  postHistoryInstructions: 'Post-History Instructions', auxiliary: 'Auxiliary Prompt',
+  nsfw: 'Enhance Definitions', character_id: '角色定义',
+};
+
 // ── World Book ──
 
 interface STWorldEntry {
@@ -112,17 +123,42 @@ export function exportPresetToST(preset: ChatPreset): string {
 export function importPresetFromST(json: string): ChatPreset | null {
   try {
     const data: any = JSON.parse(json);
-    // Support nested extensions.prompt_order
+    // Support nested or root-level prompt_order
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
     const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
-    const name = data.name || '';
-    const promptItems: any[] = promptOrder.map((p: any) => ({
-      id: p.identifier || 'pi_' + Math.random().toString(36).slice(2),
-      name: p.name || p.identifier || '', role: p.role || 'system', trigger: 'normal' as const,
-      position: 'relative' as const, depth: 4, order: 100,
-      content: p.content || '', enabled: p.enabled !== false, kind: 'prompt' as const, _library: false,
-    }));
+
+    // Parse prompts object (maps identifier → {name, role, content})
+    const promptsMap: Record<string, any> = data.prompts || {};
+    const promptIdentifiers: string[] = [];
+    if (Array.isArray(promptOrder)) {
+      for (const item of promptOrder) {
+        if (Array.isArray(item.order)) {
+          for (const o of item.order) { promptIdentifiers.push(o.identifier); }
+        } else if (item.identifier) {
+          promptIdentifiers.push(item.identifier);
+        }
+      }
+    }
+
+    const name = data.name || promptIdentifiers[0] || '';
+    const promptItems: any[] = [];
+    for (const id of promptIdentifiers) {
+      const p = promptsMap[id];
+      if (p) {
+        promptItems.push({
+          id: id, name: p.name || id, role: p.role || 'system',
+          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: 100,
+          content: p.content || '', enabled: true, kind: 'prompt' as const, _library: false,
+        });
+      } else {
+        // Standard module identifier -> add as marker reference
+        const label = MODULE_ID_MAP[id] || id;
+        promptItems.push({ id, name: label, role: 'system', trigger: 'normal' as const,
+          position: 'relative' as const, depth: 0, order: 0, content: '', enabled: true,
+          kind: 'marker' as const, readOnly: id === 'dialogueExamples' || id === 'chatHistory', _library: false });
+      }
+    }
     return {
       id: `preset-imported-${Date.now()}`, name,
       temperature: data.temperature ?? 1.00, topP: data.top_p ?? 1.00, topK: data.top_k ?? 40,
