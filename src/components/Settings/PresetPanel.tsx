@@ -64,7 +64,8 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const preset = importPresetFromST(reader.result as string);
+      const fileName = file.name.replace(/\.json$/i, '');
+      const preset = importPresetFromST(reader.result as string, fileName);
       if (preset) {
         const updated = { ...presets, [preset.id]: preset };
         setPresets(updated);
