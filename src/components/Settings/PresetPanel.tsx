@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import type { ChatPreset } from '../../types';
@@ -34,6 +34,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const activeSessionId = useChatStore((s) => s.activeId);
   const setPreset = useChatStore((s) => s.setPreset);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleExport = (id: string) => {
     const preset = presets[id];
@@ -127,20 +128,19 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         </div>
 
         {/* Import ST format */}
-        <label style={{
+        <input type="file" accept=".json" ref={fileRef} onChange={handleFileImport} style={{ display: 'none' }} />
+        <button onClick={() => fileRef.current?.click()} style={{
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--success)', borderRadius: 4,
           background: 'transparent', color: 'var(--success)',
           fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
-          textAlign: 'center', display: 'block',
           transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.color = 'var(--success)'; }}
         >
           导入 ST 预设
-          <input type="file" accept=".json" onChange={handleFileImport} style={{ display: 'none' }} />
-        </label>
+        </button>
 
         <button style={{
           width: '100%', marginTop: 16, padding: '10px 0',
