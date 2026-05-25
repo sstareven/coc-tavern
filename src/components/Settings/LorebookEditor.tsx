@@ -124,6 +124,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             .entry-table-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
             .entry-table-scroll::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
             .entry-table-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+            .entry-row-btn { padding: 0; border: none; border-radius: 2px; background: transparent; font-size: 12px; cursor: pointer; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; opacity: 0.45; transition: opacity 0.15s; }
+            .entry-row-btn:hover { opacity: 0.85; }
           `}</style>
           <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
             <thead>
@@ -177,14 +179,14 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.probability}%</td>
                   <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <button onClick={() => openDetail(id)} title="编辑" style={rowBtn}>✎</button>
+                      <button onClick={() => openDetail(id)} title="编辑" className="entry-row-btn" style={{ color: 'var(--ink-subtle)' }}>✎</button>
                       <button onClick={() => {
                         const newId = 'e' + Date.now();
                         useLorebookStore.setState((s) => ({
                           books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...entry, name: entry.name + '(副)' } } } },
                         }));
-                      }} title="复制" style={rowBtn}>📋</button>
-                      <button onClick={() => deleteEntry(bookId, id)} title="删除" style={{ ...rowBtn, color: 'var(--blood)' }}>✕</button>
+                      }} title="复制" className="entry-row-btn" style={{ color: 'var(--ink-subtle)' }}>📋</button>
+                      <button onClick={() => deleteEntry(bookId, id)} title="删除" className="entry-row-btn" style={{ color: 'var(--blood)' }}>✕</button>
                     </div>
                   </td>
                 </tr>
@@ -440,12 +442,6 @@ const thStyle: React.CSSProperties = {
 
 const tdStyle: React.CSSProperties = {
   padding: '7px 8px', fontSize: 11, color: 'var(--ink-subtle)',
-};
-
-const rowBtn: React.CSSProperties = {
-  padding: '2px 6px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 2,
-  background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)',
-  fontSize: 10, cursor: 'pointer',
 };
 
 const fieldInputStyle: React.CSSProperties = {
