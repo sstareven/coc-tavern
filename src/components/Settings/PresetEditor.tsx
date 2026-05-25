@@ -24,18 +24,18 @@ const DEFAULT_PRESET: ChatPreset = {
 };
 
 const MODULE_ITEMS = [
-  { key: 'main_prompt', label: 'Main Prompt', content: '' },
-  { key: 'world_info_before', label: 'World Info (before)', content: '' },
-  { key: 'persona', label: 'Persona Description', content: '' },
-  { key: 'char_desc', label: 'Char Description', content: '' },
-  { key: 'char_personality', label: 'Char Personality', content: '' },
+  { key: 'main', label: 'Main Prompt', content: '' },
+  { key: 'worldInfoBefore', label: 'World Info (before)', content: '' },
+  { key: 'personaDescription', label: 'Persona Description', content: '' },
+  { key: 'charDescription', label: 'Char Description', content: '' },
+  { key: 'charPersonality', label: 'Char Personality', content: '' },
   { key: 'scenario', label: 'Scenario', content: '' },
-  { key: 'enhance', label: 'Enhance Definitions', content: '' },
+  { key: 'enhanceDefinitions', label: 'Enhance Definitions', content: '' },
   { key: 'auxiliary', label: 'Auxiliary Prompt', content: '' },
-  { key: 'world_info_after', label: 'World Info (after)', content: '' },
-  { key: 'chat_examples', label: 'Chat Examples', content: '' },
-  { key: 'chat_history', label: 'Chat History', content: '' },
-  { key: 'post_history', label: 'Post-History Instructions', content: '' },
+  { key: 'worldInfoAfter', label: 'World Info (after)', content: '' },
+  { key: 'dialogueExamples', label: 'Chat Examples', content: '' },
+  { key: 'chatHistory', label: 'Chat History', content: '' },
+  { key: 'postHistoryInstructions', label: 'Post-History Instructions', content: '' },
 ];
 
 export function PresetEditor({ preset, onClose }: Props) {
@@ -441,7 +441,7 @@ export function PresetEditor({ preset, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
             {activeItems.map((item: any, idx: number) => {
               const isMarker = item.kind === 'marker';
-              const isReadOnly = item.readOnly === true;
+              const isReadOnly = item.id === 'dialogueExamples' || item.id === 'chatHistory';
               const enabled = isMarker ? (moduleEnabled[item.id] !== false) : item.enabled;
               return (
                 <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={handleDragOver}
