@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry } from '../../types';
 
 interface Props {
@@ -73,7 +74,26 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ ...panelStyle, minWidth: 640, display: 'flex', flexDirection: 'row' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ ...panelStyle, minWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+        {/* Header with back button + title */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => { usePanelStore.getState().open('worldbook'); }} style={{
+              padding: '4px 12px', border: '1px solid var(--brass)', borderRadius: 3,
+              background: 'transparent', color: 'var(--ink-subtle)',
+              fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+            }}>← 返回</button>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>
+              编辑 — {book.name}
+            </h3>
+          </div>
+          <button onClick={onClose} style={closeBtnStyle}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'row' }}>
         {/* Left: entry list */}
         <div style={{
           width: 200, borderRight: '1px solid rgba(196,168,85,0.12)',
@@ -170,6 +190,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
