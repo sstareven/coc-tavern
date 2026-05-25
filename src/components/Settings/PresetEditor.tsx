@@ -41,9 +41,14 @@ const MODULE_ITEMS = [
 export function PresetEditor({ preset, onClose }: Props) {
   const [form, setForm] = useState<ChatPreset>({ ...preset });
   const [viewStream, setViewStream] = useState(true);
-  const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(
-    Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
-  );
+  const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const m of MODULE_ITEMS) {
+      const existing = preset.promptItems?.find((p: any) => p.id === m.key && p.kind === 'marker');
+      init[m.key] = existing ? existing.enabled !== false : true;
+    }
+    return init;
+  });
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
   const [selectedLibId, setSelectedLibId] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
