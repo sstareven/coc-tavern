@@ -51,29 +51,33 @@ export function PresetEditor({ presetId, onClose }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // Ensure markers are always present in promptItems (cannot be removed)
-  const mergedItems: any[] = (() => {
+  // All items = markers + library prompts + inserted prompts
+  const allItems: any[] = (() => {
     const existing = [...form.promptItems];
     for (const mod of MODULE_ITEMS) {
       if (!existing.find((p: any) => p.id === mod.key)) {
-        existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'chat_examples' || mod.key === 'chat_history', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true });
+        existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'chat_examples' || mod.key === 'chat_history', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
       }
     }
     return existing;
   })();
+  const activeItems: any[] = allItems.filter((p: any) => p.kind === 'marker' || p._library !== true);
+  const libraryItems: any[] = allItems.filter((p: any) => p.kind !== 'marker' && p._library !== false);
 
   const handleDragStart = (id: string) => setDragId(id);
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
 
   const handleDrop = (targetId: string) => {
     if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
-    const fromIdx = mergedItems.findIndex((p: any) => p.id === dragId);
-    const toIdx = mergedItems.findIndex((p: any) => p.id === targetId);
+    const fromIdx = activeItems.findIndex((p: any) => p.id === dragId);
+    const toIdx = activeItems.findIndex((p: any) => p.id === targetId);
     if (fromIdx < 0 || toIdx < 0) { setDragId(null); setDragOverId(null); return; }
-    const items = [...mergedItems];
+    const items = [...activeItems];
     const [moved] = items.splice(fromIdx, 1);
     items.splice(toIdx, 0, moved);
-    set('promptItems', items as unknown as string);
+    // Merge back: library items stay, new active order replaces old
+    const newAll = [...libraryItems, ...items];
+    set('promptItems', newAll as unknown as string);
     setDragId(null); setDragOverId(null);
   };
 
@@ -308,15 +312,36 @@ export function PresetEditor({ presetId, onClose }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={s.sectionTitle}>提示词列表</div>
             <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-              Token: ~{mergedItems.filter((p: any) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: any) => sum + Math.round((p.content || '').length / 2.5), 0)}
+              Token: ~{activeItems.filter((p: any) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: any) => sum + Math.round((p.content || '').length / 2.5), 0)}
             </span>
           </div>
 
-          {/* Dropdown + New button */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+          {/* Library section */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>提示词缓存区</span>
             <button onClick={() => {
               setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt' });
-            }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建提示词</button>
+            }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
+          </div>
+          {/* Library items — saved but not injected */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8, maxHeight: 160, overflowY: 'auto' }}>
+            {libraryItems.map((item: any) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', border: '1px solid rgba(196,168,85,0.08)', borderRadius: 3, background: 'rgba(0,0,0,0.1)' }}>
+                <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  {item.name || '(未命名)'}
+                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>
+                </span>
+                <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
+                <button onClick={() => {
+                  // Insert into active list (add to activeItems as non-library)
+                  const newItem = { ...item, id: 'pi_' + Date.now(), _library: false };
+                  set('promptItems', [...allItems, newItem] as unknown as string);
+                }} title="插入到提示词列表" style={{ ...s.miniBtn, fontSize: 9, padding: '1px 6px', color: 'var(--gold)', borderColor: 'var(--gold)' }}>插入</button>
+                <button onClick={() => {
+                  set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string);
+                }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+              </div>
+            ))}
           </div>
 
           {/* Prompt editor modal */}
@@ -367,7 +392,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
                   const id = editingPrompt.id || 'pi_' + Date.now();
-                  set('promptItems', [...mergedItems, { ...editingPrompt, id, kind: 'prompt' }] as unknown as string);
+                  set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt', _library: true }] as unknown as string);
                   setEditingPrompt(null);
                 }} style={s.btn}>保存</button>
                 <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>取消</button>
@@ -376,8 +401,8 @@ export function PresetEditor({ presetId, onClose }: Props) {
           )}
 
           {/* Unified list — all items (markers + prompts) in one combined array */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 360, overflowY: 'auto' }}>
-            {mergedItems.map((item: any, idx: number) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
+            {activeItems.map((item: any, idx: number) => {
               const isMarker = item.kind === 'marker';
               const isReadOnly = item.readOnly === true;
               const enabled = isMarker ? (moduleEnabled[item.id] !== false) : item.enabled;
@@ -401,7 +426,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
                     {!isMarker && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>}
                   </span>
                   {!isMarker && (
-                    <button onClick={() => { set('promptItems', mergedItems.filter((_: any, i: number) => i !== idx) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                    <button onClick={() => { set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
                   )}
                   {!isReadOnly && (
                     <button onClick={() => { if (isMarker) { /* edit marker */ } else { setEditingPrompt(item); } }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
@@ -409,7 +434,7 @@ export function PresetEditor({ presetId, onClose }: Props) {
                   <button onClick={() => {
                     if (isReadOnly) return;
                     if (isMarker) { setModuleEnabled((p) => ({ ...p, [item.id]: !(p[item.id] !== false) })); return; }
-                    const items: any[] = [...mergedItems]; items[idx] = { ...items[idx], enabled: !items[idx].enabled };
+                    const items: any[] = [...allItems]; const targetIdx = items.findIndex((p: any) => p.id === item.id); items[targetIdx] = { ...items[targetIdx], enabled: !items[targetIdx].enabled };
                     set('promptItems', items as unknown as string);
                   }} disabled={isReadOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
