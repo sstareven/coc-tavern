@@ -308,10 +308,11 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-/** Custom spin button for number fields — replaces browser default arrows */
+/** Custom spin button for number fields — buttons + direct text input */
 function SpinField({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
-  const inc = () => onChange(Math.min(value + 1, max ?? Infinity));
-  const dec = () => onChange(Math.max(value - 1, min ?? -Infinity));
+  const clamp = (n: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, n));
+  const inc = () => onChange(clamp(value + 1));
+  const dec = () => onChange(clamp(value - 1));
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--brass)', borderRadius: 3, overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
       <button onClick={dec} style={{
@@ -319,10 +320,19 @@ function SpinField({ value, onChange, min, max }: { value: number; onChange: (v:
         fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
         padding: '4px 10px', borderRight: '1px solid var(--brass)',
       }}>−</button>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 40,
-        color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-        {value}
-      </div>
+      <input type="number"
+        value={value}
+        onChange={(e) => { const n = Number(e.target.value); if (!isNaN(n)) onChange(clamp(n)); }}
+        min={min} max={max}
+        style={{
+          flex: 1, minWidth: 40, width: 50, border: 'none', background: 'transparent',
+          color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 13,
+          textAlign: 'center', outline: 'none',
+          MozAppearance: 'textfield',
+          WebkitAppearance: 'none',
+          margin: 0,
+        }} />
+        <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
       <button onClick={inc} style={{
         border: 'none', background: 'transparent', color: 'var(--gold)',
         fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
