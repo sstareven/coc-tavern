@@ -33,6 +33,7 @@ interface SettingsState {
   mvuApiKey: string;
   mvuTemperature: number;
   mvuRetryCount: number;
+  mvuAvailableModels: string[];
 }
 
 interface SettingsStore extends SettingsState {
@@ -49,6 +50,7 @@ interface SettingsStore extends SettingsState {
   setMvuApiKey: (key: string) => void;
   setMvuTemperature: (t: number) => void;
   setMvuRetryCount: (n: number) => void;
+  setMvuAvailableModels: (models: string[]) => void;
 }
 
 const defaults: SettingsState = {
@@ -66,6 +68,7 @@ const defaults: SettingsState = {
   mvuApiKey: '',
   mvuTemperature: 1,
   mvuRetryCount: 1,
+  mvuAvailableModels: [],
 };
 
 const persisted = load();
@@ -126,5 +129,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setMvuRetryCount: (n) => set((s) => {
     save({ ...s, mvuRetryCount: n });
     return { mvuRetryCount: n };
+  }),
+  setMvuAvailableModels: (models) => set((s) => {
+    save({ ...s, mvuAvailableModels: models });
+    return { mvuAvailableModels: models };
   }),
 }));
