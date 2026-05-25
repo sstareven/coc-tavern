@@ -150,7 +150,16 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         </div>
 
         {/* Right: entry form */}
-        <div style={{ flex: 1, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto' }}>
+        <div className="lorebook-form-scroll" style={{
+          flex: 1, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto',
+          scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
+        }}>
+          <style>{`
+            .lorebook-form-scroll::-webkit-scrollbar { width: 5px; }
+            .lorebook-form-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
+            .lorebook-form-scroll::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
+            .lorebook-form-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+          `}</style>
           {/* State toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>状态</span>
@@ -209,14 +218,10 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           {/* Depth + Priority row */}
           <div style={{ display: 'flex', gap: 16 }}>
             <FieldGroup label="深度">
-              <input type="number" min={0} max={10} value={form.depth}
-                onChange={(e) => setForm({ ...form, depth: Number(e.target.value) || 0 })}
-                style={{ ...fieldInputStyle, width: 80 }} />
+              <SpinField value={form.depth} min={0} max={10} onChange={(v) => setForm({ ...form, depth: v })} />
             </FieldGroup>
             <FieldGroup label="顺序">
-              <input type="number" min={1} max={999} value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: Number(e.target.value) || 10 })}
-                style={{ ...fieldInputStyle, width: 80 }} />
+              <SpinField value={form.priority} min={1} max={999} onChange={(v) => setForm({ ...form, priority: v })} />
             </FieldGroup>
           </div>
 
@@ -231,9 +236,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
               </select>
             </FieldGroup>
             <FieldGroup label="触发概率%">
-              <input type="number" min={0} max={100} value={form.probability}
-                onChange={(e) => setForm({ ...form, probability: Number(e.target.value) || 100 })}
-                style={{ ...fieldInputStyle, width: 80 }} />
+              <SpinField value={form.probability} min={0} max={100} onChange={(v) => setForm({ ...form, probability: v })} />
             </FieldGroup>
           </div>
 
@@ -299,8 +302,32 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-      <label style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{label}</label>
+      <label style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold' }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+/** Custom spin button for number fields — replaces browser default arrows */
+function SpinField({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+  const inc = () => onChange(Math.min(value + 1, max ?? Infinity));
+  const dec = () => onChange(Math.max(value - 1, min ?? -Infinity));
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--brass)', borderRadius: 3, overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
+      <button onClick={dec} style={{
+        border: 'none', background: 'transparent', color: 'var(--gold)',
+        fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
+        padding: '4px 10px', borderRight: '1px solid var(--brass)',
+      }}>−</button>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 40,
+        color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+        {value}
+      </div>
+      <button onClick={inc} style={{
+        border: 'none', background: 'transparent', color: 'var(--gold)',
+        fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
+        padding: '4px 10px', borderLeft: '1px solid var(--brass)',
+      }}>+</button>
     </div>
   );
 }
