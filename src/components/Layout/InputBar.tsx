@@ -295,21 +295,20 @@ export function InputBar() {
     // Context budget management — trim if over limit
     const settings = useSettingsStore.getState();
     const budget = getModelBudget(settings.apiModel);
-    const { trimmed, summary, trimmedCount } = trimToBudget(messages, budget);
+    const result = trimToBudget(messages, budget);
 
-    if (summary) {
-      // Insert summary as additional system message before format instruction
-      const formatIdx = trimmed.findIndex((m) => m.content === processedFormat);
+    if (result.summary) {
+      const formatIdx = result.trimmed.findIndex((m) => m.content === processedFormat);
       if (formatIdx >= 0) {
-        trimmed.splice(formatIdx, 0, { role: 'system', content: summary });
+        result.trimmed.splice(formatIdx, 0, { role: 'system', content: result.summary });
       }
     }
 
-    if (trimmedCount > 0) {
-      console.debug(`[Context Manager] Trimmed ${trimmedCount} messages, final tokens: ~${estimateTokens(JSON.stringify(trimmed))}`);
+    if (result.trimmedCount > 0) {
+      console.debug(`[Context Manager] Trimmed ${result.trimmedCount} messages, final tokens: ~${estimateTokens(JSON.stringify(result.trimmed))}`);
     }
 
-    return { messages: trimmed };
+    return { messages: result.trimmed };
   };
 
   const submit = async () => {
