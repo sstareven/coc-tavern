@@ -3,22 +3,11 @@ import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry } from '../../types';
 
-interface Props {
-  bookId: string;
-  onClose: () => void;
-}
+interface Props { bookId: string; onClose: () => void; }
 
 const EMPTY_ENTRY: LoreEntry = {
-  name: '',
-  keys: '',
-  content: '',
-  logic: 'AND',
-  priority: 10,
-  disabled: false,
-  constant: false,
-  position: 'before_char',
-  depth: 0,
-  probability: 100,
+  name: '', keys: '', content: '', logic: 'AND', priority: 10,
+  disabled: false, constant: false, position: 'before_char', depth: 0, probability: 100,
 };
 
 export function LorebookEditor({ bookId, onClose }: Props) {
@@ -29,42 +18,53 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
   const book = books[bookId];
   const entries = book ? Object.entries(book.entries) : [];
-  const [selectedId, setSelectedId] = useState<string | null>(entries[0]?.[0] ?? null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LoreEntry>(EMPTY_ENTRY);
   const [moveTarget, setMoveTarget] = useState('');
 
-  // Load selected entry into form
-  useEffect(() => {
-    if (selectedId && book?.entries[selectedId]) {
-      setForm({ ...book.entries[selectedId] });
-    } else {
-      setForm(EMPTY_ENTRY);
-    }
-  }, [selectedId, book]);
-
-  const handleSave = () => {
-    if (!selectedId || !form.name.trim()) return;
-    updateEntry(bookId, selectedId, form);
+  const openDetail = (id: string) => {
+    const e = book?.entries[id];
+    if (e) { setForm({ ...e }); setEditingId(id); }
   };
 
-  const handleNew = () => {
-    addEntry(bookId);
-    // Find the new entry
-    setTimeout(() => {
-      const updatedBooks = useLorebookStore.getState().books;
-      const updated = updatedBooks[bookId];
-      if (updated) {
-        const keys = Object.keys(updated.entries);
-        const last = keys[keys.length - 1];
-        if (last) setSelectedId(last);
-      }
-    }, 0);
+  const openNew = () => {
+    setForm(EMPTY_ENTRY);
+    setEditingId('__new__');
+  };
+
+  const handleSave = () => {
+    if (!editingId || !form.name.trim()) return;
+    if (editingId === '__new__') {
+      addEntry(bookId);
+      setTimeout(() => {
+        const b = useLorebookStore.getState().books[bookId];
+        const last = Object.keys(b?.entries ?? {}).pop();
+        if (last) { updateEntry(bookId, last, form); setEditingId(null); }
+      }, 0);
+    } else {
+      updateEntry(bookId, editingId, form);
+      setEditingId(null);
+    }
   };
 
   const handleDelete = () => {
-    if (!selectedId) return;
-    deleteEntry(bookId, selectedId);
-    setSelectedId(null);
+    if (!editingId || editingId === '__new__') return;
+    deleteEntry(bookId, editingId);
+    setEditingId(null);
+  };
+
+  const handleCopy = () => {
+    if (!editingId || editingId === '__new__') return;
+    const newId = 'e' + Date.now();
+    useLorebookStore.setState((s) => ({
+      books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...form, name: form.name + '(副本)' } } } },
+    }));
+    setEditingId(null);
+  };
+
+  const handleToggle = (id: string) => {
+    const e = book?.entries[id];
+    if (e) updateEntry(bookId, id, { ...e, disabled: !e.disabled });
   };
 
   if (!book) {
@@ -72,217 +72,232 @@ export function LorebookEditor({ bookId, onClose }: Props) {
       <div style={overlayStyle} onClick={onClose}>
         <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
           <p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>世界书未找到</p>
-          <button onClick={onClose} style={closeBtnStyle}>✕</button>
         </div>
       </div>
     );
   }
 
+  const entryList = Object.entries(book.entries).sort(([,a], [,b]) => a.priority - b.priority);
+
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ ...panelStyle, minWidth: 640 }} onClick={(e) => e.stopPropagation()}>
-        {/* Header with back button + title */}
+      <div style={{ ...panelStyle, minWidth: 720, maxWidth: 820 }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={() => { usePanelStore.getState().open('worldbook'); }} style={{
-              padding: '4px 12px', border: '1px solid var(--brass)', borderRadius: 3,
-              background: 'transparent', color: 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
-            }}>← 返回</button>
+            <button onClick={() => usePanelStore.getState().open('worldbook')} style={backBtn}>← 返回</button>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>
-              编辑 — {book.name}
+              {book.name} — {entries.length} 条
             </h3>
           </div>
-          <button onClick={onClose} style={closeBtnStyle}>✕</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={openNew} style={addBtnStyle}>+ 新建</button>
+            <button onClick={onClose} style={closeBtnStyle}>✕</button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'row' }}>
-        {/* Left: entry list */}
-        <div className="lorebook-entry-list" style={{
-          width: 200, borderRight: '1px solid rgba(196,168,85,0.12)',
-          paddingRight: 16, display: 'flex', flexDirection: 'column', gap: 4,
-          maxHeight: 420, overflowY: 'auto',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
-        }}>
+        {/* Entry table */}
+        <div style={{ maxHeight: 380, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
           <style>{`
-            .lorebook-entry-list::-webkit-scrollbar { width: 5px; }
-            .lorebook-entry-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
-            .lorebook-entry-list::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
-            .lorebook-entry-list::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+            .entry-table-scroll::-webkit-scrollbar { width: 5px; }
+            .entry-table-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
+            .entry-table-scroll::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
+            .entry-table-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold); }
           `}</style>
-          <div style={{
-            fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 2, fontFamily: 'var(--font-ui)',
-            marginBottom: 8, textTransform: 'uppercase',
-          }}>
-            词条列表
-          </div>
-          {entries.map(([id, entry]) => (
-            <button
-              key={id}
-              onClick={() => setSelectedId(id)}
-              style={{
-                width: '100%', textAlign: 'left', padding: '8px 10px',
-                border: selectedId === id ? '1px solid var(--gold)' : '1px solid transparent',
-                borderRadius: 3, cursor: 'pointer',
-                background: selectedId === id ? 'rgba(196,168,85,0.1)' : 'transparent',
-                color: selectedId === id ? 'var(--gold)' : 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1,
-                transition: 'var(--transition-smooth)',
-              }}
-              onMouseEnter={(e) => { if (selectedId !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-              onMouseLeave={(e) => { if (selectedId !== id) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <span style={{ opacity: entry.disabled ? 0.4 : 1 }}>{entry.name || '(未命名)'}</span>
-              {entry.disabled && <span style={{ fontSize: 9, color: 'var(--blood)', marginLeft: 4 }}>OFF</span>}
-            </button>
-          ))}
-          <button onClick={handleNew} style={{
-            width: '100%', marginTop: 8, padding: '8px 0',
-            border: '1px dashed var(--brass)', borderRadius: 3,
-            background: 'transparent', color: 'var(--ink-subtle)',
-            fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
-          }}>
-            + 新建词条
-          </button>
-        </div>
-
-        {/* Right: entry form */}
-        <div className="lorebook-form-scroll" style={{
-          flex: 1, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 420, overflowY: 'auto',
-          scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
-        }}>
-          <style>{`
-            .lorebook-form-scroll::-webkit-scrollbar { width: 5px; }
-            .lorebook-form-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }
-            .lorebook-form-scroll::-webkit-scrollbar-thumb { background: var(--brass); border-radius: 3px; }
-            .lorebook-form-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold); }
-          `}</style>
-          {/* State toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>状态</span>
-            <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)' }}>
-              <button onClick={() => setForm({ ...form, disabled: false })} style={{
-                padding: '3px 10px', border: 'none', cursor: 'pointer',
-                background: !form.disabled ? 'var(--success)' : 'transparent',
-                color: !form.disabled ? '#fff' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 10,
-              }}>激活</button>
-              <button onClick={() => setForm({ ...form, disabled: true })} style={{
-                padding: '3px 10px', border: 'none', cursor: 'pointer',
-                background: form.disabled ? 'var(--blood)' : 'transparent',
-                color: form.disabled ? '#fff' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 10,
-              }}>禁用</button>
-            </div>
-          </div>
-
-          {/* Status type */}
-          <FieldGroup label="状态清单">
-            <Dropdown value={form.constant ? 'constant' : 'keyword'} onChange={(v) => setForm({ ...form, constant: v === 'constant' })}
-              options={[{ label: '关键词匹配', value: 'keyword' }, { label: '永久激活', value: 'constant' }]} />
-          </FieldGroup>
-
-          {/* Name */}
-          <FieldGroup label="词条名称">
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="词条名称" style={fieldInputStyle} />
-          </FieldGroup>
-
-          {/* Keys */}
-          <FieldGroup label="触发关键词 (逗号分隔)">
-            <input value={form.keys} onChange={(e) => setForm({ ...form, keys: e.target.value })}
-              placeholder="关键词1, 关键词2" style={fieldInputStyle} />
-          </FieldGroup>
-
-          {/* Content */}
-          <FieldGroup label="内容">
-            <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="词条正文内容..." style={{ ...fieldInputStyle, minHeight: 80, resize: 'vertical', fontFamily: 'var(--font-body)' }} />
-          </FieldGroup>
-
-          {/* Insertion position */}
-          <FieldGroup label="插入位置">
-            <Dropdown value={form.position} onChange={(v) => setForm({ ...form, position: v as 'before_char' | 'after_char' })}
-              options={[{ label: '角色定义之前', value: 'before_char' }, { label: '角色定义之后', value: 'after_char' }]} />
-          </FieldGroup>
-
-          {/* Depth + Priority row */}
-          <div style={{ display: 'flex', gap: 16 }}>
-            <FieldGroup label="深度">
-              <SpinField value={form.depth} min={0} max={10} onChange={(v) => setForm({ ...form, depth: v })} />
-            </FieldGroup>
-            <FieldGroup label="顺序">
-              <SpinField value={form.priority} min={1} max={999} onChange={(v) => setForm({ ...form, priority: v })} />
-            </FieldGroup>
-          </div>
-
-          {/* Logic + Probability row */}
-          <div style={{ display: 'flex', gap: 16 }}>
-            <FieldGroup label="逻辑">
-              <Dropdown value={form.logic} onChange={(v) => setForm({ ...form, logic: v as LoreEntry['logic'] })}
-                options={[{ label: 'AND', value: 'AND' }, { label: 'OR', value: 'OR' }, { label: 'NOT', value: 'NOT' }]} />
-            </FieldGroup>
-            <FieldGroup label="触发概率%">
-              <SpinField value={form.probability} min={0} max={100} onChange={(v) => setForm({ ...form, probability: v })} />
-            </FieldGroup>
-          </div>
-
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-            <button onClick={handleSave} style={saveBtnStyle}>保存</button>
-            <button onClick={handleDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.3)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>
-              删除
-            </button>
-            <button onClick={() => {
-              if (!selectedId) return;
-              const newId = 'e' + Date.now();
-              useLorebookStore.setState((s) => ({
-                books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...form, name: form.name + '(副本)' } } } },
-              }));
-              setSelectedId(newId);
-            }} style={{ ...saveBtnStyle, borderColor: 'rgba(196,168,85,0.3)', color: 'var(--gold)', background: 'rgba(196,168,85,0.06)' }}>
-              复制条目
-            </button>
-          </div>
-
-          {/* Move/Copy to other book */}
-          {Object.keys(books).length > 1 && (
-            <FieldGroup label="移至其他世界书">
-              <div style={{ display: 'flex', gap: 4 }}>
-                <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
-                  options={Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))} />
-                <button onClick={() => {
-                  if (!selectedId || !moveTarget) return;
-                  const targetId = moveTarget;
-                  useLorebookStore.setState((s) => {
-                    const books = { ...s.books };
-                    books[targetId] = { ...books[targetId], entries: { ...books[targetId].entries, [selectedId]: { ...form } } };
-                    const srcEntries = { ...books[bookId].entries };
-                    delete srcEntries[selectedId];
-                    books[bookId] = { ...books[bookId], entries: srcEntries };
-                    return { books };
-                  });
-                  setSelectedId(null);
-                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>移动</button>
-                <button onClick={() => {
-                  if (!selectedId || !moveTarget) return;
-                  useLorebookStore.setState((s) => ({
-                    books: { ...s.books, [moveTarget]: { ...s.books[moveTarget], entries: { ...s.books[moveTarget].entries, [selectedId + '_copy']: { ...form, name: form.name + '(副本)' } } } },
-                  }));
-                }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>复制到</button>
-              </div>
-            </FieldGroup>
+          <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(196,168,85,0.15)', position: 'sticky', top: 0, background: 'var(--leather)', zIndex: 1 }}>
+                <th style={thStyle}>状态</th>
+                <th style={thStyle}>名称</th>
+                <th style={thStyle}>关键词</th>
+                <th style={{ ...thStyle, width: 50 }}>匹配</th>
+                <th style={{ ...thStyle, width: 40 }}>顺序</th>
+                <th style={{ ...thStyle, width: 40 }}>概率</th>
+                <th style={{ ...thStyle, width: 80 }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entryList.map(([id, entry]) => (
+                <tr key={id} onClick={() => openDetail(id)} style={{
+                  cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  opacity: entry.disabled ? 0.45 : 1,
+                  background: editingId === id ? 'rgba(196,168,85,0.06)' : 'transparent',
+                  transition: 'background 0.1s',
+                }}
+                  onMouseEnter={(e) => { if (editingId !== id) e.currentTarget.style.background = 'rgba(196,168,85,0.03)'; }}
+                  onMouseLeave={(e) => { if (editingId !== id) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <td style={tdStyle}>
+                    <button onClick={(e) => { e.stopPropagation(); handleToggle(id); }} style={{
+                      padding: '2px 8px', borderRadius: 2, border: '1px solid',
+                      borderColor: entry.disabled ? 'var(--blood)' : 'var(--success)',
+                      background: entry.disabled ? 'rgba(139,58,58,0.1)' : 'rgba(58,107,90,0.1)',
+                      color: entry.disabled ? 'var(--blood)' : 'var(--success)',
+                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
+                    }}>{entry.disabled ? 'OFF' : 'ON'}</button>
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', color: 'var(--text-light)' }}>
+                    {entry.name || '(未命名)'}
+                    {entry.constant && <span style={{ fontSize: 8, color: 'var(--gold)', marginLeft: 4 }}>永久</span>}
+                  </td>
+                  <td style={{ ...tdStyle, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {entry.keys || '—'}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                    <span style={{ color: entry.logic === 'AND' ? 'var(--gold)' : entry.logic === 'NOT' ? 'var(--blood)' : 'var(--success)' }}>
+                      {entry.logic}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.priority}</td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.probability}%</td>
+                  <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button onClick={() => openDetail(id)} style={rowBtn}>编</button>
+                      <button onClick={() => {
+                        const newId = 'e' + Date.now();
+                        useLorebookStore.setState((s) => ({
+                          books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...entry, name: entry.name + '(副)' } } } },
+                        }));
+                      }} style={rowBtn}>复</button>
+                      <button onClick={() => deleteEntry(bookId, id)} style={{ ...rowBtn, color: 'var(--blood)' }}>删</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {entryList.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 12 }}>暂无词条，点击"+ 新建"创建</div>
           )}
         </div>
+
+        {/* Move to other book */}
+        {Object.keys(books).length > 1 && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,168,85,0.12)', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>移至:</span>
+            <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
+              options={Object.entries(books).filter(([id]) => id !== bookId).map(([id, b]) => ({ label: b.name, value: id }))} />
+            <button onClick={() => {
+              if (!editingId || !moveTarget || editingId === '__new__') return;
+              useLorebookStore.setState((s) => {
+                const books = { ...s.books };
+                books[moveTarget] = { ...books[moveTarget], entries: { ...books[moveTarget].entries, [editingId]: { ...form } } };
+                const src = { ...books[bookId].entries }; delete src[editingId];
+                books[bookId] = { ...books[bookId], entries: src };
+                return { books };
+              });
+              setEditingId(null); setMoveTarget('');
+            }} style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px' }}>移动选中</button>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Detail modal */}
+      {editingId !== null && (
+        <EntryDetail
+          form={form}
+          onChange={setForm}
+          onSave={handleSave}
+          onClose={() => setEditingId(null)}
+          onDelete={handleDelete}
+          onCopy={handleCopy}
+          isNew={editingId === '__new__'}
+        />
+      )}
     </div>
   );
 }
+
+// ── Entry Detail Modal ──
+
+function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew }: {
+  form: LoreEntry; onChange: (f: LoreEntry) => void; onSave: () => void; onClose: () => void;
+  onDelete: () => void; onCopy: () => void; isNew: boolean;
+}) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--gold)', borderRadius: 8, padding: '20px 24px',
+        minWidth: 500, maxWidth: 560, width: '90%', maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 0 60px rgba(0,0,0,0.7)',
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.15)', paddingBottom: 10 }}>
+          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: 'var(--gold)', letterSpacing: 2, margin: 0 }}>
+            {isNew ? '新建词条' : '编辑词条'}
+          </h4>
+          <button onClick={onClose} style={closeBtnStyle}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontWeight: 'bold' }}>状态</span>
+            <button onClick={() => onChange({ ...form, disabled: !form.disabled })} style={{
+              padding: '3px 14px', borderRadius: 2, border: '1px solid',
+              borderColor: form.disabled ? 'var(--blood)' : 'var(--success)',
+              background: form.disabled ? 'rgba(139,58,58,0.1)' : 'rgba(58,107,90,0.1)',
+              color: form.disabled ? 'var(--blood)' : 'var(--success)',
+              fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+            }}>{form.disabled ? '禁用' : '激活'}</button>
+            <Dropdown value={form.constant ? 'constant' : 'keyword'} onChange={(v) => onChange({ ...form, constant: v === 'constant' })}
+              options={[{ label: '关键词匹配', value: 'keyword' }, { label: '永久激活', value: 'constant' }]} />
+          </div>
+
+          <FieldGroup label="词条名称">
+            <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} placeholder="词条名称" style={fieldInputStyle} />
+          </FieldGroup>
+
+          <FieldGroup label="触发关键词">
+            <input value={form.keys} onChange={(e) => onChange({ ...form, keys: e.target.value })} placeholder="关键词1, 关键词2" style={fieldInputStyle} />
+          </FieldGroup>
+
+          <FieldGroup label="内容">
+            <textarea value={form.content} onChange={(e) => onChange({ ...form, content: e.target.value })} placeholder="词条正文内容..."
+              style={{ ...fieldInputStyle, minHeight: 100, resize: 'vertical', fontFamily: 'var(--font-body)' }} />
+          </FieldGroup>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <FieldGroup label="插入位置">
+              <Dropdown value={form.position} onChange={(v) => onChange({ ...form, position: v as 'before_char' | 'after_char' })}
+                options={[{ label: '角色定义之前', value: 'before_char' }, { label: '角色定义之后', value: 'after_char' }]} />
+            </FieldGroup>
+            <FieldGroup label="匹配逻辑">
+              <Dropdown value={form.logic} onChange={(v) => onChange({ ...form, logic: v as LoreEntry['logic'] })}
+                options={[{ label: 'AND', value: 'AND' }, { label: 'OR', value: 'OR' }, { label: 'NOT', value: 'NOT' }]} />
+            </FieldGroup>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <FieldGroup label="深度">
+              <SpinField value={form.depth} min={0} max={10} onChange={(v) => onChange({ ...form, depth: v })} />
+            </FieldGroup>
+            <FieldGroup label="顺序">
+              <SpinField value={form.priority} min={1} max={999} onChange={(v) => onChange({ ...form, priority: v })} />
+            </FieldGroup>
+            <FieldGroup label="概率%">
+              <SpinField value={form.probability} min={0} max={100} onChange={(v) => onChange({ ...form, probability: v })} />
+            </FieldGroup>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button onClick={onSave} style={saveBtnStyle}>保存</button>
+            {!isNew && <button onClick={onDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.4)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>删除</button>}
+            {!isNew && <button onClick={onCopy} style={{ ...saveBtnStyle, borderColor: 'rgba(196,168,85,0.3)', color: 'var(--gold)', background: 'rgba(196,168,85,0.06)' }}>复制</button>}
+            <div style={{ flex: 1 }} />
+            <button onClick={onClose} style={{ ...saveBtnStyle, borderColor: 'rgba(255,255,255,0.1)', color: 'var(--ink-subtle)' }}>取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reusable components ──
 
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -293,21 +308,19 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-/** Custom dropdown replacing native <select> for consistent dark theme styling */
 function Dropdown({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value)?.label ?? value;
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', minWidth: 110 }}>
       <button onClick={() => setOpen(!open)} style={{
-        width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+        width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
         background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
-        fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        outline: 'none',
+        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
       }}>
         <span>{selected}</span>
-        <span style={{ fontSize: 9, color: 'var(--brass)' }}>▼</span>
+        <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
       </button>
       {open && (
         <>
@@ -319,10 +332,10 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
           }}>
             {options.map((opt) => (
               <div key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} style={{
-                padding: '8px 10px', cursor: 'pointer',
+                padding: '6px 8px', cursor: 'pointer',
                 background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
                 color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 12,
+                fontFamily: 'var(--font-ui)', fontSize: 11,
                 borderBottom: '1px solid rgba(196,168,85,0.06)',
               }}
                 onMouseEnter={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
@@ -336,7 +349,6 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
   );
 }
 
-/** Custom spin button for number fields — buttons + direct text input */
 function SpinField({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
   const clamp = (n: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, n));
   const inc = () => onChange(clamp(value + 1));
@@ -345,30 +357,29 @@ function SpinField({ value, onChange, min, max }: { value: number; onChange: (v:
     <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--brass)', borderRadius: 3, overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
       <button onClick={dec} style={{
         border: 'none', background: 'transparent', color: 'var(--gold)',
-        fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
-        padding: '4px 10px', borderRight: '1px solid var(--brass)',
+        fontFamily: 'var(--font-mono)', fontSize: 13, cursor: 'pointer',
+        padding: '4px 8px', borderRight: '1px solid var(--brass)',
       }}>−</button>
-      <input type="number"
-        value={value}
+      <input type="number" value={value}
         onChange={(e) => { const n = Number(e.target.value); if (!isNaN(n)) onChange(clamp(n)); }}
         min={min} max={max}
         style={{
-          flex: 1, minWidth: 40, width: 50, border: 'none', background: 'transparent',
-          color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 13,
+          flex: 1, minWidth: 36, width: 44, border: 'none', background: 'transparent',
+          color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 12,
           textAlign: 'center', outline: 'none',
-          MozAppearance: 'textfield',
-          WebkitAppearance: 'none',
-          margin: 0,
+          MozAppearance: 'textfield', WebkitAppearance: 'none', margin: 0,
         }} />
-        <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
+      <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
       <button onClick={inc} style={{
         border: 'none', background: 'transparent', color: 'var(--gold)',
-        fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
-        padding: '4px 10px', borderLeft: '1px solid var(--brass)',
+        fontFamily: 'var(--font-mono)', fontSize: 13, cursor: 'pointer',
+        padding: '4px 8px', borderLeft: '1px solid var(--brass)',
       }}>+</button>
     </div>
   );
 }
+
+// ── Styles ──
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 950,
@@ -378,15 +389,41 @@ const overlayStyle: React.CSSProperties = {
 
 const panelStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
-  border: '1px solid var(--gold)', borderRadius: 8,
-  padding: '24px 28px', maxWidth: 720, width: '90%',
-  boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+  border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
+  maxWidth: 720, width: '90%', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
 };
 
 const closeBtnStyle: React.CSSProperties = {
   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
   border: '1px solid transparent', borderRadius: 3, background: 'transparent',
   color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+};
+
+const backBtn: React.CSSProperties = {
+  padding: '4px 12px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'transparent', color: 'var(--ink-subtle)',
+  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+};
+
+const addBtnStyle: React.CSSProperties = {
+  padding: '5px 14px', border: '1px solid var(--gold)', borderRadius: 3,
+  background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
+  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+};
+
+const thStyle: React.CSSProperties = {
+  padding: '8px 8px', textAlign: 'left', fontSize: 9, fontWeight: 'normal',
+  color: 'var(--ink-faded)', letterSpacing: 1, fontFamily: 'var(--font-ui)',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '7px 8px', fontSize: 11, color: 'var(--ink-subtle)',
+};
+
+const rowBtn: React.CSSProperties = {
+  padding: '2px 6px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 2,
+  background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)',
+  fontSize: 10, cursor: 'pointer',
 };
 
 const fieldInputStyle: React.CSSProperties = {
