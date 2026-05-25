@@ -29,6 +29,7 @@ export default function App() {
   const closeAll = usePanelStore((s) => s.closeAll);
   const lorebookEditorBookId = usePanelStore((s) => s.lorebookEditorBookId);
   const presetEditorPreset = usePanelStore((s) => s.presetEditorPreset);
+  const presetEditorOnSave = usePanelStore((s) => s.presetEditorOnSave);
   const openLorebookEditor = usePanelStore((s) => s.openLorebookEditor);
   const openPresetEditor = usePanelStore((s) => s.openPresetEditor);
 
@@ -70,10 +71,10 @@ export default function App() {
         <WorldbookPanel onClose={closeAll} onEditBook={(bookId: string) => openLorebookEditor(bookId)} />
       )}
       {openPanel === 'preset' && (
-        <PresetPanel onClose={closeAll} onEditPreset={(preset) => openPresetEditor(preset)} />
+        <PresetPanel onClose={closeAll} onEditPreset={(preset, onSave) => openPresetEditor(preset, onSave)} />
       )}
       {openPanel === 'presetEditor' && presetEditorPreset && (
-        <PresetEditor preset={presetEditorPreset} onClose={closeAll} />
+        <PresetEditor preset={presetEditorPreset} onClose={closeAll} onSave={presetEditorOnSave ?? (() => {})} />
       )}
       {openPanel === 'chatlist' && (
         <ChatlistPanel onClose={closeAll} />

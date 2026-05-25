@@ -1,13 +1,9 @@
 import { usePanelStore } from '../../stores/usePanelStore';
-import { useDiceStore } from '../../stores/useDiceStore';
-import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
-interface Props { onReturnToMenu: () => void; onCreateCharacter: () => void }
+interface Props { onReturnToMenu: () => void }
 
-export function TopBar({ onReturnToMenu, onCreateCharacter }: Props) {
+export function TopBar({ onReturnToMenu }: Props) {
   const openPanel = usePanelStore((s) => s.open);
-  const openDice = useDiceStore((s) => s.open);
-  const toggleCharSheet = useCharSheetStore((s) => s.toggle);
 
   return (
     <header style={{
@@ -26,9 +22,6 @@ export function TopBar({ onReturnToMenu, onCreateCharacter }: Props) {
         <span style={{ color: 'var(--ink-subtle)', fontSize: 10, letterSpacing: 2 }}>ABYSSAL ARCHIVE</span>
       </div>
       <nav style={{ display: 'flex', gap: 8 }}>
-        <NavButton label="掷 骰" onClick={() => openDice()} />
-        <NavButton label="角 色 卡" onClick={() => toggleCharSheet()} />
-        <NavButton label="创 建 角 色" onClick={onCreateCharacter} />
         <NavButton label="设 置" onClick={() => openPanel('settings')} />
         <NavButton label="世 界 书" onClick={() => openPanel('worldbook')} />
         <NavButton label="预 设" onClick={() => openPanel('preset')} />
