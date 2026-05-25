@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { useRegexStore } from '../../stores/useRegexStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import type { ChatPreset } from '../../types';
 
@@ -10,6 +11,8 @@ const DEFAULT_PRESETS: Record<string, ChatPreset> = {
     systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
     userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
     unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
+    streamEnabled: false, reasoningEffort: 'auto', responseLength: 'auto', seed: -1,
+    charNameBehavior: 'none', continueSuffix: 'none',
     mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
     aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
     worldBookTemplate: '[世界书: {0}]',
@@ -27,7 +30,7 @@ const DEFAULT_PRESETS: Record<string, ChatPreset> = {
 
 interface Props {
   onClose: () => void;
-  onEditPreset: (preset: ChatPreset) => void;
+  onEditPreset: (preset: ChatPreset, onSave: (p: ChatPreset) => void) => void;
 }
 
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
@@ -51,7 +54,8 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   const handleExport = (id: string) => {
     const preset = presets[id];
     if (!preset) return;
-    const json = exportPresetToST(preset);
+    const regexScripts = useRegexStore.getState().presetScripts;
+    const json = exportPresetToST(preset, regexScripts);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -65,12 +69,20 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
     const reader = new FileReader();
     reader.onload = () => {
       const fileName = file.name.replace(/\.json$/i, '');
-      const preset = importPresetFromST(reader.result as string, fileName);
-      if (preset) {
+      const result = importPresetFromST(reader.result as string, fileName);
+      if (result) {
+        const { preset, regexScripts } = result;
         const updated = { ...presets, [preset.id]: preset };
         setPresets(updated);
         savePresets(updated);
         setSelectedId(preset.id);
+        // Import regex scripts into preset category
+        if (regexScripts.length > 0) {
+          const store = useRegexStore.getState();
+          for (const script of regexScripts) {
+            store.addScript({ ...script, id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }, 'preset');
+          }
+        }
       }
     };
     reader.readAsText(file);
@@ -135,7 +147,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset); }} style={actionBtnStyle}>编辑</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); }); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
                   {id !== 'p1' && (
                     <button onClick={(e) => { e.stopPropagation();
@@ -165,7 +177,18 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           导入 ST 预设
         </button>
 
-        <button style={{
+        <button onClick={() => {
+          const newId = `preset-${Date.now()}`;
+          const newPreset: ChatPreset = {
+            ...DEFAULT_PRESETS.p1,
+            id: newId,
+            name: '新建预设',
+          };
+          const updated = { ...presets, [newId]: newPreset };
+          setPresets(updated);
+          savePresets(updated);
+          setSelectedId(newId);
+        }} style={{
           width: '100%', marginTop: 16, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChatPreset, PromptItem } from '../../types';
 
-interface Props { preset: ChatPreset; onClose: () => void; }
+interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
 
 const DEFAULT_PRESET: ChatPreset = {
   id: 'p1', name: '默认预设',
@@ -9,6 +9,8 @@ const DEFAULT_PRESET: ChatPreset = {
   systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
   userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
   unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
+  streamEnabled: false, reasoningEffort: 'auto', responseLength: 'auto', seed: -1,
+  charNameBehavior: 'none', continueSuffix: 'none',
   mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
   aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
   worldBookTemplate: '[世界书: {0}]',
@@ -38,9 +40,27 @@ const MODULE_ITEMS = [
   { key: 'postHistoryInstructions', label: 'Post-History Instructions', content: '' },
 ];
 
-export function PresetEditor({ preset, onClose }: Props) {
+const TRIGGER_OPTIONS = [
+  { value: 'normal', label: '正常' },
+  { value: 'continue', label: '续写' },
+  { value: 'ai_assist', label: 'AI帮答' },
+  { value: 'alt_reply', label: '备选回复' },
+  { value: 'regenerate', label: '重新生成' },
+  { value: 'silent', label: '静默' },
+];
+
+// Markers whose content is auto-filled from other sources — name editable, content locked
+const CONTENT_SOURCE: Record<string, string> = {
+  worldInfoBefore: '来自世界书条目（角色前）',
+  worldInfoAfter: '来自世界书条目（角色后）',
+  charPersonality: '来自角色性格设定',
+  charDescription: '来自角色描述',
+  personaDescription: '来自用户设定描述',
+  scenario: '来自场景设定',
+};
+
+export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [form, setForm] = useState<ChatPreset>({ ...preset });
-  const [viewStream, setViewStream] = useState(true);
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const m of MODULE_ITEMS) {
@@ -50,6 +70,7 @@ export function PresetEditor({ preset, onClose }: Props) {
     return init;
   });
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
+  const [triggerDropdownOpen, setTriggerDropdownOpen] = useState(false);
   const [selectedLibId, setSelectedLibId] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -62,7 +83,7 @@ export function PresetEditor({ preset, onClose }: Props) {
     if (!hasMarkers) {
       for (const mod of MODULE_ITEMS) {
         if (!existing.find((p: any) => p.id === mod.key)) {
-          existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'dialogueExamples' || mod.key === 'chatHistory', role: 'system', trigger: 'normal', position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
+          existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'dialogueExamples' || mod.key === 'chatHistory', role: 'system', trigger: [], position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
         }
       }
     }
@@ -150,7 +171,7 @@ export function PresetEditor({ preset, onClose }: Props) {
           <div style={s.sectionTitle}>参数调节区</div>
           <div style={{ marginBottom: 8 }}>
             <label style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={viewStream} onChange={(e) => setViewStream(e.target.checked)}
+              <input type="checkbox" checked={form.streamEnabled} onChange={(e) => set('streamEnabled', e.target.checked)}
                 style={{ accentColor: 'var(--gold)' }} />
               流式传输
             </label>
@@ -261,11 +282,11 @@ export function PresetEditor({ preset, onClose }: Props) {
               fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', position: 'relative', top: -5,
             }}>?</a>
           </div>
-          <Dropdown value="自动" onChange={() => {}} options={[
-            { label: '自动', value: '自动' },
-            { label: '低', value: '低' },
-            { label: '中', value: '中' },
-            { label: '高', value: '高' },
+          <Dropdown value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
+            { label: '自动', value: 'auto' },
+            { label: '低', value: 'low' },
+            { label: '中', value: 'medium' },
+            { label: '高', value: 'high' },
           ]} />
         </div>
 
@@ -273,11 +294,11 @@ export function PresetEditor({ preset, onClose }: Props) {
         <div style={s.section}>
           <div style={s.sectionTitle}>长度</div>
           <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
-          <Dropdown value="自动" onChange={() => {}} options={[
-            { label: '自动', value: '自动' },
-            { label: '短', value: '短' },
-            { label: '中', value: '中' },
-            { label: '长', value: '长' },
+          <Dropdown value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
+            { label: '自动', value: 'auto' },
+            { label: '短', value: 'short' },
+            { label: '中', value: 'medium' },
+            { label: '长', value: 'long' },
           ]} />
         </div>
 
@@ -285,7 +306,7 @@ export function PresetEditor({ preset, onClose }: Props) {
         <div style={s.section}>
           <div style={s.sectionTitle}>种子</div>
           <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>设置此值以获得确定性结果。使用-1代表随机种子。</span>
-          <input type="number" defaultValue={-1} style={{ ...s.numInput, width: 100 }} />
+          <input type="number" value={form.seed} onChange={(e) => set('seed', Number(e.target.value) || -1)} style={{ ...s.numInput, width: 100 }} />
         </div>
 
         {/* Char name behavior */}
@@ -294,10 +315,10 @@ export function PresetEditor({ preset, onClose }: Props) {
             <div style={s.sectionTitle}>角色名称行为</div>
             <a href="#" title="有助于模型将消息与角色关联起来。" style={helpLinkStyle}>?</a>
           </div>
-          <Dropdown value="无" onChange={() => {}} options={[
-            { label: '无 — 不添加角色名称前缀', value: '无' },
-            { label: '补全对象 — 仅限拉丁字母数字和下划线', value: '补全对象' },
-            { label: '消息内容 — 在消息内容中添加角色名称', value: '消息内容' },
+          <Dropdown value={form.charNameBehavior} onChange={(v) => set('charNameBehavior', v)} options={[
+            { label: '无 — 不添加角色名称前缀', value: 'none' },
+            { label: '补全对象 — 仅限拉丁字母数字和下划线', value: 'completion' },
+            { label: '消息内容 — 在消息内容中添加角色名称', value: 'content' },
           ]} />
         </div>
 
@@ -307,11 +328,11 @@ export function PresetEditor({ preset, onClose }: Props) {
             <div style={s.sectionTitle}>续写后缀</div>
             <a href="#" title="将以此分隔续写消息和原消息。" style={helpLinkStyle}>?</a>
           </div>
-          <Dropdown value="无" onChange={() => {}} options={[
-            { label: '无', value: '无' },
-            { label: '空格', value: '空格' },
-            { label: '换行', value: '换行' },
-            { label: '双换行', value: '双换行' },
+          <Dropdown value={form.continueSuffix} onChange={(v) => set('continueSuffix', v)} options={[
+            { label: '无', value: 'none' },
+            { label: '空格', value: 'space' },
+            { label: '换行', value: 'newline' },
+            { label: '双换行', value: 'doublenewline' },
           ]} />
         </div>
 
@@ -361,22 +382,13 @@ export function PresetEditor({ preset, onClose }: Props) {
               setSelectedLibId('');
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--blood)', opacity: selectedLibId ? 1 : 0.4 }}>删除</button>
             <button onClick={() => {
-              setEditingPrompt({ id: '', name: '', role: 'system', trigger: 'normal', position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt', _originalName: '' });
+              setEditingPrompt({ id: '', name: '', role: 'system', trigger: [], position: 'relative', depth: 4, order: 100, content: '', enabled: true, kind: 'prompt', _originalName: '' });
             }} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>+ 新建</button>
           </div>
 
           {/* Prompt editor modal */}
           {editingPrompt && (
             <div style={{ border: '1px solid var(--gold)', borderRadius: 4, padding: 10, marginBottom: 8, background: 'rgba(0,0,0,0.2)' }}>
-              {(editingPrompt as any)._readOnlyMarker ? (
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 8, lineHeight: 1.6 }}>
-                    此提示词的内容是从其他地方提取的，无法在此处进行编辑。<br />
-                    （如来源：{(editingPrompt as any)._markerNote || '角色设定'}）
-                  </div>
-                  <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>关闭</button>
-                </div>
-              ) : (
               <><div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>名称</span>
@@ -387,13 +399,39 @@ export function PresetEditor({ preset, onClose }: Props) {
                   <Dropdown value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
                     options={[{ label: '系统', value: 'system' }, { label: '用户', value: 'user' }, { label: 'AI助手', value: 'assistant' }]} />
                 </div>
-                <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>触发器</span>
-                  <Dropdown value={editingPrompt.trigger} onChange={(v) => setEditingPrompt({ ...editingPrompt, trigger: v as PromptItem['trigger'] })}
-                    options={[
-                      { label: '正常', value: 'normal' }, { label: '续写', value: 'continue' }, { label: 'AI帮答', value: 'ai_assist' },
-                      { label: '备选回复', value: 'alt_reply' }, { label: '重新生成', value: 'regenerate' }, { label: '静默', value: 'silent' },
-                    ]} />
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setTriggerDropdownOpen(!triggerDropdownOpen)} style={{
+                      width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+                      background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
+                    }}>
+                      <span>{editingPrompt.trigger.length === 0 ? '全部' : editingPrompt.trigger.map((t: string) => TRIGGER_OPTIONS.find(o => o.value === t)?.label ?? t).join(', ')}</span>
+                      <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+                    </button>
+                    {triggerDropdownOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setTriggerDropdownOpen(false)} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, padding: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
+                          {TRIGGER_OPTIONS.map(opt => (
+                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }}>
+                              <input type="checkbox" checked={editingPrompt.trigger.includes(opt.value)}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...editingPrompt.trigger, opt.value]
+                                    : editingPrompt.trigger.filter((t: string) => t !== opt.value);
+                                  setEditingPrompt({ ...editingPrompt, trigger: next });
+                                }}
+                                style={{ accentColor: 'var(--gold)' }} />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>位置</span>
@@ -417,27 +455,42 @@ export function PresetEditor({ preset, onClose }: Props) {
               )}
               <div style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 9, color: 'var(--gold)' }}>提示词内容</span>
-                <textarea value={editingPrompt.content} onChange={(e) => setEditingPrompt({ ...editingPrompt, content: e.target.value })} style={{ ...s.textarea, minHeight: 60 }} />
+                {(editingPrompt as any)._contentReadOnly && (
+                  <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>
+                    {CONTENT_SOURCE[editingPrompt.id] || '内容由其他来源自动填充'}
+                  </div>
+                )}
+                <textarea value={editingPrompt.content} onChange={(e) => setEditingPrompt({ ...editingPrompt, content: e.target.value })}
+                  disabled={(editingPrompt as any)._contentReadOnly}
+                  style={{ ...s.textarea, minHeight: 60, opacity: (editingPrompt as any)._contentReadOnly ? 0.5 : 1 }} />
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
-                  const isExisting = editingPrompt.id && libraryItems.some((p: any) => p.id === editingPrompt.id);
-                  if (isExisting) {
-                    // Update library item + any active copies with same name
-                    const updated = allItems.map((p: any) => {
-                      if (p.id === editingPrompt.id) return { ...editingPrompt, id: p.id, _library: true };
-                      if (p.kind === 'prompt' && p.name === editingPrompt._originalName) return { ...p, name: editingPrompt.name, role: editingPrompt.role, trigger: editingPrompt.trigger, position: editingPrompt.position, depth: editingPrompt.depth, order: editingPrompt.order, content: editingPrompt.content };
-                      return p;
-                    });
+                  if (editingPrompt.kind === 'marker') {
+                    const updated = form.promptItems.map((p: any) =>
+                      p.id === editingPrompt.id && p.kind === 'marker'
+                        ? { ...p, name: editingPrompt.name, content: (editingPrompt as any)._contentReadOnly ? p.content : editingPrompt.content }
+                        : p
+                    );
                     set('promptItems', updated as unknown as string);
                   } else {
-                    const id = editingPrompt.id || 'pi_' + Date.now();
-                    set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt', _library: true }] as unknown as string);
+                    const isExisting = editingPrompt.id && libraryItems.some((p: any) => p.id === editingPrompt.id);
+                    if (isExisting) {
+                      const updated = allItems.map((p: any) => {
+                        if (p.id === editingPrompt.id) return { ...editingPrompt, id: p.id, _library: true };
+                        if (p.kind === 'prompt' && p.name === editingPrompt._originalName) return { ...p, name: editingPrompt.name, role: editingPrompt.role, trigger: editingPrompt.trigger, position: editingPrompt.position, depth: editingPrompt.depth, order: editingPrompt.order, content: editingPrompt.content };
+                        return p;
+                      });
+                      set('promptItems', updated as unknown as string);
+                    } else {
+                      const id = editingPrompt.id || 'pi_' + Date.now();
+                      set('promptItems', [...form.promptItems, { ...editingPrompt, id, kind: 'prompt', _library: true }] as unknown as string);
+                    }
                   }
                   setEditingPrompt(null);
                 }} style={s.btn}>保存</button>
                 <button onClick={() => setEditingPrompt(null)} style={{ ...s.btn, color: 'var(--ink-subtle)' }}>取消</button>
-              </div></>)}
+              </div></>
             </div>
           )}
 
@@ -446,6 +499,7 @@ export function PresetEditor({ preset, onClose }: Props) {
             {activeItems.map((item: any, idx: number) => {
               const isMarker = item.kind === 'marker';
               const isReadOnly = item.id === 'dialogueExamples' || item.id === 'chatHistory';
+              const isContentReadOnly = isMarker && item.id in CONTENT_SOURCE;
               const enabled = isMarker ? (moduleEnabled[item.id] !== false) : item.enabled;
               return (
                 <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={handleDragOver}
@@ -471,16 +525,14 @@ export function PresetEditor({ preset, onClose }: Props) {
                   )}
                   {!isReadOnly && (
                     <button onClick={() => {
-                      if (isMarker) { setEditingPrompt({ ...item, _originalName: item.name, _markerNote: item.name, _readOnlyMarker: true } as any); }
-                      else { setEditingPrompt({ ...item, _originalName: item._originalName || item.name }); }
+                      setEditingPrompt({ ...item, _originalName: item._originalName || item.name, _contentReadOnly: isContentReadOnly });
                     }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                   )}
                   <button onClick={() => {
-                    if (isReadOnly) return;
                     if (isMarker) { setModuleEnabled((p) => ({ ...p, [item.id]: !(p[item.id] !== false) })); return; }
                     const items: any[] = [...allItems]; const targetIdx = items.findIndex((p: any) => p.id === item.id); items[targetIdx] = { ...items[targetIdx], enabled: !items[targetIdx].enabled };
                     set('promptItems', items as unknown as string);
-                  }} disabled={isReadOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: isReadOnly ? 'not-allowed' : 'pointer', opacity: isReadOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
+                  }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{enabled ? 'ON' : 'OFF'}</button>
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
                     {isMarker ? '-' : ((item.content || '').length > 0 ? `~${Math.round(item.content.length / 2.5)}t` : '-')}
                   </span>
@@ -490,7 +542,7 @@ export function PresetEditor({ preset, onClose }: Props) {
           </div>
         </div>
 
-        <button style={{
+        <button onClick={() => onSave(form)} style={{
           width: '100%', marginTop: 20, padding: '10px 0',
           border: '1px solid var(--gold)', borderRadius: 4,
           background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
