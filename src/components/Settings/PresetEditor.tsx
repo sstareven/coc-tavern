@@ -48,6 +48,28 @@ export function PresetEditor({ presetId, onClose }: Props) {
     Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
   );
   const [editingPrompt, setEditingPrompt] = useState<PromptItem | null>(null);
+  const [markerOrder, setMarkerOrder] = useState<string[]>(MODULE_ITEMS.map((m) => m.key));
+
+  const editMarker = (key: string) => {
+    // System marker configuration — placeholder for future expansion
+  };
+
+  const moveMarker = (key: string, dir: number) => {
+    setMarkerOrder((prev) => {
+      const idx = prev.indexOf(key);
+      if (idx + dir < 0 || idx + dir >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[idx + dir]] = [next[idx + dir], next[idx]];
+      return next;
+    });
+  };
+
+  const movePrompt = (idx: number, dir: number) => {
+    if (idx + dir < 0 || idx + dir >= form.promptItems.length) return;
+    const items: any[] = [...form.promptItems];
+    [items[idx], items[idx + dir]] = [items[idx + dir], items[idx]];
+    set('promptItems', items as unknown as string);
+  };
 
   if (!base) {
     return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
@@ -353,15 +375,20 @@ export function PresetEditor({ presetId, onClose }: Props) {
 
           {/* Unified list: markers + user prompts */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 360, overflowY: 'auto' }}>
-            {/* System markers — always present */}
-            {MODULE_ITEMS.map((mod) => {
+            {/* System markers — ordered by markerOrder */}
+            {markerOrder.map((key) => {
+              const mod = MODULE_ITEMS.find((m) => m.key === key)!;
               const enabled = moduleEnabled[mod.key];
               const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
               return (
                 <div key={mod.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', border: '1px solid rgba(196,168,85,0.06)', borderRadius: 3, background: 'rgba(0,0,0,0.08)', opacity: enabled ? 1 : 0.4 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <button onClick={() => moveMarker(mod.key, -1)} style={arrowBtnStyle}>▲</button>
+                    <button onClick={() => moveMarker(mod.key, 1)} style={arrowBtnStyle}>▼</button>
+                  </div>
                   <span style={{ fontSize: 8, color: 'var(--gold)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>System</span>
                   <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>{mod.label}</span>
-                  {!readOnly && <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>}
+                  <button onClick={() => { editMarker(mod.key); }} title="配置" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                   <button onClick={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} disabled={readOnly} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>{enabled ? 'ON' : 'OFF'}</button>
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>-</span>
                 </div>
@@ -370,13 +397,17 @@ export function PresetEditor({ presetId, onClose }: Props) {
             {/* User prompts — created by user */}
             {form.promptItems.filter((p: any) => p.kind !== 'marker').map((item: any, idx: number) => (
               <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', border: '1px solid rgba(196,168,85,0.12)', borderLeft: '2px solid var(--gold)', borderRadius: 3, background: 'rgba(196,168,85,0.03)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <button onClick={() => movePrompt(idx, -1)} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
+                  <button onClick={() => movePrompt(idx, 1)} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
+                </div>
                 <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>Prompt</span>
                 <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   {item.name || '(未命名)'}
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>
                 </span>
-                <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                 <button onClick={() => { set('promptItems', form.promptItems.filter((_: any, i: number) => i !== idx) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                <button onClick={() => { setEditingPrompt(item); }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
                 <button onClick={() => {
                   const items: any[] = [...form.promptItems];
                   items[items.indexOf(item)] = { ...item, enabled: !item.enabled };
