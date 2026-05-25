@@ -25,10 +25,28 @@ const DEFAULT_DATA: Record<string, ChatPreset> = {
   },
 };
 
+const MODULE_ITEMS = [
+  { key: 'main_prompt', label: 'Main Prompt', content: '' },
+  { key: 'world_info_before', label: 'World Info (before)', content: '' },
+  { key: 'persona', label: 'Persona Description', content: '' },
+  { key: 'char_desc', label: 'Char Description', content: '' },
+  { key: 'char_personality', label: 'Char Personality', content: '' },
+  { key: 'scenario', label: 'Scenario', content: '' },
+  { key: 'enhance', label: 'Enhance Definitions', content: '' },
+  { key: 'auxiliary', label: 'Auxiliary Prompt', content: '' },
+  { key: 'world_info_after', label: 'World Info (after)', content: '' },
+  { key: 'chat_examples', label: 'Chat Examples', content: '' },
+  { key: 'chat_history', label: 'Chat History', content: '' },
+  { key: 'post_history', label: 'Post-History Instructions', content: '' },
+];
+
 export function PresetEditor({ presetId, onClose }: Props) {
   const base = DEFAULT_DATA[presetId];
   const [form, setForm] = useState<ChatPreset>(base ? { ...base } : DEFAULT_DATA.p1);
   const [viewStream, setViewStream] = useState(true);
+  const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(
+    Object.fromEntries(MODULE_ITEMS.map((m) => [m.key, true]))
+  );
 
   if (!base) {
     return <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}><p style={{ color: 'var(--ink-subtle)', textAlign: 'center', padding: 40 }}>预设未找到</p></div></div>;
@@ -256,92 +274,88 @@ export function PresetEditor({ presetId, onClose }: Props) {
           </div>
         </div>
 
-        {/* Prompt item list */}
+        {/* Fixed modules + Custom prompt items */}
         <div style={s.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={s.sectionTitle}>提示词列表</div>
             <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-              Token 使用总数: ~{form.promptItems.filter((p) => p.enabled).reduce((sum, p) => sum + Math.round(p.content.length / 2.5), 0)}
+              Token: ~{(() => {
+                const modTokens = MODULE_ITEMS.filter((m) => moduleEnabled[m.key]).reduce((sum, m) => sum + Math.round(m.content.length / 2.5), 0);
+                const itemTokens = form.promptItems.filter((p) => p.enabled).reduce((sum, p) => sum + Math.round(p.content.length / 2.5), 0);
+                return modTokens + itemTokens;
+              })()}
             </span>
           </div>
-          {/* Toolbar */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-            <button onClick={() => {
-              const id = 'pi_' + Date.now();
-              set('promptItems', [...form.promptItems, { id, label: '新提示词', content: '', enabled: true, order: form.promptItems.length }] as unknown as string);
-            }} style={s.miniBtn}>+ 添加提示词</button>
-            <button onClick={() => {
-              const filtered = form.promptItems.filter((p, i) => i !== form.promptItems.length - 1);
-              set('promptItems', filtered as unknown as string);
-            }} style={s.miniBtn}>- 删除最后</button>
-            <button onClick={() => {
-              const placeholder = { id: 'pi_' + Date.now(), label: '导入提示词', content: '', enabled: true, order: form.promptItems.length };
-              set('promptItems', [...form.promptItems, placeholder] as unknown as string);
-            }} style={s.miniBtn}>导入提示词</button>
-            <button onClick={() => {
-              set('promptItems', [...form.promptItems].sort((a, b) => a.order - b.order) as unknown as string);
-            }} style={s.miniBtn}>重置顺序</button>
+
+          {/* Fixed modules — always present, Chat Examples + Chat History are read-only */}
+          <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>固定模块（不可删除）</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 10 }}>
+            {MODULE_ITEMS.map((mod) => {
+              const enabled = moduleEnabled[mod.key];
+              const readOnly = mod.key === 'chat_examples' || mod.key === 'chat_history';
+              return (
+                <div key={mod.key} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', border: '1px solid rgba(196,168,85,0.08)',
+                  borderRadius: 3, background: 'rgba(0,0,0,0.1)',
+                  opacity: enabled ? 1 : 0.45,
+                }}>
+                  <button onClick={() => { if (!readOnly) setModuleEnabled((p) => ({ ...p, [mod.key]: !p[mod.key] })); }} style={{
+                    width: 32, padding: '2px 0', borderRadius: 2, border: '1px solid', textAlign: 'center',
+                    borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)',
+                    background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
+                    color: enabled ? 'var(--success)' : 'var(--ink-faded)',
+                    fontFamily: 'var(--font-ui)', fontSize: 8, cursor: readOnly ? 'not-allowed' : 'pointer',
+                    opacity: readOnly ? 0.5 : 1,
+                  }}>{enabled ? 'ON' : 'OFF'}</button>
+                  <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                    {mod.label}
+                    {readOnly && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>只读</span>}
+                  </span>
+                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>
+                    ~{Math.round(mod.content.length / 2.5)}t
+                  </span>
+                  {!readOnly && <button title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 11 }}>✎</button>}
+                </div>
+              );
+            })}
           </div>
-          {/* Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {form.promptItems.map((item, idx) => (
-              <div key={item.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 10px', border: '1px solid rgba(196,168,85,0.1)',
-                borderRadius: 4, background: 'rgba(0,0,0,0.15)',
-              }}>
-                {/* Reorder */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <button onClick={() => {
-                    if (idx === 0) return;
-                    const items = [...form.promptItems];
-                    [items[idx - 1], items[idx]] = [items[idx], items[idx - 1]];
-                    items.forEach((p, i) => p.order = i);
-                    set('promptItems', items as unknown as string);
-                  }} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
-                  <button onClick={() => {
-                    if (idx === form.promptItems.length - 1) return;
-                    const items = [...form.promptItems];
-                    [items[idx], items[idx + 1]] = [items[idx + 1], items[idx]];
-                    items.forEach((p, i) => p.order = i);
-                    set('promptItems', items as unknown as string);
-                  }} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
-                </div>
-                {/* Label + content */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input value={item.label} onChange={(e) => {
-                      const items = [...form.promptItems];
-                      items[idx] = { ...items[idx], label: e.target.value };
-                      set('promptItems', items as unknown as string);
-                    }} style={{ ...s.input, flex: 1, fontWeight: 'bold', fontSize: 11 }} placeholder="标题" />
-                    <button onClick={() => {
-                      const items = [...form.promptItems];
-                      items[idx] = { ...items[idx], enabled: !items[idx].enabled };
-                      set('promptItems', items as unknown as string);
-                    }} style={{
-                      padding: '2px 8px', borderRadius: 2, border: '1px solid',
-                      borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)',
-                      background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)',
-                      color: item.enabled ? 'var(--success)' : 'var(--ink-faded)',
-                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
-                    }}>{item.enabled ? 'ON' : 'OFF'}</button>
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>
-                      ~{Math.round(item.content.length / 2.5)}t
-                    </span>
-                  </div>
-                  <textarea value={item.content} onChange={(e) => {
-                    const items = [...form.promptItems];
-                    items[idx] = { ...items[idx], content: e.target.value };
-                    set('promptItems', items as unknown as string);
-                  }} style={{ ...s.textarea, minHeight: 30, fontSize: 10 }} placeholder="提示词内容..." />
-                </div>
+
+          {/* Custom prompt items — user managed */}
+          <div style={{ borderTop: '1px solid rgba(196,168,85,0.12)', paddingTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>自定义提示词（可排序）</span>
+              <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
-                  const items = form.promptItems.filter((_, i) => i !== idx);
-                  set('promptItems', items as unknown as string);
-                }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 14 }}>✕</button>
+                  const id = 'pi_' + Date.now();
+                  set('promptItems', [...form.promptItems, { id, label: '新提示词', content: '', enabled: true, order: form.promptItems.length }] as unknown as string);
+                }} style={s.miniBtn}>+ 添加</button>
+                <button onClick={() => { set('promptItems', DEFAULT_DATA.p1.promptItems as unknown as string); }} style={s.miniBtn}>重置</button>
               </div>
-            ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {form.promptItems.map((item, idx) => (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 8px', border: '1px solid rgba(196,168,85,0.1)',
+                  borderRadius: 3, background: 'rgba(0,0,0,0.15)',
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <button onClick={() => { if (idx === 0) return; const items = [...form.promptItems]; [items[idx-1], items[idx]] = [items[idx], items[idx-1]]; items.forEach((p,i) => p.order=i); set('promptItems', items as unknown as string); }} disabled={idx === 0} style={arrowBtnStyle}>▲</button>
+                    <button onClick={() => { if (idx === form.promptItems.length-1) return; const items = [...form.promptItems]; [items[idx], items[idx+1]] = [items[idx+1], items[idx]]; items.forEach((p,i) => p.order=i); set('promptItems', items as unknown as string); }} disabled={idx === form.promptItems.length - 1} style={arrowBtnStyle}>▼</button>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 3 }}>
+                      <input value={item.label} onChange={(e) => { const items = [...form.promptItems]; items[idx] = { ...items[idx], label: e.target.value }; set('promptItems', items as unknown as string); }} style={{ ...s.input, flex: 1, fontWeight: 'bold', fontSize: 10, padding: '2px 6px' }} placeholder="标题" />
+                      <button onClick={() => { const items = [...form.promptItems]; items[idx] = { ...items[idx], enabled: !items[idx].enabled }; set('promptItems', items as unknown as string); }} style={{ padding: '1px 6px', borderRadius: 2, border: '1px solid', borderColor: item.enabled ? 'var(--success)' : 'var(--ink-faded)', background: item.enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{item.enabled ? 'ON' : 'OFF'}</button>
+                      <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>~{Math.round(item.content.length / 2.5)}t</span>
+                    </div>
+                    <textarea value={item.content} onChange={(e) => { const items = [...form.promptItems]; items[idx] = { ...items[idx], content: e.target.value }; set('promptItems', items as unknown as string); }} style={{ ...s.textarea, minHeight: 24, fontSize: 10, padding: '4px 6px' }} placeholder="提示词内容..." />
+                  </div>
+                  <button onClick={() => { const items = form.promptItems.filter((_, i) => i !== idx); set('promptItems', items as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 12 }}>✕</button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
