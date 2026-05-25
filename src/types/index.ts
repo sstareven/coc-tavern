@@ -64,6 +64,9 @@ export interface DiceRecord {
 }
 
 // ===== Lorebooks =====
+// 0-9: before_char/after_char/before_exm/after_exm/before_an/after_an/system_d/user_d/ai_d/anchor
+export type InsertPosition = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
 export interface LoreEntry {
   name: string;
   keys: string;
@@ -72,7 +75,7 @@ export interface LoreEntry {
   priority: number;
   disabled: boolean;
   constant: boolean;
-  position: 'before_char' | 'after_char';
+  position: InsertPosition;
   depth: number;
   probability: number;
 }
