@@ -166,21 +166,10 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
 
     // Process prompt_order entries in order, respecting enabled state
     for (const { id, enabled } of orderedItems) {
-      const p = identifierMap[id];
-      if (p && (p as any).name) {
-        // Found a prompt — add with the enabled state from prompt_order
-        promptItems.push({
-          id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
-          trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: promptItems.length,
-          content: (p as any).content || '', enabled, kind: 'prompt' as const,
-          _library: false, _originalName: (p as any).name,
-        });
-        usedIds.add(id);
-      } else {
-        // Standard module marker
-        const label = MODULE_ID_MAP[id] || id;
-        const isNum = /^\d+$/.test(id);
-        if (isNum && !p) continue;
+      // Standard module markers — always treated as markers, even if prompt data exists
+      const isKnownModule = id in MODULE_ID_MAP;
+      if (isKnownModule) {
+        const label = MODULE_ID_MAP[id];
         promptItems.push({
           id, name: label, role: 'system', trigger: 'normal' as const,
           position: 'relative' as const, depth: 0, order: promptItems.length, content: '',
@@ -188,6 +177,19 @@ export function importPresetFromST(json: string, fileName?: string): ChatPreset 
           readOnly: id === 'dialogueExamples' || id === 'chatHistory',
           _library: false,
         });
+      } else {
+        // User-created prompt — look up in prompts map
+        const p = identifierMap[id];
+        if (p && (p as any).name) {
+          promptItems.push({
+            id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
+            trigger: 'normal' as const, position: 'relative' as const, depth: 4, order: promptItems.length,
+            content: (p as any).content || '', enabled, kind: 'prompt' as const,
+            _library: false, _originalName: (p as any).name,
+          });
+          usedIds.add(id);
+        }
+        // Unknown and not in prompts — skip (orphan ID)
       }
     }
 
