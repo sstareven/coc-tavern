@@ -199,6 +199,7 @@ export function InputBar() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const lastInputRef = useRef('');
 
   // Prompt viewer state
   const [previewMessages, setPreviewMessages] = useState<AssembledMessage[]>([]);
@@ -321,13 +322,14 @@ export function InputBar() {
     let processedInput = trimmed;
     if (trimmed.startsWith('/')) {
       processedInput = await processSlashCommands(trimmed);
-      // If the command fully handled the input (no remaining message), update input and stop
       if (!processedInput.trim() || processedInput.startsWith('[')) {
         setInput(processedInput);
         return;
       }
       setInput(processedInput);
     }
+
+    lastInputRef.current = trimmed || lastInputRef.current;
 
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) {
@@ -338,12 +340,26 @@ export function InputBar() {
     const result = buildPromptMessages();
     if (!result) return;
 
-    // Send directly
     pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
-    await handleSendFromPreview(result.messages);
+    await handleSendFromPreview(result.messages, false);
   };
 
-  const handleSendFromPreview = async (editedMessages: AssembledMessage[]) => {
+  const regenerate = async () => {
+    if (loading) return;
+    const lastInput = lastInputRef.current || input.trim();
+    if (!lastInput) { setError('没有可重新生成的内容'); return; }
+
+    const settings = useSettingsStore.getState();
+    if (!settings.apiKey) { setError('请先在设置中配置API'); return; }
+
+    const result = buildPromptMessages();
+    if (!result) return;
+
+    pushLog('info', `重新生成当前楼层 — ~${result.tokenCount} tokens`);
+    await handleSendFromPreview(result.messages, true);
+  };
+
+  const handleSendFromPreview = async (editedMessages: AssembledMessage[], replace = false) => {
     setShowPreview(false);
     const settings = useSettingsStore.getState();
     const trimmed = input.trim();
@@ -400,9 +416,15 @@ export function InputBar() {
         throw new Error('无法解析AI回复');
       }
 
-      useBookStore.getState().appendPage(newPage);
-      pushLog('info', `新页面已生成 — ${newPage.leftHeader}`);
-      useBookStore.getState().autoFlipForward();
+      const bookStore = useBookStore.getState();
+      if (replace) {
+        bookStore.replacePage(bookStore.pageIndex, newPage);
+        pushLog('info', `页面已重新生成 — ${newPage.leftHeader}`);
+      } else {
+        bookStore.appendPage(newPage);
+        pushLog('info', `新页面已生成 — ${newPage.leftHeader}`);
+        bookStore.autoFlipForward();
+      }
       setInput('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI请求失败';
@@ -526,6 +548,15 @@ export function InputBar() {
                       >
                         <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: '#7b9fc1', fontSize: 12 }}>⬡</td>
                         <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>变量引擎</td>
+                      </tr>
+                      <tr
+                        onClick={() => { regenerate(); setWandOpen(false); }}
+                        style={{ cursor: 'pointer', borderTop: '1px solid rgba(196,168,85,0.1)', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '10px 14px', width: 28, textAlign: 'center', color: 'var(--gold)', fontSize: 13 }}>↻</td>
+                        <td style={{ padding: '10px 14px 10px 0', color: 'var(--text-light)', letterSpacing: 1 }}>重新生成</td>
                       </tr>
                       <tr
                         onClick={() => { document.dispatchEvent(new CustomEvent('toggle-debug-log')); setWandOpen(false); }}
