@@ -21,6 +21,11 @@ export function Storybook() {
   const page = pages[pageIndex];
   if (!page) return null;
 
+  // Debug: log right page data source
+  if (page.rightHeader === '行动' && page.rightContent === '接下来你打算怎么做？') {
+    console.warn('[Storybook] 第' + pageIndex + '页右页使用默认值 — 可能JSON解析失败或字段缺失', page);
+  }
+
   const deletePageStore = useBookStore((s) => s.deletePage);
 
   const deletePage = () => {
@@ -62,6 +67,12 @@ export function Storybook() {
       height: '100%',
       padding: '0 64px',
     }}>
+      <style>{`
+        .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar{width:5px}
+        .lp-scroll::-webkit-scrollbar-track,.rp-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.06);border-radius:3px}
+        .lp-scroll::-webkit-scrollbar-thumb,.rp-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}
+        .lp-scroll::-webkit-scrollbar-thumb:hover,.rp-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+      `}</style>
       {/* Relative container wrapping book + utils + bookmarks */}
       <div style={{
         position: 'relative',
@@ -149,7 +160,7 @@ export function Storybook() {
 
           {/* [A] 左页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative',
+            flex: 1, display: 'flex', position: 'relative', minHeight: 0,
             background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             borderRadius: '3px 0 0 3px',
           }}>
@@ -182,7 +193,7 @@ export function Storybook() {
 
           {/* [B] 右页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative',
+            flex: 1, display: 'flex', position: 'relative', minHeight: 0,
             background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             borderRadius: '0 3px 3px 0',
           }}>

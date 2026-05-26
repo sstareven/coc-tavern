@@ -1,0 +1,25 @@
+{
+  "id": "coc-abyssal",
+  "name": "克苏鲁深渊档案馆",
+  "importedWorldbookPath": "E:\\Games\\COC\\克苏鲁深渊档案馆.json",
+  "pendingDecisions": [],
+  "recordedDecisions": [],
+  "revision": 1,
+  "plan": {
+    "enabled_assets": {}
+  },
+  "imports": [
+    {
+      "path": "E:\\Games\\COC\\克苏鲁深渊档案馆.json",
+      "type": "worldbook",
+      "importedAt": "2026-05-25T18:02:09.788Z",
+      "worldbookEntryCount": 0
+    }
+  ],
+  "logs": {
+    "session_id": "session_mplifge8_293ab1f4",
+    "latest_log_path": "E:\\Games\\COC\\.worldbook\\logs\\latest.jsonl"
+  },
+  "createdAt": "2026-05-25T18:02:09.774Z",
+  "updatedAt": "2026-05-25T18:02:09.789Z"
+}

@@ -1,16 +1,19 @@
 import { useState } from 'react';
+import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import type { ChatPreset, PromptItem } from '../../types';
 
 interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
 
 const DEFAULT_PRESET: ChatPreset = {
   id: 'p1', name: '默认预设',
-  temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, topP: 1.00, topK: 40, maxTokens: 2048,
+  temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, repetitionPenalty: 1.00,
+  topP: 1.00, topK: 40, minP: 0, topA: 0, maxTokens: 2048,
   systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
   userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
   unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
-  streamEnabled: false, reasoningEffort: 'auto', responseLength: 'auto', seed: -1,
-  charNameBehavior: 'none', continueSuffix: 'none',
+  streamEnabled: false, reasoningEffort: 'auto', showThoughts: false,
+  responseLength: 'auto', seed: -1,
+  charNameBehavior: 'none', continueSuffix: 'none', continuePrefill: false, assistantPrefill: '',
   mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
   aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
   worldBookTemplate: '[世界书: {0}]',
@@ -23,6 +26,8 @@ const DEFAULT_PRESET: ChatPreset = {
   continuePrompt: '[继续推进]',
   emptyMessagePrompt: '',
   promptItems: [],
+  tavernHelperScripts: [],
+  regexScripts: [],
 };
 
 const MODULE_ITEMS = [
@@ -61,6 +66,8 @@ const CONTENT_SOURCE: Record<string, string> = {
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [form, setForm] = useState<ChatPreset>({ ...preset });
+  const thOptimize = useTavernHelperStore((s) => s.optimize);
+  const maxContextLocked = thOptimize.maximizePresetContext;
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const m of MODULE_ITEMS) {
@@ -132,19 +139,25 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         <div style={s.section}>
           <div style={{ ...s.row, marginBottom: 6 }}>
             <label style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={form.unlockContext} onChange={(e) => set('unlockContext', e.target.checked)}
+              <input type="checkbox" checked={maxContextLocked || form.unlockContext} onChange={(e) => { if (!maxContextLocked) set('unlockContext', e.target.checked); }}
+                disabled={maxContextLocked}
                 style={{ accentColor: 'var(--gold)' }} />
               解除上下文上限
+              {maxContextLocked && <span style={{ fontSize: 9, color: 'var(--gold)', marginLeft: 4 }}>（已由酒馆助手锁定）</span>}
             </label>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={s.fieldCol}>
               <span style={s.label}>上下文长度 (Token)</span>
               <div style={s.sliderRow}>
-                <input type="range" min={1024} max={200000} step={1024} value={form.contextLength}
-                  onChange={(e) => set('contextLength', Number(e.target.value))} style={s.slider} />
-                <input type="number" value={form.contextLength} onChange={(e) => set('contextLength', Number(e.target.value))}
-                  style={s.numInput} />
+                <input type="range" min={1024} max={maxContextLocked ? 2000000 : 200000} step={1024}
+                  value={maxContextLocked ? 2000000 : form.contextLength}
+                  onChange={(e) => { if (!maxContextLocked) set('contextLength', Number(e.target.value)); }}
+                  style={{ ...s.slider, opacity: maxContextLocked ? 0.5 : 1 }} disabled={maxContextLocked} />
+                <input type="number" value={maxContextLocked ? 2000000 : form.contextLength}
+                  onChange={(e) => { if (!maxContextLocked) set('contextLength', Number(e.target.value)); }}
+                  disabled={maxContextLocked}
+                  style={{ ...s.numInput, opacity: maxContextLocked ? 0.5 : 1 }} />
               </div>
             </div>
           </div>
@@ -173,11 +186,10 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <label style={{ ...s.checkLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
               <input type="checkbox" checked={form.streamEnabled} onChange={(e) => set('streamEnabled', e.target.checked)}
                 style={{ accentColor: 'var(--gold)' }} />
-              流式传输
+              流式传输 (Stream)
             </label>
             <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginTop: 2, marginLeft: 22, lineHeight: 1.5 }}>
-              随着回复生成逐字显示结果<br />
-              关闭此项时，回复将在完成后一次性显示。
+              随着回复生成逐字显示结果
             </div>
           </div>
           {[
@@ -287,6 +299,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             { label: '低', value: 'low' },
             { label: '中', value: 'medium' },
             { label: '高', value: 'high' },
+            { label: '最高', value: 'max' },
           ]} />
         </div>
 

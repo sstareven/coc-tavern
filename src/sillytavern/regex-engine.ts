@@ -147,12 +147,21 @@ export function runAllRegexScripts(
     return (a.substituteRegex ?? 0) - (b.substituteRegex ?? 0);
   });
 
-  for (const script of active) {
-    const mdCheck = script.markdownOnly && options?.isMarkdown;
-    const promptCheck = script.promptOnly && options?.isPrompt;
-    const generalCheck = !script.markdownOnly && !script.promptOnly && !options?.isMarkdown && !options?.isPrompt;
+  const isMd = options?.isMarkdown ?? false;
+  const isPm = options?.isPrompt ?? false;
 
-    if (mdCheck || promptCheck || generalCheck) {
+  for (const script of active) {
+    // Determine if this script should run based on its display options:
+    // - If neither markdownOnly nor promptOnly is checked → ALWAYS run (general)
+    // - If markdownOnly is checked → only run when isMarkdown=true
+    // - If promptOnly is checked → only run when isPrompt=true
+    // - If BOTH are checked → run when EITHER matches
+    const shouldRun =
+      (!script.markdownOnly && !script.promptOnly) ||  // always
+      (script.markdownOnly && isMd) ||                   // markdown match
+      (script.promptOnly && isPm);                       // prompt match
+
+    if (shouldRun) {
       if (typeof options?.depth === 'number') {
         if (script.minDepth != null && script.minDepth >= -1 && options.depth < script.minDepth) continue;
         if (script.maxDepth != null && script.maxDepth >= 0 && options.depth > script.maxDepth) continue;

@@ -23,6 +23,16 @@ export interface CharacterSheet {
     residence: string;
     id: string;
   };
+  /** 开场白 — the character's first message / greeting */
+  greeting: string;
+  /** 角色描述 — character description for the AI prompt */
+  description: string;
+  /** 角色性格 — personality traits for the AI prompt */
+  personality: string;
+  /** 场景设定 — current scenario description */
+  scenario: string;
+  /** 用户设定描述 — persona / user description */
+  personaDescription: string;
 }
 
 // ===== Scene Info =====
@@ -106,26 +116,36 @@ export interface PromptItem {
 export interface ChatPreset {
   id: string;
   name: string;
+  // Samplers
   temperature: number;
   frequencyPenalty: number;
   presencePenalty: number;
+  repetitionPenalty: number;
   topP: number;
   topK: number;
+  minP: number;
+  topA: number;
+  // Token / context
   maxTokens: number;
-  systemPrompt: string;
-  userPrefix: string;
-  assistantPrefix: string;
   unlockContext: boolean;
   contextLength: number;
   maxResponseTokens: number;
   alternativeReplies: number;
-  // Sampler extras
+  // Stream / reasoning
   streamEnabled: boolean;
-  reasoningEffort: 'auto' | 'low' | 'medium' | 'high';
+  reasoningEffort: 'auto' | 'low' | 'medium' | 'high' | 'max';
+  showThoughts: boolean;
   responseLength: 'auto' | 'short' | 'medium' | 'long';
   seed: number;
+  // Behavior
   charNameBehavior: 'none' | 'completion' | 'content';
   continueSuffix: 'none' | 'space' | 'newline' | 'doublenewline';
+  continuePrefill: boolean;
+  assistantPrefill: string;
+  // System / prefix
+  systemPrompt: string;
+  userPrefix: string;
+  assistantPrefix: string;
   // Quick prompts
   mainPrompt: string;
   auxiliaryPrompt: string;
@@ -142,6 +162,10 @@ export interface ChatPreset {
   continuePrompt: string;
   emptyMessagePrompt: string;
   promptItems: PromptItem[];
+  /** SillyTavern preset-scoped regex scripts */
+  regexScripts?: RegexScript[];
+  /** Tavern Helper preset-scoped scripts (from extensions.tavern_helper) */
+  tavernHelperScripts?: THScriptTree[];
 }
 
 // ===== Chat Sessions =====
@@ -214,6 +238,73 @@ export interface GameVariable {
   locked: boolean;
   source: 'system' | 'character' | 'llm' | 'manual';
   updatedAt: number;
+}
+
+// ===== Tavern Helper (酒馆助手) - Script System =====
+export interface THScript {
+  id: string;
+  type: 'script';
+  enabled: boolean;
+  name: string;
+  content: string;
+  info: string;
+}
+
+export interface THScriptFolder {
+  id: string;
+  type: 'folder';
+  name: string;
+  icon: string;
+  color: string;
+  children: THScript[];
+}
+
+export type THScriptTree = THScript | THScriptFolder;
+
+// ===== Macro Variables =====
+export interface MacroVarStore {
+  [name: string]: string;
+}
+
+// ===== Prompt Template Settings =====
+export interface PTSettings {
+  enabled: boolean;
+  generateEnabled: boolean;
+  generateLoaderEnabled: boolean;
+  injectLoaderEnabled: boolean;
+  renderEnabled: boolean;
+  renderLoaderEnabled: boolean;
+  codeBlocksEnabled: boolean;
+  permanentEvaluation: boolean;
+  filterChatMessage: boolean;
+  chatDepth: number;
+  autosaveEnabled: boolean;
+  preloadWorldinfo: boolean;
+  withContextDisabled: boolean;
+  debugEnabled: boolean;
+  invertEnabled: boolean;
+  compileWorkers: boolean;
+  sandbox: boolean;
+  cacheEnabled: 0 | 1 | 2;
+  cacheSize: number;
+  cacheHasher: 'h32ToString' | 'h64ToString';
+}
+
+export type THCodeCollapse = 'all' | 'frontend' | 'disable';
+
+export interface THRenderSettings {
+  renderEnabled: boolean;
+  renderDepth: number;
+  codeCollapse: THCodeCollapse;
+  blobUrlRendering: boolean;
+  disableCodeHighlight: boolean;
+  allowStreamRender: boolean;
+}
+
+export interface THOptimizeSettings {
+  optimizeMessageLoad: boolean;
+  forceWorldbookSettings: boolean;
+  maximizePresetContext: boolean;
 }
 
 // ===== Tooltip Keywords =====

@@ -19,6 +19,7 @@ export async function sendChatCompletion(
   apiKey: string,
   model: string,
   stream = false,
+  onToken?: (token: string) => void,
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
@@ -78,16 +79,21 @@ export async function sendChatCompletion(
       for (const line of lines) {
         const tokens = parseStreamChunk(line);
         for (const token of tokens) {
-          if (token.content) fullContent += token.content;
+          if (token.content) {
+            fullContent += token.content;
+            if (onToken) onToken(token.content);
+          }
           if (token.done) break;
         }
       }
     }
 
+    console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
     return { content: fullContent };
   }
 
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
+  console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
   return { content, model: json.model };
 }

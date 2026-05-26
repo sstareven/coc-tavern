@@ -1,18 +1,21 @@
 import { useState, useRef } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
 import { useRegexStore } from '../../stores/useRegexStore';
+import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import type { ChatPreset } from '../../types';
 
 const DEFAULT_PRESETS: Record<string, ChatPreset> = {
   p1: {
     id: 'p1', name: '默认预设',
-    temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, topP: 1.00, topK: 40, maxTokens: 2048,
+    temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, repetitionPenalty: 1.00,
+    topP: 1.00, topK: 40, minP: 0, topA: 0, maxTokens: 2048,
     systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
     userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
     unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
-    streamEnabled: false, reasoningEffort: 'auto', responseLength: 'auto', seed: -1,
-    charNameBehavior: 'none', continueSuffix: 'none',
+    streamEnabled: false, reasoningEffort: 'auto', showThoughts: false,
+    responseLength: 'auto', seed: -1,
+    charNameBehavior: 'none', continueSuffix: 'none', continuePrefill: false, assistantPrefill: '',
     mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
     aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
     worldBookTemplate: '[世界书: {0}]',
@@ -25,6 +28,8 @@ const DEFAULT_PRESETS: Record<string, ChatPreset> = {
     continuePrompt: '[继续推进]',
     emptyMessagePrompt: '',
     promptItems: [],
+    tavernHelperScripts: [],
+    regexScripts: [],
   },
 };
 
@@ -46,16 +51,35 @@ function savePresets(p: Record<string, ChatPreset>) {
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
   const [presets, setPresets] = useState(loadPresets);
-  const [selectedId, setSelectedId] = useState<string>('p1');
   const activeSessionId = useChatStore((s) => s.activeId);
+  const sessionPresetId = useChatStore((s) => {
+    const session = s.sessions.find((c) => c.id === s.activeId);
+    return session?.presetId;
+  });
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    if (sessionPresetId) return sessionPresetId;
+    return localStorage.getItem('coc_last_preset') || 'p1';
+  });
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleRename = (id: string) => {
+    if (!renameValue.trim()) { setRenamingId(null); return; }
+    const updated = { ...presets };
+    if (updated[id]) {
+      updated[id] = { ...updated[id], name: renameValue.trim() };
+      setPresets(updated);
+      savePresets(updated);
+    }
+    setRenamingId(null);
+  };
 
   const handleExport = (id: string) => {
     const preset = presets[id];
     if (!preset) return;
-    const regexScripts = useRegexStore.getState().presetScripts;
-    const json = exportPresetToST(preset, regexScripts);
+    const json = exportPresetToST(preset, preset.regexScripts);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -72,16 +96,22 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
       const result = importPresetFromST(reader.result as string, fileName);
       if (result) {
         const { preset, regexScripts } = result;
-        const updated = { ...presets, [preset.id]: preset };
+        // Store regex scripts and tavern helper scripts on the preset object for per-preset scoping
+        const finalPreset = {
+          ...preset,
+          regexScripts: regexScripts.length > 0 ? regexScripts.map((s) => ({ ...s, id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })) : undefined,
+        };
+        const updated = { ...presets, [finalPreset.id]: finalPreset };
         setPresets(updated);
         savePresets(updated);
-        setSelectedId(preset.id);
-        // Import regex scripts into preset category
-        if (regexScripts.length > 0) {
-          const store = useRegexStore.getState();
-          for (const script of regexScripts) {
-            store.addScript({ ...script, id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }, 'preset');
-          }
+        setSelectedId(finalPreset.id);
+        localStorage.setItem('coc_last_preset', finalPreset.id);
+        // Load scripts into active stores
+        if (finalPreset.regexScripts) {
+          useRegexStore.setState({ presetScripts: finalPreset.regexScripts });
+        }
+        if (finalPreset.tavernHelperScripts && finalPreset.tavernHelperScripts.length > 0) {
+          useTavernHelperStore.getState().setPresetScripts(finalPreset.tavernHelperScripts);
         }
       }
     };
@@ -91,9 +121,14 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
+    localStorage.setItem('coc_last_preset', id);
     if (activeSessionId) {
       setPreset(id);
     }
+    // Load the selected preset's regex scripts and tavern helper scripts into stores
+    const selected = presets[id];
+    useRegexStore.setState({ presetScripts: selected?.regexScripts || [] });
+    useTavernHelperStore.getState().setPresetScripts(selected?.tavernHelperScripts || []);
   };
 
   return (
@@ -138,22 +173,39 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 transition: 'var(--transition-smooth)',
               }} onClick={() => handleSelect(id)}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2 }}>
-                    {preset.name}
-                    {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
-                  </span>
+                  {renamingId === id ? (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleRename(id); if (e.key === 'Escape') setRenamingId(null); }}
+                        autoFocus style={{ fontSize: 13, fontFamily: 'var(--font-display)', letterSpacing: 2, padding: '3px 6px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--gold)', width: 180, outline: 'none' }} />
+                      <button onClick={() => handleRename(id)} style={{ ...actionBtnStyle, color: 'var(--success)', padding: '2px 8px', fontSize: 11 }}>✓</button>
+                      <button onClick={() => setRenamingId(null)} style={{ ...actionBtnStyle, color: 'var(--ink-subtle)', padding: '2px 8px', fontSize: 11 }}>✕</button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
+                      title="点击重命名">
+                      {preset.name}
+                      {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
+                    </span>
+                  )}
                   <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                     T={preset.temperature} · P={preset.topP} · max={preset.maxTokens}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); }); }} style={actionBtnStyle}>编辑</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); if (updated.regexScripts) useRegexStore.setState({ presetScripts: updated.regexScripts }); if (updated.tavernHelperScripts) useTavernHelperStore.getState().setPresetScripts(updated.tavernHelperScripts); }); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
                   {id !== 'p1' && (
                     <button onClick={(e) => { e.stopPropagation();
                       const updated = { ...presets }; delete updated[id];
                       setPresets(updated); savePresets(updated);
-                      if (selectedId === id) setSelectedId('p1');
+                      if (selectedId === id) {
+                        setSelectedId('p1');
+                        localStorage.setItem('coc_last_preset', 'p1');
+                        useRegexStore.setState({ presetScripts: [] });
+                        useTavernHelperStore.getState().setPresetScripts([]);
+                      }
                     }} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
                   )}
                 </div>
@@ -188,6 +240,9 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           setPresets(updated);
           savePresets(updated);
           setSelectedId(newId);
+          localStorage.setItem('coc_last_preset', newId);
+          useRegexStore.setState({ presetScripts: [] });
+          useTavernHelperStore.getState().setPresetScripts([]);
         }} style={{
           width: '100%', marginTop: 16, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,

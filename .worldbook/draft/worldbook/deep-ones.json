@@ -1,0 +1,24 @@
+{
+  "id": "deep-ones",
+  "type": "worldbook_entry",
+  "title": "深潜者",
+  "enabled": true,
+  "data": {
+    "comment": "深潜者",
+    "entryType": "other",
+    "keys": [
+      "深潜者"
+    ],
+    "secondaryKeys": [],
+    "content": "",
+    "constant": true,
+    "position": "before_char",
+    "order": 100,
+    "enabled": true,
+    "preventRecursion": true,
+    "excludeRecursion": true
+  },
+  "createdAt": "2026-05-25T18:02:28.557Z",
+  "updatedAt": "2026-05-25T18:02:28.557Z",
+  "revision": 0
+}
