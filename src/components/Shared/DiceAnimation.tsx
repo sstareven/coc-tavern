@@ -12,79 +12,40 @@ const LABELS: Record<string, string> = { 'crit-success': '大成功', 'extreme-s
 let _actx: AudioContext | null = null;
 function ctx() { try { if (!_actx || _actx.state === 'closed') _actx = new AudioContext(); if (_actx.state === 'suspended') _actx.resume(); return _actx; } catch { return null; } }
 
-// Dice clatter — layered impulse
-function tick() {
+// ── v2: resonant wooden impact ──
+function impact(vol = 0.06, freq = 300, decay = 0.04) {
   const c = ctx(); if (!c) return;
   try {
     const now = c.currentTime;
-    // Multi-click impulse (simulates dice corners hitting)
-    for (let i = 0; i < 3; i++) {
-      const delay = i * 0.008;
-      // Sharp click
-      const o = c.createOscillator(); const g = c.createGain();
-      o.type = 'triangle'; o.frequency.setValueAtTime(200 + Math.random() * 300, now + delay);
-      o.frequency.linearRampToValueAtTime(40, now + delay + 0.02);
-      g.gain.setValueAtTime(0.08 - i * 0.02, now + delay);
-      g.gain.linearRampToValueAtTime(0, now + delay + 0.025);
-      o.connect(g); g.connect(c.destination);
-      o.start(now + delay); o.stop(now + delay + 0.025);
-    }
+    // Body resonance (fundamental + overtone)
+    const o1 = c.createOscillator(); const g1 = c.createGain();
+    o1.type = 'sine'; o1.frequency.setValueAtTime(freq, now);
+    o1.frequency.exponentialRampToValueAtTime(freq * 0.1, now + decay);
+    g1.gain.setValueAtTime(vol, now); g1.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+    o1.connect(g1); g1.connect(c.destination); o1.start(now); o1.stop(now + decay);
+    // Click transient (harmonics)
+    const o2 = c.createOscillator(); const g2 = c.createGain();
+    o2.type = 'triangle'; o2.frequency.setValueAtTime(freq * 3, now);
+    o2.frequency.exponentialRampToValueAtTime(freq * 0.5, now + decay * 0.4);
+    g2.gain.setValueAtTime(vol * 0.5, now); g2.gain.exponentialRampToValueAtTime(0.0001, now + decay * 0.3);
+    o2.connect(g2); g2.connect(c.destination); o2.start(now); o2.stop(now + decay);
   } catch {}
 }
 
-// Result settle — deeper thud + rattle fade
+function tick() { impact(0.06, 250 + Math.random() * 350, 0.035); }
+
 function resultSfx() {
-  const c = ctx(); if (!c) return;
-  try {
-    const now = c.currentTime;
-    // Impact thud
-    const o = c.createOscillator(); const g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(60, now);
-    o.frequency.linearRampToValueAtTime(40, now + 0.12);
-    g.gain.setValueAtTime(0.12, now); g.gain.linearRampToValueAtTime(0, now + 0.15);
-    o.connect(g); g.connect(c.destination);
-    o.start(now); o.stop(now + 0.15);
-    // Rattle decay (noise)
-    const buf = c.createBuffer(1, c.sampleRate * 0.15, c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
-    const noise = c.createBufferSource(); noise.buffer = buf;
-    const ng = c.createGain(); ng.gain.setValueAtTime(0.04, now); ng.gain.linearRampToValueAtTime(0, now + 0.15);
-    const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.setValueAtTime(3000, now); nf.Q.setValueAtTime(0.5, now);
-    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
-    noise.start(now); noise.stop(now + 0.15);
-  } catch {}
+  impact(0.16, 100, 0.22);           // heavy thud
+  setTimeout(() => impact(0.07, 60, 0.14), 80);   // bounce
+  setTimeout(() => impact(0.03, 180, 0.08), 160);  // final rattle
 }
+
 function critSfx() {
-  const c = ctx(); if (!c) return;
-  try {
-    const now = c.currentTime;
-    // Heavy impact
-    const o = c.createOscillator(); const g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(50, now);
-    o.frequency.linearRampToValueAtTime(30, now + 0.2);
-    g.gain.setValueAtTime(0.15, now); g.gain.linearRampToValueAtTime(0, now + 0.25);
-    o.connect(g); g.connect(c.destination);
-    o.start(now); o.stop(now + 0.25);
-    // Chime harmonics (layered sine waves)
-    [400, 600, 900, 1400, 2000].forEach((f, i) => {
-      const o2 = c.createOscillator(); const g2 = c.createGain();
-      o2.type = 'sine'; g2.gain.setValueAtTime(0.03, now + i * 0.04);
-      o2.frequency.setValueAtTime(f, now + i * 0.04);
-      g2.gain.linearRampToValueAtTime(0, now + 0.3 + i * 0.04);
-      o2.connect(g2); g2.connect(c.destination);
-      o2.start(now + i * 0.04); o2.stop(now + 0.3 + i * 0.04);
-    });
-    // Rattle burst
-    const buf = c.createBuffer(1, c.sampleRate * 0.2, c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
-    const noise = c.createBufferSource(); noise.buffer = buf;
-    const ng = c.createGain(); ng.gain.setValueAtTime(0.05, now); ng.gain.linearRampToValueAtTime(0, now + 0.2);
-    const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.setValueAtTime(4000, now);
-    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
-    noise.start(now); noise.stop(now + 0.2);
-  } catch {}
+  impact(0.22, 70, 0.3);
+  [0.03, 0.07, 0.12, 0.18, 0.25].forEach((d, i) => {
+    setTimeout(() => impact(0.05 - i * 0.008, 350 + i * 250, 0.16), d * 1000);
+  });
+  setTimeout(() => impact(0.08, 50, 0.2), 150);
 }
 
 export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete }: Props) {
