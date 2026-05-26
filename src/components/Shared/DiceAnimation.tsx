@@ -51,7 +51,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
     return dirs[Math.floor(Math.random() * dirs.length)];
   }, [visible, roll]);
   // Remove debug log
-  // console.log('[DiceAnim] render phase:', phase, 'visible:', visible, 'resultType:', resultType);
+  if (!visible) return null;
 
   const rollStr = String(roll).padStart(2, '0');
   const color = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
