@@ -1,0 +1,24 @@
+{
+  "id": "miskatonic-u",
+  "type": "worldbook_entry",
+  "title": "密斯卡塔尼克大学",
+  "enabled": true,
+  "data": {
+    "comment": "密斯卡塔尼克大学",
+    "entryType": "other",
+    "keys": [
+      "密斯卡塔尼克大学"
+    ],
+    "secondaryKeys": [],
+    "content": "",
+    "constant": true,
+    "position": "before_char",
+    "order": 100,
+    "enabled": true,
+    "preventRecursion": true,
+    "excludeRecursion": true
+  },
+  "createdAt": "2026-05-25T18:02:22.801Z",
+  "updatedAt": "2026-05-25T18:02:22.801Z",
+  "revision": 0
+}

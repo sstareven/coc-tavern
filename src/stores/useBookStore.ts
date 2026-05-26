@@ -55,6 +55,8 @@ interface BookStore {
   replacePage: (index: number, page: BookPage) => void;
   /** Animated flip to the freshly appended page */
   autoFlipForward: () => void;
+  /** Trim old pages to stay within limit (0 = no limit) */
+  trimPages: (limit: number) => void;
 }
 
 let flipRaf = 0;
@@ -131,5 +133,14 @@ export const useBookStore = create<BookStore>((set, get) => ({
       }
     };
     flipRaf = requestAnimationFrame(tick);
+  },
+
+  trimPages: (limit) => {
+    if (limit <= 0) return;
+    const { pages, pageIndex } = get();
+    if (pages.length <= limit) return;
+    const trimmed = pages.slice(pages.length - limit);
+    const newPageIndex = Math.min(pageIndex, trimmed.length - 1);
+    set({ pages: trimmed, pageIndex: newPageIndex });
   },
 }));

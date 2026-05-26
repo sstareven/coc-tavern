@@ -1,218 +1,109 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLogStore } from '../../stores/useLogStore';
+import type { LogLevel, LogCategory } from '../../stores/useLogStore';
 
-interface LogEntry {
-  id: number;
-  time: string;
-  level: 'info' | 'warn' | 'error';
-  message: string;
-}
-
-let logId = 0;
-const listeners = new Set<() => void>();
-
-function notify() {
-  listeners.forEach((fn) => fn());
-}
-
-export function pushLog(level: LogEntry['level'], message: string) {
-  const entry: LogEntry = {
-    id: ++logId,
-    time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-    level,
-    message,
-  };
-  // Store in a global array
-  if (!(window as unknown as Record<string, unknown>).__debugLogs) {
-    (window as unknown as Record<string, unknown>).__debugLogs = [];
-  }
-  ((window as unknown as Record<string, unknown>).__debugLogs as LogEntry[]).push(entry);
-  // Cap at 200 entries
-  const logs = (window as unknown as Record<string, unknown>).__debugLogs as LogEntry[];
-  while (logs.length > 200) logs.shift();
-  notify();
-}
-
-export function getLogs(): LogEntry[] {
-  return ((window as unknown as Record<string, unknown>).__debugLogs as LogEntry[]) ?? [];
-}
-
-const levelColors: Record<LogEntry['level'], string> = {
-  info: 'var(--ink-subtle)',
-  warn: 'var(--gold-bright)',
-  error: 'var(--blood-bright)',
-};
-
-const levelLabels: Record<LogEntry['level'], string> = {
-  info: 'INFO',
-  warn: 'WARN',
-  error: 'ERROR',
-};
+const levelColors: Record<LogLevel, string> = { info: 'var(--ink-subtle)', warn: '#c4a855', error: '#c45543', debug: '#7b9fc1' };
+const levelLabels: Record<LogLevel, string> = { info: 'INFO', warn: 'WARN', error: 'ERR', debug: 'DBG' };
+const categoryLabels: Record<LogCategory, string> = { api: 'API', preset: '预设', worldbook: '世界书', regex: '正则', variable: '变量', system: '系统', general: '通用' };
 
 export function DebugLog() {
-  const [, setTick] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const visible = useLogStore((s) => s.visible);
+  const logs = useLogStore((s) => s.logs);
+  const filter = useLogStore((s) => s.filter);
+  const toggle = useLogStore((s) => s.toggle);
+  const clear = useLogStore((s) => s.clear);
+  const setFilter = useLogStore((s) => s.setFilter);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  const refresh = useCallback(() => setLogs([...getLogs()]), []);
+  useEffect(() => { document.addEventListener('toggle-debug-log', toggle); return () => document.removeEventListener('toggle-debug-log', toggle); }, [toggle]);
+  useEffect(() => { if (!visible) return; const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [logs.length, visible]);
 
-  useEffect(() => {
-    const handler = () => { refresh(); };
-    listeners.add(handler);
-    return () => { listeners.delete(handler); };
-  }, [refresh]);
+  const filtered = logs.filter((e) => {
+    if (filter.level !== 'all' && e.level !== filter.level) return false;
+    if (filter.category !== 'all' && e.category !== filter.category) return false;
+    if (filter.search && !e.message.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    return true;
+  });
 
-  // Listen for toggle-debug-log custom event from wand menu
-  useEffect(() => {
-    const toggle = () => setVisible((v) => { refresh(); return !v; });
-    document.addEventListener('toggle-debug-log', toggle);
-    return () => document.removeEventListener('toggle-debug-log', toggle);
-  }, [refresh]);
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
-  // Refresh logs when visible
-  useEffect(() => {
-    if (!visible) return;
-    setLogs([...getLogs()]);
-    const interval = setInterval(() => setLogs([...getLogs()]), 1000);
-    return () => clearInterval(interval);
-  }, [visible]);
+  const selectAll = () => {
+    if (selected.size === filtered.length) { setSelected(new Set()); }
+    else { setSelected(new Set(filtered.map((e) => e.id))); }
+  };
+
+  const copySelected = () => {
+    const text = filtered
+      .filter((e) => selected.has(e.id))
+      .map((e) => `[${e.time}] [${levelLabels[e.level]}] [${categoryLabels[e.category]}] ${e.message}`)
+      .join('\n');
+    navigator.clipboard.writeText(text).catch(() => {});
+  };
 
   return (
-    <>
-
-      {/* Log panel */}
+    <AnimatePresence>
       {visible && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 990,
-            height: 280,
-            background: 'rgba(13,10,7,0.96)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(196,168,85,0.2)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Title bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 16px',
-              borderBottom: '1px solid rgba(196,168,85,0.12)',
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--gold)',
-                letterSpacing: 2,
-              }}
-            >
-              DEBUG LOG ({logs.length})
-            </span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button
-                onClick={() => {
-                  const globalLogs = (window as unknown as Record<string, unknown>).__debugLogs as LogEntry[] | undefined;
-                  if (globalLogs) globalLogs.length = 0;
-                  setLogs([]);
-                }}
-                style={{
-                  padding: '2px 10px',
-                  border: '1px solid var(--brass)',
-                  borderRadius: 3,
-                  background: 'transparent',
-                  color: 'var(--ink-subtle)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                }}
-              >
-                CLEAR
-              </button>
-              <button
-                onClick={() => setVisible(false)}
-                style={{
-                  padding: '2px 10px',
-                  border: '1px solid var(--brass)',
-                  borderRadius: 3,
-                  background: 'transparent',
-                  color: 'var(--ink-subtle)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                }}
-              >
-                HIDE
-              </button>
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 990, height: 340, background: 'linear-gradient(180deg, rgba(13,10,7,0.98) 0%, rgba(20,16,12,0.98) 100%)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(196,168,85,0.2)', display: 'flex', flexDirection: 'column' }}>
+          <style>{`.dl-scroll::-webkit-scrollbar{width:5px}.dl-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.dl-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.dl-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: '1px solid rgba(196,168,85,0.12)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 2 }}>日志查看器 ({logs.length})</span>
+              <select value={filter.level} onChange={(e) => setFilter({ level: e.target.value as LogLevel | 'all' })} style={miniSelect}>
+                <option value="all">全部级别</option>
+                <option value="info">INFO</option><option value="warn">WARN</option><option value="error">ERROR</option><option value="debug">DEBUG</option>
+              </select>
+              <select value={filter.category} onChange={(e) => setFilter({ category: e.target.value as LogCategory | 'all' })} style={miniSelect}>
+                <option value="all">全部分类</option>
+                {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input value={filter.search} onChange={(e) => setFilter({ search: e.target.value })} placeholder="搜索..." onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
+                style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }} />
+              <button onClick={selectAll} style={headerBtn}>{selected.size === filtered.length && filtered.length > 0 ? '取消' : '全选'}</button>
+              <button onClick={copySelected} disabled={selected.size === 0} style={{ ...headerBtn, opacity: selected.size === 0 ? 0.4 : 1 }}>复制({selected.size})</button>
+              <button onClick={clear} style={headerBtn}>清空</button>
+              <button onClick={toggle} style={headerBtn}>关闭</button>
             </div>
           </div>
 
-          {/* Log entries */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '4px 0',
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'var(--ink-faded) transparent',
-            }}
-          >
-            {logs.length === 0 ? (
-              <div
-                style={{
-                  padding: 20,
-                  textAlign: 'center',
-                  color: 'var(--ink-subtle)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                }}
-              >
-                暂无日志
-              </div>
+          <div ref={scrollRef} className="dl-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: 30, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 11 }}>{logs.length === 0 ? '暂无日志' : '无匹配日志'}</div>
             ) : (
-              logs.map((entry) => (
-                <div
-                  key={entry.id}
-                  style={{
-                    display: 'flex',
-                    gap: 10,
-                    padding: '2px 16px',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 11,
-                    lineHeight: '20px',
-                  }}
-                >
-                  <span style={{ color: 'var(--ink-faded)', flexShrink: 0 }}>
-                    {entry.time}
-                  </span>
-                  <span style={{ color: levelColors[entry.level], flexShrink: 0, width: 42 }}>
-                    {levelLabels[entry.level]}
-                  </span>
-                  <span style={{ color: 'var(--text-light)', wordBreak: 'break-all' }}>
-                    {entry.message}
-                  </span>
-                </div>
-              ))
+              filtered.map((entry) => {
+                const isSel = selected.has(entry.id);
+                return (
+                  <div key={entry.id} onClick={() => toggleSelect(entry.id)} style={{
+                    display: 'flex', gap: 6, padding: '2px 12px 2px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '20px', alignItems: 'baseline',
+                    borderBottom: '1px solid rgba(255,255,255,0.01)', cursor: 'pointer',
+                    background: isSel ? 'rgba(196,168,85,0.1)' : 'transparent',
+                  }}>
+                    <span style={{ fontSize: 10, width: 14, color: isSel ? 'var(--gold)' : 'transparent', flexShrink: 0 }}>{isSel ? '✓' : ''}</span>
+                    <span style={{ color: 'var(--ink-faded)', flexShrink: 0, fontSize: 10 }}>{entry.time}</span>
+                    <span style={{ color: levelColors[entry.level], flexShrink: 0, width: 30, fontSize: 9, fontWeight: 'bold' }}>{levelLabels[entry.level]}</span>
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', flexShrink: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 2, padding: '0 4px', lineHeight: '16px' }}>{categoryLabels[entry.category] || entry.category}</span>
+                    <span style={{ color: 'var(--text-light)', wordBreak: 'break-all' }}>{entry.message}</span>
+                  </div>
+                );
+              })
             )}
           </div>
-        </div>
+        </motion.div>
       )}
-    </>
+    </AnimatePresence>
   );
 }
 
-function useTickEffect(visible: boolean, fn: () => void) {
-  useEffect(() => {
-    if (!visible) return;
-    const id = setInterval(fn, 1000);
-    return () => clearInterval(id);
-  }, [visible, fn]);
-}
+const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', cursor: 'pointer' };
+const headerBtn: React.CSSProperties = { padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer' };

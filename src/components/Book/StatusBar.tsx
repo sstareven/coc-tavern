@@ -1,9 +1,38 @@
 import { useBookStore } from '../../stores/useBookStore';
+import { useVariableStore } from '../../stores/useVariableStore';
 
 export function StatusBar() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
-  const scene = pages[pageIndex]?.sceneInfo;
+  const vars = useVariableStore((s) => s.variables);
+  let scene = pages[pageIndex]?.sceneInfo;
+
+  // Fallback: build sceneInfo from MVU variable store
+  if (!scene || !scene.location) {
+    const loc = vars.location?.value || '';
+    const date = vars.date?.value || '';
+    const time = vars.time?.value || '';
+    const weather = vars.weather?.value || '';
+    if (loc || date) {
+      // Try to compute weekday from date string like "1923年10月15日"
+      let weekday = '';
+      try {
+        const dm = date.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        if (dm) {
+          const d = new Date(parseInt(dm[1]), parseInt(dm[2]) - 1, parseInt(dm[3]));
+          const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+          weekday = days[d.getDay()];
+        }
+      } catch { /* keep empty */ }
+      scene = {
+        date: date || '未知日期',
+        weekday: weekday || '',
+        time: time || '未知时间',
+        weather: weather || '未知天气',
+        location: loc || '未知地点',
+      };
+    }
+  }
 
   if (!scene) return null;
 

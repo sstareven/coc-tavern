@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
+import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 
 interface Props {
@@ -12,6 +13,8 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
   const toggleBook = useLorebookStore((s) => s.toggleBook);
+  const thOptimize = useTavernHelperStore((s) => s.optimize);
+  const forceWorldbook = thOptimize.forceWorldbookSettings;
   const fileRef = useRef<HTMLInputElement>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -138,22 +141,23 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 ) : (
                   <button onClick={() => setDeleteConfirm(id)} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
                 )}
-                <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)' }}>
-                  <button onClick={() => { if (book.enabled === false) toggleBook(id); }} style={{
-                    padding: '4px 8px', border: 'none', cursor: book.enabled === false ? 'pointer' : 'default',
-                    background: book.enabled !== false ? 'var(--success)' : 'transparent',
-                    color: book.enabled !== false ? '#fff' : 'var(--ink-subtle)',
+                <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)', opacity: forceWorldbook ? 0.6 : 1 }}>
+                  <button onClick={() => { if (!forceWorldbook && book.enabled === false) toggleBook(id); }} style={{
+                    padding: '4px 8px', border: 'none', cursor: forceWorldbook ? 'default' : book.enabled === false ? 'pointer' : 'default',
+                    background: forceWorldbook || book.enabled !== false ? 'var(--success)' : 'transparent',
+                    color: forceWorldbook || book.enabled !== false ? '#fff' : 'var(--ink-subtle)',
                     fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
                     transition: 'background 0.15s',
                   }}>开</button>
-                  <button onClick={() => { if (book.enabled !== false) toggleBook(id); }} style={{
-                    padding: '4px 8px', border: 'none', cursor: book.enabled !== false ? 'pointer' : 'default',
-                    background: book.enabled === false ? 'var(--blood)' : 'transparent',
-                    color: book.enabled === false ? '#fff' : 'var(--ink-subtle)',
+                  <button onClick={() => { if (!forceWorldbook && book.enabled !== false) toggleBook(id); }} style={{
+                    padding: '4px 8px', border: 'none', cursor: forceWorldbook ? 'default' : book.enabled !== false ? 'pointer' : 'default',
+                    background: !forceWorldbook && book.enabled === false ? 'var(--blood)' : 'transparent',
+                    color: !forceWorldbook && book.enabled === false ? '#fff' : 'var(--ink-subtle)',
                     fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
                     transition: 'background 0.15s',
                   }}>关</button>
                 </div>
+                {forceWorldbook && <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)' }}>已锁定</span>}
               </div>
             </div>
           ))}
