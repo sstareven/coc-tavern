@@ -13,7 +13,6 @@ export function GameView({ onReturnToMenu }: Props) {
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
   }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '' });
-
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
@@ -25,15 +24,18 @@ export function GameView({ onReturnToMenu }: Props) {
   }, []);
 
   const onDiceComplete = useCallback(() => {
-    const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
-    if (textarea && diceAnim.inputText) {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-      nativeInputValueSetter?.call(textarea, diceAnim.inputText);
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      textarea.focus();
-    }
-    setDiceAnim((prev) => ({ ...prev, visible: false }));
-  }, [diceAnim.inputText]);
+    setDiceAnim((prev) => {
+      if (!prev.visible) return prev; // Already hidden by newer animation
+      const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
+      if (textarea && prev.inputText) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+        nativeInputValueSetter?.call(textarea, prev.inputText);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.focus();
+      }
+      return { ...prev, visible: false };
+    });
+  }, []);
 
   // Esc key to close all panels
   useEffect(() => {
