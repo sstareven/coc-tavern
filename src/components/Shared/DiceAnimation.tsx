@@ -53,8 +53,9 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       style={{ position: 'fixed', inset: 0, zIndex: 960, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: blur ? 'blur(8px)' : 'blur(6px)' }}>
       <motion.div
-        animate={blur ? { filter: 'blur(3px)', scale: 0.95 } : { filter: 'blur(0px)', scale: 1 }}
-        transition={{ duration: 0.3 }}
+        initial={{ scale: 0.3, opacity: 0, y: -100 }}
+        animate={{ scale: blur ? 0.95 : 1, opacity: 1, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
+        transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
 
         {/* Dice display area */}
@@ -100,7 +101,6 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     background: 'linear-gradient(155deg, rgba(35,24,16,0.96) 0%, rgba(18,12,8,0.98) 100%)',
     border: `3px solid ${glowColor}`, borderRadius: 12,
     boxShadow: `inset 0 2px 0 rgba(255,255,255,0.04), inset 0 -4px 12px rgba(0,0,0,0.4), 0 0 20px ${glowColor}66, 0 0 40px ${glowColor}33`,
-    backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
     textShadow: isRolling ? 'none' : `0 0 30px ${color}88`,
   };
 
@@ -108,29 +108,37 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     <>
       <style>{`
         .cube-scene { perspective: 400px; perspective-origin: center; width: ${size}px; height: ${size}px; }
-        .cube-wrapper { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; }
+        .cube-scene > div { transform-style: preserve-3d !important; -webkit-transform-style: preserve-3d !important; }
+        .cube-scene * { transform-style: preserve-3d !important; -webkit-transform-style: preserve-3d !important; }
       `}</style>
-      <motion.div
-        animate={!isRolling ? { rotateX: [0, 25, -20, 12, -5, 0], rotateY: [0, -18, 28, -14, 6, 0] } : {}}
-        transition={!isRolling ? { duration: 1.0, ease: 'easeOut', times: [0, 0.12, 0.28, 0.5, 0.72, 1.0] } : {}}
-        className="cube-scene"
-        style={{ width: size, height: size }}>
-        <div className="cube-wrapper">
-          <motion.div
-            key={animKey}
-            initial={{ rotateX: 0, rotateY: 0 }}
-            animate={{ rotateX: isRolling ? 1440 : 1440, rotateY: isRolling ? 900 : 900 }}
-            transition={{ duration: isRolling ? 1.2 : 0, ease: [0.4, 0.0, 0.6, 1.0] }}
-            style={{ transformStyle: 'preserve-3d', width: '100%', height: '100%', position: 'relative' }}>
-            <div style={{ ...faceS, transform: `translateZ(${half}px)` }}>{digits[0]}</div>
-            <div style={{ ...faceS, transform: `rotateY(180deg) translateZ(${half}px)` }}>{digits[1]}</div>
-            <div style={{ ...faceS, transform: `rotateY(90deg) translateZ(${half}px)` }}>{digits[2]}</div>
-            <div style={{ ...faceS, transform: `rotateY(-90deg) translateZ(${half}px)` }}>{digits[3]}</div>
-            <div style={{ ...faceS, transform: `rotateX(90deg) translateZ(${half}px)` }}>{digits[4]}</div>
-            <div style={{ ...faceS, transform: `rotateX(-90deg) translateZ(${half}px)` }}>{digits[5]}</div>
-          </motion.div>
-        </div>
-      </motion.div>
+      {/* Perspective layer — plain div, never animated */}
+      <div className="cube-scene" style={{ width: size, height: size }}>
+        {/* Wobble — only animated during result phase */}
+        <motion.div
+          animate={!isRolling ? { rotateX: [0, 10, -7, 4, -2, 0], rotateY: [0, -7, 10, -5, 2, 0] } : {}}
+          transition={!isRolling ? { duration: 0.7, ease: 'easeOut', times: [0, 0.12, 0.28, 0.5, 0.72, 1.0] } : {}}
+          style={{ width: '100%', height: '100%' }}>
+          <div style={{ width: '100%', height: '100%' }}>
+            {/* Spin — animated during rolling */}
+            <motion.div
+              key={animKey}
+              initial={{ rotateX: 0, rotateY: 0 }}
+              animate={{ rotateX: isRolling ? 1440 : 1440, rotateY: isRolling ? 900 : 900 }}
+              transition={{ duration: isRolling ? 1.2 : 0, ease: [0.4, 0.0, 0.6, 1.0] }}
+              style={{ width: '100%', height: '100%' }}>
+              {/* 3D context — never animated */}
+              <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                <div style={{ ...faceS, transform: `translateZ(${half}px)` }}>{digits[0]}</div>
+                <div style={{ ...faceS, transform: `rotateY(180deg) translateZ(${half}px)` }}>{digits[1]}</div>
+                <div style={{ ...faceS, transform: `rotateY(90deg) translateZ(${half}px)` }}>{digits[2]}</div>
+                <div style={{ ...faceS, transform: `rotateY(-90deg) translateZ(${half}px)` }}>{digits[3]}</div>
+                <div style={{ ...faceS, transform: `rotateX(90deg) translateZ(${half}px)` }}>{digits[4]}</div>
+                <div style={{ ...faceS, transform: `rotateX(-90deg) translateZ(${half}px)` }}>{digits[5]}</div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
     </>
   );
 }
