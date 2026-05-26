@@ -12,26 +12,23 @@ const LABELS: Record<string, string> = { 'crit-success': '大成功', 'extreme-s
 let _actx: AudioContext | null = null;
 function ctx() { try { if (!_actx || _actx.state === 'closed') _actx = new AudioContext(); if (_actx.state === 'suspended') _actx.resume(); return _actx; } catch { return null; } }
 
-// Dice clatter — short noise burst + low thud
+// Dice clatter — layered impulse
 function tick() {
   const c = ctx(); if (!c) return;
   try {
     const now = c.currentTime;
-    // Noise burst (clatter texture)
-    const buf = c.createBuffer(1, c.sampleRate * 0.03, c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
-    const noise = c.createBufferSource(); noise.buffer = buf;
-    const ng = c.createGain(); ng.gain.setValueAtTime(0.03, now); ng.gain.linearRampToValueAtTime(0, now + 0.03);
-    const nf = c.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.setValueAtTime(2000, now);
-    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
-    noise.start(now); noise.stop(now + 0.03);
-    // Low thud
-    const o = c.createOscillator(); const g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(80 + Math.random() * 40, now);
-    g.gain.setValueAtTime(0.06, now); g.gain.linearRampToValueAtTime(0, now + 0.03);
-    o.connect(g); g.connect(c.destination);
-    o.start(now); o.stop(now + 0.03);
+    // Multi-click impulse (simulates dice corners hitting)
+    for (let i = 0; i < 3; i++) {
+      const delay = i * 0.008;
+      // Sharp click
+      const o = c.createOscillator(); const g = c.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(200 + Math.random() * 300, now + delay);
+      o.frequency.linearRampToValueAtTime(40, now + delay + 0.02);
+      g.gain.setValueAtTime(0.08 - i * 0.02, now + delay);
+      g.gain.linearRampToValueAtTime(0, now + delay + 0.025);
+      o.connect(g); g.connect(c.destination);
+      o.start(now + delay); o.stop(now + delay + 0.025);
+    }
   } catch {}
 }
 
@@ -103,9 +100,17 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
     if (tRef.current) clearTimeout(tRef.current);
     setBlur(false); setGold(false); setPhase('rolling');
     const crit = resultType === 'crit-success' || resultType === 'crit-failure';
-    ivRef.current = setInterval(tick, 80);
+    // Decelerating tick rhythm: maps elapsed time to next tick delay
+    // Early (dense): 50ms → Late (sparse): 300ms
+    const scheduleTick = (elapsed: number) => {
+      tick();
+      const nextDelay = 50 + (elapsed / 1300) * 300; // 50ms → 350ms over 1.3s
+      const next = elapsed + nextDelay;
+      if (next < 1300) ivRef.current = setTimeout(() => scheduleTick(next), nextDelay);
+    };
+    ivRef.current = setTimeout(() => scheduleTick(0), 10);
     tRef.current = setTimeout(() => {
-      clearInterval(ivRef.current);
+      if (ivRef.current) clearTimeout(ivRef.current);
       setPhase('result');
       if (resultType === 'crit-failure') { setBlur(true); setTimeout(() => setBlur(false), 800); }
       if (resultType === 'crit-success') setGold(true);
