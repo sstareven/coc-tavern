@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -40,7 +40,18 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
     return () => { if (ivRef.current) clearInterval(ivRef.current); if (tRef.current) clearTimeout(tRef.current); };
   }, [visible, onComplete, resultType]);
 
-  if (!visible) return null;
+  // Random entrance direction — matches the rotation direction feel
+  const entrance = useMemo(() => {
+    const dirs = [
+      { x: -120, y: -40 },  // top-left
+      { x: 120, y: -40 },   // top-right
+      { x: -100, y: 60 },   // bottom-left
+      { x: 100, y: 60 },    // bottom-right
+    ];
+    return dirs[Math.floor(Math.random() * dirs.length)];
+  }, [visible, roll]);
+  // Remove debug log
+  // console.log('[DiceAnim] render phase:', phase, 'visible:', visible, 'resultType:', resultType);
 
   const rollStr = String(roll).padStart(2, '0');
   const color = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
@@ -53,8 +64,8 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       style={{ position: 'fixed', inset: 0, zIndex: 960, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: blur ? 'blur(8px)' : 'blur(6px)' }}>
       <motion.div
-        initial={{ scale: 0.3, opacity: 0, y: -100 }}
-        animate={{ scale: blur ? 0.95 : 1, opacity: 1, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
+        initial={{ scale: 0.3, opacity: 0, x: entrance.x, y: entrance.y }}
+        animate={{ scale: blur ? 0.95 : 1, opacity: 1, x: 0, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
         transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
 
