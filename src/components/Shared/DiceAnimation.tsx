@@ -11,9 +11,84 @@ const LABELS: Record<string, string> = { 'crit-success': '大成功', 'extreme-s
 
 let _actx: AudioContext | null = null;
 function ctx() { try { if (!_actx || _actx.state === 'closed') _actx = new AudioContext(); if (_actx.state === 'suspended') _actx.resume(); return _actx; } catch { return null; } }
-function tick() { const c = ctx(); if (!c) return; try { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.type = 'triangle'; o.frequency.setValueAtTime(400 + Math.random() * 400, c.currentTime); g.gain.setValueAtTime(0.04, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + 0.05); o.start(); o.stop(c.currentTime + 0.05); } catch {} }
-function resultSfx() { const c = ctx(); if (!c) return; try { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.type = 'sine'; g.gain.setValueAtTime(0.06, c.currentTime); o.frequency.setValueAtTime(400, c.currentTime); o.frequency.linearRampToValueAtTime(1000, c.currentTime + 0.18); g.gain.linearRampToValueAtTime(0, c.currentTime + 0.18); o.start(); o.stop(c.currentTime + 0.18); } catch {} }
-function critSfx() { const c = ctx(); if (!c) return; try { [600, 900, 1400, 2000].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.type = 'sine'; g.gain.setValueAtTime(0.04, c.currentTime + i * 0.06); o.frequency.setValueAtTime(f, c.currentTime + i * 0.06); g.gain.linearRampToValueAtTime(0, c.currentTime + 0.25 + i * 0.06); o.start(c.currentTime + i * 0.06); o.stop(c.currentTime + 0.25 + i * 0.06); }); } catch {} }
+
+// Dice clatter — short noise burst + low thud
+function tick() {
+  const c = ctx(); if (!c) return;
+  try {
+    const now = c.currentTime;
+    // Noise burst (clatter texture)
+    const buf = c.createBuffer(1, c.sampleRate * 0.03, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+    const noise = c.createBufferSource(); noise.buffer = buf;
+    const ng = c.createGain(); ng.gain.setValueAtTime(0.03, now); ng.gain.linearRampToValueAtTime(0, now + 0.03);
+    const nf = c.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.setValueAtTime(2000, now);
+    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
+    noise.start(now); noise.stop(now + 0.03);
+    // Low thud
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(80 + Math.random() * 40, now);
+    g.gain.setValueAtTime(0.06, now); g.gain.linearRampToValueAtTime(0, now + 0.03);
+    o.connect(g); g.connect(c.destination);
+    o.start(now); o.stop(now + 0.03);
+  } catch {}
+}
+
+// Result settle — deeper thud + rattle fade
+function resultSfx() {
+  const c = ctx(); if (!c) return;
+  try {
+    const now = c.currentTime;
+    // Impact thud
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(60, now);
+    o.frequency.linearRampToValueAtTime(40, now + 0.12);
+    g.gain.setValueAtTime(0.12, now); g.gain.linearRampToValueAtTime(0, now + 0.15);
+    o.connect(g); g.connect(c.destination);
+    o.start(now); o.stop(now + 0.15);
+    // Rattle decay (noise)
+    const buf = c.createBuffer(1, c.sampleRate * 0.15, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    const noise = c.createBufferSource(); noise.buffer = buf;
+    const ng = c.createGain(); ng.gain.setValueAtTime(0.04, now); ng.gain.linearRampToValueAtTime(0, now + 0.15);
+    const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.setValueAtTime(3000, now); nf.Q.setValueAtTime(0.5, now);
+    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
+    noise.start(now); noise.stop(now + 0.15);
+  } catch {}
+}
+function critSfx() {
+  const c = ctx(); if (!c) return;
+  try {
+    const now = c.currentTime;
+    // Heavy impact
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(50, now);
+    o.frequency.linearRampToValueAtTime(30, now + 0.2);
+    g.gain.setValueAtTime(0.15, now); g.gain.linearRampToValueAtTime(0, now + 0.25);
+    o.connect(g); g.connect(c.destination);
+    o.start(now); o.stop(now + 0.25);
+    // Chime harmonics (layered sine waves)
+    [400, 600, 900, 1400, 2000].forEach((f, i) => {
+      const o2 = c.createOscillator(); const g2 = c.createGain();
+      o2.type = 'sine'; g2.gain.setValueAtTime(0.03, now + i * 0.04);
+      o2.frequency.setValueAtTime(f, now + i * 0.04);
+      g2.gain.linearRampToValueAtTime(0, now + 0.3 + i * 0.04);
+      o2.connect(g2); g2.connect(c.destination);
+      o2.start(now + i * 0.04); o2.stop(now + 0.3 + i * 0.04);
+    });
+    // Rattle burst
+    const buf = c.createBuffer(1, c.sampleRate * 0.2, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    const noise = c.createBufferSource(); noise.buffer = buf;
+    const ng = c.createGain(); ng.gain.setValueAtTime(0.05, now); ng.gain.linearRampToValueAtTime(0, now + 0.2);
+    const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.setValueAtTime(4000, now);
+    noise.connect(nf); nf.connect(ng); ng.connect(c.destination);
+    noise.start(now); noise.stop(now + 0.2);
+  } catch {}
+}
 
 export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete }: Props) {
   const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
@@ -98,7 +173,8 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     if (phase !== 'rolling') return;
     setAnimKey(k => k + 1); // reset animation on new roll
     const iv = setInterval(() => { setRandomDigits(Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 100) + 1).padStart(2, '0'))); }, 60);
-    const stop = setTimeout(() => clearInterval(iv), 1000);
+    // At 1.0s, freeze all faces to the result number (animation still spinning until 1.2s)
+    const stop = setTimeout(() => { clearInterval(iv); setRandomDigits(Array(6).fill(rollStr)); }, 1050);
     return () => { clearInterval(iv); clearTimeout(stop); };
   }, [phase]);
 
