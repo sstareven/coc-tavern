@@ -1,14 +1,39 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
+import { DiceAnimation } from '../Shared/DiceAnimation';
 import { usePanelStore } from '../../stores/usePanelStore';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
   const closeAll = usePanelStore((s) => s.closeAll);
+  const [diceAnim, setDiceAnim] = useState<{
+    visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '' });
+
+  // Listen for dice animation events from RightPage choices
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText });
+    };
+    document.addEventListener('dice-roll-animate', handler);
+    return () => document.removeEventListener('dice-roll-animate', handler);
+  }, []);
+
+  const onDiceComplete = useCallback(() => {
+    const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
+    if (textarea && diceAnim.inputText) {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      nativeInputValueSetter?.call(textarea, diceAnim.inputText);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.focus();
+    }
+    setDiceAnim((prev) => ({ ...prev, visible: false }));
+  }, [diceAnim.inputText]);
 
   // Esc key to close all panels
   useEffect(() => {
@@ -24,7 +49,7 @@ export function GameView({ onReturnToMenu }: Props) {
       <TopBar onReturnToMenu={onReturnToMenu} />
 
       <main style={{
-        flex: 1,
+        flex: 1, minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -40,7 +65,7 @@ export function GameView({ onReturnToMenu }: Props) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flex: 1,
+          flex: 1, minHeight: 0,
           width: '100%',
           padding: '8px 0',
         }}>
@@ -83,6 +108,14 @@ export function GameView({ onReturnToMenu }: Props) {
 
       <InputBar />
 
+      <DiceAnimation
+        visible={diceAnim.visible}
+        skillName={diceAnim.skillName}
+        target={diceAnim.target}
+        roll={diceAnim.roll}
+        resultType={diceAnim.resultType}
+        onComplete={onDiceComplete}
+      />
     </div>
   );
 }

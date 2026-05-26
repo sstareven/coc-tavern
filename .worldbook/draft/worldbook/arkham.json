@@ -1,0 +1,24 @@
+{
+  "id": "arkham",
+  "type": "worldbook_entry",
+  "title": "阿卡姆镇",
+  "enabled": true,
+  "data": {
+    "comment": "阿卡姆镇",
+    "entryType": "other",
+    "keys": [
+      "阿卡姆镇"
+    ],
+    "secondaryKeys": [],
+    "content": "阿卡姆是马萨诸塞州北部的一座古老城镇，始建于17世纪晚期。镇上最著名的建筑是密斯卡塔尼克大学，其图书馆收藏了大量禁忌的古籍，包括传说中的《死灵之书》拉丁文译本。\n\n阿卡姆镇常年笼罩在一种难以言喻的阴暗氛围中。弯曲的街道两旁矗立着殖民地时期留下的尖顶房屋，它们的阁楼窗户在月光下闪烁着不祥的光芒。镇上居民对外来者保持警惕，关于女巫集会、神秘失踪和森林中怪异仪式的传说世代流传。\n\n近年来，一系列无法解释的事件困扰着阿卡姆：墓地中的尸体被盗、密斯卡塔尼克河中出现奇异的发光现象、以及深夜从大学实验室传出的非人尖叫。",
+    "constant": true,
+    "position": "before_char",
+    "order": 100,
+    "enabled": true,
+    "preventRecursion": true,
+    "excludeRecursion": true
+  },
+  "createdAt": "2026-05-25T18:02:17.647Z",
+  "updatedAt": "2026-05-25T18:02:55.309Z",
+  "revision": 1
+}

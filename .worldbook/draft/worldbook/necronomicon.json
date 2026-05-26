@@ -1,0 +1,24 @@
+{
+  "id": "necronomicon",
+  "type": "worldbook_entry",
+  "title": "死灵之书",
+  "enabled": true,
+  "data": {
+    "comment": "死灵之书",
+    "entryType": "other",
+    "keys": [
+      "死灵之书"
+    ],
+    "secondaryKeys": [],
+    "content": "",
+    "constant": true,
+    "position": "before_char",
+    "order": 100,
+    "enabled": true,
+    "preventRecursion": true,
+    "excludeRecursion": true
+  },
+  "createdAt": "2026-05-25T18:02:34.147Z",
+  "updatedAt": "2026-05-25T18:02:34.147Z",
+  "revision": 0
+}

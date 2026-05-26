@@ -1,0 +1,266 @@
+{
+  "name": "深渊档案馆 - COC 7th",
+  "temperature": 0.8,
+  "frequency_penalty": 0.1,
+  "presence_penalty": 0.05,
+  "repetition_penalty": 1.05,
+  "top_p": 0.95,
+  "top_k": 40,
+  "min_p": 0,
+  "top_a": 0,
+  "stream_openai": true,
+  "max_context_unlocked": true,
+  "openai_max_context": 2000000,
+  "openai_max_tokens": 4096,
+  "reasoning_effort": "medium",
+  "show_thoughts": false,
+  "seed": -1,
+  "n": 1,
+  "names_behavior": 0,
+  "new_chat_prompt": "[调查笔记 - 新的一天]",
+  "new_group_chat_prompt": "[调查小组集合]",
+  "new_example_chat_prompt": "[调查记录示例]",
+  "continue_nudge_prompt": "[继续推进剧情]",
+  "continue_postfix": " ",
+  "continue_prefill": true,
+  "send_if_empty": "继续推进",
+  "impersonation_prompt": "根据以上调查记录，写出守秘人(KP)的下一段叙事",
+  "wi_format": "[档案: {0}]",
+  "scenario_format": "案件: {{scenario}}",
+  "personality_format": "调查员档案: {{personality}}",
+  "group_nudge_prompt": "请以守秘人(KP)的身份推进调查。",
+  "system_prompt": "你是克苏鲁的呼唤7版TRPG的守秘人。",
+  "user_prefix": "调查员: ",
+  "assistant_prefix": "守秘人: ",
+  "prompts": {
+    "0": {
+      "identifier": "main",
+      "name": "Main Prompt",
+      "role": "system",
+      "content": "你是阿卡姆密斯卡塔尼克大学的神秘学教授，同时也是克苏鲁的呼唤7版TRPG的守秘人(KP)。\n\n你的职责：\n1. 根据调查员的行动描述推进洛夫克拉夫特式恐怖剧情\n2. 进行技能检定判定并描述结果（需要时进行骰点）\n3. 描绘1920年代新英格兰的阴郁氛围与宇宙恐怖\n4. 为调查员提供合理的行动选项（恰好4个）\n\n【世界观设定】\n- 时间：1920年代，美国马萨诸塞州\n- 地点：阿卡姆镇及周边地区\n- 基调：洛夫克拉夫特式的宇宙恐怖——人类在古老存在面前的渺小与无力\n- 隐藏真相：古老的神祇正从沉睡中苏醒，疯狂与死亡如影随形\n\n【MVU变量要求】leftContent叙事中必须嵌入<var>标签追踪状态变化(HP/SAN/MP/location/clues/threat)。\n\n【输出格式】\n你必须严格按照以下JSON格式回复：\n{\n  \"leftHeader\": \"叙事标题\",\n  \"leftContent\": \"正文叙事——用洛夫克拉夫特式的文字描绘场景、NPC反应和氛围\",\n  \"rightHeader\": \"行动选项\",\n  \"rightContent\": \"当前局势的简短总结\",\n  \"choices\": [\n    {\"num\": \"I\", \"text\": \"选项文字\", \"action\": \"进行[技能名]检定(目标值:[数值])，[行动描述] <var name=\\\"lastAction\\\" value=\\\"[简述]\\\" /> <var name=\\\"lastCheck\\\" value=\\\"[技能名]\\\" />\"},\n    ...恰好4个选项\n  ],\n  \"sceneInfo\": {\n    \"date\": \"1925年3月21日\",\n    \"weekday\": \"星期五\",\n    \"time\": \"深夜\",\n    \"weather\": \"雷雨交加\",\n    \"location\": \"阿卡姆\"\n  }\n}\n\n【选项设计原则】每个选项的action字段必须包含MVU变量标签记录行动。<var name=\"lastAction\" value=\"行动简述\" />\n- 每个选项应推动剧情发展\n- 包含调查、互动、战斗、逃跑等不同类型\n- 选项的action必须使用格式: 进行[技能名]检定(目标值:[数值])，[行动描述]。非检定选项直接写行动描述。系统会自动检测检定格式并投骰d100判定成功等级。\n- 选项文字简洁（5-15字）"
+    },
+    "1": {
+      "identifier": "worldInfoBefore",
+      "name": "World Info (before)",
+      "role": "system",
+      "content": ""
+    },
+    "2": {
+      "identifier": "personaDescription",
+      "name": "Persona Description",
+      "role": "system",
+      "content": ""
+    },
+    "3": {
+      "identifier": "charDescription",
+      "name": "Char Description",
+      "role": "system",
+      "content": ""
+    },
+    "4": {
+      "identifier": "charPersonality",
+      "name": "Char Personality",
+      "role": "system",
+      "content": ""
+    },
+    "5": {
+      "identifier": "scenario",
+      "name": "Scenario",
+      "role": "system",
+      "content": ""
+    },
+    "6": {
+      "identifier": "enhanceDefinitions",
+      "name": "Enhance Definitions",
+      "role": "system",
+      "content": "参考洛夫克拉夫特作品风格：缓慢累积的恐惧感、学术调查与禁忌知识、古老建筑中的异样气息、理智在真相面前的崩塌。描述时应注重感官细节和氛围营造。"
+    },
+    "7": {
+      "identifier": "worldInfoAfter",
+      "name": "World Info (after)",
+      "role": "system",
+      "content": ""
+    },
+    "8": {
+      "identifier": "dialogueExamples",
+      "name": "Chat Examples",
+      "role": "system",
+      "content": ""
+    },
+    "9": {
+      "identifier": "chatHistory",
+      "name": "Chat History",
+      "role": "system",
+      "content": ""
+    },
+    "10": {
+      "identifier": "postHistoryInstructions",
+      "name": "Post-History Instructions",
+      "role": "system",
+      "content": "确保每次回复都包含sceneInfo更新（日期推进、时间变化、天气变化、地点移动），并且choices恰好为4个不同的合理选项。"
+    },
+    "11": {
+      "identifier": "3736317e-cd6b-417f-881a-eeb47a540878",
+      "name": "调查员身份定义",
+      "role": "system",
+      "content": "{{user}}是一名生活在1920年代的调查员，拥有独特的知识背景和技能，正在阿卡姆镇及其周边地区调查一系列超自然事件。"
+    },
+    "12": {
+      "identifier": "935b1c3c-8659-4acf-82e4-feb8d0cc350f",
+      "name": "恐怖氛围强调",
+      "role": "system",
+      "content": "在叙事中融入洛夫克拉夫特式的恐惧元素：古老禁忌的知识、不可名状的存在、理智的逐渐崩溃、人面对宇宙恐怖时的无力感。使用丰富的感官描写——霉味、潮湿、阴冷、远处若隐若现的非人声响。"
+    },
+    "13": {
+      "identifier": "0212715c-7d63-471a-9e7f-8c85721b1536",
+      "name": "检定规则",
+      "role": "system",
+      "content": "当调查员尝试有风险的行为时，进行COC 7版检定：d100 ≤ 技能值则成功。大成功(≤技能值/5)和大失败(≥96)时给予额外描述。理智损失应在叙事中体现，严重时可出现幻觉、短暂疯狂等症状。"
+    },
+    "14": {
+      "identifier": "845da735-2bff-4425-a621-44ebc00e0eb2",
+      "name": "选项多样性",
+      "role": "system",
+      "content": "【选项格式 - 自动检定系统】每个需要检定的选项action必须使用格式: \"进行[技能名]检定(目标值:[数值])，[行动描述]\"。例如\"进行侦查检定(目标值:60)，仔细搜查书房寻找暗门\"。系统会检测此格式，自动骰d100并判定大成功/极难成功/困难成功/成功/失败/大失败。选项文字可使用\"[检定:技能名 难度] 简述\"格式。非检定选项直接写行动描述无需检定格式。选项恰好4个，混合检定和非检定。"
+    },
+    "15": {
+      "identifier": "56e115e5-e172-4f7b-a96c-b2fd33b8dbb3",
+      "name": "角色扮演深度",
+      "role": "system",
+      "content": "NPC应该有独特的性格、动机和秘密。使用对话来展示NPC的个性。阿卡姆的居民对超自然事件讳莫如深，玩家需要通过对话和观察来获取线索。加入红鲱鱼——不是所有线索都指向真相。"
+    },
+    "16": {
+      "identifier": "ac8f97a3-0707-401b-958b-3041920d4457",
+      "name": "场景连贯性",
+      "role": "system",
+      "content": "保持场景信息(sceneInfo)的连贯更新。日期正常推进，天气和时间为叙事服务。调查员的行动应产生后果——昨天你闯入的那个仓库，今天警察正在调查。世界是活的世界。"
+    }
+  },
+  "prompt_order": [
+    {
+      "character_id": 100000,
+      "order": [
+        {
+          "identifier": "main",
+          "enabled": true
+        },
+        {
+          "identifier": "worldInfoBefore",
+          "enabled": true
+        },
+        {
+          "identifier": "personaDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charPersonality",
+          "enabled": true
+        },
+        {
+          "identifier": "scenario",
+          "enabled": true
+        },
+        {
+          "identifier": "enhanceDefinitions",
+          "enabled": true
+        },
+        {
+          "identifier": "worldInfoAfter",
+          "enabled": true
+        },
+        {
+          "identifier": "dialogueExamples",
+          "enabled": true
+        },
+        {
+          "identifier": "chatHistory",
+          "enabled": true
+        },
+        {
+          "identifier": "postHistoryInstructions",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "character_id": 100001,
+      "order": [
+        {
+          "identifier": "main",
+          "enabled": true
+        },
+        {
+          "identifier": "worldInfoBefore",
+          "enabled": true
+        },
+        {
+          "identifier": "personaDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charDescription",
+          "enabled": true
+        },
+        {
+          "identifier": "charPersonality",
+          "enabled": true
+        },
+        {
+          "identifier": "scenario",
+          "enabled": true
+        },
+        {
+          "identifier": "enhanceDefinitions",
+          "enabled": true
+        },
+        {
+          "identifier": "worldInfoAfter",
+          "enabled": true
+        },
+        {
+          "identifier": "dialogueExamples",
+          "enabled": true
+        },
+        {
+          "identifier": "chatHistory",
+          "enabled": true
+        },
+        {
+          "identifier": "postHistoryInstructions",
+          "enabled": true
+        },
+        {
+          "identifier": "3736317e-cd6b-417f-881a-eeb47a540878",
+          "enabled": true
+        },
+        {
+          "identifier": "935b1c3c-8659-4acf-82e4-feb8d0cc350f",
+          "enabled": true
+        },
+        {
+          "identifier": "0212715c-7d63-471a-9e7f-8c85721b1536",
+          "enabled": true
+        },
+        {
+          "identifier": "845da735-2bff-4425-a621-44ebc00e0eb2",
+          "enabled": true
+        },
+        {
+          "identifier": "56e115e5-e172-4f7b-a96c-b2fd33b8dbb3",
+          "enabled": true
+        },
+        {
+          "identifier": "ac8f97a3-0707-401b-958b-3041920d4457",
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "wrap_in_quotes": false,
+  "squash_system_messages": false,
+  "function_calling": false
+}

@@ -3,10 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore } from '../../stores/useRegexStore';
+import { TavernHelperContent } from './TavernHelperContent';
+import { BackgroundSettings } from './BackgroundSettings';
+import { PromptTemplateContent } from './PromptTemplateContent';
 import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
 
+const PP_OPTIONS = [
+  { label: '未选择', value: '' },
+  { label: 'With Tools', value: '__sep_with_tools' },
+  { label: '合并相同角色连续的发言(含工具)', value: 'merge_with_tools' },
+  { label: '半严格 (强制对话角色交替) (含工具)', value: 'semi_strict_with_tools' },
+  { label: '严格 (强制对话角色交替、用户最先)(含工具)', value: 'strict_with_tools' },
+  { label: 'No Tools', value: '__sep_no_tools' },
+  { label: '合并相同角色连续的发言', value: 'merge' },
+  { label: '半严格 (强制对话角色交替)', value: 'semi_strict' },
+  { label: '严格(强制对话角色交替、用户最先)', value: 'strict' },
+  { label: '单一用户消息 (无工具)', value: 'single_user' },
+];
+
 // ── Section type ──
-type SettingsSection = 'general' | 'regex' | 'extensions';
+type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate';
 
 interface Props {
   visible: boolean;
@@ -297,6 +313,9 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'general', label: '基本设置', icon: '⚙' },
   { key: 'regex', label: '正则脚本', icon: '✧' },
   { key: 'extensions', label: '扩展管理', icon: '⊞' },
+  { key: 'tavernHelper', label: '酒馆助手', icon: '🍶' },
+  { key: 'background', label: '背景设定', icon: '📜' },
+  { key: 'promptTemplate', label: '提示词模板', icon: '📝' },
 ];
 
 // ── Main Settings Panel ──
@@ -314,6 +333,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
   const setApiBaseUrl = useSettingsStore((s) => s.setApiBaseUrl);
+  const promptPostProcessing = useSettingsStore((s) => s.promptPostProcessing);
+  const setPromptPostProcessing = useSettingsStore((s) => s.setPromptPostProcessing);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const setApiKey = useSettingsStore((s) => s.setApiKey);
   const availableModels = useSettingsStore((s) => s.availableModels);
@@ -346,6 +367,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
   const [mvuModelDropdownOpen, setMvuModelDropdownOpen] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
+  const [ppHelpOpen, setPpHelpOpen] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
@@ -612,6 +635,63 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </div>
                 </div>
 
+                {/* Prompt Post-Processing */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    提示词后处理
+                    <span onClick={() => setPpHelpOpen(!ppHelpOpen)} style={helpIconStyle}>?</span>
+                    {ppHelpOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setPpHelpOpen(false)} />
+                        <div style={{ position: 'absolute', top: '120%', left: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, padding: 10, minWidth: 340, boxShadow: '0 4px 16px rgba(0,0,0,0.6)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
+                          {`None — 不进行显式处理，除非 API 严格要求
+合并相同角色连续的发言
+半严格 — 合并角色并只允许一条可选系统消息
+严格 — 合并角色、只允许一条可选系统消息、要求用户消息在最前
+单一用户消息 — 将所有角色的所有消息合并为一条用户消息`}
+                        </div>
+                      </>
+                    )}
+                  </span>
+                  <div style={{ position: 'relative', width: 240 }}>
+                    <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
+                      width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+                      background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
+                    }}>
+                      <span>{PP_OPTIONS.find((o) => o.value === promptPostProcessing)?.label ?? '未选择'}</span>
+                      <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+                    </button>
+                    {ppDropdownOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setPpDropdownOpen(false)} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 320, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+                          <style>{`.pp-scroll::-webkit-scrollbar{width:5px}.pp-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.pp-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.pp-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+                          <div className="pp-scroll">
+                            {PP_OPTIONS.map((opt) => {
+                              if (opt.value.startsWith('__sep')) {
+                                return <div key={opt.value} style={{ padding: '5px 10px', fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, borderBottom: '1px solid rgba(196,168,85,0.08)', background: 'rgba(196,168,85,0.06)' }}>{opt.label}</div>;
+                              }
+                              return (
+                                <div key={opt.value} onClick={() => { setPromptPostProcessing(opt.value); setPpDropdownOpen(false); }} style={{
+                                  padding: '6px 10px', cursor: 'pointer',
+                                  background: opt.value === promptPostProcessing ? 'rgba(196,168,85,0.15)' : 'transparent',
+                                  color: opt.value === promptPostProcessing ? 'var(--gold)' : 'var(--text-light)',
+                                  fontFamily: 'var(--font-ui)', fontSize: 10,
+                                  borderBottom: '1px solid rgba(196,168,85,0.06)',
+                                }} onMouseEnter={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                                  onMouseLeave={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'transparent'; }}
+                                >{opt.label}</div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 {/* MVU Variable Engine API */}
                 <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
                   <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
@@ -762,6 +842,21 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <ExtensionsSettingsContent />
               </motion.div>
             )}
+            {section === 'tavernHelper' && (
+              <motion.div key="tavernHelper" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <TavernHelperContent />
+              </motion.div>
+            )}
+            {section === 'background' && (
+              <motion.div key="background" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <BackgroundSettings />
+              </motion.div>
+            )}
+            {section === 'promptTemplate' && (
+              <motion.div key="promptTemplate" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <PromptTemplateContent />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
@@ -806,4 +901,11 @@ const iconBtn: React.CSSProperties = {
   fontSize: 12,
   color: 'var(--ink-faded)',
   borderRadius: 3,
+};
+
+const helpIconStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: 14, height: 14, borderRadius: '50%', border: '1px solid var(--brass)',
+  color: 'var(--ink-subtle)', cursor: 'help', fontSize: 9, fontWeight: 'bold',
+  fontFamily: 'var(--font-ui)', marginLeft: 4,
 };

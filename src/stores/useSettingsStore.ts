@@ -13,7 +13,7 @@ function load(): Partial<SettingsState> {
 
 function save(state: SettingsState) {
   try {
-    const { toggleSound, setTooltipDelay, setMusicVolume, setApiKey, setAvailableModels, setMvuUseIndependentApi, setMvuApiBaseUrl, setMvuApiModel, setMvuApiKey, setMvuTemperature, setMvuRetryCount, setApiBaseUrl, setApiModel, ...data } = state;
+    const { toggleSound, setTooltipDelay, setMusicVolume, setApiKey, setAvailableModels, setMvuUseIndependentApi, setMvuApiBaseUrl, setMvuApiModel, setMvuApiKey, setMvuTemperature, setMvuRetryCount, setPromptPostProcessing, setApiBaseUrl, setApiModel, ...data } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch { /* quota exceeded, ignore */ }
 }
@@ -26,6 +26,7 @@ interface SettingsState {
   apiModel: string;
   apiKey: string;
   availableModels: string[];
+  promptPostProcessing: string;
 
   mvuUseIndependentApi: boolean;
   mvuApiBaseUrl: string;
@@ -43,7 +44,7 @@ interface SettingsStore extends SettingsState {
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
   setApiKey: (k: string) => void;
-  setAvailableModels: (models: string[]) => void;
+  setPromptPostProcessing: (v: string) => void;
   setMvuUseIndependentApi: (v: boolean) => void;
   setMvuApiBaseUrl: (url: string) => void;
   setMvuApiModel: (model: string) => void;
@@ -61,6 +62,7 @@ const defaults: SettingsState = {
   apiModel: 'deepseek-v4-pro',
   apiKey: '',
   availableModels: [],
+  promptPostProcessing: '',
 
   mvuUseIndependentApi: false,
   mvuApiBaseUrl: 'https://api.deepseek.com',
@@ -133,5 +135,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setMvuAvailableModels: (models) => set((s) => {
     save({ ...s, mvuAvailableModels: models });
     return { mvuAvailableModels: models };
+  }),
+  setPromptPostProcessing: (v) => set((s) => {
+    save({ ...s, promptPostProcessing: v });
+    return { promptPostProcessing: v };
   }),
 }));

@@ -10,7 +10,7 @@
  *   { name, temperature, top_p, top_k, max_tokens, repetition_penalty,
  *     system_prompt, user_prefix, assistant_prefix, ... }
  */
-import type { LoreBook, LoreEntry, ChatPreset, RegexScript } from '../types';
+import type { LoreBook, LoreEntry, ChatPreset, RegexScript, THScriptTree } from '../types';
 
 // ── ST module identifier → label map ──
 const MODULE_ID_MAP: Record<string, string> = {
@@ -115,35 +115,45 @@ interface STPreset {
 export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[]): string {
   const data: any = {
     name: preset.name, temperature: preset.temperature,
-    top_p: preset.topP, top_k: preset.topK, max_tokens: preset.maxTokens,
+    top_p: preset.topP, top_k: preset.topK, min_p: preset.minP, top_a: preset.topA,
+    max_tokens: preset.maxTokens,
     frequency_penalty: preset.frequencyPenalty, presence_penalty: preset.presencePenalty,
+    repetition_penalty: preset.repetitionPenalty,
     system_prompt: preset.systemPrompt, user_prefix: preset.userPrefix, assistant_prefix: preset.assistantPrefix,
-    unlock_context: preset.unlockContext, context_length: preset.contextLength,
+    max_context_unlocked: preset.unlockContext, openai_max_context: preset.contextLength,
     max_response_length: preset.maxResponseTokens, alternative_replies: preset.alternativeReplies,
-    reasoning_effort: preset.reasoningEffort, response_length: preset.responseLength,
+    reasoning_effort: preset.reasoningEffort, show_thoughts: preset.showThoughts,
+    response_length: preset.responseLength,
     seed: preset.seed, char_name_behavior: preset.charNameBehavior,
-    continue_suffix: preset.continueSuffix,
+    continue_postfix: preset.continueSuffix === 'space' ? ' ' : preset.continueSuffix === 'newline' ? '\n' : preset.continueSuffix === 'doublenewline' ? '\n\n' : '',
+    continue_prefill: preset.continuePrefill,
+    assistant_prefill: preset.assistantPrefill,
     prompt_order: preset.promptItems.map((p: any) => ({
       identifier: p.id, name: p.name, enabled: p.enabled, content: p.content, role: p.role,
     })),
   };
   if (regexScripts && regexScripts.length > 0) {
-    data.extensions = {
-      regex_scripts: regexScripts.map((s) => ({
-        scriptName: s.scriptName,
-        findRegex: s.findRegex,
-        replaceString: s.replaceString,
-        trimStrings: s.trimStrings,
-        placement: s.placement,
-        disabled: s.disabled,
-        markdownOnly: s.markdownOnly,
-        promptOnly: s.promptOnly,
-        runOnEdit: s.runOnEdit,
-        substituteRegex: s.substituteRegex,
-        minDepth: s.minDepth,
-        maxDepth: s.maxDepth,
-      })),
-    };
+    data.extensions = data.extensions || {};
+    data.extensions.regex_scripts = regexScripts.map((s) => ({
+      scriptName: s.scriptName,
+      findRegex: s.findRegex,
+      replaceString: s.replaceString,
+      trimStrings: s.trimStrings,
+      placement: s.placement,
+      disabled: s.disabled,
+      markdownOnly: s.markdownOnly,
+      promptOnly: s.promptOnly,
+      runOnEdit: s.runOnEdit,
+      substituteRegex: s.substituteRegex,
+      minDepth: s.minDepth,
+      maxDepth: s.maxDepth,
+    }));
+  }
+  // Include tavern_helper scripts if present
+  if (preset.tavernHelperScripts && preset.tavernHelperScripts.length > 0) {
+    data.extensions = data.extensions || {};
+    data.extensions.tavern_helper = data.extensions.tavern_helper || {};
+    data.extensions.tavern_helper.scripts = preset.tavernHelperScripts;
   }
   return JSON.stringify(data, null, 2);
 }
@@ -177,10 +187,19 @@ function parseRegexScripts(data: any): RegexScript[] {
     }));
 }
 
+function parseTavernHelperData(data: any): THScriptTree[] | undefined {
+  const raw = data.extensions?.tavern_helper;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const scripts = raw.scripts;
+  if (Array.isArray(scripts) && scripts.length > 0) return scripts;
+  return undefined;
+}
+
 export function importPresetFromST(json: string, fileName?: string): ImportedPreset | null {
   try {
     const data: any = JSON.parse(json);
     const regexScripts = parseRegexScripts(data);
+    const tavernHelperScripts = parseTavernHelperData(data);
     // Get prompt_order (root or nested in extensions)
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
@@ -275,27 +294,50 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
         });
       }
     }
+    // Extract quick prompt contents from the prompts map by looking up marker identifiers
+    const mainPrompt = (identifierMap['main'] as any)?.content || '';
+    const auxiliaryPrompt = (identifierMap['enhanceDefinitions'] as any)?.content
+      || (identifierMap['auxiliary'] as any)?.content || '';
+    const postHistoryPrompt = (identifierMap['postHistoryInstructions'] as any)?.content
+      || (identifierMap['jailbreak'] as any)?.content || '';
+
     const preset: ChatPreset = {
       id: `preset-imported-${Date.now()}`, name,
       temperature: data.temperature ?? 1.00, topP: data.top_p ?? 1.00, topK: data.top_k ?? 40,
+      minP: data.min_p ?? 0, topA: data.top_a ?? 0,
       maxTokens: data.max_tokens ?? 2048,
-      frequencyPenalty: data.frequency_penalty ?? data.repetition_penalty ?? 0.00,
+      frequencyPenalty: data.frequency_penalty ?? 0.00,
       presencePenalty: data.presence_penalty ?? 0.00,
+      repetitionPenalty: data.repetition_penalty ?? data.frequency_penalty ?? 1.00,
       systemPrompt: data.system_prompt ?? '', userPrefix: data.user_prefix ?? '玩家: ', assistantPrefix: data.assistant_prefix ?? '守秘人: ',
-      unlockContext: data.unlock_context ?? false, contextLength: data.context_length ?? 65536,
+      unlockContext: data.max_context_unlocked ?? data.unlock_context ?? false,
+      contextLength: data.openai_max_context ?? data.context_length ?? 65536,
       maxResponseTokens: data.max_response_length ?? data.max_tokens ?? 2048, alternativeReplies: 1,
       streamEnabled: data.stream_enabled ?? false,
       reasoningEffort: data.reasoning_effort ?? 'auto',
+      showThoughts: data.show_thoughts ?? false,
       responseLength: data.response_length ?? 'auto',
       seed: data.seed ?? -1,
-      charNameBehavior: data.char_name_behavior ?? 'none',
-      continueSuffix: data.continue_suffix ?? 'none',
-      mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
+      charNameBehavior: typeof data.names_behavior === 'number'
+        ? (['none', 'completion', 'content'] as const)[data.names_behavior] ?? 'none'
+        : (data.char_name_behavior ?? 'none'),
+      continueSuffix: (() => {
+        const postfix = data.continue_postfix ?? data.continue_suffix;
+        if (postfix === '' || postfix === undefined || postfix === null) return 'none' as const;
+        if (postfix === ' ') return 'space' as const;
+        if (postfix === '\n') return 'newline' as const;
+        if (postfix === '\n\n') return 'doublenewline' as const;
+        return 'none' as const;
+      })(),
+      continuePrefill: data.continue_prefill ?? false,
+      assistantPrefill: data.assistant_prefill ?? '',
+      mainPrompt, auxiliaryPrompt, postHistoryPrompt,
       aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动', worldBookTemplate: '[世界书: {0}]',
       scenarioTemplate: '场景: {{scenario}}', personalityTemplate: '性格: {{personality}}',
       groupChatPrompt: '请以{{char}}的身份回复。', newChatPrompt: '[新的聊天即将开始]',
       newGroupChatPrompt: '[新的群聊即将开始]', newExampleChatPrompt: '[新的示例聊天即将开始]',
       continuePrompt: '[继续推进]', emptyMessagePrompt: '', promptItems,
+      tavernHelperScripts,
     };
     return { preset, regexScripts };
   } catch { return null; }
@@ -330,9 +372,11 @@ export function exportAllWorldBooksToST(books: Record<string, LoreBook>): string
 export function exportAllPresetsToST(presets: ChatPreset[]): string {
   return JSON.stringify(presets.map((p) => ({
     name: p.name, temperature: p.temperature, top_p: p.topP, top_k: p.topK,
+    min_p: p.minP, top_a: p.topA,
     max_tokens: p.maxTokens, frequency_penalty: p.frequencyPenalty, presence_penalty: p.presencePenalty,
+    repetition_penalty: p.repetitionPenalty,
     system_prompt: p.systemPrompt, user_prefix: p.userPrefix, assistant_prefix: p.assistantPrefix,
-    unlock_context: p.unlockContext, context_length: p.contextLength, max_response_length: p.maxResponseTokens,
+    max_context_unlocked: p.unlockContext, openai_max_context: p.contextLength, max_response_length: p.maxResponseTokens,
     reasoning_effort: p.reasoningEffort, response_length: p.responseLength, seed: p.seed,
     char_name_behavior: p.charNameBehavior, continue_suffix: p.continueSuffix,
     prompt_order: p.promptItems.map((pi: any) => ({ identifier: pi.id, name: pi.name, enabled: pi.enabled, content: pi.content, role: pi.role })),
