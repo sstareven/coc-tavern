@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
@@ -15,7 +15,7 @@ import { TokenCounter } from '../Shared/TokenCounter';
 import { StreamingPreview, useStreamingRenderer } from '../Shared/StreamingPreview';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { extractVariablesWithLLM } from '../../sillytavern/mvu-extractor';
-import { processSlashCommands } from '../../sillytavern/slash-commands';
+import { processSlashCommands, getCommands } from '../../sillytavern/slash-commands';
 import { renderTemplate } from '../../sillytavern/ejs-template';
 import { processMacros } from '../../sillytavern/macro-engine';
 import { runAllRegexScripts } from '../../sillytavern/regex-engine';
@@ -396,6 +396,7 @@ export function InputBar() {
   const promptViewerRef = useRef<AssembledMessage[]>([]);
   const buildFnRef = useRef<((text?: string) => void) | null>(null);
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
+  const allCommands = useMemo(() => getCommands(), []);
 
   // Token counter state
   const [showTokenCounter, setShowTokenCounter] = useState(false);
@@ -607,10 +608,13 @@ export function InputBar() {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
+    pushLog('debug', `[提交] 原始输入: "${trimmed}"`, 'system');
+
     // Process slash commands first
     let processedInput = trimmed;
     if (trimmed.startsWith('/')) {
       processedInput = await processSlashCommands(trimmed);
+      pushLog('debug', `[提交] 处理后: "${processedInput}"`, 'system');
       if (!processedInput.trim() || processedInput.startsWith('[')) {
         setInput(processedInput);
         return;
@@ -902,7 +906,32 @@ export function InputBar() {
             </AnimatePresence>
           </div>
 
-          <textarea
+          <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+            {/* Slash command autocomplete */}
+            {input.startsWith('/') && (
+              <div style={{
+                position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 800,
+                background: 'linear-gradient(180deg, rgba(20,16,12,0.96) 0%, rgba(13,10,7,0.98) 100%)',
+                border: '1px solid var(--gold)', borderRadius: 4,
+                marginBottom: 4, maxHeight: 180, overflowY: 'auto',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
+              }}>
+                {allCommands
+                  .filter((c) => c.name.startsWith(input.slice(1).split(/[\s=]/)[0].toLowerCase()) || input === '/')
+                  .map((c) => (
+                    <div key={c.name} onClick={() => { setInput('/' + c.name + ' '); }}
+                      style={{ padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-light)', borderBottom: '1px solid rgba(196,168,85,0.06)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(196,168,85,0.08)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                      <span style={{ color: 'var(--gold)', fontWeight: 'bold' }}>/{c.name}</span>
+                      <span style={{ color: 'var(--ink-subtle)', marginLeft: 8, fontSize: 10 }}>{c.description}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <textarea
             value={input}
             onChange={(e) => { setInput(e.target.value); if (error) setError(''); }}
             onKeyDown={(e) => {
@@ -934,6 +963,7 @@ export function InputBar() {
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
           />
+          </div>
           <button onClick={submit} disabled={loading} title="预览提示词后发送" style={{
             padding: '10px 28px', border: '1px solid var(--gold)',
             background: loading ? 'rgba(196,168,85,0.05)' : 'rgba(196,168,85,0.1)',

@@ -80,8 +80,10 @@ export async function processSlashCommands(input: string): Promise<string> {
   for (const line of lines) {
     if (line.startsWith('/')) {
       const spaceIdx = line.indexOf(' ');
-      const cmdName = (spaceIdx === -1 ? line.slice(1) : line.slice(1, spaceIdx)).toLowerCase();
-      const args = spaceIdx === -1 ? '' : line.slice(spaceIdx + 1);
+      const eqIdx = line.indexOf('=');
+      const splitIdx = spaceIdx === -1 ? eqIdx : (eqIdx === -1 ? spaceIdx : Math.min(spaceIdx, eqIdx));
+      const cmdName = (splitIdx === -1 ? line.slice(1) : line.slice(1, splitIdx)).toLowerCase();
+      const args = splitIdx === -1 ? '' : line.slice(splitIdx);
 
       const cmd = registry.get(cmdName);
       if (cmd) {
@@ -161,6 +163,37 @@ export function initBuiltinCommands(): void {
       } catch {
         return '[变量系统不可用]';
       }
+    },
+  });
+
+  // /rd=<N> or /rd <N> — test dice animation
+  registerCommand({
+    name: 'rd',
+    description: '测试骰子动画。用法: /rd=100 或 /rd 1',
+    execute: (args) => {
+      const raw = args.trim();
+      // Parse /rd=100 or /rd 100
+      const match = raw.match(/^(?:=)?\s*(\d+)/);
+      if (!match) return '[用法: /rd=100 (大失败) 或 /rd=1 (大成功)]';
+      const roll = parseInt(match[1]);
+      if (roll < 1 || roll > 100) return '[骰值需在 1-100 之间]';
+      const target = 50;
+      const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+      let resultType = 'failure';
+      if (roll === 100 || (target < 50 && roll >= 96)) resultType = 'crit-failure';
+      else if (roll === 1) resultType = 'crit-success';
+      else if (roll <= fifth) resultType = 'extreme-success';
+      else if (roll <= half) resultType = 'hard-success';
+      else if (roll <= target) resultType = 'success';
+      const labels: Record<string, string> = {
+        'crit-success': '大成功', 'extreme-success': '极难成功', 'hard-success': '困难成功',
+        'success': '成功', 'failure': '失败', 'crit-failure': '大失败',
+      };
+      // Dispatch dice animation
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: { skillName: '调试骰子', target, roll, resultType, inputText: '' },
+      }));
+      return `[调试骰子: d100=${roll}/${target} ${labels[resultType] || resultType}]`;
     },
   });
 
