@@ -43,10 +43,10 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   // Random entrance direction — matches the rotation direction feel
   const entrance = useMemo(() => {
     const dirs = [
-      { x: -120, y: -40 },  // top-left
-      { x: 120, y: -40 },   // top-right
-      { x: -100, y: 60 },   // bottom-left
-      { x: 100, y: 60 },    // bottom-right
+      { x: -260, y: -120 }, // top-left
+      { x: 260, y: -120 },  // top-right
+      { x: -220, y: 140 },  // bottom-left
+      { x: 220, y: 140 },   // bottom-right
     ];
     return dirs[Math.floor(Math.random() * dirs.length)];
   }, [visible, roll]);
