@@ -32,20 +32,40 @@ function impact(vol = 0.06, freq = 300, decay = 0.04) {
   } catch {}
 }
 
-function tick() { impact(0.06, 250 + Math.random() * 350, 0.035); }
-
-function resultSfx() {
-  impact(0.16, 100, 0.22);           // heavy thud
-  setTimeout(() => impact(0.07, 60, 0.14), 80);   // bounce
-  setTimeout(() => impact(0.03, 180, 0.08), 160);  // final rattle
+function noiseFloor(vol: number, dur: number) {
+  const c = ctx(); if (!c) return;
+  const buf = c.createBuffer(1, c.sampleRate * dur, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = c.createBufferSource(); s.buffer = buf;
+  const g = c.createGain(); g.gain.setValueAtTime(vol, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + dur);
+  s.connect(g); g.connect(c.destination); s.start(); s.stop(c.currentTime + dur);
 }
 
-function critSfx() {
-  impact(0.22, 70, 0.3);
-  [0.03, 0.07, 0.12, 0.18, 0.25].forEach((d, i) => {
-    setTimeout(() => impact(0.05 - i * 0.008, 350 + i * 250, 0.16), d * 1000);
-  });
-  setTimeout(() => impact(0.08, 50, 0.2), 150);
+function tick() {
+  impact(0.08, 250 + Math.random() * 350, 0.04);
+  noiseFloor(0.012, 0.03);
+}
+
+function resultSfx(isSuccess: boolean, isCrit: boolean) {
+  if (isCrit) {
+    // Crit: heavy + bright cascade
+    impact(0.22, 70, 0.3);
+    [0.03, 0.07, 0.12, 0.18, 0.25].forEach((d, i) => {
+      setTimeout(() => impact(0.05 - i * 0.008, 350 + i * 250, 0.16), d * 1000);
+    });
+    setTimeout(() => impact(0.08, 50, 0.2), 150);
+  } else if (isSuccess) {
+    // Success: clean satisfying thud + bright ping
+    impact(0.14, 120, 0.2);
+    setTimeout(() => impact(0.06, 80, 0.12), 80);
+    setTimeout(() => impact(0.04, 500, 0.1), 100);  // bright ping
+  } else {
+    // Failure: dull thud + discordant low rumble
+    impact(0.12, 90, 0.18);
+    setTimeout(() => impact(0.06, 55, 0.14), 60);
+    setTimeout(() => impact(0.04, 45, 0.12), 120);  // low rumble
+  }
 }
 
 export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete }: Props) {
@@ -75,7 +95,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
       setPhase('result');
       if (resultType === 'crit-failure') { setBlur(true); setTimeout(() => setBlur(false), 800); }
       if (resultType === 'crit-success') setGold(true);
-      crit ? critSfx() : resultSfx();
+      resultSfx(resultType.includes('success'), crit);
       tRef.current = setTimeout(() => { setPhase('done'); onComplete(); }, 2300);
     }, 1300);
     return () => { if (ivRef.current) clearInterval(ivRef.current); if (tRef.current) clearTimeout(tRef.current); };
