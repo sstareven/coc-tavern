@@ -98,7 +98,8 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     if (phase !== 'rolling') return;
     setAnimKey(k => k + 1); // reset animation on new roll
     const iv = setInterval(() => { setRandomDigits(Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 100) + 1).padStart(2, '0'))); }, 60);
-    return () => clearInterval(iv);
+    const stop = setTimeout(() => clearInterval(iv), 1000);
+    return () => { clearInterval(iv); clearTimeout(stop); };
   }, [phase]);
 
   const digits = phase === 'rolling' ? randomDigits : Array(6).fill(rollStr);
