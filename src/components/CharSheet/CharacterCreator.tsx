@@ -283,8 +283,6 @@ const selectTriggerStyle: React.CSSProperties = {
   userSelect: 'none' as any,
 };
   const plusMinusBtn: React.CSSProperties = { width: 32, height: 28, border: "1px solid var(--brass)", borderRadius: 3, background: "rgba(0,0,0,0.3)", color: "var(--ink-subtle)", fontFamily: "var(--font-mono)", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-  const miniBtn: React.CSSProperties = { padding: '1px 5px', border: '1px solid var(--brass)', borderRadius: 2, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-mono)' };
-  const ptnBtn: React.CSSProperties = { padding: '2px 5px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 2, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--font-mono)', lineHeight: '16px' };
 const editBtn: React.CSSProperties = { background: 'none', border: 'none', padding: '1px 2px', fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 700, color: 'rgba(200,200,200,0.22)', cursor: 'pointer', lineHeight: 1.2 };
 
 const btnBase: React.CSSProperties = {
@@ -581,8 +579,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     const con = chars.CON;
     const pow = chars.POW;
     const str = chars.STR;
-    const dex = chars.DEX;
-    const edu = chars.EDU;
     const hpMax = Math.floor((siz + con) / 10);
     const sanMax = pow;
     const mpMax = Math.floor(pow / 5);
@@ -652,6 +648,11 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         residence,
         id: charId,
       },
+      greeting: '',
+      description: '',
+      personality: '',
+      scenario: '',
+      personaDescription: '',
     };
 
     // Persist background separately for completeness
@@ -1347,7 +1348,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               const intPts = interestPoints[sk.name] ?? 0;
               const base = getBase(sk);
               const total = base + occPts + intPts;
-              const baseDisplay = typeof sk.base === 'number' ? String(sk.base) : (sk.base === 'DEX_HALF' ? 'DEX/2' : 'EDU');
               const catColor = CAT_COLORS[sk.cat];
               const occFull = occSkills.length >= 8 && !isOcc;
               const intFull = intRemaining <= 0 && !isInt;

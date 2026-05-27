@@ -22,23 +22,12 @@ function parseCheckAction(text: string): { skillName: string; target: number; di
   if (m2) {
     // Difficulties halve/divide the target (handled by the caller)
     const diff = m2[2];
-    const multiplier = diff === '极难' ? 5 : diff === '困难' ? 2 : 1;
     return { skillName: m2[1].trim(), target: 0, difficulty: diff };
   }
   return null;
 }
 
-// Result labels
-const RESULT_LABELS: Record<string, string> = {
-  'crit-success': '大成功！',
-  'extreme-success': '极难成功',
-  'hard-success': '困难成功',
-  'success': '成功',
-  'failure': '失败',
-  'crit-failure': '大失败！',
-};
-
-function rollAndGetResult(skillName: string, target: number): { raw: number; resultType: string; label: string } {
+function rollAndGetResult(_skillName: string, target: number): { raw: number; resultType: string; label: string } {
   const d10 = () => Math.floor(Math.random() * 10);
   const t = d10(), o = d10();
   const raw = (t === 0 && o === 0) ? 100 : t * 10 + o;

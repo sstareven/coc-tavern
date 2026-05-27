@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
-import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
 function estimateTokens(text: string): number {
   let tokens = 0;

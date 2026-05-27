@@ -3,7 +3,7 @@
  * When the prompt exceeds the model's context limit, older content is
  * trimmed and optionally summarized to keep within budget.
  */
-import { estimateTokens, computeBreakdown, type TokenBreakdown } from './token-counter';
+import { estimateTokens } from './token-counter';
 import type { AssembledMessage } from './prompt-assembler';
 
 // ── Config ──

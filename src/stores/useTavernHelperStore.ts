@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { THScriptTree, THScript, THScriptFolder, THRenderSettings, THOptimizeSettings, PTSettings, THScope, THVariable } from '../types';
+import type { THScriptTree, THRenderSettings, THOptimizeSettings, PTSettings, THScope, THVariable } from '../types';
 
 const STORAGE_KEY = 'coc_th_v2';
 

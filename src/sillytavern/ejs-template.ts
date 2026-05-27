@@ -168,7 +168,7 @@ export function renderTemplate(
       switch (part.type) {
         case 'text': {
           output.push(part.content);
-          compiled.push({ type: 'text', fn: null as unknown as Function });
+          compiled.push({ type: 'text' });
           break;
         }
         case 'output':
@@ -180,11 +180,11 @@ export function renderTemplate(
             const escaped = val != null ? escapeHtml(String(val)) : '';
             output.push(escaped);
             compiled.push({ type: 'output', fn: disableWith
-              ? ((g: Function, s: Function, w: Function) => { const v = g(api.getvar, api.setvar, api.getwi); return v != null ? escapeHtml(String(v)) : ''; }) as unknown as Function
-              : null });
+              ? ((g: Function, _s: Function, _w: Function) => { const v = g(api.getvar, api.setvar, api.getwi); return v != null ? escapeHtml(String(v)) : ''; }) as unknown as Function
+              : undefined });
           } catch {
             output.push(`[模板错误: ${part.content}]`);
-            compiled.push({ type: 'output', fn: null as unknown as Function });
+            compiled.push({ type: 'output' });
           }
           break;
         case 'unescaped':
@@ -194,10 +194,10 @@ export function renderTemplate(
               : new Function('api', `with(api){ return (${part.content}); }`);
             const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(api);
             output.push(val != null ? String(val) : '');
-            compiled.push({ type: 'unescaped', fn: null as unknown as Function });
+            compiled.push({ type: 'unescaped' });
           } catch {
             output.push(`[模板错误: ${part.content}]`);
-            compiled.push({ type: 'unescaped', fn: null as unknown as Function });
+            compiled.push({ type: 'unescaped' });
           }
           break;
         case 'code':
@@ -206,9 +206,9 @@ export function renderTemplate(
               ? new Function('getvar', 'setvar', 'getwi', `{ ${part.content} }`)
               : new Function('api', `with(api){ ${part.content} }`);
             disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(api);
-            compiled.push({ type: 'code', fn: null as unknown as Function });
+            compiled.push({ type: 'code' });
           } catch {
-            compiled.push({ type: 'code', fn: null as unknown as Function });
+            compiled.push({ type: 'code' });
           }
           break;
       }

@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
-import { usePanelStore } from '../../stores/usePanelStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 

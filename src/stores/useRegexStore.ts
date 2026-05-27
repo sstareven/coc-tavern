@@ -73,6 +73,7 @@ interface RegexStore {
   isEditorOpen: boolean;
   editingScript: RegexScript | null;
   editingScope: RegexScriptType;
+  editingType: 'global' | 'preset';
 
   // Actions — scripts
   getScripts: (type: RegexScriptType) => RegexScript[];
@@ -103,6 +104,7 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   isEditorOpen: false,
   editingScript: null,
   editingScope: 'global',
+  editingType: 'global',
 
   getScripts: (type) => {
     switch (type) {

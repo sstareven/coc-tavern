@@ -295,7 +295,7 @@ _元数据:
 ` }),
 
     mvu_var_list: e({ name: '变量列表', keys: '变量, variable, stat, 状态', logic: 'OR', priority: 8, depth: 0,
-      content: '<status_current_variable>\n{{format_message_variable::stat_data}}\n</status_current_variable>' }),
+      content: '<status_current_variable>\n调查员.生命值: {{getvar::调查员.生命值.当前}}/{{getvar::调查员.生命值.最大}}\n调查员.理智值: {{getvar::调查员.理智值.当前}}/{{getvar::调查员.理智值.最大}}\n调查员.魔法值: {{getvar::调查员.魔法值.当前}}/{{getvar::调查员.魔法值.最大}}\n调查员.幸运: {{getvar::调查员.幸运}}\n世界.日期: {{getvar::世界.日期}} | 世界.时间: {{getvar::世界.时间}}\n世界.地点: {{getvar::世界.地点}} | 世界.天气: {{getvar::世界.天气}}\n剧情.当前章节: {{getvar::剧情.当前章节}}\n</status_current_variable>' }),
   }},
   coc_lore: { name: '克苏鲁深渊档案馆', enabled: true, entries: {
     arkham: e({ name: '阿卡姆镇', keys: '阿卡姆, Arkham, 城镇', logic: 'OR', priority: 10,

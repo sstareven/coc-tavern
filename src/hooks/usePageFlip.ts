@@ -10,7 +10,6 @@ export function usePageFlip() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const nextPage = useBookStore((s) => s.nextPage);
   const prevPage = useBookStore((s) => s.prevPage);
-  const setFlipping = useBookStore((s) => s.setFlipping);
   const pagesLen = useBookStore((s) => s.pages.length);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const audio = useAudio();
