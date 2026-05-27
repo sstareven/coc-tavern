@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -1564,6 +1565,18 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       { label: '恐惧症/狂躁症 Phobias', value: phobias, set: setPhobias, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
     ];
 
+    const accordionRef = useRef<HTMLDivElement>(null);
+
+    // Scroll expanded field to viewport top when opening
+    useEffect(() => {
+      if (openField && accordionRef.current) {
+        const timer = setTimeout(() => {
+          accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 120);
+        return () => clearTimeout(timer);
+      }
+    }, [openField]);
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
         <div style={sectionTitle}>背景故事 BACKGROUND</div>
@@ -1596,9 +1609,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         )}
 
         {/* Accordion — fills remaining height */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-          {/* Header tabs at top */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+        <div ref={accordionRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          {/* Header tabs at top — no gap, marginBottom per item for smooth collapse */}
+          <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             {fields.map((f) => {
               const isOpen = openField === f.label;
               const isHidden = openField !== null && openField !== f.label;
@@ -1607,18 +1620,38 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                 <div
                   key={f.label}
                   onClick={() => setOpenField(isOpen ? null : f.label)}
+                  onMouseEnter={(e) => {
+                    if (isHidden) return;
+                    e.currentTarget.style.background = isOpen ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.07)';
+                    e.currentTarget.style.borderColor = 'rgba(196,168,85,0.50)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isOpen ? 'rgba(196,168,85,0.06)' : hasContent ? 'rgba(196,168,85,0.03)' : 'rgba(0,0,0,0.04)';
+                    e.currentTarget.style.borderColor = isOpen ? 'rgba(196,168,85,0.35)' : hasContent ? 'rgba(196,168,85,0.22)' : 'rgba(196,168,85,0.1)';
+                  }}
+                  onMouseDown={(e) => {
+                    if (isHidden) return;
+                    e.currentTarget.style.transform = 'scale(0.97)';
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '4px 10px', cursor: 'pointer', userSelect: 'none',
-                    border: `1px solid ${isOpen ? 'rgba(196,168,85,0.35)' : hasContent ? 'rgba(196,168,85,0.22)' : 'rgba(196,168,85,0.1)'}`,
+                    padding: isHidden ? '0 10px' : '4px 10px',
+                    cursor: 'pointer', userSelect: 'none',
+                    borderStyle: 'solid',
+                    borderColor: isOpen ? 'rgba(196,168,85,0.35)' : hasContent ? 'rgba(196,168,85,0.22)' : 'rgba(196,168,85,0.1)',
+                    borderWidth: isHidden ? '0px' : '1px',
                     borderRadius: 4,
                     background: isOpen ? 'rgba(196,168,85,0.06)' : hasContent ? 'rgba(196,168,85,0.03)' : 'rgba(0,0,0,0.04)',
-                    transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
                     overflow: 'hidden',
-                    maxHeight: isHidden ? 0 : 30,
+                    maxHeight: isHidden ? '0px' : '30px',
                     opacity: isHidden ? 0 : 1,
-                    marginBottom: isHidden ? 0 : undefined,
-                    minHeight: isHidden ? 0 : 30,
+                    minHeight: isHidden ? '0px' : '30px',
+                    marginBottom: isHidden ? '0px' : '4px',
+                    transform: 'scale(1)',
+                    transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s cubic-bezier(0.4,0,0.2,1), margin-bottom 0.4s cubic-bezier(0.4,0,0.2,1), padding 0.4s cubic-bezier(0.4,0,0.2,1), min-height 0.4s cubic-bezier(0.4,0,0.2,1), border-width 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.15s cubic-bezier(0.4,0,0.2,1), background 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s cubic-bezier(0.4,0,0.2,1)',
                   }}
                 >
                   <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
@@ -1632,32 +1665,41 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               );
             })}
           </div>
-          {/* Input panel — below headers, fills remaining space */}
-          {openField && (
-            <div style={{
-              flex: 1, marginTop: 6, display: 'flex', flexDirection: 'column', minHeight: 0,
-            }}>
-              {(() => {
-                const f = fields.find((x) => x.label === openField)!;
-                return f.rows ? (
-                  <textarea
-                    value={f.value}
-                    onChange={(e) => f.set(e.target.value)}
-                    style={{ ...inputStyle, flex: 1, resize: 'none' }}
-                    placeholder={f.hint}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={f.value}
-                    onChange={(e) => f.set(e.target.value)}
-                    style={inputStyle}
-                    placeholder={f.hint}
-                  />
-                );
-              })()}
-            </div>
-          )}
+          {/* Input panel — AnimatePresence for smooth bezier expand/collapse */}
+          <AnimatePresence>
+            {openField && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                animate={{ height: 'auto', opacity: 1, marginTop: 6 }}
+                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                style={{
+                  flex: 1, overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column', minHeight: 0,
+                }}
+              >
+                {(() => {
+                  const f = fields.find((x) => x.label === openField)!;
+                  return f.rows ? (
+                    <textarea
+                      value={f.value}
+                      onChange={(e) => f.set(e.target.value)}
+                      style={{ ...inputStyle, flex: 1, resize: 'none', textAlign: 'left' }}
+                      placeholder={f.hint}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={f.value}
+                      onChange={(e) => f.set(e.target.value)}
+                      style={inputStyle}
+                      placeholder={f.hint}
+                    />
+                  );
+                })()}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     );
