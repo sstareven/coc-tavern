@@ -60,7 +60,6 @@ function impact(vol = 0.06, freq = 300, decay = 0.04) {
   } catch {}
 }
 
-function tick() { impact(0.1, 300 + Math.random() * 400, 0.03); }
 
 // ── Death knell synthesis: 6 styles with unique rhythm + minor melody ──
 // Frequencies: C2=65.4  Eb2=77.8  G2=98.0  Bb2=116.5  C3=130.8  C#2=69.3  D3=146.8
@@ -247,7 +246,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   const [blur, setBlur] = useState(false);
   const [gold, setGold] = useState(false);
   const [fading, setFading] = useState(false);
-  const tRef = useRef<ReturnType<typeof setTimeout>>();
+  const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -296,7 +295,6 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   const rollStr = String(roll);
   const color = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
   const isSuccess = resultType.includes('success');
-  const isCrit = resultType === 'crit-success' || resultType === 'crit-failure';
   const glowColor = phase === 'rolling' ? '#555' : color;
 
   return (

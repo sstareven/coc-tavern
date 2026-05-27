@@ -10,7 +10,7 @@
  *   { name, temperature, top_p, top_k, max_tokens, repetition_penalty,
  *     system_prompt, user_prefix, assistant_prefix, ... }
  */
-import type { LoreBook, LoreEntry, ChatPreset, RegexScript, THScriptTree } from '../types';
+import type { InsertPosition, LoreBook, LoreEntry, ChatPreset, RegexScript, THScriptTree } from '../types';
 
 // ── ST module identifier → label map ──
 const MODULE_ID_MAP: Record<string, string> = {
@@ -67,7 +67,7 @@ export function exportWorldBookToST(book: LoreBook): string {
       constant: false,
       selective: false,
       order: entry.priority,
-      position: 0,
+      position: '0',
       disable: false,
       excludeRecursion: false,
       logic: entry.logic === 'AND' ? 'AND_ALL' : 'OR_ANY',
@@ -92,25 +92,21 @@ export function importWorldBookFromST(json: string): LoreBook | null {
           content: val.content || '',
           logic,
           priority: val.order ?? 10,
+          disabled: val.disable ?? false,
+          constant: val.constant ?? false,
+          position: Number(val.position) as InsertPosition,
+          depth: 0,
+          probability: 100,
         };
       }
     }
-    return { name, entries };
+    return { name, entries, enabled: true };
   } catch {
     return null;
   }
 }
 
 // ── Preset ──
-
-interface STPreset {
-  name?: string; temperature?: number; top_p?: number; top_k?: number;
-  max_tokens?: number; frequency_penalty?: number; presence_penalty?: number; repetition_penalty?: number;
-  system_prompt?: string; user_prefix?: string; assistant_prefix?: string;
-  unlock_context?: boolean; context_length?: number; max_response_length?: number;
-  reasoning_effort?: string; response_length?: string; seed?: number;
-  prompt_order?: Array<{ identifier: string; enabled: boolean; name?: string; content?: string; role?: string }>;
-}
 
 export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[]): string {
   const data: any = {

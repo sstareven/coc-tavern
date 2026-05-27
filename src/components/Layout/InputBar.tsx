@@ -29,7 +29,7 @@ import { pushLog } from '../../stores/useLogStore';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
-const FORMAT_INSTRUCTION = '你必须严格以JSON格式回复。注意：JSON中的var标签必须用单引号！\n\n{\n  "sceneInfo": {"date": "1923年10月15日", "weekday": "星期一", "time": "深夜", "weather": "阴雨", "location": "阿卡姆·书房"},\n  "leftHeader": "章节标题",\n  "leftContent": "叙事内容。嵌入状态变量：<var name=\'hp\' value=\'12\'/> <var name=\'san\' value=\'60\'/> <var name=\'mp\' value=\'12\'/> <var name=\'location\' value=\'书房\'/> <var name=\'threat\' value=\'2\'/>",\n  "rightHeader": "行动标题",\n  "rightContent": "引导文字。",\n  "choices": [\n    {"num": "I", "text": "选项简述", "action": "进行侦查检定(目标值:60)，搜查书房 <var name=\'lastAction\' value=\'搜查书房\'/> <var name=\'lastCheck\' value=\'侦查\'/>"},\n    {"num": "II", "text": "选项简述", "action": "进行图书馆使用检定(目标值:50)，查阅档案 <var name=\'lastAction\' value=\'查阅档案\'/> <var name=\'lastCheck\' value=\'图书馆使用\'/>"},\n    {"num": "III", "text": "选项简述", "action": "谨慎观察周围环境 <var name=\'lastAction\' value=\'观察环境\'/>"},\n    {"num": "IV", "text": "选项简述", "action": "重新评估局势 <var name=\'lastAction\' value=\'重新评估\'/>"}\n  ]\n}\n必须恰好4个选项。';
+const FORMAT_INSTRUCTION = '你必须严格以JSON格式回复。注意：JSON中的var标签必须用单引号！变量路径使用嵌套格式（如：调查员.生命值.当前）。\n\n{\n  "sceneInfo": {"date": "1925年3月15日", "weekday": "星期一", "time": "深夜", "weather": "阴雨", "location": "阿卡姆·书房"},\n  "leftHeader": "章节标题",\n  "leftContent": "叙事内容。嵌入状态变量：<var name=\'调查员.生命值.当前\' value=\'12\'/> <var name=\'调查员.理智值.当前\' value=\'60\'/> <var name=\'调查员.魔法值.当前\' value=\'12\'/> <var name=\'世界.地点\' value=\'书房\'/> <var name=\'战斗.是否战斗中\' value=\'false\'/>",\n  "rightHeader": "行动标题",\n  "rightContent": "引导文字。",\n  "choices": [\n    {"num": "I", "text": "选项简述", "action": "进行侦查检定(目标值:60)，搜查书房 <var name=\'lastAction\' value=\'搜查书房\'/> <var name=\'lastCheck\' value=\'侦查\'/>"},\n    {"num": "II", "text": "选项简述", "action": "进行图书馆使用检定(目标值:50)，查阅档案 <var name=\'lastAction\' value=\'查阅档案\'/> <var name=\'lastCheck\' value=\'图书馆使用\'/>"},\n    {"num": "III", "text": "选项简述", "action": "谨慎观察周围环境 <var name=\'lastAction\' value=\'观察环境\'/>"},\n    {"num": "IV", "text": "选项简述", "action": "重新评估局势 <var name=\'lastAction\' value=\'重新评估\'/>"}\n  ]\n}\n必须恰好4个选项。';
 
 const DEFAULT_PRESET: ChatPreset = {
   id: 'default',
@@ -161,6 +161,18 @@ function buildCharacterVariables(): Record<string, string> {
     charSAN: `${sheet.secondary.san.current}/${sheet.secondary.san.max}`,
     charMP: `${sheet.secondary.mp.current}/${sheet.secondary.mp.max}`,
     charLuck: String(sheet.secondary.luck),
+    // ── Nested ZOD path entries ──
+    '调查员.生命值.当前': String(sheet.secondary.hp.current),
+    '调查员.生命值.最大': String(sheet.secondary.hp.max),
+    '调查员.理智值.当前': String(sheet.secondary.san.current),
+    '调查员.理智值.最大': String(sheet.secondary.san.max),
+    '调查员.魔法值.当前': String(sheet.secondary.mp.current),
+    '调查员.魔法值.最大': String(sheet.secondary.mp.max),
+    '调查员.姓名': sheet.identity.name,
+    '调查员.职业': sheet.identity.occupation,
+    '调查员.年龄': String(sheet.identity.age),
+    '调查员.性别': sheet.identity.gender,
+    '调查员.幸运': String(sheet.secondary.luck),
     greeting: sheet.greeting || '',
     description: sheet.description || '',
     personality: sheet.personality || '',
@@ -390,8 +402,7 @@ export function InputBar() {
   const lastInputRef = useRef('');
 
   // Prompt viewer state
-  const [previewMessages, setPreviewMessages] = useState<AssembledMessage[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [, setShowPreview] = useState(false);
 
   // Wand menu state
   const [wandOpen, setWandOpen] = useState(false);
@@ -455,7 +466,6 @@ export function InputBar() {
 
   const buildPromptMessages = (overrideInput?: string): { messages: AssembledMessage[]; tokenCount: number } | null => {
     const trimmed = (overrideInput ?? input).trim();
-    const isMock = !trimmed; // Allow mock build with placeholder for prompt viewer
     const effectiveInput = trimmed || '(提示词查看器预览)';
 
     // Process ST-style macros ({{setvar}}, {{getvar}}, {{incvar}}, {{decvar}})
@@ -485,7 +495,6 @@ export function InputBar() {
         const keys = entry.keys.toLowerCase();
         const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
         const isInject = entry.keys.includes('@INJECT');
-        const isRender = keys.includes('render:before') || keys.includes('render:after');
         if (pt.generateLoaderEnabled && isGenerate) {
           generateInjects.push(entry);
         } else if (pt.injectLoaderEnabled && isInject) {
@@ -569,9 +578,6 @@ export function InputBar() {
     ];
     const regexProcessedInput = runAllRegexScripts(
       renderTemplate(macroProcessedInput, tmplOpts), 1, regexScripts, { isPrompt: true },
-    );
-    const regexProcessedSystem = runAllRegexScripts(
-      activePreset.systemPrompt, 1, regexScripts, { isPrompt: true },
     );
 
     // Build world book content strings (for before/after markers)
@@ -729,7 +735,7 @@ export function InputBar() {
             mvuSettings.mvuRetryCount,
           );
           const st = useVariableStore.getState();
-          const { mergeVariables } = await import('../../sillytavern/variables');
+          await import('../../sillytavern/variables');
           st.processResponse(hookProcessedContent);
           for (const [name, value] of Object.entries(result.variables)) {
             st.setVariable(name, value, 'llm');
@@ -774,17 +780,6 @@ export function InputBar() {
     } finally {
       endStream();
       setLoading(false);
-    }
-  };
-
-  const handleClosePreview = () => {
-    setShowPreview(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
     }
   };
 

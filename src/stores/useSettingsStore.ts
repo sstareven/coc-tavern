@@ -11,7 +11,7 @@ function load(): Partial<SettingsState> {
   }
 }
 
-function save(state: SettingsState) {
+function save(state: SettingsStore) {
   try {
     const { toggleSound, setTooltipDelay, setMusicVolume, setApiKey, setAvailableModels, setMvuUseIndependentApi, setMvuApiBaseUrl, setMvuApiModel, setMvuApiKey, setMvuTemperature, setMvuRetryCount, setPromptPostProcessing, setApiBaseUrl, setApiModel, ...data } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -44,6 +44,7 @@ interface SettingsStore extends SettingsState {
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
   setApiKey: (k: string) => void;
+  setAvailableModels: (models: string[]) => void;
   setPromptPostProcessing: (v: string) => void;
   setMvuUseIndependentApi: (v: boolean) => void;
   setMvuApiBaseUrl: (url: string) => void;
@@ -75,7 +76,7 @@ const defaults: SettingsState = {
 
 const persisted = load();
 
-export const useSettingsStore = create<SettingsStore>((set, get) => ({
+export const useSettingsStore = create<SettingsStore>((set) => ({
   ...defaults,
   ...persisted,
 
@@ -104,7 +105,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     save({ ...s, apiKey: k });
     return { apiKey: k };
   }),
-  setAvailableModels: (models) => set((s) => {
+  setAvailableModels: (models: string[]) => set((s) => {
     save({ ...s, availableModels: models });
     return { availableModels: models };
   }),

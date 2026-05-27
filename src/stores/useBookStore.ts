@@ -67,8 +67,8 @@ const defaultPages: BookPage[] = [
     sceneInfo: {
       date: '1925年',
       weekday: '',
-      time: '',
-      weather: '',
+      time: '未知',
+      weather: '未知',
       location: '命运的交汇处',
     },
   },

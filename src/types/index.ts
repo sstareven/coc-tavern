@@ -111,6 +111,10 @@ export interface PromptItem {
   kind: 'marker' | 'prompt';
   /** If true, only toggle allowed (no edit/remove). Chat Examples, Chat History */
   readOnly?: boolean;
+  /** Signal from ST format-converter import — set on library items during import */
+  _library?: boolean;
+  /** Original name preserved from ST format import for dirty-checking */
+  _originalName?: string;
 }
 
 export interface ChatPreset {
@@ -258,7 +262,7 @@ export interface THScriptFolder {
   name: string;
   icon: string;
   color: string;
-  children: THScript[];
+  children: THScriptTree[];
 }
 
 export type THScriptTree = THScript | THScriptFolder;

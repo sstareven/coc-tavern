@@ -12,7 +12,6 @@ import { LorebookEditor } from './components/Settings/LorebookEditor';
 import { PresetPanel } from './components/Settings/PresetPanel';
 import { PresetEditor } from './components/Settings/PresetEditor';
 import { ChatlistPanel } from './components/Settings/ChatlistPanel';
-import type { ChatPreset } from './types';
 import { ExtManager } from './components/Settings/ExtManager';
 import { RegexEditor } from './components/Settings/RegexEditor';
 import { VariablePanel } from './components/Settings/VariablePanel';

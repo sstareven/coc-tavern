@@ -66,7 +66,7 @@ function flattenEnabledScripts(tree: THScriptTree[]): THScript[] {
     if (item.type === 'script' && item.enabled && item.content) {
       result.push(item);
     } else if (item.type === 'folder') {
-      result.push(...item.children.filter((s) => s.enabled && s.content));
+      result.push(...item.children.filter((s) => s.type === 'script' && s.enabled && s.content) as THScript[]);
     }
   }
   return result;

@@ -1,7 +1,5 @@
 import type { GameVariable } from '../types';
 
-let idCounter = 0;
-
 export function createVariable(
   name: string,
   value: string,

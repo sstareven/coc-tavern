@@ -37,16 +37,8 @@ function easeOutFade(raw: number): number {
   return 1 - solveBezier(raw / 0.5, 0.5, 0.8, 0, 0.2);
 }
 
-// fade-in: cubic-bezier(0.2, 0, 0.4, 1) — gentle ease-in
-function easeInFade(raw: number): number {
-  if (raw <= 0) return 0;
-  if (raw >= 1) return 1;
-  return solveBezier(raw, 0.2, 0.4, 0, 1);
-}
-
 // ── Paper backgrounds ──
 const FRONT_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
-const PLACEHOLDER_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
 
 // ── 3D page flip component ──
 

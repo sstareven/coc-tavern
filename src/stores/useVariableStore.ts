@@ -98,6 +98,18 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
       if (!st.variables.charMP?.locked) map.charMP = `${sheet.secondary.mp.current}/${sheet.secondary.mp.max}`;
       if (!st.variables.charLuck?.locked) map.charLuck = String(sheet.secondary.luck);
       if (!st.variables.charCharacteristics?.locked) map.charCharacteristics = chars;
+      // ── Nested ZOD path entries (调查员.生命值.当前 etc.) ──
+      if (!st.variables['调查员.生命值.当前']?.locked) map['调查员.生命值.当前'] = String(sheet.secondary.hp.current);
+      if (!st.variables['调查员.生命值.最大']?.locked) map['调查员.生命值.最大'] = String(sheet.secondary.hp.max);
+      if (!st.variables['调查员.理智值.当前']?.locked) map['调查员.理智值.当前'] = String(sheet.secondary.san.current);
+      if (!st.variables['调查员.理智值.最大']?.locked) map['调查员.理智值.最大'] = String(sheet.secondary.san.max);
+      if (!st.variables['调查员.魔法值.当前']?.locked) map['调查员.魔法值.当前'] = String(sheet.secondary.mp.current);
+      if (!st.variables['调查员.魔法值.最大']?.locked) map['调查员.魔法值.最大'] = String(sheet.secondary.mp.max);
+      if (!st.variables['调查员.姓名']?.locked) map['调查员.姓名'] = sheet.identity.name;
+      if (!st.variables['调查员.职业']?.locked) map['调查员.职业'] = sheet.identity.occupation;
+      if (!st.variables['调查员.年龄']?.locked) map['调查员.年龄'] = String(sheet.identity.age);
+      if (!st.variables['调查员.性别']?.locked) map['调查员.性别'] = sheet.identity.gender;
+      if (!st.variables['调查员.幸运']?.locked) map['调查员.幸运'] = String(sheet.secondary.luck);
     } catch {
       // char sheet store not available
     }

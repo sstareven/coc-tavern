@@ -24,7 +24,7 @@ interface LogStore {
   setFilter: (f: Partial<LogStore['filter']>) => void;
 }
 
-export const useLogStore = create<LogStore>((set, get) => ({
+export const useLogStore = create<LogStore>((set) => ({
   logs: [],
   visible: false,
   filter: { level: 'all', category: 'all', search: '' },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 
 export function PromptTemplateContent() {
@@ -144,7 +144,7 @@ function Divider() {
   return <hr style={{ border: 'none', borderTop: '1px solid rgba(196,168,85,0.08)', margin: '12px 0' }} />;
 }
 
-function Checkbox({ id, checked, onChange, label, help }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; help: string }) {
+function Checkbox({ checked, onChange, label, help }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; help: string }) {
   return (
     <div style={rowStyle}>
       <span style={labelStyle}>

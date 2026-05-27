@@ -512,7 +512,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
 
           {/* Unified list — all items (markers + prompts) in one combined array */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
-            {activeItems.map((item: any, idx: number) => {
+            {activeItems.map((item: any, _idx: number) => {
               const isMarker = item.kind === 'marker';
               const isReadOnly = item.id === 'dialogueExamples' || item.id === 'chatHistory';
               const isContentReadOnly = isMarker && item.id in CONTENT_SOURCE;
@@ -696,13 +696,6 @@ const resetBtn: React.CSSProperties = {
   padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'transparent', color: 'var(--ink-subtle)',
   fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
-};
-
-const arrowBtnStyle: React.CSSProperties = {
-  width: 18, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid rgba(196,168,85,0.15)', borderRadius: 2,
-  background: 'transparent', color: 'var(--ink-subtle)',
-  fontSize: 8, cursor: 'pointer', padding: 0, opacity: 0.6,
 };
 
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' };

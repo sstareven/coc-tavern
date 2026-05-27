@@ -50,15 +50,6 @@ export function regexFromString(str: string): RegExp | null {
   }
 }
 
-// ===== Placement enum values =====
-const RegexPlacementValues = {
-  USER_INPUT: 1 as const,
-  AI_OUTPUT: 2 as const,
-  SLASH_COMMAND: 3 as const,
-  WORLD_INFO: 5 as const,
-  REASONING: 6 as const,
-};
-
 const SubstituteFindRegexValues = {
   NONE: 0 as const,
   RAW: 1 as const,
