@@ -680,39 +680,39 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   };
 
   const randomAllocate = () => {
-    const getBaseVal = (name: string) => {
-      const sk = ALL_SKILLS.find((x) => x.name === name);
-      if (!sk) return 0;
-      if (typeof sk.base === 'number') return sk.base;
-      if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
-      return charValues.EDU ?? 50;
-    };
-    const randAlloc = (points: Record<string, number>, skills: string[], poolRemaining: number) => {
-      if (poolRemaining <= 0 || skills.length === 0) return { points, leftover: poolRemaining };
-      const alloc = { ...points };
-      let rem = poolRemaining;
-      let eligible = skills.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
-      if (eligible.length === 0) return { points, leftover: rem };
-      while (rem > 0 && eligible.length > 0) {
-        const s = eligible[Math.floor(Math.random() * eligible.length)];
-        const cur = alloc[s] ?? 0;
-        const cap = 99 - getBaseVal(s) - cur;
-        if (cap <= 0) { eligible = eligible.filter((x) => x !== s); continue; }
-        const add = Math.min(rem, Math.max(1, Math.floor(Math.random() * Math.min(8, rem)) + 1), cap);
-        alloc[s] = cur + add;
-        rem -= add;
-      }
-      return { points: alloc, leftover: rem };
-    };
-    setOccPoints((p) => {
-      const used = Object.values(p).reduce((a, b) => a + b, 0) + creditRating;
-      return randAlloc(p, occSkills, occPointPool - used).points;
-    });
-    setInterestPoints((p) => {
-      const skills = interestSkills.filter((s) => !occSkills.includes(s));
-      const used = Object.values(p).reduce((a, b) => a + b, 0);
-      return randAlloc(p, skills, intPointPool - used).points;
-    });
+    // Occ points
+    if (occSkills.length > 0 && occRemaining > 0) {
+      setOccPoints((prev) => {
+        const alloc = { ...prev };
+        let remaining = occRemaining;
+        const eligible = [...occSkills];
+        while (remaining > 0 && eligible.length > 0) {
+          const i = Math.floor(Math.random() * eligible.length);
+          const name = eligible[i];
+          const add = Math.min(remaining, Math.ceil(Math.random() * Math.min(10, remaining)));
+          alloc[name] = (alloc[name] ?? 0) + add;
+          remaining -= add;
+        }
+        return alloc;
+      });
+    }
+    // Interest points
+    const intSkills = interestSkills.filter((s) => !occSkills.includes(s));
+    if (intSkills.length > 0 && intRemaining > 0) {
+      setInterestPoints((prev) => {
+        const alloc = { ...prev };
+        let remaining = intRemaining;
+        const eligible = [...intSkills];
+        while (remaining > 0 && eligible.length > 0) {
+          const i = Math.floor(Math.random() * eligible.length);
+          const name = eligible[i];
+          const add = Math.min(remaining, Math.ceil(Math.random() * Math.min(10, remaining)));
+          alloc[name] = (alloc[name] ?? 0) + add;
+          remaining -= add;
+        }
+        return alloc;
+      });
+    }
   };
 
   const nextStep = () => { if (canGoNext() && step < STEPS.length - 1) setStep(step + 1); };
@@ -1899,9 +1899,8 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           </button>
 
           {step === 3 && (
-            <button onClick={randomAllocate}
-              className="sk-btn"
-              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
+            <button onClick={(e) => { e.stopPropagation(); randomAllocate(); }}
+              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)', cursor: 'pointer' }}
             >⚄ 随机分配</button>
           )}
           {step < STEPS.length - 1 ? (
