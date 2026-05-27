@@ -1890,7 +1890,9 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         zIndex: 850,
         width: 560,
         maxWidth: '94vw',
-        height: '55vh',
+        ...(step === 4
+          ? { height: '55vh' }
+          : { maxHeight: '88vh' }),
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
