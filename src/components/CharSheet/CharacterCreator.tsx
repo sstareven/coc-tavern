@@ -386,7 +386,7 @@ function DarkSelect({ value, onChange, options, style }: {
     <div ref={ref} style={{ ...style }}>
       <div onClick={toggle} style={{ ...selectTriggerStyle, position: 'relative' }}>
         <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
-          {selected ? selected.label : '--'}
+          {selected ? selected.label : '选择…'}
         </span>
         <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 10, transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
       </div>
@@ -832,18 +832,18 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           {/* Name */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>姓名 Name</span>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="--" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="调查员姓名" />
           </div>
           {/* Player */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>玩家 Player</span>
-            <input type="text" value={player} onChange={(e) => setPlayer(e.target.value)} style={inputStyle} placeholder="--" />
+            <input type="text" value={player} onChange={(e) => setPlayer(e.target.value)} style={inputStyle} placeholder="玩家名称" />
           </div>
           {/* Age */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>年龄 Age</span>
             <input type="number" value={age} onChange={(e) => setAge(Number(e.target.value) || 0)}
-              style={inputStyle} min={15} max={99} />
+              style={inputStyle} min={15} max={99} placeholder="25" />
           </div>
           {/* Sex */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -854,12 +854,12 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           {/* Residence */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>居住地 Residence</span>
-            <input type="text" value={residence} onChange={(e) => setResidence(e.target.value)} style={inputStyle} placeholder="--" />
+            <input type="text" value={residence} onChange={(e) => setResidence(e.target.value)} style={inputStyle} placeholder="例如：阿卡姆" />
           </div>
           {/* Birthplace */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>出生地 Birthplace</span>
-            <input type="text" value={birthplace} onChange={(e) => setBirthplace(e.target.value)} style={inputStyle} placeholder="--" />
+            <input type="text" value={birthplace} onChange={(e) => setBirthplace(e.target.value)} style={inputStyle} placeholder="例如：马萨诸塞州" />
           </div>
         </div>
       </div>
@@ -1602,7 +1602,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                   value={f.value}
                   onChange={(e) => f.set(e.target.value)}
                   style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
-                  placeholder="--"
+                  placeholder="填写背景信息…"
                 />
               ) : (
                 <input
@@ -1610,7 +1610,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                   value={f.value}
                   onChange={(e) => f.set(e.target.value)}
                   style={inputStyle}
-                  placeholder="--"
+                  placeholder="填写背景信息…"
                 />
               )}
             </div>
@@ -1780,6 +1780,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .sk-desc-inner{display:flex;width:max-content;animation:ticker var(--tkr-dur,6s) linear infinite}
 .sk-desc-inner span{flex-shrink:0;padding-right:120px}
+input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.18)!important}
 input[type=range]::-webkit-slider-thumb{transition:filter 0.15s,transform 0.15s cubic-bezier(0.4,0,0.2,1);cursor:pointer}
 input[type=range]::-webkit-slider-thumb:hover{filter:brightness(1.3);transform:scale(1.25)}
 input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform:scale(0.85)}
