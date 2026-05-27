@@ -707,10 +707,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ===== Step 1: Identity ===== */
   function renderIdentity() {
-    const occValue = occupation || '__custom__';
-    const isCustomOcc = occValue === '__custom__';
-    const selectedOcc = COC_OCCUPATIONS.find((o) => o.name === occValue);
-
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Preset load */}
@@ -782,19 +778,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={labelStyle}>玩家 Player</span>
             <input type="text" value={player} onChange={(e) => setPlayer(e.target.value)} style={inputStyle} placeholder="--" />
-          </div>
-          {/* Occupation */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={labelStyle}>职业 Occupation</span>
-            <DarkSelect value={occValue} onChange={setOccupation}
-              options={[
-                ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `${o.en} · 信用 ${o.crMin}–${o.crMax}%` })),
-                { value: '__custom__', label: '自定义职业...', sub: '' },
-              ]} />
-            {isCustomOcc && (
-              <input type="text" value={customOccupation} onChange={(e) => setCustomOccupation(e.target.value)}
-                style={{ ...inputStyle, marginTop: 4 }} placeholder="输入职业名称" />
-            )}
           </div>
           {/* Age */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1185,6 +1168,25 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={sectionTitle}>职业与技能 OCCUPATION & SKILLS</div>
+
+        {/* Occupation selector */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业 OCCUPATION</span>
+            <DarkSelect value={occValue} onChange={setOccupation}
+              options={[
+                ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `${o.en} · 信用 ${o.crMin}–${o.crMax}%` })),
+                { value: '__custom__', label: '自定义职业...', sub: '' },
+              ]} />
+          </div>
+          {isCustomOcc && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+              <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>自定义职业名称</span>
+              <input type="text" value={customOccupation} onChange={(e) => setCustomOccupation(e.target.value)}
+                style={{ ...inputStyle, height: 30 }} placeholder="输入职业名称" />
+            </div>
+          )}
+        </div>
 
         {/* Info bar */}
         <div style={{
