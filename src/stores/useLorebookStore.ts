@@ -17,6 +17,285 @@ const defaultBooks: Record<string, LoreBook> = {
       content: '【CoC战斗】先攻=DEX检定。每轮攻击/闪避/移动。近战→目标可闪避或反击。火器→近距正常、中距困难、远距极难。伤害=武器+DB。HP≤0→昏迷。选项：I攻击 II防御 III撤退 IV特殊，标注检定。' }),
     sanity: e({ name: '理智系统', keys: 'SAN, 理智, 疯狂', logic: 'OR', priority: 40,
       content: '【SAN规则】SAN=POW。损失：尸体0/1D2，怪物0/1D6，大恐怖1D10/1D100。单次≥5→智力检定，失败短期疯狂。SAN≤0→永久疯狂。恢复：完成调查+1D6，精神分析+1D3，休息一月+1D3。' }),
+
+    // ── MVU 变量系统 ──
+    mvu_update_rules: e({ name: '[mvu_update]变量更新规则', keys: 'mvu_update, 变量更新', logic: 'OR', priority: 5, constant: true, depth: 0,
+      content: `---
+变量更新规则:
+
+  调查员:
+    生命值.\${当前|最大}:
+      type: number
+      check:
+        - 受到伤害时降低"当前"，恢复时增加，不超过"最大"
+        - 重大伤害（超过最大生命值一半）或死亡时更新
+
+    理智值.\${当前|最大}:
+      type: number
+      check:
+        - 遭遇超自然事件、目睹恐怖场景、阅读禁书时降低"当前"
+        - 精神分析或长期休息可恢复少量"当前"
+        - 单次降低超过5点时触发临时疯狂检定
+        - "最大"仅在克苏鲁神话技能提升时降低
+
+    魔法值.\${当前|最大}:
+      type: number
+      check:
+        - 施放法术消耗"当前"，休息恢复
+        - "最大"等于 POW/5
+
+    幸运:
+      type: number
+      range: 0~99
+      check:
+        - 仅在 GM 要求进行幸运检定时更新
+        - 单次变化不超过 ±10
+        - 每次使用后自然衰减 1~3
+
+    信用评级:
+      type: number
+      check:
+        - 仅在重大财务变动（继承、破产、高额消费）时更新
+        - 一般不会频繁变化
+
+    状态:
+      type: |-
+        {
+          [状态标签: string]: {
+            名称: string;
+            严重程度: '轻微' | '中等' | '严重' | '致命';
+            持续回合: number;
+          }
+        }
+      check:
+        - 受伤时添加"受伤"状态，脱离危险后移除
+        - 疯狂时添加对应的恐惧症/狂躁症状态
+        - 中毒、疾病等异常状态随回合递减持续回合
+
+    物品栏:
+      type: |-
+        {
+          [物品名: string]: {
+            描述: string;
+            数量: number;
+            是否关键物品: boolean;
+          }
+        }
+      check:
+        - 拾取或购买时 insert 新物品
+        - 使用/丢弃时 remove 或 delta 数量
+        - 关键剧情物品标记"是否关键物品: true"
+
+    技能:
+      type: |-
+        {
+          [技能名: string]: {
+            基础值: number;
+            当前值: number;
+            成长标记: boolean;
+          }
+        }
+      check:
+        - 在检定中取得大成功（d100=01）时，标记该技能为可成长
+        - 任何成功使用过的技能，守秘人均可酌情标记为可成长
+        - 幕间成长阶段（每次冒险/章节结束后）：对每个标记的技能投 1D100
+        - 若结果 > 当前技能值 → 成长：技能 < 90% 时 +1D10；技能 ≥ 90% 时 +2D6（不超过 99%）
+        - 若结果 ≤ 当前技能值 → 不成长，清除标记（"已学到上限"）
+        - 克苏鲁神话技能：每次增长时，当前最大 SAN = 99 - 克苏鲁神话值
+
+  世界:
+    日期:
+      format: YYYY-MM-DD
+      check:
+        - 每次场景切换或经过明显时间段后更新
+        - 保持日期推进合理，与叙事节奏一致
+
+    时间:
+      check:
+        - 每次行动、移动或对话后推进适当的时间
+        - 格式：清晨/上午/午后/黄昏/夜晚/深夜
+
+    天气:
+      check:
+        - 场景切换或时间大幅推进时更新
+        - 天气应服务于氛围（雷雨/浓雾/晴朗等）
+
+    地点:
+      check:
+        - 角色移动到新位置时更新
+        - 包含足够细节（如"阿卡姆·密斯卡塔尼克大学图书馆"）
+
+    场景描述:
+      check:
+        - 场景切换时更新，简要描述当前环境
+        - 不超过一句话
+
+  剧情:
+    当前章节:
+      check:
+        - 推进到新的叙事弧时更新
+
+    关键事件:
+      type: |-
+        {
+          [事件编号: string]: {
+            名称: string;
+            发生时间: string;
+            影响: string;
+          }
+        }
+      check:
+        - 发生重大剧情事件时 insert 新记录
+        - 记录影响和关联线索
+
+    线索:
+      type: |-
+        {
+          [线索名称: string]: {
+            内容: string;
+            发现地点: string;
+            关联事件: string;
+            是否已调查: boolean;
+          }
+        }
+      check:
+        - 发现新线索时 insert
+        - 调查线索后更新"是否已调查"
+
+    NPC:
+      type: |-
+        {
+          [NPC名称: string]: {
+            身份: string;
+            关系: string;
+            态度: number;
+            位置: string;
+            是否存活: boolean;
+            备注: string;
+          }
+        }
+      check:
+        - 遇到新 NPC 时 insert
+        - NPC 死亡时更新"是否存活: false"
+        - 关系变化时更新"关系"和"备注"
+
+    NPC.\${NPC名称}.态度:
+      type: number
+      range: -100~100
+      check:
+        - 根据对话和互动结果调整 ±(3~15)
+        - 极端事件（救命/背叛）可大幅变化 ±(20~50)
+
+    任务:
+      type: |-
+        {
+          [任务名: string]: {
+            状态: '进行中' | '已完成' | '失败' | '搁置';
+            说明: string;
+            目标: string;
+            奖励: string;
+          }
+        }
+      check:
+        - 接取新任务时 insert
+        - 达成目标后更新状态为"已完成"
+        - 避免同时超过5个"进行中"任务
+
+  战斗:
+    是否战斗中:
+      type: boolean
+      check:
+        - 进入战斗时设为 true，结束战斗时设为 false
+
+    敌人:
+      type: |-
+        {
+          [敌人名称: string]: {
+            生命值: { 当前: number; 最大: number };
+            护甲: number;
+            状态: string;
+          }
+        }
+      check:
+        - 进入战斗时 insert 所有敌人
+        - 每回合根据伤害更新生命值和状态
+        - 敌人死亡时 remove
+` }),
+
+    mvu_initvar: e({ name: '[initvar]', keys: 'initvar', logic: 'OR', priority: 6, depth: 0, disabled: true,
+      content: `---
+调查员:
+  姓名: 未知
+  年龄: 25
+  性别: 男
+  职业: 调查员
+  生命值:
+    当前: 10
+    最大: 10
+  理智值:
+    当前: 50
+    最大: 99
+  魔法值:
+    当前: 10
+    最大: 10
+  幸运: 50
+  信用评级: 20
+  状态: {}
+  物品栏: {}
+  技能: {}
+世界:
+  日期: 1925-01-01
+  时间: 清晨
+  天气: 薄雾
+  地点: 未知
+  场景描述: ''
+剧情:
+  当前章节: 序章
+  章节概述: ''
+  关键事件: {}
+  线索: {}
+  NPC: {}
+  任务: {}
+战斗:
+  是否战斗中: false
+  回合数: 0
+  敌人: {}
+_元数据:
+  _最后更新: ''
+  _变量版本: '1.0'
+` }),
+
+    mvu_output_format: e({ name: '[mvu_update]变量输出格式', keys: 'mvu_update, 输出格式', logic: 'OR', priority: 7, constant: true, depth: 0,
+      content: `---
+变量输出格式:
+  rule:
+    - you must output the update analysis and the actual update commands at once in the end of the next reply
+    - the update commands works like the JSON Patch (RFC 6902) standard, must be a valid JSON array containing operation objects, but supports the following operations instead:
+      - replace: replace the value of existing paths
+      - delta: update the value of existing number paths by a delta value
+      - insert: insert new items into an object or array
+      - remove
+    - don't update field names starts with _ as they are readonly, such as _元数据
+  format: |-
+    <UpdateVariable>
+    <Analysis>\${IN ENGLISH, no more than 80 words}
+    - \${calculate time passed: ...}
+    - \${decide whether dramatic updates are allowed: yes/no}
+    - \${analyze every variable based on its corresponding check: ...}
+    </Analysis>
+    <JSONPatch>
+    [
+      { "op": "replace", "path": "\${/path/to/variable}", "value": "\${new_value}" },
+      { "op": "delta", "path": "\${/path/to/number/variable}", "value": "\${positve_or_negative_delta}" },
+      { "op": "insert", "path": "\${/path/to/object/new_key}", "value": "\${new_value}" },
+      { "op": "remove", "path": "\${/path/to/array/0}" }
+    ]
+    </JSONPatch>
+    </UpdateVariable>
+` }),
+
+    mvu_var_list: e({ name: '变量列表', keys: '变量, variable, stat, 状态', logic: 'OR', priority: 8, depth: 0,
+      content: '<status_current_variable>\n{{format_message_variable::stat_data}}\n</status_current_variable>' }),
   }},
   coc_lore: { name: '克苏鲁深渊档案馆', enabled: true, entries: {
     arkham: e({ name: '阿卡姆镇', keys: '阿卡姆, Arkham, 城镇', logic: 'OR', priority: 10,
@@ -51,8 +330,6 @@ function saveExtraBooks(books: Record<string, LoreBook>) {
 let entryCounter = 10;
 interface LorebookStore {
   books: Record<string, LoreBook>;
-  activeBook: string | null;
-  setActiveBook: (id: string|null) => void;
   updateEntry: (b:string, e:string, entry: LoreEntry) => void;
   deleteEntry: (b:string, e:string) => void;
   addEntry: (b:string) => void;
@@ -66,8 +343,6 @@ const extraBooks = loadExtraBooks();
 
 export const useLorebookStore = create<LorebookStore>((set) => ({
   books: { ...defaultBooks, ...extraBooks },
-  activeBook: null,
-  setActiveBook: (id) => set({ activeBook: id }),
   updateEntry: (b, e, entry) => set((s) => { const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [e]:entry}}; saveExtraBooks(books); return {books}; }),
   deleteEntry: (b, e) => set((s) => { const books={...s.books}; const entries={...books[b].entries}; delete entries[e]; books[b]={...books[b], entries}; saveExtraBooks(books); return {books}; }),
   addEntry: (b) => set((s) => { const id='e'+(++entryCounter); const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [id]:e({name:'新条目'})}}; saveExtraBooks(books); return {books}; }),

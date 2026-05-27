@@ -40,14 +40,3 @@ export function processMacros(text: string): string {
     }
   });
 }
-
-/**
- * Resolve only {{getvar::name}} macros without executing commands.
- * Used for prompt viewer previews where we don't want side effects.
- */
-export function resolveGetVars(text: string): string {
-  const store = useTavernHelperStore.getState();
-  return text.replace(/\{\{getvar::([^:}]+)\}\}/g, (_, name: string) => {
-    return store.getMacroVar(name);
-  });
-}

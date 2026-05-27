@@ -1,7 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry, InsertPosition } from '../../types';
+
+// ── ST entry format for import/export ──
+interface STEntryLike {
+  uid?: number;
+  key: string | string[];
+  keysecondary?: string[];
+  comment: string;
+  content: string;
+  constant: boolean;
+  selective: boolean;
+  order: number;
+  position: number;
+  disable: boolean;
+  excludeRecursion: boolean;
+  secondaryKeys?: string[];
+  logic?: string;
+  extensions?: Record<string, unknown>;
+  depth?: number;
+}
 
 interface Props { bookId: string; onClose: () => void; }
 
@@ -40,6 +59,134 @@ export function LorebookEditor({ bookId, onClose }: Props) {
   const [form, setForm] = useState<LoreEntry>(EMPTY_ENTRY);
   const [moveTarget, setMoveTarget] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Entry import ──
+  const handleImportEntries = () => {
+    const input = fileRef.current;
+    if (!input) return;
+    input.value = '';
+    input.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const raw: unknown = JSON.parse(reader.result as string);
+        let entriesToImport: Record<string, LoreEntry> = {};
+
+        // Support both: single world book {name, entries: {uid: {...}}} and bare entries {uid: {...}}
+        if (raw && typeof raw === 'object') {
+          const obj = raw as Record<string, unknown>;
+          if (obj.entries && typeof obj.entries === 'object') {
+            // Full world book format
+            const stEntries = obj.entries as Record<string, STEntryLike>;
+            for (const val of Object.values(stEntries)) {
+              const keysArr = Array.isArray(val.key) ? val.key : (val.key ? [val.key] : []);
+              const logicRaw = val.logic as string | undefined;
+              const logic = logicRaw?.startsWith('AND') ? 'AND' as const : logicRaw === 'NOT' ? 'NOT' as const : 'OR' as const;
+              const newId = `e${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+              entriesToImport[newId] = {
+                name: (val.comment as string) || '导入条目',
+                keys: keysArr.join(', '),
+                content: (val.content as string) || '',
+                logic,
+                priority: (val.order as number) ?? 10,
+                disabled: (val.disable as boolean) ?? false,
+                constant: (val.constant as boolean) ?? false,
+                position: (typeof val.position === 'number' ? val.position : 0) as InsertPosition,
+                depth: (val.depth as number) ?? 0,
+                probability: 100,
+              };
+            }
+          } else {
+            // Bare entries keyed by uid
+            for (const val of Object.values(obj)) {
+              if (val && typeof val === 'object' && 'key' in val) {
+                const v = val as STEntryLike;
+                const keysArr = Array.isArray(v.key) ? v.key : (v.key ? [v.key] : []);
+                const logicRaw = v.logic as string | undefined;
+                const logic = logicRaw?.startsWith('AND') ? 'AND' as const : logicRaw === 'NOT' ? 'NOT' as const : 'OR' as const;
+                const newId = `e${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                entriesToImport[newId] = {
+                  name: (v.comment as string) || '导入条目',
+                  keys: keysArr.join(', '),
+                  content: (v.content as string) || '',
+                  logic,
+                  priority: (v.order as number) ?? 10,
+                  disabled: (v.disable as boolean) ?? false,
+                  constant: (v.constant as boolean) ?? false,
+                  position: (typeof v.position === 'number' ? v.position : 0) as InsertPosition,
+                  depth: (v.depth as number) ?? 0,
+                  probability: 100,
+                };
+              }
+            }
+          }
+        }
+
+        if (Object.keys(entriesToImport).length > 0) {
+          useLorebookStore.setState((s) => ({
+            books: {
+              ...s.books,
+              [bookId]: {
+                ...s.books[bookId],
+                entries: { ...s.books[bookId].entries, ...entriesToImport },
+              },
+            },
+          }));
+        }
+      } catch {
+        // silent — invalid JSON
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // ── Entry export ──
+  const handleExportEntries = () => {
+    const entriesToExport: Record<string, STEntryLike> = {};
+    const idsToExport = selected.size > 0
+      ? [...selected].filter((id) => book?.entries[id])
+      : Object.keys(book?.entries ?? {});
+
+    let idx = 0;
+    for (const id of idsToExport) {
+      const entry = book?.entries[id];
+      if (!entry) continue;
+      const keys = entry.keys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
+      entriesToExport[id] = {
+        uid: idx++,
+        key: keys.length === 1 ? keys[0] : keys,
+        keysecondary: [],
+        comment: entry.name,
+        content: entry.content,
+        constant: entry.constant,
+        selective: false,
+        order: entry.priority,
+        position: entry.position,
+        disable: entry.disabled,
+        excludeRecursion: false,
+        secondaryKeys: [],
+        logic: entry.logic === 'AND' ? 'AND_ALL' : entry.logic === 'NOT' ? 'NOT_ANY' : 'OR_ANY',
+        extensions: {},
+        depth: entry.depth,
+      };
+    }
+
+    const json = JSON.stringify({ name: book?.name ?? '导出条目', entries: entriesToExport }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${book?.name ?? 'worldbook'}_entries.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const openDetail = (id: string) => {
     const e = book?.entries[id];
@@ -114,6 +261,9 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={openNew} style={addBtnStyle}>+ 新建</button>
+            <button onClick={handleImportEntries} style={{ ...actionBtnStyle, fontSize: 10 }} title="从 JSON 导入条目">📥 导入</button>
+            <button onClick={handleExportEntries} style={{ ...actionBtnStyle, fontSize: 10 }} title="导出选中条目为 JSON">📤 导出</button>
+            <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileSelected} />
             <button onClick={onClose} style={closeBtnStyle}>✕</button>
           </div>
         </div>
@@ -461,6 +611,13 @@ const addBtnStyle: React.CSSProperties = {
   padding: '5px 14px', border: '1px solid var(--gold)', borderRadius: 3,
   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
   fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+};
+
+const actionBtnStyle: React.CSSProperties = {
+  padding: '5px 12px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'rgba(196,168,85,0.06)', color: 'var(--ink-subtle)',
+  fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+  transition: 'var(--transition-smooth)',
 };
 
 const thStyle: React.CSSProperties = {

@@ -22,16 +22,8 @@ export function registerCommand(cmd: SlashCommand): void {
   registry.set(cmd.name.toLowerCase(), cmd);
 }
 
-export function unregisterCommand(name: string): void {
-  registry.delete(name.toLowerCase());
-}
-
 export function getCommands(): SlashCommand[] {
   return [...registry.values()];
-}
-
-export function getCommand(name: string): SlashCommand | undefined {
-  return registry.get(name.toLowerCase());
 }
 
 // ── Parser ──

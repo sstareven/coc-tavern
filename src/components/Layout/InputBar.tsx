@@ -20,6 +20,7 @@ import { renderTemplate } from '../../sillytavern/ejs-template';
 import { processMacros } from '../../sillytavern/macro-engine';
 import { resolveTavernHelperMacrosDeep } from '../../sillytavern/tavern-helper-macros';
 import { runAllRegexScripts } from '../../sillytavern/regex-engine';
+import { loadThScripts, runSendHooks, runReceiveHooks, type ThScriptHooks } from '../../sillytavern/th-script-engine';
 
 import { useRegexStore } from '../../stores/useRegexStore';
 import { trimToBudget, getModelBudget } from '../../sillytavern/context-manager';
@@ -42,7 +43,7 @@ const DEFAULT_PRESET: ChatPreset = {
   minP: 0,
   topA: 0,
   maxTokens: 2048,
-  systemPrompt: '你是COC 7版（克苏鲁的呼唤）的守秘人（KP）。你的职责是：\n1. 根据玩家的行动描述推进剧情\n2. 进行检定判定并描述结果\n3. 描绘洛夫克拉夫特式的恐怖氛围\n4. 为玩家提供合理的行动选项\n\n【MVU变量系统】\n你可以在回复中使用以下格式管理游戏状态变量：\n- 设置变量：<var name="变量名" value="变量值" />\n- 内联命令：{{set:变量名=变量值}}\n- 属性变化示例：HP-3时输出 <var name="hpChange" value="-3" />\n- 场景更新示例：地点变化时输出 <var name="location" value="新地点" />\n\n常用变量名：hpChange, sanChange, luckChange, mpChange, clue, threat, npcMood, investigationProgress\n请在每次回复中有状态变化时输出对应变量标签。请始终以叙事者的身份进行回复，保持悬疑和恐怖的氛围。',
+  systemPrompt: '你是COC 7版（克苏鲁的呼唤）的守秘人（KP）。你的职责是：\n1. 根据玩家的行动描述推进剧情\n2. 进行检定判定并描述结果\n3. 描绘洛夫克拉夫特式的恐怖氛围\n4. 为玩家提供合理的行动选项\n\n【变量管理】\n你需要在回复末尾使用 JSON Patch 格式管理游戏状态变量。变量采用嵌套路径，例如：\n- 生命值变化：{"op":"replace","path":"/调查员/生命值/当前","value":"8"}\n- 理智值变化：{"op":"delta","path":"/调查员/理智值/当前","value":"-5"}\n- 新增线索：{"op":"insert","path":"/剧情/线索","value":{"名称":"神秘信件","内容":"..."}}\n- 时间推进：{"op":"replace","path":"/世界/时间","value":"深夜"}\n\n请在每次回复中有状态变化时输出变量标签。请始终以叙事者的身份进行回复，保持悬疑和恐怖的氛围。',
   userPrefix: '玩家: ',
   assistantPrefix: '守秘人: ',
   unlockContext: false,
@@ -400,6 +401,14 @@ export function InputBar() {
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
   const allCommands = useMemo(() => getCommands(), []);
 
+  // TH script hooks — refresh when global or preset scripts change
+  const thGlobalScripts = useTavernHelperStore((s) => s.globalScripts);
+  const thPresetScripts = useTavernHelperStore((s) => s.presetScripts);
+  const thHooks = useMemo<ThScriptHooks>(
+    () => loadThScripts(thGlobalScripts, thPresetScripts),
+    [thGlobalScripts, thPresetScripts],
+  );
+
   // Token counter state
   const [showTokenCounter, setShowTokenCounter] = useState(false);
   const [tokenContext, setTokenContext] = useState<{
@@ -457,6 +466,9 @@ export function InputBar() {
     if (pt.enabled && pt.filterChatMessage) {
       macroProcessedInput = macroProcessedInput.replace(/\{\{(?:setvar|getvar|incvar|decvar)::[^}]*\}\}/g, '').trim();
     }
+
+    // Run TH script onSend hooks (pre-send pipeline)
+    macroProcessedInput = runSendHooks(thHooks, macroProcessedInput);
 
     // Build context from recent pages
     const contextText = buildContextFromPages();
@@ -701,12 +713,15 @@ export function InputBar() {
         response.content, 2, aiOutputRegexScripts, { isMarkdown: true, isPrompt: true },
       );
 
-      // Extract variables from LLM response (run on regex-processed for tracking vars)
+      // Run TH script onReceive hooks (post-receive pipeline)
+      const hookProcessedContent = runReceiveHooks(thHooks, regexProcessedContent);
+
+      // Extract variables from LLM response (run on hook-processed content)
       const mvuSettings = useSettingsStore.getState();
       if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey) {
         try {
           const result = await extractVariablesWithLLM(
-            regexProcessedContent,
+            hookProcessedContent,
             mvuSettings.mvuApiBaseUrl,
             mvuSettings.mvuApiKey,
             mvuSettings.mvuApiModel,
@@ -715,15 +730,15 @@ export function InputBar() {
           );
           const st = useVariableStore.getState();
           const { mergeVariables } = await import('../../sillytavern/variables');
-          st.processResponse(regexProcessedContent);
+          st.processResponse(hookProcessedContent);
           for (const [name, value] of Object.entries(result.variables)) {
             st.setVariable(name, value, 'llm');
           }
         } catch {
-          useVariableStore.getState().processResponse(regexProcessedContent);
+          useVariableStore.getState().processResponse(hookProcessedContent);
         }
       } else {
-        useVariableStore.getState().processResponse(regexProcessedContent);
+        useVariableStore.getState().processResponse(hookProcessedContent);
       }
 
       // Parse JSON from raw response — stripMvu cleans display after variable extraction

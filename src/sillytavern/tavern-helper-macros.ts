@@ -13,7 +13,7 @@ function normalizeScope(raw: string): THScope {
  * {{get_<scope>_variable::<name>}} → value
  * {{format_<scope>_variable::<name>::<template>}} → value formatted
  */
-export function resolveTavernHelperMacros(
+function resolveTavernHelperMacros(
   text: string,
   presetVars?: Record<string, THVariable>,
 ): string {
@@ -61,13 +61,4 @@ export function resolveTavernHelperMacrosDeep(
     if (result === before) break; // No more macros to resolve
   }
   return result;
-}
-
-/**
- * Check if text contains any tavern helper macros.
- */
-export function hasTavernHelperMacros(text: string): boolean {
-  GET_MACRO_RE.lastIndex = 0;
-  FORMAT_MACRO_RE.lastIndex = 0;
-  return GET_MACRO_RE.test(text) || FORMAT_MACRO_RE.test(text);
 }

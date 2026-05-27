@@ -16,8 +16,6 @@ interface VariableStore {
   // Actions
   setVariable: (name: string, value: string, source?: GameVariable['source']) => void;
   deleteVariable: (name: string) => void;
-  lockVariable: (name: string) => void;
-  unlockVariable: (name: string) => void;
   toggleLock: (name: string) => void;
 
   // Process LLM response — extract variables, return cleaned text
@@ -53,22 +51,6 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
       const vars = { ...s.variables };
       delete vars[name];
       return { variables: vars };
-    });
-  },
-
-  lockVariable: (name) => {
-    set((s) => {
-      const v = s.variables[name];
-      if (!v) return s;
-      return { variables: { ...s.variables, [name]: { ...v, locked: true } } };
-    });
-  },
-
-  unlockVariable: (name) => {
-    set((s) => {
-      const v = s.variables[name];
-      if (!v) return s;
-      return { variables: { ...s.variables, [name]: { ...v, locked: false } } };
     });
   },
 
