@@ -1926,6 +1926,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           <button
             onClick={prevStep}
             disabled={step === 0}
+            className={step > 0 ? 'sk-btn' : undefined}
             style={step === 0 ? btnDisabled : btnBase}
           >
             ← 上一步
@@ -1942,6 +1943,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
             <button
               onClick={nextStep}
               disabled={!canGoNext()}
+              className={canGoNext() ? 'sk-btn' : undefined}
               style={canGoNext() ? { ...btnBase, background: 'rgba(196,168,85,0.15)', borderColor: 'rgba(196,168,85,0.5)' } : btnDisabled}
             >
               下一步 →
@@ -1949,6 +1951,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           ) : (
             <button
               onClick={handleConfirm}
+              className="sk-btn"
               style={{ ...btnBase, background: 'rgba(139,58,58,0.25)', borderColor: 'rgba(204,51,51,0.4)', color: 'var(--blood-bright)' }}
             >
               确认创建
