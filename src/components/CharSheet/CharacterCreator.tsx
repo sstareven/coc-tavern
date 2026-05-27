@@ -466,6 +466,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [interestSkills, setInterestSkills] = useState<string[]>([]);
   const [interestPoints, setInterestPoints] = useState<Record<string, number>>({});
   const [filterCat, setFilterCat] = useState<SkillCat | null>(null);
+  const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'occ' | 'int' | null>(null);
 
@@ -1593,28 +1594,58 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {fields.map((f) => (
-            <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={labelStyle}>{f.label}</span>
-              {f.rows ? (
-                <textarea
-                  value={f.value}
-                  onChange={(e) => f.set(e.target.value)}
-                  style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
-                  placeholder={f.hint}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={f.value}
-                  onChange={(e) => f.set(e.target.value)}
-                  style={inputStyle}
-                  placeholder={f.hint}
-                />
-              )}
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {fields.map((f) => {
+            const isOpen = expandedFields.has(f.label);
+            return (
+              <div key={f.label} style={{
+                border: '1px solid rgba(196,168,85,0.12)', borderRadius: 4,
+                background: isOpen ? 'rgba(196,168,85,0.03)' : 'rgba(0,0,0,0.06)',
+                transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)',
+                overflow: 'hidden',
+              }}>
+                <div
+                  onClick={() => setExpandedFields((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(f.label)) next.delete(f.label); else next.add(f.label);
+                    return next;
+                  })}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 12px', cursor: 'pointer', userSelect: 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {!isOpen && f.value && (
+                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
+                    )}
+                    <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
+                  </span>
+                </div>
+                {isOpen && (
+                  <div style={{ padding: '0 12px 10px' }}>
+                    {f.rows ? (
+                      <textarea
+                        value={f.value}
+                        onChange={(e) => f.set(e.target.value)}
+                        style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
+                        placeholder={f.hint}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={f.value}
+                        onChange={(e) => f.set(e.target.value)}
+                        style={inputStyle}
+                        placeholder={f.hint}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
