@@ -466,7 +466,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [interestSkills, setInterestSkills] = useState<string[]>([]);
   const [interestPoints, setInterestPoints] = useState<Record<string, number>>({});
   const [filterCat, setFilterCat] = useState<SkillCat | null>(null);
-  const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
+  const [openField, setOpenField] = useState<string | null>(null);
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'occ' | 'int' | null>(null);
 
@@ -1596,23 +1596,25 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {fields.map((f) => {
-            const isOpen = expandedFields.has(f.label);
+            const isOpen = openField === f.label;
+            const isHidden = openField !== null && openField !== f.label;
             return (
               <div key={f.label} style={{
                 border: '1px solid rgba(196,168,85,0.12)', borderRadius: 4,
                 background: isOpen ? 'rgba(196,168,85,0.03)' : 'rgba(0,0,0,0.06)',
-                transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)',
+                transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
                 overflow: 'hidden',
+                maxHeight: isHidden ? 0 : (isOpen ? 300 : 40),
+                opacity: isHidden ? 0 : 1,
+                marginBottom: isHidden ? 0 : undefined,
+                borderColor: isHidden ? 'transparent' : undefined,
               }}>
                 <div
-                  onClick={() => setExpandedFields((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(f.label)) next.delete(f.label); else next.add(f.label);
-                    return next;
-                  })}
+                  onClick={() => setOpenField(isOpen ? null : f.label)}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 12px', cursor: 'pointer', userSelect: 'none',
+                    minHeight: 36,
                   }}
                 >
                   <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
@@ -1620,7 +1622,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                     {!isOpen && f.value && (
                       <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                     )}
-                    <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
+                    <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
                   </span>
                 </div>
                 {isOpen && (
