@@ -1565,15 +1565,16 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     ];
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
         <div style={sectionTitle}>背景故事 BACKGROUND</div>
 
         {/* Quick Fill */}
         <div style={{
           padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4,
           background: 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 10,
+          flexShrink: 0,
         }}>
-          <button onClick={quickFill} disabled={quickFilling}
+          <button onClick={quickFill} disabled={quickFilling} className="sk-btn"
             style={{
               ...btnBase, fontSize: 11, padding: '6px 16px',
               opacity: quickFilling ? 0.5 : 1, cursor: quickFilling ? 'wait' : 'pointer',
@@ -1588,18 +1589,20 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           <div style={{
             padding: '8px 12px', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 4,
             background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 11,
-            fontFamily: 'var(--font-body)',
+            fontFamily: 'var(--font-body)', flexShrink: 0,
           }}>
             {quickFillError}
           </div>
         )}
 
-        <div style={{ height: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Header tabs — always static at top */}
+        {/* Accordion — fills remaining height */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          {/* Header tabs at top */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
             {fields.map((f) => {
               const isOpen = openField === f.label;
               const isHidden = openField !== null && openField !== f.label;
+              const hasContent = !!f.value;
               return (
                 <div
                   key={f.label}
@@ -1607,9 +1610,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '4px 10px', cursor: 'pointer', userSelect: 'none',
-                    border: `1px solid ${isOpen ? 'rgba(196,168,85,0.3)' : 'rgba(196,168,85,0.1)'}`,
+                    border: `1px solid ${isOpen ? 'rgba(196,168,85,0.35)' : hasContent ? 'rgba(196,168,85,0.22)' : 'rgba(196,168,85,0.1)'}`,
                     borderRadius: 4,
-                    background: isOpen ? 'rgba(196,168,85,0.06)' : 'rgba(0,0,0,0.04)',
+                    background: isOpen ? 'rgba(196,168,85,0.06)' : hasContent ? 'rgba(196,168,85,0.03)' : 'rgba(0,0,0,0.04)',
                     transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
                     overflow: 'hidden',
                     maxHeight: isHidden ? 0 : 30,
@@ -1620,7 +1623,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                 >
                   <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {f.value ? (
+                    {hasContent ? (
                       <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                     ) : null}
                     <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
@@ -1947,13 +1950,9 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           overflowY: 'auto',
           scrollbarWidth: 'thin',
           scrollbarColor: 'var(--ink-faded) transparent',
+          display: 'flex', flexDirection: 'column',
         }}>
-          <div style={{
-            opacity: 1,
-            transition: 'opacity 0.25s ease',
-          }}>
             {renderStepContent()}
-          </div>
         </div>
 
         {/* Footer */}
