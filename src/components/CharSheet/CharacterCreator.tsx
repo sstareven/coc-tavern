@@ -1552,15 +1552,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ===== Step 5: Background ===== */
   function renderBackground() {
-    const fields: { label: string; value: string; set: (v: string) => void; rows?: number }[] = [
-      { label: '个人描述 Description', value: description, set: setDescription, rows: 2 },
-      { label: '思想/信念 Beliefs', value: beliefs, set: setBeliefs },
-      { label: '重要之人 Significant People', value: significantPeople, set: setSignificantPeople },
-      { label: '重要场所 Meaningful Locations', value: meaningfulLocations, set: setMeaningfulLocations },
-      { label: '珍贵之物 Treasured Possessions', value: treasuredPossessions, set: setTreasuredPossessions },
-      { label: '特质 Traits', value: traits, set: setTraits },
-      { label: '伤口/伤痕 Injuries', value: injuries, set: setInjuries },
-      { label: '恐惧症/狂躁症 Phobias', value: phobias, set: setPhobias },
+    const fields: { label: string; value: string; set: (v: string) => void; rows?: number; hint: string }[] = [
+      { label: '个人描述 Description', value: description, set: setDescription, rows: 2, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
+      { label: '思想/信念 Beliefs', value: beliefs, set: setBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
+      { label: '重要之人 Significant People', value: significantPeople, set: setSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
+      { label: '重要场所 Meaningful Locations', value: meaningfulLocations, set: setMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
+      { label: '珍贵之物 Treasured Possessions', value: treasuredPossessions, set: setTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
+      { label: '特质 Traits', value: traits, set: setTraits, hint: '例如：缄默、固执、好奇心强' },
+      { label: '伤口/伤痕 Injuries', value: injuries, set: setInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
+      { label: '恐惧症/狂躁症 Phobias', value: phobias, set: setPhobias, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
     ];
 
     return (
@@ -1602,7 +1602,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                   value={f.value}
                   onChange={(e) => f.set(e.target.value)}
                   style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
-                  placeholder="填写背景信息…"
+                  placeholder={f.hint}
                 />
               ) : (
                 <input
@@ -1610,7 +1610,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                   value={f.value}
                   onChange={(e) => f.set(e.target.value)}
                   style={inputStyle}
-                  placeholder="填写背景信息…"
+                  placeholder={f.hint}
                 />
               )}
             </div>
