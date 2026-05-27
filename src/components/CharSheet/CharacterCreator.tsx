@@ -1594,7 +1594,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           </div>
         )}
 
-        <div style={{ height: 280, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {fields.map((f) => {
             const isOpen = openField === f.label;
             const isHidden = openField !== null && openField !== f.label;
@@ -1602,10 +1602,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               <div key={f.label} style={{
                 transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
                 overflow: 'hidden',
-                maxHeight: isHidden ? 0 : (isOpen ? 280 : 32),
+                maxHeight: isHidden ? 0 : (isOpen ? 280 : 30),
                 opacity: isHidden ? 0 : 1,
                 marginBottom: isHidden ? 0 : 4,
-                flexShrink: isOpen ? 0 : undefined,
+                flex: isOpen ? 1 : undefined,
                 display: 'flex', flexDirection: 'column',
               }}>
                 {/* Header row */}
