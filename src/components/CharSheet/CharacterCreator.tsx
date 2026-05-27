@@ -1609,7 +1609,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         )}
 
         {/* Accordion — fills remaining height */}
-        <div ref={accordionRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div ref={accordionRef} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Header tabs at top — no gap, marginBottom per item for smooth collapse */}
           <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             {fields.map((f) => {
