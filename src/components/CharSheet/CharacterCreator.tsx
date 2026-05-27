@@ -688,11 +688,11 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       return charValues.EDU ?? 50;
     };
     const randAlloc = (points: Record<string, number>, skills: string[], poolRemaining: number) => {
-      if (poolRemaining <= 0 || skills.length === 0) return points;
+      if (poolRemaining <= 0 || skills.length === 0) return { points, leftover: poolRemaining };
       const alloc = { ...points };
       let rem = poolRemaining;
       let eligible = skills.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
-      if (eligible.length === 0) return alloc;
+      if (eligible.length === 0) return { points, leftover: rem };
       while (rem > 0 && eligible.length > 0) {
         const s = eligible[Math.floor(Math.random() * eligible.length)];
         const cur = alloc[s] ?? 0;
