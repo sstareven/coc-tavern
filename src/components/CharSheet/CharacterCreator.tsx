@@ -1481,11 +1481,28 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     try {
       const occText = occupation === '__custom__' ? customOccupation : occupation;
       const charSummary = CHAR_ORDER.map(({ key, zh }) => `${zh} ${charValues[key] ?? 50}`).join(', ');
+      // Build skill summary with point allocations
+      const skillSummary: string[] = [];
+      for (const s of occSkills) {
+        const sk = ALL_SKILLS.find((x) => x.name === s);
+        const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
+        const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
+        const total = base + pts;
+        if (pts > 0) skillSummary.push(`${s}(${total}%, +${pts})`);
+      }
+      for (const s of interestSkills) {
+        if (occSkills.includes(s)) continue;
+        const sk = ALL_SKILLS.find((x) => x.name === s);
+        const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
+        const pts = interestPoints[s] ?? 0;
+        if (pts > 0) skillSummary.push(`${s}(${base + pts}%, +${pts})`);
+      }
       const prompt = `你是一位COC 7版调查员的背景故事生成器。请根据以下信息生成完整的调查员背景故事（1920年代美国）。\n\n` +
         `姓名: ${name || '未知'}\n职业: ${occText || '调查员'}\n年龄: ${age}\n性别: ${sex}\n` +
         `属性: ${charSummary}\n` +
         `${creditRating > 0 ? `信用评级: ${creditRating}%\n` : ''}` +
-        `${occSkills.length > 0 ? `职业技能: ${occSkills.join(', ')}\n` : ''}` +
+        `${skillSummary.length > 0 ? `已投入点数的技能(当前值, 投入点数):\n${skillSummary.join('\n')}\n` +
+          `注：加点越高的技能代表该角色在这方面的专精程度或人生经历越丰富，请据此塑造背景故事。\n` : ''}` +
         `\n请以JSON格式回复，所有值用中文：\n{\n` +
         `  "description": "个人外貌、气质描述（1-2句）",\n` +
         `  "beliefs": "思想信念、价值观（1-2句）",\n` +
