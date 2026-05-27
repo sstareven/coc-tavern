@@ -679,6 +679,75 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
   };
 
+  const randomAllocate = () => {
+    // Reset
+    setOccSkills([]); setOccPoints({});
+    setInterestSkills([]); setInterestPoints({});
+    setCreditRating(0);
+    // Get suggested skills from current occupation
+    const selectedOcc = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    const suggested = selectedOcc?.skills || [];
+    const getBaseVal = (name: string) => {
+      const sk = ALL_SKILLS.find((x) => x.name === name);
+      if (!sk) return 0;
+      if (typeof sk.base === 'number') return sk.base;
+      if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
+      return charValues.EDU ?? 50;
+    };
+    const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
+    // Pick occ skills: suggested first, then random others, max 8
+    const pickOcc: string[] = [];
+    const others = ALL_SKILLS.filter((s) => !suggested.includes(s.name) && s.name !== '克苏鲁神话');
+    for (const s of shuffled([...shuffled([...suggested]), ...shuffled(others.map((x) => x.name))])) {
+      if (pickOcc.length >= 8) break;
+      if (!pickOcc.includes(s)) pickOcc.push(s);
+    }
+    setOccSkills(pickOcc);
+    // Pick int skills: random from remaining (excl. Cthulhu Mythos), max 4
+    const usedNames = new Set(pickOcc);
+    const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
+    const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
+    setInterestSkills(pickInt);
+    // Allocate occ points (credit rating was just reset to 0, so use full pool)
+    const occRem = occPointPool;
+    if (pickOcc.length > 0 && occRem > 0) {
+      setOccPoints((prev) => {
+        const alloc = { ...prev };
+        let rem = occRem;
+        const names = pickOcc.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
+        while (rem > 0 && names.length > 0) {
+          const i = Math.floor(Math.random() * names.length);
+          const cur = alloc[names[i]] ?? 0;
+          const cap = 99 - getBaseVal(names[i]);
+          if (cur >= cap) { names.splice(i, 1); continue; }
+          const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
+          alloc[names[i]] = cur + add;
+          rem -= add;
+        }
+        return alloc;
+      });
+    }
+    // Allocate int points
+    const intRem = intPointPool;
+    if (pickInt.length > 0 && intRem > 0) {
+      setInterestPoints((prev) => {
+        const alloc = { ...prev };
+        let rem = intRem;
+        const names = pickInt.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
+        while (rem > 0 && names.length > 0) {
+          const i = Math.floor(Math.random() * names.length);
+          const cur = alloc[names[i]] ?? 0;
+          const cap = 99 - getBaseVal(names[i]);
+          if (cur >= cap) { names.splice(i, 1); continue; }
+          const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
+          alloc[names[i]] = cur + add;
+          rem -= add;
+        }
+        return alloc;
+      });
+    }
+  };
+
   const nextStep = () => { if (canGoNext() && step < STEPS.length - 1) setStep(step + 1); };
   const prevStep = () => { if (step > 0) setStep(step - 1); };
   // Track occupation changes: clear skill allocations when occupation changes
@@ -1250,56 +1319,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               >{cat}</button>
             );
           })}
-        </div>
-
-        {/* Random allocate button */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <button onClick={(e) => {
-            e.preventDefault(); e.stopPropagation();
-            // Phase 1: pick occupational skills
-            const pickOcc: string[] = [];
-            // First try suggested skills, then fill remaining with other skills
-            const suggested = suggestedSkills.filter((s) => !occSkills.includes(s));
-            const others = ALL_SKILLS.filter((s) => !suggestedSkills.includes(s.name) && !occSkills.includes(s.name) && s.name !== '克苏鲁神话');
-            const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
-            for (const s of shuffled([...suggested, ...shuffled(others.map((x) => x.name))])) {
-              if (pickOcc.length >= 8) break;
-              if (!pickOcc.includes(s)) pickOcc.push(s);
-            }
-            if (pickOcc.length > 0) setOccSkills([...occSkills, ...pickOcc]);
-            // Phase 2: pick interest skills from remaining (excluding Cthulhu Mythos)
-            const usedNames = new Set([...occSkills, ...pickOcc]);
-            const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话' && !interestSkills.includes(s.name));
-            const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
-            if (pickInt.length > 0) setInterestSkills([...interestSkills, ...pickInt]);
-            // Phase 3: allocate points
-            const doAlloc = (
-              setter: (fn: (prev: Record<string, number>) => Record<string, number>) => void,
-              skills: string[],
-              remaining: number,
-            ) => {
-              if (skills.length === 0 || remaining <= 0) return;
-              setter((prev) => {
-                const alloc = { ...prev };
-                let rem = remaining;
-                const names = skills.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
-                while (rem > 0 && names.length > 0) {
-                  const i = Math.floor(Math.random() * names.length);
-                  const cur = alloc[names[i]] ?? 0;
-                  const cap = 99 - getBase(ALL_SKILLS.find((x) => x.name === names[i])!);
-                  if (cur >= cap) { names.splice(i, 1); continue; }
-                  const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
-                  alloc[names[i]] = cur + add;
-                  rem -= add;
-                }
-                return alloc;
-              });
-            };
-            doAlloc(setOccPoints, [...occSkills, ...pickOcc], occRemaining);
-            doAlloc(setInterestPoints, [...interestSkills, ...pickInt].filter((s) => !occSkills.includes(s) && !pickOcc.includes(s)), intRemaining);
-          }}
-            style={{ padding: '6px 20px', border: '1px solid rgba(196,168,85,0.3)', borderRadius: 4, background: 'rgba(196,168,85,0.08)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2, cursor: 'pointer' }}
-          >⚄ 随机分配</button>
         </div>
 
         {/* All skills grid */}
@@ -1911,6 +1930,13 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           >
             ← 上一步
           </button>
+
+          {step === 3 && (
+            <button onClick={(e) => { e.stopPropagation(); randomAllocate(); }}
+              className="sk-btn"
+              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
+            >⚄ 随机分配</button>
+          )}
 
           {step < STEPS.length - 1 ? (
             <button
