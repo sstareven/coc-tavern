@@ -1864,33 +1864,39 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
 
           {step === 3 && (
             <button onClick={() => {
-              const randAlloc = (points: Record<string, number>, skills: string[], remaining: number, pool: number) => {
+              const getBaseVal = (s: string) => {
+                const sk = ALL_SKILLS.find((x) => x.name === s);
+                if (!sk) return 0;
+                if (typeof sk.base === 'number') return sk.base;
+                if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
+                return charValues.EDU ?? 50;
+              };
+              const randAlloc = (points: Record<string, number>, skills: string[], remaining: number) => {
                 if (remaining <= 0 || skills.length === 0) return points;
                 const alloc = { ...points };
                 let rem = remaining;
-                const eligible = skills.filter((s) => {
-                  const sk = ALL_SKILLS.find((x) => x.name === s);
-                  const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
-                  return base + (alloc[s] ?? 0) < 99;
-                });
+                let eligible = skills.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
                 if (eligible.length === 0) return alloc;
                 while (rem > 0 && eligible.length > 0) {
-                  const idx = Math.floor(Math.random() * eligible.length);
-                  const s = eligible[idx];
+                  const s = eligible[Math.floor(Math.random() * eligible.length)];
                   const cur = alloc[s] ?? 0;
-                  const sk = ALL_SKILLS.find((x) => x.name === s)!;
-                  const base = typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50);
-                  const maxForSkill = 99 - base;
-                  const add = Math.min(rem, Math.max(1, Math.floor(Math.random() * Math.min(10, rem)) + 1));
-                  const actualAdd = Math.min(add, maxForSkill - cur);
-                  if (actualAdd <= 0) { eligible.splice(idx, 1); continue; }
-                  alloc[s] = cur + actualAdd;
-                  rem -= actualAdd;
+                  const cap = 99 - getBaseVal(s) - cur;
+                  if (cap <= 0) { eligible = eligible.filter((x) => x !== s); continue; }
+                  const add = Math.min(rem, Math.max(1, Math.floor(Math.random() * Math.min(8, rem)) + 1), cap);
+                  alloc[s] = cur + add;
+                  rem -= add;
                 }
                 return alloc;
               };
-              setOccPoints((p) => randAlloc(p, occSkills, occRemaining, occPointPool));
-              setInterestPoints((p) => randAlloc(p, interestSkills.filter((s) => !occSkills.includes(s)), intRemaining, intPointPool));
+              setOccPoints((p) => {
+                const used = Object.values(p).reduce((a, b) => a + b, 0) + creditRating;
+                return randAlloc(p, occSkills, occPointPool - used);
+              });
+              setInterestPoints((p) => {
+                const skills = interestSkills.filter((s) => !occSkills.includes(s));
+                const used = Object.values(p).reduce((a, b) => a + b, 0);
+                return randAlloc(p, skills, intPointPool - used);
+              });
             }}
               className="sk-btn"
               style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
