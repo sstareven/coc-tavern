@@ -1684,7 +1684,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                     <textarea
                       value={f.value}
                       onChange={(e) => f.set(e.target.value)}
-                      style={{ ...inputStyle, flex: 1, resize: 'none', textAlign: 'left' }}
+                      className="bg-input"
+                      style={{ ...inputStyle, flex: 1, resize: 'none', textAlign: 'left', overflowY: 'auto' }}
                       placeholder={f.hint}
                     />
                   ) : (
@@ -1869,6 +1870,11 @@ input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.18)!important}
 input[type=range]::-webkit-slider-thumb{transition:filter 0.15s,transform 0.15s cubic-bezier(0.4,0,0.2,1);cursor:pointer}
 input[type=range]::-webkit-slider-thumb:hover{filter:brightness(1.3);transform:scale(1.25)}
 input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform:scale(0.85)}
+.bg-input{scrollbar-width:thin;scrollbar-color:rgba(196,168,85,0.22) transparent}
+.bg-input::-webkit-scrollbar{width:5px}
+.bg-input::-webkit-scrollbar-track{background:rgba(0,0,0,0.12);border-radius:3px}
+.bg-input::-webkit-scrollbar-thumb{background:rgba(196,168,85,0.22);border-radius:3px;transition:background 0.25s cubic-bezier(0.4,0,0.2,1)}
+.bg-input::-webkit-scrollbar-thumb:hover{background:rgba(196,168,85,0.45)}
 `}</style>
       {/* Backdrop */}
       <div
@@ -1891,7 +1897,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         zIndex: 850,
         width: 560,
         maxWidth: '94vw',
-        maxHeight: '88vh',
+        height: '88vh',
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
@@ -1993,6 +1999,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           scrollbarWidth: 'thin',
           scrollbarColor: 'var(--ink-faded) transparent',
           display: 'flex', flexDirection: 'column',
+          minHeight: 0,
         }}>
             {renderStepContent()}
         </div>
