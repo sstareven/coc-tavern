@@ -1566,8 +1566,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ===== Step 5: Background ===== */
   function renderBackground() {
-    const fields: { label: string; value: string; set: (v: string) => void; rows?: number; hint: string }[] = [
-      { label: '个人描述 Description', value: description, set: setDescription, rows: 2, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
+    const fields: { label: string; value: string; set: (v: string) => void; hint: string }[] = [
+      { label: '个人描述 Description', value: description, set: setDescription, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
       { label: '思想/信念 Beliefs', value: beliefs, set: setBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
       { label: '重要之人 Significant People', value: significantPeople, set: setSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
       { label: '重要场所 Meaningful Locations', value: meaningfulLocations, set: setMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
@@ -1680,20 +1680,12 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               >
                 {(() => {
                   const f = fields.find((x) => x.label === openField)!;
-                  return f.rows ? (
+                  return (
                     <textarea
                       value={f.value}
                       onChange={(e) => f.set(e.target.value)}
                       className="bg-input"
                       style={{ ...inputStyle, flex: 1, resize: 'none', textAlign: 'left', overflowY: 'auto' }}
-                      placeholder={f.hint}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={f.value}
-                      onChange={(e) => f.set(e.target.value)}
-                      style={inputStyle}
                       placeholder={f.hint}
                     />
                   );
@@ -1897,7 +1889,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         zIndex: 850,
         width: 560,
         maxWidth: '94vw',
-        height: '88vh',
+        height: '55vh',
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
