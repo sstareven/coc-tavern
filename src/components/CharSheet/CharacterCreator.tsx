@@ -1594,63 +1594,64 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           </div>
         )}
 
-        <div style={{ height: 280, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          {/* Header rows always visible at top */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-            {fields.map((f) => {
-              const isOpen = openField === f.label;
-              return (
+        <div style={{ height: 280, display: 'flex', flexDirection: 'column' }}>
+          {fields.map((f) => {
+            const isOpen = openField === f.label;
+            const isHidden = openField !== null && openField !== f.label;
+            return (
+              <div key={f.label} style={{
+                transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
+                overflow: 'hidden',
+                maxHeight: isHidden ? 0 : (isOpen ? 280 : 32),
+                opacity: isHidden ? 0 : 1,
+                marginBottom: isHidden ? 0 : 4,
+                flexShrink: isOpen ? 0 : undefined,
+                display: 'flex', flexDirection: 'column',
+              }}>
+                {/* Header row */}
                 <div
-                  key={f.label}
                   onClick={() => setOpenField(isOpen ? null : f.label)}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '6px 10px', cursor: 'pointer', userSelect: 'none',
+                    padding: '4px 10px', cursor: 'pointer', userSelect: 'none',
                     border: `1px solid ${isOpen ? 'rgba(196,168,85,0.3)' : 'rgba(196,168,85,0.1)'}`,
                     borderRadius: 4,
                     background: isOpen ? 'rgba(196,168,85,0.06)' : 'rgba(0,0,0,0.04)',
-                    transition: 'background 0.25s, border-color 0.25s cubic-bezier(0.4,0,0.2,1)',
-                    minHeight: 30,
+                    flexShrink: 0, minHeight: 30,
                   }}
                 >
                   <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {!isOpen && f.value ? (
-                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
+                    {f.value ? (
+                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                     ) : null}
                     <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
                   </span>
                 </div>
-              );
-            })}
-          </div>
-          {/* Expanded input panel fills remaining space */}
-          {openField && (
-            <div style={{
-              flex: 1, marginTop: 6, display: 'flex', flexDirection: 'column',
-              transition: 'opacity 0.25s cubic-bezier(0.4,0,0.2,1)',
-            }}>
-              {(() => {
-                const f = fields.find((x) => x.label === openField)!;
-                return f.rows ? (
-                  <textarea
-                    value={f.value}
-                    onChange={(e) => f.set(e.target.value)}
-                    style={{ ...inputStyle, flex: 1, resize: 'none' }}
-                    placeholder={f.hint}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={f.value}
-                    onChange={(e) => f.set(e.target.value)}
-                    style={inputStyle}
-                    placeholder={f.hint}
-                  />
-                );
-              })()}
-            </div>
-          )}
+                {/* Input area — only when open */}
+                {isOpen && (
+                  <div style={{ flex: 1, marginTop: 6, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    {f.rows ? (
+                      <textarea
+                        value={f.value}
+                        onChange={(e) => f.set(e.target.value)}
+                        style={{ ...inputStyle, flex: 1, resize: 'none' }}
+                        placeholder={f.hint}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={f.value}
+                        onChange={(e) => f.set(e.target.value)}
+                        style={inputStyle}
+                        placeholder={f.hint}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
