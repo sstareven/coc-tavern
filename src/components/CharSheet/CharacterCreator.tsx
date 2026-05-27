@@ -1240,7 +1240,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     };
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={sectionTitle}>职业与技能 OCCUPATION & SKILLS</div>
 
         {/* Occupation selector */}
@@ -1327,8 +1327,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         </div>
 
         {/* All skills grid */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
-          scrollbarColor: 'rgba(196,168,85,0.22) transparent' }}>
+        <div style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, alignItems: 'start' }}>
             {ALL_SKILLS
               .filter((sk) => !filterCat || sk.cat === filterCat)
