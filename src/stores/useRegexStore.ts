@@ -51,6 +51,17 @@ const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
     markdownOnly: false, promptOnly: true, runOnEdit: false,
     substituteRegex: 0, minDepth: null, maxDepth: null,
   },
+  {
+    id: 'mvu-skill-check',
+    scriptName: 'MVU — 技能检定追踪(提示词端)',
+    findRegex: '/(?:进行|请过|做一个?|一个?|通过了?|失败了?)([\\u4e00-\\u9fff()（）]{1,12}?)(?:检定|技能|判定)/g',
+    replaceString: `$& <var name='lastCheck' value='$1'/>`,
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: false, promptOnly: true, runOnEdit: false,
+    substituteRegex: 0, minDepth: null, maxDepth: null,
+  },
 ];
 
 interface RegexStore {

@@ -12,6 +12,34 @@ const LABELS: Record<string, string> = { 'crit-success': '大成功', 'extreme-s
 let _actx: AudioContext | null = null;
 function ctx() { try { if (!_actx || _actx.state === 'closed') _actx = new AudioContext(); if (_actx.state === 'suspended') _actx.resume(); return _actx; } catch { return null; } }
 
+// ── Preloaded rolling WAV ──
+let _rollingBuf: AudioBuffer | null = null;
+let _rollingPromise: Promise<AudioBuffer | null> | null = null;
+
+async function _loadRollingBuf(): Promise<AudioBuffer | null> {
+  try {
+    const resp = await fetch('/sfx/dice_rolling.wav');
+    if (!resp.ok) throw new Error('fetch failed');
+    const c = ctx(); if (!c) throw new Error('no AudioContext');
+    _rollingBuf = await c.decodeAudioData(await resp.arrayBuffer());
+    return _rollingBuf;
+  } catch {
+    return null;
+  }
+}
+function loadRollingBuf(): Promise<AudioBuffer | null> {
+  if (_rollingBuf) return Promise.resolve(_rollingBuf);
+  if (!_rollingPromise) _rollingPromise = _loadRollingBuf();
+  return _rollingPromise;
+}
+// Eager preload on first user interaction (module eval)
+if (typeof window !== 'undefined') {
+  const preload = () => { const c = ctx(); if (c) { c.resume(); loadRollingBuf(); } };
+  window.addEventListener('click', preload, { once: true });
+  window.addEventListener('keydown', preload, { once: true });
+}
+const ROLL_DURATION = 1587; // ms — matched to dice_rolling.wav
+
 // ── v2: resonant wooden impact ──
 function impact(vol = 0.06, freq = 300, decay = 0.04) {
   const c = ctx(); if (!c) return;
@@ -34,32 +62,183 @@ function impact(vol = 0.06, freq = 300, decay = 0.04) {
 
 function tick() { impact(0.1, 300 + Math.random() * 400, 0.03); }
 
-function resultSfx(isSuccess: boolean, isCrit: boolean) {
-  if (isCrit) {
-    // Big dramatic hit + sparkle cascade
-    impact(0.22, 60, 0.3);
-    // Rising harmonics (triumphant for success, ominous for failure)
-    const baseFreq = isSuccess ? 500 : 300;
-    const interval = isSuccess ? 60 : 100;
-    [0, 1, 2, 3, 4, 5].forEach(i => {
-      setTimeout(() => impact(0.04, baseFreq + i * 200, 0.12), i * interval);
+// ── Death knell synthesis: 6 styles with unique rhythm + minor melody ──
+// Frequencies: C2=65.4  Eb2=77.8  G2=98.0  Bb2=116.5  C3=130.8  C#2=69.3  D3=146.8
+//               Eb3=155.6  F#2=92.5  Ab2=103.8  D2=73.4  G#2=103.8
+const _f = { C2: 65.4, Eb2: 77.8, G2: 98, Bb2: 116.5, C3: 130.8, Cs2: 69.3, D2: 73.4, D3: 146.8, Eb3: 155.6, Fs2: 92.5, Ab2: 103.8 };
+
+function playNote(ac: AudioContext, freq: number, vol: number, decay: number, delay: number, opts?: { type?: OscillatorType; subVol?: number; lpCutoff?: number; }) {
+  setTimeout(() => {
+    const now = ac.currentTime;
+    const type = opts?.type ?? 'sine';
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, now);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(vol, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+    if (opts?.lpCutoff) {
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(opts.lpCutoff, now);
+      lp.frequency.exponentialRampToValueAtTime(freq * 0.5, now + decay);
+      o.connect(lp); lp.connect(g); g.connect(ac.destination);
+    } else {
+      o.connect(g); g.connect(ac.destination);
+    }
+    o.start(now); o.stop(now + decay);
+    if (opts?.subVol) {
+      const o2 = ac.createOscillator(); const g2 = ac.createGain();
+      o2.type = 'sine'; o2.frequency.setValueAtTime(freq * 0.5, now);
+      g2.gain.setValueAtTime(opts.subVol, now);
+      g2.gain.exponentialRampToValueAtTime(0.0001, now + decay * 1.3);
+      o2.connect(g2); g2.connect(ac.destination); o2.start(now); o2.stop(now + decay * 1.3);
+    }
+  }, delay);
+}
+
+// 1: 教堂钟声 — irregular minor-triad tolling: Eb3 C3 G2 C3 Eb2
+function style1() {
+  const notes: [number, number, number][] = [
+    [_f.Eb3, 0, 0.35], [_f.C3, 350, 0.28], [_f.G2, 850, 0.32],
+    [_f.C3, 1500, 0.20], [_f.Eb2, 2300, 0.28],
+  ];
+  notes.forEach(([f, t, v]) => {
+    playNote(ctx()!, f, v, 0.65, t, { lpCutoff: f * 6, subVol: v * 0.5, type: 'sine' });
+    // Octave overtone
+    playNote(ctx()!, f * 2, v * 0.3, 0.55, t, { lpCutoff: f * 8, type: 'sine' });
+    // Fifth overtone
+    playNote(ctx()!, f * 3, v * 0.15, 0.45, t, { lpCutoff: f * 8, type: 'sine' });
+  });
+}
+
+// 2: 工业撞击 — dissonant metallic stabs: C3 F#2 C#2 G#2 — minor 2nd + tritone
+function style2() {
+  const notes: [number, number, number][] = [
+    [_f.C3, 0, 0.12], [_f.Fs2, 180, 0.10], [_f.Cs2, 420, 0.14],
+    [_f.Ab2, 720, 0.09], [_f.Fs2, 1100, 0.11], [_f.Cs2, 1600, 0.12],
+  ];
+  notes.forEach(([f, t, v]) => {
+    playNote(ctx()!, f, v, 0.35, t, { type: 'square', lpCutoff: f * 5 });
+    // Ring-mod dissonance: close detuned second oscillator
+    playNote(ctx()!, f * 1.02, v * 0.5, 0.25, t, { type: 'square', lpCutoff: f * 4 });
+    playNote(ctx()!, f * 0.75, v * 0.3, 0.3, t, { type: 'triangle' });
+  });
+}
+
+// 3: 丧鼓 — funeral heartbeat: G2 G2 Eb2 G2 (heavy beats) + soft fills
+function style3() {
+  const c = ctx(); if (!c) return;
+  // Heavy beats: kick drum
+  const heavy: [number, number, number][] = [
+    [_f.G2, 0, 0.16], [_f.G2, 750, 0.14], [_f.Eb2, 1500, 0.18], [_f.G2, 2300, 0.12],
+  ];
+  heavy.forEach(([f, t, v]) => {
+    // Kick sweep
+    setTimeout(() => {
+      const now = c.currentTime;
+      const o = c.createOscillator(); const g = c.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(f * 2, now);
+      o.frequency.exponentialRampToValueAtTime(f * 0.6, now + 0.07);
+      g.gain.setValueAtTime(v * 0.9, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+      o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.12);
+    }, t);
+    // Body rumble
+    playNote(c, f * 0.5, v * 0.4, 0.4, t, { type: 'sine' });
+  });
+  // Soft fills between beats
+  const fills: [number, number, number][] = [
+    [_f.Bb2, 350, 0.04], [_f.Bb2, 1100, 0.03], [_f.Eb2, 1850, 0.04],
+  ];
+  fills.forEach(([f, t, v]) => playNote(c, f, v, 0.2, t, { type: 'sine', lpCutoff: f * 2 }));
+}
+
+// 4: 铜管挽歌 — descending C minor pentatonic with ritardando: Eb3 D3 C3 Bb2 G2
+function style4() {
+  const notes: [number, number, number, number][] = [
+    [_f.Eb3, 0, 0.12, 0.5], [_f.D3, 550, 0.10, 0.55],
+    [_f.C3, 1200, 0.13, 0.6], [_f.Bb2, 2000, 0.09, 0.7], [_f.G2, 3000, 0.12, 0.85],
+  ];
+  notes.forEach(([f, t, v, decay]) => {
+    playNote(ctx()!, f, v, decay, t, { type: 'sawtooth', lpCutoff: f * 3, subVol: v * 0.4 });
+  });
+}
+
+// 5: 玻璃共振 — scattered minor pentatonic chimes: C3 Eb3 G2 Bb2 C3 Eb2 G2
+function style5() {
+  const chimes: [number, number, number][] = [
+    [_f.G2, 0, 0.08], [_f.C3, 220, 0.06], [_f.Eb3, 500, 0.07],
+    [_f.Bb2, 820, 0.05], [_f.G2, 1180, 0.06], [_f.C3, 1580, 0.04],
+    [_f.Eb2, 2000, 0.06], [_f.G2, 2500, 0.04],
+  ];
+  chimes.forEach(([f, t, v]) => {
+    // Inharmonic glass overtones
+    [1, 2.3, 3.7, 5.2].forEach((r, j) => {
+      playNote(ctx()!, f * r, v * (0.14 / (j + 1)), 0.35 - j * 0.06, t, { type: 'triangle' });
     });
-    // Deep rumble tail
-    setTimeout(() => impact(0.08, 40, 0.25), 200);
-    // Sub impact
-    setTimeout(() => impact(0.06, 30, 0.2), 100);
+  });
+}
+
+// 6: 深渊低鸣 — C2 drone with tremolo + slow descending glissando into void
+function style6() {
+  const c = ctx(); if (!c) return;
+  const now = c.currentTime;
+  const duration = 3.5;
+  // Main drone
+  const o = c.createOscillator(); const g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(_f.C2, now);
+  o.frequency.exponentialRampToValueAtTime(_f.C2 * 0.6, now + duration);
+  // Tremolo: LFO on gain
+  const lfo = c.createOscillator(); const lfoG = c.createGain();
+  lfo.type = 'sine'; lfo.frequency.setValueAtTime(1.2, now);
+  lfo.frequency.linearRampToValueAtTime(0.4, now + duration);
+  lfoG.gain.setValueAtTime(0.3, now);
+  lfo.connect(lfoG); lfoG.connect(g.gain);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.linearRampToValueAtTime(0.16, now + 0.15);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + duration);
+  lfo.start(now); lfo.stop(now + duration);
+  // Sub layer: octave below, no tremolo
+  playNote(c, _f.C2 * 0.5, 0.08, 3.0, 0, { type: 'sine' });
+  // Distant Eb minor chord fade-in
+  setTimeout(() => {
+    playNote(c, _f.Eb2, 0.04, 2.5, 0, { type: 'sine' });
+    playNote(c, _f.G2 * 0.5, 0.03, 2.5, 0, { type: 'sine' });
+  }, 800);
+}
+
+const TOLL_STYLES: Record<number, () => void> = {
+  1: style1, 2: style2, 3: style3, 4: style4, 5: style5, 6: style6,
+};
+
+export function playTollStyle(n: number) {
+  TOLL_STYLES[n]?.();
+}
+
+function resultSfx(isSuccess: boolean, isCrit: boolean) {
+  if (isCrit && isSuccess) {
+    // Crit-success: big dramatic hit + triumphant sparkle cascade
+    impact(0.60, 60, 0.3);
+    [0, 1, 2, 3, 4, 5].forEach(i => {
+      setTimeout(() => impact(0.11, 500 + i * 200, 0.12), i * 60);
+    });
+    setTimeout(() => impact(0.20, 40, 0.25), 200);
+    setTimeout(() => impact(0.16, 30, 0.2), 100);
+  } else if (isCrit && !isSuccess) {
+    // Crit-failure: death knell — 3 funeral bell tolls
+    playTollStyle(1);
   } else if (isSuccess) {
     // Triumphant: bright ascending three-note
-    impact(0.16, 100, 0.22);
-    setTimeout(() => impact(0.08, 200, 0.14), 70);
-    setTimeout(() => impact(0.06, 400, 0.12), 130);
-    setTimeout(() => impact(0.03, 600, 0.1), 180);
+    impact(0.32, 100, 0.22);
+    setTimeout(() => impact(0.16, 200, 0.14), 70);
+    setTimeout(() => impact(0.12, 400, 0.12), 130);
+    setTimeout(() => impact(0.07, 600, 0.1), 180);
   } else {
     // Failure: dissonant descent
-    impact(0.12, 100, 0.18);
-    setTimeout(() => impact(0.07, 80, 0.14), 60);
-    setTimeout(() => impact(0.05, 55, 0.14), 110);
-    setTimeout(() => impact(0.03, 35, 0.16), 160);
+    impact(0.24, 100, 0.18);
+    setTimeout(() => impact(0.14, 80, 0.14), 60);
+    setTimeout(() => impact(0.11, 55, 0.14), 110);
+    setTimeout(() => impact(0.07, 35, 0.16), 160);
   }
 }
 
@@ -67,33 +246,38 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
   const [blur, setBlur] = useState(false);
   const [gold, setGold] = useState(false);
-  const ivRef = useRef<ReturnType<typeof setInterval>>();
+  const [fading, setFading] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!visible) return;
-    if (ivRef.current) clearInterval(ivRef.current);
     if (tRef.current) clearTimeout(tRef.current);
-    setBlur(false); setGold(false); setPhase('rolling');
+    setBlur(false); setGold(false); setFading(false); setPhase('rolling');
     const crit = resultType === 'crit-success' || resultType === 'crit-failure';
-    // Decelerating tick rhythm: maps elapsed time to next tick delay
-    // Early (dense): 50ms → Late (sparse): 300ms
-    const scheduleTick = (elapsed: number) => {
-      tick();
-      const nextDelay = 50 + (elapsed / 1300) * 300; // 50ms → 350ms over 1.3s
-      const next = elapsed + nextDelay;
-      if (next < 1300) ivRef.current = setTimeout(() => scheduleTick(next), nextDelay);
-    };
-    ivRef.current = setTimeout(() => scheduleTick(0), 10);
-    tRef.current = setTimeout(() => {
-      if (ivRef.current) clearTimeout(ivRef.current);
+    // Play preloaded dice_rolling.wav
+    loadRollingBuf().then(async (buf) => {
+      if (!buf) return;
+      const c = ctx(); if (!c) return;
+      await c.resume();
+      const src = c.createBufferSource(); src.buffer = buf;
+      const g = c.createGain(); g.gain.value = 0.45;
+      src.connect(g); g.connect(c.destination);
+      src.start();
+    });
+    tRef.current = setTimeout(async () => {
+      const c = ctx(); if (c) await c.resume();
       setPhase('result');
       if (resultType === 'crit-failure') { setBlur(true); setTimeout(() => setBlur(false), 800); }
       if (resultType === 'crit-success') setGold(true);
       resultSfx(resultType.includes('success'), crit);
-      tRef.current = setTimeout(() => { setPhase('done'); onComplete(); }, 2300);
-    }, 1300);
-    return () => { if (ivRef.current) clearInterval(ivRef.current); if (tRef.current) clearTimeout(tRef.current); };
+      // After result display, fade out then complete
+      tRef.current = setTimeout(() => {
+        setPhase('done');
+        setFading(true);
+        tRef.current = setTimeout(() => onComplete(), 500);
+      }, 2300);
+    }, ROLL_DURATION);
+    return () => { if (tRef.current) clearTimeout(tRef.current); };
   }, [visible, onComplete, resultType]);
 
   // Random entrance direction — matches the rotation direction feel
@@ -109,7 +293,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   // Remove debug log
   if (!visible) return null;
 
-  const rollStr = String(roll).padStart(2, '0');
+  const rollStr = String(roll);
   const color = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
   const isSuccess = resultType.includes('success');
   const isCrit = resultType === 'crit-success' || resultType === 'crit-failure';
@@ -117,12 +301,14 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
 
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: fading ? 0 : 1 }}
+      transition={{ duration: fading ? 0.5 : 0.35, ease: fading ? [0.4, 0, 1, 1] : [0.22, 1, 0.36, 1] }}
       style={{ position: 'fixed', inset: 0, zIndex: 960, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: blur ? 'blur(8px)' : 'blur(6px)' }}>
       <motion.div
         initial={{ scale: 0.3, opacity: 0, x: entrance.x, y: entrance.y }}
-        animate={{ scale: blur ? 0.95 : 1, opacity: 1, x: 0, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
-        transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
+        animate={{ scale: fading ? 0.85 : (blur ? 0.95 : 1), opacity: fading ? 0 : 1, x: 0, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
+        transition={{ duration: fading ? 0.45 : 0.6, ease: fading ? [0.32, 0, 0.67, 0] : [0.34, 1.56, 0.64, 1] }}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
 
         {/* Dice display area */}
@@ -153,9 +339,9 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
   useEffect(() => {
     if (phase !== 'rolling') return;
     setAnimKey(k => k + 1); // reset animation on new roll
-    const iv = setInterval(() => { setRandomDigits(Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 100) + 1).padStart(2, '0'))); }, 60);
+    const iv = setInterval(() => { setRandomDigits(Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 100) + 1))); }, 60);
     // At 1.0s, freeze all faces to the result number (animation still spinning until 1.2s)
-    const stop = setTimeout(() => { clearInterval(iv); setRandomDigits(Array(6).fill(rollStr)); }, 1050);
+    const stop = setTimeout(() => { clearInterval(iv); setRandomDigits(Array(6).fill(rollStr)); }, 750);
     return () => { clearInterval(iv); clearTimeout(stop); };
   }, [phase]);
 
@@ -185,7 +371,7 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
         {/* Wobble — only animated during result phase */}
         <motion.div
           animate={!isRolling ? { rotateX: [0, 10, -7, 4, -2, 0], rotateY: [0, -7, 10, -5, 2, 0] } : {}}
-          transition={!isRolling ? { duration: 0.7, ease: 'easeOut', times: [0, 0.12, 0.28, 0.5, 0.72, 1.0] } : {}}
+          transition={!isRolling ? { duration: 0.4, ease: 'easeOut', times: [0, 0.12, 0.28, 0.5, 0.72, 1.0] } : {}}
           style={{ width: '100%', height: '100%' }}>
           <div style={{ width: '100%', height: '100%' }}>
             {/* Spin — animated during rolling */}
@@ -193,7 +379,7 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
               key={animKey}
               initial={{ rotateX: 0, rotateY: 0 }}
               animate={{ rotateX: isRolling ? 1440 : 1440, rotateY: isRolling ? 900 : 900 }}
-              transition={{ duration: isRolling ? 1.2 : 0, ease: [0.4, 0.0, 0.6, 1.0] }}
+              transition={{ duration: isRolling ? 0.9 : 0, ease: [0.4, 0.0, 0.6, 1.0] }}
               style={{ width: '100%', height: '100%' }}>
               {/* 3D context — never animated */}
               <div style={{ width: '100%', height: '100%', position: 'relative' }}>

@@ -18,7 +18,9 @@ import { extractVariablesWithLLM } from '../../sillytavern/mvu-extractor';
 import { processSlashCommands, getCommands } from '../../sillytavern/slash-commands';
 import { renderTemplate } from '../../sillytavern/ejs-template';
 import { processMacros } from '../../sillytavern/macro-engine';
+import { resolveTavernHelperMacrosDeep } from '../../sillytavern/tavern-helper-macros';
 import { runAllRegexScripts } from '../../sillytavern/regex-engine';
+
 import { useRegexStore } from '../../stores/useRegexStore';
 import { trimToBudget, getModelBudget } from '../../sillytavern/context-manager';
 import { estimateTokens } from '../../sillytavern/token-counter';
@@ -537,6 +539,16 @@ export function InputBar() {
       content: renderTemplate(e.content, tmplOpts),
     }));
     const processedFormat = renderTemplate(FORMAT_INSTRUCTION, tmplOpts);
+
+    // Resolve Tavern Helper macros ({{get_<scope>_variable::name}} etc.)
+    if (useTavernHelperStore.getState().enabled) {
+      const presetVars = activePreset.tavernHelperVars;
+      processedPreset.systemPrompt = resolveTavernHelperMacrosDeep(processedPreset.systemPrompt, 3, presetVars);
+      for (const e of processedLore) {
+        e.content = resolveTavernHelperMacrosDeep(e.content, 3, presetVars);
+      }
+      macroProcessedInput = resolveTavernHelperMacrosDeep(macroProcessedInput, 3, presetVars);
+    }
 
     // Apply regex scripts to user input (placement 1 = USER_INPUT)
     const regexScripts = [

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { THScriptTree, THScript, THScriptFolder, THRenderSettings, THOptimizeSettings, PTSettings } from '../types';
+import type { THScriptTree, THScript, THScriptFolder, THRenderSettings, THOptimizeSettings, PTSettings, THScope, THVariable } from '../types';
 
 const STORAGE_KEY = 'coc_th_v2';
 
@@ -93,11 +93,14 @@ interface TavernHelperStore extends PersistedState {
   // Prompt template
   setPromptTemplate: (partial: Partial<PTSettings>) => void;
 
-  // Macro variables
+  // Macro variables (flat — persistent)
   setMacroVar: (name: string, value: string) => void;
   getMacroVar: (name: string) => string;
   incMacroVar: (name: string, amount: number) => void;
   decMacroVar: (name: string, amount: number) => void;
+
+  // Multi-scope variable lookup (for {{get_<scope>_variable::name}})
+  getVariable: (scope: THScope, name: string, presetVars?: Record<string, THVariable>) => string | null;
 
   // Helpers
   findItem: (tree: THScriptTree[], id: string) => THScriptTree | null;
@@ -210,6 +213,45 @@ export const useTavernHelperStore = create<TavernHelperStore>((set, get) => ({
   decMacroVar: (name, amount) => {
     const current = parseFloat(get().macroVars[name] || '0') || 0;
     get().setMacroVar(name, String(current - amount));
+  },
+
+  getVariable: (scope, name, presetVars) => {
+    switch (scope) {
+      case 'global':
+        return get().macroVars[name] ?? null;
+      case 'preset':
+        return presetVars?.[name]?.value ?? null;
+      case 'chat':
+        return get().macroVars[name] ?? null; // Chat scope shares macroVars for now
+      case 'character': {
+        try {
+          const { useCharSheetStore } = require('../stores/useCharSheetStore');
+          const sheet = useCharSheetStore.getState().sheet;
+          const charVars: Record<string, string> = {
+            name: sheet.identity.name,
+            occupation: sheet.identity.occupation,
+            age: String(sheet.identity.age),
+            gender: sheet.identity.gender,
+            hp: String(sheet.secondary.hp.current),
+            hpMax: String(sheet.secondary.hp.max),
+            san: String(sheet.secondary.san.current),
+            sanMax: String(sheet.secondary.san.max),
+            mp: String(sheet.secondary.mp.current),
+            mpMax: String(sheet.secondary.mp.max),
+            luck: String(sheet.secondary.luck),
+          };
+          // Also all characteristics
+          for (const [k, v] of Object.entries(sheet.characteristics)) {
+            charVars[k.toLowerCase()] = String(v);
+          }
+          return charVars[name] ?? charVars[name.toLowerCase()] ?? null;
+        } catch {
+          return null;
+        }
+      }
+      default:
+        return null;
+    }
   },
 
   findItem: (tree, id) => {

@@ -155,6 +155,12 @@ export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[
     data.extensions.tavern_helper = data.extensions.tavern_helper || {};
     data.extensions.tavern_helper.scripts = preset.tavernHelperScripts;
   }
+  // Include tavern_helper preset variables if present
+  if (preset.tavernHelperVars && Object.keys(preset.tavernHelperVars).length > 0) {
+    data.extensions = data.extensions || {};
+    data.extensions.tavern_helper = data.extensions.tavern_helper || {};
+    data.extensions.tavern_helper.variables = preset.tavernHelperVars;
+  }
   return JSON.stringify(data, null, 2);
 }
 
@@ -187,19 +193,22 @@ function parseRegexScripts(data: any): RegexScript[] {
     }));
 }
 
-function parseTavernHelperData(data: any): THScriptTree[] | undefined {
+function parseTavernHelperData(data: any): { scripts?: THScriptTree[]; vars?: Record<string, any> } {
   const raw = data.extensions?.tavern_helper;
-  if (!raw || typeof raw !== 'object') return undefined;
+  if (!raw || typeof raw !== 'object') return {};
   const scripts = raw.scripts;
-  if (Array.isArray(scripts) && scripts.length > 0) return scripts;
-  return undefined;
+  const vars = raw.variables;
+  return {
+    scripts: Array.isArray(scripts) && scripts.length > 0 ? scripts : undefined,
+    vars: vars && typeof vars === 'object' && !Array.isArray(vars) ? vars : undefined,
+  };
 }
 
 export function importPresetFromST(json: string, fileName?: string): ImportedPreset | null {
   try {
     const data: any = JSON.parse(json);
     const regexScripts = parseRegexScripts(data);
-    const tavernHelperScripts = parseTavernHelperData(data);
+    const thData = parseTavernHelperData(data);
     // Get prompt_order (root or nested in extensions)
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
@@ -337,7 +346,8 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
       groupChatPrompt: '请以{{char}}的身份回复。', newChatPrompt: '[新的聊天即将开始]',
       newGroupChatPrompt: '[新的群聊即将开始]', newExampleChatPrompt: '[新的示例聊天即将开始]',
       continuePrompt: '[继续推进]', emptyMessagePrompt: '', promptItems,
-      tavernHelperScripts,
+      tavernHelperScripts: thData.scripts,
+      tavernHelperVars: thData.vars,
     };
     return { preset, regexScripts };
   } catch { return null; }
