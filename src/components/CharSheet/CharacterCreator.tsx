@@ -1609,8 +1609,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         )}
 
         {/* Accordion — fills remaining height */}
-        <div ref={accordionRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', minHeight: 0,
-          scrollbarColor: 'rgba(196,168,85,0.22) transparent' }}>
+        <div ref={accordionRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Header tabs at top — no gap, marginBottom per item for smooth collapse */}
           <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             {fields.map((f) => {
