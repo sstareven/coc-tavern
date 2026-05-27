@@ -680,13 +680,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   };
 
   const randomAllocate = () => {
-    // Reset
+    // Reset all
     setOccSkills([]); setOccPoints({});
     setInterestSkills([]); setInterestPoints({});
     setCreditRating(0);
     // Get suggested skills from current occupation
     const selectedOcc = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
     const suggested = selectedOcc?.skills || [];
+    const crMin = selectedOcc?.crMin ?? 0;
+    const crMax = selectedOcc?.crMax ?? 99;
     const getBaseVal = (name: string) => {
       const sk = ALL_SKILLS.find((x) => x.name === name);
       if (!sk) return 0;
@@ -694,7 +696,26 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
       return charValues.EDU ?? 50;
     };
+    const allocLoop = (points: Record<string, number>, names: string[], pool: number) => {
+      const alloc = { ...points };
+      let rem = pool;
+      const eligible = names.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
+      let safety = 0;
+      while (rem > 0 && eligible.length > 0 && safety++ < 10000) {
+        const i = Math.floor(Math.random() * eligible.length);
+        const cur = alloc[eligible[i]] ?? 0;
+        const cap = 99 - getBaseVal(eligible[i]);
+        if (cur >= cap) { eligible.splice(i, 1); continue; }
+        const add = Math.max(1, Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur));
+        alloc[eligible[i]] = cur + add;
+        rem -= add;
+      }
+      return alloc;
+    };
     const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
+    // Credit rating: random within occupation range
+    const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
+    setCreditRating(cr);
     // Pick occ skills: suggested first, then random others, max 8
     const pickOcc: string[] = [];
     const others = ALL_SKILLS.filter((s) => !suggested.includes(s.name) && s.name !== '克苏鲁神话');
@@ -708,43 +729,14 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
     const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
     setInterestSkills(pickInt);
-    // Allocate occ points (credit rating was just reset to 0, so use full pool)
-    const occRem = occPointPool;
-    if (pickOcc.length > 0 && occRem > 0) {
-      setOccPoints((prev) => {
-        const alloc = { ...prev };
-        let rem = occRem;
-        const names = pickOcc.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
-        while (rem > 0 && names.length > 0) {
-          const i = Math.floor(Math.random() * names.length);
-          const cur = alloc[names[i]] ?? 0;
-          const cap = 99 - getBaseVal(names[i]);
-          if (cur >= cap) { names.splice(i, 1); continue; }
-          const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
-          alloc[names[i]] = cur + add;
-          rem -= add;
-        }
-        return alloc;
-      });
+    // Allocate occ points (pool minus credit rating)
+    const occPoolForSkills = occPointPool - cr;
+    if (pickOcc.length > 0 && occPoolForSkills > 0) {
+      setOccPoints((prev) => allocLoop(prev, pickOcc, occPoolForSkills));
     }
     // Allocate int points
-    const intRem = intPointPool;
-    if (pickInt.length > 0 && intRem > 0) {
-      setInterestPoints((prev) => {
-        const alloc = { ...prev };
-        let rem = intRem;
-        const names = pickInt.filter((s) => (alloc[s] ?? 0) + getBaseVal(s) < 99);
-        while (rem > 0 && names.length > 0) {
-          const i = Math.floor(Math.random() * names.length);
-          const cur = alloc[names[i]] ?? 0;
-          const cap = 99 - getBaseVal(names[i]);
-          if (cur >= cap) { names.splice(i, 1); continue; }
-          const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
-          alloc[names[i]] = cur + add;
-          rem -= add;
-        }
-        return alloc;
-      });
+    if (pickInt.length > 0 && intPointPool > 0) {
+      setInterestPoints((prev) => allocLoop(prev, pickInt, intPointPool));
     }
   };
 
