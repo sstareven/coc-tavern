@@ -1862,6 +1862,40 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
             ← 上一步
           </button>
 
+          {step === 3 && (
+            <button onClick={() => {
+              const randAlloc = (points: Record<string, number>, skills: string[], remaining: number, pool: number) => {
+                if (remaining <= 0 || skills.length === 0) return points;
+                const alloc = { ...points };
+                let rem = remaining;
+                const eligible = skills.filter((s) => {
+                  const sk = ALL_SKILLS.find((x) => x.name === s);
+                  const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
+                  return base + (alloc[s] ?? 0) < 99;
+                });
+                if (eligible.length === 0) return alloc;
+                while (rem > 0 && eligible.length > 0) {
+                  const idx = Math.floor(Math.random() * eligible.length);
+                  const s = eligible[idx];
+                  const cur = alloc[s] ?? 0;
+                  const sk = ALL_SKILLS.find((x) => x.name === s)!;
+                  const base = typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50);
+                  const maxForSkill = 99 - base;
+                  const add = Math.min(rem, Math.max(1, Math.floor(Math.random() * Math.min(10, rem)) + 1));
+                  const actualAdd = Math.min(add, maxForSkill - cur);
+                  if (actualAdd <= 0) { eligible.splice(idx, 1); continue; }
+                  alloc[s] = cur + actualAdd;
+                  rem -= actualAdd;
+                }
+                return alloc;
+              };
+              setOccPoints((p) => randAlloc(p, occSkills, occRemaining, occPointPool));
+              setInterestPoints((p) => randAlloc(p, interestSkills.filter((s) => !occSkills.includes(s)), intRemaining, intPointPool));
+            }}
+              className="sk-btn"
+              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
+            >🎲 随机分配</button>
+          )}
           {step < STEPS.length - 1 ? (
             <button
               onClick={nextStep}
