@@ -1448,7 +1448,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const braceStart = jsonStr.indexOf('{');
       const braceEnd = jsonStr.lastIndexOf('}');
       if (braceStart >= 0 && braceEnd > braceStart) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
-      jsonStr = jsonStr.replace(/[，、]/g, ',').replace(/[：]/g, ':');
+      // Fix common LLM JSON issues: unescaped newlines inside strings, trailing commas, Chinese punctuation
+      jsonStr = jsonStr
+        .replace(/\n/g, ' ')                                 // newlines → space (safest JSON fix)
+        .replace(/,\s*}/g, '}')                               // trailing comma before }
+        .replace(/,\s*]/g, ']')                               // trailing comma before ]
+        .replace(/[，、]/g, ',')                              // Chinese commas → ASCII
+        .replace(/[：]/g, ':');                               // Chinese colon → ASCII
       const parsed = JSON.parse(jsonStr);
       if (parsed.description) setDescription(parsed.description);
       if (parsed.beliefs) setBeliefs(parsed.beliefs);
