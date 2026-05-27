@@ -166,6 +166,8 @@ export interface ChatPreset {
   regexScripts?: RegexScript[];
   /** Tavern Helper preset-scoped scripts (from extensions.tavern_helper) */
   tavernHelperScripts?: THScriptTree[];
+  /** Tavern Helper preset-scoped variables */
+  tavernHelperVars?: Record<string, THVariable>;
 }
 
 // ===== Chat Sessions =====
@@ -260,6 +262,15 @@ export interface THScriptFolder {
 }
 
 export type THScriptTree = THScript | THScriptFolder;
+
+// ===== Tavern Helper Variables =====
+export type THScope = 'global' | 'preset' | 'chat' | 'character';
+
+export interface THVariable {
+  name: string;
+  value: string;
+  updatedAt?: number;
+}
 
 // ===== Macro Variables =====
 export interface MacroVarStore {

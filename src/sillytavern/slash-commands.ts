@@ -197,6 +197,58 @@ export function initBuiltinCommands(): void {
     },
   });
 
+  // /thvar <name> — get macro variable value
+  registerCommand({
+    name: 'thvar',
+    description: '查看宏变量。用法: /thvar <变量名>',
+    execute: (args) => {
+      const parsed = parseArgs(args);
+      const name = parsed[0];
+      if (!name) return '[用法: /thvar <变量名>]';
+      try {
+        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
+        const val = useTavernHelperStore.getState().getMacroVar(name);
+        return val ? `[${name} = ${val}]` : `[宏变量 "${name}" 不存在]`;
+      } catch {
+        return '[酒馆助手不可用]';
+      }
+    },
+  });
+
+  // /thset <name> <value> — set macro variable
+  registerCommand({
+    name: 'thset',
+    description: '设置宏变量。用法: /thset <变量名> <值>',
+    execute: (args) => {
+      const parsed = parseArgs(args);
+      if (parsed.length < 2) return '[用法: /thset <变量名> <值>]';
+      try {
+        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
+        useTavernHelperStore.getState().setMacroVar(parsed[0], parsed.slice(1).join(' '));
+        return `[宏变量 "${parsed[0]}" 已设置]`;
+      } catch {
+        return '[酒馆助手不可用]';
+      }
+    },
+  });
+
+  // /thvars — list all macro variables
+  registerCommand({
+    name: 'thvars',
+    description: '列出所有宏变量。用法: /thvars',
+    execute: () => {
+      try {
+        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
+        const vars = useTavernHelperStore.getState().macroVars;
+        const entries = Object.entries(vars);
+        if (entries.length === 0) return '[无宏变量]';
+        return entries.map(([k, v]) => `[${k} = ${v}]`).join('\n');
+      } catch {
+        return '[酒馆助手不可用]';
+      }
+    },
+  });
+
   // /help — list all commands
   registerCommand({
     name: 'help',

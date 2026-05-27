@@ -66,6 +66,9 @@ const CONTENT_SOURCE: Record<string, string> = {
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [form, setForm] = useState<ChatPreset>({ ...preset });
+  const [thVarsOpen, setThVarsOpen] = useState(false);
+  const [thNewName, setThNewName] = useState('');
+  const [thNewValue, setThNewValue] = useState('');
   const thOptimize = useTavernHelperStore((s) => s.optimize);
   const maxContextLocked = thOptimize.maximizePresetContext;
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(() => {
@@ -553,6 +556,41 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               );
             })}
           </div>
+        </div>
+
+        {/* 酒馆助手变量 — collapsible */}
+        <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 12 }}>
+          <button onClick={() => setThVarsOpen(!thVarsOpen)}
+            style={{ ...s.label, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: thVarsOpen ? 8 : 0 }}>
+            <span>{thVarsOpen ? '▼' : '▶'}</span> 酒馆助手变量 ({'{{'}get_preset_variable::{'}}'}) — {Object.keys(form.tavernHelperVars || {}).length} 个
+          </button>
+          {thVarsOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input placeholder="变量名" value={thNewName} onChange={(e) => setThNewName(e.target.value)} style={{ ...s.input, width: 100 }} />
+                <input placeholder="值" value={thNewValue} onChange={(e) => setThNewValue(e.target.value)} style={s.input} />
+                <button onClick={() => {
+                  const n = thNewName.trim(); if (!n) return;
+                  setForm((p) => ({ ...p, tavernHelperVars: { ...p.tavernHelperVars, [n]: { name: n, value: thNewValue, updatedAt: Date.now() } } }));
+                  setThNewName(''); setThNewValue('');
+                }} style={{ ...s.btn, padding: '3px 10px', fontSize: 10 }}>+</button>
+              </div>
+              {Object.entries(form.tavernHelperVars || {}).map(([vName, v]: [string, any]) => (
+                <div key={vName} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0' }}>
+                  <span style={{ ...s.label, width: 100, flexShrink: 0 }}>{vName}</span>
+                  <input value={v.value} onChange={(e) => {
+                    setForm((p) => ({ ...p, tavernHelperVars: { ...p.tavernHelperVars, [vName]: { ...v, value: e.target.value, updatedAt: Date.now() } } }));
+                  }} style={s.input} />
+                  <button onClick={() => {
+                    setForm((p) => { const nv = { ...p.tavernHelperVars }; delete nv[vName]; return { ...p, tavernHelperVars: nv }; });
+                  }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                </div>
+              ))}
+              {Object.keys(form.tavernHelperVars || {}).length === 0 && (
+                <span style={{ fontSize: 10, color: 'var(--ink-faded)', fontStyle: 'italic' }}>无预设变量</span>
+              )}
+            </div>
+          )}
         </div>
 
         <button onClick={() => onSave(form)} style={{
