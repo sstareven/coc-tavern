@@ -1595,7 +1595,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         )}
 
         <div style={{ height: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {fields.map((f) => {
+          {fields.map((f, idx) => {
             const isOpen = openField === f.label;
             const isHidden = openField !== null && openField !== f.label;
             return (
@@ -1607,6 +1607,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                 marginBottom: isHidden ? 0 : 4,
                 flex: isOpen ? 1 : undefined,
                 display: 'flex', flexDirection: 'column',
+                position: 'relative',
+                zIndex: fields.length - idx,
               }}>
                 {/* Header row */}
                 <div
