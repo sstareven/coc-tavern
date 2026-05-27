@@ -366,7 +366,7 @@ function DarkSelect({ value, onChange, options, style }: {
         <div key={o.value}
           onClick={() => { onChange(o.value); setOpen(false); }}
           style={{
-            padding: '8px 12px', cursor: 'pointer', fontSize: 12,
+            padding: '8px 12px', cursor: 'pointer', fontSize: 12, textAlign: 'center',
             color: o.value === value ? 'var(--gold)' : 'var(--text-light)',
             fontFamily: 'var(--font-body)', borderBottom: '1px solid rgba(255,255,255,0.03)',
             background: o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent',
@@ -385,7 +385,7 @@ function DarkSelect({ value, onChange, options, style }: {
   return (
     <div ref={ref} style={{ ...style }}>
       <div onClick={toggle} style={selectTriggerStyle}>
-        <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
+        <span style={{ flex: 1, textAlign: 'center', color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
           {selected ? selected.label : '--'}
         </span>
         <span style={{ color: 'var(--gold)', fontSize: 10, transition: '0.2s', transform: open ? 'rotate(180deg)' : 'none' }}>▼</span>
