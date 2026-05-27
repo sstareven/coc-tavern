@@ -679,42 +679,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
   };
 
-  const randomAllocate = () => {
-    // Occ points
-    if (occSkills.length > 0 && occRemaining > 0) {
-      setOccPoints((prev) => {
-        const alloc = { ...prev };
-        let remaining = occRemaining;
-        const eligible = [...occSkills];
-        while (remaining > 0 && eligible.length > 0) {
-          const i = Math.floor(Math.random() * eligible.length);
-          const name = eligible[i];
-          const add = Math.min(remaining, Math.ceil(Math.random() * Math.min(10, remaining)));
-          alloc[name] = (alloc[name] ?? 0) + add;
-          remaining -= add;
-        }
-        return alloc;
-      });
-    }
-    // Interest points
-    const intSkills = interestSkills.filter((s) => !occSkills.includes(s));
-    if (intSkills.length > 0 && intRemaining > 0) {
-      setInterestPoints((prev) => {
-        const alloc = { ...prev };
-        let remaining = intRemaining;
-        const eligible = [...intSkills];
-        while (remaining > 0 && eligible.length > 0) {
-          const i = Math.floor(Math.random() * eligible.length);
-          const name = eligible[i];
-          const add = Math.min(remaining, Math.ceil(Math.random() * Math.min(10, remaining)));
-          alloc[name] = (alloc[name] ?? 0) + add;
-          remaining -= add;
-        }
-        return alloc;
-      });
-    }
-  };
-
   const nextStep = () => { if (canGoNext() && step < STEPS.length - 1) setStep(step + 1); };
   const prevStep = () => { if (step > 0) setStep(step - 1); };
   // Track occupation changes: clear skill allocations when occupation changes
@@ -1286,6 +1250,50 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
               >{cat}</button>
             );
           })}
+        </div>
+
+        {/* Random allocate button */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button onClick={(e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (occSkills.length > 0 && occRemaining > 0) {
+              setOccPoints((prev) => {
+                const alloc = { ...prev };
+                let rem = occRemaining;
+                const names = occSkills.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
+                while (rem > 0 && names.length > 0) {
+                  const i = Math.floor(Math.random() * names.length);
+                  const cur = alloc[names[i]] ?? 0;
+                  const cap = 99 - getBase(ALL_SKILLS.find((x) => x.name === names[i])!);
+                  if (cur >= cap) { names.splice(i, 1); continue; }
+                  const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
+                  alloc[names[i]] = cur + add;
+                  rem -= add;
+                }
+                return alloc;
+              });
+            }
+            const intNames = interestSkills.filter((s) => !occSkills.includes(s));
+            if (intNames.length > 0 && intRemaining > 0) {
+              setInterestPoints((prev) => {
+                const alloc = { ...prev };
+                let rem = intRemaining;
+                const names = intNames.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
+                while (rem > 0 && names.length > 0) {
+                  const i = Math.floor(Math.random() * names.length);
+                  const cur = alloc[names[i]] ?? 0;
+                  const cap = 99 - getBase(ALL_SKILLS.find((x) => x.name === names[i])!);
+                  if (cur >= cap) { names.splice(i, 1); continue; }
+                  const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
+                  alloc[names[i]] = cur + add;
+                  rem -= add;
+                }
+                return alloc;
+              });
+            }
+          }}
+            style={{ padding: '6px 20px', border: '1px solid rgba(196,168,85,0.3)', borderRadius: 4, background: 'rgba(196,168,85,0.08)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2, cursor: 'pointer' }}
+          >⚄ 随机分配</button>
         </div>
 
         {/* All skills grid */}
@@ -1898,11 +1906,6 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
             ← 上一步
           </button>
 
-          {step === 3 && (
-            <button onClick={(e) => { e.stopPropagation(); randomAllocate(); }}
-              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)', cursor: 'pointer' }}
-            >⚄ 随机分配</button>
-          )}
           {step < STEPS.length - 1 ? (
             <button
               onClick={nextStep}
