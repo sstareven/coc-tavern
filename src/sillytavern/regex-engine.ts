@@ -51,7 +51,7 @@ export function regexFromString(str: string): RegExp | null {
 }
 
 // ===== Placement enum values =====
-export const RegexPlacementValues = {
+const RegexPlacementValues = {
   USER_INPUT: 1 as const,
   AI_OUTPUT: 2 as const,
   SLASH_COMMAND: 3 as const,
@@ -59,7 +59,7 @@ export const RegexPlacementValues = {
   REASONING: 6 as const,
 };
 
-export const SubstituteFindRegexValues = {
+const SubstituteFindRegexValues = {
   NONE: 0 as const,
   RAW: 1 as const,
   ESCAPED: 2 as const,
@@ -173,18 +173,4 @@ export function runAllRegexScripts(
   }
 
   return result;
-}
-
-// ===== Filter string by removing trim items =====
-export function filterString(
-  rawString: string,
-  trimStrings: string[],
-  resolve?: (t: string) => string,
-): string {
-  let final = rawString;
-  for (const trim of trimStrings) {
-    const resolved = resolve ? resolve(trim) : trim;
-    final = final.replaceAll(resolved, '');
-  }
-  return final;
 }

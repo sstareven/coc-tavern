@@ -39,8 +39,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
       const book = importWorldBookFromST(reader.result as string);
       if (book) {
         const fileName = file.name.replace(/\.json$/i, '');
-        const id = `wb-${Date.now()}`;
-        useLorebookStore.setState((s) => ({ books: { ...s.books, [id]: { ...book, name: book.name !== '导入的世界书' ? book.name : fileName } } }));
+        useLorebookStore.getState().importBook({ ...book, name: book.name !== '导入的世界书' ? book.name : fileName });
       }
     };
     reader.readAsText(file);
@@ -53,7 +52,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
     if (remaining.length === 0) {
       addBook('默认世界书');
     }
-    useLorebookStore.setState({ books: Object.fromEntries(remaining) });
+    useLorebookStore.getState().deleteBook(bookId);
     setDeleteConfirm(null);
   };
 

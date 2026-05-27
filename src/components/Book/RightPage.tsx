@@ -1,5 +1,6 @@
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
+import { beautifyText } from '../Shared/TextBeautifier';
 import type { ChoiceItem } from '../../types';
 
 interface Props {
@@ -108,10 +109,10 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <div className="rp-scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', minHeight: 0, ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-          <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{renderedContent[0]}</p>
+          <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{beautifyText(renderedContent[0])}</p>
         ) : (
           renderedContent.map((node, i) => typeof node === 'string'
-            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{node}</p>
+            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{beautifyText(node)}</p>
             : <span key={i}>{node}</span>)
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

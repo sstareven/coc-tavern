@@ -1,5 +1,6 @@
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
+import { beautifyText } from '../Shared/TextBeautifier';
 
 interface Props {
   header: string;
@@ -39,10 +40,10 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <div className="lp-scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: 6, minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-          <p style={{ textIndent: '2em', marginBottom: 12 }}>{renderedContent[0]}</p>
+          <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedContent[0])}</p>
         ) : (
           renderedContent.map((node, i) => typeof node === 'string'
-            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{node}</p>
+            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
             : <span key={i}>{node}</span>)
         )}
       </div>

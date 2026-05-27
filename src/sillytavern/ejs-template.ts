@@ -9,7 +9,7 @@
 
 // ── Template API (injected into execution context) ──
 
-export interface TemplateAPI {
+interface TemplateAPI {
   getvar: (name: string, fallback?: string) => string;
   setvar: (name: string, value: string) => void;
   getwi: (keyword: string) => string;
@@ -123,11 +123,6 @@ function setCache(key: string, entry: CacheEntry, maxSize: number) {
   currentCacheSize += entry.size;
 }
 
-function clearCache() {
-  templateCache.clear();
-  currentCacheSize = 0;
-}
-
 // ── Template Executor ──
 
 /**
@@ -226,5 +221,3 @@ export function renderTemplate(
 
   return output.join('');
 }
-
-export { clearCache };

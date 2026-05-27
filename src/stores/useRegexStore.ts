@@ -72,9 +72,7 @@ interface RegexStore {
   // UI state
   isEditorOpen: boolean;
   editingScript: RegexScript | null;
-  editingType: RegexScriptType;
-  testInput: string;
-  testOutput: string;
+  editingScope: RegexScriptType;
 
   // Actions — scripts
   getScripts: (type: RegexScriptType) => RegexScript[];
@@ -83,7 +81,6 @@ interface RegexStore {
   deleteScript: (id: string, type: RegexScriptType) => void;
   toggleScript: (id: string, type: RegexScriptType) => void;
   moveScript: (id: string, fromType: RegexScriptType, toType: RegexScriptType) => void;
-  reorderScripts: (type: RegexScriptType, ids: string[]) => void;
 
   // Bulk actions
   bulkToggleAll: (type: RegexScriptType, disabled: boolean) => void;
@@ -92,8 +89,6 @@ interface RegexStore {
   // Editor
   openEditor: (script: RegexScript | null, type: RegexScriptType) => void;
   closeEditor: () => void;
-  setTestInput: (text: string) => void;
-  setTestOutput: (text: string) => void;
 
   // Import/Export
   importScript: (json: string, type: RegexScriptType) => boolean;
@@ -107,9 +102,7 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
 
   isEditorOpen: false,
   editingScript: null,
-  editingType: 'global',
-  testInput: '',
-  testOutput: '',
+  editingScope: 'global',
 
   getScripts: (type) => {
     switch (type) {
@@ -168,17 +161,6 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
     get().addScript(script, toType);
   },
 
-  reorderScripts: (type, ids) => {
-    set((st) => {
-      const arr = st.getScripts(type);
-      const reordered = ids.map((id) => arr.find((s) => s.id === id)).filter(Boolean) as RegexScript[];
-      switch (type) {
-        case 'global': return { globalScripts: reordered };
-        case 'preset': return { presetScripts: reordered };
-      }
-    });
-  },
-
   bulkToggleAll: (type, disabled) => {
     set((st) => {
       const toggleAll = (arr: RegexScript[]) => arr.map((s) => ({ ...s, disabled }));
@@ -204,11 +186,8 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   },
 
   closeEditor: () => {
-    set({ isEditorOpen: false, editingScript: null, testInput: '', testOutput: '' });
+    set({ isEditorOpen: false, editingScript: null });
   },
-
-  setTestInput: (text) => set({ testInput: text }),
-  setTestOutput: (text) => set({ testOutput: text }),
 
   importScript: (json, type) => {
     try {

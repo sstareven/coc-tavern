@@ -1495,107 +1495,214 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setQuickFilling(true);
     try {
       const occText = occupation === '__custom__' ? customOccupation : occupation;
-      const charSummary = CHAR_ORDER.map(({ key, zh }) => `${zh} ${charValues[key] ?? 50}`).join(', ');
-      // Build skill summary with point allocations
-      const skillSummary: string[] = [];
+      const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
+
+      // ── Build rich character profile ──
+      const charLines: string[] = [];
+      for (const { key, zh } of CHAR_ORDER) {
+        const v = charValues[key] ?? 50;
+        const bars: string[] = [];
+        if (v >= 80) bars.push('卓越');
+        else if (v >= 70) bars.push('优秀');
+        else if (v >= 60) bars.push('良好');
+        else if (v >= 40) bars.push('中等');
+        else bars.push('较低');
+        charLines.push(`${zh} ${v}（${bars.join('')}）`);
+      }
+
+      // Build skill summary WITH descriptions
+      const occSkillLines: string[] = [];
       for (const s of occSkills) {
         const sk = ALL_SKILLS.find((x) => x.name === s);
-        const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
+        const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
         const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
-        const total = base + pts;
-        if (pts > 0) skillSummary.push(`${s}(${total}%, +${pts})`);
+        const total = Math.min(99, base + pts);
+        const desc = SKILL_DESC[s] || '';
+        const tag = (occPoints[s] ?? 0) > 0 ? `[职业专精 +${occPoints[s]}]` : `[兴趣 +${interestPoints[s] ?? 0}]`;
+        occSkillLines.push(`- ${s}：${total}%（基础${base} ${tag}）— ${desc}`);
       }
-      for (const s of interestSkills) {
-        if (occSkills.includes(s)) continue;
+
+      const intOnly = interestSkills.filter((s) => !occSkills.includes(s));
+      const intSkillLines: string[] = [];
+      for (const s of intOnly) {
         const sk = ALL_SKILLS.find((x) => x.name === s);
-        const base = sk ? (typeof sk.base === 'number' ? sk.base : sk.base === 'DEX_HALF' ? Math.floor((charValues.DEX ?? 50) / 2) : (charValues.EDU ?? 50)) : 0;
+        const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
         const pts = interestPoints[s] ?? 0;
-        if (pts > 0) skillSummary.push(`${s}(${base + pts}%, +${pts})`);
+        if (pts <= 0) continue;
+        const desc = SKILL_DESC[s] || '';
+        intSkillLines.push(`- ${s}：${Math.min(99, base + pts)}%（基础${base} +兴趣${pts}）— ${desc}`);
       }
-      const prompt = `你是一位COC 7版调查员的背景故事生成器。请根据以下信息生成完整的调查员背景故事（1920年代美国）。\n\n` +
-        `姓名: ${name || '未知'}\n职业: ${occText || '调查员'}\n年龄: ${age}\n性别: ${sex}\n` +
-        `${residence ? `居住地: ${residence}\n` : ''}` +
-        `${birthplace ? `出生地: ${birthplace}\n` : ''}` +
-        `属性: ${charSummary}\n` +
-        `${creditRating > 0 ? `信用评级: ${creditRating}%\n` : ''}` +
-        `${skillSummary.length > 0 ? `已投入点数的技能(当前值, 投入点数):\n${skillSummary.join('\n')}\n` +
-          `注：加点越高的技能代表该角色在这方面的专精程度或人生经历越丰富，请据此塑造背景故事。\n` : ''}` +
-        `\n请以JSON格式回复，所有值用中文：\n{\n` +
-        `  "description": "个人外貌、气质描述（1-2句）",\n` +
-        `  "beliefs": "思想信念、价值观（1-2句）",\n` +
-        `  "significantPeople": "生命中重要的人（1句）",\n` +
-        `  "meaningfulLocations": "有意义的场所（1句）",\n` +
-        `  "treasuredPossessions": "珍贵的物品（1句）",\n` +
-        `  "traits": "性格特质关键词",\n` +
-        `  "injuries": "旧伤或伤痕（无则留空）",\n` +
-        `  "phobias": "恐惧症或狂躁症（无则留空）"\n}`;
+
+      // Occupation context
+      let occContext = '';
+      if (occObj) {
+        occContext = `推荐职业技能：${occObj.skills.join('、')}。信用评级范围：${occObj.crMin}%-${occObj.crMax}%。`;
+      }
+
+      // Build the prompt — marker-based output format
+      const prompt = [
+        `你是1920年代美国克苏鲁召唤（Call of Cthulhu 7th）TRPG 调查员背景故事生成器。`,
+        `请根据以下角色数据，结合其职业特征、技能专精、出生地和居住地，为每个字段生成贴切的背景文本。`,
+        ``,
+        `## 角色身份`,
+        `- 姓名：${name || '未知'}`,
+        `- 职业：${occText || '调查员'}（1920年代美国，请理解该职业的典型形象、社会地位和生活方式）`,
+        `- 年龄：${age}岁`,
+        `- 性别：${sex}`,
+        `${birthplace ? `- 出生地：${birthplace}` : ''}`,
+        `${residence ? `- 居住地：${residence}` : ''}`,
+        `${occContext ? `- ${occContext}` : ''}`,
+        ``,
+        `## 属性（数值越高越突出）`,
+        ...charLines.map((l) => `- ${l}`),
+        `${creditRating > 0 ? `- 信用评级：${creditRating}%（反映社会地位和经济水平）` : ''}`,
+        ``,
+        `## 职业技能（投入点数越高=该角色在这方面越精专/经验越丰富）`,
+        ...(occSkillLines.length > 0 ? occSkillLines : ['（无职业技能投入）']),
+        ...(intSkillLines.length > 0 ? ['', `## 兴趣技能`, ...intSkillLines] : []),
+        ``,
+        `## 生成要求`,
+        `每个字段的内容必须与角色的职业、技能、属性和生活背景紧密相关：`,
+        `- 外貌描述应体现职业特征（如：水手经日晒的皮肤、教授学者的气质、工人的粗壮的双手）`,
+        `- 思想信念应与职业世界观一致（如：科学家相信理性、神职人员虔诚、记者追求真相）`,
+        `- 重要之人应与职业/生活相关（如：教授的导师、记者的线人、医生的病人）`,
+        `- 重要场所应是角色职业/生活中常去之处`,
+        `- 珍贵之物应与其职业或人生经历相关`,
+        `- 特质应反映技能专精指向的性格（如：擅心理学→敏锐、擅格斗→好斗、擅话术→圆滑）`,
+        `- 伤疤应与职业风险或经历匹配（如无合理伤疤则留空）`,
+        `- 恐惧症应与角色经历或职业环境相关（如无合理恐惧则留空）`,
+        ``,
+        `## 输出格式`,
+        `严格按以下 ### 标题分段输出，每个字段用 ### 标记，标题后换行写中文内容。留空的字段写"无"。`,
+        ``,
+        `### 个人描述`,
+        `（1-3句外貌与气质描述）`,
+        ``,
+        `### 思想信念`,
+        `（1-3句）`,
+        ``,
+        `### 重要之人`,
+        `（1句）`,
+        ``,
+        `### 重要场所`,
+        `（1句）`,
+        ``,
+        `### 珍贵之物`,
+        `（1句）`,
+        ``,
+        `### 特质`,
+        `（关键词，逗号分隔）`,
+        ``,
+        `### 伤疤`,
+        `（无则填"无"）`,
+        ``,
+        `### 恐惧症`,
+        `（无则填"无"）`,
+      ].join('\n');
+
       const response = await sendChatCompletion(
         [{ role: 'user', content: prompt }],
-        { temperature: 0.8, maxTokens: 800 } as any,
+        { temperature: 0.75, maxTokens: 1200 } as any,
         settings.apiBaseUrl, settings.apiKey, settings.apiModel,
       );
-      // Parse JSON from response
-      let jsonStr = response.content || '';
-      const cbMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (cbMatch) jsonStr = cbMatch[1].trim();
-      const braceStart = jsonStr.indexOf('{');
-      const braceEnd = jsonStr.lastIndexOf('}');
-      if (braceStart >= 0 && braceEnd > braceStart) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
-      // Fix common LLM JSON issues: unescaped newlines inside strings, trailing commas, Chinese punctuation
-      jsonStr = jsonStr
-        .replace(/\n/g, ' ')                                 // newlines → space
-        .replace(/,\s*}/g, '}')                               // trailing comma before }
-        .replace(/,\s*]/g, ']')                               // trailing comma before ]
-        .replace(/[，、]/g, ',')                              // Chinese commas → ASCII
-        .replace(/[：]/g, ':');                               // Chinese colon → ASCII
 
-      // Multi-layer JSON parse with progressive repair
-      let parsed: Record<string, string> = {};
-      try {
-        parsed = JSON.parse(jsonStr);
-      } catch (firstErr) {
-        // Layer 2: repair unescaped double quotes inside string values
-        // For each known key, extract its value by matching "key": "...pattern..."
-        // This handles LLM output like "他说"你好"" where inner quotes break JSON
-        try {
-          let repaired = jsonStr;
-          const keys = ['description', 'beliefs', 'significantPeople', 'meaningfulLocations',
-            'treasuredPossessions', 'traits', 'injuries', 'phobias'];
-          for (const key of keys) {
-            // Match "key": "...value..." where value may contain unescaped quotes
-            const keyRegex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}\\]]|$)`, 'm');
-            repaired = repaired.replace(keyRegex, (_m, val) => {
-              const safe = val.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-              return `"${key}": "${safe}"`;
-            });
-          }
-          parsed = JSON.parse(repaired);
-        } catch (_secondErr) {
-          // Layer 3: extract each field individually via regex
-          const extract = (key: string) => {
-            const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*"(.*?)"(?:\\s*[,}\\]])`));
-            return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
-          };
-          parsed = {
-            description: extract('description'),
-            beliefs: extract('beliefs'),
-            significantPeople: extract('significantPeople'),
-            meaningfulLocations: extract('meaningfulLocations'),
-            treasuredPossessions: extract('treasuredPossessions'),
-            traits: extract('traits'),
-            injuries: extract('injuries'),
-            phobias: extract('phobias'),
-          };
+      // ── Parse response by ### markers (primary) ──
+      const rawText = response.content || '';
+
+      // Map marker titles → english field keys
+      const MARKER_MAP: Record<string, string> = {
+        '个人描述': 'description', '思想信念': 'beliefs',
+        '重要之人': 'significantPeople', '重要场所': 'meaningfulLocations',
+        '珍贵之物': 'treasuredPossessions', '特质': 'traits',
+        '伤疤': 'injuries', '恐惧症': 'phobias',
+      };
+
+      // Regex: extract ### Title \n content until next ### or end
+      const sectionRe = /###\s*([^\n]+)\s*\n([\s\S]*?)(?=\n###\s|\n*$)/g;
+      const extracted: Record<string, string> = {};
+      let m: RegExpExecArray | null;
+      while ((m = sectionRe.exec(rawText)) !== null) {
+        const title = m[1].trim();
+        const content = m[2].replace(/[\r\n]+$/, '').trim();
+        // Match title to field key (exact or contains)
+        const fieldKey = MARKER_MAP[title] ?? Object.entries(MARKER_MAP).find(([k]) => title.includes(k))?.[1];
+        if (fieldKey && content && content !== '无') {
+          extracted[fieldKey] = content;
         }
       }
-      if (parsed.description) setDescription(parsed.description);
-      if (parsed.beliefs) setBeliefs(parsed.beliefs);
-      if (parsed.significantPeople) setSignificantPeople(parsed.significantPeople);
-      if (parsed.meaningfulLocations) setMeaningfulLocations(parsed.meaningfulLocations);
-      if (parsed.treasuredPossessions) setTreasuredPossessions(parsed.treasuredPossessions);
-      if (parsed.traits) setTraits(parsed.traits);
-      if (parsed.injuries) setInjuries(parsed.injuries);
-      if (parsed.phobias) setPhobias(parsed.phobias);
+
+      // If marker extraction got nothing, fall back to JSON parsing
+      if (Object.keys(extracted).length === 0) {
+        let jsonStr = rawText;
+        // Try code block extraction
+        const cbMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (cbMatch) jsonStr = cbMatch[1].trim();
+        // Extract JSON object
+        const braceStart = jsonStr.indexOf('{');
+        const braceEnd = jsonStr.lastIndexOf('}');
+        if (braceStart >= 0 && braceEnd > braceStart) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
+        jsonStr = jsonStr.replace(/\n/g, ' ').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/[，、]/g, ',').replace(/[：]/g, ':');
+
+        // Field map for JSON fallback
+        const FIELD_MAP: [string, string[]][] = [
+          ['description', ['描述', '个人描述', '外貌']],
+          ['beliefs', ['信念', '思想信念', '思想', '价值观', '信仰']],
+          ['significantPeople', ['重要之人', '重要的人', '关系人物']],
+          ['meaningfulLocations', ['重要场所', '有意义的场所', '场所']],
+          ['treasuredPossessions', ['珍贵之物', '珍贵的物品', '物品']],
+          ['traits', ['特质', '性格', '性格特质', '个性']],
+          ['injuries', ['伤口', '伤痕', '伤疤', '旧伤']],
+          ['phobias', ['恐惧症', '狂躁症', '恐惧', '畏惧']],
+        ];
+
+        function escapeRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+        // Try JSON.parse first
+        try {
+          const obj = JSON.parse(jsonStr);
+          for (const [en, aliases] of FIELD_MAP) {
+            if (obj[en] != null) extracted[en] = String(obj[en]);
+            else for (const cn of aliases) { if (obj[cn] != null) { extracted[en] = String(obj[cn]); break; } }
+          }
+        } catch {
+          // Regex extraction per field (robust fallback)
+          for (const [en, aliases] of FIELD_MAP) {
+            const allKeys = [en, ...aliases];
+            for (const key of allKeys) {
+              const re = new RegExp(`"${escapeRe(key)}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}\\]]|$)`, 'i');
+              const rm = jsonStr.match(re);
+              if (rm) { extracted[en] = rm[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'); break; }
+            }
+          }
+        }
+      }
+
+      // ── Set state ──
+      const s = (v: string | undefined) => (v != null ? String(v) : '');
+      const d = s(extracted.description);
+      const b = s(extracted.beliefs);
+      const sp = s(extracted.significantPeople);
+      const ml = s(extracted.meaningfulLocations);
+      const tp = s(extracted.treasuredPossessions);
+      const t = s(extracted.traits);
+      const i = s(extracted.injuries);
+      const ph = s(extracted.phobias);
+
+      const filled: string[] = [];
+      if (d) { setDescription(d); filled.push('description'); }
+      if (b) { setBeliefs(b); filled.push('beliefs'); }
+      if (sp) { setSignificantPeople(sp); filled.push('significantPeople'); }
+      if (ml) { setMeaningfulLocations(ml); filled.push('meaningfulLocations'); }
+      if (tp) { setTreasuredPossessions(tp); filled.push('treasuredPossessions'); }
+      if (t) { setTraits(t); filled.push('traits'); }
+      if (i) { setInjuries(i); filled.push('injuries'); }
+      if (ph) { setPhobias(ph); filled.push('phobias'); }
+
+      if (filled.length === 0) {
+        setQuickFillError('AI 返回的内容无法解析。请重试或手动填写。');
+      } else {
+        setQuickFillError('');
+      }
     } catch (err: any) {
       setQuickFillError(`生成失败: ${err.message || '未知错误'}`);
     } finally {
@@ -1708,6 +1815,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           <AnimatePresence>
             {openField && (
               <motion.div
+                key={openField}
                 initial={{ height: 0, opacity: 0, marginTop: 0 }}
                 animate={{ height: 'auto', opacity: 1, marginTop: 6 }}
                 exit={{ height: 0, opacity: 0, marginTop: 0 }}
