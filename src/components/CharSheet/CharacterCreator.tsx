@@ -1256,12 +1256,33 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button onClick={(e) => {
             e.preventDefault(); e.stopPropagation();
-            alert(`occ: ${occSkills.length} skills, ${occRemaining} pts | int: ${interestSkills.length} skills, ${intRemaining} pts`);
-            if (occSkills.length > 0 && occRemaining > 0) {
-              setOccPoints((prev) => {
+            // Phase 1: pick occupational skills
+            const pickOcc: string[] = [];
+            // First try suggested skills, then fill remaining with other skills
+            const suggested = suggestedSkills.filter((s) => !occSkills.includes(s));
+            const others = ALL_SKILLS.filter((s) => !suggestedSkills.includes(s.name) && !occSkills.includes(s.name) && s.name !== '克苏鲁神话');
+            const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
+            for (const s of shuffled([...suggested, ...shuffled(others.map((x) => x.name))])) {
+              if (pickOcc.length >= 8) break;
+              if (!pickOcc.includes(s)) pickOcc.push(s);
+            }
+            if (pickOcc.length > 0) setOccSkills([...occSkills, ...pickOcc]);
+            // Phase 2: pick interest skills from remaining (excluding Cthulhu Mythos)
+            const usedNames = new Set([...occSkills, ...pickOcc]);
+            const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话' && !interestSkills.includes(s.name));
+            const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
+            if (pickInt.length > 0) setInterestSkills([...interestSkills, ...pickInt]);
+            // Phase 3: allocate points
+            const doAlloc = (
+              setter: (fn: (prev: Record<string, number>) => Record<string, number>) => void,
+              skills: string[],
+              remaining: number,
+            ) => {
+              if (skills.length === 0 || remaining <= 0) return;
+              setter((prev) => {
                 const alloc = { ...prev };
-                let rem = occRemaining;
-                const names = occSkills.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
+                let rem = remaining;
+                const names = skills.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
                 while (rem > 0 && names.length > 0) {
                   const i = Math.floor(Math.random() * names.length);
                   const cur = alloc[names[i]] ?? 0;
@@ -1273,25 +1294,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
                 }
                 return alloc;
               });
-            }
-            const intNames = interestSkills.filter((s) => !occSkills.includes(s));
-            if (intNames.length > 0 && intRemaining > 0) {
-              setInterestPoints((prev) => {
-                const alloc = { ...prev };
-                let rem = intRemaining;
-                const names = intNames.filter((s) => (alloc[s] ?? 0) + getBase(ALL_SKILLS.find((x) => x.name === s)!) < 99);
-                while (rem > 0 && names.length > 0) {
-                  const i = Math.floor(Math.random() * names.length);
-                  const cur = alloc[names[i]] ?? 0;
-                  const cap = 99 - getBase(ALL_SKILLS.find((x) => x.name === names[i])!);
-                  if (cur >= cap) { names.splice(i, 1); continue; }
-                  const add = Math.min(rem, Math.ceil(Math.random() * Math.min(8, rem)), cap - cur);
-                  alloc[names[i]] = cur + add;
-                  rem -= add;
-                }
-                return alloc;
-              });
-            }
+            };
+            doAlloc(setOccPoints, [...occSkills, ...pickOcc], occRemaining);
+            doAlloc(setInterestPoints, [...interestSkills, ...pickInt].filter((s) => !occSkills.includes(s) && !pickOcc.includes(s)), intRemaining);
           }}
             style={{ padding: '6px 20px', border: '1px solid rgba(196,168,85,0.3)', borderRadius: 4, background: 'rgba(196,168,85,0.08)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2, cursor: 'pointer' }}
           >⚄ 随机分配</button>
