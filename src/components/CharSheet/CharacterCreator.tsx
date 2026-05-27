@@ -1543,12 +1543,51 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       if (braceStart >= 0 && braceEnd > braceStart) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
       // Fix common LLM JSON issues: unescaped newlines inside strings, trailing commas, Chinese punctuation
       jsonStr = jsonStr
-        .replace(/\n/g, ' ')                                 // newlines → space (safest JSON fix)
+        .replace(/\n/g, ' ')                                 // newlines → space
         .replace(/,\s*}/g, '}')                               // trailing comma before }
         .replace(/,\s*]/g, ']')                               // trailing comma before ]
         .replace(/[，、]/g, ',')                              // Chinese commas → ASCII
         .replace(/[：]/g, ':');                               // Chinese colon → ASCII
-      const parsed = JSON.parse(jsonStr);
+
+      // Multi-layer JSON parse with progressive repair
+      let parsed: Record<string, string> = {};
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (firstErr) {
+        // Layer 2: repair unescaped double quotes inside string values
+        // For each known key, extract its value by matching "key": "...pattern..."
+        // This handles LLM output like "他说"你好"" where inner quotes break JSON
+        try {
+          let repaired = jsonStr;
+          const keys = ['description', 'beliefs', 'significantPeople', 'meaningfulLocations',
+            'treasuredPossessions', 'traits', 'injuries', 'phobias'];
+          for (const key of keys) {
+            // Match "key": "...value..." where value may contain unescaped quotes
+            const keyRegex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}\\]]|$)`, 'm');
+            repaired = repaired.replace(keyRegex, (_m, val) => {
+              const safe = val.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+              return `"${key}": "${safe}"`;
+            });
+          }
+          parsed = JSON.parse(repaired);
+        } catch (_secondErr) {
+          // Layer 3: extract each field individually via regex
+          const extract = (key: string) => {
+            const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*"(.*?)"(?:\\s*[,}\\]])`));
+            return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
+          };
+          parsed = {
+            description: extract('description'),
+            beliefs: extract('beliefs'),
+            significantPeople: extract('significantPeople'),
+            meaningfulLocations: extract('meaningfulLocations'),
+            treasuredPossessions: extract('treasuredPossessions'),
+            traits: extract('traits'),
+            injuries: extract('injuries'),
+            phobias: extract('phobias'),
+          };
+        }
+      }
       if (parsed.description) setDescription(parsed.description);
       if (parsed.beliefs) setBeliefs(parsed.beliefs);
       if (parsed.significantPeople) setSignificantPeople(parsed.significantPeople);
