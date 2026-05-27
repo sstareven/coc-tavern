@@ -278,7 +278,7 @@ const labelStyle: React.CSSProperties = {
 const selectTriggerStyle: React.CSSProperties = {
   ...inputStyle,
   cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  position: 'relative',
   userSelect: 'none' as any,
 };
   const plusMinusBtn: React.CSSProperties = { width: 32, height: 28, border: "1px solid var(--brass)", borderRadius: 3, background: "rgba(0,0,0,0.3)", color: "var(--ink-subtle)", fontFamily: "var(--font-mono)", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
@@ -384,11 +384,11 @@ function DarkSelect({ value, onChange, options, style }: {
 
   return (
     <div ref={ref} style={{ ...style }}>
-      <div onClick={toggle} style={selectTriggerStyle}>
-        <span style={{ flex: 1, textAlign: 'center', color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
+      <div onClick={toggle} style={{ ...selectTriggerStyle, position: 'relative' }}>
+        <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
           {selected ? selected.label : '--'}
         </span>
-        <span style={{ color: 'var(--gold)', fontSize: 10, transition: '0.2s', transform: open ? 'rotate(180deg)' : 'none' }}>▼</span>
+        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 10, transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
       </div>
       {menu}
     </div>
