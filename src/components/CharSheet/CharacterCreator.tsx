@@ -468,6 +468,18 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [interestPoints, setInterestPoints] = useState<Record<string, number>>({});
   const [filterCat, setFilterCat] = useState<SkillCat | null>(null);
   const [openField, setOpenField] = useState<string | null>(null);
+  const accordionRef = useRef<HTMLDivElement>(null);
+
+  // Scroll expanded field to viewport top when opening
+  useEffect(() => {
+    if (openField && accordionRef.current) {
+      const timer = setTimeout(() => {
+        accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [openField]);
+
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<'occ' | 'int' | null>(null);
 
@@ -1564,18 +1576,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       { label: '伤口/伤痕 Injuries', value: injuries, set: setInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
       { label: '恐惧症/狂躁症 Phobias', value: phobias, set: setPhobias, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
     ];
-
-    const accordionRef = useRef<HTMLDivElement>(null);
-
-    // Scroll expanded field to viewport top when opening
-    useEffect(() => {
-      if (openField && accordionRef.current) {
-        const timer = setTimeout(() => {
-          accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 120);
-        return () => clearTimeout(timer);
-      }
-    }, [openField]);
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
