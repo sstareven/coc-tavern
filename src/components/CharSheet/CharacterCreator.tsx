@@ -713,28 +713,26 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       return alloc;
     };
     const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
-    // Credit rating: random within occupation range
-    const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
-    setCreditRating(cr);
-    // Pick occ skills: suggested first, then random others, max 8
-    const pickOcc: string[] = [];
-    const others = ALL_SKILLS.filter((s) => !suggested.includes(s.name) && s.name !== '克苏鲁神话');
-    for (const s of shuffled([...shuffled([...suggested]), ...shuffled(others.map((x) => x.name))])) {
-      if (pickOcc.length >= 8) break;
-      if (!pickOcc.includes(s)) pickOcc.push(s);
+    const isCustomOcc = occupation === '__custom__';
+    if (!isCustomOcc && suggested.length > 0) {
+      // Credit rating: random within occupation range
+      const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
+      setCreditRating(cr);
+      // Allocate occ points to the 8 suggested skills
+      setOccSkills([...suggested]);
+      const occPoolForSkills = occPointPool - cr;
+      if (occPoolForSkills > 0) {
+        setOccPoints((prev) => allocLoop(prev, suggested, occPoolForSkills));
+      }
+    } else {
+      // Custom occupation: no occ skills/pool, just allocate int points to random skills
+      setCreditRating(0);
     }
-    setOccSkills(pickOcc);
-    // Pick int skills: random from remaining (excl. Cthulhu Mythos), max 4
-    const usedNames = new Set(pickOcc);
+    // Pick and allocate int skills from remaining (excl. Cthulhu Mythos and occ skills)
+    const usedNames = new Set(isCustomOcc ? [] : suggested);
     const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
     const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
     setInterestSkills(pickInt);
-    // Allocate occ points (pool minus credit rating)
-    const occPoolForSkills = occPointPool - cr;
-    if (pickOcc.length > 0 && occPoolForSkills > 0) {
-      setOccPoints((prev) => allocLoop(prev, pickOcc, occPoolForSkills));
-    }
-    // Allocate int points
     if (pickInt.length > 0 && intPointPool > 0) {
       setInterestPoints((prev) => allocLoop(prev, pickInt, intPointPool));
     }
