@@ -262,6 +262,7 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
   fontSize: 14,
   outline: 'none',
+  textAlign: 'center',
   transition: 'var(--transition-smooth)',
 };
 
