@@ -1256,6 +1256,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button onClick={(e) => {
             e.preventDefault(); e.stopPropagation();
+            alert(`occ: ${occSkills.length} skills, ${occRemaining} pts | int: ${interestSkills.length} skills, ${intRemaining} pts`);
             if (occSkills.length > 0 && occRemaining > 0) {
               setOccPoints((prev) => {
                 const alloc = { ...prev };
