@@ -1499,6 +1499,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       }
       const prompt = `你是一位COC 7版调查员的背景故事生成器。请根据以下信息生成完整的调查员背景故事（1920年代美国）。\n\n` +
         `姓名: ${name || '未知'}\n职业: ${occText || '调查员'}\n年龄: ${age}\n性别: ${sex}\n` +
+        `${residence ? `居住地: ${residence}\n` : ''}` +
+        `${birthplace ? `出生地: ${birthplace}\n` : ''}` +
         `属性: ${charSummary}\n` +
         `${creditRating > 0 ? `信用评级: ${creditRating}%\n` : ''}` +
         `${skillSummary.length > 0 ? `已投入点数的技能(当前值, 投入点数):\n${skillSummary.join('\n')}\n` +
@@ -1842,22 +1844,13 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                 INVESTIGATOR CREATOR
               </div>
             </div>
-            <button onClick={onClose} style={{
+            <button onClick={onClose} className="sk-btn" style={{
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid transparent', borderRadius: 3,
               background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16,
-              cursor: 'pointer', fontFamily: 'var(--font-ui)',
-            }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--gold)';
-                e.currentTarget.style.borderColor = 'var(--brass)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--ink-subtle)';
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
+              fontFamily: 'var(--font-ui)',
+            }}>
               ✕
             </button>
           </div>
@@ -1880,6 +1873,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                   )}
                   <button
                     onClick={() => { if (done) setStep(i); }}
+                    className={done ? 'sk-btn' : undefined}
                     style={{
                       width: 28, height: 28, borderRadius: '50%',
                       border: active ? '1px solid var(--gold)' : done ? '1px solid rgba(196,168,85,0.35)' : '1px solid rgba(255,255,255,0.1)',
@@ -1888,7 +1882,6 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                       fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700,
                       cursor: done ? 'pointer' : 'default',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'var(--transition-smooth)',
                     }}
                   >
                     {done ? '✓' : i + 1}
