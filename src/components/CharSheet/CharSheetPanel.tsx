@@ -11,7 +11,59 @@ export function CharSheetPanel() {
   const sheet = useCharSheetStore((s) => s.sheet);
 
   const [dossierOpen, setDossierOpen] = useState<Record<string, boolean>>({});
+  const [subOpen, setSubOpen] = useState<Record<string, boolean>>({});
   const toggleDossier = (k: string) => setDossierOpen((p) => ({ ...p, [k]: !p[k] }));
+  const toggleSub = (k: string) => setSubOpen((p) => ({ ...p, [k]: !p[k] }));
+
+  /** Parse description into 【section】 blocks, or null if no sections found */
+  function parseSections(text: string): { title: string; body: string }[] | null {
+    const parts = text.split(/【(.+?)】/);
+    if (parts.length <= 2) return null; // no 【】 markers
+    // parts[0] = prefix text before first 【, parts[1] = title1, parts[2] = body1, parts[3] = title2, ...
+    const sections: { title: string; body: string }[] = [];
+    if (parts[0].trim()) {
+      sections.push({ title: '简介', body: parts[0].trim() });
+    }
+    for (let i = 1; i < parts.length; i += 2) {
+      const title = parts[i];
+      const body = (parts[i + 1] || '').trim();
+      if (body) sections.push({ title, body });
+    }
+    return sections.length > 0 ? sections : null;
+  }
+
+  /** Render content — if it has 【】sections, show as nested accordion */
+  function renderDossierContent(content: string, parentKey: string) {
+    const sections = parseSections(content);
+    if (!sections) return <>{content}</>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {sections.map((sec, si) => {
+          const subKey = `${parentKey}_${si}`;
+          const open = !!subOpen[subKey];
+          return (
+            <div key={subKey} style={{ borderBottom: si < sections.length - 1 ? '1px solid rgba(196,168,85,0.04)' : 'none', paddingBottom: si < sections.length - 1 ? 4 : 0, marginBottom: si < sections.length - 1 ? 4 : 0 }}>
+              <div
+                onClick={() => toggleSub(subKey)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                  padding: '3px 0', userSelect: 'none',
+                }}
+              >
+                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--brass)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▸</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{sec.title}</span>
+              </div>
+              {open && (
+                <div style={{ padding: '4px 0 4px 18px', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                  {sec.body}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   const DOSSIER_FIELDS = [
     { key: 'description' as const, label: '个人描述', en: 'Physical Description' },
@@ -244,7 +296,7 @@ export function CharSheetPanel() {
                         color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap',
                         borderTop: '1px dashed rgba(196,168,85,0.08)',
                       }}>
-                        {content}
+                        {renderDossierContent(content, key)}
                       </div>
                     )}
                   </div>
