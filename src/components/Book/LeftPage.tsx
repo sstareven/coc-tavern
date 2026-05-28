@@ -47,7 +47,7 @@ function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
   return (
     <div style={{
       position: 'absolute', left: 0, right: 0, height: 40, pointerEvents: 'none', zIndex: 2, overflow: 'hidden',
-      ...(isBottom ? { bottom: 30 } : { top: 40 }),
+      ...(isBottom ? { bottom: 0 } : { top: 0 }),
     }}>
       <div style={{
         position: 'absolute', left: '5%', right: '5%', height: 1,
@@ -118,8 +118,9 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
       fontSize: 15, lineHeight: 1.75, position: 'relative',
     }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
-      {edge !== 'none' && <ScrollParticles edge={edge} />}
-      <div className="lp-scroll" onScroll={onScroll} style={{ flex: 1, overflowY: 'auto', paddingRight: 6, minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {edge !== 'none' && <ScrollParticles edge={edge} />}
+        <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
           <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedContent[0])}</p>
         ) : (
@@ -127,6 +128,7 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
             ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
             : <span key={i}>{node}</span>)
         )}
+        </div>
       </div>
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
     </div>
