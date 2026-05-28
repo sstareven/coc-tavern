@@ -1,7 +1,5 @@
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 
-const MACRO_RE = /\{\{(setvar|getvar|incvar|decvar)::([^:}]+)(?:::([^}]*))?\}\}/g;
-
 /**
  * Process ST-style macro commands in text:
  *   {{setvar::name::value}} — create/update a variable
@@ -13,9 +11,9 @@ const MACRO_RE = /\{\{(setvar|getvar|incvar|decvar)::([^:}]+)(?:::([^}]*))?\}\}/
  */
 export function processMacros(text: string): string {
   const store = useTavernHelperStore.getState();
-  MACRO_RE.lastIndex = 0;
+  const macroRe = /\{\{(setvar|getvar|incvar|decvar)::([^:}]+)(?:::([^}]*))?\}\}/g;
 
-  return text.replace(MACRO_RE, (match, cmd: string, name: string, arg: string | undefined) => {
+  return text.replace(macroRe, (match, cmd: string, name: string, arg: string | undefined) => {
     switch (cmd) {
       case 'setvar': {
         const value = arg ?? '';
