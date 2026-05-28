@@ -23,17 +23,29 @@ const defaults: PersistedState = {
       enabled: true,
       name: 'MVU',
       content: `// MVU 变量更新引擎加载器
-// 基于 MagicalAstrogy/MagVarUpdate (https://github.com/MagicalAstrogy/MagVarUpdate)
-// 在 SillyTavern 环境中自动加载 bundle
+// 基于 MagicalAstrogy/MagVarUpdate — 自动从 CDN 加载依赖
 
 if (typeof window !== 'undefined') {
-  const script = document.createElement('script');
-  script.src = 'https://testingcf.jsdelivr.net/gh/MagicalAstrogy/MagVarUpdate/artifact/bundle.js';
-  script.type = 'module';
-  document.head.appendChild(script);
-  console.log('[MVU] MagVarUpdate bundle loaded');
+  // Load Vue 3 first (required by MagVarUpdate bundle)
+  if (!window.Vue) {
+    const vueScript = document.createElement('script');
+    vueScript.src = 'https://unpkg.com/vue@3/dist/vue.global.prod.js';
+    document.head.appendChild(vueScript);
+    vueScript.onload = function() {
+      // Vue loaded — now load MagVarUpdate bundle
+      const script = document.createElement('script');
+      script.src = 'https://testingcf.jsdelivr.net/gh/MagicalAstrogy/MagVarUpdate/artifact/bundle.js';
+      document.head.appendChild(script);
+      console.log('[MVU] MagVarUpdate bundle loaded');
+    };
+  } else {
+    const script = document.createElement('script');
+    script.src = 'https://testingcf.jsdelivr.net/gh/MagicalAstrogy/MagVarUpdate/artifact/bundle.js';
+    document.head.appendChild(script);
+    console.log('[MVU] MagVarUpdate bundle loaded');
+  }
 }`,
-      info: '加载 MagVarUpdate 变量更新引擎 bundle',
+      info: '加载 MagVarUpdate 变量更新引擎 bundle（含 Vue 3 依赖）',
     },
     {
       id: 'th-mvu-schema',
