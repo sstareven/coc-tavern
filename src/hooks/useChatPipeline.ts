@@ -478,34 +478,39 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── regenerate ──
 
   const regenerate = useCallback(async () => {
-    if (loading) return;
+    if (loadingRef.current) return;
     const lastInput = lastInputRef.current;
     if (!lastInput) {
       setError('没有可重新生成的内容');
       return;
     }
 
-    pushLog('info', `[重新生成] 使用上次输入: "${lastInput.slice(0, 50)}..."`);
+    loadingRef.current = true;
+    try {
+      pushLog('info', `[重新生成] 使用上次输入: "${lastInput.slice(0, 50)}..."`);
 
-    const settings = useSettingsStore.getState();
-    if (!settings.apiKey) {
-      setError('请先在设置中配置API');
-      return;
+      const settings = useSettingsStore.getState();
+      if (!settings.apiKey) {
+        setError('请先在设置中配置API');
+        return;
+      }
+
+      currentInputRef.current = lastInput;
+      const result = buildPromptMessages(lastInput);
+      if (!result) {
+        pushLog('error', '[重新生成] 提示词组装失败');
+        return;
+      }
+
+      pushLog(
+        'info',
+        `[重新生成] 提示词已组装 — ~${result.tokenCount} tokens, ${result.messages.length} 条消息`,
+      );
+      await handleSendFromPreview(result.messages, true);
+    } finally {
+      loadingRef.current = false;
     }
-
-    currentInputRef.current = lastInput;
-    const result = buildPromptMessages(lastInput);
-    if (!result) {
-      pushLog('error', '[重新生成] 提示词组装失败');
-      return;
-    }
-
-    pushLog(
-      'info',
-      `[重新生成] 提示词已组装 — ~${result.tokenCount} tokens, ${result.messages.length} 条消息`,
-    );
-    await handleSendFromPreview(result.messages, true);
-  }, [buildPromptMessages, handleSendFromPreview, loading]);
+  }, [buildPromptMessages, handleSendFromPreview]);
 
   // ── Token counter ──
 
@@ -578,6 +583,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   }, []);
 
   // ── Effects ──
+
+  // Abort in-flight request on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   // Listen for mock generation request (from Prompt Viewer refresh)
   useEffect(() => {

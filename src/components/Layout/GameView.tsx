@@ -4,12 +4,10 @@ import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation } from '../Shared/DiceAnimation';
-import { usePanelStore } from '../../stores/usePanelStore';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
-  const closeAll = usePanelStore((s) => s.closeAll);
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
   }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '' });
@@ -36,15 +34,6 @@ export function GameView({ onReturnToMenu }: Props) {
       return { ...prev, visible: false };
     });
   }, []);
-
-  // Esc key to close all panels
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeAll();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [closeAll]);
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
