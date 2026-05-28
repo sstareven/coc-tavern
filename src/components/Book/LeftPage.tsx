@@ -28,17 +28,16 @@ function useScrollGlow() {
   return { edge, onScroll };
 }
 
-const PARTICLE_COUNT = 8;
+const PARTICLE_COUNT = 14;
 
 function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
   const [particles] = useState(() =>
     Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
       id: i,
-      left: 8 + Math.random() * 84,
-      size: 2 + Math.random() * 3,
-      duration: 1.2 + Math.random() * 1.0,
-      delay: Math.random() * 0.5,
-      drift: -10 + Math.random() * 20,
+      left: 5 + Math.random() * 90,
+      size: 3 + Math.random() * 4,
+      duration: 1.0 + Math.random() * 0.8,
+      delay: Math.random() * 0.4,
     }))
   );
 
@@ -46,14 +45,14 @@ function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
 
   return (
     <div style={{
-      position: 'absolute', left: 0, right: 0, height: 40, pointerEvents: 'none', zIndex: 2, overflow: 'hidden',
+      position: 'absolute', left: 0, right: 0, height: 60, pointerEvents: 'none', zIndex: 2, overflow: 'hidden',
       ...(isBottom ? { bottom: 0 } : { top: 0 }),
     }}>
       <div style={{
-        position: 'absolute', left: '5%', right: '5%', height: 1,
+        position: 'absolute', left: '3%', right: '3%', height: 2,
         ...(isBottom ? { bottom: 0 } : { top: 0 }),
-        background: 'linear-gradient(90deg, transparent 0%, rgba(196,168,85,0.4) 30%, rgba(196,168,85,0.6) 50%, rgba(196,168,85,0.4) 70%, transparent 100%)',
-        boxShadow: '0 0 8px rgba(196,168,85,0.3), 0 0 20px rgba(196,168,85,0.15)',
+        background: 'linear-gradient(90deg, transparent 0%, rgba(196,168,85,0.5) 20%, rgba(196,168,85,0.8) 50%, rgba(196,168,85,0.5) 80%, transparent 100%)',
+        boxShadow: '0 0 12px rgba(196,168,85,0.5), 0 0 30px rgba(196,168,85,0.25)',
         animation: 'glowPulse 1.5s ease-in-out infinite alternate',
       }} />
       {particles.map((p) => (
@@ -62,25 +61,27 @@ function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
           left: `${p.left}%`,
           ...(isBottom ? { bottom: 0 } : { top: 0 }),
           width: p.size, height: p.size, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(196,168,85,0.9) 0%, rgba(196,168,85,0) 70%)',
-          boxShadow: `0 0 ${p.size * 2}px rgba(196,168,85,0.4)`,
+          background: `radial-gradient(circle, rgba(196,168,85,1) 0%, rgba(196,168,85,0) 60%)`,
+          boxShadow: `0 0 ${p.size * 3}px rgba(196,168,85,0.6), 0 0 ${p.size}px rgba(255,220,120,0.4)`,
           animation: `particleFloat${isBottom ? 'Up' : 'Down'} ${p.duration}s ease-out ${p.delay}s infinite`,
           opacity: 0,
         }} />
       ))}
       <style>{`
         @keyframes particleFloatUp {
-          0% { transform: translateY(0) translateX(0); opacity: 0; }
-          15% { opacity: 0.8; }
-          100% { transform: translateY(-35px) translateX(var(--drift, 5px)); opacity: 0; }
+          0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
+          10% { opacity: 1; transform: translateY(-5px) scale(1); }
+          60% { opacity: 0.7; }
+          100% { transform: translateY(-55px) translateX(${Math.random() > 0.5 ? '' : '-'}${5 + Math.random() * 10}px) scale(0.3); opacity: 0; }
         }
         @keyframes particleFloatDown {
-          0% { transform: translateY(0) translateX(0); opacity: 0; }
-          15% { opacity: 0.8; }
-          100% { transform: translateY(35px) translateX(var(--drift, 5px)); opacity: 0; }
+          0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
+          10% { opacity: 1; transform: translateY(5px) scale(1); }
+          60% { opacity: 0.7; }
+          100% { transform: translateY(55px) translateX(${Math.random() > 0.5 ? '' : '-'}${5 + Math.random() * 10}px) scale(0.3); opacity: 0; }
         }
         @keyframes glowPulse {
-          0% { opacity: 0.5; }
+          0% { opacity: 0.4; }
           100% { opacity: 1; }
         }
       `}</style>
