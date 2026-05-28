@@ -393,6 +393,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           throw new Error('无法解析AI回复');
         }
 
+        const chatStore = useChatStore.getState();
+        chatStore.addMessage('user', lastInputRef.current);
+        chatStore.addMessage('assistant', response.content);
+
         const bookStore = useBookStore.getState();
         if (replace) {
           bookStore.replacePage(bookStore.pageIndex, newPage);
