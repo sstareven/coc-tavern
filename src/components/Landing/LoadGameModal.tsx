@@ -58,7 +58,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
         </div>
 
         {/* List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
           {sorted.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13, fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
               暂无存档，请开始新游戏
