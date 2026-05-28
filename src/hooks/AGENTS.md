@@ -1,6 +1,6 @@
 # React Hooks 层
 
-**4 files.** 自定义 hooks，涵盖页面翻页、音频、聊天管道、角色预设 CRUD。useChatPipeline 是从 InputBar 提取的 541 lines 核心逻辑。
+**5 files.** 自定义 hooks，涵盖页面翻页、音频、聊天管道、流式渲染、角色预设。useChatPipeline 是从 InputBar 提取的 561 lines 核心逻辑。
 
 ## OVERVIEW
 
@@ -10,8 +10,9 @@ Hooks 层是组件与引擎间的桥梁。useChatPipeline 是最大的 hook — 
 
 | Hook | File | Notes |
 |------|------|-------|
-| 聊天管道 | `useChatPipeline.ts` | 541 lines，主聊天流程 hook（从 InputBar 提取） |
-| 角色预设 | `useCharacterPresets.ts` | localStorage 预设 CRUD，状态持久化 |
+| 聊天管道 | `useChatPipeline.ts` | 561 lines，主聊天流程 hook（从 InputBar 提取） |
+| 流式渲染 | `useStreamingRenderer.ts` | 流式 AI 响应渲染 hook |
+| 角色预设 | `useCharacterPresets.ts` | 重新导出 `useCharacterPresetsStore`（1 line facade） |
 | 页面翻页 | `usePageFlip.ts` | 故事书翻页状态机 |
 | 音频控制 | `useAudio.ts` | Web Audio 播放控制 |
 
@@ -24,5 +25,6 @@ Hooks 层是组件与引擎间的桥梁。useChatPipeline 是最大的 hook — 
 
 ## ANTI-PATTERNS
 
-- **useChatPipeline 541 lines** — hook 承担过多职责（7 个步骤），可拆分为子 hooks（useSlashCommands, useWorldbookMatch, useRegexEngine 等）
-- **无依赖追踪** — 所有 store subscriptions 在组件内用 selector 提取，无 explicit dependency arrays 注释
+- **useChatPipeline 561 lines** — hook 承担过多职责（7 个步骤），可拆分为子 hooks（useSlashCommands, useWorldbookMatch, useRegexEngine 等）
+- **`useCharacterPresets.ts` 是 1-line facade** — 违反"无 barrel 导出"约定，直接 import store 即可
+- **`useChatPipeline` 直接读 `localStorage`** — line 186/190 读 `coc_last_preset`/`coc_presets_v1`，绕过 Dexie 层

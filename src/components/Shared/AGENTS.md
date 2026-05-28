@@ -31,6 +31,7 @@ Shared/ 包含跨模块复用的组件：骰子动画、Token 计数器、代码
 ## ANTI-PATTERNS
 
 - **`DiceAnimation.tsx` 有多处空 catch 块** — 音频加载失败的 fallback 为静默吞下
-- **`CodeBlockRenderer.tsx` 的 `setInterval`** — 轮询重试未在组件卸载时清理，可能导致内存泄漏
+- **`CodeBlockRenderer.tsx` 的 `setInterval`** — 轮询重试未在组件卸载时清理，可能导致内存泄漏（line 138/149）
+- **`DiceAnimation.tsx` 空 catch 块 (3 处)** — 音频加载失败静默吞下（lines 20, 33, 67）
 - **TokenCounter 直接导入 sillytavern** — 唯一跨边界的 Shared 组件，其他均纯展示型
 - **无 TypeScript strict 模式覆盖** — 共享组件依赖 props 接口约束，但无运行时校验
