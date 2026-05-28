@@ -1,6 +1,7 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
-import { useDiceStore } from '../../stores/useDiceStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
@@ -12,6 +13,7 @@ import { TokenDisplay } from '../Shared/TokenDisplay';
 
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
+  const [showToc, setShowToc] = useState(false);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
@@ -56,6 +58,16 @@ export function Storybook() {
     `,
     transition: 'all 0.25s ease',
     position: 'relative' as const,
+  };
+
+  const tocTabActive: React.CSSProperties = {
+    ...bookmarkTab,
+    color: 'var(--gold)',
+    background: 'linear-gradient(175deg, #1a1510 0%, #0e0c08 50%, #1a1510 100%)',
+    border: '1px solid rgba(196,168,85,0.3)',
+    borderLeft: 'none',
+    boxShadow: '1px 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(196,168,85,0.1)',
+    paddingLeft: 18,
   };
 
   return (
@@ -221,6 +233,60 @@ export function Storybook() {
           {/* TokenDisplay — inside book at bottom-right */}
           <TokenDisplay />
 
+          {/* Table of Contents overlay */}
+          <AnimatePresence>
+            {showToc && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                style={{
+                  position: 'absolute', inset: 0, zIndex: 10,
+                  background: 'linear-gradient(180deg, #0a0808 0%, #12100c 50%, #0a0808 100%)',
+                  borderRadius: 4, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                }}
+              >
+                <div style={{ padding: '32px 40px 16px', borderBottom: '1px solid rgba(196,168,85,0.2)', flexShrink: 0 }}>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--gold)', letterSpacing: 8, margin: 0 }}>目录</h2>
+                  <p style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'rgba(196,168,85,0.4)', letterSpacing: 4, marginTop: 4 }}>TABLE OF CONTENTS</p>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 28px', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)' }}>
+                  {pages.map((p, i) => {
+                    const isCurrent = i === pageIndex;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => { useBookStore.getState().goToPage(i); setShowToc(false); }}
+                        style={{
+                          display: 'flex', gap: 14, alignItems: 'baseline', padding: '10px 12px', cursor: 'pointer',
+                          borderBottom: '1px solid rgba(196,168,85,0.06)',
+                          background: isCurrent ? 'rgba(196,168,85,0.08)' : 'transparent',
+                          borderLeft: isCurrent ? '2px solid var(--gold)' : '2px solid transparent',
+                          transition: 'var(--transition-smooth)',
+                        }}
+                        onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = isCurrent ? 'rgba(196,168,85,0.08)' : 'transparent'; }}
+                      >
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(196,168,85,0.35)', flexShrink: 0, width: 24 }}>{p.leftPage}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: isCurrent ? 'var(--gold)' : 'rgba(196,168,85,0.75)', letterSpacing: 2 }}>
+                            {p.leftHeader}
+                          </div>
+                          {p.summary && (
+                            <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.summary}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Navigation arrows */}
           <PageNav
             onFlipForward={flipForward}
@@ -262,25 +328,29 @@ export function Storybook() {
             调查员记录
           </button>
 
-          {/* Tab 2: 掷骰 → dice panel */}
+          {/* Tab 2: 目录 → table of contents overlay */}
           <button
-            onClick={() => useDiceStore.getState().open()}
-            style={bookmarkTab}
+            onClick={() => setShowToc(!showToc)}
+            style={showToc ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#8b3a3a';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
-              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
-              e.currentTarget.style.paddingLeft = '18px';
+              if (!showToc) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#4a3020';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
-              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
-              e.currentTarget.style.paddingLeft = '14px';
+              if (!showToc) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◆</span>
-            掷骰
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{showToc ? '◁' : '☰'}</span>
+            {showToc ? '返回' : '目录'}
           </button>
 
           {/* Tab 3: 检定记录 → dice history */}

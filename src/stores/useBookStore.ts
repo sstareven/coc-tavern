@@ -89,6 +89,7 @@ interface BookStore {
   flipDirection: 'forward' | 'backward';
   nextPage: () => void;
   prevPage: () => void;
+  goToPage: (index: number) => void;
   setFlipping: (v: boolean) => void;
   updateLeftPage: (index: number, header: string, content: string) => void;
   appendPage: (page: BookPage) => void;
@@ -116,6 +117,10 @@ export const useBookStore = create<BookStore>((set, get) => ({
   prevPage: () => {
     const { pageIndex } = get();
     if (pageIndex > 0) set({ pageIndex: pageIndex - 1 });
+  },
+  goToPage: (index) => {
+    const { pages } = get();
+    if (index >= 0 && index < pages.length) set({ pageIndex: index });
   },
   setFlipping: (v) => set({ isFlipping: v }),
 
