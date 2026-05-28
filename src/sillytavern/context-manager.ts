@@ -71,7 +71,7 @@ export function trimToBudget(
   }
 
   const systemTokens = countMessages(systemMessages);
-  const budgetForChat = budget.maxTokens - systemTokens;
+  const budgetForChat = Math.max(0, budget.maxTokens - systemTokens);
 
   // Find the last user message (current input) — must preserve
   let lastUserIdx = -1;

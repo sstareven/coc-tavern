@@ -52,7 +52,7 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: 'coc_chat_v1',
-      storage: createJSONStorage(() => createDexieStorage()),
+      storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state),
     }
   )

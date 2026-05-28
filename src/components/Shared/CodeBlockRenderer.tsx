@@ -153,6 +153,7 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
       window.removeEventListener('message', handler);
       iframe.removeEventListener('load', onLoad);
       clearInterval(interval);
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
     };
   }, [expanded, code, buildSrcdoc, useBlob]);
 
