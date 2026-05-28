@@ -123,7 +123,7 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
           {sess.messages.length} 条消息 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
         </span>
       </div>
-      {confirmDelete ? (
+      {!isActive && (confirmDelete ? (
         <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }} onClick={(e) => e.stopPropagation()}>
           <button onClick={onDelete} style={{
             padding: '3px 10px', border: '1px solid var(--blood)', borderRadius: 3,
@@ -150,7 +150,7 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
           onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
         >删除</button>
-      )}
+      ))}
     </div>
   );
 }
