@@ -43,11 +43,25 @@ const KEYWORD_MEANINGS: Record<string, string> = {
   '黑暗': '宇宙的本质是冰冷黑暗的，人类只是微小的存在',
 };
 
+const dynamicKeywords: Record<string, string> = {};
+
+export function addKeywordMeanings(entries: Record<string, string>) {
+  for (const [k, v] of Object.entries(entries)) {
+    if (k && v && !KEYWORD_MEANINGS[k]) {
+      dynamicKeywords[k] = v;
+    }
+  }
+}
+
+function getMeaning(keyword: string): string | undefined {
+  return KEYWORD_MEANINGS[keyword] ?? dynamicKeywords[keyword];
+}
+
 export function KeywordTooltip({ keyword, children }: Props) {
   const [show, setShow] = useState(false);
   const [tpPos, setTpPos] = useState({ x: 0, y: 0 });
   const ref = useRef<HTMLSpanElement>(null);
-  const meaning = KEYWORD_MEANINGS[keyword];
+  const meaning = getMeaning(keyword);
 
   const TOOLTIP_W = 340; // max-width of tooltip
 
