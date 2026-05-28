@@ -1,34 +1,9 @@
 import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
+import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
 import type { ChatPreset, PromptItem } from '../../types';
 
 interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
-
-const DEFAULT_PRESET: ChatPreset = {
-  id: 'p1', name: '默认预设',
-  temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, repetitionPenalty: 1.00,
-  topP: 1.00, topK: 40, minP: 0, topA: 0, maxTokens: 2048,
-  systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
-  userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
-  unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
-  streamEnabled: false, reasoningEffort: 'auto', showThoughts: false,
-  responseLength: 'auto', seed: -1,
-  charNameBehavior: 'none', continueSuffix: 'none', continuePrefill: false, assistantPrefill: '',
-  mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
-  aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
-  worldBookTemplate: '[世界书: {0}]',
-  scenarioTemplate: '场景: {{scenario}}',
-  personalityTemplate: '性格: {{personality}}',
-  groupChatPrompt: '请以{{char}}的身份回复。',
-  newChatPrompt: '[新的聊天即将开始]',
-  newGroupChatPrompt: '[新的群聊即将开始]',
-  newExampleChatPrompt: '[新的示例聊天即将开始]',
-  continuePrompt: '[继续推进]',
-  emptyMessagePrompt: '',
-  promptItems: [],
-  tavernHelperScripts: [],
-  regexScripts: [],
-};
 
 const MODULE_ITEMS = [
   { key: 'main', label: 'Main Prompt', content: '' },
@@ -218,21 +193,21 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               <div style={s.fieldCol}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>主要</span>
-                  <button onClick={() => set('mainPrompt', DEFAULT_PRESET.mainPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('mainPrompt', DEFAULT_EDITOR_PRESET.mainPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.mainPrompt} onChange={(e) => set('mainPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>辅助</span>
-                  <button onClick={() => set('auxiliaryPrompt', DEFAULT_PRESET.auxiliaryPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('auxiliaryPrompt', DEFAULT_EDITOR_PRESET.auxiliaryPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.auxiliaryPrompt} onChange={(e) => set('auxiliaryPrompt', e.target.value)} style={s.textarea} />
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={s.label}>历史后置指令</span>
-                  <button onClick={() => set('postHistoryPrompt', DEFAULT_PRESET.postHistoryPrompt)} style={resetBtn}>重置</button>
+                  <button onClick={() => set('postHistoryPrompt', DEFAULT_EDITOR_PRESET.postHistoryPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.postHistoryPrompt} onChange={(e) => set('postHistoryPrompt', e.target.value)} style={s.textarea} />
               </div>
@@ -240,14 +215,14 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 <div style={s.fieldCol}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>用户前缀</span>
-                    <button onClick={() => set('userPrefix', DEFAULT_PRESET.userPrefix)} style={resetBtn}>重置</button>
+                    <button onClick={() => set('userPrefix', DEFAULT_EDITOR_PRESET.userPrefix)} style={resetBtn}>重置</button>
                   </div>
                   <input value={form.userPrefix} onChange={(e) => set('userPrefix', e.target.value)} style={s.input} />
                 </div>
                 <div style={s.fieldCol}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>助手前缀</span>
-                    <button onClick={() => set('assistantPrefix', DEFAULT_PRESET.assistantPrefix)} style={resetBtn}>重置</button>
+                    <button onClick={() => set('assistantPrefix', DEFAULT_EDITOR_PRESET.assistantPrefix)} style={resetBtn}>重置</button>
                   </div>
                   <input value={form.assistantPrefix} onChange={(e) => set('assistantPrefix', e.target.value)} style={s.input} />
                 </div>
@@ -269,7 +244,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 <div key={item.k} style={{ ...s.fieldCol, marginTop: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={s.label}>{item.label} <span style={{ color: 'var(--ink-faded)', fontWeight: 'normal' }}>{item.sub}</span></span>
-                    <button onClick={() => set(item.k, DEFAULT_PRESET[item.k] as string)} title="重置为默认值" style={{
+                    <button onClick={() => set(item.k, DEFAULT_EDITOR_PRESET[item.k] as string)} title="重置为默认值" style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'transparent', color: 'var(--ink-subtle)',
                       fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',

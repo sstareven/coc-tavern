@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDiceStore } from '../../stores/useDiceStore';
 import type { DiceMode, DiceResultType } from '../../types';
+import { closeBtnStyle } from '../../styles/panelStyles';
 import { DiceDie } from './DiceDie';
 import {
   sfxSuccess,
@@ -478,8 +479,3 @@ export function DicePanel() {
   );
 }
 
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};

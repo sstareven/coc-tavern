@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry, InsertPosition } from '../../types';
+import { closeBtnStyle } from '../../styles/panelStyles';
 
 // ── ST entry format for import/export ──
 interface STEntryLike {
@@ -593,12 +594,6 @@ const panelStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
   border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
   maxWidth: 720, width: '90%', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
-};
-
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
 };
 
 const backBtn: React.CSSProperties = {

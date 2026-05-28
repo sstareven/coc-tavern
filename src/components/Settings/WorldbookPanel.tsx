@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
+import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
   onClose: () => void;
@@ -195,12 +196,6 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
     </div>
   );
 }
-
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};
 
 const actionBtnStyle: React.CSSProperties = {
   padding: '4px 10px', border: '1px solid rgba(196,168,85,0.2)',

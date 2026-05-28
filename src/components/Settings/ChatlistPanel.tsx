@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
   onClose: () => void;
@@ -114,8 +115,3 @@ export function ChatlistPanel({ onClose }: Props) {
   );
 }
 
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};
