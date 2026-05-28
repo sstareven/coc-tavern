@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
+import { DarkSelect } from '../Shared/DarkSelect';
 import type { ChatPreset, PromptItem } from '../../types';
 
 interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
@@ -272,7 +273,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', position: 'relative', top: -5,
             }}>?</a>
           </div>
-          <Dropdown value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
+          <DarkSelect value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
             { label: '自动', value: 'auto' },
             { label: '低', value: 'low' },
             { label: '中', value: 'medium' },
@@ -285,7 +286,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         <div style={s.section}>
           <div style={s.sectionTitle}>长度</div>
           <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
-          <Dropdown value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
+          <DarkSelect value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
             { label: '自动', value: 'auto' },
             { label: '短', value: 'short' },
             { label: '中', value: 'medium' },
@@ -306,7 +307,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={s.sectionTitle}>角色名称行为</div>
             <a href="#" title="有助于模型将消息与角色关联起来。" style={helpLinkStyle}>?</a>
           </div>
-          <Dropdown value={form.charNameBehavior} onChange={(v) => set('charNameBehavior', v)} options={[
+          <DarkSelect value={form.charNameBehavior} onChange={(v) => set('charNameBehavior', v)} options={[
             { label: '无 — 不添加角色名称前缀', value: 'none' },
             { label: '补全对象 — 仅限拉丁字母数字和下划线', value: 'completion' },
             { label: '消息内容 — 在消息内容中添加角色名称', value: 'content' },
@@ -319,7 +320,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={s.sectionTitle}>续写后缀</div>
             <a href="#" title="将以此分隔续写消息和原消息。" style={helpLinkStyle}>?</a>
           </div>
-          <Dropdown value={form.continueSuffix} onChange={(v) => set('continueSuffix', v)} options={[
+          <DarkSelect value={form.continueSuffix} onChange={(v) => set('continueSuffix', v)} options={[
             { label: '无', value: 'none' },
             { label: '空格', value: 'space' },
             { label: '换行', value: 'newline' },
@@ -340,7 +341,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
             <div style={{ flex: 1 }}>
-              <Dropdown value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
+              <DarkSelect value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
                 options={[
                   { label: '选择提示词...', value: '' },
                   ...libraryItems.map((p: any) => ({ label: `${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
@@ -387,7 +388,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>身份</span>
-                  <Dropdown value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
+                  <DarkSelect value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
                     options={[{ label: '系统', value: 'system' }, { label: '用户', value: 'user' }, { label: 'AI助手', value: 'assistant' }]} />
                 </div>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -426,7 +427,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>位置</span>
-                  <Dropdown value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
+                  <DarkSelect value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
                     options={[{ label: '相对', value: 'relative' }, { label: '插入深度', value: 'depth' }]} />
                 </div>
               </div>
@@ -579,47 +580,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   );
 }
 
-function Dropdown({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.value === value)?.label ?? value;
-  return (
-    <div style={{ position: 'relative', minWidth: 90 }}>
-      <button onClick={() => setOpen(!open)} style={{
-        width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
-        background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
-      }}>
-        <span>{selected}</span>
-        <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
-      </button>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
-          <div className="dropdown-scroll" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
-            <style>{`.dropdown-scroll::-webkit-scrollbar{width:5px}.dropdown-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.dropdown-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.dropdown-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
-            {options.map((opt) => {
-              if (opt.value.startsWith('__sep')) {
-                return <div key={opt.value} style={{ padding: '4px 8px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{opt.label}</div>;
-              }
-              return (
-                <div key={opt.value} onClick={() => { if (opt.value) { onChange(opt.value); setOpen(false); } }} style={{
-                  padding: '6px 8px', cursor: opt.value ? 'pointer' : 'default',
-                  background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
-                  color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
-                  fontFamily: 'var(--font-ui)', fontSize: 11,
-                  borderBottom: '1px solid rgba(196,168,85,0.06)',
-                }} onMouseEnter={(e) => { if (opt.value !== value && opt.value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                  onMouseLeave={(e) => { if (opt.value !== value && opt.value) e.currentTarget.style.background = 'transparent'; }}
-                >{opt.label}</div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+
 
 function Collapse({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);

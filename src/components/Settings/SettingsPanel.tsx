@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore } from '../../stores/useRegexStore';
+import { DarkSelect } from '../Shared/DarkSelect';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
 import { PromptTemplateContent } from './PromptTemplateContent';
@@ -365,8 +366,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [mvuConnStatus, setMvuConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
-  const [mvuModelDropdownOpen, setMvuModelDropdownOpen] = useState(false);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
   const [ppHelpOpen, setPpHelpOpen] = useState(false);
 
@@ -598,38 +597,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                   <div style={rowStyle}>
                     <span style={labelStyle}>模型</span>
-                    <div style={{ position: 'relative', width: 200 }}>
-                      <button onClick={() => { if (availableModels.length > 0) setModelDropdownOpen(!modelDropdownOpen); }} disabled={availableModels.length === 0 && !modelsLoading}
-                        style={{
-                          width: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
-                          background: 'rgba(0,0,0,0.3)', color: availableModels.length === 0 ? 'var(--ink-faded)' : 'var(--text-light)',
-                          fontFamily: 'var(--font-mono)', fontSize: 11, cursor: availableModels.length === 0 ? 'not-allowed' : 'pointer',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
-                          opacity: availableModels.length === 0 ? 0.5 : 1,
-                        }}>
-                        <span>{modelsLoading ? '加载中...' : availableModels.length === 0 ? '请先测试连接' : (localApiModel || '选择模型')}</span>
-                        <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
-                      </button>
-                      {modelDropdownOpen && availableModels.length > 0 && (
-                        <>
-                          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setModelDropdownOpen(false)} />
-                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
-                            <style>{`.apimodel-scroll::-webkit-scrollbar{width:5px}.apimodel-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.apimodel-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.apimodel-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
-                            <div className="apimodel-scroll">
-                              {availableModels.map((m) => (
-                                <div key={m} onClick={() => { setLocalApiModel(m); setApiModel(m); setModelDropdownOpen(false); }} style={{
-                                  padding: '6px 9px', cursor: 'pointer',
-                                  background: m === localApiModel ? 'rgba(196,168,85,0.15)' : 'transparent',
-                                  color: m === localApiModel ? 'var(--gold)' : 'var(--text-light)',
-                                  fontFamily: 'var(--font-mono)', fontSize: 11,
-                                  borderBottom: '1px solid rgba(196,168,85,0.06)',
-                                }} onMouseEnter={(e) => { if (m !== localApiModel) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                                  onMouseLeave={(e) => { if (m !== localApiModel) e.currentTarget.style.background = 'transparent'; }}
-                                >{m}</div>
-                              ))}
-                            </div>
-                          </div>
-                        </>
+                    <div style={{ width: 200 }}>
+                      {availableModels.length > 0 ? (
+                        <DarkSelect value={localApiModel} onChange={(v) => { setLocalApiModel(v); setApiModel(v); }} options={availableModels.map(m => ({ value: m, label: m }))} />
+                      ) : (
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{modelsLoading ? '加载中...' : '请先测试连接'}</div>
                       )}
                     </div>
                   </div>
@@ -755,38 +727,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                       <div style={rowStyle}>
                         <span style={labelStyle}>模型</span>
-                        <div style={{ position: 'relative', width: 200 }}>
-                          <button onClick={() => { if (mvuAvailableModels.length > 0 || mvuModelsLoading) setMvuModelDropdownOpen(!mvuModelDropdownOpen); }} disabled={mvuAvailableModels.length === 0 && !mvuModelsLoading}
-                            style={{
-                              width: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
-                              background: 'rgba(0,0,0,0.3)', color: mvuAvailableModels.length === 0 ? 'var(--ink-faded)' : 'var(--text-light)',
-                              fontFamily: 'var(--font-mono)', fontSize: 11, cursor: mvuAvailableModels.length === 0 ? 'not-allowed' : 'pointer',
-                              display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
-                              opacity: mvuAvailableModels.length === 0 ? 0.5 : 1,
-                            }}>
-                            <span>{mvuModelsLoading ? '加载中...' : mvuAvailableModels.length === 0 ? '请先测试连接' : (localMvuModel || '选择模型')}</span>
-                            <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
-                          </button>
-                          {mvuModelDropdownOpen && mvuAvailableModels.length > 0 && (
-                            <>
-                              <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setMvuModelDropdownOpen(false)} />
-                              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
-                                <style>{`.mvumodel-scroll::-webkit-scrollbar{width:5px}.mvumodel-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.mvumodel-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.mvumodel-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
-                                <div className="mvumodel-scroll">
-                                  {mvuAvailableModels.map((m) => (
-                                    <div key={m} onClick={() => { setLocalMvuModel(m); setMvuApiModel(m); setMvuModelDropdownOpen(false); }} style={{
-                                      padding: '6px 9px', cursor: 'pointer',
-                                      background: m === localMvuModel ? 'rgba(196,168,85,0.15)' : 'transparent',
-                                      color: m === localMvuModel ? 'var(--gold)' : 'var(--text-light)',
-                                      fontFamily: 'var(--font-mono)', fontSize: 11,
-                                      borderBottom: '1px solid rgba(196,168,85,0.06)',
-                                    }} onMouseEnter={(e) => { if (m !== localMvuModel) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                                      onMouseLeave={(e) => { if (m !== localMvuModel) e.currentTarget.style.background = 'transparent'; }}
-                                    >{m}</div>
-                                  ))}
-                                </div>
-                              </div>
-                            </>
+                        <div style={{ width: 200 }}>
+                          {mvuAvailableModels.length > 0 ? (
+                            <DarkSelect value={localMvuModel} onChange={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }} options={mvuAvailableModels.map(m => ({ value: m, label: m }))} />
+                          ) : (
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{mvuModelsLoading ? '加载中...' : '请先测试连接'}</div>
                           )}
                         </div>
                       </div>
