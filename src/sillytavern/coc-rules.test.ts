@@ -133,12 +133,12 @@ describe('CHAR_ROLL', () => {
     }
   });
 
-  it('EDU: (roll3D6+3)*5, capped at 99 (min 20)', () => {
+  it('EDU: (roll3D6+3)*5, capped at 99 (min 20, max 99)', () => {
     for (let i = 0; i < 10; i++) {
       const v = CHAR_ROLL['EDU']();
       expect(v).toBeGreaterThanOrEqual(20);
       expect(v).toBeLessThanOrEqual(99);
-      expect(v % 5).toBe(0);
+      // Usually multiple of 5, but Math.min caps at 99 which breaks divisibility
     }
   });
 });
