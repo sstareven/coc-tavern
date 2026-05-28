@@ -91,6 +91,7 @@ interface CacheEntry {
 }
 
 const templateCache = new Map<string, CacheEntry>();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let currentCacheSize = 0;
 
 function getCacheKey(text: string, disableWith: boolean): string {
@@ -180,7 +181,7 @@ export function renderTemplate(
             const escaped = val != null ? escapeHtml(String(val)) : '';
             output.push(escaped);
             compiled.push({ type: 'output', fn: disableWith
-              ? ((g: Function, _s: Function, _w: Function) => { const v = g(api.getvar, api.setvar, api.getwi); return v != null ? escapeHtml(String(v)) : ''; }) as unknown as Function
+              ? ((g: Function, _s: Function, _w: Function) => { void _s; void _w; const v = g(api.getvar, api.setvar, api.getwi); return v != null ? escapeHtml(String(v)) : ''; }) as unknown as Function
               : undefined });
           } catch {
             output.push(`[模板错误: ${part.content}]`);

@@ -387,7 +387,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const models: string[] = Array.isArray(data?.data)
-          ? data.data.map((m: any) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
+          ? data.data.map((m: Record<string, string>) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
           : [];
         setMvuAvailableModels(models);
         setMvuConnStatus('connected');
@@ -411,7 +411,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const models: string[] = Array.isArray(data?.data)
-          ? data.data.map((m: any) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
+          ? data.data.map((m: Record<string, string>) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
           : [];
         setAvailableModels(models);
         setConnStatus('connected');

@@ -41,7 +41,9 @@ export async function sendChatCompletion(
       }),
     });
   } catch (err) {
-    throw new Error(`网络请求失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`网络请求失败: ${err instanceof Error ? err.message : String(err)}`, {
+      cause: err,
+    });
   }
 
   if (!response.ok) {

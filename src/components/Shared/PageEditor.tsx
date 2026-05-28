@@ -15,8 +15,10 @@ export function PageEditor({ onClose }: Props) {
   const [content, setContent] = useState(page?.leftContent ?? '');
 
   useEffect(() => {
+    // eslint-disable react-hooks/set-state-in-effect -- intentional form init pattern
     setTitle(page?.leftHeader ?? '');
     setContent(page?.leftContent ?? '');
+    // eslint-enable react-hooks/set-state-in-effect
   }, [pageIndex, page]);
 
   const handleSave = () => {
