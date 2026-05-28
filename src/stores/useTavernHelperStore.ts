@@ -22,29 +22,10 @@ const defaults: PersistedState = {
       type: 'script' as const,
       enabled: true,
       name: 'MVU',
-      content: `// MVU 变量更新引擎加载器
-// 基于 MagicalAstrogy/MagVarUpdate — 自动从 CDN 加载依赖
-
-if (typeof window !== 'undefined') {
-  // Load Vue 3 first (required by MagVarUpdate bundle)
-  if (!window.Vue) {
-    const vueScript = document.createElement('script');
-    vueScript.src = 'https://unpkg.com/vue@3/dist/vue.global.prod.js';
-    document.head.appendChild(vueScript);
-    vueScript.onload = function() {
-      // Vue loaded — now load MagVarUpdate bundle
-      const script = document.createElement('script');
-      script.src = 'https://testingcf.jsdelivr.net/gh/MagicalAstrogy/MagVarUpdate/artifact/bundle.js';
-      document.head.appendChild(script);
-      console.log('[MVU] MagVarUpdate bundle loaded');
-    };
-  } else {
-    const script = document.createElement('script');
-    script.src = 'https://testingcf.jsdelivr.net/gh/MagicalAstrogy/MagVarUpdate/artifact/bundle.js';
-    document.head.appendChild(script);
-    console.log('[MVU] MagVarUpdate bundle loaded');
-  }
-}`,
+      content: `// MVU 变量更新 — 已由 LLM 提取引擎 (mvu-extractor.ts) 接管
+// MagVarUpdate CDN bundle 因模块兼容性问题禁用
+// 变量提取通过独立 API 通道完成，无需浏览器端 Vue 运行时
+console.log('[MVU] Using LLM-based extraction (mvu-extractor), CDN bundle disabled');`,
       info: '加载 MagVarUpdate 变量更新引擎 bundle（含 Vue 3 依赖）',
     },
     {
