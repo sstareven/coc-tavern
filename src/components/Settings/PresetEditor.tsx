@@ -273,7 +273,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', position: 'relative', top: -5,
             }}>?</a>
           </div>
-          <DarkSelect value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
+          <DarkSelect compact value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
             { label: '自动', value: 'auto' },
             { label: '低', value: 'low' },
             { label: '中', value: 'medium' },
@@ -286,7 +286,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         <div style={s.section}>
           <div style={s.sectionTitle}>长度</div>
           <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
-          <DarkSelect value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
+          <DarkSelect compact value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
             { label: '自动', value: 'auto' },
             { label: '短', value: 'short' },
             { label: '中', value: 'medium' },
@@ -307,7 +307,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={s.sectionTitle}>角色名称行为</div>
             <a href="#" title="有助于模型将消息与角色关联起来。" style={helpLinkStyle}>?</a>
           </div>
-          <DarkSelect value={form.charNameBehavior} onChange={(v) => set('charNameBehavior', v)} options={[
+          <DarkSelect compact value={form.charNameBehavior} onChange={(v) => set('charNameBehavior', v)} options={[
             { label: '无 — 不添加角色名称前缀', value: 'none' },
             { label: '补全对象 — 仅限拉丁字母数字和下划线', value: 'completion' },
             { label: '消息内容 — 在消息内容中添加角色名称', value: 'content' },
@@ -320,7 +320,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={s.sectionTitle}>续写后缀</div>
             <a href="#" title="将以此分隔续写消息和原消息。" style={helpLinkStyle}>?</a>
           </div>
-          <DarkSelect value={form.continueSuffix} onChange={(v) => set('continueSuffix', v)} options={[
+          <DarkSelect compact value={form.continueSuffix} onChange={(v) => set('continueSuffix', v)} options={[
             { label: '无', value: 'none' },
             { label: '空格', value: 'space' },
             { label: '换行', value: 'newline' },
@@ -341,7 +341,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
             <div style={{ flex: 1 }}>
-              <DarkSelect value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
+              <DarkSelect compact value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
                 options={[
                   { label: '选择提示词...', value: '' },
                   ...libraryItems.map((p: PromptItem) => ({ label: `${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
@@ -388,7 +388,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>身份</span>
-                  <DarkSelect value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
+                  <DarkSelect compact value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
                     options={[{ label: '系统', value: 'system' }, { label: '用户', value: 'user' }, { label: 'AI助手', value: 'assistant' }]} />
                 </div>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -427,7 +427,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={{ fontSize: 9, color: 'var(--gold)' }}>位置</span>
-                  <DarkSelect value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
+                  <DarkSelect compact value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
                     options={[{ label: '相对', value: 'relative' }, { label: '插入深度', value: 'depth' }]} />
                 </div>
               </div>
