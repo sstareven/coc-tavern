@@ -342,15 +342,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       // Combine background fields into a rich description
       const bgParts: string[] = [];
-      if (beliefs.trim()) bgParts.push(`【思想信念】\n${beliefs.trim()}`);
-      if (significantPeople.trim()) bgParts.push(`【重要之人】\n${significantPeople.trim()}`);
-      if (meaningfulLocations.trim()) bgParts.push(`【意义非凡之地】\n${meaningfulLocations.trim()}`);
-      if (treasuredPossessions.trim()) bgParts.push(`【宝贵之物】\n${treasuredPossessions.trim()}`);
-      if (traits.trim()) bgParts.push(`【特质】\n${traits.trim()}`);
-      if (injuries.trim()) bgParts.push(`【伤口与疤痕】\n${injuries.trim()}`);
-      if (phobias.trim()) bgParts.push(`【恐惧与狂躁】\n${phobias.trim()}`);
-      const combinedDesc = [description.trim(), ...bgParts].filter(Boolean).join('\n\n')
-        || '此人的过往如同被墨水浸染的旧档案，所有记录都已模糊不清。没有人知道他从哪里来，也没有人能说清他经历过什么。在调查局的卷宗里，这份档案的大部分页面都是空白的——仿佛有人刻意抹去了一切痕迹。唯一确定的是：他现在站在这里，准备踏入未知。';
+      bgParts.push(`【个人描述 Description】\n${description.trim() || '此人的过往如同被墨水浸染的旧档案，所有记录都已模糊不清。没有人知道他从哪里来，也没有人能说清他经历过什么。'}`);
+      bgParts.push(`【思想/信念 Beliefs】\n${beliefs.trim() || '信念栏是空白的——或许他什么都不相信，又或许他的信念过于危险，不宜写在纸上。'}`);
+      bgParts.push(`【重要之人 Significant People】\n${significantPeople.trim() || '没有任何人被列为重要联系人。这意味着孤独，或者意味着保护。'}`);
+      bgParts.push(`【重要场所 Meaningful Locations】\n${meaningfulLocations.trim() || '档案中未记录任何意义非凡之地。也许那些地方已经不复存在了。'}`);
+      bgParts.push(`【珍贵之物 Treasured Possessions】\n${treasuredPossessions.trim() || '此人似乎没有任何牵挂之物——或者说，那些珍贵的东西早已失去。'}`);
+      bgParts.push(`【特质 Traits】\n${traits.trim() || '沉默寡言，行踪不定。'}`);
+      bgParts.push(`【伤口/伤痕 Injuries】\n${injuries.trim() || '表面上看不出明显伤痕，但谁知道衣领下藏着什么。'}`);
+      bgParts.push(`【恐惧症/狂躁症 Phobias】\n${phobias.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
+      const combinedDesc = bgParts.join('\n\n');
 
       const sheet: CharacterSheet = {
         characteristics: chars,
