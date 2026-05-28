@@ -109,6 +109,13 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     if (!st.variables['调查员.年龄']?.locked) map['调查员.年龄'] = String(sheet.identity.age);
     if (!st.variables['调查员.性别']?.locked) map['调查员.性别'] = sheet.identity.gender;
     if (!st.variables['调查员.幸运']?.locked) map['调查员.幸运'] = String(sheet.secondary.luck);
+    // ── Skill entries ──
+    for (const [name, skill] of Object.entries(sheet.skills)) {
+      const key = `调查员.技能.${name}`;
+      if (!st.variables[key]?.locked) {
+        map[key] = String(skill.current);
+      }
+    }
 
     return map;
   },
