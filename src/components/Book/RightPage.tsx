@@ -187,7 +187,7 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
         }}>
           {check.skillName}
           <span style={{
-            display: 'inline-block', overflow: 'hidden',
+            display: 'inline-block', overflow: 'hidden', verticalAlign: 'middle',
             maxWidth: hovered ? (isDifficulty ? 70 : 40) : 0,
             opacity: hovered ? 1 : 0,
             transition: 'max-width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s cubic-bezier(0.4,0,0.2,1)',
