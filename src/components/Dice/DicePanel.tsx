@@ -37,11 +37,11 @@ function playResultSound(type: DiceResultType) {
 }
 
 function fillResultText(roll: number, type: DiceResultType, target: number) {
-  const input = document.querySelector<HTMLInputElement>('footer input[type="text"]');
+  const input = document.querySelector<HTMLTextAreaElement>('footer textarea');
   if (!input) return;
   const text = `[${roll} / ${target}] ${resultLabel[type]}`;
   const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
+    window.HTMLTextAreaElement.prototype,
     'value',
   )?.set;
   setter?.call(input, text);
