@@ -103,8 +103,33 @@ npm run preview    # 预览生产构建
 
 ## NOTES
 
-- `src/db/database.ts` — Dexie schema with `kvStore` single table. All 13 stores use `persist` middleware + Dexie storage adapter. Auto-migration from localStorage on first load.
+- `src/db/database.ts` — Dexie schema created but stores reverted to localStorage（persist 中间件导致白屏，待排查后重新引入）
 - `src/components/Book/PageFlip.tsx` 与 `PageFlip3D.tsx` 并存 — 前者用 Framer Motion，后者用 CSS 3D。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
 - 测试覆盖：50 tests (27 dice + 18 COC rules + 5 database)，Vitest + fake-indexeddb
 - 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/components/CharSheet/` `src/components/Settings/` `src/components/Layout/` `src/components/Shared/` `src/db/`
+
+## 会话继续 · SESSION CONTINUATION
+
+**最后提交**: `98b2068` | **分支**: `master` | **测试**: 50/50 ✅ | **构建**: ✅
+
+### 本次会话新增功能（e4e1a4b 之后）
+
+| 提交 | 内容 |
+|------|------|
+| `2ea18cd` | CharSheetPanel 新增内联「个人信息档案」折叠面板 |
+| `a2ef36c` | 档案 UI 重设计：去 emoji，暗色卷宗风格，双语标签 |
+| `c9712c9` | Landing 页新增 LoadGameModal（读取存档选档面板） |
+| `c633f16` | 活跃会话标「当前」标签，禁止删除加载中的存档 |
+| `213bb71` | 修复 MVU bundle 缺 Vue CDN + btnBase border 冲突警告 |
+| `c53af4f` | 禁用 MVU CDN 加载器（mvu-extractor.ts 已接管） |
+| `0c99afc` | 修复创建角色后档案字段为空（handleConfirm 硬编码空串） |
+| `574ec74` | 个人描述按【】拆分为独立可折叠子段落 |
+| `98b2068` | 档案折叠/展开添加 maxHeight + opacity 动效 |
+
+### 待办 / 已知问题
+
+- [ ] IndexedDB 迁移因白屏回退，需要重新排查 persist 中间件兼容性
+- [ ] 剩余 ~110 lint 警告（多为故意的 setState/沙箱 eval/Zustand selector 误报）
+- [ ] 预设角色档案的 personality/scenario/personaDescription 仅保留默认值（创建流程未收集）
+- [ ] 创建角色面板职业选择时信用范围可能显示乱码（已修复 \u00d7/u2013）
