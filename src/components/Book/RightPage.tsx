@@ -171,30 +171,26 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
         const val = playerSkill?.current ?? 0;
         const tgt = check.target || 50;
         const favorable = val >= tgt;
+        const isDifficulty = check.target === 0;
+        const effectiveVal = isDifficulty
+          ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
+          : val;
         return (
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0, overflow: 'hidden' }}>
-          <span style={{
-            padding: '2px 8px', borderRadius: 3,
-            fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap',
-            color: favorable ? '#2e5c1e' : '#8b2020',
-            background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
-            border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
-          }}>
-            {check.skillName}
-          </span>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center',
-            maxWidth: hovered ? 50 : 0, opacity: hovered ? 1 : 0,
-            transition: 'max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
-            overflow: 'hidden', whiteSpace: 'nowrap',
-          }}>
-            <span style={{
-              marginLeft: 4, padding: '2px 6px', borderRadius: 3,
-              fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 11,
-              color: '#6b5a28', background: 'rgba(196,168,85,0.12)',
-              border: '1px solid rgba(196,168,85,0.25)',
-            }}>{val}</span>
-          </span>
+        <span style={{
+          marginLeft: 'auto', padding: '2px 8px', borderRadius: 3,
+          fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
+          transition: 'var(--transition-smooth)',
+          color: favorable ? '#2e5c1e' : '#8b2020',
+          background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
+          border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
+        }}>
+          {hovered ? (
+            isDifficulty ? (
+              <>{check.skillName} <span style={{ textDecoration: 'line-through', opacity: 0.4 }}>{val}</span> {effectiveVal}</>
+            ) : (
+              <>{check.skillName} {val}</>
+            )
+          ) : check.skillName}
         </span>
         );
       })()}
