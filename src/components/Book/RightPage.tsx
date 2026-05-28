@@ -29,10 +29,13 @@ interface CheckInfo {
 }
 
 function parseCheckAction(text: string): CheckInfo | null {
-  // Format: 对抗检定 "进行力量对抗(玩家目标值:60, 对手目标值:45)"
-  const mo = text.match(/进行(.+?)对抗\s*\(玩家目标值\s*[:：]\s*(\d+)[,，]\s*对手目标值\s*[:：]\s*(\d+)\)/);
+  // Format: 对抗检定 "进行力量对抗(对手目标值:45)" or legacy "进行力量对抗(玩家目标值:60, 对手目标值:45)"
+  const mo = text.match(/进行(.+?)对抗\s*\((?:玩家目标值\s*[:：]\s*\d+[,，]\s*)?对手目标值\s*[:：]\s*(\d+)\)/);
   if (mo) {
-    return { skillName: mo[1].trim(), target: parseInt(mo[2]), opponentTarget: parseInt(mo[3]), difficulty: '普通', bonus: 'none', opposed: true };
+    const skillName = mo[1].trim();
+    const pv = getPlayerSkillValue(skillName);
+    const playerTarget = pv?.current ?? 50;
+    return { skillName, target: playerTarget, opponentTarget: parseInt(mo[2]), difficulty: '普通', bonus: 'none', opposed: true };
   }
   // Format 1: "进行XX检定(目标值:NN, 奖励骰/惩罚骰)" — legacy with explicit target
   const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)([^)]*)\)/);
