@@ -48,9 +48,12 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid transparent', borderRadius: 3, background: 'transparent',
               color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+              transition: 'var(--transition-smooth)', transform: 'scale(1)',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1.15)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
           >✕</button>
         </div>
 
@@ -80,10 +83,10 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
         padding: '12px 20px', cursor: 'pointer',
         borderBottom: '1px solid rgba(196,168,85,0.04)',
         background: isActive ? 'rgba(196,168,85,0.06)' : 'transparent',
-        transition: 'background 0.2s',
+        transition: 'var(--transition-smooth)', transform: 'translateX(0)',
       }}
-      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.06)' : 'transparent'; }}
+      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; e.currentTarget.style.transform = 'translateX(4px)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.06)' : 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -111,9 +114,12 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
             background: 'none', border: '1px solid transparent', borderRadius: 3,
             color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
             fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 12,
+            transition: 'var(--transition-smooth)', transform: 'scale(1)',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blood)'; e.currentTarget.style.borderColor = 'rgba(255,82,82,0.2)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-faded)'; e.currentTarget.style.borderColor = 'transparent'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blood)'; e.currentTarget.style.borderColor = 'rgba(255,82,82,0.2)'; e.currentTarget.style.transform = 'scale(1.15)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-faded)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
           title="删除存档"
         >✕</button>
       )}
