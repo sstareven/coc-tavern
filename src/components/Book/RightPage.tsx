@@ -167,23 +167,40 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
       <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
-      {isCheck && check && (
-        <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', flexShrink: 0, overflow: 'hidden' }}>
-          <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28', whiteSpace: 'nowrap' }}>
-            {check.skillName}:{playerSkill !== null ? playerSkill.current : '?'}
+      {isCheck && check && (() => {
+        const val = playerSkill?.current ?? 0;
+        const tgt = check.target || 50;
+        const favorable = val >= tgt;
+        return (
+        <span style={{ marginLeft: 'auto', position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{
+            padding: '2px 8px', borderRadius: 3, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap', zIndex: 1,
+            color: favorable ? '#2e5c1e' : '#8b2020',
+            background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
+            border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
+          }}>
+            {check.skillName}:{check.target > 0 ? check.target : check.difficulty}
           </span>
           <span style={{
+            position: 'absolute', left: '100%', top: 0, bottom: 0,
             display: 'inline-flex', alignItems: 'center',
-            maxWidth: hovered ? 80 : 0, opacity: hovered ? 1 : 0,
-            transition: 'max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
+            maxWidth: hovered ? 60 : 0, opacity: hovered ? 1 : 0,
+            transition: 'max-width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease',
             overflow: 'hidden', whiteSpace: 'nowrap',
           }}>
-            <span style={{ marginLeft: 6, padding: '2px 6px', borderRadius: 3, fontSize: 11, fontWeight: 600, color: playerSkill && playerSkill.current >= (check.target || 50) ? '#2e7d32' : '#b71c1c', background: playerSkill && playerSkill.current >= (check.target || 50) ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.1)', border: playerSkill && playerSkill.current >= (check.target || 50) ? '1px solid rgba(46,125,50,0.3)' : '1px solid rgba(183,28,28,0.3)' }}>
-              {check.target > 0 ? check.target : check.difficulty}
-            </span>
+            <span style={{
+              marginLeft: 4, padding: '2px 7px', borderRadius: 3,
+              fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 12,
+              color: '#6b5a28',
+              background: 'rgba(196,168,85,0.12)',
+              backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(196,168,85,0.25)',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+            }}>{val}</span>
           </span>
         </span>
-      )}
+        );
+      })()}
     </button>
   );
 }
