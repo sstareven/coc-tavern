@@ -57,7 +57,7 @@ function impact(vol = 0.06, freq = 300, decay = 0.04) {
     o2.frequency.exponentialRampToValueAtTime(freq * 0.5, now + decay * 0.4);
     g2.gain.setValueAtTime(vol * 0.5, now); g2.gain.exponentialRampToValueAtTime(0.0001, now + decay * 0.3);
     o2.connect(g2); g2.connect(c.destination); o2.start(now); o2.stop(now + decay);
-  } catch {}
+  } catch { /* audio not available */ }
 }
 
 
@@ -335,12 +335,14 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
   const [randomDigits, setRandomDigits] = useState(['00', '00', '00', '00', '00', '00']);
   const [animKey, setAnimKey] = useState(0);
   useEffect(() => {
+    // eslint-disable react-hooks/set-state-in-effect -- intentional animation pattern
     if (phase !== 'rolling') return;
     setAnimKey(k => k + 1); // reset animation on new roll
     const iv = setInterval(() => { setRandomDigits(Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 100) + 1))); }, 60);
     // At 1.0s, freeze all faces to the result number (animation still spinning until 1.2s)
     const stop = setTimeout(() => { clearInterval(iv); setRandomDigits(Array(6).fill(rollStr)); }, 750);
     return () => { clearInterval(iv); clearTimeout(stop); };
+    // eslint-enable react-hooks/set-state-in-effect
   }, [phase]);
 
   const digits = phase === 'rolling' ? randomDigits : Array(6).fill(rollStr);

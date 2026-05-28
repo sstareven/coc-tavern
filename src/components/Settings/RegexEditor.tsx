@@ -44,6 +44,7 @@ export function RegexEditor() {
   const [testOutput, setTestOutput] = useState('');
 
   useEffect(() => {
+    // eslint-disable react-hooks/set-state-in-effect -- intentional form init pattern
     if (editingScript) {
       setScriptName(editingScript.scriptName);
       setFindRegex(editingScript.findRegex);
@@ -63,11 +64,13 @@ export function RegexEditor() {
       setPromptOnly(false); setRunOnEdit(true); setSubstituteRegex(0);
       setMinDepth(''); setMaxDepth('');
     }
+    // eslint-enable react-hooks/set-state-in-effect
     setTestInput(''); setTestOutput(''); setRegexInfo('');
   }, [editingScript, isOpen]);
 
   // Real-time regex validation
   useEffect(() => {
+    // eslint-disable react-hooks/set-state-in-effect -- intentional live validation
     if (!findRegex) { setRegexInfo(''); return; }
     try {
       const regex = RegexProvider.instance.get(findRegex);
@@ -80,6 +83,7 @@ export function RegexEditor() {
     } catch {
       setRegexInfo('⚠ 正则表达式无效');
     }
+    // eslint-enable react-hooks/set-state-in-effect
   }, [findRegex]);
 
   const updateTest = () => {

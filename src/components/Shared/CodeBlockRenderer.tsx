@@ -154,7 +154,7 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
       iframe.removeEventListener('load', onLoad);
       clearInterval(interval);
     };
-  }, [expanded, code, buildSrcdoc]);
+  }, [expanded, code, buildSrcdoc, useBlob]);
 
   if (!expanded) {
     return (

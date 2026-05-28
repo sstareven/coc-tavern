@@ -8,7 +8,7 @@ import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
-import { useStreamingRenderer } from '../components/Shared/StreamingPreview';
+import { useStreamingRenderer } from './useStreamingRenderer';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { sendChatCompletion } from '../sillytavern/api-router';
