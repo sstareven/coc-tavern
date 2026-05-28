@@ -23,3 +23,10 @@ export function computeNextPageNumber(): string {
   const nextNum = pages.length * 2 + 1;
   return `— ${nextNum} —`;
 }
+
+export function computeNextRightPageNumber(): string {
+  const { pages } = useBookStore.getState();
+  // Right pages use even numbers: '— 2 —', '— 4 —', '— 6 —'
+  const nextNum = pages.length * 2 + 2;
+  return `— ${nextNum} —`;
+}

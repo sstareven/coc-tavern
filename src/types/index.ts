@@ -49,6 +49,7 @@ export interface BookPage {
   leftHeader: string;
   leftContent: string;
   leftPage: string;
+  rightPage: string;
   rightHeader: string;
   rightContent: string;
   rightChoices: ChoiceItem[];

@@ -12,6 +12,7 @@ interface Props {
   header: string;
   content: string;
   choices: ChoiceItem[];
+  pageNum?: string;
   isFlipping?: boolean;
 }
 
@@ -216,7 +217,7 @@ function fillInputBar(text: string) {
   }
 }
 
-export function RightPage({ header, content, choices, isFlipping }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const fadeStyle = {
@@ -245,6 +246,9 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
           {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
         </div>
       </div>
+      {pageNum && (
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
+      )}
     </div>
   );
 }
