@@ -7,6 +7,7 @@ interface SettingsState {
   soundEnabled: boolean;
   tooltipDelay: number;
   musicVolume: number;
+  autoSubmitChoice: boolean;
   apiBaseUrl: string;
   apiModel: string;
   apiKey: string;
@@ -26,6 +27,7 @@ interface SettingsStore extends SettingsState {
   toggleSound: () => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
+  setAutoSubmitChoice: (v: boolean) => void;
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
   setApiKey: (k: string) => void;
@@ -44,6 +46,7 @@ const defaults: SettingsState = {
   soundEnabled: true,
   tooltipDelay: 600,
   musicVolume: 40,
+  autoSubmitChoice: false,
   apiBaseUrl: 'https://api.deepseek.com',
   apiModel: 'deepseek-v4-pro',
   apiKey: '',
@@ -67,6 +70,7 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
       setTooltipDelay: (d) => set({ tooltipDelay: d }),
       setMusicVolume: (v) => set({ musicVolume: v }),
+      setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
       setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
       setApiModel: (model) => set({ apiModel: model }),
       setApiKey: (k) => set({ apiKey: k }),

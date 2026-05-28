@@ -1,7 +1,9 @@
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
+import { useDiceStore } from '../../stores/useDiceStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
-import type { ChoiceItem } from '../../types';
+import type { ChoiceItem, DiceResultType } from '../../types';
 
 interface Props {
   header: string;
@@ -60,7 +62,14 @@ function fillInputBar(text: string) {
     const rollStr = String(result.raw).padStart(2, '0');
     const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target} ${result.label}]\n`;
 
-    // Dispatch custom event for dice animation overlay
+    useDiceStore.getState().addRecord({
+      skill: parsed.skillName,
+      roll: String(result.raw),
+      target: String(parsed.target),
+      type: result.resultType as DiceResultType,
+      time: Date.now(),
+    });
+
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: { skillName: parsed.skillName, target: parsed.target, roll: result.raw, resultType: result.resultType, inputText: resultLine + text },
     }));
@@ -72,10 +81,16 @@ function fillInputBar(text: string) {
     nativeInputValueSetter?.call(input, resultLine + text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();
+    if (useSettingsStore.getState().autoSubmitChoice) {
+      setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
+    }
   } else {
     nativeInputValueSetter?.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();
+    if (useSettingsStore.getState().autoSubmitChoice) {
+      setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
+    }
   }
 }
 
