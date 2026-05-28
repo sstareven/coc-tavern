@@ -5,10 +5,19 @@ import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation } from '../Shared/DiceAnimation';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useChatStore } from '../../stores/useChatStore';
+import { useBookStore } from '../../stores/useBookStore';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
+  // Restore pages from active session on mount
+  useEffect(() => {
+    const savedPages = useChatStore.getState().getActivePages();
+    if (savedPages.length > 0) {
+      useBookStore.getState().setPages(savedPages);
+    }
+  }, []);
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
