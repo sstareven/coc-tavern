@@ -34,7 +34,8 @@
 
 ## ANTI-PATTERNS
 
-- **`require()` 懒加载** — `useVariableStore` 和 `useTavernHelperStore` 用 `require()` 访问 `useCharSheetStore`。绕过 Tree-shaking 和类型检查。
+- **`require()` 懒加载** — `useVariableStore` 和 `useTavernHelperStore` 用 `require()` 访问 `useCharSheetStore`。绕过 Tree-shaking 和类型检查。最新 commit 中大部分 require 已被清理，剩余 2 处（useVariableStore L85、useTavernHelperStore L358）。
 - **`useChatStore` 无持久化** — 关闭浏览器丢失所有会话。Dexie `chatSessions` 表未被使用。
 - **`useSettingsStore.save()`** — 手动序列化/反序列化，缺少 `zustand/persist` 的版本迁移支持。
 - **`PresetPanel` 直接写 `useRegexStore.setState()`** — 跨 store 协调逻辑泄漏到组件。
+- **`useLorebookStore` (320 lines)** — 最大的 store，包含硬编码默认世界书 + localStorage CRUD。可考虑拆分为 core store + migration utility。

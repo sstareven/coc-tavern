@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-05-27
-**Commit:** `5fd65e0`
+**Generated:** 2026-05-28
+**Commit:** `3f5ab4c`
 **Branch:** `master`
 
 ## OVERVIEW
@@ -15,18 +15,18 @@
 ```
 ./
 ├── src/
-│   ├── sillytavern/     # 引擎层 — pure computation + store-glue split
+│   ├── sillytavern/     # 引擎层 — 15 files, pure computation + store-glue split
 │   ├── stores/          # 12 个 Zustand stores — 无 middleware，手写 localStorage 持久化
 │   ├── components/
-│   │   ├── Book/        # 故事书双页翻页 (8 files)
-│   │   ├── CharSheet/   # COC 角色卡 + 创建向导 (7 files)
+│   │   ├── Book/        # 故事书双页翻页 (6 files)
+│   │   ├── CharSheet/   # COC 角色卡 + 创建向导 (6 files)
 │   │   ├── Dice/        # d100 骰子系统 (3 files)
 │   │   ├── Landing/     # 开始界面 (2 files)
 │   │   ├── Layout/      # GameView + TopBar + InputBar (3 files)
 │   │   ├── Settings/    # 设置面板群 (13 files) ⚠️ junk drawer
-│   │   └── Shared/      # 共享组件 (9 files)
+│   │   └── Shared/      # 共享组件 (10 files)
 │   ├── hooks/           # usePageFlip, useAudio (2 files)
-│   ├── types/index.ts   # 单一类型源 (322 lines, ~20 domains)
+│   ├── types/index.ts   # 单一类型源 (296 lines, ~20 domains)
 │   ├── styles/          # tokens.css + global.css — 无 Tailwind/CSS Modules
 │   ├── audio/sfx.ts     # Web Audio 合成音效
 │   └── db/database.ts   # Dexie schema (未接入任何 store)
@@ -44,11 +44,12 @@
 | 斜杠命令 | `src/sillytavern/slash-commands.ts` | `/roll /var /set /help` |
 | EJS 模板 | `src/sillytavern/ejs-template.ts` | LRU 缓存，沙箱 eval |
 | 状态管理 | `src/stores/useXxxStore.ts` | 12 stores，单域单 store |
-| 角色创建 | `src/components/CharSheet/CharacterCreator.tsx` | 2031 lines ⚠️ god component |
+| 角色创建 | `src/components/CharSheet/CharacterCreator.tsx` | 2079 lines ⚠️ god component |
 | 故事书翻页 | `src/components/Book/Storybook.tsx` + `PageFlip3D.tsx` | CSS 3D transform |
 | 骰子检定 | `src/components/Dice/DicePanel.tsx` + `src/stores/useDiceStore.ts` | 五级判定 + 奖励骰 |
-| 聊天输入 | `src/components/Layout/InputBar.tsx` | 1015 lines ⚠️ 架构中枢 |
-| 所有类型 | `src/types/index.ts` | 322 lines，可考虑按域拆分 |
+| 聊天输入 | `src/components/Layout/InputBar.tsx` | 939 lines ⚠️ 架构中枢 |
+| 所有类型 | `src/types/index.ts` | 296 lines，可考虑按域拆分 |
+| TH 脚本引擎 | `src/sillytavern/th-script-engine.ts` | send/receive hook 生命周期 |
 
 ## CONVENTIONS
 
@@ -100,3 +101,4 @@ npm run preview    # 预览生产构建
 - `src/components/Book/PageFlip.tsx` 与 `PageFlip3D.tsx` 并存 — 前者用 Framer Motion，后者用 CSS 3D。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
 - `src/sillytavern/types.ts` — 仅重导出 `../types`，冗余文件。
+- 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/components/Settings/` `src/components/Layout/` `src/components/Shared/`

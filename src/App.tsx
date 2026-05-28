@@ -19,7 +19,7 @@ import { DebugLog } from './components/Shared/DebugLog';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 
-export default function App() {
+export function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
 
   useEffect(() => { initBuiltinCommands(); }, []);

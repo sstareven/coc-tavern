@@ -4,12 +4,12 @@
 
 ## 技术栈
 
-- React 18 + TypeScript
-- Zustand 状态管理
-- Dexie.js (IndexedDB)
-- Framer Motion 动画
+- React 19 + TypeScript 6 + Vite 8
+- Zustand 5 状态管理
+- Framer Motion 12 动画
+- CSS 3D Transform 翻页
 - Web Audio API 音效合成
-- Vite 构建
+- IndexedDB (Dexie.js 4)
 
 ## 快速开始
 
@@ -32,28 +32,27 @@ npm run dev
 - 斜杠命令系统（/roll /var /set /help）
 - EJS 模板引擎（<% %> JavaScript 逻辑在 Prompt 中执行）
 - 对话会话管理 + 扩展脚本管理
-- MP3 音乐播放器 + Web Audio 音效合成
+- Web Audio 音效合成 + WAV 音频
 - 悬停提示系统（进度环 + 关键词嵌套窗）
 
 ## 项目结构
 
 ```
-src/
+src/                          # 81 source files (45 .tsx, 31 .ts, 2 .css)
 ├── components/
-│   ├── Book/          # 故事书组件
-│   ├── CharSheet/     # 角色卡 + 创建向导
-│   ├── Dice/          # 骰子面板 + 历史
-│   ├── Landing/       # 开始界面
-│   ├── Layout/        # 顶层布局
-│   ├── Settings/      # 设置面板
-│   └── Shared/        # 通用组件
-├── stores/            # Zustand 状态管理
-├── sillytavern/       # 酒馆引擎（世界书/变量/Prompt/API/正则/命令）
-├── db/                # Dexie 数据库
-├── audio/             # Web Audio 音效
-├── hooks/             # React Hooks
-├── types/             # TypeScript 类型
-└── styles/            # 设计令牌 + 全局样式
+│   ├── Book/                 # 故事书翻页 (6 files, 810 lines)
+│   ├── CharSheet/            # 角色卡 + 创建向导 (6 files, 2667 lines)
+│   ├── Dice/                 # 骰子面板 + 历史 (3 files, 743 lines)
+│   ├── Landing/              # 开始界面 (2 files)
+│   ├── Layout/               # 顶层布局 + InputBar ⚠️ (3 files, 1096 lines)
+│   ├── Settings/             # 设置面板群 (13 files, 2500+ lines)
+│   └── Shared/               # 通用组件 (10 files, 1410 lines)
+├── stores/                   # Zustand 状态管理 (12 stores)
+├── sillytavern/              # 酒馆引擎 (15 files, 1900+ lines)
+├── audio/                    # Web Audio 音效合成 (1 file)
+├── hooks/                    # React Hooks (2 files)
+├── types/                    # TypeScript 类型 (1 file, 296 lines)
+└── styles/                   # 设计令牌 + 全局样式 (2 files)
 ```
 
 ## 代码来源
