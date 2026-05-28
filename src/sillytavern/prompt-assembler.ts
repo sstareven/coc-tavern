@@ -124,13 +124,13 @@ export function assemblePrompt(
 
     // Format instruction
     if (formatInstruction) {
-      messages.push({ role: 'system', content: formatInstruction });
+      messages.push({ role: 'system', content: resolvePlaceholders(formatInstruction, variables) });
     }
   } else {
     // promptItems exist — lore and format are handled by worldInfo markers + enhanceDefinitions
     // Add format instruction if it hasn't been covered by a marker
     if (formatInstruction) {
-      messages.push({ role: 'system', content: formatInstruction });
+      messages.push({ role: 'system', content: resolvePlaceholders(formatInstruction, variables) });
     }
   }
 
