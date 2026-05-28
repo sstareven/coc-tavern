@@ -79,56 +79,78 @@ export function ChatlistPanel({ onClose }: Props) {
               暂无对话记录
             </div>
           ) : (
-            sessions.map((sess) => {
-              const isActive = activeId === sess.id;
-              return (
-              <div
-                key={sess.id}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 14px', border: isActive ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.1)',
-                  borderRadius: 4, cursor: 'pointer',
-                  background: isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)',
-                  transition: 'var(--transition-smooth)', transform: 'translateX(0)',
-                }}
-                onClick={() => { setActive(sess.id); onClose(); }}
-                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; e.currentTarget.style.borderColor = 'var(--brass)'; } e.currentTarget.style.transform = 'translateX(4px)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = isActive ? 'var(--gold)' : 'rgba(196,168,85,0.1)'; e.currentTarget.style.transform = 'translateX(0)'; }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                      {sess.name}
-                    </span>
-                    {isActive && (
-                      <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--gold)', background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2, letterSpacing: 1 }}>当前</span>
-                    )}
-                  </div>
-                  <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-                    {sess.messages.length} 条消息 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
-                  </span>
-                </div>
-                {!isActive && (
-                <button onClick={(e) => { e.stopPropagation(); deleteSession(sess.id); }} style={{
-                  padding: '4px 10px', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 3,
-                  background: 'transparent', color: 'var(--blood)', fontFamily: 'var(--font-ui)',
-                  fontSize: 10, letterSpacing: 1, cursor: 'pointer',
-                  transition: 'var(--transition-smooth)', transform: 'scale(1)',
-                }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = 'var(--blood)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(139,58,58,0.2)'; }}
-                  onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
-                  onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-                >
-                  删除
-                </button>
-                )}
-              </div>
-              );
-            })
+            sessions.map((sess) => (
+              <SessionItem key={sess.id} sess={sess} isActive={activeId === sess.id}
+                onSelect={() => { setActive(sess.id); onClose(); }}
+                onDelete={() => deleteSession(sess.id)} />
+            ))
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SessionItem({ sess, isActive, onSelect, onDelete }: {
+  sess: { id: string; name: string; messages: unknown[]; updatedAt: number };
+  isActive: boolean; onSelect: () => void; onDelete: () => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 14px', border: isActive ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.1)',
+        borderRadius: 4, cursor: 'pointer',
+        background: isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)',
+        transition: 'var(--transition-smooth)', transform: 'translateX(0)',
+      }}
+      onClick={onSelect}
+      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; e.currentTarget.style.borderColor = 'var(--brass)'; } e.currentTarget.style.transform = 'translateX(4px)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = isActive ? 'var(--gold)' : 'rgba(196,168,85,0.1)'; e.currentTarget.style.transform = 'translateX(0)'; setConfirmDelete(false); }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+            {sess.name}
+          </span>
+          {isActive && (
+            <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--gold)', background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2, letterSpacing: 1 }}>当前</span>
+          )}
+        </div>
+        <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+          {sess.messages.length} 条消息 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
+        </span>
+      </div>
+      {confirmDelete ? (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }} onClick={(e) => e.stopPropagation()}>
+          <button onClick={onDelete} style={{
+            padding: '3px 10px', border: '1px solid var(--blood)', borderRadius: 3,
+            background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
+            fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+            transition: 'var(--transition-smooth)',
+          }}>确认</button>
+          <button onClick={() => setConfirmDelete(false)} style={{
+            padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+            background: 'transparent', color: 'var(--ink-subtle)',
+            fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+            transition: 'var(--transition-smooth)',
+          }}>取消</button>
+        </div>
+      ) : (
+        <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
+          padding: '4px 10px', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 3,
+          background: 'transparent', color: 'var(--blood)', fontFamily: 'var(--font-ui)',
+          fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+          transition: 'var(--transition-smooth)', transform: 'scale(1)',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = 'var(--blood)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(139,58,58,0.2)'; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+        >删除</button>
+      )}
     </div>
   );
 }
