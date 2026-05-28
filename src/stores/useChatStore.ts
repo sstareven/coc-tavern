@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ChatSession } from '../types';
+import type { ChatSession, ChatMessage } from '../types';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 
@@ -11,6 +11,7 @@ interface ChatStore {
   deleteSession: (id: string) => void;
   setActive: (id: string) => void;
   setPreset: (presetId: string) => void;
+  addMessage: (role: 'user' | 'assistant', content: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -49,6 +50,18 @@ export const useChatStore = create<ChatStore>()(
               : c
           ),
         })),
+      addMessage: (role, content) =>
+        set((s) => {
+          if (!s.activeId) return s;
+          const msg: ChatMessage = { id: crypto.randomUUID(), role, content, timestamp: Date.now() };
+          return {
+            sessions: s.sessions.map((c) =>
+              c.id === s.activeId
+                ? { ...c, messages: [...c.messages, msg], updatedAt: Date.now() }
+                : c
+            ),
+          };
+        }),
     }),
     {
       name: 'coc_chat_v1',
