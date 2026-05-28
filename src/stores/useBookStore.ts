@@ -15,6 +15,7 @@ const defaultPages: BookPage[] = [
       + '窗外，是属于你的天空。\n'
       + '而你，即将做出选择。',
     leftPage: pageNum(0),
+    rightPage: rightPageNum(0),
     rightHeader: '命运的歧路',
     rightContent:
       '在那{{梦}}境消散之际，你感到一股奇异的牵引——仿佛冥冥之中，某种力量已经为你铺设了若干条不同的道路。\n\n'
@@ -79,6 +80,11 @@ function pageNum(index: number): string {
   return `— ${index * 2 + 1} —`;
 }
 
+/** Right page number from floor index: 0→2, 1→4, 2→6... */
+function rightPageNum(index: number): string {
+  return `— ${index * 2 + 2} —`;
+}
+
 const FLIP_DURATION = 1500;
 
 interface BookStore {
@@ -126,19 +132,19 @@ export const useBookStore = create<BookStore>((set, get) => ({
 
   updateLeftPage: (index, header, content) => set((s) => {
     const pages = [...s.pages];
-    pages[index] = { ...pages[index], leftHeader: header, leftContent: content, leftPage: pageNum(index) };
+    pages[index] = { ...pages[index], leftHeader: header, leftContent: content, leftPage: pageNum(index), rightPage: rightPageNum(index) };
     return { pages };
   }),
 
   appendPage: (page) => set((s) => {
     const newIdx = s.pages.length;
-    const pages = [...s.pages, { ...page, leftPage: pageNum(newIdx) }];
+    const pages = [...s.pages, { ...page, leftPage: pageNum(newIdx), rightPage: rightPageNum(newIdx) }];
     return { pages };
   }),
 
   replacePage: (index, page) => set((s) => {
     const pages = [...s.pages];
-    pages[index] = { ...page, leftPage: pageNum(index) };
+    pages[index] = { ...page, leftPage: pageNum(index), rightPage: rightPageNum(index) };
     return { pages };
   }),
 
@@ -146,7 +152,7 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (s.pages.length <= 1) return s; // keep at least one page
     const pages = s.pages.filter((_, i) => i !== index);
     // Fix page numbers for remaining pages
-    const fixed = pages.map((p, i) => ({ ...p, leftPage: pageNum(i) }));
+    const fixed = pages.map((p, i) => ({ ...p, leftPage: pageNum(i), rightPage: rightPageNum(i) }));
     // Adjust pageIndex if needed
     let pageIndex = s.pageIndex;
     if (pageIndex >= fixed.length) pageIndex = fixed.length - 1;
