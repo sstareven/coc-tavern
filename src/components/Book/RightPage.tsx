@@ -168,25 +168,19 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
       <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
       {isCheck && check && (
-        <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: '#8b7632', display: 'flex', gap: 0, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5, overflow: 'hidden' }}>
+        <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', flexShrink: 0, overflow: 'hidden' }}>
+          <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28', whiteSpace: 'nowrap' }}>
+            {check.skillName}:{playerSkill !== null ? playerSkill.current : '?'}
+          </span>
           <span style={{
-            display: 'flex', gap: 6, alignItems: 'center',
-            maxWidth: hovered ? 160 : 0, opacity: hovered ? 1 : 0,
+            display: 'inline-flex', alignItems: 'center',
+            maxWidth: hovered ? 80 : 0, opacity: hovered ? 1 : 0,
             transition: 'max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
             overflow: 'hidden', whiteSpace: 'nowrap',
           }}>
-            {check.target > 0 && <span style={{ color: '#6b5a28' }}>目标:{check.target}</span>}
-            {check.target === 0 && <span style={{ color: '#6b5a28' }}>{check.difficulty}</span>}
-            {playerSkill !== null && (
-              <span style={{ color: playerSkill.current >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>
-                <span style={{ fontWeight: 700, fontSize: 12 }}>{playerSkill.current}</span>
-                {playerSkill.current !== playerSkill.base && <span style={{ fontSize: 9, opacity: 0.7 }}>({playerSkill.base})</span>}
-              </span>
-            )}
-            <span style={{ width: 6 }} />
-          </span>
-          <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28' }}>
-            {check.skillName}{playerSkill !== null && <span style={{ fontWeight: 400, fontSize: 9, opacity: 0.6 }}> {playerSkill.base}</span>}
+            <span style={{ marginLeft: 6, padding: '2px 6px', borderRadius: 3, fontSize: 11, fontWeight: 600, color: playerSkill && playerSkill.current >= (check.target || 50) ? '#2e7d32' : '#b71c1c', background: playerSkill && playerSkill.current >= (check.target || 50) ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.1)', border: playerSkill && playerSkill.current >= (check.target || 50) ? '1px solid rgba(46,125,50,0.3)' : '1px solid rgba(183,28,28,0.3)' }}>
+              {check.target > 0 ? check.target : check.difficulty}
+            </span>
           </span>
         </span>
       )}
