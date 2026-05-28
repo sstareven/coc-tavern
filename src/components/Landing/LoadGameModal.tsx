@@ -1,0 +1,99 @@
+import { useChatStore } from '../../stores/useChatStore';
+
+interface Props { onLoad: () => void; onClose: () => void }
+
+function fmtDate(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function LoadGameModal({ onLoad, onClose }: Props) {
+  const sessions = useChatStore((s) => s.sessions);
+  const setActive = useChatStore((s) => s.setActive);
+  const deleteSession = useChatStore((s) => s.deleteSession);
+
+  const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 800,
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 420, maxWidth: '92vw', maxHeight: '80vh',
+          background: 'linear-gradient(180deg, rgba(26,20,14,0.98) 0%, rgba(18,14,10,0.98) 100%)',
+          border: '1px solid rgba(196,168,85,0.2)',
+          borderRadius: 6, boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '18px 20px', borderBottom: '1px solid rgba(196,168,85,0.15)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>读取存档</h3>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1px solid transparent', borderRadius: 3, background: 'transparent',
+              color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
+          >✕</button>
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+          {sorted.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13, fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
+              暂无存档，请开始新游戏
+            </div>
+          ) : (
+            sorted.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => { setActive(s.id); onLoad(); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 20px', cursor: 'pointer',
+                  borderBottom: '1px solid rgba(196,168,85,0.04)',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
+                    {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
+                  style={{
+                    background: 'none', border: '1px solid transparent', borderRadius: 3,
+                    color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
+                    fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 12,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blood)'; e.currentTarget.style.borderColor = 'rgba(255,82,82,0.2)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-faded)'; e.currentTarget.style.borderColor = 'transparent'; }}
+                  title="删除存档"
+                >✕</button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
