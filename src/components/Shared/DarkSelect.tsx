@@ -2,17 +2,25 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { inputStyle } from '../CharSheet/styles';
 
-const selectTriggerStyle: React.CSSProperties = {
+const selectTriggerBase: React.CSSProperties = {
   ...inputStyle,
   cursor: 'pointer',
   position: 'relative',
   userSelect: 'none',
 };
 
-export function DarkSelect({ value, onChange, options, style }: {
+const compactOverride: React.CSSProperties = {
+  fontSize: 11,
+  padding: '6px 9px',
+  textAlign: 'left',
+  fontFamily: 'var(--font-ui)',
+};
+
+export function DarkSelect({ value, onChange, options, style, compact }: {
   value: string; onChange: (v: string) => void;
   options: { value: string; label: string; sub?: string; separator?: boolean }[];
   style?: React.CSSProperties;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -42,6 +50,11 @@ export function DarkSelect({ value, onChange, options, style }: {
     return () => { document.removeEventListener('mousedown', h); window.removeEventListener('scroll', r, true); };
   }, [open]);
 
+  const menuItemFontSize = compact ? 10 : 12;
+  const menuItemPadding = compact ? '5px 10px' : '8px 12px';
+  const menuItemAlign = compact ? 'left' : 'center';
+  const menuItemFont = compact ? 'var(--font-ui)' : 'var(--font-body)';
+
   const menu = open && rect && createPortal(
     <div className="darkselect-menu" style={{
       position: 'fixed', left: rect.left, top: rect.bottom + 2, minWidth: rect.width, zIndex: 9999,
@@ -59,9 +72,9 @@ export function DarkSelect({ value, onChange, options, style }: {
           <div key={o.value}
             onClick={() => { onChange(o.value); setOpen(false); }}
             style={{
-              padding: '8px 12px', cursor: 'pointer', fontSize: 12, textAlign: 'center',
+              padding: menuItemPadding, cursor: 'pointer', fontSize: menuItemFontSize, textAlign: menuItemAlign,
               color: o.value === value ? 'var(--gold)' : 'var(--text-light)',
-              fontFamily: 'var(--font-body)', borderBottom: '1px solid rgba(255,255,255,0.03)',
+              fontFamily: menuItemFont, borderBottom: '1px solid rgba(255,255,255,0.03)',
               background: o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; }}
@@ -75,6 +88,10 @@ export function DarkSelect({ value, onChange, options, style }: {
     </div>,
     document.body,
   );
+
+  const selectTriggerStyle = compact
+    ? { ...selectTriggerBase, ...compactOverride }
+    : selectTriggerBase;
 
   return (
     <div ref={ref} style={{ ...style }}>

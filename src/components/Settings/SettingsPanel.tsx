@@ -599,7 +599,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <span style={labelStyle}>模型</span>
                     <div style={{ width: 200 }}>
                       {availableModels.length > 0 ? (
-                        <DarkSelect value={localApiModel} onChange={(v) => { setLocalApiModel(v); setApiModel(v); }} options={availableModels.map(m => ({ value: m, label: m }))} />
+                        <DarkSelect compact value={localApiModel} onChange={(v) => { setLocalApiModel(v); setApiModel(v); }} options={availableModels.map(m => ({ value: m, label: m }))} />
                       ) : (
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{modelsLoading ? '加载中...' : '请先测试连接'}</div>
                       )}
@@ -729,7 +729,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         <span style={labelStyle}>模型</span>
                         <div style={{ width: 200 }}>
                           {mvuAvailableModels.length > 0 ? (
-                            <DarkSelect value={localMvuModel} onChange={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }} options={mvuAvailableModels.map(m => ({ value: m, label: m }))} />
+                            <DarkSelect compact value={localMvuModel} onChange={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }} options={mvuAvailableModels.map(m => ({ value: m, label: m }))} />
                           ) : (
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{mvuModelsLoading ? '加载中...' : '请先测试连接'}</div>
                           )}
