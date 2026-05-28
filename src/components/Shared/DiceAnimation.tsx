@@ -348,15 +348,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
           {opposed && (
             <>
-              {phase === 'result' ? (
-                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: opposedOutcome === 'win' ? '#69f0ae' : opposedOutcome === 'lose' ? '#ef5350' : '#ffd740', fontFamily: 'var(--font-display)', letterSpacing: 4 }}>
-                    {opposedOutcome === 'win' ? '胜利' : opposedOutcome === 'lose' ? '败北' : '平局'}
-                  </span>
-                </motion.div>
-              ) : (
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#888', fontFamily: 'var(--font-display)', letterSpacing: 2, opacity: 0.6 }}>VS</span>
-              )}
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#888', fontFamily: 'var(--font-display)', letterSpacing: 2, opacity: 0.6 }}>VS</span>
               <motion.div
                 initial={{ opacity: 0, scale: 0.3, x: entrance.alt.x * 0.5, y: entrance.alt.y * 0.5 }}
                 animate={{
@@ -405,10 +397,10 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           )}
           {phase === 'result' && opposed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', opacity: 0.7 }}>
-                <span>{LABELS[resultType] || resultType} ({roll})</span>
-                <span>vs</span>
-                <span>{LABELS[opponentResultType] || opponentResultType} ({opponentRoll})</span>
+              <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
+                <span style={{ fontSize: 22, fontWeight: 600, color, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>
+                  {opposedOutcome === 'win' ? '胜 利' : opposedOutcome === 'lose' ? '败 北' : '平 局'}
+                </span>
               </div>
             </motion.div>
           )}
