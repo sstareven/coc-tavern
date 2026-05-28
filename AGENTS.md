@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-05-28
-**Commit:** `3f5ab4c`
+**Commit:** `052eac6`
 **Branch:** `master`
 
 ## OVERVIEW
@@ -16,7 +16,7 @@
 ./
 ├── src/
 │   ├── sillytavern/     # 引擎层 — 22 files, 纯计算 + store-glue + dice engine
-│   ├── stores/          # 12 个 Zustand stores — useChatStore 现已接入 localStorage
+│   ├── stores/          # 13 个 Zustand stores — 全部接入 IndexedDB (Dexie persist)
 │   ├── components/
 │   │   ├── Book/        # 故事书双页翻页 (6 files)
 │   │   ├── CharSheet/   # COC 角色卡 + 创建向导 (7 files + steps/ 子目录 6 files)
@@ -25,11 +25,12 @@
 │   │   ├── Layout/      # GameView + TopBar + InputBar (3 files)
 │   │   ├── Settings/    # 设置面板群 (13 files) ⚠️ junk drawer
 │   │   └── Shared/      # 共享组件 (11 files)
-│   ├── hooks/           # usePageFlip, useAudio, useChatPipeline, useCharacterPresets (4 files)
+│   ├── hooks/           # usePageFlip, useAudio, useChatPipeline, useStreamingRenderer (4 files)
 │   ├── types/index.ts   # 单一类型源 (296 lines, ~20 domains)
 │   ├── styles/          # tokens.css + global.css — 无 Tailwind/CSS Modules
 │   ├── audio/sfx.ts     # Web Audio 合成音效
-│   └── db/database.ts   # Dexie schema (未接入任何 store)
+│   ├── db/              # Dexie IndexedDB 持久化层 — kvStore 单表 + 迁移 + 适配器 (5 files)
+│   ├── test/setup.ts     # Vitest 环境 (fake-indexeddb + localStorage polyfill)
 └── public/              # 应用 JSON 数据错放在此处 ⚠️
 ```
 
@@ -43,7 +44,9 @@
 | 变量提取/合并 | `src/sillytavern/variables.ts` + `mvu-extractor.ts` | XML + LLM-based |
 | 斜杠命令 | `src/sillytavern/slash-commands.ts` | `/roll /var /set /help` |
 | EJS 模板 | `src/sillytavern/ejs-template.ts` | LRU 缓存，沙箱 eval |
-| 状态管理 | `src/stores/useXxxStore.ts` | 12 stores，单域单 store |
+| 状态管理 | `src/stores/useXxxStore.ts` | 13 stores，全部 Dexie persist 中间件持久化 |
+| Dexie 数据库 | `src/db/database.ts` | kvStore 单表，`&key` 主键 |
+| 数据迁移 | `src/db/migrations.ts` | localStorage→IndexedDB 自动迁移 |
 | 角色创建 | `src/components/CharSheet/CharacterCreator.tsx` | 922 lines, 编排器（steps/ 子目录拆分） |
 | 故事书翻页 | `src/components/Book/Storybook.tsx` + `PageFlip3D.tsx` | CSS 3D transform |
 | 骰子检定 | `src/components/Dice/DicePanel.tsx` + `src/stores/useDiceStore.ts` + `src/sillytavern/dice-engine.ts` | 五级判定 + 奖励骰，骰子引擎已提取 |
@@ -94,14 +97,14 @@
 npm run dev        # Vite 开发服务器
 npm run build      # tsc -b 类型检查 + Vite 构建
 npm run lint       # ESLint (flat config v10)
+npm test           # Vitest (50 tests)
 npm run preview    # 预览生产构建
 ```
 
 ## NOTES
 
-- `src/db/database.ts` — Dexie schema 已定义但零消费者。所有持久化走 localStorage。如需 IndexedDB，从 stores 接入。
-- `src/components/Shared/MusicPlayer.tsx` — 从未挂载于 App.tsx（死代码）。
+- `src/db/database.ts` — Dexie schema with `kvStore` single table. All 13 stores use `persist` middleware + Dexie storage adapter. Auto-migration from localStorage on first load.
 - `src/components/Book/PageFlip.tsx` 与 `PageFlip3D.tsx` 并存 — 前者用 Framer Motion，后者用 CSS 3D。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
-- `src/sillytavern/types.ts` — 仅重导出 `../types`，冗余文件。
-- 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/components/CharSheet/` `src/components/Settings/` `src/components/Layout/` `src/components/Shared/`
+- 测试覆盖：50 tests (27 dice + 18 COC rules + 5 database)，Vitest + fake-indexeddb
+- 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/components/CharSheet/` `src/components/Settings/` `src/components/Layout/` `src/components/Shared/` `src/db/`
