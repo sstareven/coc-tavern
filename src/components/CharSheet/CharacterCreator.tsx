@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { btnBase, btnDisabled } from './styles';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useCharacterPresets } from '../../hooks/useCharacterPresets';
+import { useCharacterPresetsStore } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import type { CharacterSheet, COC7Characteristic } from '../../types';
 import {
@@ -251,7 +251,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [quickFillError, setQuickFillError] = useState('');
 
   /* ---- Presets ---- */
-  const { presets, savePreset, deletePreset } = useCharacterPresets();
+  const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
   const [showPresetLoad, setShowPresetLoad] = useState(false);
 
   const saveCurrentPreset = useCallback(() => {

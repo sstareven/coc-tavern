@@ -1,22 +1,7 @@
 import { create } from 'zustand';
-
-const STORAGE_KEY = 'coc_settings_v2';
-
-function load(): Partial<SettingsState> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function save(state: SettingsStore) {
-  try {
-    const { toggleSound, setTooltipDelay, setMusicVolume, setApiKey, setAvailableModels, setMvuUseIndependentApi, setMvuApiBaseUrl, setMvuApiModel, setMvuApiKey, setMvuTemperature, setMvuRetryCount, setPromptPostProcessing, setApiBaseUrl, setApiModel, ...data } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch { /* quota exceeded, ignore */ }
-}
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { createDexieStorage } from '../db/storage';
+import { stripFunctions } from '../db/stripFunctions';
 
 interface SettingsState {
   soundEnabled: boolean;
@@ -74,71 +59,31 @@ const defaults: SettingsState = {
   mvuAvailableModels: [],
 };
 
-const persisted = load();
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      ...defaults,
 
-export const useSettingsStore = create<SettingsStore>((set) => ({
-  ...defaults,
-  ...persisted,
-
-  toggleSound: () => set((s) => {
-    const next = { ...s, soundEnabled: !s.soundEnabled };
-    save(next);
-    return { soundEnabled: next.soundEnabled };
-  }),
-  setTooltipDelay: (d) => set((s) => {
-    save({ ...s, tooltipDelay: d });
-    return { tooltipDelay: d };
-  }),
-  setMusicVolume: (v) => set((s) => {
-    save({ ...s, musicVolume: v });
-    return { musicVolume: v };
-  }),
-  setApiBaseUrl: (url) => set((s) => {
-    save({ ...s, apiBaseUrl: url });
-    return { apiBaseUrl: url };
-  }),
-  setApiModel: (model) => set((s) => {
-    save({ ...s, apiModel: model });
-    return { apiModel: model };
-  }),
-  setApiKey: (k) => set((s) => {
-    save({ ...s, apiKey: k });
-    return { apiKey: k };
-  }),
-  setAvailableModels: (models: string[]) => set((s) => {
-    save({ ...s, availableModels: models });
-    return { availableModels: models };
-  }),
-  setMvuUseIndependentApi: (v) => set((s) => {
-    save({ ...s, mvuUseIndependentApi: v });
-    return { mvuUseIndependentApi: v };
-  }),
-  setMvuApiBaseUrl: (url) => set((s) => {
-    save({ ...s, mvuApiBaseUrl: url });
-    return { mvuApiBaseUrl: url };
-  }),
-  setMvuApiModel: (model) => set((s) => {
-    save({ ...s, mvuApiModel: model });
-    return { mvuApiModel: model };
-  }),
-  setMvuApiKey: (key) => set((s) => {
-    save({ ...s, mvuApiKey: key });
-    return { mvuApiKey: key };
-  }),
-  setMvuTemperature: (t) => set((s) => {
-    save({ ...s, mvuTemperature: t });
-    return { mvuTemperature: t };
-  }),
-  setMvuRetryCount: (n) => set((s) => {
-    save({ ...s, mvuRetryCount: n });
-    return { mvuRetryCount: n };
-  }),
-  setMvuAvailableModels: (models) => set((s) => {
-    save({ ...s, mvuAvailableModels: models });
-    return { mvuAvailableModels: models };
-  }),
-  setPromptPostProcessing: (v) => set((s) => {
-    save({ ...s, promptPostProcessing: v });
-    return { promptPostProcessing: v };
-  }),
-}));
+      toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+      setTooltipDelay: (d) => set({ tooltipDelay: d }),
+      setMusicVolume: (v) => set({ musicVolume: v }),
+      setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
+      setApiModel: (model) => set({ apiModel: model }),
+      setApiKey: (k) => set({ apiKey: k }),
+      setAvailableModels: (models) => set({ availableModels: models }),
+      setPromptPostProcessing: (v) => set({ promptPostProcessing: v }),
+      setMvuUseIndependentApi: (v) => set({ mvuUseIndependentApi: v }),
+      setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
+      setMvuApiModel: (model) => set({ mvuApiModel: model }),
+      setMvuApiKey: (key) => set({ mvuApiKey: key }),
+      setMvuTemperature: (t) => set({ mvuTemperature: t }),
+      setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
+      setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
+    }),
+    {
+      name: 'coc_settings_v2',
+      storage: createJSONStorage(createDexieStorage),
+      partialize: (state) => stripFunctions(state),
+    },
+  ),
+);
