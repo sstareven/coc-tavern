@@ -1,6 +1,7 @@
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import type { ChoiceItem, DiceResultType } from '../../types';
@@ -46,6 +47,13 @@ function rollAndGetResult(_skillName: string, target: number): { raw: number; re
     'success': '成功', 'failure': '失败', 'crit-failure': '大失败！',
   };
   return { raw, resultType, label: labels[resultType] || resultType };
+}
+
+function getPlayerSkillValue(skillName: string): number | null {
+  const sheet = useCharSheetStore.getState().sheet;
+  const skill = sheet.skills[skillName];
+  if (skill) return skill.current;
+  return null;
 }
 
 function fillInputBar(text: string) {
@@ -121,7 +129,9 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {choices.map((ch) => {
-            const isCheck = parseCheckAction(ch.action) !== null;
+            const check = parseCheckAction(ch.action);
+            const isCheck = check !== null;
+            const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
             return (
               <button key={ch.num} onClick={() => fillInputBar(ch.action)} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -132,9 +142,16 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
               }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.2)' : 'rgba(196,168,85,0.15)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.1)' : 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = isCheck ? 'rgba(196,168,85,0.4)' : 'rgba(107,90,58,0.2)'; }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: isCheck ? '1px solid var(--gold)' : '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
-                <span>{ch.text}</span>
-                {isCheck && <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-mono)', opacity: 0.7 }}>🎲</span>}
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
+                <span style={{ flex: 1 }}>{ch.text}</span>
+                {isCheck && check && (
+                  <span style={{ marginLeft: 'auto', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', opacity: 0.85, display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                    <span style={{ padding: '1px 5px', border: '1px solid rgba(196,168,85,0.3)', borderRadius: 2, background: 'rgba(196,168,85,0.08)' }}>{check.skillName}</span>
+                    {check.target > 0 && <span>目标:{check.target}</span>}
+                    {check.target === 0 && <span>{check.difficulty}</span>}
+                    {playerSkill !== null && <span style={{ color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>({playerSkill})</span>}
+                  </span>
+                )}
               </button>
             );
           })}
