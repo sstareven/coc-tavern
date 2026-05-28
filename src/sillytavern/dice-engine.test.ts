@@ -1,0 +1,194 @@
+import { describe, it, expect } from 'vitest';
+import type { DiceResultType } from '../types';
+import { determineResult, d100, randD10 } from './dice-engine';
+
+// ============================================================
+// d100 组合测试
+// ============================================================
+describe('d100', () => {
+  it('combines tens and ones into a d100 value', () => {
+    expect(d100(3, 5)).toBe(35);
+    expect(d100(0, 1)).toBe(1);
+    expect(d100(9, 0)).toBe(90);
+    expect(d100(5, 7)).toBe(57);
+  });
+
+  it('treats (0, 0) as 100', () => {
+    expect(d100(0, 0)).toBe(100);
+  });
+
+  it('handles boundary (9, 9) → 99', () => {
+    expect(d100(9, 9)).toBe(99);
+  });
+});
+
+// ============================================================
+// randD10 范围测试
+// ============================================================
+describe('randD10', () => {
+  it('returns values in 0–9 range', () => {
+    for (let i = 0; i < 100; i++) {
+      const v = randD10();
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(9);
+    }
+  });
+});
+
+// ============================================================
+// determineResult — COC 7th 五级判定
+// ============================================================
+describe('determineResult', () => {
+  // ── 大成功 ──
+  describe('crit-success (大成功)', () => {
+    it('roll=1 is always crit-success regardless of target', () => {
+      expect(determineResult(1, 65, false)).toBe('crit-success');
+      expect(determineResult(1, 30, false)).toBe('crit-success');
+      expect(determineResult(1, 95, true)).toBe('crit-success');
+    });
+
+    it('roll=1 beats extreme-success when target/5 ≥ 1', () => {
+      // target=5: fifth=1, roll=1 would match both crit-success and extreme-success
+      // crit-success check (line 11) comes before extreme (line 12) → crit wins
+      expect(determineResult(1, 5, false)).toBe('crit-success');
+    });
+  });
+
+  // ── 大失败 ──
+  describe('crit-failure (大失败)', () => {
+    it('roll=100 is always crit-failure', () => {
+      expect(determineResult(100, 65, false)).toBe('crit-failure');
+      expect(determineResult(100, 30, true)).toBe('crit-failure');
+      expect(determineResult(100, 95, false)).toBe('crit-failure');
+    });
+
+    it('SAN check: roll 96–99 → crit-failure', () => {
+      expect(determineResult(96, 65, true)).toBe('crit-failure');
+      expect(determineResult(97, 65, true)).toBe('crit-failure');
+      expect(determineResult(98, 65, true)).toBe('crit-failure');
+      expect(determineResult(99, 65, true)).toBe('crit-failure');
+    });
+
+    it('SAN check: roll 96 even on high target → crit-failure', () => {
+      expect(determineResult(96, 80, true)).toBe('crit-failure');
+      expect(determineResult(99, 95, true)).toBe('crit-failure');
+    });
+
+    it('non-SAN, target < 50: roll 96–99 → crit-failure', () => {
+      expect(determineResult(96, 30, false)).toBe('crit-failure');
+      expect(determineResult(97, 30, false)).toBe('crit-failure');
+      expect(determineResult(99, 49, false)).toBe('crit-failure');
+    });
+
+    it('non-SAN, target ≥ 50: roll 96–99 → failure (not crit-failure)', () => {
+      expect(determineResult(96, 50, false)).toBe('failure');
+      expect(determineResult(97, 65, false)).toBe('failure');
+      expect(determineResult(99, 80, false)).toBe('failure');
+    });
+  });
+
+  // ── 极难成功 ──
+  describe('extreme-success (极难成功)', () => {
+    it('roll ≤ target/5', () => {
+      const t = 65; // fifth = 13
+      expect(determineResult(2, t, false)).toBe('extreme-success');
+      expect(determineResult(13, t, false)).toBe('extreme-success');
+    });
+
+    it('roll 14 > 13 → hard-success (not extreme)', () => {
+      expect(determineResult(14, 65, false)).toBe('hard-success');
+    });
+
+    it('target=30: fifth=6', () => {
+      expect(determineResult(6, 30, false)).toBe('extreme-success');
+      expect(determineResult(7, 30, false)).toBe('hard-success');
+    });
+  });
+
+  // ── 困难成功 ──
+  describe('hard-success (困难成功)', () => {
+    it('roll ≤ target/2 but > target/5', () => {
+      const t = 65; // half = 32
+      expect(determineResult(14, t, false)).toBe('hard-success');
+      expect(determineResult(32, t, false)).toBe('hard-success');
+    });
+
+    it('roll 33 → success (not hard)', () => {
+      expect(determineResult(33, 65, false)).toBe('success');
+    });
+  });
+
+  // ── 普通成功 ──
+  describe('success (成功)', () => {
+    it('roll ≤ target but > target/2', () => {
+      const t = 65;
+      expect(determineResult(33, t, false)).toBe('success');
+      expect(determineResult(65, t, false)).toBe('success');
+    });
+
+    it('roll 66 > 65 → failure', () => {
+      expect(determineResult(66, 65, false)).toBe('failure');
+    });
+  });
+
+  // ── 失败 ──
+  describe('failure (失败)', () => {
+    it('roll > target, not a crit-failure', () => {
+      expect(determineResult(66, 65, false)).toBe('failure');
+      expect(determineResult(80, 65, false)).toBe('failure');
+      expect(determineResult(95, 65, false)).toBe('failure');
+    });
+
+    it('target=5: roll 6–95 → failure, roll 96–99 depends', () => {
+      expect(determineResult(6, 5, false)).toBe('failure');
+      expect(determineResult(50, 5, false)).toBe('failure');
+      // 96–99 with target<5 and non-SAN → crit-failure (line 15)
+      expect(determineResult(96, 5, false)).toBe('crit-failure');
+    });
+  });
+
+  // ── 边界值与优先级 ──
+  describe('priority / edge cases', () => {
+    it('roll=100 checked before SAN 96 check', () => {
+      expect(determineResult(100, 65, true)).toBe('crit-failure');
+    });
+
+    it('roll=1 checked before extreme-success', () => {
+      expect(determineResult(1, 80, false)).toBe('crit-success');
+    });
+
+    it('target=1: fifth=0, roll=2 → hard? No: half=0, 2≤1=false, 2>1 → failure', () => {
+      expect(determineResult(2, 1, false)).toBe('failure');
+    });
+
+    it('target=0: roll=1 → crit-success', () => {
+      expect(determineResult(1, 0, false)).toBe('crit-success');
+    });
+
+    it('target=0: roll=2 → failure (2 ≤ 0 false)', () => {
+      expect(determineResult(2, 0, false)).toBe('failure');
+    });
+
+    it('target=0: roll=96, SAN=false → crit-failure (target<50)', () => {
+      expect(determineResult(96, 0, false)).toBe('crit-failure');
+    });
+  });
+
+  // ── 回归：确保返回正确的类型 ──
+  describe('return type', () => {
+    it('always returns a valid DiceResultType', () => {
+      const types: DiceResultType[] = [
+        'crit-success', 'extreme-success', 'hard-success',
+        'success', 'failure', 'crit-failure',
+      ];
+      // Test a wide range
+      for (let roll = 1; roll <= 100; roll++) {
+        for (const target of [0, 1, 5, 30, 50, 65, 80, 95, 100]) {
+          for (const san of [false, true]) {
+            expect(types).toContain(determineResult(roll, target, san));
+          }
+        }
+      }
+    });
+  });
+});
