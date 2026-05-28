@@ -1,13 +1,5 @@
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
-
-const STATS: { key: string; zh: string; color: string }[] = [
-  { key: 'hp', zh: 'HP 生命', color: 'var(--success)' },
-  { key: 'san', zh: 'SAN 理智', color: 'var(--blood)' },
-  { key: 'mp', zh: 'MP 魔法', color: 'var(--gold)' },
-  { key: 'luck', zh: 'LUCK 幸运', color: 'var(--gold-bright)' },
-  { key: 'mov', zh: 'MOV 移动', color: 'var(--ink-subtle)' },
-  { key: 'db', zh: 'DB 伤害', color: 'var(--ink-subtle)' },
-];
+import { SECONDARY_STATS } from '../../sillytavern/coc-data';
 
 export function SecStats() {
   const sheet = useCharSheetStore((s) => s.sheet);
@@ -33,7 +25,7 @@ export function SecStats() {
         gap: 8,
       }}
     >
-      {STATS.map((s) => (
+      {SECONDARY_STATS.map((s) => (
         <div
           key={s.key}
           style={{
