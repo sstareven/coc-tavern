@@ -338,34 +338,45 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
     const finalOccupation = occupation === '__custom__' ? (customOccupation || '调查员') : (occupation || '调查员');
 
-    const sheet: CharacterSheet = {
-      characteristics: chars,
-      halfFifth,
-      secondary: {
-        hp: { current: hpMax, max: hpMax },
-        san: { current: sanMax, max: sanMax },
-        mp: { current: mpMax, max: mpMax },
-        luck,
-        mov: 8,
-        db,
-        build,
-      },
-      skills,
-      identity: {
-        name: name || '未命名调查员',
-        occupation: finalOccupation,
-        age,
-        gender: sex,
-        birthplace,
-        residence,
-        id: charId,
-      },
-      greeting: '',
-      description: '',
-      personality: '',
-      scenario: '',
-      personaDescription: '',
-    };
+      // Combine background fields into a rich description
+      const bgParts: string[] = [];
+      if (beliefs.trim()) bgParts.push(`【思想信念】\n${beliefs.trim()}`);
+      if (significantPeople.trim()) bgParts.push(`【重要之人】\n${significantPeople.trim()}`);
+      if (meaningfulLocations.trim()) bgParts.push(`【意义非凡之地】\n${meaningfulLocations.trim()}`);
+      if (treasuredPossessions.trim()) bgParts.push(`【宝贵之物】\n${treasuredPossessions.trim()}`);
+      if (traits.trim()) bgParts.push(`【特质】\n${traits.trim()}`);
+      if (injuries.trim()) bgParts.push(`【伤口与疤痕】\n${injuries.trim()}`);
+      if (phobias.trim()) bgParts.push(`【恐惧与狂躁】\n${phobias.trim()}`);
+      const combinedDesc = [description.trim(), ...bgParts].filter(Boolean).join('\n\n');
+
+      const sheet: CharacterSheet = {
+        characteristics: chars,
+        halfFifth,
+        secondary: {
+          hp: { current: hpMax, max: hpMax },
+          san: { current: sanMax, max: sanMax },
+          mp: { current: mpMax, max: mpMax },
+          luck,
+          mov: 8,
+          db,
+          build,
+        },
+        skills,
+        identity: {
+          name: name || '未命名调查员',
+          occupation: finalOccupation,
+          age,
+          gender: sex,
+          birthplace,
+          residence,
+          id: charId,
+        },
+        greeting: '',
+        description: combinedDesc,
+        personality: useCharSheetStore.getState().sheet.personality,
+        scenario: useCharSheetStore.getState().sheet.scenario,
+        personaDescription: useCharSheetStore.getState().sheet.personaDescription,
+      };
 
     try {
       const bg = {
