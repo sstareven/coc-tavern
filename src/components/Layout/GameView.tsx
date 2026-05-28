@@ -11,12 +11,13 @@ interface Props { onReturnToMenu: () => void }
 export function GameView({ onReturnToMenu }: Props) {
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
-  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '' });
+    bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0 });
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText });
+      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText, bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0 });
     };
     document.addEventListener('dice-roll-animate', handler);
     return () => document.removeEventListener('dice-roll-animate', handler);
@@ -109,6 +110,8 @@ export function GameView({ onReturnToMenu }: Props) {
         roll={diceAnim.roll}
         resultType={diceAnim.resultType}
         onComplete={onDiceComplete}
+        bonus={diceAnim.bonus}
+        bonusTens={diceAnim.bonusTens}
       />
     </div>
   );

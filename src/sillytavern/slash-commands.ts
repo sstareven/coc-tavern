@@ -189,6 +189,58 @@ export function initBuiltinCommands(): void {
     },
   });
 
+  // /testbonus [技能名] [目标值] — test bonus dice animation
+  registerCommand({
+    name: 'testbonus',
+    description: '测试奖励骰动画。用法: /testbonus 侦查 60',
+    execute: (args) => {
+      const parsed = parseArgs(args);
+      const skillName = parsed[0] || '侦查';
+      const target = parseInt(parsed[1] || '50') || 50;
+      const d10 = () => Math.floor(Math.random() * 10);
+      const t1 = d10(), t2 = d10(), o = d10();
+      const t = Math.min(t1, t2);
+      const roll = (t === 0 && o === 0) ? 100 : t * 10 + o;
+      const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+      let resultType = 'failure';
+      if (roll === 100 || (target < 50 && roll >= 96)) resultType = 'crit-failure';
+      else if (roll === 1) resultType = 'crit-success';
+      else if (roll <= fifth) resultType = 'extreme-success';
+      else if (roll <= half) resultType = 'hard-success';
+      else if (roll <= target) resultType = 'success';
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: { skillName, target, roll, resultType, inputText: '', bonus: 'bonus', bonusTens: Math.max(t1, t2) },
+      }));
+      return `[奖励骰: ${skillName} d100=${roll}/${target} (十位:${t1},${t2}→${t}) ]`;
+    },
+  });
+
+  // /testpenalty [技能名] [目标值] — test penalty dice animation
+  registerCommand({
+    name: 'testpenalty',
+    description: '测试惩罚骰动画。用法: /testpenalty 侦查 60',
+    execute: (args) => {
+      const parsed = parseArgs(args);
+      const skillName = parsed[0] || '侦查';
+      const target = parseInt(parsed[1] || '50') || 50;
+      const d10 = () => Math.floor(Math.random() * 10);
+      const t1 = d10(), t2 = d10(), o = d10();
+      const t = Math.max(t1, t2);
+      const roll = (t === 0 && o === 0) ? 100 : t * 10 + o;
+      const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+      let resultType = 'failure';
+      if (roll === 100 || (target < 50 && roll >= 96)) resultType = 'crit-failure';
+      else if (roll === 1) resultType = 'crit-success';
+      else if (roll <= fifth) resultType = 'extreme-success';
+      else if (roll <= half) resultType = 'hard-success';
+      else if (roll <= target) resultType = 'success';
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: { skillName, target, roll, resultType, inputText: '', bonus: 'penalty', bonusTens: Math.min(t1, t2) },
+      }));
+      return `[惩罚骰: ${skillName} d100=${roll}/${target} (十位:${t1},${t2}→${t}) ]`;
+    },
+  });
+
   // /thvar <name> — get macro variable value
   registerCommand({
     name: 'thvar',
