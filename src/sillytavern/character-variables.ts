@@ -27,6 +27,13 @@ export function buildCharacterVariables(): Record<string, string> {
     '调查员.年龄': String(sheet.identity.age),
     '调查员.性别': sheet.identity.gender,
     '调查员.幸运': String(sheet.secondary.luck),
+    // ── Skill entries ──
+    ...Object.fromEntries(
+      Object.entries(sheet.skills).map(([name, skill]) => [
+        `调查员.技能.${name}`,
+        String(skill.current),
+      ]),
+    ),
     greeting: sheet.greeting || '',
     description: sheet.description || '',
     personality: sheet.personality || '',
