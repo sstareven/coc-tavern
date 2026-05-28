@@ -305,7 +305,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
     })();
 
     return () => { cancelled = true; if (tRef.current) clearTimeout(tRef.current); };
-  }, [visible, onComplete, resultType]);
+  }, [visible, onComplete, resultType, isDual]);
 
   // Random entrance direction — matches the rotation direction feel
   const entrance = useMemo(() => {
@@ -422,7 +422,7 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     const stop = setTimeout(() => { clearInterval(iv); setRandomDigits(Array(6).fill(rollStr)); }, 750);
     return () => { clearInterval(iv); clearTimeout(stop); };
     // eslint-enable react-hooks/set-state-in-effect
-  }, [phase]);
+  }, [phase, rollStr]);
 
   const digits = phase === 'rolling' ? randomDigits : Array(6).fill(rollStr);
   const faceColor = phase === 'result' ? color : 'var(--gold)';
