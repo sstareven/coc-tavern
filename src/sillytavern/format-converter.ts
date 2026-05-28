@@ -10,7 +10,7 @@
  *   { name, temperature, top_p, top_k, max_tokens, repetition_penalty,
  *     system_prompt, user_prefix, assistant_prefix, ... }
  */
-import type { InsertPosition, LoreBook, LoreEntry, ChatPreset, RegexScript, THScriptTree } from '../types';
+import type { InsertPosition, LoreBook, LoreEntry, ChatPreset, RegexScript, THScriptTree, PromptItem, THVariable } from '../types';
 
 // ── ST module identifier → label map ──
 const MODULE_ID_MAP: Record<string, string> = {
@@ -29,6 +29,59 @@ const MODULE_ID_MAP: Record<string, string> = {
   jailbreak: 'Enhance Definitions',
   nsfw: 'Enhance Definitions',
 };
+
+// ── ST Preset Data Types ──
+
+interface STPromptItem {
+  identifier?: string;
+  name?: string;
+  role?: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
+interface STPromptOrderItem {
+  identifier: string;
+  enabled: boolean;
+}
+
+interface STRawRegexScript {
+  scriptName: unknown;
+  findRegex: unknown;
+  replaceString?: unknown;
+  trimStrings?: unknown;
+  placement?: unknown;
+  disabled?: unknown;
+  markdownOnly?: unknown;
+  promptOnly?: unknown;
+  runOnEdit?: unknown;
+  substituteRegex?: unknown;
+  minDepth?: unknown;
+  maxDepth?: unknown;
+}
+
+interface STPresetData {
+  name?: string;
+  temperature?: number; top_p?: number; top_k?: number; min_p?: number; top_a?: number;
+  max_tokens?: number; frequency_penalty?: number; presence_penalty?: number;
+  repetition_penalty?: number; system_prompt?: string; user_prefix?: string;
+  assistant_prefix?: string; max_context_unlocked?: boolean; unlock_context?: boolean;
+  openai_max_context?: number; context_length?: number; max_response_length?: number;
+  stream_enabled?: boolean; reasoning_effort?: string; show_thoughts?: boolean;
+  response_length?: string; seed?: number; char_name_behavior?: string;
+  names_behavior?: number; continue_postfix?: string; continue_suffix?: string;
+  continue_prefill?: boolean; assistant_prefill?: string; alternative_replies?: number;
+  prompts?: Record<string, STPromptItem>;
+    prompt_order?: unknown[],
+  extensions?: {
+    regex_scripts?: STRawRegexScript[];
+  prompt_order?: unknown[];
+    tavern_helper?: {
+      scripts?: unknown;
+      variables?: unknown;
+    };
+  };
+}
 
 // ── World Book ──
 
@@ -109,7 +162,7 @@ export function importWorldBookFromST(json: string): LoreBook | null {
 // ── Preset ──
 
 export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[]): string {
-  const data: any = {
+  const data: STPresetData = {
     name: preset.name, temperature: preset.temperature,
     top_p: preset.topP, top_k: preset.topK, min_p: preset.minP, top_a: preset.topA,
     max_tokens: preset.maxTokens,
@@ -124,7 +177,7 @@ export function exportPresetToST(preset: ChatPreset, regexScripts?: RegexScript[
     continue_postfix: preset.continueSuffix === 'space' ? ' ' : preset.continueSuffix === 'newline' ? '\n' : preset.continueSuffix === 'doublenewline' ? '\n\n' : '',
     continue_prefill: preset.continuePrefill,
     assistant_prefill: preset.assistantPrefill,
-    prompt_order: preset.promptItems.map((p: any) => ({
+    prompt_order: preset.promptItems.map((p) => ({
       identifier: p.id, name: p.name, enabled: p.enabled, content: p.content, role: p.role,
     })),
   };
@@ -165,17 +218,17 @@ export interface ImportedPreset {
   regexScripts: RegexScript[];
 }
 
-function parseRegexScripts(data: any): RegexScript[] {
+function parseRegexScripts(data: STPresetData): RegexScript[] {
   const rawScripts = data.extensions?.regex_scripts;
   if (!Array.isArray(rawScripts)) return [];
   return rawScripts
-    .filter((r: any) => r.scriptName && r.findRegex)
-    .map((r: any) => ({
+    .filter((r: STRawRegexScript) => r.scriptName && r.findRegex)
+    .map((r: STRawRegexScript) => ({
       id: '', // caller assigns
       scriptName: String(r.scriptName ?? ''),
       findRegex: String(r.findRegex ?? ''),
       replaceString: String(r.replaceString ?? ''),
-      trimStrings: Array.isArray(r.trimStrings) ? r.trimStrings : [],
+      trimStrings: (Array.isArray(r.trimStrings) ? r.trimStrings : []) as string[],
       placement: (Array.isArray(r.placement) ? r.placement : [r.placement])
         .map((p: number) => p as 1 | 2 | 3 | 5 | 6)
         .filter((p: number) => [1, 2, 3, 5, 6].includes(p)),
@@ -189,34 +242,35 @@ function parseRegexScripts(data: any): RegexScript[] {
     }));
 }
 
-function parseTavernHelperData(data: any): { scripts?: THScriptTree[]; vars?: Record<string, any> } {
+function parseTavernHelperData(data: STPresetData): { scripts?: THScriptTree[]; vars?: Record<string, unknown> } {
   const raw = data.extensions?.tavern_helper;
   if (!raw || typeof raw !== 'object') return {};
   const scripts = raw.scripts;
   const vars = raw.variables;
   return {
     scripts: Array.isArray(scripts) && scripts.length > 0 ? scripts : undefined,
-    vars: vars && typeof vars === 'object' && !Array.isArray(vars) ? vars : undefined,
+    vars: (vars && typeof vars === 'object' && !Array.isArray(vars) ? vars : undefined) as Record<string, unknown> | undefined,
   };
 }
 
 export function importPresetFromST(json: string, fileName?: string): ImportedPreset | null {
   try {
-    const data: any = JSON.parse(json);
+    const data: STPresetData = JSON.parse(json);
     const regexScripts = parseRegexScripts(data);
     const thData = parseTavernHelperData(data);
     // Get prompt_order (root or nested in extensions)
     const extPromptOrder = data.extensions?.prompt_order || [];
     const rootPromptOrder = data.prompt_order || [];
-    const promptOrder = rootPromptOrder.length > 0 ? rootPromptOrder : extPromptOrder;
+    const rawOrder = (Array.isArray(rootPromptOrder) && rootPromptOrder.length > 0) ? rootPromptOrder : (Array.isArray(extPromptOrder) ? extPromptOrder : []);
+    const promptOrder = rawOrder as Array<{ order?: STPromptOrderItem[]; character_id?: string }>;
 
     // Build lookup: identifier → prompt data from the library
-    const promptsMap: Record<string, any> = data.prompts || {};
-    const identifierMap: Record<string, any> = {};
+    const promptsMap: Record<string, STPromptItem> = data.prompts || {};
+    const identifierMap: Record<string, STPromptItem> = {};
     // If prompts have an 'identifier' field, use that; otherwise use the key
     for (const [key, p] of Object.entries(promptsMap)) {
       if (p && typeof p === 'object') {
-        const ident = (p as any).identifier || key;
+        const ident = p.identifier || key;
         identifierMap[String(ident)] = p;
       }
     }
@@ -227,11 +281,11 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
     // contain only system markers are just marker-definition stubs.
     const orderedItems: Array<{ id: string; enabled: boolean }> = [];
     if (Array.isArray(promptOrder)) {
-      let bestEntry: { order: any[] } | null = null;
+      let bestEntry: { order?: STPromptOrderItem[] } | null = null;
       let bestNonMarkerCount = -1;
       for (const item of promptOrder) {
         if (Array.isArray(item.order)) {
-          const nonMarkerCount = item.order.filter((o: any) => !(String(o.identifier) in MODULE_ID_MAP)).length;
+          const nonMarkerCount = item.order.filter((o: STPromptOrderItem) => !(String(o.identifier) in MODULE_ID_MAP)).length;
           if (nonMarkerCount > bestNonMarkerCount) {
             bestNonMarkerCount = nonMarkerCount;
             bestEntry = item;
@@ -250,7 +304,7 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
     }
 
     const name = fileName || data.name || '';
-    const promptItems: any[] = [];
+    const promptItems: PromptItem[] = [];
     const usedIds = new Set<string>();
 
     // Process prompt_order entries in order, respecting enabled state
@@ -261,8 +315,8 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
         const label = MODULE_ID_MAP[id];
         // Look up custom name/content from the prompts map
         const promptData = identifierMap[id];
-        const markerName = (promptData && (promptData as any).name) || label;
-        const markerContent = (promptData && (promptData as any).content) || '';
+        const markerName = (promptData && promptData.name) || label;
+        const markerContent = (promptData && promptData.content) || '';
         promptItems.push({
           id, name: markerName, role: 'system', trigger: [] as string[],
           position: 'relative' as const, depth: 0, order: promptItems.length,
@@ -274,12 +328,12 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
       } else {
         // User-created prompt — look up in prompts map
         const p = identifierMap[id];
-        if (p && (p as any).name) {
+        if (p && p.name) {
           promptItems.push({
-            id: 'pi_' + id, name: (p as any).name, role: (p as any).role || 'system',
+            id: 'pi_' + id, name: p.name, role: p.role as 'system' | 'user' | 'assistant' || 'system',
             trigger: [] as string[], position: 'relative' as const, depth: 4, order: promptItems.length,
-            content: (p as any).content || '', enabled, kind: 'prompt' as const,
-            _library: false, _originalName: (p as any).name,
+            content: p.content || '', enabled, kind: 'prompt' as const,
+            _library: false, _originalName: p.name,
           });
           usedIds.add(id);
         }
@@ -289,22 +343,22 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
 
     // Add remaining library prompts NOT in prompt_order as cache items
     for (const [key, p] of Object.entries(promptsMap)) {
-      const ident = String((p as any).identifier || key);
-      if (!usedIds.has(ident) && p && typeof p === 'object' && (p as any).name) {
+      const ident = String(p.identifier || key);
+      if (!usedIds.has(ident) && p && typeof p === 'object' && p.name) {
         promptItems.push({
-          id: 'lib_' + key, name: (p as any).name, role: (p as any).role || 'system',
+          id: 'lib_' + key, name: p.name, role: p.role as 'system' | 'user' | 'assistant' || 'system',
           trigger: [] as string[], position: 'relative' as const, depth: 4, order: 100,
-          content: (p as any).content || '', enabled: true, kind: 'prompt' as const,
-          _library: true, _originalName: (p as any).name,
+          content: p.content || '', enabled: true, kind: 'prompt' as const,
+          _library: true, _originalName: p.name,
         });
       }
     }
     // Extract quick prompt contents from the prompts map by looking up marker identifiers
-    const mainPrompt = (identifierMap['main'] as any)?.content || '';
-    const auxiliaryPrompt = (identifierMap['enhanceDefinitions'] as any)?.content
-      || (identifierMap['auxiliary'] as any)?.content || '';
-    const postHistoryPrompt = (identifierMap['postHistoryInstructions'] as any)?.content
-      || (identifierMap['jailbreak'] as any)?.content || '';
+    const mainPrompt = identifierMap['main']?.content || '';
+    const auxiliaryPrompt = identifierMap['enhanceDefinitions']?.content
+      || identifierMap['auxiliary']?.content || '';
+    const postHistoryPrompt = identifierMap['postHistoryInstructions']?.content
+      || identifierMap['jailbreak']?.content || '';
 
     const preset: ChatPreset = {
       id: `preset-imported-${Date.now()}`, name,
@@ -319,13 +373,13 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
       contextLength: data.openai_max_context ?? data.context_length ?? 65536,
       maxResponseTokens: data.max_response_length ?? data.max_tokens ?? 2048, alternativeReplies: 1,
       streamEnabled: data.stream_enabled ?? false,
-      reasoningEffort: data.reasoning_effort ?? 'auto',
+      reasoningEffort: (data.reasoning_effort as 'auto' | 'low' | 'medium' | 'high' | 'max') ?? 'auto',
       showThoughts: data.show_thoughts ?? false,
-      responseLength: data.response_length ?? 'auto',
+      responseLength: (data.response_length as 'auto' | 'medium' | 'short' | 'long') ?? 'auto',
       seed: data.seed ?? -1,
       charNameBehavior: typeof data.names_behavior === 'number'
         ? (['none', 'completion', 'content'] as const)[data.names_behavior] ?? 'none'
-        : (data.char_name_behavior ?? 'none'),
+          : (data.char_name_behavior as 'none' | 'completion' | 'content') ?? 'none',
       continueSuffix: (() => {
         const postfix = data.continue_postfix ?? data.continue_suffix;
         if (postfix === '' || postfix === undefined || postfix === null) return 'none' as const;
@@ -343,7 +397,7 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
       newGroupChatPrompt: '[新的群聊即将开始]', newExampleChatPrompt: '[新的示例聊天即将开始]',
       continuePrompt: '[继续推进]', emptyMessagePrompt: '', promptItems,
       tavernHelperScripts: thData.scripts,
-      tavernHelperVars: thData.vars,
+      tavernHelperVars: thData.vars as Record<string, THVariable>,
     };
     return { preset, regexScripts };
   } catch { return null; }
