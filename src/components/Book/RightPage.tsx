@@ -135,21 +135,25 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
             return (
               <button key={ch.num} onClick={() => fillInputBar(ch.action)} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 14px', border: isCheck ? '1px solid rgba(196,168,85,0.4)' : '1px solid rgba(107,90,58,0.2)',
-                borderRadius: 3, background: isCheck ? 'rgba(196,168,85,0.1)' : 'rgba(196,168,85,0.06)',
+                padding: isCheck ? '12px 16px' : '10px 14px',
+                border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
+                borderRadius: isCheck ? 5 : 3,
+                background: isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)',
+                backdropFilter: isCheck ? 'blur(8px)' : 'none',
+                boxShadow: isCheck ? '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
                 color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
                 textAlign: 'left', cursor: 'pointer', transition: 'var(--transition-smooth)',
               }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.2)' : 'rgba(196,168,85,0.15)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.1)' : 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = isCheck ? 'rgba(196,168,85,0.4)' : 'rgba(107,90,58,0.2)'; }}>
+                onMouseEnter={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)'; e.currentTarget.style.borderColor = 'var(--gold)'; if (isCheck) e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'; if (isCheck) e.currentTarget.style.boxShadow = '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)'; }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
-                <span style={{ flex: 1 }}>{ch.text}</span>
+                <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
                 {isCheck && check && (
-                  <span style={{ marginLeft: 'auto', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', opacity: 0.85, display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                    <span style={{ padding: '1px 5px', border: '1px solid rgba(196,168,85,0.3)', borderRadius: 2, background: 'rgba(196,168,85,0.08)' }}>{check.skillName}</span>
-                    {check.target > 0 && <span>目标:{check.target}</span>}
-                    {check.target === 0 && <span>{check.difficulty}</span>}
-                    {playerSkill !== null && <span style={{ color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>({playerSkill})</span>}
+                  <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5 }}>
+                    <span style={{ padding: '2px 8px', border: '1px solid rgba(196,168,85,0.4)', borderRadius: 3, background: 'rgba(196,168,85,0.12)', fontWeight: 700, fontSize: 11 }}>{check.skillName}</span>
+                    {check.target > 0 && <span style={{ opacity: 0.8 }}>目标:{check.target}</span>}
+                    {check.target === 0 && <span style={{ opacity: 0.8 }}>{check.difficulty}</span>}
+                    {playerSkill !== null && <span style={{ fontWeight: 700, fontSize: 12, color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>{playerSkill}</span>}
                   </span>
                 )}
               </button>
