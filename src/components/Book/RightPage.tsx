@@ -149,10 +149,10 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
                 <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
                 {isCheck && check && (
-                  <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5 }}>
-                    <span style={{ padding: '2px 8px', border: '1px solid rgba(196,168,85,0.4)', borderRadius: 3, background: 'rgba(196,168,85,0.12)', fontWeight: 700, fontSize: 11 }}>{check.skillName}</span>
-                    {check.target > 0 && <span style={{ opacity: 0.8 }}>目标:{check.target}</span>}
-                    {check.target === 0 && <span style={{ opacity: 0.8 }}>{check.difficulty}</span>}
+                  <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: '#8b7632', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5 }}>
+                    <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28' }}>{check.skillName}</span>
+                    {check.target > 0 && <span style={{ color: '#6b5a28' }}>目标:{check.target}</span>}
+                    {check.target === 0 && <span style={{ color: '#6b5a28' }}>{check.difficulty}</span>}
                     {playerSkill !== null && <span style={{ fontWeight: 700, fontSize: 12, color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>{playerSkill}</span>}
                   </span>
                 )}
