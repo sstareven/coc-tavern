@@ -34,7 +34,7 @@ function parseCheckAction(text: string): CheckInfo | null {
   if (mo) {
     return { skillName: mo[1].trim(), target: parseInt(mo[2]), opponentTarget: parseInt(mo[3]), difficulty: '普通', bonus: 'none', opposed: true };
   }
-  // Format 1: "进行XX检定(目标值:NN, 奖励骰/惩罚骰)"
+  // Format 1: "进行XX检定(目标值:NN, 奖励骰/惩罚骰)" — legacy with explicit target
   const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)([^)]*)\)/);
   if (m1) {
     const rest = m1[3] || '';
@@ -43,10 +43,19 @@ function parseCheckAction(text: string): CheckInfo | null {
     else if (/惩罚骰/.test(rest)) bonus = 'penalty';
     return { skillName: m1[1].trim(), target: parseInt(m1[2]), difficulty: '普通', bonus, opposed: false, opponentTarget: 0 };
   }
-  // Format 2: "[检定:XX 难度]"
-  const m2 = text.match(/\[检定\s*[:：]\s*(.+?)\s+(普通|困难|极难)\s*\]/);
+  // Format 2: "进行XX检定(普通/困难/极难, 奖励骰/惩罚骰)" — difficulty-based, target from char sheet
+  const m2 = text.match(/进行(.+?)检定\s*\((普通|困难|极难)([^)]*)\)/);
   if (m2) {
-    return { skillName: m2[1].trim(), target: 0, difficulty: m2[2], bonus: 'none', opposed: false, opponentTarget: 0 };
+    const rest = m2[3] || '';
+    let bonus: BonusType = 'none';
+    if (/奖励骰/.test(rest)) bonus = 'bonus';
+    else if (/惩罚骰/.test(rest)) bonus = 'penalty';
+    return { skillName: m2[1].trim(), target: 0, difficulty: m2[2], bonus, opposed: false, opponentTarget: 0 };
+  }
+  // Format 3: "[检定:XX 难度]"
+  const m3 = text.match(/\[检定\s*[:：]\s*(.+?)\s+(普通|困难|极难)\s*\]/);
+  if (m3) {
+    return { skillName: m3[1].trim(), target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
 }
@@ -136,6 +145,14 @@ function getPlayerSkillValue(skillName: string): { base: number; current: number
   return resolvePlayerValue(skillName, sheet);
 }
 
+function resolveTargetFromSheet(skillName: string, difficulty: string): number {
+  const pv = getPlayerSkillValue(skillName);
+  const base = pv?.current ?? 50;
+  if (difficulty === '极难') return Math.floor(base / 5);
+  if (difficulty === '困难') return Math.floor(base / 2);
+  return base;
+}
+
 function fillInputBar(text: string) {
   const input = document.querySelector<HTMLTextAreaElement>('footer textarea');
   if (!input) return;
@@ -194,16 +211,29 @@ function fillInputBar(text: string) {
       },
     }));
   } else if (parsed && parsed.target === 0) {
-    const d10 = () => Math.floor(Math.random() * 10);
-    const raw = (d10() * 10 + d10()) || 100;
-    const rollStr = String(raw).padStart(2, '0');
-    const resultLine = `[${parsed.skillName} d100=${rollStr} ${parsed.difficulty}]\n`;
-    nativeInputValueSetter?.call(input, resultLine + text);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.focus();
-    if (useSettingsStore.getState().autoSubmitChoice) {
-      setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
-    }
+    const resolvedTarget = resolveTargetFromSheet(parsed.skillName, parsed.difficulty);
+    const result = rollWithBonus(resolvedTarget, parsed.bonus);
+    const rollStr = String(result.raw).padStart(2, '0');
+    const diffLabel = parsed.difficulty !== '普通' ? ` ${parsed.difficulty}` : '';
+    const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
+    const resultLine = `[${parsed.skillName}${diffLabel} d100=${rollStr}/${resolvedTarget}${bonusLabel} ${result.label}]\n`;
+
+    useDiceStore.getState().addRecord({
+      skill: `${parsed.skillName}${diffLabel}${bonusLabel}`,
+      roll: String(result.raw),
+      target: String(resolvedTarget),
+      type: result.resultType as DiceResultType,
+      time: Date.now(),
+    });
+
+    document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+      detail: {
+        skillName: parsed.skillName, target: resolvedTarget,
+        roll: result.raw, resultType: result.resultType,
+        inputText: resultLine + text,
+        bonus: parsed.bonus, bonusTens: result.bonusTens,
+      },
+    }));
   } else {
     nativeInputValueSetter?.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
