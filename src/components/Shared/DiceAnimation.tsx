@@ -6,6 +6,11 @@ interface Props {
   roll: number; resultType: string; onComplete: () => void;
   bonus?: 'none' | 'bonus' | 'penalty';
   bonusTens?: number;
+  opposed?: boolean;
+  opponentRoll?: number;
+  opponentTarget?: number;
+  opponentResultType?: string;
+  opposedOutcome?: 'win' | 'lose' | 'draw';
 }
 
 const COLORS: Record<string, string> = { 'crit-success': '#69f0ae', 'extreme-success': '#00e676', 'hard-success': '#4fc3f7', 'success': '#69f0ae', 'failure': '#ff5252', 'crit-failure': '#d50000' };
@@ -243,13 +248,13 @@ function resultSfx(isSuccess: boolean, isCrit: boolean) {
   }
 }
 
-export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete, bonus = 'none', bonusTens = 0 }: Props) {
+export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete, bonus = 'none', bonusTens = 0, opposed = false, opponentRoll = 0, opponentTarget = 0, opponentResultType = 'failure', opposedOutcome = 'draw' }: Props) {
   const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
   const [blur, setBlur] = useState(false);
   const [gold, setGold] = useState(false);
   const [fading, setFading] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDual = bonus !== 'none';
+  const isDual = bonus !== 'none' || opposed;
 
   useEffect(() => {
     if (!visible) return;
@@ -338,7 +343,32 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
         {/* Dice display area */}
         <div style={{ width: isDual ? 380 : 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isDual ? 40 : 0 }}>
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
-          {isDual && (
+          {opposed && (
+            <>
+              {phase === 'result' ? (
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: opposedOutcome === 'win' ? '#69f0ae' : opposedOutcome === 'lose' ? '#ef5350' : '#ffd740', fontFamily: 'var(--font-display)', letterSpacing: 4 }}>
+                    {opposedOutcome === 'win' ? '胜利' : opposedOutcome === 'lose' ? '败北' : '平局'}
+                  </span>
+                </motion.div>
+              ) : (
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#888', fontFamily: 'var(--font-display)', letterSpacing: 2, opacity: 0.6 }}>VS</span>
+              )}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3, x: entrance.alt.x * 0.5, y: entrance.alt.y * 0.5 }}
+                animate={{
+                  opacity: phase === 'result' && opposedOutcome === 'win' ? 0.3 : 1,
+                  scale: phase === 'result' && opposedOutcome === 'win' ? 0.65 : 1,
+                  x: 0, y: 0,
+                  filter: phase === 'result' && opposedOutcome === 'win' ? 'grayscale(0.8) brightness(0.6)' : 'none',
+                }}
+                transition={{ duration: 0.6, delay: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
+              >
+                <RollingBlock phase={phase} rollStr={String(opponentRoll)} color={COLORS[opponentResultType] || '#999'} glowColor={phase === 'rolling' ? '#555' : (COLORS[opponentResultType] || '#999')} />
+              </motion.div>
+            </>
+          )}
+          {!opposed && isDual && (
             <motion.div
               initial={{ opacity: 0, scale: 0.3, x: entrance.alt.x * 0.5, y: entrance.alt.y * 0.5 }}
               animate={{
@@ -355,13 +385,15 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
         </div>
 
         <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
-          {skillName}检定
-          {isDual && <span style={{ fontSize: 12, marginLeft: 8, color: bonus === 'bonus' ? '#69f0ae' : '#ef5350', opacity: 0.8 }}>{bonus === 'bonus' ? '奖励骰' : '惩罚骰'}</span>}
+          {opposed ? `${skillName}对抗` : `${skillName}检定`}
+          {!opposed && isDual && <span style={{ fontSize: 12, marginLeft: 8, color: bonus === 'bonus' ? '#69f0ae' : '#ef5350', opacity: 0.8 }}>{bonus === 'bonus' ? '奖励骰' : '惩罚骰'}</span>}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>目标 {target}</div>
+        <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
+          {opposed ? `${target} vs ${opponentTarget}` : `目标 ${target}`}
+        </div>
 
         <div style={{ height: 52, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
-          {phase === 'result' && (
+          {phase === 'result' && !opposed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
                 <span style={{ fontSize: 22, fontWeight: 600, color, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>{LABELS[resultType]}</span>
