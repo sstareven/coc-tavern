@@ -12,25 +12,35 @@ interface Props {
 
 function useScrollGlow() {
   const [edge, setEdge] = useState<'none' | 'top' | 'bottom'>('none');
+  const [fading, setFading] = useState(false);
   const lastY = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const dir = el.scrollTop > lastY.current ? 'bottom' : 'top';
     lastY.current = el.scrollTop;
     setEdge(dir);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setEdge('none'), 800);
+    setFading(false);
+    if (stopTimer.current) clearTimeout(stopTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    stopTimer.current = setTimeout(() => {
+      setFading(true);
+      fadeTimer.current = setTimeout(() => { setEdge('none'); setFading(false); }, 600);
+    }, 600);
   }, []);
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  return { edge, onScroll };
+  useEffect(() => () => {
+    if (stopTimer.current) clearTimeout(stopTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+  }, []);
+  return { edge, fading, onScroll };
 }
 
 const PARTICLE_COUNT = 14;
 
-function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
+function ScrollParticles({ edge, fading }: { edge: 'top' | 'bottom'; fading: boolean }) {
   const [particles] = useState(() =>
     Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
       id: i,
@@ -46,8 +56,16 @@ function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
   return (
     <div style={{
       position: 'absolute', left: 0, right: 0, height: 60, pointerEvents: 'none', zIndex: 2, overflow: 'hidden',
+      opacity: fading ? 0 : 1, transition: 'opacity 0.6s ease-out',
       ...(isBottom ? { bottom: 0 } : { top: 0 }),
     }}>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, height: '100%',
+        ...(isBottom ? { bottom: 0 } : { top: 0 }),
+        background: isBottom
+          ? 'linear-gradient(to top, rgba(20,16,10,0.5) 0%, rgba(20,16,10,0.2) 40%, transparent 100%)'
+          : 'linear-gradient(to bottom, rgba(20,16,10,0.5) 0%, rgba(20,16,10,0.2) 40%, transparent 100%)',
+      }} />
       <div style={{
         position: 'absolute', left: '3%', right: '3%', height: 2,
         ...(isBottom ? { bottom: 0 } : { top: 0 }),
@@ -92,7 +110,7 @@ function ScrollParticles({ edge }: { edge: 'top' | 'bottom' }) {
 export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
-  const { edge, onScroll } = useScrollGlow();
+  const { edge, fading, onScroll } = useScrollGlow();
   const fadeStyle = {
     opacity: isFlipping ? 0 : 1,
     transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',
@@ -120,7 +138,7 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
     }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {edge !== 'none' && <ScrollParticles edge={edge} />}
+        {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} />}
         <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
           <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedContent[0])}</p>
