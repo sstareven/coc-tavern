@@ -6,7 +6,7 @@ const selectTriggerStyle: React.CSSProperties = {
   ...inputStyle,
   cursor: 'pointer',
   position: 'relative',
-  userSelect: 'none' as any,
+  userSelect: 'none',
 };
 
 export function DarkSelect({ value, onChange, options, style }: {

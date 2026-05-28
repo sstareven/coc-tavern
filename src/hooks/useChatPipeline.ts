@@ -250,11 +250,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       );
       const wbEntries = enabledBooks.flatMap((b) => Object.values(b.entries));
       const wbBefore = wbEntries
-        .filter((e) => (e as any).position === 'before_char')
+        .filter((e) => e.position === 0)
         .map((e) => renderTemplate(e.content, tmplOpts))
         .join('\n');
       const wbAfter = wbEntries
-        .filter((e) => (e as any).position !== 'before_char')
+        .filter((e) => e.position !== 0)
         .map((e) => renderTemplate(e.content, { ...tmplOpts, onlyWorldinfo: true }))
         .join('\n');
 
@@ -402,7 +402,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('info', `新页面已生成 — ${newPage.leftHeader}`);
           pushLog(
             'debug',
-            `[页面内容] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}\n选项: ${newPage.rightChoices.map((c: any) => c.text).join(' | ')}`,
+            `[页面内容] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}\n选项: ${newPage.rightChoices.map((c: { text: string }) => c.text).join(' | ')}`,
             'system',
           );
           bookStore.autoFlipForward();

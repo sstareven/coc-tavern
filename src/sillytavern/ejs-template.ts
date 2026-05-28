@@ -86,17 +86,19 @@ function escapeHtml(text: string): string {
 // ── Template Cache ──
 
 interface CacheEntry {
-  compiled: Array<{ type: string; fn?: Function }>;
+  compiled: Array<{ type: string; fn?: Function; content?: string }>;
   size: number;
 }
 
 const templateCache = new Map<string, CacheEntry>();
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let currentCacheSize = 0;
 
 function getCacheKey(text: string, disableWith: boolean): string {
-  // Simple hash: text length + first 40 chars + mode flag
-  return `${text.length}:${text.substring(0, 40)}:${disableWith ? '1' : '0'}`;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = (hash * 0x01000193) >>> 0;
+  }
+  return `${hash.toString(36)}:${text.length}:${disableWith ? '1' : '0'}`;
 }
 
 function getFromCache(key: string): CacheEntry | null {
@@ -116,12 +118,24 @@ function setCache(key: string, entry: CacheEntry, maxSize: number) {
   while (templateCache.size >= maxSize) {
     const first = templateCache.keys().next();
     if (first.done) break;
-    const old = templateCache.get(first.value);
-    if (old) currentCacheSize -= old.size;
     templateCache.delete(first.value);
   }
   templateCache.set(key, entry);
-  currentCacheSize += entry.size;
+}
+
+// ── Sandbox globals blacklist ──
+
+const BLOCKED_GLOBALS = [
+  'window', 'self', 'globalThis', 'document', 'fetch', 'XMLHttpRequest',
+  'WebSocket', 'EventSource', 'importScripts', 'eval', 'Function',
+  'localStorage', 'sessionStorage', 'indexedDB', 'navigator', 'location',
+  'postMessage', 'opener', 'parent', 'top', 'frames',
+] as const;
+
+function buildSandboxProxy(api: TemplateAPI): Record<string, unknown> {
+  const blocked: Record<string, undefined> = {};
+  for (const name of BLOCKED_GLOBALS) blocked[name] = undefined;
+  return { ...blocked, getvar: api.getvar, setvar: api.setvar, getwi: api.getwi };
 }
 
 // ── Template Executor ──
@@ -151,25 +165,24 @@ export function renderTemplate(
   }
 
   const api = createAPI();
+  const sandbox = buildSandboxProxy(api);
   const output: string[] = [];
 
   if (cacheEntry) {
-    // Use cached compiled templates
     for (const c of cacheEntry.compiled) {
       if (c.type === 'text') {
-        output.push(c.fn ? String(c.fn(api)) : '');
+        output.push(c.content ?? '');
       } else {
-        output.push(c.fn ? String(c.fn(api)) : '');
+        output.push(c.fn ? String(c.fn(sandbox)) : '');
       }
     }
   } else {
-    const compiled: Array<{ type: string; fn?: Function }> = [];
-    // Execute each part
+    const compiled: Array<{ type: string; fn?: Function; content?: string }> = [];
     for (const part of parts) {
       switch (part.type) {
         case 'text': {
           output.push(part.content);
-          compiled.push({ type: 'text' });
+          compiled.push({ type: 'text', content: part.content });
           break;
         }
         case 'output':
@@ -177,12 +190,10 @@ export function renderTemplate(
             const fn = disableWith
               ? new Function('getvar', 'setvar', 'getwi', `return (${part.content});`)
               : new Function('api', `with(api){ return (${part.content}); }`);
-            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(api);
+            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
             const escaped = val != null ? escapeHtml(String(val)) : '';
             output.push(escaped);
-            compiled.push({ type: 'output', fn: disableWith
-              ? ((g: Function, _s: Function, _w: Function) => { void _s; void _w; const v = g(api.getvar, api.setvar, api.getwi); return v != null ? escapeHtml(String(v)) : ''; }) as unknown as Function
-              : undefined });
+            compiled.push({ type: 'output', fn: disableWith ? fn : fn });
           } catch {
             output.push(`[模板错误: ${part.content}]`);
             compiled.push({ type: 'output' });
@@ -193,9 +204,9 @@ export function renderTemplate(
             const fn = disableWith
               ? new Function('getvar', 'setvar', 'getwi', `return (${part.content});`)
               : new Function('api', `with(api){ return (${part.content}); }`);
-            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(api);
+            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
             output.push(val != null ? String(val) : '');
-            compiled.push({ type: 'unescaped' });
+            compiled.push({ type: 'unescaped', fn });
           } catch {
             output.push(`[模板错误: ${part.content}]`);
             compiled.push({ type: 'unescaped' });
@@ -206,8 +217,8 @@ export function renderTemplate(
             const fn = disableWith
               ? new Function('getvar', 'setvar', 'getwi', `{ ${part.content} }`)
               : new Function('api', `with(api){ ${part.content} }`);
-            disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(api);
-            compiled.push({ type: 'code' });
+            disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
+            compiled.push({ type: 'code', fn });
           } catch {
             compiled.push({ type: 'code' });
           }
