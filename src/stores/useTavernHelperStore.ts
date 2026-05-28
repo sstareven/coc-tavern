@@ -208,11 +208,9 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
 
       deleteGlobalItem: (id) => set((s) => {
         function remove(items: THScriptTree[]): THScriptTree[] {
-          return items.filter((i) => {
-            if (i.id === id) return false;
-            if (i.type === 'folder') i.children = remove(i.children);
-            return true;
-          });
+          return items
+            .filter((i) => i.id !== id)
+            .map((i) => i.type === 'folder' ? { ...i, children: remove(i.children) } : i);
         }
         return { globalScripts: remove([...s.globalScripts]) };
       }),
@@ -234,11 +232,9 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       addPresetItem: (item) => set((s) => ({ presetScripts: [...s.presetScripts, item] })),
       deletePresetItem: (id) => set((s) => {
         function remove(items: THScriptTree[]): THScriptTree[] {
-          return items.filter((i) => {
-            if (i.id === id) return false;
-            if (i.type === 'folder') i.children = remove(i.children);
-            return true;
-          });
+          return items
+            .filter((i) => i.id !== id)
+            .map((i) => i.type === 'folder' ? { ...i, children: remove(i.children) } : i);
         }
         return { presetScripts: remove([...s.presetScripts]) };
       }),

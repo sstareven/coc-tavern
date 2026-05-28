@@ -9,6 +9,7 @@ import { StreamingPreview } from '../Shared/StreamingPreview';
 export function InputBar() {
   const [input, setInput] = useState('');
   const [wandOpen, setWandOpen] = useState(false);
+  const apiModel = useSettingsStore((s) => s.apiModel);
 
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
@@ -45,7 +46,7 @@ export function InputBar() {
         visible={pipeline.showTokenCounter}
         onClose={pipeline.closeTokenCounter}
         contextBreakdown={pipeline.tokenContext}
-        model={useSettingsStore.getState().apiModel}
+        model={apiModel}
       />
       <PromptViewer
         visible={pipeline.showPromptViewer}
