@@ -141,7 +141,7 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
                 background: isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)',
                 backdropFilter: isCheck ? 'blur(8px)' : 'none',
                 boxShadow: isCheck ? '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
-                color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
+                color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
                 textAlign: 'left', cursor: 'pointer', transition: 'var(--transition-smooth)',
               }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)'; e.currentTarget.style.borderColor = 'var(--gold)'; if (isCheck) e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)'; }}
