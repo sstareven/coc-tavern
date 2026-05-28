@@ -171,17 +171,20 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
         const val = playerSkill?.current ?? 0;
         const tgt = check.target || 50;
         const favorable = val >= tgt;
-        const displayVal = hovered ? val : (check.target > 0 ? check.target : check.difficulty);
+        const rate = Math.min(100, Math.round((val / tgt) * 100));
         return (
         <span style={{
           marginLeft: 'auto', padding: '2px 8px', borderRadius: 3,
-          fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
+          fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
           transition: 'var(--transition-smooth)',
           color: favorable ? '#2e5c1e' : '#8b2020',
           background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
           border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
         }}>
-          {check.skillName}:{displayVal}
+          {hovered
+            ? `成功率${rate}%`
+            : `${check.skillName} ${check.target > 0 ? check.target : check.difficulty}`
+          }
         </span>
         );
       })()}
