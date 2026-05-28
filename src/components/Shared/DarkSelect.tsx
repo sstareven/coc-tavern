@@ -11,7 +11,7 @@ const selectTriggerStyle: React.CSSProperties = {
 
 export function DarkSelect({ value, onChange, options, style }: {
   value: string; onChange: (v: string) => void;
-  options: { value: string; label: string; sub?: string }[];
+  options: { value: string; label: string; sub?: string; separator?: boolean }[];
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
@@ -51,22 +51,27 @@ export function DarkSelect({ value, onChange, options, style }: {
       maxHeight: 240, overflowY: 'auto',
       scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)',
     }}>
-      {options.map((o) => (
-        <div key={o.value}
-          onClick={() => { onChange(o.value); setOpen(false); }}
-          style={{
-            padding: '8px 12px', cursor: 'pointer', fontSize: 12, textAlign: 'center',
-            color: o.value === value ? 'var(--gold)' : 'var(--text-light)',
-            fontFamily: 'var(--font-body)', borderBottom: '1px solid rgba(255,255,255,0.03)',
-            background: o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent'; }}
-        >
-          <div>{o.label}</div>
-          {o.sub && <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
-        </div>
-      ))}
+      {options.map((o) => {
+        if (o.separator || o.value.startsWith('__sep')) {
+          return <div key={o.value} style={{ padding: '4px 12px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{o.label}</div>;
+        }
+        return (
+          <div key={o.value}
+            onClick={() => { onChange(o.value); setOpen(false); }}
+            style={{
+              padding: '8px 12px', cursor: 'pointer', fontSize: 12, textAlign: 'center',
+              color: o.value === value ? 'var(--gold)' : 'var(--text-light)',
+              fontFamily: 'var(--font-body)', borderBottom: '1px solid rgba(255,255,255,0.03)',
+              background: o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent'; }}
+          >
+            <div>{o.label}</div>
+            {o.sub && <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
+          </div>
+        );
+      })}
     </div>,
     document.body,
   );
