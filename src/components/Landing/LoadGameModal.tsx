@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
 import type { ChatSession } from '../../types';
 
@@ -11,7 +12,6 @@ function fmtDate(ts: number): string {
 
 export function LoadGameModal({ onLoad, onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
-  const activeId = useChatStore((s) => s.activeId);
   const setActive = useChatStore((s) => s.setActive);
   const deleteSession = useChatStore((s) => s.deleteSession);
 
@@ -64,7 +64,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s) => <SessionRow key={s.id} session={s} isActive={s.id === activeId} onSelect={() => { setActive(s.id); onLoad(); }} onDelete={() => deleteSession(s.id)} />)
+            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { setActive(s.id); onLoad(); }} onDelete={() => deleteSession(s.id)} />)
           )}
         </div>
       </div>
@@ -72,9 +72,11 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
   );
 }
 
-function SessionRow({ session: s, isActive, onSelect, onDelete }: {
-  session: ChatSession; isActive: boolean; onSelect: () => void; onDelete: () => void;
+function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
+  session: ChatSession; isLatest: boolean; onSelect: () => void; onDelete: () => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   return (
     <div
       onClick={onSelect}
@@ -82,33 +84,55 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 20px', cursor: 'pointer',
         borderBottom: '1px solid rgba(196,168,85,0.04)',
-        background: isActive ? 'rgba(196,168,85,0.06)' : 'transparent',
+        background: isLatest ? 'rgba(196,168,85,0.06)' : 'transparent',
         transition: 'var(--transition-smooth)', transform: 'translateX(0)',
       }}
-      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; e.currentTarget.style.transform = 'translateX(4px)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.06)' : 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
+      onMouseEnter={(e) => { if (!isLatest) e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; e.currentTarget.style.transform = 'translateX(4px)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = isLatest ? 'rgba(196,168,85,0.06)' : 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; setConfirmDelete(false); }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             fontSize: 14, fontFamily: 'var(--font-ui)', fontWeight: 600, letterSpacing: 1,
-            color: isActive ? 'var(--gold)' : 'var(--text-light)',
+            color: isLatest ? 'var(--gold)' : 'var(--text-light)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{s.name}</span>
-          {isActive && (
+          {isLatest && (
             <span style={{
               fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)',
               background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2,
               letterSpacing: 1, flexShrink: 0,
-            }}>当前</span>
+            }}>最新</span>
           )}
         </div>
         <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
           {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
         </div>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      {confirmDelete ? (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }} onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={onDelete}
+            style={{
+              padding: '3px 10px', border: '1px solid var(--blood)', borderRadius: 3,
+              background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
+              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+              transition: 'var(--transition-smooth)',
+            }}
+          >确认</button>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            style={{
+              padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+              background: 'transparent', color: 'var(--ink-subtle)',
+              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+              transition: 'var(--transition-smooth)',
+            }}
+          >取消</button>
+        </div>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
           style={{
             background: 'none', border: '1px solid transparent', borderRadius: 3,
             color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
@@ -121,6 +145,7 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
           title="删除存档"
         >✕</button>
+      )}
     </div>
   );
 }
