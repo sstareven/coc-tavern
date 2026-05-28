@@ -1,20 +1,6 @@
 import { create } from 'zustand';
 import type { DiceRecord, DiceResultType, DiceMode } from '../types';
-
-const randD10 = () => Math.floor(Math.random() * 10);
-const d100 = (t: number, o: number) => (t === 0 && o === 0) ? 100 : t * 10 + o;
-
-function determineResult(roll: number, target: number, sanCheck: boolean): DiceResultType {
-  const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
-  if (roll === 100) return 'crit-failure';
-  if (sanCheck && roll >= 96) return 'crit-failure';
-  if (roll === 1) return 'crit-success';
-  if (roll <= fifth) return 'extreme-success';
-  if (roll <= half) return 'hard-success';
-  if (roll <= target) return 'success';
-  if (!sanCheck && target < 50 && roll >= 96) return 'crit-failure';
-  return 'failure';
-}
+import { randD10, d100, determineResult } from '../sillytavern/dice-engine';
 
 interface DiceStore {
   isOpen: boolean; mode: DiceMode; target: number; bonusDice: number; sanCheck: boolean;
