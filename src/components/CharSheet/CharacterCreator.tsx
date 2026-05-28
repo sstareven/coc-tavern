@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { btnBase, btnDisabled } from './styles';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useCharacterPresetsStore } from '../../stores/useCharacterPresetsStore';
+import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
 import type { CharacterSheet, COC7Characteristic } from '../../types';
@@ -260,7 +260,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     savePreset(data);
   }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias]);
 
-  const loadPreset = useCallback((preset: { name: string; data: any }) => {
+  const loadPreset = useCallback((preset: CharacterPreset) => {
     const d = preset.data;
     setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setCustomOccupation(d.customOccupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
     setCharValues(d.charValues||DEFAULT_CHARS); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]); setInterestPoints(d.interestPoints||{});
@@ -268,7 +268,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setPoolMode(false); setShowPresetLoad(false);
   }, [DEFAULT_CHARS]);
 
-  const handleLoadPreset = useCallback((preset: { name: string; data: any }) => {
+  const handleLoadPreset = useCallback((preset: CharacterPreset) => {
     loadPreset(preset);
     setStep(5);
   }, [loadPreset]);
@@ -689,8 +689,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       } else {
         setQuickFillError('');
       }
-    } catch (err: any) {
-      setQuickFillError(`生成失败: ${err.message || '未知错误'}`);
+    } catch (err: unknown) {
+      setQuickFillError(`生成失败: ${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setQuickFilling(false);
     }

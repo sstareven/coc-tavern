@@ -1,10 +1,6 @@
 import { DarkSelect } from '../../Shared/DarkSelect';
 import { inputStyle, labelStyle, sectionTitle } from '../styles';
-
-interface Preset {
-  name: string;
-  data: any;
-}
+import type { CharacterPreset } from '../../../stores/useCharacterPresetsStore';
 
 interface Props {
   name: string;
@@ -19,10 +15,10 @@ interface Props {
   setResidence: (v: string) => void;
   birthplace: string;
   setBirthplace: (v: string) => void;
-  presets: Preset[];
+  presets: CharacterPreset[];
   showPresetLoad: boolean;
   setShowPresetLoad: (v: boolean) => void;
-  onLoadPreset: (preset: Preset) => void;
+  onLoadPreset: (preset: CharacterPreset) => void;
   onDeletePreset: (name: string) => void;
 }
 

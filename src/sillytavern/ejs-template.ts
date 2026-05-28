@@ -172,8 +172,17 @@ export function renderTemplate(
     for (const c of cacheEntry.compiled) {
       if (c.type === 'text') {
         output.push(c.content ?? '');
-      } else {
-        output.push(c.fn ? String(c.fn(sandbox)) : '');
+      } else if (c.fn) {
+        try {
+          const val = disableWith ? c.fn(api.getvar, api.setvar, api.getwi) : c.fn(sandbox);
+          if (c.type === 'output') {
+            output.push(val != null ? escapeHtml(String(val)) : '');
+          } else if (c.type === 'unescaped') {
+            output.push(val != null ? String(val) : '');
+          }
+        } catch {
+          output.push('');
+        }
       }
     }
   } else {
