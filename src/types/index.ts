@@ -53,6 +53,7 @@ export interface BookPage {
   rightContent: string;
   rightChoices: ChoiceItem[];
   sceneInfo?: SceneInfo;
+  summary?: string;
 }
 
 export interface ChoiceItem {
