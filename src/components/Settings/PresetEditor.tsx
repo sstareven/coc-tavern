@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
 import { DarkSelect } from '../Shared/DarkSelect';
-import type { ChatPreset, PromptItem } from '../../types';
+import type { ChatPreset, PromptItem, THVariable } from '../../types';
 
 interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
 
@@ -50,7 +50,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [moduleEnabled, setModuleEnabled] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const m of MODULE_ITEMS) {
-      const existing = preset.promptItems?.find((p: any) => p.id === m.key && p.kind === 'marker');
+      const existing = preset.promptItems?.find((p: PromptItem) => p.id === m.key && p.kind === 'marker');
       init[m.key] = existing ? existing.enabled !== false : true;
     }
     return init;
@@ -62,29 +62,29 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // All items = existing promptItems (markers stay where they are, no auto-adding)
-  const allItems: any[] = (() => {
+  const allItems: PromptItem[] = (() => {
     const existing = [...form.promptItems];
-    const hasMarkers = existing.some((p: any) => p.kind === 'marker');
+    const hasMarkers = existing.some((p: PromptItem) => p.kind === 'marker');
     // Only auto-add missing markers for default presets with no markers
     if (!hasMarkers) {
       for (const mod of MODULE_ITEMS) {
-        if (!existing.find((p: any) => p.id === mod.key)) {
+        if (!existing.find((p: PromptItem) => p.id === mod.key)) {
           existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'dialogueExamples' || mod.key === 'chatHistory', role: 'system', trigger: [], position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
         }
       }
     }
     return existing;
   })();
-  const activeItems: any[] = allItems.filter((p: any) => p.kind === 'marker' || p._library !== true);
-  const libraryItems: any[] = allItems.filter((p: any) => p.kind !== 'marker' && p._library !== false);
+  const activeItems: PromptItem[] = allItems.filter((p: PromptItem) => p.kind === 'marker' || p._library !== true);
+  const libraryItems: PromptItem[] = allItems.filter((p: PromptItem) => p.kind !== 'marker' && p._library !== false);
 
   const handleDragStart = (id: string) => setDragId(id);
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
 
   const handleDrop = (targetId: string) => {
     if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return; }
-    const fromIdx = activeItems.findIndex((p: any) => p.id === dragId);
-    const toIdx = activeItems.findIndex((p: any) => p.id === targetId);
+    const fromIdx = activeItems.findIndex((p: PromptItem) => p.id === dragId);
+    const toIdx = activeItems.findIndex((p: PromptItem) => p.id === targetId);
     if (fromIdx < 0 || toIdx < 0) { setDragId(null); setDragOverId(null); return; }
     const items = [...activeItems];
     const [moved] = items.splice(fromIdx, 1);
@@ -333,7 +333,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={s.sectionTitle}>提示词列表</div>
             <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-              Token: ~{activeItems.filter((p: any) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: any) => sum + Math.round((p.content || '').length / 2.5), 0)}
+              Token: ~{activeItems.filter((p: PromptItem) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: PromptItem) => sum + Math.round((p.content || '').length / 2.5), 0)}
             </span>
           </div>
 
@@ -344,29 +344,29 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               <DarkSelect value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
                 options={[
                   { label: '选择提示词...', value: '' },
-                  ...libraryItems.map((p: any) => ({ label: `${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
+                  ...libraryItems.map((p: PromptItem) => ({ label: `${p.name || '(未命名)'} [${p.role}]`, value: p.id })),
                 ]} />
             </div>
             <button onClick={() => {
               if (!selectedLibId) return;
-              const src = libraryItems.find((p: any) => p.id === selectedLibId);
+              const src = libraryItems.find((p: PromptItem) => p.id === selectedLibId);
               if (src) {
                 // Check if already inserted — skip if duplicate found
-                if (activeItems.some((p: any) => p.kind === 'prompt' && p.name === src.name && p.content === src.content)) return;
+                if (activeItems.some((p: PromptItem) => p.kind === 'prompt' && p.name === src.name && p.content === src.content)) return;
                 const newItem = { ...src, id: 'pi_' + Date.now(), _library: false, _originalName: src.name };
                 set('promptItems', [...allItems, newItem] as unknown as string);
               }
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, color: 'var(--gold)', borderColor: 'var(--gold)', opacity: selectedLibId ? 1 : 0.4 }}>插入</button>
             <button onClick={() => {
               if (!selectedLibId) return;
-              const item = libraryItems.find((p: any) => p.id === selectedLibId);
+              const item = libraryItems.find((p: PromptItem) => p.id === selectedLibId);
               if (item) setEditingPrompt({ ...item, _originalName: item.name });
             }} disabled={!selectedLibId} style={{ ...s.miniBtn, opacity: selectedLibId ? 1 : 0.4 }}>编辑</button>
             <button onClick={() => {
               if (!selectedLibId) return;
-              const src = libraryItems.find((p: any) => p.id === selectedLibId);
+              const src = libraryItems.find((p: PromptItem) => p.id === selectedLibId);
               // Remove from library AND any active copies
-              set('promptItems', allItems.filter((p: any) => {
+              set('promptItems', allItems.filter((p: PromptItem) => {
                 if (p.id === selectedLibId) return false;
                 if (src && p.kind === 'prompt' && p.name === src.name && p.content === src.content) return false;
                 return true;
@@ -447,28 +447,28 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               )}
               <div style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 9, color: 'var(--gold)' }}>提示词内容</span>
-                {(editingPrompt as any)._contentReadOnly && (
+                {editingPrompt._contentReadOnly && (
                   <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>
                     {CONTENT_SOURCE[editingPrompt.id] || '内容由其他来源自动填充'}
                   </div>
                 )}
                 <textarea value={editingPrompt.content} onChange={(e) => setEditingPrompt({ ...editingPrompt, content: e.target.value })}
-                  disabled={(editingPrompt as any)._contentReadOnly}
-                  style={{ ...s.textarea, minHeight: 60, opacity: (editingPrompt as any)._contentReadOnly ? 0.5 : 1 }} />
+                  disabled={editingPrompt._contentReadOnly}
+                  style={{ ...s.textarea, minHeight: 60, opacity: editingPrompt._contentReadOnly ? 0.5 : 1 }} />
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => {
                   if (editingPrompt.kind === 'marker') {
-                    const updated = form.promptItems.map((p: any) =>
+                    const updated = form.promptItems.map((p: PromptItem) =>
                       p.id === editingPrompt.id && p.kind === 'marker'
-                        ? { ...p, name: editingPrompt.name, content: (editingPrompt as any)._contentReadOnly ? p.content : editingPrompt.content }
+                        ? { ...p, name: editingPrompt.name, content: editingPrompt._contentReadOnly ? p.content : editingPrompt.content }
                         : p
                     );
                     set('promptItems', updated as unknown as string);
                   } else {
-                    const isExisting = editingPrompt.id && libraryItems.some((p: any) => p.id === editingPrompt.id);
+                    const isExisting = editingPrompt.id && libraryItems.some((p: PromptItem) => p.id === editingPrompt.id);
                     if (isExisting) {
-                      const updated = allItems.map((p: any) => {
+                      const updated = allItems.map((p: PromptItem) => {
                         if (p.id === editingPrompt.id) return { ...editingPrompt, id: p.id, _library: true };
                         if (p.kind === 'prompt' && p.name === editingPrompt._originalName) return { ...p, name: editingPrompt.name, role: editingPrompt.role, trigger: editingPrompt.trigger, position: editingPrompt.position, depth: editingPrompt.depth, order: editingPrompt.order, content: editingPrompt.content };
                         return p;
@@ -488,7 +488,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
 
           {/* Unified list — all items (markers + prompts) in one combined array */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
-            {activeItems.map((item: any, _idx: number) => {
+            {activeItems.map((item: PromptItem, _idx: number) => {
               const isMarker = item.kind === 'marker';
               const isReadOnly = item.id === 'dialogueExamples' || item.id === 'chatHistory';
               const isContentReadOnly = isMarker && item.id in CONTENT_SOURCE;
@@ -513,7 +513,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                     {!isMarker && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>}
                   </span>
                   {!isMarker && (
-                    <button onClick={() => { set('promptItems', allItems.filter((_: any, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                    <button onClick={() => { set('promptItems', allItems.filter((_: PromptItem, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
                   )}
                   {!isReadOnly && (
                     <button onClick={() => {
@@ -522,7 +522,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   )}
                   <button onClick={() => {
                     if (isMarker) { setModuleEnabled((p) => ({ ...p, [item.id]: !(p[item.id] !== false) })); return; }
-                    const items: any[] = [...allItems]; const targetIdx = items.findIndex((p: any) => p.id === item.id); items[targetIdx] = { ...items[targetIdx], enabled: !items[targetIdx].enabled };
+                    const items: PromptItem[] = [...allItems]; const targetIdx = items.findIndex((p: PromptItem) => p.id === item.id); items[targetIdx] = { ...items[targetIdx], enabled: !items[targetIdx].enabled };
                     set('promptItems', items as unknown as string);
                   }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{enabled ? 'ON' : 'OFF'}</button>
                   <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
@@ -551,7 +551,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   setThNewName(''); setThNewValue('');
                 }} style={{ ...s.btn, padding: '3px 10px', fontSize: 10 }}>+</button>
               </div>
-              {Object.entries(form.tavernHelperVars || {}).map(([vName, v]: [string, any]) => (
+              {Object.entries(form.tavernHelperVars || {}).map(([vName, v]: [string, THVariable]) => (
                 <div key={vName} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0' }}>
                   <span style={{ ...s.label, width: 100, flexShrink: 0 }}>{vName}</span>
                   <input value={v.value} onChange={(e) => {

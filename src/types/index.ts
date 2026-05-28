@@ -115,6 +115,8 @@ export interface PromptItem {
   _library?: boolean;
   /** Original name preserved from ST format import for dirty-checking */
   _originalName?: string;
+  /** Signal that content is auto-filled from external source — read-only in editor */
+  _contentReadOnly?: boolean;
 }
 
 export interface ChatPreset {
