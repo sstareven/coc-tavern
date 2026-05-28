@@ -42,22 +42,30 @@ export function CharSheetPanel() {
           const subKey = `${parentKey}_${si}`;
           const open = !!subOpen[subKey];
           return (
-            <div key={subKey} style={{ borderBottom: si < sections.length - 1 ? '1px solid rgba(196,168,85,0.04)' : 'none', paddingBottom: si < sections.length - 1 ? 4 : 0, marginBottom: si < sections.length - 1 ? 4 : 0 }}>
+            <div key={subKey} style={{ borderBottom: si < sections.length - 1 ? '1px solid rgba(196,168,85,0.04)' : 'none' }}>
               <div
                 onClick={() => toggleSub(subKey)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                  padding: '3px 0', userSelect: 'none',
+                  padding: '5px 0', userSelect: 'none',
                 }}
               >
-                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--brass)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▸</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{sec.title}</span>
+                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--brass)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>▸</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: open ? 'var(--gold)' : 'var(--ink-subtle)', fontWeight: 600, letterSpacing: 1, transition: 'color 0.2s' }}>{sec.title}</span>
               </div>
-              {open && (
-                <div style={{ padding: '4px 0 4px 18px', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+              <div style={{
+                overflow: 'hidden',
+                maxHeight: open ? '800px' : '0px',
+                opacity: open ? 1 : 0,
+                transition: 'max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease',
+                paddingLeft: 18,
+                paddingTop: open ? 4 : 0,
+                paddingBottom: open ? 6 : 0,
+              }}>
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   {sec.body}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -289,16 +297,21 @@ export function CharSheetPanel() {
                         {open ? '— 收起' : '— 展开'}
                       </span>
                     </div>
-                    {open && (
+                    <div style={{
+                      overflow: 'hidden',
+                      maxHeight: open ? '3000px' : '0px',
+                      opacity: open ? 1 : 0,
+                      transition: 'max-height 0.4s ease, opacity 0.3s ease',
+                      borderTop: open ? '1px dashed rgba(196,168,85,0.08)' : 'none',
+                    }}>
                       <div style={{
                         padding: '4px 16px 16px 40px',
                         fontSize: 12, fontFamily: 'var(--font-body)',
                         color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap',
-                        borderTop: '1px dashed rgba(196,168,85,0.08)',
                       }}>
                         {renderDossierContent(content, key)}
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
