@@ -241,6 +241,42 @@ export function initBuiltinCommands(): void {
     },
   });
 
+  // /testopposed [技能名] [玩家值] [对手值] — test opposed dice animation
+  registerCommand({
+    name: 'testopposed',
+    description: '测试对抗骰动画。用法: /testopposed 力量 60 45',
+    execute: (args) => {
+      const parsed = parseArgs(args);
+      const skillName = parsed[0] || '力量';
+      const playerTarget = parseInt(parsed[1] || '50') || 50;
+      const opponentTarget = parseInt(parsed[2] || '40') || 40;
+      const d10 = () => Math.floor(Math.random() * 10);
+      function rollD100() { const t = d10(), o = d10(); return (t === 0 && o === 0) ? 100 : t * 10 + o; }
+      function getResult(roll: number, target: number) {
+        const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+        if (roll === 100 || (target < 50 && roll >= 96)) return 'crit-failure';
+        if (roll === 1) return 'crit-success';
+        if (roll <= fifth) return 'extreme-success';
+        if (roll <= half) return 'hard-success';
+        if (roll <= target) return 'success';
+        return 'failure';
+      }
+      const ranks: Record<string, number> = { 'crit-success': 5, 'extreme-success': 4, 'hard-success': 3, 'success': 2, 'failure': 1, 'crit-failure': 0 };
+      const pRoll = rollD100(), oRoll = rollD100();
+      const pResult = getResult(pRoll, playerTarget), oResult = getResult(oRoll, opponentTarget);
+      const pRank = ranks[pResult] ?? 1, oRank = ranks[oResult] ?? 1;
+      let outcome: 'win' | 'lose' | 'draw' = 'draw';
+      if (pRank > oRank) outcome = 'win';
+      else if (pRank < oRank) outcome = 'lose';
+      else if (playerTarget > opponentTarget) outcome = 'win';
+      else if (playerTarget < opponentTarget) outcome = 'lose';
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: { skillName, target: playerTarget, roll: pRoll, resultType: pResult, inputText: '', bonus: 'none', bonusTens: 0, opposed: true, opponentRoll: oRoll, opponentTarget, opponentResultType: oResult, opposedOutcome: outcome },
+      }));
+      return `[对抗: ${skillName} 玩家d100=${pRoll}/${playerTarget} vs 对手d100=${oRoll}/${opponentTarget} → ${outcome === 'win' ? '胜利' : outcome === 'lose' ? '失败' : '平局'}]`;
+    },
+  });
+
   // /thvar <name> — get macro variable value
   registerCommand({
     name: 'thvar',

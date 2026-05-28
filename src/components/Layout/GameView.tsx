@@ -12,12 +12,13 @@ export function GameView({ onReturnToMenu }: Props) {
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
-  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0 });
+    opposed: boolean; opponentRoll: number; opponentTarget: number; opponentResultType: string; opposedOutcome: 'win' | 'lose' | 'draw';
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw' });
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText, bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0 });
+      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText, bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0, opposed: detail.opposed || false, opponentRoll: detail.opponentRoll || 0, opponentTarget: detail.opponentTarget || 0, opponentResultType: detail.opponentResultType || 'failure', opposedOutcome: detail.opposedOutcome || 'draw' });
     };
     document.addEventListener('dice-roll-animate', handler);
     return () => document.removeEventListener('dice-roll-animate', handler);
@@ -112,6 +113,11 @@ export function GameView({ onReturnToMenu }: Props) {
         onComplete={onDiceComplete}
         bonus={diceAnim.bonus}
         bonusTens={diceAnim.bonusTens}
+        opposed={diceAnim.opposed}
+        opponentRoll={diceAnim.opponentRoll}
+        opponentTarget={diceAnim.opponentTarget}
+        opponentResultType={diceAnim.opponentResultType}
+        opposedOutcome={diceAnim.opposedOutcome}
       />
     </div>
   );

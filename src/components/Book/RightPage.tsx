@@ -22,20 +22,29 @@ interface CheckInfo {
   target: number;
   difficulty: string;
   bonus: BonusType;
+  opposed: boolean;
+  opponentTarget: number;
 }
 
 function parseCheckAction(text: string): CheckInfo | null {
+  // Format: 对抗检定 "进行力量对抗(玩家目标值:60, 对手目标值:45)"
+  const mo = text.match(/进行(.+?)对抗\s*\(玩家目标值\s*[:：]\s*(\d+)[,，]\s*对手目标值\s*[:：]\s*(\d+)\)/);
+  if (mo) {
+    return { skillName: mo[1].trim(), target: parseInt(mo[2]), opponentTarget: parseInt(mo[3]), difficulty: '普通', bonus: 'none', opposed: true };
+  }
+  // Format 1: "进行XX检定(目标值:NN, 奖励骰/惩罚骰)"
   const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)([^)]*)\)/);
   if (m1) {
     const rest = m1[3] || '';
     let bonus: BonusType = 'none';
     if (/奖励骰/.test(rest)) bonus = 'bonus';
     else if (/惩罚骰/.test(rest)) bonus = 'penalty';
-    return { skillName: m1[1].trim(), target: parseInt(m1[2]), difficulty: '普通', bonus };
+    return { skillName: m1[1].trim(), target: parseInt(m1[2]), difficulty: '普通', bonus, opposed: false, opponentTarget: 0 };
   }
+  // Format 2: "[检定:XX 难度]"
   const m2 = text.match(/\[检定\s*[:：]\s*(.+?)\s+(普通|困难|极难)\s*\]/);
   if (m2) {
-    return { skillName: m2[1].trim(), target: 0, difficulty: m2[2], bonus: 'none' };
+    return { skillName: m2[1].trim(), target: 0, difficulty: m2[2], bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
 }
@@ -81,6 +90,45 @@ function rollWithBonus(target: number, bonus: BonusType): RollResult {
   return { raw, resultType, label: labels[resultType] || resultType, bonusTens, tensUsed: t, tensAlt: bonus !== 'none' ? (t === t1 ? t2 : t1) : t, ones: o };
 }
 
+const RESULT_RANK: Record<string, number> = {
+  'crit-success': 5, 'extreme-success': 4, 'hard-success': 3, 'success': 2, 'failure': 1, 'crit-failure': 0,
+};
+
+function rollOpposed(playerTarget: number, opponentTarget: number) {
+  const d10 = () => Math.floor(Math.random() * 10);
+  const pt = d10(), po = d10(), ot = d10(), oo = d10();
+  const pRaw = (pt === 0 && po === 0) ? 100 : pt * 10 + po;
+  const oRaw = (ot === 0 && oo === 0) ? 100 : ot * 10 + oo;
+
+  function getResult(roll: number, target: number) {
+    const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
+    let rt = 'failure';
+    if (roll === 100 || (target < 50 && roll >= 96)) rt = 'crit-failure';
+    else if (roll === 1) rt = 'crit-success';
+    else if (roll <= fifth) rt = 'extreme-success';
+    else if (roll <= half) rt = 'hard-success';
+    else if (roll <= target) rt = 'success';
+    return rt;
+  }
+
+  const pResult = getResult(pRaw, playerTarget);
+  const oResult = getResult(oRaw, opponentTarget);
+  const pRank = RESULT_RANK[pResult] ?? 1;
+  const oRank = RESULT_RANK[oResult] ?? 1;
+  let outcome: 'win' | 'lose' | 'draw' = 'draw';
+  if (pRank > oRank) outcome = 'win';
+  else if (pRank < oRank) outcome = 'lose';
+  else if (playerTarget > opponentTarget) outcome = 'win';
+  else if (playerTarget < opponentTarget) outcome = 'lose';
+  else outcome = 'win';
+
+  const labels: Record<string, string> = {
+    'crit-success': '大成功', 'extreme-success': '极难成功', 'hard-success': '困难成功',
+    'success': '成功', 'failure': '失败', 'crit-failure': '大失败',
+  };
+  return { pRaw, oRaw, pResult, oResult, pLabel: labels[pResult] || pResult, oLabel: labels[oResult] || oResult, outcome };
+}
+
 function getPlayerSkillValue(skillName: string): { base: number; current: number } | null {
   const sheet = useCharSheetStore.getState().sheet;
   const skill = sheet.skills[skillName];
@@ -98,6 +146,31 @@ function fillInputBar(text: string) {
   )?.set;
 
   const parsed = parseCheckAction(text);
+
+  if (parsed && parsed.opposed) {
+    const r = rollOpposed(parsed.target, parsed.opponentTarget);
+    const outcomeLabel = r.outcome === 'win' ? '胜利' : r.outcome === 'lose' ? '失败' : '平局';
+    const resultLine = `[${parsed.skillName}对抗 玩家d100=${r.pRaw}/${parsed.target}(${r.pLabel}) vs 对手d100=${r.oRaw}/${parsed.opponentTarget}(${r.oLabel}) → ${outcomeLabel}]\n`;
+
+    useDiceStore.getState().addRecord({
+      skill: `${parsed.skillName}(对抗)`,
+      roll: String(r.pRaw),
+      target: String(parsed.target),
+      type: r.pResult as DiceResultType,
+      time: Date.now(),
+    });
+
+    document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+      detail: {
+        skillName: parsed.skillName, target: parsed.target,
+        roll: r.pRaw, resultType: r.pResult,
+        inputText: resultLine + text,
+        bonus: 'none', bonusTens: 0,
+        opposed: true, opponentRoll: r.oRaw, opponentTarget: parsed.opponentTarget, opponentResultType: r.oResult, opposedOutcome: r.outcome,
+      },
+    }));
+    return;
+  }
 
   if (parsed && parsed.target > 0) {
     const result = rollWithBonus(parsed.target, parsed.bonus);
@@ -180,6 +253,7 @@ const BONUS_COLORS = {
   bonus: { color: '#2e5c1e', bg: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.35)' },
   penalty: { color: '#8b2020', bg: 'rgba(183,28,28,0.08)', border: '1px solid rgba(183,28,28,0.3)' },
   none: { color: '#5a4a2a', bg: 'rgba(107,90,58,0.08)', border: '1px solid rgba(107,90,58,0.3)' },
+  opposed: { color: '#5c2e8b', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
 };
 
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
@@ -216,7 +290,7 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
         const effectiveVal = isDifficulty
           ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
           : val;
-        const c = BONUS_COLORS[check.bonus];
+        const c = BONUS_COLORS[check.opposed ? 'opposed' : check.bonus];
         return (
         <span style={{
           marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
