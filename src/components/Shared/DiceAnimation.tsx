@@ -324,8 +324,11 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   if (!visible) return null;
 
   const rollStr = String(roll);
-  const color = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
-  const isSuccess = resultType.includes('success');
+  const baseColor = (resultType === 'crit-success' && gold) ? '#ffd700' : (COLORS[resultType] || '#999');
+  const color = opposed
+    ? (opposedOutcome === 'win' ? '#69f0ae' : opposedOutcome === 'lose' ? '#ef5350' : '#ffd740')
+    : baseColor;
+  const isSuccess = opposed ? opposedOutcome === 'win' : resultType.includes('success');
   const glowColor = phase === 'rolling' ? '#555' : color;
 
   return (
@@ -395,8 +398,17 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
         <div style={{ height: 52, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
           {phase === 'result' && !opposed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-              <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
-                <span style={{ fontSize: 22, fontWeight: 600, color, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>{LABELS[resultType]}</span>
+              <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${baseColor}88`, borderRadius: 6, boxShadow: `0 0 24px ${baseColor}22` }}>
+                <span style={{ fontSize: 22, fontWeight: 600, color: baseColor, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>{LABELS[resultType]}</span>
+              </div>
+            </motion.div>
+          )}
+          {phase === 'result' && opposed && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', opacity: 0.7 }}>
+                <span>{LABELS[resultType] || resultType} ({roll})</span>
+                <span>vs</span>
+                <span>{LABELS[opponentResultType] || opponentResultType} ({opponentRoll})</span>
               </div>
             </motion.div>
           )}
