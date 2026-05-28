@@ -105,6 +105,7 @@ interface BookStore {
   autoFlipForward: () => void;
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
+  setPages: (pages: BookPage[]) => void;
 }
 
 let flipRaf = 0;
@@ -195,5 +196,8 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const trimmed = pages.slice(removed);
     const newPageIndex = Math.max(0, pageIndex - removed);
     set({ pages: trimmed, pageIndex: newPageIndex });
+  },
+  setPages: (pages) => {
+    set({ pages, pageIndex: Math.max(0, pages.length - 1) });
   },
 }));

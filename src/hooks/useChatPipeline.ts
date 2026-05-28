@@ -415,7 +415,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             'system',
           );
           bookStore.autoFlipForward();
-          // Optimize: trim old pages if enabled
           const thOptimize = useTavernHelperStore.getState().optimize;
           const thRender = useTavernHelperStore.getState().render;
           if (thOptimize.optimizeMessageLoad) {
@@ -423,6 +422,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             bookStore.trimPages(limit);
           }
         }
+        chatStore.savePages(useBookStore.getState().pages);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');

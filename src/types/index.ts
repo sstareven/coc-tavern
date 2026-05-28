@@ -190,6 +190,7 @@ export interface ChatSession {
   id: string;
   name: string;
   messages: ChatMessage[];
+  pages: BookPage[];
   presetId: string | null;
   lorebookIds: string[];
   createdAt: number;
