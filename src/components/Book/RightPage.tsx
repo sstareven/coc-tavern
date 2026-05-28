@@ -3,10 +3,10 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
-import { ALL_SKILLS } from '../../sillytavern/coc-data';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
+import { resolvePlayerValue } from './resolvePlayerValue';
 import type { ChoiceItem, DiceResultType } from '../../types';
 
 interface Props {
@@ -133,11 +133,7 @@ function rollOpposed(playerTarget: number, opponentTarget: number) {
 
 function getPlayerSkillValue(skillName: string): { base: number; current: number } | null {
   const sheet = useCharSheetStore.getState().sheet;
-  const skill = sheet.skills[skillName];
-  const def = ALL_SKILLS.find((s) => s.name === skillName);
-  const base = typeof def?.base === 'number' ? def.base : 1;
-  if (skill) return { base: skill.base ?? base, current: skill.current };
-  return { base, current: base };
+  return resolvePlayerValue(skillName, sheet);
 }
 
 function fillInputBar(text: string) {
