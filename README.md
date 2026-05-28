@@ -38,21 +38,46 @@ npm run dev
 ## 项目结构
 
 ```
-src/                          # 81 source files (45 .tsx, 31 .ts, 2 .css)
+src/                          # ~99 source files (52 .tsx, 45 .ts, 2 .css)
 ├── components/
-│   ├── Book/                 # 故事书翻页 (6 files, 810 lines)
-│   ├── CharSheet/            # 角色卡 + 创建向导 (6 files, 2667 lines)
-│   ├── Dice/                 # 骰子面板 + 历史 (3 files, 743 lines)
+│   ├── Book/                 # 故事书翻页 (6 files, ~870 lines)
+│   ├── CharSheet/            # 角色卡 + 创建向导 (14 files, ~2760 lines)
+│   │   ├── steps/            #   6 步向导组件 (new)
+│   │   │   ├── StepIdentity.tsx
+│   │   │   ├── StepCharacteristics.tsx
+│   │   │   ├── StepDerivedStats.tsx
+│   │   │   ├── StepSkills.tsx
+│   │   │   ├── StepBackground.tsx
+│   │   │   └── StepReview.tsx
+│   │   ├── CharacterCreator.tsx   # 编排器 (2221 → 1010 lines)
+│   │   └── styles.ts              # 共享 CSSProperties (new)
+│   ├── Dice/                 # 骰子面板 + 历史 (3 files, ~790 lines)
 │   ├── Landing/              # 开始界面 (2 files)
-│   ├── Layout/               # 顶层布局 + InputBar ⚠️ (3 files, 1096 lines)
-│   ├── Settings/             # 设置面板群 (13 files, 2500+ lines)
-│   └── Shared/               # 通用组件 (10 files, 1410 lines)
+│   ├── Layout/               # 顶层布局 + InputBar (3 files, ~610 lines)
+│   │   └── InputBar.tsx      #   982 → 444 lines
+│   ├── Settings/             # 设置面板群 (13 files, ~4400 lines)
+│   └── Shared/               # 通用组件 (11 files, ~1600 lines)
+│       └── DarkSelect.tsx    #   可复用下拉组件 (new)
+├── hooks/                    # React Hooks (4 files)
+│   ├── useChatPipeline.ts    #   聊天管道 hook  (new, ~620 lines)
+│   └── useCharacterPresets.ts #  预设持久化 (new)
 ├── stores/                   # Zustand 状态管理 (12 stores)
-├── sillytavern/              # 酒馆引擎 (15 files, 1900+ lines)
+│   └── useChatStore.ts       #   现已接入 localStorage 持久化
+├── sillytavern/              # 酒馆引擎 (22 files, ~2800 lines)
+│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数 (new)
+│   ├── coc-data.ts           #   COC 技能/职业/物品静态数据 (new)
+│   ├── dice-engine.ts        #   骰子检定引擎 (new)
+│   ├── format-converter.ts   #   格式转换 (all `any` eliminated)
+│   ├── format-instruction.ts #   LLM 格式指令 (new)
+│   ├── post-processor.ts     #   LLM 响应后处理 (new)
+│   ├── character-variables.ts #  角色变量管理 (new)
+│   ├── context-builder.ts    #   上下文组装 (new)
+│   ├── llm-response-parser.ts #  LLM 响应解析 (new)
+│   └── ...
 ├── audio/                    # Web Audio 音效合成 (1 file)
-├── hooks/                    # React Hooks (2 files)
+├── constants/                # 共享常量 (new, 1 file)
 ├── types/                    # TypeScript 类型 (1 file, 296 lines)
-└── styles/                   # 设计令牌 + 全局样式 (2 files)
+└── styles/                   # 设计令牌 + 全局样式 (3 files)
 ```
 
 ## 代码来源

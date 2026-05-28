@@ -1,6 +1,6 @@
 # 共享组件
 
-**10 files.** 通用 UI 工具。无独立状态管理 — 全部通过 props 接收数据。
+**11 files.** 通用 UI 工具。无独立状态管理 — 全部通过 props 接收数据。
 
 ## OVERVIEW
 
@@ -20,6 +20,7 @@ Shared/ 包含跨模块复用的组件：骰子动画、Token 计数器、代码
 | 故事书工具 | `BookUtils.tsx` | 73 lines，文本处理辅助 |
 | 文本美化 | `TextBeautifier.tsx` | 63 lines，正则格式化 |
 | Token 展示 | `TokenDisplay.tsx` | 28 lines，用量条 |
+| 暗色下拉 | `DarkSelect.tsx` | 85 lines，portal 渲染下拉菜单，走 CharSheet styles |
 
 ## CONVENTIONS
 
