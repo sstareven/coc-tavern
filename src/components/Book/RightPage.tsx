@@ -15,26 +15,56 @@ interface Props {
   isFlipping?: boolean;
 }
 
-// Parse check params from action text: "进行侦查检定(目标值:60, 极难目标值:12)" or "[检定:侦查 普通]"
-function parseCheckAction(text: string): { skillName: string; target: number; difficulty: string } | null {
-  // Format 1: "进行XX检定(目标值:NN)"
-  const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)/);
+type BonusType = 'none' | 'bonus' | 'penalty';
+
+interface CheckInfo {
+  skillName: string;
+  target: number;
+  difficulty: string;
+  bonus: BonusType;
+}
+
+function parseCheckAction(text: string): CheckInfo | null {
+  const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)([^)]*)\)/);
   if (m1) {
-    return { skillName: m1[1].trim(), target: parseInt(m1[2]), difficulty: '普通' };
+    const rest = m1[3] || '';
+    let bonus: BonusType = 'none';
+    if (/奖励骰/.test(rest)) bonus = 'bonus';
+    else if (/惩罚骰/.test(rest)) bonus = 'penalty';
+    return { skillName: m1[1].trim(), target: parseInt(m1[2]), difficulty: '普通', bonus };
   }
-  // Format 2: "[检定:XX 难度]"
   const m2 = text.match(/\[检定\s*[:：]\s*(.+?)\s+(普通|困难|极难)\s*\]/);
   if (m2) {
-    // Difficulties halve/divide the target (handled by the caller)
-    const diff = m2[2];
-    return { skillName: m2[1].trim(), target: 0, difficulty: diff };
+    return { skillName: m2[1].trim(), target: 0, difficulty: m2[2], bonus: 'none' };
   }
   return null;
 }
 
-function rollAndGetResult(_skillName: string, target: number): { raw: number; resultType: string; label: string } {
+interface RollResult {
+  raw: number;
+  resultType: string;
+  label: string;
+  bonusTens: number;
+  tensUsed: number;
+  tensAlt: number;
+  ones: number;
+}
+
+function rollWithBonus(target: number, bonus: BonusType): RollResult {
   const d10 = () => Math.floor(Math.random() * 10);
-  const t = d10(), o = d10();
+  const t1 = d10(), t2 = d10(), o = d10();
+  let t: number;
+  let bonusTens = t2;
+  if (bonus === 'bonus') {
+    t = Math.min(t1, t2);
+    bonusTens = Math.max(t1, t2);
+  } else if (bonus === 'penalty') {
+    t = Math.max(t1, t2);
+    bonusTens = Math.min(t1, t2);
+  } else {
+    t = t1;
+    bonusTens = t1;
+  }
   const raw = (t === 0 && o === 0) ? 100 : t * 10 + o;
   let resultType = 'failure';
   const fifth = Math.floor(target / 5);
@@ -48,7 +78,7 @@ function rollAndGetResult(_skillName: string, target: number): { raw: number; re
     'crit-success': '大成功！', 'extreme-success': '极难成功', 'hard-success': '困难成功',
     'success': '成功', 'failure': '失败', 'crit-failure': '大失败！',
   };
-  return { raw, resultType, label: labels[resultType] || resultType };
+  return { raw, resultType, label: labels[resultType] || resultType, bonusTens, tensUsed: t, tensAlt: bonus !== 'none' ? (t === t1 ? t2 : t1) : t, ones: o };
 }
 
 function getPlayerSkillValue(skillName: string): { base: number; current: number } | null {
@@ -70,12 +100,13 @@ function fillInputBar(text: string) {
   const parsed = parseCheckAction(text);
 
   if (parsed && parsed.target > 0) {
-    const result = rollAndGetResult(parsed.skillName, parsed.target);
+    const result = rollWithBonus(parsed.target, parsed.bonus);
     const rollStr = String(result.raw).padStart(2, '0');
-    const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target} ${result.label}]\n`;
+    const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
+    const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target}${bonusLabel} ${result.label}]\n`;
 
     useDiceStore.getState().addRecord({
-      skill: parsed.skillName,
+      skill: parsed.bonus === 'bonus' ? `${parsed.skillName}(奖励骰)` : parsed.bonus === 'penalty' ? `${parsed.skillName}(惩罚骰)` : parsed.skillName,
       roll: String(result.raw),
       target: String(parsed.target),
       type: result.resultType as DiceResultType,
@@ -83,7 +114,13 @@ function fillInputBar(text: string) {
     });
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
-      detail: { skillName: parsed.skillName, target: parsed.target, roll: result.raw, resultType: result.resultType, inputText: resultLine + text },
+      detail: {
+        skillName: parsed.skillName, target: parsed.target,
+        roll: result.raw, resultType: result.resultType,
+        inputText: resultLine + text,
+        bonus: parsed.bonus, bonusTens: result.bonusTens,
+        tensUsed: result.tensUsed, tensAlt: result.tensAlt, ones: result.ones,
+      },
     }));
   } else if (parsed && parsed.target === 0) {
     const d10 = () => Math.floor(Math.random() * 10);
@@ -139,6 +176,12 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
   );
 }
 
+const BONUS_COLORS = {
+  bonus: { color: '#2e5c1e', bg: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.35)' },
+  penalty: { color: '#8b2020', bg: 'rgba(183,28,28,0.08)', border: '1px solid rgba(183,28,28,0.3)' },
+  none: { color: '#5a4a2a', bg: 'rgba(107,90,58,0.08)', border: '1px solid rgba(107,90,58,0.3)' },
+};
+
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const [hovered, setHovered] = useState(false);
   const check = parseCheckAction(ch.action);
@@ -169,20 +212,17 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
       {isCheck && check && (() => {
         const val = playerSkill?.current ?? 0;
-        const tgt = check.target || 50;
-        const favorable = val >= tgt;
         const isDifficulty = check.target === 0;
         const effectiveVal = isDifficulty
           ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
           : val;
+        const c = BONUS_COLORS[check.bonus];
         return (
         <span style={{
           marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
           padding: '2px 8px', borderRadius: 3,
           fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
-          color: favorable ? '#2e5c1e' : '#8b2020',
-          background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
-          border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
+          color: c.color, background: c.bg, border: c.border,
           transition: 'border-color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {check.skillName}

@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 interface Props {
   visible: boolean; skillName: string; target: number;
   roll: number; resultType: string; onComplete: () => void;
+  bonus?: 'none' | 'bonus' | 'penalty';
+  bonusTens?: number;
 }
 
 const COLORS: Record<string, string> = { 'crit-success': '#69f0ae', 'extreme-success': '#00e676', 'hard-success': '#4fc3f7', 'success': '#69f0ae', 'failure': '#ff5252', 'crit-failure': '#d50000' };
@@ -241,12 +243,13 @@ function resultSfx(isSuccess: boolean, isCrit: boolean) {
   }
 }
 
-export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete }: Props) {
+export function DiceAnimation({ visible, skillName, target, roll, resultType, onComplete, bonus = 'none', bonusTens = 0 }: Props) {
   const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
   const [blur, setBlur] = useState(false);
   const [gold, setGold] = useState(false);
   const [fading, setFading] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDual = bonus !== 'none';
 
   useEffect(() => {
     if (!visible) return;
@@ -266,6 +269,17 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           const g = c.createGain(); g.gain.value = 0.45;
           src.connect(g); g.connect(c.destination);
           src.start();
+          if (isDual) {
+            setTimeout(async () => {
+              const c2 = ctx();
+              if (c2 && buf) {
+                const src2 = c2.createBufferSource(); src2.buffer = buf;
+                const g2 = c2.createGain(); g2.gain.value = 0.35;
+                src2.connect(g2); g2.connect(c2.destination);
+                src2.start();
+              }
+            }, 200);
+          }
         }
       }
 
@@ -319,11 +333,27 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
 
         {/* Dice display area */}
-        <div style={{ width: 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: isDual ? 320 : 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isDual ? 24 : 0 }}>
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
+          {isDual && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{
+                opacity: phase === 'result' ? 0.35 : 1,
+                scale: phase === 'result' ? 0.7 : 1,
+                filter: phase === 'result' ? 'grayscale(0.8)' : 'none',
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <RollingBlock phase={phase} rollStr={String(bonusTens * 10 + (roll % 10))} color={color} glowColor={glowColor} />
+            </motion.div>
+          )}
         </div>
 
-        <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>{skillName}检定</div>
+        <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
+          {skillName}检定
+          {isDual && <span style={{ fontSize: 12, marginLeft: 8, color: bonus === 'bonus' ? '#69f0ae' : '#ef5350', opacity: 0.8 }}>{bonus === 'bonus' ? '奖励骰' : '惩罚骰'}</span>}
+        </div>
         <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>目标 {target}</div>
 
         <div style={{ height: 52, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
