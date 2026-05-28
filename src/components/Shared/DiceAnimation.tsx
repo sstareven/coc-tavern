@@ -12,33 +12,37 @@ const LABELS: Record<string, string> = { 'crit-success': '大成功', 'extreme-s
 let _actx: AudioContext | null = null;
 function ctx() { try { if (!_actx || _actx.state === 'closed') _actx = new AudioContext(); if (_actx.state === 'suspended') _actx.resume(); return _actx; } catch { return null; } }
 
-// ── Preloaded rolling WAV ──
-let _rollingBuf: AudioBuffer | null = null;
-let _rollingPromise: Promise<AudioBuffer | null> | null = null;
-
-async function _loadRollingBuf(): Promise<AudioBuffer | null> {
-  try {
-    const resp = await fetch('/sfx/dice_rolling.wav');
-    if (!resp.ok) throw new Error('fetch failed');
-    const c = ctx(); if (!c) throw new Error('no AudioContext');
-    _rollingBuf = await c.decodeAudioData(await resp.arrayBuffer());
-    return _rollingBuf;
-  } catch {
-    return null;
+function playRollingSound() {
+  const c = ctx(); if (!c) return;
+  c.resume();
+  const duration = 1.5;
+  const hitCount = 14;
+  for (let i = 0; i < hitCount; i++) {
+    const t = c.currentTime + (i / hitCount) * duration * 0.9 + Math.random() * 0.04;
+    const vol = 0.12 + Math.random() * 0.15 - i * 0.005;
+    const freq = 180 + Math.random() * 200;
+    const decay = 0.02 + Math.random() * 0.03;
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.3, t + decay);
+    g.gain.setValueAtTime(Math.max(0.01, vol), t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+    osc.connect(g); g.connect(c.destination);
+    osc.start(t); osc.stop(t + decay + 0.01);
+    const noise = c.createOscillator();
+    const ng = c.createGain();
+    noise.type = 'square';
+    noise.frequency.setValueAtTime(freq * 2.5, t);
+    ng.gain.setValueAtTime(Math.max(0.01, vol * 0.3), t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + decay * 0.5);
+    noise.connect(ng); ng.connect(c.destination);
+    noise.start(t); noise.stop(t + decay * 0.5 + 0.01);
   }
 }
-function loadRollingBuf(): Promise<AudioBuffer | null> {
-  if (_rollingBuf) return Promise.resolve(_rollingBuf);
-  if (!_rollingPromise) _rollingPromise = _loadRollingBuf();
-  return _rollingPromise;
-}
-// Eager preload on first user interaction (module eval)
-if (typeof window !== 'undefined') {
-  const preload = () => { const c = ctx(); if (c) { c.resume(); loadRollingBuf(); } };
-  window.addEventListener('click', preload, { once: true });
-  window.addEventListener('keydown', preload, { once: true });
-}
-const ROLL_DURATION = 1587; // ms — matched to dice_rolling.wav
+
+const ROLL_DURATION = 1587;
 
 // ── v2: resonant wooden impact ──
 function impact(vol = 0.06, freq = 300, decay = 0.04) {
@@ -253,16 +257,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
     if (tRef.current) clearTimeout(tRef.current);
     setBlur(false); setGold(false); setFading(false); setPhase('rolling');
     const crit = resultType === 'crit-success' || resultType === 'crit-failure';
-    // Play preloaded dice_rolling.wav
-    loadRollingBuf().then(async (buf) => {
-      if (!buf) return;
-      const c = ctx(); if (!c) return;
-      await c.resume();
-      const src = c.createBufferSource(); src.buffer = buf;
-      const g = c.createGain(); g.gain.value = 0.45;
-      src.connect(g); g.connect(c.destination);
-      src.start();
-    });
+    playRollingSound();
     tRef.current = setTimeout(async () => {
       const c = ctx(); if (c) await c.resume();
       setPhase('result');
