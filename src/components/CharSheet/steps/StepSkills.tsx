@@ -92,7 +92,7 @@ export function StepSkills({
           <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业 OCCUPATION</span>
           <DarkSelect value={occValue} onChange={onSetOccupation}
             options={[
-              ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `${o.en} \u00b7 信用 ${o.crMin}\u2013${o.crMax}%` })),
+              ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `${o.en} · 信用 ${o.crMin}–${o.crMax}%` })),
               { value: '__custom__', label: '自定义职业...', sub: '' },
             ]} />
         </div>
@@ -114,7 +114,7 @@ export function StepSkills({
         {selectedOcc && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{selectedOcc.name} ({selectedOcc.en})</span>
-            <span style={{ color: 'var(--ink-subtle)' }}>信用 {crMin}\u2013{crMax}%</span>
+            <span style={{ color: 'var(--ink-subtle)' }}>信用 {crMin}–{crMax}%</span>
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>

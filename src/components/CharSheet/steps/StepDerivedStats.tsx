@@ -116,8 +116,8 @@ export function StepDerivedStats({
           </thead>
           <tbody>
             {DB_TABLE.map((row) => {
-              const active = strPlusSiz >= parseInt(row.range.split('\u2013')[0].trim()) &&
-                strPlusSiz <= parseInt(row.range.split('\u2013')[1]?.trim() ?? '999');
+    const active = strPlusSiz >= parseInt(row.range.split('–')[0].trim()) &&
+    strPlusSiz <= parseInt(row.range.split('–')[1]?.trim() ?? '999');
               return (
                 <tr key={row.range} style={{
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
