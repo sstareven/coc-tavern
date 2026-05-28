@@ -6,6 +6,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { ALL_SKILLS } from '../../sillytavern/coc-data';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
+import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import type { ChoiceItem, DiceResultType } from '../../types';
 
 interface Props {
@@ -220,6 +221,7 @@ function fillInputBar(text: string) {
 export function RightPage({ header, content, choices, pageNum, isFlipping }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
+  const { edge, intensity, fading, onScroll } = useScrollGlow();
   const fadeStyle = {
     opacity: isFlipping ? 0 : 1,
     transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',
@@ -234,16 +236,19 @@ export function RightPage({ header, content, choices, pageNum, isFlipping }: Pro
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
-      <div className="rp-scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', minHeight: 0, ...fadeStyle }}>
-        {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-          <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{beautifyText(renderedContent[0])}</p>
-        ) : (
-          renderedContent.map((node, i) => typeof node === 'string'
-            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{beautifyText(node)}</p>
-            : <span key={i}>{node}</span>)
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
+        <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
+          {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
+            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{beautifyText(renderedContent[0])}</p>
+          ) : (
+            renderedContent.map((node, i) => typeof node === 'string'
+              ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{beautifyText(node)}</p>
+              : <span key={i}>{node}</span>)
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
+          </div>
         </div>
       </div>
       {pageNum && (
