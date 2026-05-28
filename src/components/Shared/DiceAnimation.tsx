@@ -278,7 +278,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
                 src2.connect(g2); g2.connect(c2.destination);
                 src2.start();
               }
-            }, 200);
+            }, 250);
           }
         }
       }
@@ -305,12 +305,15 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
   // Random entrance direction — matches the rotation direction feel
   const entrance = useMemo(() => {
     const dirs = [
-      { x: -260, y: -120 }, // top-left
-      { x: 260, y: -120 },  // top-right
-      { x: -220, y: 140 },  // bottom-left
-      { x: 220, y: 140 },   // bottom-right
+      { x: -260, y: -120 },
+      { x: 260, y: -120 },
+      { x: -220, y: 140 },
+      { x: 220, y: 140 },
     ];
-    return dirs[Math.floor(Math.random() * dirs.length)];
+    const i1 = Math.floor(Math.random() * dirs.length);
+    let i2 = (i1 + 1 + Math.floor(Math.random() * 3)) % dirs.length;
+    if (i2 === i1) i2 = (i1 + 2) % dirs.length;
+    return { main: dirs[i1], alt: dirs[i2] };
   }, [visible, roll]);
   // Remove debug log
   if (!visible) return null;
@@ -327,23 +330,24 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
       transition={{ duration: fading ? 0.5 : 0.35, ease: fading ? [0.4, 0, 1, 1] : [0.22, 1, 0.36, 1] }}
       style={{ position: 'fixed', inset: 0, zIndex: 960, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: blur ? 'blur(8px)' : 'blur(6px)' }}>
       <motion.div
-        initial={{ scale: 0.3, opacity: 0, x: entrance.x, y: entrance.y }}
+        initial={{ scale: 0.3, opacity: 0, x: entrance.main.x, y: entrance.main.y }}
         animate={{ scale: fading ? 0.85 : (blur ? 0.95 : 1), opacity: fading ? 0 : 1, x: 0, y: 0, filter: blur ? 'blur(3px)' : 'blur(0px)' }}
         transition={{ duration: fading ? 0.45 : 0.6, ease: fading ? [0.32, 0, 0.67, 0] : [0.34, 1.56, 0.64, 1] }}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
 
         {/* Dice display area */}
-        <div style={{ width: isDual ? 320 : 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isDual ? 24 : 0 }}>
+        <div style={{ width: isDual ? 380 : 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isDual ? 40 : 0 }}>
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
           {isDual && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
+              initial={{ opacity: 0, scale: 0.3, x: entrance.alt.x * 0.5, y: entrance.alt.y * 0.5 }}
               animate={{
-                opacity: phase === 'result' ? 0.35 : 1,
-                scale: phase === 'result' ? 0.7 : 1,
-                filter: phase === 'result' ? 'grayscale(0.8)' : 'none',
+                opacity: phase === 'result' ? 0.3 : 1,
+                scale: phase === 'result' ? 0.65 : 1,
+                x: 0, y: 0,
+                filter: phase === 'result' ? 'grayscale(0.8) brightness(0.6)' : 'none',
               }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.6, delay: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
             >
               <RollingBlock phase={phase} rollStr={String(bonusTens * 10 + (roll % 10))} color={color} glowColor={glowColor} />
             </motion.div>
