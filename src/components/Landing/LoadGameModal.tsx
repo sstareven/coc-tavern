@@ -107,9 +107,8 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
           {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
         </div>
       </div>
-      {!isActive && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
           style={{
             background: 'none', border: '1px solid transparent', borderRadius: 3,
             color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
@@ -122,7 +121,6 @@ function SessionRow({ session: s, isActive, onSelect, onDelete }: {
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
           title="删除存档"
         >✕</button>
-      )}
     </div>
   );
 }
