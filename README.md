@@ -5,7 +5,7 @@
 ## 技术栈
 
 - React 19 + TypeScript 6 + Vite 8
-- Zustand 5 状态管理
+- Zustand 5 状态管理 + persist 中间件
 - Framer Motion 12 动画
 - CSS 3D Transform 翻页
 - Web Audio API 音效合成
@@ -35,6 +35,12 @@ npm run dev
 - Web Audio 音效合成 + WAV 音频
 - 悬停提示系统（进度环 + 关键词嵌套窗）
 
+## 测试
+
+```bash
+npm test         # Vitest (50 tests: 骰子 + COC 规则 + 数据库)
+```
+
 ## 项目结构
 
 ```
@@ -59,21 +65,25 @@ src/                          # ~99 source files (52 .tsx, 45 .ts, 2 .css)
 │   └── Shared/               # 通用组件 (11 files, ~1600 lines)
 │       └── DarkSelect.tsx    #   可复用下拉组件 (new)
 ├── hooks/                    # React Hooks (4 files)
-│   ├── useChatPipeline.ts    #   聊天管道 hook  (new, ~620 lines)
-│   └── useCharacterPresets.ts #  预设持久化 (new)
-├── stores/                   # Zustand 状态管理 (12 stores)
-│   └── useChatStore.ts       #   现已接入 localStorage 持久化
+│   ├── useChatPipeline.ts    #   聊天管道 hook (~540 lines)
+│   └── useStreamingRenderer.ts #  流式渲染 hook (new)
+├── stores/                   # Zustand 状态管理 (13 stores)
+│   └── 全部接入 IndexedDB (Dexie persist 中间件)
 ├── sillytavern/              # 酒馆引擎 (22 files, ~2800 lines)
-│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数 (new)
-│   ├── coc-data.ts           #   COC 技能/职业/物品静态数据 (new)
-│   ├── dice-engine.ts        #   骰子检定引擎 (new)
-│   ├── format-converter.ts   #   格式转换 (all `any` eliminated)
+│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数 (new, 测试覆盖)
+│   ├── dice-engine.ts        #   骰子检定引擎 (new, 27 tests)
+│   ├── format-converter.ts   #   格式转换 (all `any` 已消除)
 │   ├── format-instruction.ts #   LLM 格式指令 (new)
 │   ├── post-processor.ts     #   LLM 响应后处理 (new)
 │   ├── character-variables.ts #  角色变量管理 (new)
 │   ├── context-builder.ts    #   上下文组装 (new)
 │   ├── llm-response-parser.ts #  LLM 响应解析 (new)
 │   └── ...
+├── db/                       # Dexie IndexedDB 持久化层 (5 files) (new)
+│   ├── database.ts           #   kvStore 单表 + Dexie schema
+│   ├── storage.ts            #   Zustand persist 适配器
+│   └── migrations.ts         #   localStorage→IndexedDB 自动迁移
+├── test/                     # Vitest 测试环境 (new)
 ├── audio/                    # Web Audio 音效合成 (1 file)
 ├── constants/                # 共享常量 (new, 1 file)
 ├── types/                    # TypeScript 类型 (1 file, 296 lines)
