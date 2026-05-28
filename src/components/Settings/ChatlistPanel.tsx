@@ -73,41 +73,59 @@ export function ChatlistPanel({ onClose }: Props) {
         </div>
 
         {/* Session list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--ink-faded) transparent' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--ink-faded) transparent' }}>
           {sessions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13, letterSpacing: 2 }}>
               暂无对话记录
             </div>
           ) : (
-            sessions.map((sess) => (
+            sessions.map((sess) => {
+              const isActive = activeId === sess.id;
+              return (
               <div
                 key={sess.id}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 14px', border: activeId === sess.id ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.1)',
+                  padding: '12px 14px', border: isActive ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.1)',
                   borderRadius: 4, cursor: 'pointer',
-                  background: activeId === sess.id ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)',
-                  transition: 'var(--transition-smooth)',
+                  background: isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)',
+                  transition: 'var(--transition-smooth)', transform: 'translateX(0)',
                 }}
                 onClick={() => { setActive(sess.id); onClose(); }}
+                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; e.currentTarget.style.borderColor = 'var(--brass)'; } e.currentTarget.style.transform = 'translateX(4px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.08)' : 'rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = isActive ? 'var(--gold)' : 'rgba(196,168,85,0.1)'; e.currentTarget.style.transform = 'translateX(0)'; }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontSize: 13, color: activeId === sess.id ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
-                    {sess.name}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                      {sess.name}
+                    </span>
+                    {isActive && (
+                      <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--gold)', background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2, letterSpacing: 1 }}>当前</span>
+                    )}
+                  </div>
                   <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
                     {sess.messages.length} 条消息 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
                   </span>
                 </div>
+                {!isActive && (
                 <button onClick={(e) => { e.stopPropagation(); deleteSession(sess.id); }} style={{
                   padding: '4px 10px', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 3,
                   background: 'transparent', color: 'var(--blood)', fontFamily: 'var(--font-ui)',
                   fontSize: 10, letterSpacing: 1, cursor: 'pointer',
-                }}>
+                  transition: 'var(--transition-smooth)', transform: 'scale(1)',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = 'var(--blood)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = 'rgba(139,58,58,0.2)'; }}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)'; }}
+                  onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+                >
                   删除
                 </button>
+                )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
