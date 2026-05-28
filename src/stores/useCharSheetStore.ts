@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CharacterSheet } from '../types';
-
-const STORAGE_KEY = 'coc_character';
+import { createDexieStorage } from '../db/storage';
+import { stripFunctions } from '../db/stripFunctions';
 
 const defaultSheet: CharacterSheet = {
   characteristics: { STR: 70, CON: 50, POW: 80, DEX: 65, APP: 45, SIZ: 55, INT: 75, EDU: 70 },
@@ -16,17 +17,6 @@ const defaultSheet: CharacterSheet = {
   personaDescription: '{{user}}是阿米蒂奇·沃伦博士，密斯卡塔尼克大学地质学教授。你正在调查加德纳农场的陨石坠落事件。你的专业是矿物学和陨石研究，但这次你面对的是超越人类科学认知的事物。你携带了野外调查工具和一本笔记本。你的任务是：1）采集陨石样本进行分析，2）调查加德纳一家人的异常状况，3）确定是否存在对周边地区居民的健康威胁。你倾向于用科学方法解决问题，但要做好准备面对科学无法解释的恐怖。记住：宇宙比我们想象的更为黑暗、更为陌生。',
 };
 
-function loadFromStorage(): CharacterSheet {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.characteristics && parsed.identity) return parsed as CharacterSheet;
-    }
-  } catch { /* ignore corrupt data */ }
-  return defaultSheet;
-}
-
 interface CharSheetStore {
   sheet: CharacterSheet;
   isOpen: boolean;
@@ -35,13 +25,19 @@ interface CharSheetStore {
   setSheet: (sheet: CharacterSheet) => void;
 }
 
-export const useCharSheetStore = create<CharSheetStore>((set) => ({
-  sheet: loadFromStorage(),
-  isOpen: false,
-  toggle: () => set((s) => ({ isOpen: !s.isOpen })),
-  close: () => set({ isOpen: false }),
-  setSheet: (sheet: CharacterSheet) => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sheet)); } catch { /* quota exceeded */ }
-    set({ sheet });
-  },
-}));
+export const useCharSheetStore = create<CharSheetStore>()(
+  persist(
+    (set) => ({
+      sheet: defaultSheet,
+      isOpen: false,
+      toggle: () => set((s) => ({ isOpen: !s.isOpen })),
+      close: () => set({ isOpen: false }),
+      setSheet: (sheet: CharacterSheet) => set({ sheet }),
+    }),
+    {
+      name: 'coc_character',
+      storage: createJSONStorage(createDexieStorage),
+      partialize: (state) => stripFunctions(state as unknown as Record<string, unknown>) as Partial<CharSheetStore>,
+    },
+  ),
+);

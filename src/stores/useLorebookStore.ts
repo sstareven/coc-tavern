@@ -1,5 +1,8 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { LoreBook, LoreEntry } from '../types';
+import { createDexieStorage } from '../db/storage';
+import { stripFunctions } from '../db/stripFunctions';
 
 const e = (overrides: Partial<LoreEntry>): LoreEntry => ({
   name: '', keys: '', content: '', logic: 'AND', priority: 10,
@@ -315,39 +318,72 @@ _元数据:
   }},
 };
 
-const STORAGE_KEY = 'coc_lorebooks_v1';
-
-function loadExtraBooks(): Record<string, LoreBook> {
-  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-}
-
-function saveExtraBooks(books: Record<string, LoreBook>) {
-  const extra: Record<string, LoreBook> = {};
-  for (const [k, v] of Object.entries(books)) { if (!defaultBooks[k]) extra[k] = v; }
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(extra)); } catch { /* quota */ }
-}
-
 let entryCounter = 10;
+
 interface LorebookStore {
   books: Record<string, LoreBook>;
-  updateEntry: (b:string, e:string, entry: LoreEntry) => void;
-  deleteEntry: (b:string, e:string) => void;
-  addEntry: (b:string) => void;
-  addBook: (name:string) => string;
+  updateEntry: (b: string, e: string, entry: LoreEntry) => void;
+  deleteEntry: (b: string, e: string) => void;
+  addEntry: (b: string) => void;
+  addBook: (name: string) => string;
   importBook: (book: LoreBook) => string;
   deleteBook: (id: string) => void;
   toggleBook: (id: string) => void;
 }
 
-const extraBooks = loadExtraBooks();
-
-export const useLorebookStore = create<LorebookStore>((set) => ({
-  books: { ...defaultBooks, ...extraBooks },
-  updateEntry: (b, e, entry) => set((s) => { const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [e]:entry}}; saveExtraBooks(books); return {books}; }),
-  deleteEntry: (b, e) => set((s) => { const books={...s.books}; const entries={...books[b].entries}; delete entries[e]; books[b]={...books[b], entries}; saveExtraBooks(books); return {books}; }),
-  addEntry: (b) => set((s) => { const id='e'+(++entryCounter); const books={...s.books}; books[b]={...books[b], entries:{...books[b].entries, [id]:e({name:'新条目'})}}; saveExtraBooks(books); return {books}; }),
-  addBook: (name) => { const id = 'wb-' + Date.now(); set((s) => { const books = { ...s.books, [id]: { name, entries: {}, enabled: true } }; saveExtraBooks(books); return { books }; }); return id; },
-  importBook: (book) => { const id = 'wb-' + Date.now(); set((s) => { const books = { ...s.books, [id]: book }; saveExtraBooks(books); return { books }; }); return id; },
-  deleteBook: (id) => set((s) => { if (defaultBooks[id]) return s; const books={...s.books}; delete books[id]; saveExtraBooks(books); return {books}; }),
-  toggleBook: (id) => set((s) => { const books = { ...s.books, [id]: { ...s.books[id], enabled: !s.books[id]?.enabled } }; saveExtraBooks(books); return { books }; }),
-}));
+export const useLorebookStore = create<LorebookStore>()(
+  persist(
+    (set) => ({
+      books: { ...defaultBooks },
+      updateEntry: (b, e, entry) => set((s) => {
+        const books = { ...s.books };
+        books[b] = { ...books[b], entries: { ...books[b].entries, [e]: entry } };
+        return { books };
+      }),
+      deleteEntry: (b, e) => set((s) => {
+        const books = { ...s.books };
+        const entries = { ...books[b].entries };
+        delete entries[e];
+        books[b] = { ...books[b], entries };
+        return { books };
+      }),
+      addEntry: (b) => set((s) => {
+        const id = 'e' + (++entryCounter);
+        const books = { ...s.books };
+        books[b] = { ...books[b], entries: { ...books[b].entries, [id]: e({ name: '新条目' }) } };
+        return { books };
+      }),
+      addBook: (name) => {
+        const id = 'wb-' + Date.now();
+        set((s) => {
+          const books = { ...s.books, [id]: { name, entries: {}, enabled: true } };
+          return { books };
+        });
+        return id;
+      },
+      importBook: (book) => {
+        const id = 'wb-' + Date.now();
+        set((s) => {
+          const books = { ...s.books, [id]: book };
+          return { books };
+        });
+        return id;
+      },
+      deleteBook: (id) => set((s) => {
+        if (defaultBooks[id]) return s;
+        const books = { ...s.books };
+        delete books[id];
+        return { books };
+      }),
+      toggleBook: (id) => set((s) => {
+        const books = { ...s.books, [id]: { ...s.books[id], enabled: !s.books[id]?.enabled } };
+        return { books };
+      }),
+    }),
+    {
+      name: 'coc_lorebooks_v1',
+      storage: createJSONStorage(createDexieStorage),
+      partialize: (state) => stripFunctions(state) as Partial<LorebookStore>,
+    }
+  )
+);
