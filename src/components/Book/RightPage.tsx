@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -128,39 +129,57 @@ export function RightPage({ header, content, choices, isFlipping }: Props) {
             : <span key={i}>{node}</span>)
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {choices.map((ch) => {
-            const check = parseCheckAction(ch.action);
-            const isCheck = check !== null;
-            const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-            return (
-              <button key={ch.num} onClick={() => fillInputBar(ch.action)} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: isCheck ? '12px 16px' : '10px 14px',
-                border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
-                borderRadius: isCheck ? 5 : 3,
-                background: isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)',
-                backdropFilter: isCheck ? 'blur(8px)' : 'none',
-                boxShadow: isCheck ? '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
-                color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
-                textAlign: 'left', cursor: 'pointer', transition: 'var(--transition-smooth)',
-              }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)'; e.currentTarget.style.borderColor = 'var(--gold)'; if (isCheck) e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'; if (isCheck) e.currentTarget.style.boxShadow = '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)'; }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
-                <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
-                {isCheck && check && (
-                  <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: '#8b7632', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5 }}>
-                    <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28' }}>{check.skillName}</span>
-                    {check.target > 0 && <span style={{ color: '#6b5a28' }}>目标:{check.target}</span>}
-                    {check.target === 0 && <span style={{ color: '#6b5a28' }}>{check.difficulty}</span>}
-                    {playerSkill !== null && <span style={{ fontWeight: 700, fontSize: 12, color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>{playerSkill}</span>}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
         </div>
       </div>
     </div>
+  );
+}
+
+function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
+  const [hovered, setHovered] = useState(false);
+  const check = parseCheckAction(ch.action);
+  const isCheck = check !== null;
+  const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
+
+  return (
+    <button onClick={() => fillInputBar(ch.action)} style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: isCheck ? '12px 16px' : '10px 14px',
+      border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
+      borderRadius: isCheck ? 5 : 3,
+      background: hovered
+        ? (isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)')
+        : (isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)'),
+      backdropFilter: isCheck ? 'blur(8px)' : 'none',
+      boxShadow: isCheck
+        ? (hovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
+        : 'none',
+      borderColor: hovered ? 'var(--gold)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'),
+      color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
+      textAlign: 'left', cursor: 'pointer', transition: 'var(--transition-smooth)',
+    }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
+      <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
+      {isCheck && check && (
+        <span style={{ marginLeft: 'auto', fontSize: 10, fontFamily: 'var(--font-mono)', color: '#8b7632', display: 'flex', gap: 0, alignItems: 'center', flexShrink: 0, letterSpacing: 0.5, overflow: 'hidden' }}>
+          <span style={{
+            display: 'flex', gap: 6, alignItems: 'center',
+            maxWidth: hovered ? 120 : 0, opacity: hovered ? 1 : 0,
+            transition: 'max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
+            overflow: 'hidden', whiteSpace: 'nowrap',
+          }}>
+            {check.target > 0 && <span style={{ color: '#6b5a28' }}>目标:{check.target}</span>}
+            {check.target === 0 && <span style={{ color: '#6b5a28' }}>{check.difficulty}</span>}
+            {playerSkill !== null && <span style={{ fontWeight: 700, fontSize: 12, color: playerSkill >= (check.target || 50) ? 'var(--success-bright)' : 'var(--blood)' }}>{playerSkill}</span>}
+            <span style={{ width: 6 }} />
+          </span>
+          <span style={{ padding: '2px 8px', border: '1px solid rgba(139,118,50,0.5)', borderRadius: 3, background: 'rgba(139,118,50,0.15)', fontWeight: 700, fontSize: 11, color: '#6b5a28' }}>{check.skillName}</span>
+        </span>
+      )}
+    </button>
   );
 }
