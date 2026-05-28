@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Extension } from '../../types';
+import { closeBtnStyle } from '../../styles/panelStyles';
 
 const STORAGE_KEY = 'coc_extensions_v2';
 
@@ -228,8 +229,3 @@ export function ExtManager({ onClose }: Props) {
   );
 }
 
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};

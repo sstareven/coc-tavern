@@ -26,54 +26,11 @@ import { useRegexStore } from '../../stores/useRegexStore';
 import { trimToBudget, getModelBudget } from '../../sillytavern/context-manager';
 import { estimateTokens } from '../../sillytavern/token-counter';
 import { pushLog } from '../../stores/useLogStore';
+import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
 import type { BookPage, ChatPreset, LoreEntry, SceneInfo } from '../../types';
 import type { AssembledMessage } from '../../sillytavern/prompt-assembler';
 
 const FORMAT_INSTRUCTION = '你必须严格以JSON格式回复。注意：JSON中的var标签必须用单引号！变量路径使用嵌套格式（如：调查员.生命值.当前）。\n\n{\n  "sceneInfo": {"date": "1925年3月15日", "weekday": "星期一", "time": "深夜", "weather": "阴雨", "location": "阿卡姆·书房"},\n  "leftHeader": "章节标题",\n  "leftContent": "叙事内容。嵌入状态变量：<var name=\'调查员.生命值.当前\' value=\'12\'/> <var name=\'调查员.理智值.当前\' value=\'60\'/> <var name=\'调查员.魔法值.当前\' value=\'12\'/> <var name=\'世界.地点\' value=\'书房\'/> <var name=\'战斗.是否战斗中\' value=\'false\'/>",\n  "rightHeader": "行动标题",\n  "rightContent": "引导文字。",\n  "choices": [\n    {"num": "I", "text": "选项简述", "action": "进行侦查检定(目标值:60)，搜查书房 <var name=\'lastAction\' value=\'搜查书房\'/> <var name=\'lastCheck\' value=\'侦查\'/>"},\n    {"num": "II", "text": "选项简述", "action": "进行图书馆使用检定(目标值:50)，查阅档案 <var name=\'lastAction\' value=\'查阅档案\'/> <var name=\'lastCheck\' value=\'图书馆使用\'/>"},\n    {"num": "III", "text": "选项简述", "action": "谨慎观察周围环境 <var name=\'lastAction\' value=\'观察环境\'/>"},\n    {"num": "IV", "text": "选项简述", "action": "重新评估局势 <var name=\'lastAction\' value=\'重新评估\'/>"}\n  ]\n}\n必须恰好4个选项。';
-
-const DEFAULT_PRESET: ChatPreset = {
-  id: 'default',
-  name: '默认',
-  temperature: 1.00,
-  frequencyPenalty: 0.00,
-  presencePenalty: 0.00,
-  repetitionPenalty: 1.00,
-  topP: 1.00,
-  topK: 40,
-  minP: 0,
-  topA: 0,
-  maxTokens: 2048,
-  systemPrompt: '你是COC 7版（克苏鲁的呼唤）的守秘人（KP）。你的职责是：\n1. 根据玩家的行动描述推进剧情\n2. 进行检定判定并描述结果\n3. 描绘洛夫克拉夫特式的恐怖氛围\n4. 为玩家提供合理的行动选项\n\n【变量管理】\n你需要在回复末尾使用 JSON Patch 格式管理游戏状态变量。变量采用嵌套路径，例如：\n- 生命值变化：{"op":"replace","path":"/调查员/生命值/当前","value":"8"}\n- 理智值变化：{"op":"delta","path":"/调查员/理智值/当前","value":"-5"}\n- 新增线索：{"op":"insert","path":"/剧情/线索","value":{"名称":"神秘信件","内容":"..."}}\n- 时间推进：{"op":"replace","path":"/世界/时间","value":"深夜"}\n\n请在每次回复中有状态变化时输出变量标签。请始终以叙事者的身份进行回复，保持悬疑和恐怖的氛围。',
-  userPrefix: '玩家: ',
-  assistantPrefix: '守秘人: ',
-  unlockContext: false,
-  contextLength: 65536,
-  maxResponseTokens: 2048,
-  alternativeReplies: 1,
-  streamEnabled: false,
-  reasoningEffort: 'auto' as const,
-  showThoughts: false,
-  responseLength: 'auto' as const,
-  seed: -1,
-  charNameBehavior: 'none' as const,
-  continueSuffix: 'none' as const,
-  continuePrefill: false,
-  assistantPrefill: '',
-  mainPrompt: '',
-  auxiliaryPrompt: '',
-  postHistoryPrompt: '',
-  aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
-  worldBookTemplate: '[世界书: {0}]',
-  scenarioTemplate: '场景: {{scenario}}',
-  personalityTemplate: '性格: {{personality}}',
-  groupChatPrompt: '请以{{char}}的身份回复。',
-  newChatPrompt: '[新的聊天即将开始]',
-  newGroupChatPrompt: '[新的群聊即将开始]',
-  newExampleChatPrompt: '[新的示例聊天即将开始]',
-  continuePrompt: '[继续推进]',
-  emptyMessagePrompt: '',
-  promptItems: [],
-};
 
 function applyPostProcessing(messages: AssembledMessage[], mode: string): AssembledMessage[] {
   if (!mode) return messages;
@@ -455,7 +412,7 @@ export function InputBar() {
     matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
 
     setTokenContext({
-      systemPrompt: DEFAULT_PRESET.systemPrompt,
+      systemPrompt: DEFAULT_INPUT_PRESET.systemPrompt,
       loreEntryContents: matchedLore.map((e) => e.content),
       formatInstruction: FORMAT_INSTRUCTION,
       chatHistoryMessages: [],
@@ -531,14 +488,14 @@ export function InputBar() {
     // Load active preset (try chat session, then localStorage, fall back to default)
     const activePresetId = useChatStore.getState().sessions.find((s) => s.id === useChatStore.getState().activeId)?.presetId
       || localStorage.getItem('coc_last_preset');
-    let activePreset: ChatPreset = DEFAULT_PRESET;
+    let activePreset: ChatPreset = DEFAULT_INPUT_PRESET;
     if (activePresetId && activePresetId !== 'p1') {
       try {
         const raw = localStorage.getItem('coc_presets_v1');
         if (raw) {
           const saved = JSON.parse(raw);
           if (saved[activePresetId]) {
-            activePreset = { ...DEFAULT_PRESET, ...saved[activePresetId] };
+            activePreset = { ...DEFAULT_INPUT_PRESET, ...saved[activePresetId] };
           }
         }
       } catch { /* use default */ }
@@ -553,7 +510,7 @@ export function InputBar() {
     // Process EJS templates in system prompt and lore entries
     const processedPreset = {
       ...activePreset,
-      systemPrompt: renderTemplate(activePreset.systemPrompt || DEFAULT_PRESET.systemPrompt, tmplOpts),
+      systemPrompt: renderTemplate(activePreset.systemPrompt || DEFAULT_INPUT_PRESET.systemPrompt, tmplOpts),
     };
     const processedLore = matchedLore.map((e) => ({
       ...e,
@@ -700,7 +657,7 @@ export function InputBar() {
     try {
       const response = await sendChatCompletion(
         applyPostProcessing(editedMessages, settings.promptPostProcessing),
-        DEFAULT_PRESET,
+        DEFAULT_INPUT_PRESET,
         settings.apiBaseUrl,
         settings.apiKey,
         settings.apiModel,

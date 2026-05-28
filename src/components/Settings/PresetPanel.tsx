@@ -3,35 +3,9 @@ import { useChatStore } from '../../stores/useChatStore';
 import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
+import { DEFAULT_PRESETS } from '../../constants/presets';
 import type { ChatPreset } from '../../types';
-
-const DEFAULT_PRESETS: Record<string, ChatPreset> = {
-  p1: {
-    id: 'p1', name: '默认预设',
-    temperature: 1.00, frequencyPenalty: 0.00, presencePenalty: 0.00, repetitionPenalty: 1.00,
-    topP: 1.00, topK: 40, minP: 0, topA: 0, maxTokens: 2048,
-    systemPrompt: '你是一个TRPG游戏主持人，负责运行克苏鲁的呼唤7版模组。',
-    userPrefix: '玩家: ', assistantPrefix: '守秘人: ',
-    unlockContext: false, contextLength: 65536, maxResponseTokens: 2048, alternativeReplies: 1,
-    streamEnabled: false, reasoningEffort: 'auto', showThoughts: false,
-    responseLength: 'auto', seed: -1,
-    charNameBehavior: 'none', continueSuffix: 'none', continuePrefill: false, assistantPrefill: '',
-    mainPrompt: '', auxiliaryPrompt: '', postHistoryPrompt: '',
-    aiAssistPrompt: '根据上文内容，写出{{char}}的下一句对话或行动',
-    worldBookTemplate: '[世界书: {0}]',
-    scenarioTemplate: '场景: {{scenario}}',
-    personalityTemplate: '性格: {{personality}}',
-    groupChatPrompt: '请以{{char}}的身份回复。',
-    newChatPrompt: '[新的聊天即将开始]',
-    newGroupChatPrompt: '[新的群聊即将开始]',
-    newExampleChatPrompt: '[新的示例聊天即将开始]',
-    continuePrompt: '[继续推进]',
-    emptyMessagePrompt: '',
-    promptItems: [],
-    tavernHelperScripts: [],
-    regexScripts: [],
-  },
-};
+import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
   onClose: () => void;
@@ -258,12 +232,6 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
     </div>
   );
 }
-
-const closeBtnStyle: React.CSSProperties = {
-  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
-};
 
 const actionBtnStyle: React.CSSProperties = {
   padding: '5px 14px', border: '1px solid rgba(196,168,85,0.2)',
