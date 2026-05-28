@@ -330,6 +330,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setTooltipDelay = useSettingsStore((s) => s.setTooltipDelay);
   const musicVolume = useSettingsStore((s) => s.musicVolume);
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
+  const autoSubmitChoice = useSettingsStore((s) => s.autoSubmitChoice);
+  const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -550,6 +552,18 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     />
                     <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{tooltipDelay}ms</span>
                   </div>
+                </div>
+
+                {/* Auto-submit choice */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>选项自动推进</span>
+                  <button onClick={() => setAutoSubmitChoice(!autoSubmitChoice)} style={{
+                    padding: '5px 18px', border: autoSubmitChoice ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
+                    borderRadius: 20, background: autoSubmitChoice ? 'rgba(58,107,90,0.18)' : 'rgba(0,0,0,0.15)',
+                    color: autoSubmitChoice ? 'var(--success-bright)' : 'var(--ink-subtle)',
+                    fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer', letterSpacing: 1,
+                    transition: 'var(--transition-smooth)',
+                  }}>{autoSubmitChoice ? 'ON' : 'OFF'}</button>
                 </div>
 
                 {/* API section */}

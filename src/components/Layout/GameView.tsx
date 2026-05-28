@@ -4,6 +4,7 @@ import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation } from '../Shared/DiceAnimation';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 
 interface Props { onReturnToMenu: () => void }
 
@@ -30,6 +31,9 @@ export function GameView({ onReturnToMenu }: Props) {
         nativeInputValueSetter?.call(textarea, prev.inputText);
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         textarea.focus();
+        if (useSettingsStore.getState().autoSubmitChoice) {
+          setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
+        }
       }
       return { ...prev, visible: false };
     });

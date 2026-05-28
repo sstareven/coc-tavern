@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -13,6 +13,13 @@ export function InputBar() {
 
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
+
+  // ── Auto-submit listener ──
+  useEffect(() => {
+    const handler = () => { handleSubmitRef.current(); };
+    document.addEventListener('auto-submit-input', handler);
+    return () => document.removeEventListener('auto-submit-input', handler);
+  }, []);
 
   // ── Click outside to close wand menu ──
   useEffect(() => {
@@ -33,6 +40,8 @@ export function InputBar() {
     const result = await pipeline.submit(trimmed);
     setInput(result);
   };
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
 
   const handleRegenerate = async () => {
     await pipeline.regenerate();
