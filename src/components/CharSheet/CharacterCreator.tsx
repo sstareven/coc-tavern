@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { btnBase, btnDisabled } from './styles';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useChatStore } from '../../stores/useChatStore';
 import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
@@ -397,6 +398,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
 
     setSheet(sheet);
+    useChatStore.getState().createSession(sheet.identity.name || '未命名调查员');
     onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
