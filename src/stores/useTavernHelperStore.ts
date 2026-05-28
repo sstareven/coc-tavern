@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { THScriptTree, THRenderSettings, THOptimizeSettings, PTSettings, THScope, THVariable } from '../types';
+import { useCharSheetStore } from './useCharSheetStore';
 
 const STORAGE_KEY = 'coc_th_v2';
 
@@ -354,30 +355,25 @@ export const useTavernHelperStore = create<TavernHelperStore>((set, get) => ({
       case 'chat':
         return get().macroVars[name] ?? null; // Chat scope shares macroVars for now
       case 'character': {
-        try {
-          const { useCharSheetStore } = require('../stores/useCharSheetStore');
-          const sheet = useCharSheetStore.getState().sheet;
-          const charVars: Record<string, string> = {
-            name: sheet.identity.name,
-            occupation: sheet.identity.occupation,
-            age: String(sheet.identity.age),
-            gender: sheet.identity.gender,
-            hp: String(sheet.secondary.hp.current),
-            hpMax: String(sheet.secondary.hp.max),
-            san: String(sheet.secondary.san.current),
-            sanMax: String(sheet.secondary.san.max),
-            mp: String(sheet.secondary.mp.current),
-            mpMax: String(sheet.secondary.mp.max),
-            luck: String(sheet.secondary.luck),
-          };
-          // Also all characteristics
-          for (const [k, v] of Object.entries(sheet.characteristics)) {
-            charVars[k.toLowerCase()] = String(v);
-          }
-          return charVars[name] ?? charVars[name.toLowerCase()] ?? null;
-        } catch {
-          return null;
+        const sheet = useCharSheetStore.getState().sheet;
+        const charVars: Record<string, string> = {
+          name: sheet.identity.name,
+          occupation: sheet.identity.occupation,
+          age: String(sheet.identity.age),
+          gender: sheet.identity.gender,
+          hp: String(sheet.secondary.hp.current),
+          hpMax: String(sheet.secondary.hp.max),
+          san: String(sheet.secondary.san.current),
+          sanMax: String(sheet.secondary.san.max),
+          mp: String(sheet.secondary.mp.current),
+          mpMax: String(sheet.secondary.mp.max),
+          luck: String(sheet.secondary.luck),
+        };
+        // Also all characteristics
+        for (const [k, v] of Object.entries(sheet.characteristics)) {
+          charVars[k.toLowerCase()] = String(v);
         }
+        return charVars[name] ?? charVars[name.toLowerCase()] ?? null;
       }
       default:
         return null;
