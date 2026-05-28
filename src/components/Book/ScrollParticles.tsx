@@ -51,6 +51,12 @@ export function ScrollParticles({ edge, fading, intensity }: { edge: 'top' | 'bo
     }))
   );
 
+  const [driftStyles] = useState(() => {
+    const driftUp = `${Math.random() > 0.5 ? '' : '-'}${(5 + Math.random() * 10).toFixed(1)}px`;
+    const driftDown = `${Math.random() > 0.5 ? '' : '-'}${(5 + Math.random() * 10).toFixed(1)}px`;
+    return { driftUp, driftDown };
+  });
+
   const isBottom = edge === 'bottom';
   const I = Math.max(0.15, intensity);
   const darkAlpha = (0.5 * I).toFixed(2);
@@ -104,13 +110,13 @@ export function ScrollParticles({ edge, fading, intensity }: { edge: 'top' | 'bo
           0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
           10% { opacity: 1; transform: translateY(-5px) scale(1); }
           60% { opacity: 0.7; }
-          100% { transform: translateY(-55px) translateX(${Math.random() > 0.5 ? '' : '-'}${5 + Math.random() * 10}px) scale(0.3); opacity: 0; }
+          100% { transform: translateY(-55px) translateX(${driftStyles.driftUp}) scale(0.3); opacity: 0; }
         }
         @keyframes particleFloatDown {
           0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
           10% { opacity: 1; transform: translateY(5px) scale(1); }
           60% { opacity: 0.7; }
-          100% { transform: translateY(55px) translateX(${Math.random() > 0.5 ? '' : '-'}${5 + Math.random() * 10}px) scale(0.3); opacity: 0; }
+          100% { transform: translateY(55px) translateX(${driftStyles.driftDown}) scale(0.3); opacity: 0; }
         }
         @keyframes glowPulse {
           0% { opacity: 0.4; }
