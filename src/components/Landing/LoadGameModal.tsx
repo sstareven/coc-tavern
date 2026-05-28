@@ -1,4 +1,5 @@
 import { useChatStore } from '../../stores/useChatStore';
+import type { ChatSession } from '../../types';
 
 interface Props { onLoad: () => void; onClose: () => void }
 
@@ -10,6 +11,7 @@ function fmtDate(ts: number): string {
 
 export function LoadGameModal({ onLoad, onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
+  const activeId = useChatStore((s) => s.activeId);
   const setActive = useChatStore((s) => s.setActive);
   const deleteSession = useChatStore((s) => s.deleteSession);
 
@@ -27,7 +29,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 420, maxWidth: '92vw', maxHeight: '80vh',
+          width: 480, maxWidth: '92vw', maxHeight: '80vh',
           background: 'linear-gradient(180deg, rgba(26,20,14,0.98) 0%, rgba(18,14,10,0.98) 100%)',
           border: '1px solid rgba(196,168,85,0.2)',
           borderRadius: 6, boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
@@ -59,41 +61,62 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => { setActive(s.id); onLoad(); }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 20px', cursor: 'pointer',
-                  borderBottom: '1px solid rgba(196,168,85,0.04)',
-                  transition: 'background 0.2s',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
-                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
-                    {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                  style={{
-                    background: 'none', border: '1px solid transparent', borderRadius: 3,
-                    color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
-                    fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 12,
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blood)'; e.currentTarget.style.borderColor = 'rgba(255,82,82,0.2)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-faded)'; e.currentTarget.style.borderColor = 'transparent'; }}
-                  title="删除存档"
-                >✕</button>
-              </div>
-            ))
+            sorted.map((s) => <SessionRow key={s.id} session={s} isActive={s.id === activeId} onSelect={() => { setActive(s.id); onLoad(); }} onDelete={() => deleteSession(s.id)} />)
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SessionRow({ session: s, isActive, onSelect, onDelete }: {
+  session: ChatSession; isActive: boolean; onSelect: () => void; onDelete: () => void;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 20px', cursor: 'pointer',
+        borderBottom: '1px solid rgba(196,168,85,0.04)',
+        background: isActive ? 'rgba(196,168,85,0.06)' : 'transparent',
+        transition: 'background 0.2s',
+      }}
+      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(196,168,85,0.06)' : 'transparent'; }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 14, fontFamily: 'var(--font-ui)', fontWeight: 600, letterSpacing: 1,
+            color: isActive ? 'var(--gold)' : 'var(--text-light)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{s.name}</span>
+          {isActive && (
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)',
+              background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2,
+              letterSpacing: 1, flexShrink: 0,
+            }}>当前</span>
+          )}
+        </div>
+        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
+          {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
+        </div>
+      </div>
+      {!isActive && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          style={{
+            background: 'none', border: '1px solid transparent', borderRadius: 3,
+            color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
+            fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 12,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blood)'; e.currentTarget.style.borderColor = 'rgba(255,82,82,0.2)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-faded)'; e.currentTarget.style.borderColor = 'transparent'; }}
+          title="删除存档"
+        >✕</button>
+      )}
     </div>
   );
 }
