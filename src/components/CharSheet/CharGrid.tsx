@@ -1,20 +1,5 @@
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
-import type { COC7Characteristic } from '../../types';
-
-const CHAR_ORDER: { key: COC7Characteristic; zh: string; en: string }[] = [
-  { key: 'STR', zh: '力量', en: 'STR' },
-  { key: 'CON', zh: '体质', en: 'CON' },
-  { key: 'POW', zh: '意志', en: 'POW' },
-  { key: 'DEX', zh: '敏捷', en: 'DEX' },
-  { key: 'APP', zh: '外貌', en: 'APP' },
-  { key: 'SIZ', zh: '体型', en: 'SIZ' },
-  { key: 'INT', zh: '智力', en: 'INT' },
-  { key: 'EDU', zh: '教育', en: 'EDU' },
-];
-
-const DEFAULT_VALUES: Record<COC7Characteristic, number> = {
-  STR: 50, CON: 50, POW: 50, DEX: 50, APP: 50, SIZ: 50, INT: 50, EDU: 50,
-};
+import { CHAR_ORDER, DEFAULT_CHARS as DEFAULT_VALUES } from '../../sillytavern/coc-data';
 
 export function CharGrid() {
   const sheet = useCharSheetStore((s) => s.sheet);
