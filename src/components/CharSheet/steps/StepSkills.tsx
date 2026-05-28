@@ -118,13 +118,13 @@ export function StepSkills({
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--ink-subtle)', fontWeight: 600 }}>职业技能池 (EDU \u00d7 4 = {occPointPool})</span>
+           <span style={{ color: 'var(--ink-subtle)', fontWeight: 600 }}>职业技能池 (EDU × 4 = {occPointPool})</span>
           <span style={{ color: occRemaining > 0 ? 'var(--gold)' : 'rgba(196,168,85,0.4)', fontWeight: occRemaining > 0 ? 700 : 400, opacity: occRemaining > 0 ? 1 : 0.8, transition: 'color 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s cubic-bezier(0.4,0,0.2,1)' }}>
             剩余 {occRemaining}
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--ink-subtle)', fontWeight: 600 }}>兴趣技能池 (INT \u00d7 2 = {intPointPool})</span>
+           <span style={{ color: 'var(--ink-subtle)', fontWeight: 600 }}>兴趣技能池 (INT × 2 = {intPointPool})</span>
           <span style={{ color: intRemaining > 0 ? '#78afdc' : 'rgba(120,175,220,0.4)', fontWeight: intRemaining > 0 ? 700 : 400, opacity: intRemaining > 0 ? 1 : 0.8, transition: 'color 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s cubic-bezier(0.4,0,0.2,1)' }}>
             剩余 {intRemaining}
           </span>
