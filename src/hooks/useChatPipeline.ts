@@ -93,6 +93,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const lastInputRef = useRef('');
   const buildFnRef = useRef<((text?: string) => void) | null>(null);
   const currentInputRef = useRef('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
   const allCommands = useMemo(() => getCommands(), []);
@@ -311,6 +312,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     async (editedMessages: AssembledMessage[], replace: boolean) => {
       const settings = useSettingsStore.getState();
 
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setLoading(true);
       setError('');
       pushLog(
@@ -318,7 +323,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         `发送API请求 — 模型: ${settings.apiModel}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`,
       );
 
-      // Start streaming preview if enabled
       startStream();
 
       try {
@@ -328,8 +332,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           settings.apiBaseUrl,
           settings.apiKey,
           settings.apiModel,
-          streamRenderEnabled, // stream when rendering enabled for token callbacks
+          streamRenderEnabled,
           streamRenderEnabled ? onToken : undefined,
+          controller.signal,
         );
 
         pushLog(
@@ -428,41 +433,46 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
   // ── submit ──
 
+  const loadingRef = useRef(false);
+
   const submit = useCallback(
     async (text: string): Promise<string> => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return trimmed;
+      if (!trimmed || loadingRef.current) return trimmed;
+      loadingRef.current = true;
 
-      pushLog('debug', `[提交] 原始输入: "${trimmed}"`, 'system');
+      try {
+        pushLog('debug', `[提交] 原始输入: "${trimmed}"`, 'system');
 
-      // Process slash commands first
-      let processedInput = trimmed;
-      if (trimmed.startsWith('/')) {
-        processedInput = await processSlashCommands(trimmed);
-        pushLog('debug', `[提交] 处理后: "${processedInput}"`, 'system');
-        if (!processedInput.trim() || processedInput.startsWith('[')) {
+        let processedInput = trimmed;
+        if (trimmed.startsWith('/')) {
+          processedInput = await processSlashCommands(trimmed);
+          pushLog('debug', `[提交] 处理后: "${processedInput}"`, 'system');
+          if (!processedInput.trim() || processedInput.startsWith('[')) {
+            return processedInput;
+          }
+        }
+
+        lastInputRef.current = trimmed || lastInputRef.current;
+        currentInputRef.current = processedInput;
+
+        const settings = useSettingsStore.getState();
+        if (!settings.apiKey) {
+          setError('请先在设置中配置API');
           return processedInput;
         }
+
+        const result = buildPromptMessages(processedInput);
+        if (!result) return processedInput;
+
+        pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
+        await handleSendFromPreview(result.messages, false);
+        return '';
+      } finally {
+        loadingRef.current = false;
       }
-
-      lastInputRef.current = trimmed || lastInputRef.current;
-      currentInputRef.current = processedInput;
-
-      const settings = useSettingsStore.getState();
-      if (!settings.apiKey) {
-        setError('请先在设置中配置API');
-        return processedInput;
-      }
-
-      const result = buildPromptMessages(processedInput);
-      if (!result) return processedInput;
-
-      pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
-      await handleSendFromPreview(result.messages, false);
-      // Success — signal component to clear input
-      return '';
     },
-    [buildPromptMessages, handleSendFromPreview, loading],
+    [buildPromptMessages, handleSendFromPreview],
   );
 
   // ── regenerate ──

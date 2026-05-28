@@ -112,7 +112,7 @@ export function loadThScripts(globalScripts: THScriptTree[], presetScripts: THSc
       const macroVars = { ...useTavernHelperStore.getState().macroVars };
       const blocked: Record<string, undefined> = {};
       for (const name of BLOCKED_GLOBALS) blocked[name] = undefined;
-      const sandbox = {
+      const sandbox = Object.freeze({
         ...blocked,
         getvar: api.getvar,
         setvar: api.setvar,
@@ -120,17 +120,15 @@ export function loadThScripts(globalScripts: THScriptTree[], presetScripts: THSc
         macroVars,
         console,
         _hooks: hooks,
-      };
+      });
 
-      // Wrap script content: execute in sandbox context, capture hooks
       const wrappedCode = `
         with (__sandbox) {
           ${script.content}
+          if (typeof onSend === 'function') __sandbox._hooks.onSend.push(onSend);
+          if (typeof onReceive === 'function') __sandbox._hooks.onReceive.push(onReceive);
+          if (typeof init === 'function') { try { init(); } catch(e) { console.warn('[TH] init error:', e); } }
         }
-        // After execution, export hooks if defined
-        if (typeof onSend === 'function') __sandbox._hooks.onSend.push(onSend);
-        if (typeof onReceive === 'function') __sandbox._hooks.onReceive.push(onReceive);
-        if (typeof init === 'function') { try { init(); } catch(e) { console.warn('[TH] init error in "${script.name}":', e); } }
       `;
 
       const fn = new Function('__sandbox', wrappedCode);

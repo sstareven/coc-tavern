@@ -180,8 +180,9 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (limit <= 0) return;
     const { pages, pageIndex } = get();
     if (pages.length <= limit) return;
-    const trimmed = pages.slice(pages.length - limit);
-    const newPageIndex = Math.min(pageIndex, trimmed.length - 1);
+    const removed = pages.length - limit;
+    const trimmed = pages.slice(removed);
+    const newPageIndex = Math.max(0, pageIndex - removed);
     set({ pages: trimmed, pageIndex: newPageIndex });
   },
 }));

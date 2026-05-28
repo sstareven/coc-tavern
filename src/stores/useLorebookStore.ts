@@ -318,7 +318,7 @@ _元数据:
   }},
 };
 
-let entryCounter = 10;
+let entryCounter = Date.now();
 
 interface LorebookStore {
   books: Record<string, LoreBook>;

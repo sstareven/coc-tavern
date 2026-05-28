@@ -20,6 +20,7 @@ export async function sendChatCompletion(
   model: string,
   stream = false,
   onToken?: (token: string) => void,
+  signal?: AbortSignal,
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
@@ -39,6 +40,7 @@ export async function sendChatCompletion(
         max_tokens: preset.maxTokens,
         stream,
       }),
+      signal,
     });
   } catch (err) {
     throw new Error(`网络请求失败: ${err instanceof Error ? err.message : String(err)}`, {
@@ -68,24 +70,25 @@ export async function sendChatCompletion(
     const decoder = new TextDecoder();
     let fullContent = '';
     let buffer = '';
+    let streamDone = false;
 
-    while (true) {
+    while (!streamDone) {
       const { done, value } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      // Keep the last partial line in the buffer
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
+        if (streamDone) break;
         const tokens = parseStreamChunk(line);
         for (const token of tokens) {
           if (token.content) {
             fullContent += token.content;
             if (onToken) onToken(token.content);
           }
-          if (token.done) break;
+          if (token.done) { streamDone = true; break; }
         }
       }
     }

@@ -88,6 +88,7 @@ function escapeHtml(text: string): string {
 interface CacheEntry {
   compiled: Array<{ type: string; fn?: Function; content?: string }>;
   size: number;
+  source: string;
 }
 
 const templateCache = new Map<string, CacheEntry>();
@@ -101,13 +102,15 @@ function getCacheKey(text: string, disableWith: boolean): string {
   return `${hash.toString(36)}:${text.length}:${disableWith ? '1' : '0'}`;
 }
 
-function getFromCache(key: string): CacheEntry | null {
+function getFromCache(key: string, text: string): CacheEntry | null {
   const entry = templateCache.get(key);
-  if (entry) {
-    // Move to end (LRU)
+  if (entry && entry.source === text) {
     templateCache.delete(key);
     templateCache.set(key, entry);
     return entry;
+  }
+  if (entry) {
+    templateCache.delete(key);
   }
   return null;
 }
@@ -159,9 +162,9 @@ export function renderTemplate(
   const cacheKey = getCacheKey(text, disableWith);
   let cacheEntry: CacheEntry | null = null;
   if (cacheConf?.enabled && !options?.onlyWorldinfo) {
-    cacheEntry = getFromCache(cacheKey);
+    cacheEntry = getFromCache(cacheKey, text);
   } else if (cacheConf?.enabled === 2 && options?.onlyWorldinfo) {
-    cacheEntry = getFromCache(cacheKey);
+    cacheEntry = getFromCache(cacheKey, text);
   }
 
   const api = createAPI();
@@ -236,7 +239,7 @@ export function renderTemplate(
     }
     // Store in cache if enabled
     if (cacheConf?.enabled && (!options?.onlyWorldinfo || cacheConf.enabled === 2)) {
-      setCache(cacheKey, { compiled, size: text.length }, cacheConf.size || 64);
+      setCache(cacheKey, { compiled, size: text.length, source: text }, cacheConf.size || 64);
     }
   }
 
