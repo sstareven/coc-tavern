@@ -52,7 +52,9 @@ export const editBtn: CSSProperties = {
 
 export const btnBase: CSSProperties = {
   padding: '8px 24px',
-  border: '1px solid rgba(196,168,85,0.3)',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'rgba(196,168,85,0.3)',
   borderRadius: 4,
   background: 'rgba(196,168,85,0.08)',
   color: 'var(--gold)',
