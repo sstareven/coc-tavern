@@ -349,7 +349,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       if (traits.trim()) bgParts.push(`【特质】\n${traits.trim()}`);
       if (injuries.trim()) bgParts.push(`【伤口与疤痕】\n${injuries.trim()}`);
       if (phobias.trim()) bgParts.push(`【恐惧与狂躁】\n${phobias.trim()}`);
-      const combinedDesc = [description.trim(), ...bgParts].filter(Boolean).join('\n\n');
+      const combinedDesc = [description.trim(), ...bgParts].filter(Boolean).join('\n\n')
+        || '此人的过往如同被墨水浸染的旧档案，所有记录都已模糊不清。没有人知道他从哪里来，也没有人能说清他经历过什么。在调查局的卷宗里，这份档案的大部分页面都是空白的——仿佛有人刻意抹去了一切痕迹。唯一确定的是：他现在站在这里，准备踏入未知。';
 
       const sheet: CharacterSheet = {
         characteristics: chars,
@@ -375,9 +376,12 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         },
         greeting: '',
         description: combinedDesc,
-        personality: useCharSheetStore.getState().sheet.personality,
-        scenario: useCharSheetStore.getState().sheet.scenario,
-        personaDescription: useCharSheetStore.getState().sheet.personaDescription,
+        personality: useCharSheetStore.getState().sheet.personality
+          || '档案中关于此人性格的描述已被撕去，只留下边缘残存的几个字迹：「不可预测」。',
+        scenario: useCharSheetStore.getState().sheet.scenario
+          || '一切尚未开始。命运的齿轮正在缓缓转动，而你即将被卷入其中。',
+        personaDescription: useCharSheetStore.getState().sheet.personaDescription
+          || `{{user}}是${name || '一位神秘的调查员'}，职业为${finalOccupation}。关于此人的更多信息，已随着时间的流逝而散佚。`,
       };
 
     try {
