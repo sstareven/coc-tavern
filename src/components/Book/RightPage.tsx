@@ -177,20 +177,27 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
           : val;
         return (
         <span style={{
-          marginLeft: 'auto', padding: '2px 8px', borderRadius: 3,
+          marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
+          padding: '2px 8px', borderRadius: 3,
           fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
-          transition: 'var(--transition-smooth)',
           color: favorable ? '#2e5c1e' : '#8b2020',
           background: favorable ? 'rgba(46,125,50,0.1)' : 'rgba(183,28,28,0.08)',
           border: favorable ? '1px solid rgba(46,125,50,0.35)' : '1px solid rgba(183,28,28,0.3)',
+          transition: 'border-color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>
-          {hovered ? (
-            isDifficulty ? (
-              <>{check.skillName} <span style={{ textDecoration: 'line-through', opacity: 0.4 }}>{val}</span> {effectiveVal}</>
+          {check.skillName}
+          <span style={{
+            display: 'inline-block', overflow: 'hidden',
+            maxWidth: hovered ? (isDifficulty ? 70 : 40) : 0,
+            opacity: hovered ? 1 : 0,
+            transition: 'max-width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s cubic-bezier(0.4,0,0.2,1)',
+          }}>
+            {isDifficulty ? (
+              <>&nbsp;<span style={{ textDecoration: 'line-through', opacity: 0.4 }}>{val}</span> {effectiveVal}</>
             ) : (
-              <>{check.skillName} {val}</>
-            )
-          ) : check.skillName}
+              <>&nbsp;{val}</>
+            )}
+          </span>
         </span>
         );
       })()}
