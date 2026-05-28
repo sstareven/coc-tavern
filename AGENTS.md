@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-05-28
-**Commit:** `052eac6`
+**Generated:** 2026-05-29
+**Commit:** `451a4db`
 **Branch:** `master`
 
 ## OVERVIEW
@@ -55,11 +55,11 @@
 | TH 脚本引擎 | `src/sillytavern/th-script-engine.ts` | send/receive hook 生命周期 |
 | COC 规则数据 | `src/sillytavern/coc-rules.ts` | CHAR_ROLL, getDBBuild, resolveSkillBase 等纯函数 |
 | LLM 响应解析 | `src/sillytavern/llm-response-parser.ts` | parseLlmResponse（从 InputBar 提取） |
-| Chat 管道 | `src/hooks/useChatPipeline.ts` | 541 lines, 主聊天管道 hook |
+| Chat 管道 | `src/hooks/useChatPipeline.ts` | 561 lines, 主聊天管道 hook |
 
 ## CONVENTIONS
 
-**TypeScript**: `verbatimModuleSyntax` (强制 `import type`)，`erasableSyntaxOnly` (禁止 enum/namespace)，`noUnusedLocals` + `noUnusedParameters` — 未使用变量 = 构建失败。
+**TypeScript**: `verbatimModuleSyntax` (强制 `import type`)，`erasableSyntaxOnly` (禁止 enum/namespace)，`noUnusedLocals` + `noUnusedParameters` — 未使用变量 = 构建失败。注意：**未启用 `strict: true`**（无 `strictNullChecks`、`noUncheckedIndexedAccess`），采用显式 strict-adjacent 标志。
 
 **导出**: 全部命名导出 (`export function` / `export const`)，无 `export default`。无 barrel `index.ts` — 所有 import 走显式相对路径。
 
@@ -67,7 +67,7 @@
 
 **组件**: PascalCase + `interface Props` 在文件顶部，无 compound components / render props / slots。
 
-**Zustand stores**: `useXxxStore` 命名，`create<XxxStore>()((set, get) => ...)`，无 middleware。跨 store 访问用 `require() + getState()` 懒加载。
+**Zustand stores**: `useXxxStore` 命名，`create<XxxStore>()(persist(...))`，6 个 store 使用 persist middleware + Dexie 持久化。跨 store 访问用 ESM `import` + `getState()`。
 
 **SillyTavern 引擎**: kebab-case 文件名，JSDoc 注明来源 ("inspired by SillyTavern's...")，纯计算函数与 store-glue 分层。
 
@@ -76,12 +76,13 @@
 ## ANTI-PATTERNS (THIS PROJECT)
 
 - **`as any` 强制转换** — `format-converter.ts` 的 17 处已全部消除 (31 any → 0)。禁止新增。
-- **`require()` 在 store/sillytavern 中** — 用于避免循环依赖，但绕过 Tree-shaking 和类型检查。除非绝对必要，否则不用。
-- **无 barrel 导出** — 每个 import 走显式路径。新增模块时考虑添加 `index.ts`，但非强制。
-- **`DEFAULT_PRESET` 重复定义** — InputBar.tsx 和 PresetEditor.tsx 各有一份。修改时需同步两边，或提取到共享常量。
-- **内联 style 对象重复** — `closeBtnStyle` / `actionBtnStyle` / `inputStyle` 在 8+ 文件中重复定义。新增时的 CSSProperties 检查 `src/styles/` 是否已有。
-- **JSON 应用数据在 `public/`** — 应移入 `src/data/` 作为静态 import，否则绕过打包和类型检查。
-- **测试覆盖极低** — 仅 `dice-engine.test.ts` (27 个 characterization test)。新增复杂逻辑应补测试。
+- **`require()` 在 sillytavern 引擎中** — `slash-commands.ts` (5 处) 和 `ejs-template.ts` (3 处) 用于避免循环依赖，绕过 Tree-shaking 和类型检查。stores 已改用 ESM import。
+- **无 barrel 导出** — 每个 import 走显式路径。唯一的 barrel 是 `src/types/index.ts`（22 个消费者）。
+- **`DEFAULT_PRESET` 已提取至 `src/constants/presets.ts`** ✅ — InputBar 用 `DEFAULT_INPUT_PRESET`，PresetEditor 用 `DEFAULT_EDITOR_PRESET`。
+- **内联 style 对象重复** — `closeBtnStyle` / `actionBtnStyle` / `inputStyle` 在 10+ 文件中重复定义。`src/styles/panelStyles.ts` 仅提供 `closeBtnStyle`。新增 CSSProperties 前检查是否已有。
+- **空 catch 块** — 44 处遍布 22 个文件，静默吞下错误。至少应加 `console.warn`。
+- **直接 `localStorage` 绕过 Dexie** — `PresetPanel.tsx` (7 处)、`ExtManager.tsx` (2 处)、`useChatPipeline.ts` (2 处) 等绕过 persist 层直接操作 localStorage。
+- **测试覆盖极低** — 仅 50 个 test（dice-engine 27 + coc-rules 18 + database 5）。新增复杂逻辑应补测试。
 
 ## UNIQUE STYLES
 
@@ -103,33 +104,16 @@ npm run preview    # 预览生产构建
 
 ## NOTES
 
-- `src/db/database.ts` — Dexie schema created but stores reverted to localStorage（persist 中间件导致白屏，待排查后重新引入）
+- `src/db/database.ts` — Dexie schema + Zustand persist 中间件已激活（6 个 store 持久化至 IndexedDB）。白屏问题已修复
 - `src/components/Book/PageFlip.tsx` 与 `PageFlip3D.tsx` 并存 — 前者用 Framer Motion，后者用 CSS 3D。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
 - 测试覆盖：50 tests (27 dice + 18 COC rules + 5 database)，Vitest + fake-indexeddb
-- 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/components/CharSheet/` `src/components/Settings/` `src/components/Layout/` `src/components/Shared/` `src/db/`
+- 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/db/` `src/components/Book/` `src/components/CharSheet/` `src/components/Dice/` `src/components/Layout/` `src/components/Settings/` `src/components/Shared/`
 
-## 会话继续 · SESSION CONTINUATION
+## 待办 / 已知问题
 
-**最后提交**: `98b2068` | **分支**: `master` | **测试**: 50/50 ✅ | **构建**: ✅
-
-### 本次会话新增功能（e4e1a4b 之后）
-
-| 提交 | 内容 |
-|------|------|
-| `2ea18cd` | CharSheetPanel 新增内联「个人信息档案」折叠面板 |
-| `a2ef36c` | 档案 UI 重设计：去 emoji，暗色卷宗风格，双语标签 |
-| `c9712c9` | Landing 页新增 LoadGameModal（读取存档选档面板） |
-| `c633f16` | 活跃会话标「当前」标签，禁止删除加载中的存档 |
-| `213bb71` | 修复 MVU bundle 缺 Vue CDN + btnBase border 冲突警告 |
-| `c53af4f` | 禁用 MVU CDN 加载器（mvu-extractor.ts 已接管） |
-| `0c99afc` | 修复创建角色后档案字段为空（handleConfirm 硬编码空串） |
-| `574ec74` | 个人描述按【】拆分为独立可折叠子段落 |
-| `98b2068` | 档案折叠/展开添加 maxHeight + opacity 动效 |
-
-### 待办 / 已知问题
-
-- [ ] IndexedDB 迁移因白屏回退，需要重新排查 persist 中间件兼容性
 - [ ] 剩余 ~110 lint 警告（多为故意的 setState/沙箱 eval/Zustand selector 误报）
 - [ ] 预设角色档案的 personality/scenario/personaDescription 仅保留默认值（创建流程未收集）
-- [ ] 创建角色面板职业选择时信用范围可能显示乱码（已修复 \u00d7/u2013）
+- [ ] `src/sillytavern/llm-response-parser.ts` 从 `../components/Shared/KeywordTooltip` 导入 — 引擎→组件跨层违规，`addKeywordMeanings` 应移到引擎层
+- [ ] `CodeBlockRenderer.tsx` 的 `setInterval` 未在 unmount 时清理，可能内存泄漏
+- [ ] `PageFlip.tsx`（Framer Motion 版）与 `PageFlip3D.tsx`（CSS 3D 版）并存，旧版待清理

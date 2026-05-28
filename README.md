@@ -1,15 +1,14 @@
 # 深渊档案馆 (Abyssal Archive)
 
-克苏鲁召唤 7 版 TRPG 前端。故事书式 AI 叙事界面，融合 SillyTavern 酒馆架构。
+克苏鲁的呼唤 7 版 TRPG 前端。故事书式 AI 叙事界面，融合 SillyTavern 酒馆架构（世界书、变量引擎、正则脚本、EJS 模板、斜杠命令）。
 
 ## 技术栈
 
-- React 19 + TypeScript 6 + Vite 8
-- Zustand 5 状态管理 + persist 中间件
-- Framer Motion 12 动画
-- CSS 3D Transform 翻页
-- Web Audio API 音效合成
-- IndexedDB (Dexie.js 4)
+- **核心**: React 19 + TypeScript 6 + Vite 8
+- **状态管理**: Zustand 5 + Dexie 4 (IndexedDB 持久化)
+- **动画**: Framer Motion 12 + CSS 3D Transform
+- **音效**: Web Audio API 合成
+- **测试**: Vitest + fake-indexeddb
 
 ## 快速开始
 
@@ -18,76 +17,76 @@ npm install
 npm run dev
 ```
 
-## 功能
+## 功能特性
 
-- 故事书双页翻页叙事（状态栏 + 桌面视觉）
+### 叙事界面
+- 故事书双页翻页叙事（CSS 3D 翻页 + 状态栏 + 桌面视觉）
+- 流式渲染引擎（打字机效果 + 思考块折叠）
+- 悬停提示系统（进度环 + 关键词嵌套窗）
+
+### COC 规则系统
 - COC 7th 角色创建向导（6 步完整创建流程）
-- d100 骰子检定（五级判定 + 奖励/惩罚骰 + SAN 检定 + 大成功/大失败动效）
+- d100 骰子检定（五级判定 + 奖励/惩罚骰 + SAN 检定 + 对抗骰）
+- 大成功/大失败动效 + 粒子效果
+
+### SillyTavern 引擎
 - 世界书管理系统（多本独立数据 + 条目编辑器）
 - MVU 变量引擎（自动提取 LLM 回复中的变量，支持独立 API 通道）
 - 正则脚本系统（全局/预设，查找替换 + 测试模式）
+- EJS 模板引擎（`<% %>` JavaScript 逻辑在 Prompt 中执行）
+- 斜杠命令系统（`/roll` `/var` `/set` `/help` `/testopposed`）
+
+### 聊天系统
 - 提示词查看器（发送前预览编辑 + Token 分解）
 - Token 计数器（上下文用量分解 + 手动计数）
 - 聊天预设管理（采样参数 / Prompt 模板）
-- 斜杠命令系统（/roll /var /set /help）
-- EJS 模板引擎（<% %> JavaScript 逻辑在 Prompt 中执行）
 - 对话会话管理 + 扩展脚本管理
-- Web Audio 音效合成 + WAV 音频
-- 悬停提示系统（进度环 + 关键词嵌套窗）
+- 目录系统（自动生成章节摘要）
 
 ## 测试
 
 ```bash
-npm test         # Vitest (50 tests: 骰子 + COC 规则 + 数据库)
+npm test         # Vitest (50 tests: 骰子引擎 + COC 规则 + 数据库)
+npm run build    # tsc -b 类型检查 + Vite 构建
 ```
 
 ## 项目结构
 
 ```
-src/                          # ~99 source files (52 .tsx, 45 .ts, 2 .css)
+src/                          # ~111 source files
 ├── components/
-│   ├── Book/                 # 故事书翻页 (6 files, ~870 lines)
-│   ├── CharSheet/            # 角色卡 + 创建向导 (14 files, ~2760 lines)
-│   │   ├── steps/            #   6 步向导组件 (new)
-│   │   │   ├── StepIdentity.tsx
-│   │   │   ├── StepCharacteristics.tsx
-│   │   │   ├── StepDerivedStats.tsx
-│   │   │   ├── StepSkills.tsx
-│   │   │   ├── StepBackground.tsx
-│   │   │   └── StepReview.tsx
-│   │   ├── CharacterCreator.tsx   # 编排器 (2221 → 1010 lines)
-│   │   └── styles.ts              # 共享 CSSProperties (new)
-│   ├── Dice/                 # 骰子面板 + 历史 (3 files, ~790 lines)
+│   ├── Book/                 # 故事书翻页 (6 files)
+│   ├── CharSheet/            # 角色卡 + 创建向导 (7 files + steps/ 子目录 6 files)
+│   ├── Dice/                 # 骰子面板 + 历史 (3 files)
 │   ├── Landing/              # 开始界面 (2 files)
-│   ├── Layout/               # 顶层布局 + InputBar (3 files, ~610 lines)
-│   │   └── InputBar.tsx      #   982 → 444 lines
-│   ├── Settings/             # 设置面板群 (13 files, ~4400 lines)
-│   └── Shared/               # 通用组件 (11 files, ~1600 lines)
-│       └── DarkSelect.tsx    #   可复用下拉组件 (new)
+│   ├── Layout/               # GameView + TopBar + InputBar (3 files)
+│   ├── Settings/             # 设置面板群 (13 files)
+│   └── Shared/               # 共享组件 (11 files)
 ├── hooks/                    # React Hooks (4 files)
-│   ├── useChatPipeline.ts    #   聊天管道 hook (~540 lines)
-│   └── useStreamingRenderer.ts #  流式渲染 hook (new)
+│   ├── useChatPipeline.ts    #   聊天管道 hook
+│   ├── useStreamingRenderer.ts #  流式渲染 hook
+│   └── usePageFlip.ts        #   翻页 hook
 ├── stores/                   # Zustand 状态管理 (13 stores)
 │   └── 全部接入 IndexedDB (Dexie persist 中间件)
-├── sillytavern/              # 酒馆引擎 (22 files, ~2800 lines)
-│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数 (new, 测试覆盖)
-│   ├── dice-engine.ts        #   骰子检定引擎 (new, 27 tests)
-│   ├── format-converter.ts   #   格式转换 (all `any` 已消除)
-│   ├── format-instruction.ts #   LLM 格式指令 (new)
-│   ├── post-processor.ts     #   LLM 响应后处理 (new)
-│   ├── character-variables.ts #  角色变量管理 (new)
-│   ├── context-builder.ts    #   上下文组装 (new)
-│   ├── llm-response-parser.ts #  LLM 响应解析 (new)
+├── sillytavern/              # SillyTavern 引擎 (22 files)
+│   ├── api-router.ts         #   LLM API 调用 (stream + non-stream)
+│   ├── prompt-assembler.ts   #   提示词组装 + 世界书注入
+│   ├── regex-engine.ts       #   正则脚本执行 (LRU 缓存)
+│   ├── variables.ts          #   变量提取/合并
+│   ├── slash-commands.ts     #   斜杠命令系统
+│   ├── ejs-template.ts       #   EJS 模板引擎 (LRU 缓存)
+│   ├── dice-engine.ts        #   骰子检定引擎 (27 tests)
+│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数
 │   └── ...
-├── db/                       # Dexie IndexedDB 持久化层 (5 files) (new)
+├── db/                       # Dexie IndexedDB 持久化层 (5 files)
 │   ├── database.ts           #   kvStore 单表 + Dexie schema
 │   ├── storage.ts            #   Zustand persist 适配器
 │   └── migrations.ts         #   localStorage→IndexedDB 自动迁移
-├── test/                     # Vitest 测试环境 (new)
-├── audio/                    # Web Audio 音效合成 (1 file)
-├── constants/                # 共享常量 (new, 1 file)
-├── types/                    # TypeScript 类型 (1 file, 296 lines)
-└── styles/                   # 设计令牌 + 全局样式 (3 files)
+├── test/                     # Vitest 测试环境
+├── types/                    # TypeScript 类型定义
+├── styles/                   # 设计令牌 + 全局样式
+├── constants/                # 共享常量
+└── audio/                    # Web Audio 音效合成
 ```
 
 ## 代码来源
