@@ -376,12 +376,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         },
         greeting: '',
         description: combinedDesc,
-        personality: useCharSheetStore.getState().sheet.personality
-          || '档案中关于此人性格的描述已被撕去，只留下边缘残存的几个字迹：「不可预测」。',
-        scenario: useCharSheetStore.getState().sheet.scenario
-          || '一切尚未开始。命运的齿轮正在缓缓转动，而你即将被卷入其中。',
-        personaDescription: useCharSheetStore.getState().sheet.personaDescription
-          || `{{user}}是${name || '一位神秘的调查员'}，职业为${finalOccupation}。关于此人的更多信息，已随着时间的流逝而散佚。`,
+        personality: '档案中关于此人性格的描述已被撕去，只留下边缘残存的几个字迹：「不可预测」。',
+        scenario: '一切尚未开始。命运的齿轮正在缓缓转动，而你即将被卷入其中。',
+        personaDescription: `{{user}}是${name || '一位神秘的调查员'}，职业为${finalOccupation}。关于此人的更多信息，已随着时间的流逝而散佚。`,
       };
 
     try {
