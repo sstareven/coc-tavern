@@ -57,6 +57,15 @@ export interface ThScriptHooks {
   onReceive: Array<(text: string) => string>;
 }
 
+// ── Sandbox globals blacklist ──
+
+const BLOCKED_GLOBALS = [
+  'window', 'self', 'globalThis', 'document', 'fetch', 'XMLHttpRequest',
+  'WebSocket', 'EventSource', 'importScripts', 'eval', 'Function',
+  'localStorage', 'sessionStorage', 'indexedDB', 'navigator', 'location',
+  'postMessage', 'opener', 'parent', 'top', 'frames',
+] as const;
+
 // ── Main engine ──
 
 /** Flatten a THScriptTree[] into enabled THScript[] */
@@ -101,13 +110,15 @@ export function loadThScripts(globalScripts: THScriptTree[], presetScripts: THSc
     try {
       // Sandbox: expose API functions + read-only macro vars + console
       const macroVars = { ...useTavernHelperStore.getState().macroVars };
+      const blocked: Record<string, undefined> = {};
+      for (const name of BLOCKED_GLOBALS) blocked[name] = undefined;
       const sandbox = {
+        ...blocked,
         getvar: api.getvar,
         setvar: api.setvar,
         getwi: api.getwi,
         macroVars,
-        console, // pass through browser console for debug
-        // Collect hooks defined by the script
+        console,
         _hooks: hooks,
       };
 

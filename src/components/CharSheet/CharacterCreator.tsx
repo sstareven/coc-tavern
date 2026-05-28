@@ -4,6 +4,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharacterPresetsStore } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
+import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
 import type { CharacterSheet, COC7Characteristic } from '../../types';
 import {
   CHAR_ROLL, getDBBuild, resolveSkillBase,
@@ -598,7 +599,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       const response = await sendChatCompletion(
         [{ role: 'user', content: prompt }],
-        { temperature: 0.75, maxTokens: 1200 } as any,
+        { ...DEFAULT_INPUT_PRESET, temperature: 0.75, maxTokens: 1200 },
         settings.apiBaseUrl, settings.apiKey, settings.apiModel,
       );
 

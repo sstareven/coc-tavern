@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ErrorBoundary } from './components/Shared/ErrorBoundary';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { ChangelogModal } from './components/Landing/ChangelogModal';
 import { CharacterCreator } from './components/CharSheet/CharacterCreator';
@@ -44,6 +45,7 @@ export function App() {
   }, [closeAll]);
 
   return (
+    <ErrorBoundary>
     <>
       {screen === 'landing' && (
         <LandingScreen
@@ -94,5 +96,6 @@ export function App() {
       <RegexEditor />
       <DebugLog />
     </>
+    </ErrorBoundary>
   );
 }

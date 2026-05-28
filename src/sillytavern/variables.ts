@@ -25,7 +25,7 @@ export function extractXmlVariables(text: string): Record<string, string> {
 /** Extract {{set:name=value}} inline commands from text */
 export function extractSetCommands(text: string): Record<string, string> {
   const vars: Record<string, string> = {};
-  const regex = /\{\{set:([a-zA-Z_\\u4e00-\\u9fff][a-zA-Z0-9_\\u4e00-\\u9fff]*)=([^}]*)\}\}/gi;
+  const regex = /\{\{set:([a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*)=([^}]*)\}\}/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
     vars[match[1]] = match[2];
@@ -84,7 +84,7 @@ export function mergeVariables(
 export function stripVariableMarkup(text: string): string {
   return text
     .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
-    .replace(/\{\{set:[a-zA-Z_\\u4e00-\\u9fff][a-zA-Z0-9_\\u4e00-\\u9fff]*=[^}]*\}\}/gi, '');
+    .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
 }
 
 // ── Substitution map builder ──

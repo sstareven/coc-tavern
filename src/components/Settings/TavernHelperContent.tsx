@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTavernHelperStore, uid } from '../../stores/useTavernHelperStore';
-import type { THScriptTree, THScript, THScriptFolder } from '../../types';
+import type { THScriptTree, THScript, THScriptFolder, THCodeCollapse } from '../../types';
 
 type SubTab = 'scripts' | 'render' | 'optimize';
 
@@ -91,6 +91,7 @@ function ScriptTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<THScript>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const importScopeRef = useRef<'global' | 'preset'>('global');
 
   const tree = scope === 'global' ? store.globalScripts : store.presetScripts;
   const addItem = scope === 'global' ? store.addGlobalItem : store.addPresetItem;
@@ -207,8 +208,8 @@ function ScriptTab() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         <DropdownMenu label="+ 添加脚本" items={[{ label: '全局脚本库', action: () => handleAddScript('global') }, { label: '预设脚本库', action: () => handleAddScript('preset') }]} />
         <DropdownMenu label="📁 添加文件夹" items={[{ label: '全局脚本库', action: () => handleAddFolder('global') }, { label: '预设脚本库', action: () => handleAddFolder('preset') }]} />
-        <DropdownMenu label="导入" items={[{ label: '导入到全局脚本库', action: () => { fileRef.current?.click(); (window as any).__th_import_scope = 'global'; } }, { label: '导入到预设脚本库', action: () => { fileRef.current?.click(); (window as any).__th_import_scope = 'preset'; } }]} />
-        <input type="file" accept=".json" ref={fileRef} onChange={() => handleImport((window as any).__th_import_scope || 'global')} style={{ display: 'none' }} />
+        <DropdownMenu label="导入" items={[{ label: '导入到全局脚本库', action: () => { importScopeRef.current = 'global'; fileRef.current?.click(); } }, { label: '导入到预设脚本库', action: () => { importScopeRef.current = 'preset'; fileRef.current?.click(); } }]} />
+        <input type="file" accept=".json" ref={fileRef} onChange={() => handleImport(importScopeRef.current)} style={{ display: 'none' }} />
         <button onClick={() => handleExport(scope)} style={toolBtn}>导出</button>
       </div>
       {/* Search */}
@@ -244,7 +245,7 @@ function RenderTab() {
       </div>
       <div style={rowStyle}>
         <span style={labelStyle}>启用代码折叠</span>
-        <select value={render.codeCollapse} onChange={(e) => setRender({ codeCollapse: e.target.value as any })}
+        <select value={render.codeCollapse} onChange={(e) => setRender({ codeCollapse: e.target.value as THCodeCollapse })}
           style={miniSelect}>
           <option value="disable">禁用</option>
           <option value="all">全部</option>

@@ -6,11 +6,10 @@ export interface AssembledMessage {
 }
 
 function resolvePlaceholders(text: string, variables: Record<string, string>): string {
-  let result = text;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-  }
-  return result;
+  if (!text.includes('{{')) return text;
+  return text.replace(/\{\{([^}]+)\}\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(variables, key) ? variables[key] : match,
+  );
 }
 
 /**
