@@ -14,10 +14,10 @@ export function CharSheetPanel() {
   const toggleDossier = (k: string) => setDossierOpen((p) => ({ ...p, [k]: !p[k] }));
 
   const DOSSIER_FIELDS = [
-    { key: 'description' as const, label: '个人描述', icon: '📋' },
-    { key: 'personality' as const, label: '性格特征', icon: '🧠' },
-    { key: 'scenario' as const, label: '场景设定', icon: '🎭' },
-    { key: 'personaDescription' as const, label: '角色设定', icon: '🎭' },
+    { key: 'description' as const, label: '个人描述', en: 'Physical Description' },
+    { key: 'personality' as const, label: '性格特征', en: 'Personality Profile' },
+    { key: 'scenario' as const, label: '场景设定', en: 'Case File / Scenario' },
+    { key: 'personaDescription' as const, label: '角色设定', en: 'Persona Directive' },
   ];
 
   const handleEsc = useCallback(
@@ -192,39 +192,57 @@ export function CharSheetPanel() {
             <InvestigatorCard />
           </div>
 
-          {/* Section: Personal Dossier */}
+          {/* Section: Personal Dossier — archive file style */}
           <div>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
-              个人信息档案 · DOSSIER
+            <div style={{
+              fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
+              letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase',
+            }}>
+              个人档案 · DOSSIER
             </div>
-            <div style={{ border: '1px solid rgba(196,168,85,0.12)', borderRadius: 4, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-              {DOSSIER_FIELDS.map(({ key, label, icon }, i) => {
+            <div style={{
+              border: '1px solid rgba(196,168,85,0.15)',
+              borderRadius: 3,
+              background: 'linear-gradient(180deg, rgba(26,22,16,0.6) 0%, rgba(18,14,10,0.4) 100%)',
+              overflow: 'hidden',
+              boxShadow: 'inset 0 1px 0 rgba(196,168,85,0.05)',
+            }}>
+              {DOSSIER_FIELDS.map(({ key, label, en }, i) => {
                 const content = (sheet[key] as string)?.trim();
                 if (!content) return null;
                 const open = !!dossierOpen[key];
                 return (
-                  <div key={key}>
+                  <div key={key} style={{ borderBottom: i < DOSSIER_FIELDS.length - 1 ? '1px solid rgba(196,168,85,0.06)' : 'none' }}>
                     <div
                       onClick={() => toggleDossier(key)}
                       style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '10px 14px', cursor: 'pointer',
-                        borderBottom: open ? '1px solid rgba(196,168,85,0.08)' : 'none',
-                        fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)',
-                        fontWeight: 600, letterSpacing: 1, userSelect: 'none',
-                        transition: 'background 0.2s',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '12px 16px', cursor: 'pointer',
+                        transition: 'background 0.25s',
+                        userSelect: 'none',
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.03)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <span>{icon} {label}</span>
-                      <span style={{ fontSize: 10, color: 'var(--ink-faded)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                      <span style={{
+                        fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)',
+                        transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s',
+                        width: 14, textAlign: 'center', flexShrink: 0,
+                      }}>▸</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 2 }}>{en}</div>
+                      </div>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>
+                        {open ? '— 收起' : '— 展开'}
+                      </span>
                     </div>
                     {open && (
                       <div style={{
-                        padding: '12px 14px', fontSize: 12, fontFamily: 'var(--font-body)',
-                        color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap',
-                        borderBottom: i < DOSSIER_FIELDS.length - 1 ? '1px solid rgba(196,168,85,0.06)' : 'none',
+                        padding: '4px 16px 16px 40px',
+                        fontSize: 12, fontFamily: 'var(--font-body)',
+                        color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap',
+                        borderTop: '1px dashed rgba(196,168,85,0.08)',
                       }}>
                         {content}
                       </div>
