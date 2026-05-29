@@ -279,15 +279,11 @@ export function Storybook() {
 
                 {/* Left page — Title */}
                 <motion.div
-                  variants={{ exit: { rotateY: 180 } }}
-                  transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                   style={{
                     flex: '1 1 0', display: 'flex', flexDirection: 'column',
                     justifyContent: 'center', alignItems: 'center',
                     background: 'linear-gradient(180deg, #0a0808 0%, #12100c 50%, #0a0808 100%)',
                     borderRadius: '4px 0 0 4px',
-                    transformOrigin: '100% 50%',
-                    backfaceVisibility: 'hidden',
                     overflow: 'hidden',
                   }}
                 >
