@@ -31,6 +31,7 @@ npm run dev
 
 ### SillyTavern 引擎
 - 世界书管理系统（多本独立数据 + 条目编辑器）
+- **[统一宏引擎](docs/macro-engine.md)**（`{{...}}` 语法：占位符 / 变量简写 / 条件判断 / Outlet / 嵌套宏，兼容 ST）
 - MVU 变量引擎（自动提取 LLM 回复中的变量，支持独立 API 通道）
 - 正则脚本系统（全局/预设，查找替换 + 测试模式）
 - EJS 模板引擎（`<% %>` JavaScript 逻辑在 Prompt 中执行）
@@ -46,7 +47,7 @@ npm run dev
 ## 测试
 
 ```bash
-npm test         # Vitest (50 tests: 骰子引擎 + COC 规则 + 数据库)
+npm test         # Vitest (182 tests: 骰子引擎 + COC 规则 + 数据库 + 角色变量 + 宏引擎)
 npm run build    # tsc -b 类型检查 + Vite 构建
 ```
 
@@ -75,6 +76,7 @@ src/                          # ~111 source files
 │   ├── variables.ts          #   变量提取/合并
 │   ├── slash-commands.ts     #   斜杠命令系统
 │   ├── ejs-template.ts       #   EJS 模板引擎 (LRU 缓存)
+│   ├── unified-macro-engine.ts #   统一宏引擎 (99 tests, 详见 docs/macro-engine.md)
 │   ├── dice-engine.ts        #   骰子检定引擎 (27 tests)
 │   ├── coc-rules.ts          #   COC 规则数据 + 纯函数
 │   └── ...
