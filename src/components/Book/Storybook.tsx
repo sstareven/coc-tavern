@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
+import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
@@ -21,6 +22,18 @@ export function Storybook() {
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
+  const inventoryOpen = useInventoryStore((s) => s.isOpen);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (inventoryOpen) useInventoryStore.getState().close();
+        if (showToc) { setShowToc(false); setSelectedToc(-1); }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [inventoryOpen, showToc]);
 
   const page = pages[pageIndex];
   if (!page) return null;
@@ -86,10 +99,10 @@ export function Storybook() {
       padding: '0 64px',
     }}>
       <style>{`
-        .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar{width:5px}
-        .lp-scroll::-webkit-scrollbar-track,.rp-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.06);border-radius:3px}
-        .lp-scroll::-webkit-scrollbar-thumb,.rp-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}
-        .lp-scroll::-webkit-scrollbar-thumb:hover,.rp-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+        .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar,.inv-scroll::-webkit-scrollbar{width:5px}
+        .lp-scroll::-webkit-scrollbar-track,.rp-scroll::-webkit-scrollbar-track,.inv-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.06);border-radius:3px}
+        .lp-scroll::-webkit-scrollbar-thumb,.rp-scroll::-webkit-scrollbar-thumb,.inv-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}
+        .lp-scroll::-webkit-scrollbar-thumb:hover,.rp-scroll::-webkit-scrollbar-thumb:hover,.inv-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}
       `}</style>
       {/* Relative container wrapping book + utils + bookmarks */}
       <div style={{
@@ -326,9 +339,14 @@ export function Storybook() {
             )}
           </AnimatePresence>
 
-          {/* Navigation arrows — hidden when TOC is open */}
+          {/* Inventory overlay — book-page style */}
+          <AnimatePresence>
+            {inventoryOpen && <InventoryOverlay />}
+          </AnimatePresence>
+
+          {/* Navigation arrows — hidden when TOC or Inventory is open */}
           <div style={{
-            opacity: showToc ? 0 : 1, pointerEvents: showToc ? 'none' : 'auto',
+            opacity: showToc || inventoryOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen ? 'none' : 'auto',
             transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             <PageNav
@@ -351,28 +369,33 @@ export function Storybook() {
           gap: 14,
           zIndex: 2,
         }}>
-          {/* Tab 0: 背包/装备 → inventory panel */}
+          {/* Tab 0: 背包/装备 → inventory overlay */}
           <button
             onClick={() => {
               useCharSheetStore.getState().close();
+              if (showToc) { setShowToc(false); setSelectedToc(-1); }
               useInventoryStore.getState().toggle();
             }}
-            style={bookmarkTab}
+            style={inventoryOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#8b3a3a';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
-              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
-              e.currentTarget.style.paddingLeft = '18px';
+              if (!inventoryOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#4a3020';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
-              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
-              e.currentTarget.style.paddingLeft = '14px';
+              if (!inventoryOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◆</span>
-            背包/装备
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{inventoryOpen ? '◁' : '◆'}</span>
+            {inventoryOpen ? '返回' : '背包/装备'}
           </button>
 
           {/* Tab 1: 调查员记录 → character sheet */}
@@ -402,6 +425,7 @@ export function Storybook() {
           {/* Tab 2: 目录 → table of contents overlay */}
           <button
             onClick={() => {
+              useInventoryStore.getState().close();
               if (showToc) {
                 if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
                 setSelectedToc(-1);
