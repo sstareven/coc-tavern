@@ -69,7 +69,7 @@ export function GameView({ onReturnToMenu }: Props) {
           { num: 'III', text: '困难检定', action: '进行图书馆使用检定(困难, 奖励骰)，查阅档案' },
           { num: 'IV', text: '对抗选项', action: '进行力量对抗(对手目标值:45)，与守卫角力' },
         ],
-        summary: '这是一个用于调试布局的占位测试页面，包含各种类型的选项。',
+        summary: '调查员在弗朗西斯书店的档案室中发现了失踪案的卷宗和一本可疑的非法出版物，档案管理员韦瑟比似乎在暗中监视着调查员的一举一动，后巷传来的低语声令人不安。',
         diceResults: [
           { skill: '侦查', roll: '42', target: '60', type: 'success' as const, time: Date.now() },
           { skill: '力量(对抗)', roll: '95', target: '50', type: 'crit-failure' as const, time: Date.now() },
