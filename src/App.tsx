@@ -17,6 +17,7 @@ import { ExtManager } from './components/Settings/ExtManager';
 import { RegexEditor } from './components/Settings/RegexEditor';
 import { VariablePanel } from './components/Settings/VariablePanel';
 import { DebugLog } from './components/Shared/DebugLog';
+import { DebugConsole } from './components/Shared/DebugConsole';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 
@@ -95,6 +96,7 @@ export function App() {
 
       <RegexEditor />
       <DebugLog />
+      <DebugConsole />
     </>
     </ErrorBoundary>
   );
