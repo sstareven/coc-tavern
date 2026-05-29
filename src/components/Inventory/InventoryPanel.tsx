@@ -227,6 +227,7 @@ export function InventoryOverlay() {
         transformOrigin: '0% 50%',
         backfaceVisibility: 'hidden',
         overflow: 'hidden',
+        position: 'relative',
       }}>
         <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 8 }}>
           <h3 style={{
@@ -340,6 +341,15 @@ export function InventoryOverlay() {
           <span>共 {items.length} 件</span>
           <span>背包 {bagItems.length} 件</span>
         </div>
+        <motion.div
+          variants={{ exit: { opacity: 0.15 } }}
+          initial={{ opacity: 0 }}
+          style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'linear-gradient(to left, rgba(0,0,0,0.3) 0%, transparent 60%)',
+            borderRadius: '0 3px 3px 0',
+          }}
+        />
       </motion.div>
     </motion.div>
   );

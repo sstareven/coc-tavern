@@ -9,7 +9,7 @@ import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { PageNav } from './PageNav';
-import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
+import { CSSFlipPage, FadingPage, AppearPage, FlipShadow } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
 import { sfxPageFlip } from '../../audio/sfx';
@@ -205,9 +205,12 @@ export function Storybook() {
                   </CSSFlipPage>
                 ) : (
                   /* Forward: [A] stays static, text fades out gradually */
-                  <FadingPage progress={flipProgress}>
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
-                  </FadingPage>
+                  <>
+                    <FadingPage progress={flipProgress}>
+                      <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
+                    </FadingPage>
+                    <FlipShadow progress={flipProgress} side="left" />
+                  </>
                 )}
               </div>
             ) : (
@@ -238,9 +241,12 @@ export function Storybook() {
                   </CSSFlipPage>
                 ) : (
                   /* Backward: [B] stays static, text fades out gradually */
-                  <FadingPage progress={flipProgress}>
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} />
-                  </FadingPage>
+                  <>
+                    <FadingPage progress={flipProgress}>
+                      <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} />
+                    </FadingPage>
+                    <FlipShadow progress={flipProgress} side="right" />
+                  </>
                 )}
               </div>
             ) : (
@@ -313,6 +319,7 @@ export function Storybook() {
                     transformOrigin: '0% 50%',
                     backfaceVisibility: 'hidden',
                     overflow: 'hidden',
+                    position: 'relative',
                   }}
                 >
                   <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)' }}>
@@ -375,10 +382,16 @@ export function Storybook() {
                       );
                     })}
                   </div>
+                  <motion.div
+                    variants={{ exit: { opacity: 0.15 } }}
+                    initial={{ opacity: 0 }}
+                    style={{
+                      position: 'absolute', inset: 0, pointerEvents: 'none',
+                      background: 'linear-gradient(to left, rgba(0,0,0,0.3) 0%, transparent 60%)',
+                      borderRadius: '0 4px 4px 0',
+                    }}
+                  />
                 </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Inventory overlay — book-page style */}
           <AnimatePresence>
