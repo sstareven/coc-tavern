@@ -342,6 +342,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setGlobalCaseSensitive = useSettingsStore((s) => s.setGlobalCaseSensitive);
   const globalMatchWholeWord = useSettingsStore((s) => s.globalMatchWholeWord);
   const setGlobalMatchWholeWord = useSettingsStore((s) => s.setGlobalMatchWholeWord);
+  const maxRecursionSteps = useSettingsStore((s) => s.maxRecursionSteps);
+  const setMaxRecursionSteps = useSettingsStore((s) => s.setMaxRecursionSteps);
+  const includeNames = useSettingsStore((s) => s.includeNames);
+  const setIncludeNames = useSettingsStore((s) => s.setIncludeNames);
+  const wiBudget = useSettingsStore((s) => s.wiBudget);
+  const setWiBudget = useSettingsStore((s) => s.setWiBudget);
+  const alertOnOverflow = useSettingsStore((s) => s.alertOnOverflow);
+  const setAlertOnOverflow = useSettingsStore((s) => s.setAlertOnOverflow);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -637,6 +645,28 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <input type="checkbox" checked={globalMatchWholeWord} onChange={(e) => setGlobalMatchWholeWord(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     世界书全局完整单词匹配
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                    <input type="checkbox" checked={includeNames} onChange={(e) => setIncludeNames(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
+                    包含角色名称
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                    <input type="checkbox" checked={alertOnOverflow} onChange={(e) => setAlertOnOverflow(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
+                    溢出警告
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>递归步数</span>
+                    <input type="number" min={0} max={20} value={maxRecursionSteps} onChange={(e) => setMaxRecursionSteps(Number(e.target.value) || 0)}
+                      style={{ width: 50, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
+                    <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>Token预算</span>
+                    <input type="number" min={0} max={99999} step={100} value={wiBudget} onChange={(e) => setWiBudget(Number(e.target.value) || 0)}
+                      style={{ width: 60, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
+                    <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
+                  </div>
                 </div>
 
                 {/* API section */}
