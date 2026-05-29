@@ -71,14 +71,6 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
 
       {hasMeta && (
         <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden', minWidth: 0, ...fadeStyle }}>
-          {summary && (
-            <span style={{
-              fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
-              fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              minWidth: 0, flex: '1 1 0',
-            }}>{summary}</span>
-          )}
           {diceResults && diceResults.slice(0, 2).map((d, i) => {
             const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
             const isCrit = d.type === 'crit-success';
@@ -101,6 +93,14 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
               </span>
             );
           })}
+          {summary && (
+            <span style={{
+              fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
+              fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              minWidth: 0, flex: '1 1 0',
+            }}>{summary}</span>
+          )}
         </div>
       )}
 
