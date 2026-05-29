@@ -450,6 +450,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             pushLog('debug', `[Pipeline] 已创建摘要条目: "${newPage.leftHeader}" — 关键词: ${keys}`, 'system');
           }
         }
+
+        if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {
+          const { useInventoryStore } = await import('../stores/useInventoryStore');
+          useInventoryStore.getState().applyChanges(newPage.inventoryChanges);
+          pushLog('info', `物品更新: ${newPage.inventoryChanges.length}项变化`, 'system');
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');

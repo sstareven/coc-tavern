@@ -1,4 +1,5 @@
 import { useBookStore } from '../stores/useBookStore';
+import { useInventoryStore } from '../stores/useInventoryStore';
 
 export function buildContextFromPages(): string {
   const { pages, pageIndex } = useBookStore.getState();
@@ -24,6 +25,12 @@ export function buildContextFromPages(): string {
     const si = currentPage.sceneInfo;
     ctx += `\n\n[当前场景: ${si.date} ${si.weekday} ${si.time} | 天气: ${si.weather} | 地点: ${si.location}]`;
   }
+
+  const invSummary = useInventoryStore.getState().buildInventorySummary();
+  if (invSummary) {
+    ctx += `\n\n${invSummary}`;
+  }
+
   return ctx;
 }
 

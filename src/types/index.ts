@@ -58,6 +58,33 @@ export interface BookPage {
   summary?: string;
   keywords?: Record<string, string>;
   diceResults?: DiceRecord[];
+  inventoryChanges?: InventoryChange[];
+}
+
+// ===== Inventory System =====
+export type ItemCategory = 'weapon' | 'tool' | 'consumable' | 'clue' | 'key_item' | 'misc';
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: ItemCategory;
+  description: string;
+  quantity: number;
+  equipped: boolean;
+  isKeyItem: boolean;
+  acquiredAt: number;
+}
+
+export type InventoryAction = 'add' | 'remove' | 'equip' | 'unequip' | 'update';
+
+export interface InventoryChange {
+  action: InventoryAction;
+  name: string;
+  category?: ItemCategory;
+  quantity?: number;
+  description?: string;
+  equipped?: boolean;
+  isKeyItem?: boolean;
 }
 
 export interface ChoiceItem {
