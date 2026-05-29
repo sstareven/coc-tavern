@@ -27,12 +27,13 @@ export const useDarkThreadStore = create<DarkThreadStore>()(
       entries: [],
 
       addEntry: (entry) =>
-        set((s) => ({
-          entries: [
+        set((s) => {
+          const updated = [
             ...s.entries,
             { ...entry, id: crypto.randomUUID(), timestamp: Date.now() },
-          ],
-        })),
+          ];
+          return { entries: updated.length > 50 ? updated.slice(-50) : updated };
+        }),
 
       getRecentEntries: (n) => {
         const { entries } = get();
