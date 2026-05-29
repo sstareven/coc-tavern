@@ -9,6 +9,9 @@ import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
+import { useInventoryStore } from '../stores/useInventoryStore';
+import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useKeywordStore } from '../stores/useKeywordStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
@@ -511,23 +514,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {
-          const { useInventoryStore } = await import('../stores/useInventoryStore');
           useInventoryStore.getState().applyChanges(newPage.inventoryChanges);
           pushLog('info', `物品更新: ${newPage.inventoryChanges.length}项变化`, 'system');
         }
 
         // Snapshot full game state into session for per-save isolation
-        {
-          const { useInventoryStore } = await import('../stores/useInventoryStore');
-          const { useCharSheetStore } = await import('../stores/useCharSheetStore');
-          const { useKeywordStore } = await import('../stores/useKeywordStore');
-          chatStore.saveGameState(useBookStore.getState().pages, {
-            character: useCharSheetStore.getState().sheet ?? undefined,
-            inventory: useInventoryStore.getState().items,
-            darkThread: useDarkThreadStore.getState().entries,
-            keywords: useKeywordStore.getState().keywords,
-          });
-        }
+        chatStore.saveGameState(useBookStore.getState().pages, {
+          character: useCharSheetStore.getState().sheet ?? undefined,
+          inventory: useInventoryStore.getState().items,
+          darkThread: useDarkThreadStore.getState().entries,
+          keywords: useKeywordStore.getState().keywords,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');
