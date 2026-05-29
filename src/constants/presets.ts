@@ -143,7 +143,7 @@ export const COC_KP_PRESET: ChatPreset = {
     { id: 'worldInfoAfter', name: 'World Info (after)', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 60, content: '', enabled: true },
     { id: 'dialogueExamples', name: 'Chat Examples', kind: 'marker', readOnly: true, role: 'system', trigger: [], position: 'relative', depth: 0, order: 90, content: '', enabled: true },
     { id: 'chatHistory', name: 'Chat History', kind: 'marker', readOnly: true, role: 'system', trigger: [], position: 'relative', depth: 0, order: 100, content: '', enabled: true },
-    { id: 'postHistoryInstructions', name: 'Post-History Instructions', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 110, content: '', enabled: true },
+    { id: 'postHistoryInstructions', name: 'Post-History Instructions', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 110, content: '[最终提醒] 你必须严格以JSON格式回复，不要输出任何JSON以外的内容。回复必须包含leftHeader、leftContent、rightHeader、rightContent、choices(恰好4个)、sceneInfo、darkThread字段。使用中文直角引号「」，禁止使用英文标点。', enabled: true },
   ],
   tavernHelperScripts: [],
   regexScripts: [],
