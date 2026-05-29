@@ -173,7 +173,7 @@ export function Storybook() {
 
           {/* [A] 左页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative', minHeight: 0,
+            flex: 1, display: 'flex', position: 'relative', minHeight: 0, minWidth: 0,
             background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             borderRadius: '3px 0 0 3px',
           }}>
@@ -206,7 +206,7 @@ export function Storybook() {
 
           {/* [B] 右页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative', minHeight: 0,
+            flex: 1, display: 'flex', position: 'relative', minHeight: 0, minWidth: 0,
             background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             borderRadius: '0 3px 3px 0',
           }}>
