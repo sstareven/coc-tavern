@@ -101,6 +101,7 @@ export function matchLoreEntries(
 
   const resolved: LoreEntry[] = [...ungrouped];
   const suppressedIds = new Set<string>();
+  const resolvedIds = new Set(ungrouped.map((e) => e._id || e.name));
 
   for (const [, members] of groups) {
     let candidates = members.filter((m) => !suppressedIds.has(m._id!));
@@ -127,7 +128,11 @@ export function matchLoreEntries(
       }
     }
 
-    resolved.push(winner);
+    const winnerId = winner._id || winner.name;
+    if (!resolvedIds.has(winnerId)) {
+      resolved.push(winner);
+      resolvedIds.add(winnerId);
+    }
     for (const m of members) {
       if (m._id !== winner._id) suppressedIds.add(m._id!);
     }
