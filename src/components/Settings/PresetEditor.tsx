@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
 import { DarkSelect } from '../Shared/DarkSelect';
@@ -41,11 +41,17 @@ const CONTENT_SOURCE: Record<string, string> = {
 };
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debouncedSave = useCallback((p: ChatPreset) => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => onSave(p), 400);
+  }, [onSave]);
+
   const [form, _setForm] = useState<ChatPreset>({ ...preset });
   const setForm = (updater: React.SetStateAction<ChatPreset>) => {
     _setForm((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      queueMicrotask(() => onSave(next));
+      debouncedSave(next);
       return next;
     });
   };
