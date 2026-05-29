@@ -126,24 +126,33 @@ export function InventoryOverlay() {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ rotateY: -180 }}
+      initial="enter"
+      animate="visible"
+      exit="exit"
+      variants={{
+        enter: { opacity: 0 },
+        visible: { opacity: 1 },
+        exit: { opacity: 0 },
+      }}
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: 'absolute', inset: 0, zIndex: 10,
-        display: 'flex', borderRadius: 4, overflow: 'hidden',
-        transformOrigin: '0% 50%',
-        backfaceVisibility: 'hidden',
+        display: 'flex', borderRadius: 4,
       }}
     >
       {/* Left page — Equipment */}
-      <div style={{
+      <motion.div
+        variants={{ exit: { rotateY: 180 } }}
+        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+        style={{
         flex: '1 1 0', display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '3px 0 0 3px',
         boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
         padding: '28px 20px 20px 28px',
+        transformOrigin: '100% 50%',
+        backfaceVisibility: 'hidden',
+        overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 12 }}>
           <h3 style={{
@@ -202,8 +211,7 @@ export function InventoryOverlay() {
         }}>
           装备 {equipped.length} 件
         </div>
-      </div>
-
+      </motion.div>
       {/* Spine */}
       <div style={{
         width: 2, flexShrink: 0,
@@ -211,12 +219,18 @@ export function InventoryOverlay() {
       }} />
 
       {/* Right page — Inventory */}
-      <div style={{
+      <motion.div
+        variants={{ exit: { rotateY: -180 } }}
+        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+        style={{
         flex: '1 1 0', display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '0 3px 3px 0',
         boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)',
         padding: '28px 28px 20px 20px',
+        transformOrigin: '0% 50%',
+        backfaceVisibility: 'hidden',
+        overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 8 }}>
           <h3 style={{
@@ -330,7 +344,7 @@ export function InventoryOverlay() {
           <span>共 {items.length} 件</span>
           <span>背包 {bagItems.length} 件</span>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
