@@ -103,6 +103,22 @@ describe('resolvePlayerValue', () => {
     expect(resolvePlayerValue('SAN', mockSheet)).toEqual({ base: 80, current: 80 });
   });
 
+  // Derived-base skills not allocated by player — must compute from characteristics, not fall to 1
+  it('returns DEX/2 for 躲闪 when not in sheet.skills (regression: was 1)', () => {
+    // DEX 65 → floor(65/2) = 32
+    expect(resolvePlayerValue('躲闪', mockSheet)).toEqual({ base: 32, current: 32 });
+  });
+
+  it('returns EDU for 语言(母语) when not in sheet.skills (regression: was 1)', () => {
+    // EDU 70
+    expect(resolvePlayerValue('语言(母语)', mockSheet)).toEqual({ base: 70, current: 70 });
+  });
+
+  it('uses allocated skill current value over computed base', () => {
+    // 侦查 is in sheet.skills with current 50, base 25
+    expect(resolvePlayerValue('侦查', mockSheet)).toEqual({ base: 25, current: 50 });
+  });
+
   // Unknown skill fallback
   it('returns base value for unknown skill from ALL_SKILLS', () => {
     // This test assumes ALL_SKILLS has a skill with base value
