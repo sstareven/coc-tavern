@@ -3,6 +3,9 @@ export const FLIP_CONFIG = {
   TOTAL: 1500,
 };
 
+const STRIP_COUNT = 6;
+const MAX_BEND = 18;
+
 // ── Smooth easing ──
 export function stagedProgress(rawT: number): number {
   const t = Math.max(0, Math.min(1, rawT));
@@ -11,14 +14,12 @@ export function stagedProgress(rawT: number): number {
 
 // ── Bezier curve helpers ──
 
-/** Evaluate cubic-bezier(P1x,P1y, P2x,P2y) at input t */
 function cubicBezier(t: number, p1: number, p2: number): number {
   return 3 * (1 - t) * (1 - t) * t * p1 + 3 * (1 - t) * t * t * p2 + t * t * t;
 }
 
-/** Solve cubic-bezier x→y for a given input x using Newton-Raphson */
 function solveBezier(x: number, x1: number, x2: number, y1: number, y2: number): number {
-  let t = x; // initial guess
+  let t = x;
   for (let i = 0; i < 8; i++) {
     const dx = cubicBezier(t, x1, x2) - x;
     if (Math.abs(dx) < 0.001) break;
@@ -30,7 +31,6 @@ function solveBezier(x: number, x1: number, x2: number, y1: number, y2: number):
   return cubicBezier(t, y1, y2);
 }
 
-// fade-out: cubic-bezier(0.5, 0, 0.8, 0.2) — slow start, fast end, vanishes by 90°
 function easeOutFade(raw: number): number {
   if (raw <= 0) return 1;
   if (raw >= 0.5) return 0;
@@ -39,8 +39,9 @@ function easeOutFade(raw: number): number {
 
 // ── Paper backgrounds ──
 const FRONT_BG = 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)';
+const BACK_BG = 'linear-gradient(135deg, #d8c89a 0%, #c4b080 100%)';
 
-// ── 3D page flip component ──
+// ── 3D multi-strip page flip ──
 
 interface CSSFlipProps {
   progress: number;
@@ -48,26 +49,19 @@ interface CSSFlipProps {
   children: React.ReactNode;
 }
 
-/**
- * [FlipCard] Physical page rotating around the spine.
- * Parent book container provides perspective; this card just rotates on Y axis.
- *
- * Forward: origin at left edge (right page flips to left), rotateY 0→-180
- * Backward: origin at right edge (left page flips to right), rotateY 0→180
- */
 export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
   const raw = Math.max(0, Math.min(1, progress));
   const p = stagedProgress(raw);
   const isForward = direction === 'forward';
-  const rotateY = isForward ? -p * 180 : p * 180;
   const originX = isForward ? '0%' : '100%';
   const radius = isForward ? '0 3px 3px 0' : '3px 0 0 3px';
-
-  // Forward: page moves from right [B] toward left [A]; backward: opposite
   const shiftX = isForward ? -p * 100 : p * 100;
-
-  // Text fades with bezier
   const textOpacity = easeOutFade(raw);
+
+  const baseAngle = isForward ? -p * 180 : p * 180;
+  const bendAmount = Math.sin(raw * Math.PI) * MAX_BEND;
+
+  const shadowIntensity = Math.sin(raw * Math.PI) * 0.12;
 
   return (
     <div
@@ -75,37 +69,89 @@ export function CSSFlipPage({ progress, direction, children }: CSSFlipProps) {
       style={{
         flex: 1, display: 'flex', position: 'relative',
         transformOrigin: `${originX} 50%`,
-        transform: `translateX(${shiftX}%) rotateY(${rotateY}deg)`,
+        transform: `translateX(${shiftX}%)`,
         transformStyle: 'preserve-3d',
         transition: 'none',
       }}
     >
-      {/* [FlipFront] */}
-      <div
-        data-flip="front"
-        style={{
-          position: 'absolute', inset: 0,
-          backfaceVisibility: 'hidden',
-          background: FRONT_BG, borderRadius: radius,
-          display: 'flex',
-        }}
-      >
-        <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none' }}>
-          {children}
-        </div>
-      </div>
+      {Array.from({ length: STRIP_COUNT }, (_, i) => {
+        const t = STRIP_COUNT > 1 ? i / (STRIP_COUNT - 1) : 0;
+        const stripFactor = Math.pow(t, 1.4);
+        const stripBend = stripFactor * bendAmount;
+        const stripAngle = baseAngle + (isForward ? -stripBend : stripBend);
 
-      {/* [FlipBack] — transparent, shows container's paper color underneath */}
-      <div
-        data-flip="back"
-        style={{
-          position: 'absolute', inset: 0,
-          transform: 'rotateY(180deg)',
-          backfaceVisibility: 'hidden',
-          borderRadius: radius,
-        }}
-      />
+        const leftPct = (i / STRIP_COUNT) * 100;
+        const rightPct = ((STRIP_COUNT - i - 1) / STRIP_COUNT) * 100;
+
+        const stripShadow = stripFactor * shadowIntensity;
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute', inset: 0,
+              clipPath: `inset(0 ${rightPct}% 0 ${leftPct}%)`,
+              transformOrigin: `${originX} 50%`,
+              transform: `rotateY(${stripAngle}deg)`,
+              transformStyle: 'preserve-3d',
+              transition: 'none',
+            }}
+          >
+            {/* Front face */}
+            <div
+              data-flip="front"
+              style={{
+                position: 'absolute', inset: 0,
+                backfaceVisibility: 'hidden',
+                background: FRONT_BG, borderRadius: radius,
+              }}
+            >
+              <div style={{ flex: 1, display: 'flex', opacity: textOpacity, transition: 'none', height: '100%' }}>
+                {children}
+              </div>
+              {/* Lighting/shadow overlay on front face */}
+              <div style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: `linear-gradient(${isForward ? 'to right' : 'to left'}, rgba(0,0,0,${stripShadow}) 0%, transparent 80%)`,
+                borderRadius: radius,
+                transition: 'none',
+              }} />
+            </div>
+
+            {/* Back face */}
+            <div
+              data-flip="back"
+              style={{
+                position: 'absolute', inset: 0,
+                transform: 'rotateY(180deg)',
+                backfaceVisibility: 'hidden',
+                background: BACK_BG,
+                borderRadius: radius,
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+// ── Shadow cast on the opposite page during flip ──
+
+interface FlipShadowProps {
+  progress: number;
+  side: 'left' | 'right';
+}
+
+export function FlipShadow({ progress, side }: FlipShadowProps) {
+  const intensity = Math.sin(Math.max(0, Math.min(1, progress)) * Math.PI) * 0.15;
+  const gradientDir = side === 'left' ? 'to left' : 'to right';
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
+      background: `linear-gradient(${gradientDir}, rgba(0,0,0,${intensity}) 0%, transparent 50%)`,
+      transition: 'none',
+    }} />
   );
 }
 
@@ -116,10 +162,6 @@ interface FadingPageProps {
   children: React.ReactNode;
 }
 
-/**
- * Non-rotating page that fades out its text during the flip.
- * Paper stays solid, only text content fades.
- */
 export function FadingPage({ progress, children }: FadingPageProps) {
   const raw = Math.max(0, Math.min(1, progress));
   const textOpacity = easeOutFade(raw);
@@ -137,10 +179,6 @@ interface AppearProps {
   children: React.ReactNode;
 }
 
-/**
- * Fades in page content after a page turn completes.
- * Uses key on pageIndex to trigger re-mount animation.
- */
 export function AppearPage({ pageIndex, children }: AppearProps) {
   return (
     <div
