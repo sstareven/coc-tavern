@@ -20,8 +20,7 @@ import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM } from '../sillytavern/mvu-extractor';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
-import { processMacros } from '../sillytavern/macro-engine';
-import { resolveTavernHelperMacrosDeep } from '../sillytavern/tavern-helper-macros';
+import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
 import { runAllRegexScripts } from '../sillytavern/regex-engine';
 import {
   loadThScripts,
@@ -122,16 +121,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const trimmed = (overrideInput ?? '').trim();
       const effectiveInput = trimmed || '(提示词查看器预览)';
 
-      // Process ST-style macros ({{setvar}}, {{getvar}}, {{incvar}}, {{decvar}})
+      // Unified macro engine handles all {{...}} syntax after EJS rendering
       const pt = useTavernHelperStore.getState().promptTemplate;
-      const templateEnabled = pt.enabled && pt.generateEnabled;
-      let macroProcessedInput = templateEnabled ? processMacros(effectiveInput) : effectiveInput;
-      // Filter chat: strip template syntax before generation
-      if (pt.enabled && pt.filterChatMessage) {
-        macroProcessedInput = macroProcessedInput
-          .replace(/\{\{(?:setvar|getvar|incvar|decvar)::[^}]*\}\}/g, '')
-          .trim();
-      }
+      let macroProcessedInput = effectiveInput;
 
       // Run TH script onSend hooks (pre-send pipeline)
       macroProcessedInput = runSendHooks(thHooks, macroProcessedInput);
@@ -285,18 +277,39 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }));
       const processedFormat = renderTemplate(FORMAT_INSTRUCTION, tmplOpts);
 
-      // Resolve Tavern Helper macros ({{get_<scope>_variable::name}} etc.)
-      if (useTavernHelperStore.getState().enabled) {
-        const presetVars = activePreset.tavernHelperVars;
-        processedPreset.systemPrompt = resolveTavernHelperMacrosDeep(
-          processedPreset.systemPrompt,
-          3,
-          presetVars,
-        );
-        for (const e of processedLore) {
-          e.content = resolveTavernHelperMacrosDeep(e.content, 3, presetVars);
+      // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
+      const macroCtx: MacroContext = {
+        macroVars: { ...useTavernHelperStore.getState().macroVars },
+        presetVars: activePreset.tavernHelperVars,
+        charVars,
+        gameVars,
+        charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
+        userName: charVars['charName'] || '调查员',
+        modelName: useSettingsStore.getState().apiModel,
+        lastMessage: '',
+      };
+
+      const allTexts = [
+        processedPreset.systemPrompt,
+        ...processedLore.map((e) => e.content),
+        macroProcessedInput,
+        processedFormat,
+      ];
+      const macroResults = resolveAllMacrosBatch(allTexts, macroCtx);
+
+      processedPreset.systemPrompt = macroResults[0].text;
+      for (let i = 0; i < processedLore.length; i++) {
+        processedLore[i].content = macroResults[i + 1].text;
+      }
+      macroProcessedInput = macroResults[processedLore.length + 1].text;
+      const resolvedFormat = macroResults[processedLore.length + 2].text;
+
+      // Persist macro var mutations back to store
+      const mutationStore = useTavernHelperStore.getState();
+      for (const [key, val] of Object.entries(macroCtx.macroVars)) {
+        if (mutationStore.macroVars[key] !== val) {
+          mutationStore.setMacroVar(key, val);
         }
-        macroProcessedInput = resolveTavernHelperMacrosDeep(macroProcessedInput, 3, presetVars);
       }
 
       // Apply regex scripts to user input (placement 1 = USER_INPUT)
@@ -325,14 +338,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         .map((e) => renderTemplate(e.content, { ...tmplOpts, onlyWorldinfo: true }))
         .join('\n');
 
-      // Assemble prompt messages
+      // Assemble prompt messages (variables already resolved by unified macro engine)
       const messages = assemblePrompt(
         regexProcessedInput,
         [],
         processedPreset,
         processedLore,
-        variables,
-        processedFormat,
+        {},
+        resolvedFormat,
         { before: wbBefore, after: wbAfter },
       );
       // Store for Prompt Viewer
