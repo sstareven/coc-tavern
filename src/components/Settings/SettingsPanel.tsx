@@ -359,6 +359,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMvuTemperature = useSettingsStore((s) => s.setMvuTemperature);
   const mvuRetryCount = useSettingsStore((s) => s.mvuRetryCount);
   const setMvuRetryCount = useSettingsStore((s) => s.setMvuRetryCount);
+  const mvuMaxTokens = useSettingsStore((s) => s.mvuMaxTokens);
+  const setMvuMaxTokens = useSettingsStore((s) => s.setMvuMaxTokens);
 
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
@@ -805,6 +807,17 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             style={{ width: 100, accentColor: 'var(--gold)' }}
                           />
                           <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuRetryCount}</span>
+                        </div>
+                      </div>
+
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>最大回复长度 (Token)</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="range" min={512} max={16384} step={512} value={mvuMaxTokens}
+                            onChange={(e) => setMvuMaxTokens(Number(e.target.value))}
+                            style={{ width: 100, accentColor: 'var(--gold)' }}
+                          />
+                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{mvuMaxTokens}</span>
                         </div>
                       </div>
                     </>

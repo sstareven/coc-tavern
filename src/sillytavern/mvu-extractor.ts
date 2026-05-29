@@ -29,6 +29,7 @@ export async function extractVariablesWithLLM(
   model: string,
   temperature = 1,
   retries = 1,
+  maxTokens = 8096,
 ): Promise<{ variables: Record<string, string>; cleanedText: string }> {
   const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   let lastError: Error | null = null;
@@ -48,7 +49,7 @@ export async function extractVariablesWithLLM(
             { role: 'user', content: text },
           ],
           temperature,
-          max_tokens: 1024,
+          max_tokens: maxTokens,
         }),
       });
 
