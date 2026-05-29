@@ -13,25 +13,31 @@ interface Props {
 }
 
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
+const PRESET_MIGRATION_KEY = 'coc_presets_migrated_v2';
 
 function loadPresets(): Record<string, ChatPreset> {
   try {
     const raw = localStorage.getItem(PRESET_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PRESETS };
     const saved = JSON.parse(raw) as Record<string, ChatPreset>;
-    const merged = { ...DEFAULT_PRESETS };
-    for (const [k, v] of Object.entries(saved)) {
-      if (BUILTIN_PRESET_IDS.has(k)) {
-        const builtin = DEFAULT_PRESETS[k];
-        merged[k] = {
-          ...builtin,
-          ...v,
-          promptItems: v.promptItems && v.promptItems.length > 0 ? v.promptItems : builtin.promptItems,
-        };
-      } else {
-        merged[k] = v;
+    const merged = { ...DEFAULT_PRESETS, ...saved };
+
+    // One-time migration: backfill promptItems for builtin presets that were saved before promptItems existed
+    if (!localStorage.getItem(PRESET_MIGRATION_KEY)) {
+      for (const id of BUILTIN_PRESET_IDS) {
+        if (saved[id] && (!saved[id].promptItems || saved[id].promptItems.length === 0)) {
+          merged[id] = { ...merged[id], promptItems: DEFAULT_PRESETS[id].promptItems };
+        }
       }
+      localStorage.setItem(PRESET_MIGRATION_KEY, '1');
+      localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(
+        Object.fromEntries(Object.entries(merged).filter(([k]) => {
+          const builtin = DEFAULT_PRESETS[k];
+          return !builtin || JSON.stringify(merged[k]) !== JSON.stringify(builtin);
+        }))
+      ));
     }
+
     return merged;
   } catch { return { ...DEFAULT_PRESETS }; }
 }
