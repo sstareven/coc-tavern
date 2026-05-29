@@ -69,7 +69,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   const [renameValue, setRenameValue] = useState('');
 
   const handleRename = (id: string) => {
-    if (!renameValue.trim()) { setRenamingId(null); return; }
+    if (!renameValue.trim() || BUILTIN_PRESET_IDS.has(id)) { setRenamingId(null); return; }
     const updated = { ...presets };
     if (updated[id]) {
       updated[id] = { ...updated[id], name: renameValue.trim() };
@@ -186,8 +186,8 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                       <button onClick={() => setRenamingId(null)} style={{ ...actionBtnStyle, color: 'var(--ink-subtle)', padding: '2px 8px', fontSize: 11 }}>✕</button>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: 'pointer' }}
-                      onClick={(e) => { e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
+                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: BUILTIN_PRESET_IDS.has(id) ? 'default' : 'pointer' }}
+                      onClick={(e) => { if (BUILTIN_PRESET_IDS.has(id)) return; e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
                       title="点击重命名">
                       {preset.name}
                       {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
