@@ -86,6 +86,23 @@ describe('resolvePlayerValue', () => {
     expect(resolvePlayerValue('侦查', mockSheet)).toEqual({ base: 25, current: 50 });
   });
 
+  // Secondary stats — 幸运 / 理智(SAN) live in secondary, not skills
+  it('returns luck for 幸运 (regression: was falling back to 1)', () => {
+    expect(resolvePlayerValue('幸运', mockSheet)).toEqual({ base: 50, current: 50 });
+  });
+
+  it('returns luck for 幸运值 alias', () => {
+    expect(resolvePlayerValue('幸运值', mockSheet)).toEqual({ base: 50, current: 50 });
+  });
+
+  it('returns current/max SAN for 理智', () => {
+    expect(resolvePlayerValue('理智', mockSheet)).toEqual({ base: 80, current: 80 });
+  });
+
+  it('returns current/max SAN for SAN alias', () => {
+    expect(resolvePlayerValue('SAN', mockSheet)).toEqual({ base: 80, current: 80 });
+  });
+
   // Unknown skill fallback
   it('returns base value for unknown skill from ALL_SKILLS', () => {
     // This test assumes ALL_SKILLS has a skill with base value
