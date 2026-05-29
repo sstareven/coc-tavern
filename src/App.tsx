@@ -7,6 +7,7 @@ import { GameView } from './components/Layout/GameView';
 import { DicePanel } from './components/Dice/DicePanel';
 import { DiceHistory } from './components/Dice/DiceHistory';
 import { CharSheetPanel } from './components/CharSheet/CharSheetPanel';
+import { InventoryPanel } from './components/Inventory/InventoryPanel';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { WorldbookPanel } from './components/Settings/WorldbookPanel';
 import { LorebookEditor } from './components/Settings/LorebookEditor';
@@ -73,6 +74,7 @@ export function App() {
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
       <DicePanel />
       <CharSheetPanel />
+      <InventoryPanel />
 
       {openPanel === 'settings' && (
         <SettingsPanel visible={true} onClose={closeAll} onReturnToMenu={returnToMenu} />

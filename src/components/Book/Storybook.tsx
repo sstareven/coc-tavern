@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { useInventoryStore } from '../../stores/useInventoryStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
@@ -350,9 +351,36 @@ export function Storybook() {
           gap: 14,
           zIndex: 2,
         }}>
+          {/* Tab 0: 背包/装备 → inventory panel */}
+          <button
+            onClick={() => {
+              useCharSheetStore.getState().close();
+              useInventoryStore.getState().toggle();
+            }}
+            style={bookmarkTab}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#8b3a3a';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.paddingLeft = '18px';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#4a3020';
+              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+              e.currentTarget.style.paddingLeft = '14px';
+            }}
+          >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◆</span>
+            背包/装备
+          </button>
+
           {/* Tab 1: 调查员记录 → character sheet */}
           <button
-            onClick={() => useCharSheetStore.getState().toggle()}
+            onClick={() => {
+              useInventoryStore.getState().close();
+              useCharSheetStore.getState().toggle();
+            }}
             style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#8b3a3a';
