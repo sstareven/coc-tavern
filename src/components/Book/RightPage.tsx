@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
-import { useBookStore } from '../../stores/useBookStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
@@ -179,7 +178,6 @@ function fillInputBar(text: string) {
       time: Date.now(),
     };
     useDiceStore.getState().addRecord(diceRec);
-    useBookStore.getState().addDiceToCurrentPage(diceRec);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -207,7 +205,6 @@ function fillInputBar(text: string) {
       time: Date.now(),
     };
     useDiceStore.getState().addRecord(diceRec2);
-    useBookStore.getState().addDiceToCurrentPage(diceRec2);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -234,7 +231,6 @@ function fillInputBar(text: string) {
       time: Date.now(),
     };
     useDiceStore.getState().addRecord(diceRec3);
-    useBookStore.getState().addDiceToCurrentPage(diceRec3);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
