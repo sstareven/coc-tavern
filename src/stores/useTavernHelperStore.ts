@@ -16,115 +16,7 @@ interface PersistedState {
 
 const defaults: PersistedState = {
   enabled: true,
-  globalScripts: [
-    {
-      id: 'th-mvu-loader',
-      type: 'script' as const,
-      enabled: true,
-      name: 'MVU',
-      content: `// MVU 变量更新 — 已由 LLM 提取引擎 (mvu-extractor.ts) 接管
-// MagVarUpdate CDN bundle 因模块兼容性问题禁用
-// 变量提取通过独立 API 通道完成，无需浏览器端 Vue 运行时
-console.log('[MVU] Using LLM-based extraction (mvu-extractor), CDN bundle disabled');`,
-      info: '加载 MagVarUpdate 变量更新引擎 bundle（含 Vue 3 依赖）',
-    },
-    {
-      id: 'th-mvu-schema',
-      type: 'script' as const,
-      enabled: true,
-      name: '变量结构',
-      content: `// 变量结构 ZOD Schema — COC 7th TRPG 世界状态
-// 注册到 MVU 系统的变量结构定义
-// 基于 MagicalAstrogy/MagVarUpdate + StageDog/tavern_resource
-
-if (typeof window !== 'undefined' && window.registerMvuSchema) {
-  const { z } = window;
-  const { _ } = window;
-
-  const Schema = z.object({
-    调查员: z.object({
-      姓名: z.string().prefault('未知'),
-      年龄: z.coerce.number().prefault(25),
-      性别: z.string().prefault('男'),
-      职业: z.string().prefault('调查员'),
-      生命值: z.object({ 当前: z.coerce.number().prefault(10), 最大: z.coerce.number().prefault(10) }).prefault({}),
-      理智值: z.object({ 当前: z.coerce.number().prefault(50), 最大: z.coerce.number().prefault(99) }).prefault({}),
-      魔法值: z.object({ 当前: z.coerce.number().prefault(10), 最大: z.coerce.number().prefault(10) }).prefault({}),
-      幸运: z.coerce.number().transform(v => _.clamp(Number(v), 0, 99)).prefault(50),
-      信用评级: z.coerce.number().transform(v => _.clamp(Number(v), 0, 99)).prefault(20),
-      状态: z.record(z.string().describe('状态标签'), z.object({
-        名称: z.string(),
-        严重程度: z.enum(['轻微', '中等', '严重', '致命']).prefault('轻微'),
-        持续回合: z.coerce.number().prefault(0),
-      }).prefault({})).prefault({}),
-      技能: z.record(z.string().describe('技能名'), z.object({
-        基础值: z.coerce.number(),
-        当前值: z.coerce.number(),
-        成长标记: z.boolean().prefault(false),
-      }).prefault({})).prefault({}),
-      物品栏: z.record(z.string().describe('物品名'), z.object({
-        描述: z.string().prefault(''),
-        数量: z.coerce.number().prefault(1),
-        是否关键物品: z.boolean().prefault(false),
-      }).prefault({})).prefault({}),
-    }).prefault({}),
-    世界: z.object({
-      日期: z.string().prefault('1925-01-01'),
-      时间: z.string().prefault('清晨'),
-      天气: z.string().prefault('薄雾'),
-      地点: z.string().prefault('阿卡姆'),
-      场景描述: z.string().prefault(''),
-    }).prefault({}),
-    剧情: z.object({
-      当前章节: z.string().prefault('序章'),
-      章节概述: z.string().prefault(''),
-      关键事件: z.record(z.string().describe('事件编号'), z.object({
-        名称: z.string(),
-        发生时间: z.string().prefault(''),
-        影响: z.string().prefault(''),
-      }).prefault({})).prefault({}),
-      线索: z.record(z.string().describe('线索名称'), z.object({
-        内容: z.string(),
-        发现地点: z.string().prefault(''),
-        关联事件: z.string().prefault(''),
-        是否已调查: z.boolean().prefault(false),
-      }).prefault({})).prefault({}),
-      NPC: z.record(z.string().describe('NPC名称'), z.object({
-        身份: z.string().prefault(''),
-        关系: z.string().prefault('陌生人'),
-        态度: z.coerce.number().transform(v => _.clamp(Number(v), -100, 100)).prefault(0),
-        位置: z.string().prefault('未知'),
-        是否存活: z.boolean().prefault(true),
-        备注: z.string().prefault(''),
-      }).prefault({})).prefault({}),
-      任务: z.record(z.string().describe('任务名'), z.object({
-        状态: z.enum(['进行中', '已完成', '失败', '搁置']).prefault('进行中'),
-        说明: z.string().prefault(''),
-        目标: z.string().prefault(''),
-        奖励: z.string().prefault(''),
-      }).prefault({})).prefault({}),
-    }).prefault({}),
-    战斗: z.object({
-      是否战斗中: z.boolean().prefault(false),
-      回合数: z.coerce.number().prefault(0),
-      敌人: z.record(z.string().describe('敌人名称'), z.object({
-        生命值: z.object({ 当前: z.coerce.number().prefault(0), 最大: z.coerce.number().prefault(0) }).prefault({}),
-        护甲: z.coerce.number().prefault(0),
-        状态: z.string().prefault(''),
-      }).prefault({})).prefault({}),
-    }).prefault({}),
-    _元数据: z.object({
-      _最后更新: z.string().prefault(''),
-      _变量版本: z.string().prefault('1.0'),
-    }).prefault({}),
-  });
-
-  window.registerMvuSchema(Schema);
-  console.log('[MVU] ZOD Schema registered');
-}`,
-      info: 'COC 7th TRPG 变量结构 ZOD Schema（调查员/世界/剧情）',
-    },
-  ],
+  globalScripts: [],
   render: {
     renderEnabled: true,
     renderDepth: 0,
@@ -163,9 +55,11 @@ if (typeof window !== 'undefined' && window.registerMvuSchema) {
   },
 };
 
-const MVU_SCRIPT_IDS = ['th-mvu-loader', 'th-mvu-schema'];
+// 已废弃的 MVU 死代码脚本（th-mvu-loader 仅 console.log；th-mvu-schema 包在 window 判断内、
+// 被脚本沙箱屏蔽 window 而永不执行）。变量更新已由 mvu-extractor.ts 接管。merge 时清除老存档残留。
+const DEPRECATED_SCRIPT_IDS = ['th-mvu-loader', 'th-mvu-schema'];
 
-export const BUILTIN_TH_IDS = new Set(MVU_SCRIPT_IDS);
+export const BUILTIN_TH_IDS = new Set<string>();
 
 interface TavernHelperStore extends PersistedState {
   presetScripts: THScriptTree[];
@@ -324,16 +218,11 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       },
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<TavernHelperStore>) };
+        // 清除已废弃的 MVU 死代码脚本（含老存档残留），变量更新已由 mvu-extractor 接管
         const scripts = merged.globalScripts ?? [];
-        const hasMvu = scripts.some(
-          (s) => s.type === 'script' && MVU_SCRIPT_IDS.includes(s.id),
+        merged.globalScripts = scripts.filter(
+          (s) => !(s.type === 'script' && DEPRECATED_SCRIPT_IDS.includes(s.id)),
         );
-        if (!hasMvu) {
-          const mvuDefaults = defaults.globalScripts.filter(
-            (s) => s.type === 'script' && MVU_SCRIPT_IDS.includes(s.id),
-          );
-          merged.globalScripts = [...mvuDefaults, ...scripts];
-        }
         return merged as TavernHelperStore;
       },
     },

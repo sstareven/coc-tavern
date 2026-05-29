@@ -7,6 +7,9 @@
  * Supports with/without context modes and LRU template compilation cache.
  */
 
+import { useVariableStore } from '../stores/useVariableStore';
+import { useLorebookStore } from '../stores/useLorebookStore';
+
 // ── Template API (injected into execution context) ──
 
 interface TemplateAPI {
@@ -19,20 +22,17 @@ function createAPI(): TemplateAPI {
   return {
     getvar(name, fallback = '') {
       try {
-        const { useVariableStore } = require('../stores/useVariableStore');
         const v = useVariableStore.getState().variables[name];
         return v?.value ?? fallback;
       } catch { return fallback; }
     },
     setvar(name, value) {
       try {
-        const { useVariableStore } = require('../stores/useVariableStore');
         useVariableStore.getState().setVariable(name, value, 'llm');
       } catch { /* ignore */ }
     },
     getwi(keyword) {
       try {
-        const { useLorebookStore } = require('../stores/useLorebookStore');
         const books = useLorebookStore.getState().books;
         const kw = keyword.toLowerCase();
         for (const book of Object.values(books) as Array<{ entries: Record<string, { keys: string; content: string }> }>) {
@@ -86,7 +86,7 @@ function escapeHtml(text: string): string {
 // ── Template Cache ──
 
 interface CacheEntry {
-  compiled: Array<{ type: string; fn?: Function; content?: string }>;
+  fn: Function;
   size: number;
   source: string;
 }
@@ -169,79 +169,44 @@ export function renderTemplate(
 
   const api = createAPI();
   const sandbox = buildSandboxProxy(api);
-  const output: string[] = [];
 
-  if (cacheEntry) {
-    for (const c of cacheEntry.compiled) {
-      if (c.type === 'text') {
-        output.push(c.content ?? '');
-      } else if (c.fn) {
-        try {
-          const val = disableWith ? c.fn(api.getvar, api.setvar, api.getwi) : c.fn(sandbox);
-          if (c.type === 'output') {
-            output.push(val != null ? escapeHtml(String(val)) : '');
-          } else if (c.type === 'unescaped') {
-            output.push(val != null ? String(val) : '');
-          }
-        } catch {
-          output.push('');
-        }
-      }
-    }
-  } else {
-    const compiled: Array<{ type: string; fn?: Function; content?: string }> = [];
+  // Compile all parts into ONE function so that <% if %>/<% for %> blocks
+  // truly control text emission (a block spans multiple parts: the opening
+  // `<% if(x){ %>`, the text between, and the closing `<% } %>`).
+  let fn: Function | null = cacheEntry?.fn ?? null;
+  if (!fn) {
+    let body = 'let __o = "";\n';
     for (const part of parts) {
-      switch (part.type) {
-        case 'text': {
-          output.push(part.content);
-          compiled.push({ type: 'text', content: part.content });
-          break;
-        }
-        case 'output':
-          try {
-            const fn = disableWith
-              ? new Function('getvar', 'setvar', 'getwi', `return (${part.content});`)
-              : new Function('api', `with(api){ return (${part.content}); }`);
-            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
-            const escaped = val != null ? escapeHtml(String(val)) : '';
-            output.push(escaped);
-            compiled.push({ type: 'output', fn: disableWith ? fn : fn });
-          } catch {
-            output.push(`[模板错误: ${part.content}]`);
-            compiled.push({ type: 'output' });
-          }
-          break;
-        case 'unescaped':
-          try {
-            const fn = disableWith
-              ? new Function('getvar', 'setvar', 'getwi', `return (${part.content});`)
-              : new Function('api', `with(api){ return (${part.content}); }`);
-            const val = disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
-            output.push(val != null ? String(val) : '');
-            compiled.push({ type: 'unescaped', fn });
-          } catch {
-            output.push(`[模板错误: ${part.content}]`);
-            compiled.push({ type: 'unescaped' });
-          }
-          break;
-        case 'code':
-          try {
-            const fn = disableWith
-              ? new Function('getvar', 'setvar', 'getwi', `{ ${part.content} }`)
-              : new Function('api', `with(api){ ${part.content} }`);
-            disableWith ? fn(api.getvar, api.setvar, api.getwi) : fn(sandbox);
-            compiled.push({ type: 'code', fn });
-          } catch {
-            compiled.push({ type: 'code' });
-          }
-          break;
+      if (part.type === 'text') {
+        body += `__o += ${JSON.stringify(part.content)};\n`;
+      } else if (part.type === 'output') {
+        body += `try { __o += __esc(String((${part.content}) ?? "")); } catch (e) {}\n`;
+      } else if (part.type === 'unescaped') {
+        body += `try { __o += String((${part.content}) ?? ""); } catch (e) {}\n`;
+      } else {
+        // code block — emitted verbatim so control flow spans parts
+        body += `${part.content}\n`;
       }
     }
-    // Store in cache if enabled
+    body += 'return __o;';
+    try {
+      fn = disableWith
+        ? new Function('getvar', 'setvar', 'getwi', '__esc', body)
+        : new Function('api', '__esc', `with(api){ ${body} }`);
+    } catch {
+      return text; // compilation failed (bad EJS) — fall back to raw text
+    }
     if (cacheConf?.enabled && (!options?.onlyWorldinfo || cacheConf.enabled === 2)) {
-      setCache(cacheKey, { compiled, size: text.length, source: text }, cacheConf.size || 64);
+      setCache(cacheKey, { fn, size: text.length, source: text }, cacheConf.size || 64);
     }
   }
 
-  return output.join('');
+  try {
+    const out = disableWith
+      ? (fn as Function)(api.getvar, api.setvar, api.getwi, escapeHtml)
+      : (fn as Function)(sandbox, escapeHtml);
+    return typeof out === 'string' ? out : String(out ?? '');
+  } catch {
+    return text;
+  }
 }
