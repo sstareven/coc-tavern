@@ -324,8 +324,8 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
       {isCheck && check && (() => {
         const val = playerSkill?.current ?? 0;
-        const isDifficulty = check.target === 0;
-        const effectiveVal = isDifficulty
+        const isHardOrExtreme = check.target === 0 && (check.difficulty === '困难' || check.difficulty === '极难');
+        const effectiveVal = isHardOrExtreme
           ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
           : val;
         const c = BONUS_COLORS[check.opposed ? 'opposed' : check.bonus];
@@ -340,11 +340,11 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
           {check.skillName}
           <span style={{
             display: 'inline-block', overflow: 'hidden', verticalAlign: 'middle',
-            maxWidth: hovered ? (isDifficulty ? 70 : 40) : 0,
+            maxWidth: hovered ? (isHardOrExtreme ? 70 : 40) : 0,
             opacity: hovered ? 1 : 0,
             transition: 'max-width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s cubic-bezier(0.4,0,0.2,1)',
           }}>
-            {isDifficulty ? (
+            {isHardOrExtreme ? (
               <>&nbsp;<span style={{ textDecoration: 'line-through', opacity: 0.4 }}>{val}</span> {effectiveVal}</>
             ) : (
               <>&nbsp;{val}</>
