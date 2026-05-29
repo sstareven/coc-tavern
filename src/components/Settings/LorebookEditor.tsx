@@ -93,7 +93,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             for (const val of Object.values(stEntries)) {
               const keysArr = Array.isArray(val.key) ? val.key : (val.key ? [val.key] : []);
               const logicRaw = val.logic as string | undefined;
-              const logic = logicRaw?.startsWith('AND') ? 'AND' as const : logicRaw === 'NOT' ? 'NOT' as const : 'OR' as const;
+              const logic = logicRaw === 'AND_ALL' ? 'AND_ALL' as const : logicRaw === 'NOT_ANY' ? 'NOT_ANY' as const : logicRaw === 'NOT_ALL' ? 'NOT_ALL' as const : 'AND_ANY' as const;
               const newId = `e${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
               entriesToImport[newId] = {
                 name: (val.comment as string) || '导入条目',
@@ -106,6 +106,11 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                 position: (typeof val.position === 'number' ? val.position : 0) as InsertPosition,
                 depth: (val.depth as number) ?? 0,
                 probability: 100,
+                secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+                groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+                groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+                preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+                ignoreReplyLimit: false,
               };
             }
           } else {
@@ -115,7 +120,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                 const v = val as STEntryLike;
                 const keysArr = Array.isArray(v.key) ? v.key : (v.key ? [v.key] : []);
                 const logicRaw = v.logic as string | undefined;
-                const logic = logicRaw?.startsWith('AND') ? 'AND' as const : logicRaw === 'NOT' ? 'NOT' as const : 'OR' as const;
+                const logic = logicRaw === 'AND_ALL' ? 'AND_ALL' as const : logicRaw === 'NOT_ANY' ? 'NOT_ANY' as const : logicRaw === 'NOT_ALL' ? 'NOT_ALL' as const : 'AND_ANY' as const;
                 const newId = `e${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                 entriesToImport[newId] = {
                   name: (v.comment as string) || '导入条目',
@@ -128,6 +133,11 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   position: (typeof v.position === 'number' ? v.position : 0) as InsertPosition,
                   depth: (v.depth as number) ?? 0,
                   probability: 100,
+                  secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+                  groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+                  groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+                  preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+                  ignoreReplyLimit: false,
                 };
               }
             }

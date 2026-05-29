@@ -191,9 +191,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (darkCtx) {
         matchedLore.push({
           name: '暗线状态', keys: '', content: darkCtx,
-          logic: 'OR', priority: 2, disabled: false,
+          logic: 'AND_ANY', priority: 2, disabled: false,
           constant: true, position: 0, depth: 0, probability: 100,
-        } as LoreEntry);
+          secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+          groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+          groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+          preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+          ignoreReplyLimit: false,
+        });
       }
 
       // Add GENERATE/INJECT entries regardless of keyword match (they're always injected)
