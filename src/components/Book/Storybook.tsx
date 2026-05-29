@@ -12,6 +12,7 @@ import { PageNav } from './PageNav';
 import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
 import { BookUtils } from '../Shared/BookUtils';
 import { TokenDisplay } from '../Shared/TokenDisplay';
+import { sfxPageFlip } from '../../audio/sfx';
 
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
@@ -258,12 +259,14 @@ export function Storybook() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                exit={{ rotateY: -180 }}
                 transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                 style={{
                   position: 'absolute', inset: 0, zIndex: 10,
                   background: 'linear-gradient(180deg, #0a0808 0%, #12100c 50%, #0a0808 100%)',
                   borderRadius: 4, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                  transformOrigin: '0% 50%',
+                  backfaceVisibility: 'hidden',
                 }}
               >
                 <style>{`
@@ -373,8 +376,8 @@ export function Storybook() {
           <button
             onClick={() => {
               if (inventoryOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
                 useInventoryStore.getState().close();
-                useBookStore.getState().decorativeFlip('forward', 800);
                 return;
               }
               useCharSheetStore.getState().close();
@@ -434,8 +437,8 @@ export function Storybook() {
               if (showToc) {
                 if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
                 setSelectedToc(-1);
+                try { sfxPageFlip(); } catch { /* audio not available */ }
                 setShowToc(false);
-                useBookStore.getState().decorativeFlip('forward', 800);
                 return;
               }
               useInventoryStore.getState().close();
