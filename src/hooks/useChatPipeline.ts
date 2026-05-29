@@ -160,6 +160,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
       const matchCtx = contextText + '\n' + macroProcessedInput;
       const settingsNow = useSettingsStore.getState();
+      // Character variables (also reused later for macro substitution) — needed here for matchSources
+      const charVars = buildCharacterVariables();
       const matchSettings = {
         caseSensitive: settingsNow.globalCaseSensitive ?? false,
         matchWholeWord: settingsNow.globalMatchWholeWord ?? false,
@@ -169,8 +171,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         maxRecursionSteps: settingsNow.maxRecursionSteps ?? 0,
         includeNames: settingsNow.includeNames ?? true,
         tokenBudget: settingsNow.wiBudget ?? 0,
-        charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
+        charName: charVars['charName'] ?? '',
         generationType: 'normal' as const,
+        charTags: [] as string[],   // COC 暂无角色标签来源
+        matchSources: {
+          personaDescription: charVars.personaDescription || '',
+          characterDescription: charVars.description || '',
+          characterPersonality: charVars.personality || '',
+          characterDepthPrompt: '',   // COC 无对应来源
+          scenario: charVars.scenario || '',
+          creatorNotes: '',           // COC 无对应来源
+        },
       };
       let matchedLore = matchLoreEntries(matchCtx, otherEntries, matchSettings);
       // Probability filter: entries with probability < 100 have a chance of being skipped
@@ -181,8 +192,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         matchedSummary = matchedSummary.slice(-maxSummary);
       }
       matchedLore.push(...matchedSummary);
-      // Constant entries are always injected (bypass keyword matching)
-      matchedLore.push(...constantEntries);
+      // Constant entries are always injected (bypass keyword matching), but still respect triggers
+      matchedLore.push(...constantEntries.filter((e) => !e.triggers?.length || e.triggers.includes('normal')));
 
       // Inject dark thread context (bypasses keyword matching)
       const darkCtx = useDarkThreadStore.getState().buildContextInjection();
@@ -222,7 +233,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
 
       // Build full variable substitution map (character + game variables)
-      const charVars = buildCharacterVariables();
+      // charVars already built above for matchSources; reuse it here.
       const gameVars = useVariableStore.getState().buildFullSubstitutionMap();
       const variables = { ...gameVars, ...charVars };
 
@@ -694,6 +705,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       }
       const tcSettings = useSettingsStore.getState();
+      const tcCharVars = buildCharacterVariables();
       matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore, {
         caseSensitive: tcSettings.globalCaseSensitive ?? false,
         matchWholeWord: tcSettings.globalMatchWholeWord ?? false,
@@ -703,8 +715,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         maxRecursionSteps: tcSettings.maxRecursionSteps ?? 0,
         includeNames: tcSettings.includeNames ?? true,
         tokenBudget: tcSettings.wiBudget ?? 0,
-        charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
+        charName: tcCharVars['charName'] ?? '',
         generationType: 'normal',
+        charTags: [],
+        matchSources: {
+          personaDescription: tcCharVars.personaDescription || '',
+          characterDescription: tcCharVars.description || '',
+          characterPersonality: tcCharVars.personality || '',
+          characterDepthPrompt: '',
+          scenario: tcCharVars.scenario || '',
+          creatorNotes: '',
+        },
       });
 
       setTokenContext({
