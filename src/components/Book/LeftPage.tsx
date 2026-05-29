@@ -50,7 +50,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
-      padding: '28px 24px 20px 28px', minHeight: 0,
+      padding: '28px 24px 20px 28px', minHeight: 0, overflow: 'hidden',
       background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopLeftRadius: 4, borderBottomLeftRadius: 4,
       boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
@@ -75,7 +75,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
             <span style={{
               fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
               fontStyle: 'italic', letterSpacing: 0.5, lineHeight: 1.4,
-              flex: '1 1 auto', minWidth: 0,
+              flex: '0 1 auto', minWidth: 0, maxWidth: '100%',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{summary}</span>
           )}
