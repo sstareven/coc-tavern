@@ -243,7 +243,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         disable: entry.disabled,
         excludeRecursion: false,
         secondaryKeys: [],
-        logic: entry.logic === 'AND' ? 'AND_ALL' : entry.logic === 'NOT' ? 'NOT_ANY' : entry.logic === 'AND_ALL' || entry.logic === 'AND_ANY' || entry.logic === 'NOT_ANY' || entry.logic === 'NOT_ALL' ? entry.logic : 'AND_ANY',
+        logic: entry.logic,
         extensions: {},
         depth: entry.depth,
         characterFilter: entry.characterFilter ?? { isExclude: false, names: [], tags: [] },

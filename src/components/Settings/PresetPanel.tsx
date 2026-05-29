@@ -33,7 +33,7 @@ function loadPresets(): Record<string, ChatPreset> {
         if (!v.promptItems || v.promptItems.length === 0) {
           m.promptItems = builtin.promptItems;
         }
-        merged[k] = m as ChatPreset;
+        merged[k] = m as unknown as ChatPreset;
       } else {
         merged[k] = v;
       }

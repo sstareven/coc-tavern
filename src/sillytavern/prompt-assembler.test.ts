@@ -98,6 +98,11 @@ describe('assemblePrompt — lore entry placeholder resolution', () => {
         constant: false,
         position: 0,
         probability: 100,
+        secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+        groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+        groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+        preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+        ignoreReplyLimit: false,
       },
     ];
     const variables = { '调查员.技能.侦查': '40' };

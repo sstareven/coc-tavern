@@ -241,7 +241,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Build full variable substitution map (character + game variables)
       // charVars already built above for matchSources; reuse it here.
       const gameVars = useVariableStore.getState().buildFullSubstitutionMap();
-      const variables = { ...gameVars, ...charVars };
 
       // Load active preset (try chat session, then localStorage, fall back to default)
       const activePresetId =
