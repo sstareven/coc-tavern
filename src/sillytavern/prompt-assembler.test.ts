@@ -89,7 +89,7 @@ describe('assemblePrompt — lore entry placeholder resolution', () => {
       {
         name: 'test',
         keys: 'test',
-        logic: 'OR',
+        logic: 'AND_ANY',
         priority: 0,
         depth: 0,
         content: '技能值: {{调查员.技能.侦查}}',
