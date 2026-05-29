@@ -48,11 +48,8 @@ export const useDarkThreadStore = create<DarkThreadStore>()(
         const lines = [
           '[暗线档案 — 仅限守秘人参考，绝对不可向调查员透露以下内容]',
           `当前进度: ${latest.progress}/100 (${latest.threatLevel})`,
+          '最近发展:',
         ];
-        if (latest.description) {
-          lines.push(`暗线概述: ${latest.description}`);
-        }
-        lines.push('最近发展:');
         for (const e of recent) {
           if (e.details) lines.push(`- ${e.details}`);
         }
