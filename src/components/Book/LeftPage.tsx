@@ -50,7 +50,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
-      padding: '28px 24px 20px 28px', minHeight: 0, overflow: 'hidden',
+      padding: '28px 24px 20px 28px', minHeight: 0, minWidth: 0,
       background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopLeftRadius: 4, borderBottomLeftRadius: 4,
       boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
