@@ -551,6 +551,25 @@ export const useLorebookStore = create<LorebookStore>()(
       name: 'coc_lorebooks_v1',
       storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state) as Partial<LorebookStore>,
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const merged = { ...state.books };
+        for (const [bookId, defaultBook] of Object.entries(defaultBooks)) {
+          if (!merged[bookId]) {
+            merged[bookId] = defaultBook;
+          } else {
+            for (const [entryId, defaultEntry] of Object.entries(defaultBook.entries)) {
+              if (!merged[bookId].entries[entryId]) {
+                merged[bookId] = {
+                  ...merged[bookId],
+                  entries: { ...merged[bookId].entries, [entryId]: defaultEntry },
+                };
+              }
+            }
+          }
+        }
+        state.books = merged;
+      },
     }
   )
 );
