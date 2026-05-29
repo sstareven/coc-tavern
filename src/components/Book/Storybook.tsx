@@ -297,8 +297,8 @@ export function Storybook() {
                               color: isSelected ? 'rgba(196,168,85,0.55)' : 'rgba(196,168,85,0.25)',
                               marginTop: 3, lineHeight: 1.5,
                               overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative',
-                              maxHeight: isSelected ? 20 : 0, opacity: isSelected ? 1 : 0,
-                              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                              transition: 'color 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                              textOverflow: isSelected ? 'clip' : 'ellipsis',
                               maskImage: isSelected ? 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' : 'none',
                               WebkitMaskImage: isSelected ? 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' : 'none',
                             }}>
