@@ -45,7 +45,6 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       })
     : [content];
 
-  const hasMeta = !!(summary || (diceResults && diceResults.length > 0));
 
   return (
     <div style={{
@@ -69,15 +68,15 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       `}</style>
       <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, ...fadeStyle }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
-        {hasMeta && (
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginTop: 6, overflow: 'hidden', minWidth: 0 }}>
-            {diceResults && diceResults.slice(0, 2).map((d, i) => {
+        {diceResults && diceResults.length > 0 && (
+          <div style={{ marginTop: 6, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {diceResults.slice(0, 2).map((d, i) => {
               const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
               const isCrit = d.type === 'crit-success';
               const isCritFail = d.type === 'crit-failure';
               return (
                 <span key={i} style={{
-                  fontSize: 8, fontFamily: 'var(--font-mono)', flexShrink: 0,
+                  fontSize: 8, fontFamily: 'var(--font-mono)',
                   padding: '1px 5px', borderRadius: 2,
                   color: rc.color,
                   background: (isCrit || isCritFail) ? 'rgba(40,28,15,0.45)' : rc.bg,
@@ -93,15 +92,14 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
                 </span>
               );
             })}
-            {summary && (
-              <span style={{
-                fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
-                fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                minWidth: 0, flex: '1 1 0',
-              }}>{summary}</span>
-            )}
           </div>
+        )}
+        {summary && (
+          <p style={{
+            fontSize: 10, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)',
+            fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.6,
+            margin: '6px 0 0', textIndent: '2em',
+          }}>{summary}</p>
         )}
       </div>
 
