@@ -70,7 +70,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: hasMeta ? 8 : 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
 
       {hasMeta && (
-        <div style={{ flexShrink: 0, marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', ...fadeStyle }}>
+        <div style={{ flexShrink: 0, marginBottom: 10, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden', maxHeight: 20, ...fadeStyle }}>
           {summary && (
             <span style={{
               fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
