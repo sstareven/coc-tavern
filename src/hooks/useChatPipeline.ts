@@ -441,10 +441,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
         }
         const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
-        if (currentStage && currentStage !== '后日谈' && currentStage !== '调查期') {
-          if (!result.darkThread || !result.darkThread.development) {
-            validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
-          }
+        const isEpilogue = currentStage === '后日谈';
+        const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
+        if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
+          validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
         }
         if (validationErrors.length > 0) {
           pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
@@ -497,7 +497,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Store dark thread in DB
         if (result.darkThread && result.darkThread.development) {
           useDarkThreadStore.getState().addEntry({
-            description: result.darkThread.foreshadowing || result.darkThread.development.slice(0, 60),
             progress: result.darkThread.progress,
             threatLevel: result.darkThread.threatLevel,
             details: result.darkThread.development,

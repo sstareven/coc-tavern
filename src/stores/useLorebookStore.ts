@@ -419,6 +419,7 @@ interface LorebookStore {
   toggleBook: (id: string) => void;
   upsertSummaryEntry: (pageId: string, keys: string, content: string, name: string) => void;
   removeSummaryEntry: (pageId: string) => void;
+  clearSummaryEntries: () => void;
 }
 
 export const useLorebookStore = create<LorebookStore>()(
@@ -490,6 +491,11 @@ export const useLorebookStore = create<LorebookStore>()(
         const entries = { ...book.entries };
         delete entries[entryId];
         return { books: { ...s.books, [AUTO_SUMMARY_BOOK_ID]: { ...book, entries } } };
+      }),
+      clearSummaryEntries: () => set((s) => {
+        const book = s.books[AUTO_SUMMARY_BOOK_ID];
+        if (!book) return s;
+        return { books: { ...s.books, [AUTO_SUMMARY_BOOK_ID]: { ...book, entries: {} } } };
       }),
     }),
     {
