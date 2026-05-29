@@ -100,6 +100,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const buildFnRef = useRef<((text?: string) => void) | null>(null);
   const currentInputRef = useRef('');
   const abortRef = useRef<AbortController | null>(null);
+  const messageCountRef = useRef(0);
+  const stickyStateRef = useRef(new Map<string, number>());
+  const cooldownStateRef = useRef(new Map<string, number>());
 
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
   const allCommands = useMemo(() => getCommands(), []);
@@ -164,10 +167,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       }
       const matchCtx = contextText + '\n' + macroProcessedInput;
-      let matchedLore = matchLoreEntries(matchCtx, otherEntries);
+      const matchSettings = {
+        caseSensitive: useSettingsStore.getState().globalCaseSensitive ?? false,
+        matchWholeWord: useSettingsStore.getState().globalMatchWholeWord ?? false,
+        messageCount: messageCountRef.current,
+        stickyState: stickyStateRef.current,
+        cooldownState: cooldownStateRef.current,
+      };
+      let matchedLore = matchLoreEntries(matchCtx, otherEntries, matchSettings);
       // Probability filter: entries with probability < 100 have a chance of being skipped
       matchedLore = matchedLore.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
-      let matchedSummary = matchLoreEntries(matchCtx, summaryEntries);
+      let matchedSummary = matchLoreEntries(matchCtx, summaryEntries, matchSettings);
       const maxSummary = useSettingsStore.getState().maxSummaryEntries;
       if (matchedSummary.length > maxSummary) {
         matchedSummary = matchedSummary.slice(-maxSummary);

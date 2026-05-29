@@ -26,8 +26,13 @@ interface STEntryLike {
 interface Props { bookId: string; onClose: () => void; }
 
 const EMPTY_ENTRY: LoreEntry = {
-  name: '', keys: '', content: '', logic: 'AND', priority: 10,
+  name: '', keys: '', content: '', logic: 'AND_ANY', priority: 10,
   disabled: false, constant: false, position: 0, depth: 0, probability: 100,
+  secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+  groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+  groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+  preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+  ignoreReplyLimit: false,
 };
 
 const POSITION_LABELS: Record<number, string> = {
