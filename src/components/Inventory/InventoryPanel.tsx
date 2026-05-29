@@ -128,11 +128,13 @@ export function InventoryOverlay() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ rotateY: -180 }}
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: 'absolute', inset: 0, zIndex: 10,
         display: 'flex', borderRadius: 4, overflow: 'hidden',
+        transformOrigin: '0% 50%',
+        backfaceVisibility: 'hidden',
       }}
     >
       {/* Left page — Equipment */}
