@@ -70,23 +70,23 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: hasMeta ? 8 : 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
 
       {hasMeta && (
-        <div style={{ flexShrink: 0, marginBottom: 10, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden', maxHeight: 20, ...fadeStyle }}>
+        <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', ...fadeStyle }}>
           {summary && (
             <span style={{
-              fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
-              fontStyle: 'italic', letterSpacing: 0.5, lineHeight: 1.4,
-              flex: '0 1 auto', minWidth: 0, maxWidth: '100%',
+              fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
+              fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              minWidth: 0, flex: '0 1 auto',
             }}>{summary}</span>
           )}
-          {diceResults && diceResults.map((d, i) => {
+          {diceResults && diceResults.slice(0, 2).map((d, i) => {
             const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
             const isCrit = d.type === 'crit-success';
             const isCritFail = d.type === 'crit-failure';
             return (
               <span key={i} style={{
-                fontSize: 9, fontFamily: 'var(--font-mono)', flexShrink: 0,
-                padding: '2px 8px', borderRadius: 3,
+                fontSize: 8, fontFamily: 'var(--font-mono)', flexShrink: 0,
+                padding: '1px 5px', borderRadius: 2,
                 color: rc.color,
                 background: (isCrit || isCritFail) ? 'rgba(40,28,15,0.45)' : rc.bg,
                 border: `1px solid ${rc.color}33`,
