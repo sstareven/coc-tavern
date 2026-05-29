@@ -70,13 +70,13 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: hasMeta ? 8 : 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
 
       {hasMeta && (
-        <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', ...fadeStyle }}>
+        <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden', minWidth: 0, ...fadeStyle }}>
           {summary && (
             <span style={{
               fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
               fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              minWidth: 0, flex: '0 1 auto',
+              minWidth: 0, flex: '1 1 0',
             }}>{summary}</span>
           )}
           {diceResults && diceResults.slice(0, 2).map((d, i) => {
