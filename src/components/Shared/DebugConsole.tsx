@@ -65,8 +65,14 @@ export function DebugConsole() {
     } else if (trimmed === 'info') {
       const p = bookStore.pages[bookStore.pageIndex];
       result = `当前: 第${bookStore.pageIndex + 1}/${bookStore.pages.length}页 | "${p?.leftHeader}" | summary: ${p?.summary ? '有' : '无'} | dice: ${p?.diceResults?.length || 0}条`;
+    } else if (trimmed === 'game') {
+      document.dispatchEvent(new CustomEvent('debug-enter-game'));
+      result = '进入游戏界面';
+    } else if (trimmed === 'menu') {
+      document.dispatchEvent(new CustomEvent('debug-return-menu'));
+      result = '返回主菜单';
     } else if (trimmed === 'help') {
-      result = '命令: home/first | last | goto N | test/dummy | info | help | clear';
+      result = '命令: home/first | last | goto N | test/dummy | info | game | menu | help | clear';
     } else if (trimmed === 'clear') {
       setLog([]);
       setCmd('');
