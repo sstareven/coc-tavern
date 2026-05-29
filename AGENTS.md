@@ -52,6 +52,7 @@
 | 骰子检定 | `src/components/Dice/DicePanel.tsx` + `src/stores/useDiceStore.ts` + `src/sillytavern/dice-engine.ts` | 五级判定 + 奖励骰，骰子引擎已提取 |
 | 聊天输入 | `src/components/Layout/InputBar.tsx` | 429 lines 薄壳（逻辑已提取到 useChatPipeline.ts） |
 | 所有类型 | `src/types/index.ts` | 296 lines，可考虑按域拆分 |
+| 宏引擎 | `src/sillytavern/unified-macro-engine.ts` | ST 兼容统一宏——占位符 / 变量简写 / 条件 / outlet / 嵌套（详见 `docs/macro-engine.md`） |
 | TH 脚本引擎 | `src/sillytavern/th-script-engine.ts` | send/receive hook 生命周期 |
 | COC 规则数据 | `src/sillytavern/coc-rules.ts` | CHAR_ROLL, getDBBuild, resolveSkillBase 等纯函数 |
 | LLM 响应解析 | `src/sillytavern/llm-response-parser.ts` | parseLlmResponse（从 InputBar 提取） |
@@ -82,7 +83,7 @@
 - **内联 style 对象重复** — `closeBtnStyle` / `actionBtnStyle` / `inputStyle` 在 10+ 文件中重复定义。`src/styles/panelStyles.ts` 仅提供 `closeBtnStyle`。新增 CSSProperties 前检查是否已有。
 - **空 catch 块** — 44 处遍布 22 个文件，静默吞下错误。至少应加 `console.warn`。
 - **直接 `localStorage` 绕过 Dexie** — `PresetPanel.tsx` (7 处)、`ExtManager.tsx` (2 处)、`useChatPipeline.ts` (2 处) 等绕过 persist 层直接操作 localStorage。
-- **测试覆盖极低** — 仅 50 个 test（dice-engine 27 + coc-rules 18 + database 5）。新增复杂逻辑应补测试。
+- **测试覆盖极低** — 仅 182 个 test（dice-engine 27 + coc-rules 18 + database 5 + char-variables 33 + macro-engine 99）。新增复杂逻辑应补测试。
 
 ## UNIQUE STYLES
 
@@ -98,7 +99,7 @@
 npm run dev        # Vite 开发服务器
 npm run build      # tsc -b 类型检查 + Vite 构建
 npm run lint       # ESLint (flat config v10)
-npm test           # Vitest (50 tests)
+npm test           # Vitest (182 tests)
 npm run preview    # 预览生产构建
 ```
 
@@ -107,12 +108,13 @@ npm run preview    # 预览生产构建
 - `src/db/database.ts` — Dexie schema + Zustand persist 中间件已激活（6 个 store 持久化至 IndexedDB）。白屏问题已修复
 - `src/components/Book/PageFlip.tsx` 与 `PageFlip3D.tsx` 并存 — 前者用 Framer Motion，后者用 CSS 3D。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
-- 测试覆盖：50 tests (27 dice + 18 COC rules + 5 database)，Vitest + fake-indexeddb
+- 测试覆盖：182 tests (27 dice + 18 COC rules + 5 database + 33 char-variables + 99 macro-engine)，Vitest + fake-indexeddb
 - 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/db/` `src/components/Book/` `src/components/CharSheet/` `src/components/Dice/` `src/components/Layout/` `src/components/Settings/` `src/components/Shared/`
 
 ## 待办 / 已知问题
 
 - [ ] 剩余 ~110 lint 警告（多为故意的 setState/沙箱 eval/Zustand selector 误报）
+- [x] ~~`macro-engine.ts` + `tavern-helper-macros.ts` 已合并为 `unified-macro-engine.ts`~~ (99 tests)
 - [ ] 预设角色档案的 personality/scenario/personaDescription 仅保留默认值（创建流程未收集）
 - [ ] `src/sillytavern/llm-response-parser.ts` 从 `../components/Shared/KeywordTooltip` 导入 — 引擎→组件跨层违规，`addKeywordMeanings` 应移到引擎层
 - [ ] `CodeBlockRenderer.tsx` 的 `setInterval` 未在 unmount 时清理，可能内存泄漏
