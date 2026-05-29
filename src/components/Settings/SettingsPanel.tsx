@@ -338,6 +338,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
   const contextPageDepth = useSettingsStore((s) => s.contextPageDepth);
   const setContextPageDepth = useSettingsStore((s) => s.setContextPageDepth);
+  const globalCaseSensitive = useSettingsStore((s) => s.globalCaseSensitive);
+  const setGlobalCaseSensitive = useSettingsStore((s) => s.setGlobalCaseSensitive);
+  const globalMatchWholeWord = useSettingsStore((s) => s.globalMatchWholeWord);
+  const setGlobalMatchWholeWord = useSettingsStore((s) => s.setGlobalMatchWholeWord);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -622,6 +626,17 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                    <input type="checkbox" checked={globalCaseSensitive} onChange={(e) => setGlobalCaseSensitive(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
+                    世界书全局区分大小写
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                    <input type="checkbox" checked={globalMatchWholeWord} onChange={(e) => setGlobalMatchWholeWord(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
+                    世界书全局完整单词匹配
+                  </label>
                 </div>
 
                 {/* API section */}

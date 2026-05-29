@@ -570,6 +570,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     async (text: string): Promise<string> => {
       const trimmed = text.trim();
       if (!trimmed || loadingRef.current) return trimmed;
+
+      // Tick sticky/cooldown counters and increment message count
+      messageCountRef.current++;
+      for (const [k, v] of stickyStateRef.current) {
+        if (v <= 1) stickyStateRef.current.delete(k);
+        else stickyStateRef.current.set(k, v - 1);
+      }
+      for (const [k, v] of cooldownStateRef.current) {
+        if (v <= 1) cooldownStateRef.current.delete(k);
+        else cooldownStateRef.current.set(k, v - 1);
+      }
       loadingRef.current = true;
 
       try {
