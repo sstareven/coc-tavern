@@ -114,16 +114,16 @@ export function exportWorldBookToST(book: LoreBook): string {
     entries[id] = {
       uid: idx,
       key: keys.length === 1 ? keys[0] : keys,
-      keysecondary: [],
+      keysecondary: entry.secondaryKeys ? entry.secondaryKeys.split(/[,，]/).map((k) => k.trim()).filter(Boolean) : [],
       comment: entry.name,
       content: entry.content,
-      constant: false,
-      selective: false,
+      constant: entry.constant,
+      selective: !!entry.secondaryKeys,
       order: entry.priority,
-      position: '0',
-      disable: false,
-      excludeRecursion: false,
-      logic: entry.logic === 'AND' ? 'AND_ALL' : 'OR_ANY',
+      position: String(entry.position),
+      disable: entry.disabled,
+      excludeRecursion: entry.excludeRecursion ?? false,
+      logic: entry.logic,
       extensions: {},
     };
   });
@@ -138,7 +138,8 @@ export function importWorldBookFromST(json: string): LoreBook | null {
     if (data.entries) {
       for (const [key, val] of Object.entries(data.entries)) {
         const keysArr = Array.isArray(val.key) ? val.key : (val.key ? [val.key] : []);
-        const logic = val.logic?.startsWith('AND') ? 'AND' : 'OR';
+        const logic = val.logic === 'AND_ALL' ? 'AND_ALL' : val.logic === 'NOT_ANY' ? 'NOT_ANY' : val.logic === 'NOT_ALL' ? 'NOT_ALL' : 'AND_ANY';
+        const secKeys = val.keysecondary ?? val.secondaryKeys ?? [];
         entries[key] = {
           name: val.comment || '条目',
           keys: keysArr.join(', '),
@@ -150,6 +151,13 @@ export function importWorldBookFromST(json: string): LoreBook | null {
           position: Number(val.position) as InsertPosition,
           depth: 0,
           probability: 100,
+          secondaryKeys: Array.isArray(secKeys) ? secKeys.join(', ') : '',
+          scanDepth: 0, caseSensitive: 0, matchWholeWord: 0, groupScoring: 0,
+          automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+          groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+          preventRecursion: false, delayUntilRecursion: false,
+          excludeRecursion: val.excludeRecursion ?? false,
+          ignoreReplyLimit: false,
         };
       }
     }
