@@ -248,13 +248,9 @@ export function Storybook() {
                 }}
               >
                 <style>{`
-                  @keyframes tocMarquee {
-                    0% { transform: translateX(0); }
-                    20% { transform: translateX(0); }
-                    80% { transform: translateX(calc(-100% + 200px)); }
-                    100% { transform: translateX(calc(-100% + 200px)); }
-                  }
-                  .toc-marquee { animation: tocMarquee 8s linear infinite; }
+                  @keyframes tocTicker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+                  .toc-marquee-track { display: flex; width: max-content; animation: tocTicker var(--toc-dur, 10s) linear infinite; }
+                  .toc-marquee-track span { flex-shrink: 0; padding-right: 80px; }
                 `}</style>
                 <div style={{ padding: '32px 40px 16px', borderBottom: '1px solid rgba(196,168,85,0.2)', flexShrink: 0 }}>
                   <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--gold)', letterSpacing: 8, margin: 0 }}>目录</h2>
@@ -283,8 +279,16 @@ export function Storybook() {
                             {p.leftHeader}
                           </div>
                           {p.summary && (
-                            <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative' }}>
-                              <span className="toc-marquee" style={{ display: 'inline-block', paddingRight: 40 }}>{p.summary}</span>
+                            <div style={{
+                              fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5,
+                              overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative',
+                              maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+                              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+                            }}>
+                              <div className="toc-marquee-track" style={{ '--toc-dur': `${Math.max(6, (p.summary || '').length * 0.2 + 2)}s` } as React.CSSProperties}>
+                                <span>{p.summary}</span>
+                                <span>{p.summary}</span>
+                              </div>
                             </div>
                           )}
                         </div>
