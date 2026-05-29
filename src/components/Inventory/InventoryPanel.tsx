@@ -126,14 +126,8 @@ export function InventoryOverlay() {
 
   return (
     <motion.div
-      initial="enter"
-      animate="visible"
-      exit="exit"
-      variants={{
-        enter: { opacity: 0 },
-        visible: { opacity: 1 },
-        exit: { opacity: 0 },
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: 'absolute', inset: 0, zIndex: 10,
@@ -141,7 +135,7 @@ export function InventoryOverlay() {
       }}
     >
       {/* Left page — Equipment */}
-      <motion.div
+      <div
         style={{
         flex: '1 1 0', display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
@@ -207,7 +201,7 @@ export function InventoryOverlay() {
         }}>
           装备 {equipped.length} 件
         </div>
-      </motion.div>
+      </div>
       {/* Spine */}
       <div style={{
         width: 2, flexShrink: 0,
@@ -215,19 +209,14 @@ export function InventoryOverlay() {
       }} />
 
       {/* Right page — Inventory */}
-      <motion.div
-        variants={{ exit: { rotateY: -180 } }}
-        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+      <div
         style={{
         flex: '1 1 0', display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '0 3px 3px 0',
         boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)',
         padding: '28px 28px 20px 20px',
-        transformOrigin: '0% 50%',
-        backfaceVisibility: 'hidden',
         overflow: 'hidden',
-        position: 'relative',
       }}>
         <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 8 }}>
           <h3 style={{
@@ -341,16 +330,7 @@ export function InventoryOverlay() {
           <span>共 {items.length} 件</span>
           <span>背包 {bagItems.length} 件</span>
         </div>
-        <motion.div
-          variants={{ exit: { opacity: 0.15 } }}
-          initial={{ opacity: 0 }}
-          style={{
-            position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: 'linear-gradient(to left, rgba(0,0,0,0.3) 0%, transparent 60%)',
-            borderRadius: '0 3px 3px 0',
-          }}
-        />
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
