@@ -173,9 +173,9 @@ export function Storybook() {
 
           {/* [A] 左页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative', minHeight: 0, minWidth: 0,
+            width: '50%', display: 'flex', position: 'relative', minHeight: 0,
             background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
-            borderRadius: '3px 0 0 3px',
+            borderRadius: '3px 0 0 3px', overflow: 'hidden',
           }}>
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
@@ -206,9 +206,9 @@ export function Storybook() {
 
           {/* [B] 右页 */}
           <div style={{
-            flex: 1, display: 'flex', position: 'relative', minHeight: 0, minWidth: 0,
+            width: '50%', display: 'flex', position: 'relative', minHeight: 0,
             background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
-            borderRadius: '0 3px 3px 0',
+            borderRadius: '0 3px 3px 0', overflow: 'hidden',
           }}>
             {isFlipping ? (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex' }}>
