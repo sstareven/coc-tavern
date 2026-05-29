@@ -379,6 +379,7 @@ export function Storybook() {
               }
               useCharSheetStore.getState().close();
               if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              useBookStore.getState().decorativeFlip('backward', 800);
               useInventoryStore.getState().toggle();
             }}
             style={inventoryOpen ? tocTabActive : bookmarkTab}
@@ -438,6 +439,7 @@ export function Storybook() {
                 return;
               }
               useInventoryStore.getState().close();
+              useBookStore.getState().decorativeFlip('backward', 800);
               setShowToc(true);
             }}
             style={showToc ? tocTabActive : bookmarkTab}
