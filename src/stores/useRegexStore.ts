@@ -62,6 +62,17 @@ const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
     markdownOnly: false, promptOnly: true, runOnEdit: false,
     substituteRegex: 0, minDepth: null, maxDepth: null,
   },
+  {
+    id: 'dialogue-color',
+    scriptName: '对话橘色高亮(显示端)',
+    findRegex: '/(?:"([^"]*?)"|"([^"]*?)"|「([^」]*?)」)/g',
+    replaceString: '<span style="color:#e8a040;font-weight:500">$&</span>',
+    trimStrings: [],
+    placement: [2],
+    disabled: false,
+    markdownOnly: true, promptOnly: false, runOnEdit: false,
+    substituteRegex: 0, minDepth: null, maxDepth: null,
+  },
 ];
 
 export const BUILTIN_REGEX_IDS = new Set(DEFAULT_GLOBAL_SCRIPTS.map((s) => s.id));
