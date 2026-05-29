@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useLorebookStore } from '../../stores/useLorebookStore';
+import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../../stores/useLorebookStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 import { closeBtnStyle } from '../../styles/panelStyles';
@@ -102,14 +102,16 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Object.entries(books).map(([id, book]) => (
+          {Object.entries(books).map(([id, book]) => {
+            const isAutoSummary = id === AUTO_SUMMARY_BOOK_ID;
+            return (
             <div key={id} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '12px 16px', border: '1px solid rgba(196,168,85,0.12)',
               borderRadius: 4, background: 'rgba(0,0,0,0.15)',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                {renameId === id ? (
+                {renameId === id && !isAutoSummary ? (
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenameId(null); }}
@@ -120,26 +122,26 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                     <button onClick={() => setRenameId(null)} style={miniBtn}>✕</button>
                   </div>
                 ) : (
-                  <span style={{ fontSize: 14, color: 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: 'pointer' }}
-                    onClick={() => startRename(id)} title="点击修改标题">
+                  <span style={{ fontSize: 14, color: isAutoSummary ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: isAutoSummary ? 'default' : 'pointer' }}
+                    onClick={() => !isAutoSummary && startRename(id)} title={isAutoSummary ? '自动管理，不可编辑' : '点击修改标题'}>
                     {book.name}
                   </span>
                 )}
                 <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
-                  {Object.keys(book.entries).length} 条词条
+                  {Object.keys(book.entries).length} 条词条{isAutoSummary ? ' · 自动生成' : ''}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
-                <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>
-                <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>
-                {deleteConfirm === id ? (
+                {!isAutoSummary && <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>}
+                {!isAutoSummary && <button onClick={() => handleExport(id)} style={actionBtnStyle} title="ST格式导出">导出</button>}
+                {!isAutoSummary && (deleteConfirm === id ? (
                   <>
                     <button onClick={() => handleDeleteBook(id)} style={{ ...actionBtnStyle, color: 'var(--blood)', borderColor: 'var(--blood)' }}>确认删除</button>
                     <button onClick={() => setDeleteConfirm(null)} style={actionBtnStyle}>取消</button>
                   </>
                 ) : (
                   <button onClick={() => setDeleteConfirm(id)} style={{ ...actionBtnStyle, color: 'var(--blood)' }}>删除</button>
-                )}
+                ))}
                 <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--brass)', opacity: forceWorldbook ? 0.6 : 1 }}>
                   <button onClick={() => { if (!forceWorldbook && book.enabled === false) toggleBook(id); }} style={{
                     padding: '4px 8px', border: 'none', cursor: forceWorldbook ? 'default' : book.enabled === false ? 'pointer' : 'default',
@@ -159,7 +161,8 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 {forceWorldbook && <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)' }}>已锁定</span>}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Import ST format */}

@@ -7,6 +7,10 @@ export function buildContextFromPages(): string {
     .map((p) => {
       let section = `【${p.leftHeader}】${p.leftContent}\n【${p.rightHeader}】${p.rightContent}`;
       if (p.summary) section = `[摘要: ${p.summary}]\n${section}`;
+      if (p.keywords) {
+        const kwList = Object.keys(p.keywords).join(', ');
+        if (kwList) section += `\n[关键词: ${kwList}]`;
+      }
       if (p.diceResults && p.diceResults.length > 0) {
         section += `\n[检定记录: ${p.diceResults.map((d) => `${d.skill} d100=${d.roll}/${d.target} ${d.type}`).join('; ')}]`;
       }

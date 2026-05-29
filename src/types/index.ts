@@ -46,6 +46,7 @@ export interface SceneInfo {
 
 // ===== Storybook Pages =====
 export interface BookPage {
+  id?: string;
   leftHeader: string;
   leftContent: string;
   leftPage: string;
@@ -55,6 +56,7 @@ export interface BookPage {
   rightChoices: ChoiceItem[];
   sceneInfo?: SceneInfo;
   summary?: string;
+  keywords?: Record<string, string>;
   diceResults?: DiceRecord[];
 }
 

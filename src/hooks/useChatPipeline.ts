@@ -435,6 +435,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        if (newPage.summary && newPage.id) {
+          const keys = newPage.keywords
+            ? Object.keys(newPage.keywords).join(', ')
+            : newPage.leftHeader;
+          if (keys.trim()) {
+            useLorebookStore.getState().upsertSummaryEntry(
+              newPage.id,
+              keys,
+              `[剧情回顾] ${newPage.summary}`,
+              `摘要: ${newPage.leftHeader}`,
+            );
+            pushLog('debug', `[Pipeline] 已创建摘要条目: "${newPage.leftHeader}" — 关键词: ${keys}`, 'system');
+          }
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');
