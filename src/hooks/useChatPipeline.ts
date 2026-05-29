@@ -167,12 +167,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       }
       const matchCtx = contextText + '\n' + macroProcessedInput;
+      const settingsNow = useSettingsStore.getState();
       const matchSettings = {
-        caseSensitive: useSettingsStore.getState().globalCaseSensitive ?? false,
-        matchWholeWord: useSettingsStore.getState().globalMatchWholeWord ?? false,
+        caseSensitive: settingsNow.globalCaseSensitive ?? false,
+        matchWholeWord: settingsNow.globalMatchWholeWord ?? false,
         messageCount: messageCountRef.current,
         stickyState: stickyStateRef.current,
         cooldownState: cooldownStateRef.current,
+        maxRecursionSteps: settingsNow.maxRecursionSteps ?? 0,
+        includeNames: settingsNow.includeNames ?? true,
+        tokenBudget: settingsNow.wiBudget ?? 0,
+        charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
+        generationType: 'normal' as const,
       };
       let matchedLore = matchLoreEntries(matchCtx, otherEntries, matchSettings);
       // Probability filter: entries with probability < 100 have a chance of being skipped
@@ -674,12 +680,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           matchedLore.push(entry);
         }
       }
+      const tcSettings = useSettingsStore.getState();
       matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore, {
-        caseSensitive: useSettingsStore.getState().globalCaseSensitive ?? false,
-        matchWholeWord: useSettingsStore.getState().globalMatchWholeWord ?? false,
+        caseSensitive: tcSettings.globalCaseSensitive ?? false,
+        matchWholeWord: tcSettings.globalMatchWholeWord ?? false,
         messageCount: messageCountRef.current,
         stickyState: stickyStateRef.current,
         cooldownState: cooldownStateRef.current,
+        maxRecursionSteps: tcSettings.maxRecursionSteps ?? 0,
+        includeNames: tcSettings.includeNames ?? true,
+        tokenBudget: tcSettings.wiBudget ?? 0,
+        charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
+        generationType: 'normal',
       });
 
       setTokenContext({

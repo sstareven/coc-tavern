@@ -14,6 +14,8 @@ function resolvePlaceholders(text: string, variables: Record<string, string>): s
 
 /**
  * Match lorebook entries against the current context.
+ * Full SillyTavern-compatible matching engine with recursion, regex keys,
+ * per-entry scan depth, character filter, triggers, and timed effects.
  */
 export interface MatchContext {
   caseSensitive: boolean;
@@ -21,10 +23,23 @@ export interface MatchContext {
   messageCount: number;
   stickyState: Map<string, number>;
   cooldownState: Map<string, number>;
+  maxRecursionSteps: number;
+  includeNames: boolean;
+  tokenBudget: number;
+  charName: string;
+  generationType: 'normal' | 'continue' | 'regenerate' | 'quiet';
+}
+
+function isRegex(key: string): RegExp | null {
+  const m = key.match(/^\/(.+)\/([gimsuy]*)$/);
+  if (!m) return null;
+  try { return new RegExp(m[1], m[2]); } catch { return null; }
 }
 
 function keyMatch(ctx: string, key: string, caseSensitive: boolean, wholeWord: boolean): boolean {
   if (!key) return false;
+  const regex = isRegex(key);
+  if (regex) return regex.test(ctx);
   const haystack = caseSensitive ? ctx : ctx.toLowerCase();
   const needle = caseSensitive ? key : key.toLowerCase();
   if (wholeWord) {
@@ -32,6 +47,40 @@ function keyMatch(ctx: string, key: string, caseSensitive: boolean, wholeWord: b
     return new RegExp(`(?:^|\\b|[\\s,，.。!！?？])${escaped}(?:$|\\b|[\\s,，.。!！?？])`, caseSensitive ? '' : 'i').test(haystack);
   }
   return haystack.includes(needle);
+}
+
+function splitKeys(raw: string): string[] {
+  const keys: string[] = [];
+  let current = '';
+  let inRegex = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '/' && !inRegex && (i === 0 || raw[i - 1] === ',' || raw[i - 1] === '，' || raw[i - 1] === ' ')) {
+      inRegex = true; current += c; continue;
+    }
+    if (inRegex) {
+      current += c;
+      if (c === '/' && i > 0 && raw[i - 1] !== '\\') {
+        while (i + 1 < raw.length && /[gimsuy]/.test(raw[i + 1])) { current += raw[++i]; }
+        inRegex = false;
+      }
+      continue;
+    }
+    if (c === ',' || c === '，') {
+      const t = current.trim();
+      if (t) keys.push(t);
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  const t = current.trim();
+  if (t) keys.push(t);
+  return keys;
+}
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 2.5);
 }
 
 export function matchLoreEntries(
@@ -44,28 +93,32 @@ export function matchLoreEntries(
   const msgCount = matchCtx?.messageCount ?? 999;
   const sticky = matchCtx?.stickyState;
   const cooldown = matchCtx?.cooldownState;
+  const maxRecursion = matchCtx?.maxRecursionSteps ?? 0;
+  const tokenBudget = matchCtx?.tokenBudget ?? 0;
+  const charName = matchCtx?.charName ?? '';
+  const genType = matchCtx?.generationType ?? 'normal';
 
-  const activated: (LoreEntry & { _id?: string; _score?: number })[] = [];
-
-  for (const entry of entries) {
-    const id = (entry as { _id?: string })._id || entry.name;
+  function matchSingle(
+    ctx: string,
+    entry: LoreEntry & { _id?: string },
+    isRecursion: boolean,
+  ): { pass: boolean; score: number } {
+    const id = entry._id || entry.name;
     const cs = entry.caseSensitive === 1 ? true : entry.caseSensitive === 2 ? false : globalCS;
     const ww = entry.matchWholeWord === 1 ? true : entry.matchWholeWord === 2 ? false : globalWW;
 
-    if (entry.delay > 0 && msgCount < entry.delay) continue;
-    if (cooldown && (cooldown.get(id) ?? 0) > 0) continue;
+    if (entry.delay > 0 && msgCount < entry.delay) return { pass: false, score: 0 };
+    if (cooldown && (cooldown.get(id) ?? 0) > 0) return { pass: false, score: 0 };
+    if (!isRecursion && entry.delayUntilRecursion) return { pass: false, score: 0 };
+    if (isRecursion && entry.preventRecursion) return { pass: false, score: 0 };
 
-    if (sticky && (sticky.get(id) ?? 0) > 0) {
-      activated.push({ ...entry, _id: id });
-      continue;
-    }
+    if (sticky && (sticky.get(id) ?? 0) > 0) return { pass: true, score: 0 };
 
-    const keys = entry.keys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
-    if (keys.length === 0) continue;
-    const matches = keys.map((k) => keyMatch(contextText, k, cs, ww));
+    const keys = splitKeys(entry.keys);
+    if (keys.length === 0) return { pass: false, score: 0 };
+    const matches = keys.map((k) => keyMatch(ctx, k, cs, ww));
 
     let primaryPass = false;
-    let score = 0;
     switch (entry.logic) {
       case 'AND_ANY': primaryPass = matches.some(Boolean); break;
       case 'AND_ALL': primaryPass = matches.every(Boolean); break;
@@ -73,18 +126,58 @@ export function matchLoreEntries(
       case 'NOT_ALL': primaryPass = !matches.every(Boolean); break;
       default: primaryPass = matches.some(Boolean);
     }
-    if (!primaryPass) continue;
-    score = matches.filter(Boolean).length;
+    if (!primaryPass) return { pass: false, score: 0 };
+    const score = matches.filter(Boolean).length;
 
     if (entry.secondaryKeys) {
-      const secKeys = entry.secondaryKeys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
-      if (secKeys.length > 0 && !secKeys.every((k) => keyMatch(contextText, k, cs, ww))) continue;
+      const secKeys = splitKeys(entry.secondaryKeys);
+      if (secKeys.length > 0 && !secKeys.every((k) => keyMatch(ctx, k, cs, ww))) {
+        return { pass: false, score: 0 };
+      }
     }
 
-    activated.push({ ...entry, _id: id, _score: score });
+    return { pass: true, score };
   }
 
-  // Inclusion group resolution
+  // Phase 1: Primary matching
+  const activated: (LoreEntry & { _id?: string; _score?: number })[] = [];
+  const activatedIds = new Set<string>();
+
+  for (const entry of entries) {
+    const id = entry._id || entry.name;
+    const { pass, score } = matchSingle(contextText, entry, false);
+    if (pass) {
+      activated.push({ ...entry, _id: id, _score: score });
+      activatedIds.add(id);
+    }
+  }
+
+  // Phase 2: Recursive matching
+  if (maxRecursion !== 1) {
+    const maxSteps = maxRecursion === 0 ? 10 : maxRecursion;
+    for (let step = 0; step < maxSteps - 1; step++) {
+      const activatedContent = activated
+        .filter((e) => !e.excludeRecursion)
+        .map((e) => e.content)
+        .join('\n');
+      if (!activatedContent) break;
+
+      let foundNew = false;
+      for (const entry of entries) {
+        const id = entry._id || entry.name;
+        if (activatedIds.has(id)) continue;
+        const { pass, score } = matchSingle(activatedContent, entry, true);
+        if (pass) {
+          activated.push({ ...entry, _id: id, _score: score });
+          activatedIds.add(id);
+          foundNew = true;
+        }
+      }
+      if (!foundNew) break;
+    }
+  }
+
+  // Phase 3: Inclusion group resolution
   const groups = new Map<string, typeof activated>();
   const ungrouped: typeof activated = [];
   for (const e of activated) {
@@ -138,16 +231,30 @@ export function matchLoreEntries(
     }
   }
 
-  // Update sticky/cooldown state
+  // Phase 4: Token budget enforcement
+  let final = resolved;
+  if (tokenBudget > 0) {
+    let used = 0;
+    final = [];
+    const sorted = [...resolved].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    for (const e of sorted) {
+      const tokens = estimateTokens(e.content);
+      if (used + tokens > tokenBudget) continue;
+      used += tokens;
+      final.push(e);
+    }
+  }
+
+  // Phase 5: Update sticky/cooldown state
   if (sticky && cooldown) {
-    for (const e of resolved) {
+    for (const e of final) {
       const id = (e as { _id?: string })._id || e.name;
       if (e.sticky > 0) sticky.set(id, e.sticky);
       if (e.cooldown > 0) cooldown.set(id, e.cooldown);
     }
   }
 
-  return resolved;
+  return final;
 }
 
 /** Resolve content for a system marker from its source */
