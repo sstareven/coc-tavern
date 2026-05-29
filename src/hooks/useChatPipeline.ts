@@ -665,10 +665,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       for (const book of Object.values(allBooks)) {
         if (book.enabled === false) continue;
         for (const entry of Object.values(book.entries)) {
+          if (entry.disabled) continue;
           matchedLore.push(entry);
         }
       }
-      matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore);
+      matchedLore = matchLoreEntries(contextText + '\n' + trimmed, matchedLore, {
+        caseSensitive: useSettingsStore.getState().globalCaseSensitive ?? false,
+        matchWholeWord: useSettingsStore.getState().globalMatchWholeWord ?? false,
+        messageCount: messageCountRef.current,
+        stickyState: stickyStateRef.current,
+        cooldownState: cooldownStateRef.current,
+      });
 
       setTokenContext({
         systemPrompt: DEFAULT_INPUT_PRESET.systemPrompt,
