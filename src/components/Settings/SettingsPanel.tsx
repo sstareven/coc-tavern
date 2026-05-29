@@ -350,6 +350,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setWiBudget = useSettingsStore((s) => s.setWiBudget);
   const alertOnOverflow = useSettingsStore((s) => s.alertOnOverflow);
   const setAlertOnOverflow = useSettingsStore((s) => s.setAlertOnOverflow);
+  const worldInfoStrategy = useSettingsStore((s) => s.worldInfoStrategy);
+  const setWorldInfoStrategy = useSettingsStore((s) => s.setWorldInfoStrategy);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -666,6 +668,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <input type="number" min={0} max={99999} step={100} value={wiBudget} onChange={(e) => setWiBudget(Number(e.target.value) || 0)}
                       style={{ width: 60, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
                     <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>插入策略</span>
+                    <select value={worldInfoStrategy} onChange={(e) => setWorldInfoStrategy(e.target.value as 'evenly' | 'global-first' | 'chat-first')}
+                      style={{ padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none', cursor: 'pointer' }}>
+                      <option value="evenly">均匀</option>
+                      <option value="global-first">全局优先</option>
+                      <option value="chat-first">会话优先</option>
+                    </select>
                   </div>
                 </div>
 

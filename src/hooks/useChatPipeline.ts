@@ -16,6 +16,7 @@ import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
+import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM } from '../sillytavern/mvu-extractor';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
@@ -131,17 +132,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Build context from recent pages
       const contextText = buildContextFromPages();
 
-      // Match lorebook entries against context + user input (skip disabled books unless forced)
+      // Match lorebook entries against context + user input (scope-aware: global + bound chat books)
       const allBooks = useLorebookStore.getState().books;
       const thOptimize = useTavernHelperStore.getState().optimize;
-      let otherEntries: LoreEntry[] = [];
-      let summaryEntries: LoreEntry[] = [];
-      const generateInjects: LoreEntry[] = [];
-      const constantEntries: LoreEntry[] = [];
-      for (const [bookId, book] of Object.entries(allBooks)) {
-        if (!thOptimize.forceWorldbookSettings && book.enabled === false) continue;
-        for (const entry of Object.values(book.entries)) {
-          if (entry.disabled) continue;
+      const chatNow = useChatStore.getState();
+      const sessionLorebookIds = chatNow.sessions.find((s) => s.id === chatNow.activeId)?.lorebookIds ?? [];
+      const scopedBooks = resolveActiveBooks(allBooks, sessionLorebookIds, thOptimize.forceWorldbookSettings);
+      type ScopedEntry = LoreEntry & { _source?: WorldInfoSource };
+      let otherEntries: ScopedEntry[] = [];
+      let summaryEntries: ScopedEntry[] = [];
+      const generateInjects: ScopedEntry[] = [];
+      const constantEntries: ScopedEntry[] = [];
+      for (const { bookId, book, source } of scopedBooks) {
+        for (const rawEntry of Object.values(book.entries)) {
+          if (rawEntry.disabled) continue;
+          const entry: ScopedEntry = { ...rawEntry, _source: source };
           const keys = entry.keys.toLowerCase();
           const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
           const isInject = entry.keys.includes('@INJECT');
@@ -207,7 +212,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
           preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
           ignoreReplyLimit: false,
-        });
+          _source: 'global',
+        } as LoreEntry);
       }
 
       // Add GENERATE/INJECT entries regardless of keyword match (they're always injected)
@@ -335,19 +341,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         { isPrompt: true },
       );
 
-      // Build world book content strings (for before/after markers)
-      const enabledBooks = Object.values(useLorebookStore.getState().books).filter(
-        (b) => b.enabled !== false,
-      );
-      const wbEntries = enabledBooks.flatMap((b) => Object.values(b.entries));
-      const wbBefore = wbEntries
-        .filter((e) => e.position === 0)
-        .map((e) => renderTemplate(e.content, tmplOpts))
-        .join('\n');
-      const wbAfter = wbEntries
-        .filter((e) => e.position !== 0)
-        .map((e) => renderTemplate(e.content, { ...tmplOpts, onlyWorldinfo: true }))
-        .join('\n');
+      // Build world book content from matched entries (matchedLore), ordered by insertion strategy.
+      // position 0 → before；其余 → after（COC 仅 worldInfoBefore/After 两个注入点）。
+      const wiStrategy = settingsNow.worldInfoStrategy ?? 'evenly';
+      const beforeEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position === 0), wiStrategy);
+      const afterEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position !== 0), wiStrategy);
+      const wbBefore = beforeEntries.map((e) => e.content).join('\n');
+      const wbAfter = afterEntries.map((e) => e.content).join('\n');
 
       // Assemble prompt messages (variables already resolved by unified macro engine)
       const messages = assemblePrompt(
@@ -696,9 +696,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const trimmed = text.trim();
       const contextText = buildContextFromPages();
       const allBooks = useLorebookStore.getState().books;
+      const tcChat = useChatStore.getState();
+      const tcSessionBookIds = tcChat.sessions.find((s) => s.id === tcChat.activeId)?.lorebookIds ?? [];
+      const tcForce = useTavernHelperStore.getState().optimize.forceWorldbookSettings;
       let matchedLore: LoreEntry[] = [];
-      for (const book of Object.values(allBooks)) {
-        if (book.enabled === false) continue;
+      for (const { book } of resolveActiveBooks(allBooks, tcSessionBookIds, tcForce)) {
         for (const entry of Object.values(book.entries)) {
           if (entry.disabled) continue;
           matchedLore.push(entry);

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../../stores/useLorebookStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
+import { useChatStore } from '../../stores/useChatStore';
 import { exportWorldBookToST, importWorldBookFromST } from '../../sillytavern/format-converter';
 import { closeBtnStyle } from '../../styles/panelStyles';
 
@@ -13,6 +14,10 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
   const books = useLorebookStore((s) => s.books);
   const addBook = useLorebookStore((s) => s.addBook);
   const toggleBook = useLorebookStore((s) => s.toggleBook);
+  const setBookScope = useLorebookStore((s) => s.setBookScope);
+  const activeSession = useChatStore((s) => s.sessions.find((c) => c.id === s.activeId));
+  const toggleSessionLorebook = useChatStore((s) => s.toggleSessionLorebook);
+  const sessionLorebookIds = activeSession?.lorebookIds ?? [];
   const thOptimize = useTavernHelperStore((s) => s.optimize);
   const forceWorldbook = thOptimize.forceWorldbookSettings;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -130,6 +135,29 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                 <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                   {Object.keys(book.entries).length} 条词条{isAutoSummary ? ' · 自动生成' : ''}
                 </span>
+                {!isAutoSummary && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                    <select value={book.scope ?? 'global'} onChange={(e) => setBookScope(id, e.target.value as 'global' | 'chat')}
+                      style={scopeSelectStyle}>
+                      <option value="global">全局</option>
+                      <option value="chat">会话专属</option>
+                    </select>
+                    {(book.scope ?? 'global') === 'chat' && (
+                      activeSession ? (
+                        <label style={{
+                          display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, cursor: 'pointer',
+                          color: sessionLorebookIds.includes(id) ? 'var(--success)' : 'var(--ink-subtle)',
+                          fontFamily: 'var(--font-ui)',
+                        }}>
+                          <input type="checkbox" checked={sessionLorebookIds.includes(id)} onChange={() => toggleSessionLorebook(id)} style={{ accentColor: 'var(--gold)' }} />
+                          绑定当前会话
+                        </label>
+                      ) : (
+                        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>无活动会话</span>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
                 {!isAutoSummary && <button onClick={() => onEditBook(id)} style={actionBtnStyle}>编辑</button>}
@@ -216,4 +244,10 @@ const inputStyle: React.CSSProperties = {
   padding: '4px 8px', borderRadius: 3, border: '1px solid var(--brass)',
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
   fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none',
+};
+
+const scopeSelectStyle: React.CSSProperties = {
+  padding: '1px 4px', borderRadius: 3, border: '1px solid rgba(196,168,85,0.3)',
+  background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)',
+  fontFamily: 'var(--font-ui)', fontSize: 9, outline: 'none', cursor: 'pointer',
 };

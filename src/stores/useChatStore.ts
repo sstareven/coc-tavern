@@ -11,6 +11,7 @@ interface ChatStore {
   deleteSession: (id: string) => void;
   setActive: (id: string) => void;
   setPreset: (presetId: string) => void;
+  toggleSessionLorebook: (bookId: string) => void;
   addMessage: (role: 'user' | 'assistant', content: string) => void;
   savePages: (pages: BookPage[]) => void;
   saveGameState: (pages: BookPage[], gameState: SessionGameState) => void;
@@ -55,6 +56,15 @@ export const useChatStore = create<ChatStore>()(
               ? { ...c, presetId, updatedAt: Date.now() }
               : c
           ),
+        })),
+      toggleSessionLorebook: (bookId) =>
+        set((s) => ({
+          sessions: s.sessions.map((c) => {
+            if (c.id !== s.activeId) return c;
+            const ids = c.lorebookIds ?? [];
+            const next = ids.includes(bookId) ? ids.filter((b) => b !== bookId) : [...ids, bookId];
+            return { ...c, lorebookIds: next, updatedAt: Date.now() };
+          }),
         })),
       addMessage: (role, content) =>
         set((s) => {
