@@ -392,6 +392,9 @@ export function Storybook() {
                     }}
                   />
                 </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Inventory overlay — book-page style */}
           <AnimatePresence>
