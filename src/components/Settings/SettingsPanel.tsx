@@ -332,6 +332,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
   const autoSubmitChoice = useSettingsStore((s) => s.autoSubmitChoice);
   const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
+  const maxSummaryEntries = useSettingsStore((s) => s.maxSummaryEntries);
+  const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -370,6 +372,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
   const [ppHelpOpen, setPpHelpOpen] = useState(false);
+  const [summaryHelpOpen, setSummaryHelpOpen] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
@@ -564,6 +567,37 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer', letterSpacing: 1,
                     transition: 'var(--transition-smooth)',
                   }}>{autoSubmitChoice ? 'ON' : 'OFF'}</button>
+                </div>
+
+                {/* Max summary entries */}
+                <div style={rowStyle}>
+                  <span style={{ ...labelStyle, position: 'relative' }}>
+                    上下文总结上限
+                    <span onClick={() => setSummaryHelpOpen(!summaryHelpOpen)} style={helpIconStyle}>?</span>
+                    {summaryHelpOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setSummaryHelpOpen(false)} />
+                        <div style={{
+                          position: 'absolute', top: '120%', left: 0, zIndex: 1000,
+                          background: 'var(--leather)', border: '1px solid var(--gold)',
+                          borderRadius: 4, padding: 10, minWidth: 300,
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+                          fontSize: 10, color: 'var(--text-light)',
+                          lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line',
+                        }}>
+                          {'上下文注意力有限，回顾总结条目过多可能导致LLM注意力分散，\n引发剧情混乱或遗忘近期事件。建议保持在20条以内。\n\n此设置控制每次生成时最多注入多少条「剧情回顾」摘要到LLM上下文中。'}
+                        </div>
+                      </>
+                    )}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={5} max={50} step={5}
+                      value={maxSummaryEntries}
+                      onChange={(e) => setMaxSummaryEntries(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{maxSummaryEntries}</span>
+                  </div>
                 </div>
 
                 {/* API section */}
