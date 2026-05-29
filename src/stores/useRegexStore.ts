@@ -65,7 +65,7 @@ const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
   {
     id: 'dialogue-color',
     scriptName: '对话橘色高亮(显示端)',
-    findRegex: '/(?:"([^"]*?)"|"([^"]*?)"|「([^」]*?)」)/g',
+    findRegex: '/(?:「([^」]*?)」|『([^』]*?)』|"([^"]*?)"|"([^"]*?)")/g',
     replaceString: '<span style="color:#e8a040;font-weight:500">$&</span>',
     trimStrings: [],
     placement: [2],
