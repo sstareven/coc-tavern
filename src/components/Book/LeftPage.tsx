@@ -88,7 +88,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
                 fontSize: 9, fontFamily: 'var(--font-mono)', flexShrink: 0,
                 padding: '2px 8px', borderRadius: 3,
                 color: rc.color,
-                background: (isCrit || isCritFail) ? 'rgba(80,60,30,0.2)' : rc.bg,
+                background: (isCrit || isCritFail) ? 'rgba(40,28,15,0.45)' : rc.bg,
                 border: `1px solid ${rc.color}33`,
                 boxShadow: isCrit
                   ? `0 0 6px rgba(196,168,85,0.4), 0 0 12px rgba(196,168,85,0.2)`
