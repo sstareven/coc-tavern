@@ -21,6 +21,7 @@ interface SettingsState {
   mvuTemperature: number;
   mvuRetryCount: number;
   mvuAvailableModels: string[];
+  maxSummaryEntries: number;
 }
 
 interface SettingsStore extends SettingsState {
@@ -40,6 +41,7 @@ interface SettingsStore extends SettingsState {
   setMvuTemperature: (t: number) => void;
   setMvuRetryCount: (n: number) => void;
   setMvuAvailableModels: (models: string[]) => void;
+  setMaxSummaryEntries: (n: number) => void;
 }
 
 const defaults: SettingsState = {
@@ -60,6 +62,7 @@ const defaults: SettingsState = {
   mvuTemperature: 1,
   mvuRetryCount: 1,
   mvuAvailableModels: [],
+  maxSummaryEntries: 20,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -83,6 +86,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuTemperature: (t) => set({ mvuTemperature: t }),
       setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
+      setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
     }),
     {
       name: 'coc_settings_v2',

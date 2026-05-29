@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useBookStore } from '../stores/useBookStore';
 import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
-import { useLorebookStore } from '../stores/useLorebookStore';
+import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useChatStore } from '../stores/useChatStore';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
@@ -133,9 +133,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Match lorebook entries against context + user input (skip disabled books unless forced)
       const allBooks = useLorebookStore.getState().books;
       const thOptimize = useTavernHelperStore.getState().optimize;
-      let matchedLore: LoreEntry[] = [];
+      let otherEntries: LoreEntry[] = [];
+      let summaryEntries: LoreEntry[] = [];
       const generateInjects: LoreEntry[] = [];
-      for (const book of Object.values(allBooks)) {
+      for (const [bookId, book] of Object.entries(allBooks)) {
         if (!thOptimize.forceWorldbookSettings && book.enabled === false) continue;
         for (const entry of Object.values(book.entries)) {
           const keys = entry.keys.toLowerCase();
@@ -145,12 +146,33 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             generateInjects.push(entry);
           } else if (pt.injectLoaderEnabled && isInject) {
             generateInjects.push(entry);
+          } else if (bookId === AUTO_SUMMARY_BOOK_ID) {
+            summaryEntries.push(entry);
           } else {
-            matchedLore.push(entry);
+            otherEntries.push(entry);
           }
         }
       }
-      matchedLore = matchLoreEntries(contextText + '\n' + macroProcessedInput, matchedLore);
+      const matchCtx = contextText + '\n' + macroProcessedInput;
+      let matchedLore = matchLoreEntries(matchCtx, otherEntries);
+      let matchedSummary = matchLoreEntries(matchCtx, summaryEntries);
+      const maxSummary = useSettingsStore.getState().maxSummaryEntries;
+      if (matchedSummary.length > maxSummary) {
+        matchedSummary = matchedSummary.slice(-maxSummary);
+      }
+      matchedLore.push(...matchedSummary);
+
+      // Inject dark thread context (bypasses keyword matching)
+      const { useDarkThreadStore } = await import('../stores/useDarkThreadStore');
+      const darkCtx = useDarkThreadStore.getState().buildContextInjection();
+      if (darkCtx) {
+        matchedLore.push({
+          name: '暗线状态', keys: '', content: darkCtx,
+          logic: 'OR', priority: 2, disabled: false,
+          constant: true, position: 0, depth: 0, probability: 100,
+        } as LoreEntry);
+      }
+
       // Add GENERATE/INJECT entries regardless of keyword match (they're always injected)
       if (pt.generateLoaderEnabled || pt.injectLoaderEnabled) {
         matchedLore.push(...generateInjects);
@@ -168,7 +190,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (pt.debugEnabled) {
         pushLog(
           'debug',
-          `[PT] 世界书条目: ${matchedLore.length}条匹配 + ${generateInjects.length}条注入`,
+          `[PT] 世界书条目: ${matchedLore.length}条匹配(含${matchedSummary.length}条总结/${maxSummary}上限) + ${generateInjects.length}条注入${darkCtx ? ' + 暗线注入' : ''}`,
           'system',
         );
       }
@@ -388,10 +410,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           'info',
           `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens`,
         );
-        const newPage = parseLlmResponse(response.content, lastInputRef.current);
-        if (!newPage) {
+        const result = parseLlmResponse(response.content, lastInputRef.current);
+        if (!result) {
           throw new Error('无法解析AI回复');
         }
+        const newPage = result.page;
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);
@@ -407,6 +430,26 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
         if (diceFromInput.length > 0) {
           newPage.diceResults = diceFromInput;
+        }
+
+        // Validate generation quality
+        const validationErrors: string[] = [];
+        if (newPage.rightContent === '无法解析回应内容') {
+          validationErrors.push('AI回复格式解析失败，回复内容已作为原始文本展示');
+        }
+        if (newPage.leftContent.length < 30) {
+          validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
+        }
+        const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
+        if (currentStage && currentStage !== '后日谈' && currentStage !== '调查期') {
+          if (!result.darkThread || !result.darkThread.development) {
+            validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
+          }
+        }
+        if (validationErrors.length > 0) {
+          pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
+          const { useErrorModalStore } = await import('../stores/useErrorModalStore');
+          useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
         }
 
         const bookStore = useBookStore.getState();
@@ -427,9 +470,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             'system',
           );
           bookStore.autoFlipForward();
-          const thOptimize = useTavernHelperStore.getState().optimize;
+          const thOptimize2 = useTavernHelperStore.getState().optimize;
           const thRender = useTavernHelperStore.getState().render;
-          if (thOptimize.optimizeMessageLoad) {
+          if (thOptimize2.optimizeMessageLoad) {
             const limit = thRender.renderDepth > 0 ? thRender.renderDepth : 10;
             bookStore.trimPages(limit);
           }
@@ -449,6 +492,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             );
             pushLog('debug', `[Pipeline] 已创建摘要条目: "${newPage.leftHeader}" — 关键词: ${keys}`, 'system');
           }
+        }
+
+        // Store dark thread in DB
+        if (result.darkThread && result.darkThread.development) {
+          useDarkThreadStore.getState().addEntry({
+            description: result.darkThread.foreshadowing || result.darkThread.development.slice(0, 60),
+            progress: result.darkThread.progress,
+            threatLevel: result.darkThread.threatLevel,
+            details: result.darkThread.development,
+            foreshadowing: result.darkThread.foreshadowing,
+          });
+          pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}, 威胁等级=${result.darkThread.threatLevel}`, 'system');
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {
