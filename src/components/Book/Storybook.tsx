@@ -362,8 +362,8 @@ export function Storybook() {
         <div style={{
           position: 'absolute',
           left: 0,
-          top: '20%',
-          transform: 'translateX(-85%)',
+          top: '12%',
+          transform: 'translateX(-100%)',
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
@@ -372,9 +372,15 @@ export function Storybook() {
           {/* Tab 0: 背包/装备 → inventory overlay */}
           <button
             onClick={() => {
+              if (inventoryOpen) {
+                useInventoryStore.getState().close();
+                return;
+              }
               useCharSheetStore.getState().close();
               if (showToc) { setShowToc(false); setSelectedToc(-1); }
-              useInventoryStore.getState().toggle();
+              useBookStore.getState().decorativeFlip('backward', 800, () => {
+                useInventoryStore.getState().toggle();
+              });
             }}
             style={inventoryOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
@@ -425,12 +431,16 @@ export function Storybook() {
           {/* Tab 2: 目录 → table of contents overlay */}
           <button
             onClick={() => {
-              useInventoryStore.getState().close();
               if (showToc) {
                 if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
                 setSelectedToc(-1);
+                setShowToc(false);
+                return;
               }
-              setShowToc(!showToc);
+              useInventoryStore.getState().close();
+              useBookStore.getState().decorativeFlip('backward', 800, () => {
+                setShowToc(true);
+              });
             }}
             style={showToc ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {

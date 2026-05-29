@@ -104,6 +104,8 @@ interface BookStore {
   replacePage: (index: number, page: BookPage) => void;
   /** Animated flip to the freshly appended page */
   autoFlipForward: () => void;
+  /** Visual-only flip animation (no page change), calls onComplete when done */
+  decorativeFlip: (direction: 'forward' | 'backward', duration: number, onComplete?: () => void) => void;
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
   setPages: (pages: BookPage[]) => void;
@@ -186,6 +188,25 @@ export const useBookStore = create<BookStore>((set, get) => ({
         set({ flipProgress: 1 });
         get().nextPage();
         set({ isFlipping: false, flipProgress: 0 });
+      }
+    };
+    flipRaf = requestAnimationFrame(tick);
+  },
+
+  decorativeFlip: (direction, duration, onComplete) => {
+    if (get().isFlipping) return;
+    if (flipRaf) cancelAnimationFrame(flipRaf);
+    try { sfxPageFlip(); } catch { /* audio not available */ }
+    set({ isFlipping: true, flipProgress: 0, flipDirection: direction });
+    const start = performance.now();
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - start) / duration);
+      set({ flipProgress: raw });
+      if (raw < 1) {
+        flipRaf = requestAnimationFrame(tick);
+      } else {
+        set({ isFlipping: false, flipProgress: 0 });
+        onComplete?.();
       }
     };
     flipRaf = requestAnimationFrame(tick);
