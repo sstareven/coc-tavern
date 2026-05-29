@@ -374,13 +374,12 @@ export function Storybook() {
             onClick={() => {
               if (inventoryOpen) {
                 useInventoryStore.getState().close();
+                useBookStore.getState().decorativeFlip('forward', 800);
                 return;
               }
               useCharSheetStore.getState().close();
               if (showToc) { setShowToc(false); setSelectedToc(-1); }
-              useBookStore.getState().decorativeFlip('backward', 800, () => {
-                useInventoryStore.getState().toggle();
-              });
+              useInventoryStore.getState().toggle();
             }}
             style={inventoryOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
@@ -435,12 +434,11 @@ export function Storybook() {
                 if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
                 setSelectedToc(-1);
                 setShowToc(false);
+                useBookStore.getState().decorativeFlip('forward', 800);
                 return;
               }
               useInventoryStore.getState().close();
-              useBookStore.getState().decorativeFlip('backward', 800, () => {
-                setShowToc(true);
-              });
+              setShowToc(true);
             }}
             style={showToc ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
