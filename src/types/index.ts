@@ -207,6 +207,14 @@ export interface ChatPreset {
   tavernHelperVars?: Record<string, THVariable>;
 }
 
+// ===== Session Game State (per-save isolation) =====
+export interface SessionGameState {
+  character?: CharacterSheet;
+  inventory?: InventoryItem[];
+  darkThread?: { id: string; timestamp: number; progress: number; threatLevel: string; details: string; foreshadowing: string }[];
+  keywords?: Record<string, string>;
+}
+
 // ===== Chat Sessions =====
 export interface ChatMessage {
   id: string;
@@ -224,6 +232,7 @@ export interface ChatSession {
   lorebookIds: string[];
   createdAt: number;
   updatedAt: number;
+  gameState?: SessionGameState;
 }
 
 // ===== Extensions =====

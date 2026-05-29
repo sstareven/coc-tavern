@@ -18,6 +18,7 @@ interface DarkThreadStore {
   getRecentEntries: (n: number) => DarkThreadEntry[];
   buildContextInjection: () => string;
   clearAll: () => void;
+  replaceAll: (entries: DarkThreadEntry[]) => void;
 }
 
 export const useDarkThreadStore = create<DarkThreadStore>()(
@@ -56,6 +57,7 @@ export const useDarkThreadStore = create<DarkThreadStore>()(
       },
 
       clearAll: () => set({ entries: [] }),
+      replaceAll: (entries: DarkThreadEntry[]) => set({ entries }),
     }),
     {
       name: 'coc_darkthread_v1',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { restoreSessionGameState, clearAllGameState } from '../../stores/sessionLifecycle';
 import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
@@ -81,8 +82,8 @@ export function ChatlistPanel({ onClose }: Props) {
           ) : (
             sessions.map((sess) => (
               <SessionItem key={sess.id} sess={sess} isActive={activeId === sess.id}
-                onSelect={() => { setActive(sess.id); onClose(); }}
-                onDelete={() => deleteSession(sess.id)} />
+                onSelect={() => { setActive(sess.id); restoreSessionGameState(sess.id); onClose(); }}
+                onDelete={() => { deleteSession(sess.id); if (activeId === sess.id) clearAllGameState(); }} />
             ))
           )}
         </div>
