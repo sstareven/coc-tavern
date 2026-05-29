@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
 const CURRENT_VERSION = 'v0.1.0';
@@ -18,7 +19,7 @@ export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem(CHANGELOG_KEY);
+    const seen = kvGet(CHANGELOG_KEY);
     if (seen !== CURRENT_VERSION) {
       setVisible(true);
     }
@@ -29,7 +30,7 @@ export function ChangelogModal() {
   }, []);
 
   const close = () => {
-    localStorage.setItem(CHANGELOG_KEY, CURRENT_VERSION);
+    kvSet(CHANGELOG_KEY, CURRENT_VERSION);
     setVisible(false);
   };
 
