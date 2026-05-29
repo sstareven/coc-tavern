@@ -3,7 +3,7 @@ import { useChatStore } from '../../stores/useChatStore';
 import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
-import { DEFAULT_PRESETS } from '../../constants/presets';
+import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS } from '../../constants/presets';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
 
@@ -18,9 +18,14 @@ function loadPresets(): Record<string, ChatPreset> {
   try { const raw = localStorage.getItem(PRESET_STORAGE_KEY); return raw ? { ...DEFAULT_PRESETS, ...JSON.parse(raw) } : { ...DEFAULT_PRESETS }; } catch { return { ...DEFAULT_PRESETS }; }
 }
 function savePresets(p: Record<string, ChatPreset>) {
-  const extra: Record<string, ChatPreset> = {};
-  for (const [k, v] of Object.entries(p)) { if (!DEFAULT_PRESETS[k]) extra[k] = v; }
-  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(extra));
+  const toSave: Record<string, ChatPreset> = {};
+  for (const [k, v] of Object.entries(p)) {
+    const builtin = DEFAULT_PRESETS[k];
+    if (!builtin || JSON.stringify(v) !== JSON.stringify(builtin)) {
+      toSave[k] = v;
+    }
+  }
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(toSave));
 }
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
@@ -32,7 +37,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   });
   const [selectedId, setSelectedId] = useState<string>(() => {
     if (sessionPresetId) return sessionPresetId;
-    return localStorage.getItem('coc_last_preset') || 'p1';
+    return localStorage.getItem('coc_last_preset') || 'p2';
   });
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -170,13 +175,13 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); if (updated.regexScripts) useRegexStore.setState({ presetScripts: updated.regexScripts }); if (updated.tavernHelperScripts) useTavernHelperStore.getState().setPresetScripts(updated.tavernHelperScripts); }); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
-                  {id !== 'p1' && (
+                  {!BUILTIN_PRESET_IDS.has(id) && (
                     <button onClick={(e) => { e.stopPropagation();
                       const updated = { ...presets }; delete updated[id];
                       setPresets(updated); savePresets(updated);
                       if (selectedId === id) {
-                        setSelectedId('p1');
-                        localStorage.setItem('coc_last_preset', 'p1');
+                        setSelectedId('p2');
+                        localStorage.setItem('coc_last_preset', 'p2');
                         useRegexStore.setState({ presetScripts: [] });
                         useTavernHelperStore.getState().setPresetScripts([]);
                       }
@@ -206,7 +211,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         <button onClick={() => {
           const newId = `preset-${Date.now()}`;
           const newPreset: ChatPreset = {
-            ...DEFAULT_PRESETS.p1,
+            ...DEFAULT_PRESETS.p2,
             id: newId,
             name: '新建预设',
           };
