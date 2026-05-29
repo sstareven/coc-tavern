@@ -408,6 +408,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               mvuSettings.mvuApiModel,
               mvuSettings.mvuTemperature,
               mvuSettings.mvuRetryCount,
+              mvuSettings.mvuMaxTokens,
             );
             const st = useVariableStore.getState();
             st.processResponse(hookProcessedContent);
