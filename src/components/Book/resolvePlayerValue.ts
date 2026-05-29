@@ -27,7 +27,13 @@ export function resolvePlayerValue(
   }
   const skill = sheet.skills[name];
   const def = ALL_SKILLS.find((s) => s.name === name);
-  const base = typeof def?.base === 'number' ? def.base : 1;
+  // 解析技能基础值：多数为固定数字，但躲闪(DEX/2)与语言(母语)(EDU) 为派生标记，
+  // 必须从角色卡属性换算，否则 typeof!=='number' 会落到 base=1 导致目标值恒为 1
+  let base: number;
+  if (typeof def?.base === 'number') base = def.base;
+  else if (def?.base === 'DEX_HALF') base = Math.floor(sheet.characteristics.DEX / 2);
+  else if (def?.base === 'EDU') base = sheet.characteristics.EDU;
+  else base = 1;
   if (skill) return { base: skill.base ?? base, current: skill.current };
   return { base, current: base };
 }
