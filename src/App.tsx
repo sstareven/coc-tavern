@@ -21,11 +21,13 @@ import { DebugConsole } from './components/Shared/DebugConsole';
 import { ErrorModal } from './components/Shared/ErrorModal';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
+import { initKvCache } from './db/kv';
 
 export function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => { initBuiltinCommands(); }, []);
+  useEffect(() => { initBuiltinCommands(); initKvCache().then(() => setReady(true)); }, []);
 
   useEffect(() => {
     const toGame = () => setScreen('game');
@@ -53,6 +55,8 @@ export function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [closeAll]);
+
+  if (!ready) return null;
 
   return (
     <ErrorBoundary>

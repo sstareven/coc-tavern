@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import type { Extension } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
+import { kvGet, kvSet } from '../../db/kv';
 
 const STORAGE_KEY = 'coc_extensions_v2';
 
 function loadExts(): Extension[] {
-  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
+  try { const d = kvGet(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
 }
 function saveExts(exts: Extension[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(exts)); } catch {}
+  try { kvSet(STORAGE_KEY, JSON.stringify(exts)); } catch {}
 }
 
 interface Props { onClose: () => void; }

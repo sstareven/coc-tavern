@@ -6,6 +6,7 @@ import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-c
 import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS } from '../../constants/presets';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
+import { kvGet, kvSet } from '../../db/kv';
 
 interface Props {
   onClose: () => void;
@@ -16,7 +17,7 @@ const PRESET_STORAGE_KEY = 'coc_presets_v1';
 
 function loadPresets(): Record<string, ChatPreset> {
   try {
-    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+    const raw = kvGet(PRESET_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PRESETS };
     const saved = JSON.parse(raw) as Record<string, ChatPreset>;
     const merged: Record<string, ChatPreset> = { ...DEFAULT_PRESETS };
@@ -48,7 +49,7 @@ function savePresets(p: Record<string, ChatPreset>) {
       toSave[k] = v;
     }
   }
-  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(toSave));
+  kvSet(PRESET_STORAGE_KEY, JSON.stringify(toSave));
 }
 
 export function PresetPanel({ onClose, onEditPreset }: Props) {
@@ -60,7 +61,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   });
   const [selectedId, setSelectedId] = useState<string>(() => {
     if (sessionPresetId) return sessionPresetId;
-    return localStorage.getItem('coc_last_preset') || 'p2';
+    return kvGet('coc_last_preset') || 'p2';
   });
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -108,7 +109,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         setPresets(updated);
         savePresets(updated);
         setSelectedId(finalPreset.id);
-        localStorage.setItem('coc_last_preset', finalPreset.id);
+        kvSet('coc_last_preset', finalPreset.id);
         // Load scripts into active stores
         if (finalPreset.regexScripts) {
           useRegexStore.setState({ presetScripts: finalPreset.regexScripts });
@@ -124,7 +125,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
-    localStorage.setItem('coc_last_preset', id);
+    kvSet('coc_last_preset', id);
     if (activeSessionId) {
       setPreset(id);
     }
@@ -206,7 +207,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                       setPresets(updated); savePresets(updated);
                       if (selectedId === id) {
                         setSelectedId('p2');
-                        localStorage.setItem('coc_last_preset', 'p2');
+                        kvSet('coc_last_preset', 'p2');
                         useRegexStore.setState({ presetScripts: [] });
                         useTavernHelperStore.getState().setPresetScripts([]);
                       }
@@ -245,7 +246,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           setPresets(updated);
           savePresets(updated);
           setSelectedId(newId);
-          localStorage.setItem('coc_last_preset', newId);
+          kvSet('coc_last_preset', newId);
           useRegexStore.setState({ presetScripts: [] });
           useTavernHelperStore.getState().setPresetScripts([]);
         }} style={{

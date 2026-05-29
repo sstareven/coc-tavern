@@ -38,6 +38,7 @@ import { parseLlmResponse } from '../sillytavern/llm-response-parser';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
+import { kvGet } from '../db/kv';
 
 import type { ChatPreset, LoreEntry } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -217,11 +218,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         useChatStore
           .getState()
           .sessions.find((s) => s.id === useChatStore.getState().activeId)?.presetId ||
-        localStorage.getItem('coc_last_preset') ||
+        kvGet('coc_last_preset') ||
         'p2';
       let activePreset: ChatPreset = DEFAULT_INPUT_PRESET;
       try {
-        const raw = localStorage.getItem('coc_presets_v1');
+        const raw = kvGet('coc_presets_v1');
         if (raw) {
           const saved = JSON.parse(raw);
           if (saved[activePresetId]) {

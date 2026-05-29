@@ -3,6 +3,7 @@ import { btnBase, btnDisabled } from './styles';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
+import { kvSet } from '../../db/kv';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
@@ -399,7 +400,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         injuries,
         phobias,
       };
-      localStorage.setItem('coc_character_bg', JSON.stringify(bg));
+      kvSet('coc_character_bg', JSON.stringify(bg));
     } catch {
       /* quota exceeded */
     }
