@@ -115,7 +115,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── buildPromptMessages ──
 
   const buildPromptMessages = useCallback(
-    (overrideInput?: string): { messages: AssembledMessage[]; tokenCount: number } | null => {
+    (overrideInput?: string): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
       const trimmed = (overrideInput ?? '').trim();
       const effectiveInput = trimmed || '(提示词查看器预览)';
 
@@ -341,7 +341,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
       }
 
-      return { messages: result.trimmed, tokenCount: finalTokens };
+      return { messages: result.trimmed, tokenCount: finalTokens, preset: activePreset };
     },
     [thHooks],
   );
@@ -354,8 +354,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── handleSendFromPreview ──
 
   const handleSendFromPreview = useCallback(
-    async (editedMessages: AssembledMessage[], replace: boolean) => {
+    async (editedMessages: AssembledMessage[], replace: boolean, resolvedPreset?: ChatPreset) => {
       const settings = useSettingsStore.getState();
+      const presetForApi = resolvedPreset || DEFAULT_INPUT_PRESET;
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -373,7 +374,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       try {
         const response = await sendChatCompletion(
           applyPostProcessing(editedMessages, settings.promptPostProcessing),
-          DEFAULT_INPUT_PRESET,
+          presetForApi,
           settings.apiBaseUrl,
           settings.apiKey,
           settings.apiModel,
@@ -586,7 +587,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (!result) return processedInput;
 
         pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
-        await handleSendFromPreview(result.messages, false);
+        await handleSendFromPreview(result.messages, false, result.preset);
         return '';
       } finally {
         loadingRef.current = false;
@@ -626,7 +627,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         'info',
         `[重新生成] 提示词已组装 — ~${result.tokenCount} tokens, ${result.messages.length} 条消息`,
       );
-      await handleSendFromPreview(result.messages, true);
+      await handleSendFromPreview(result.messages, true, result.preset);
     } finally {
       loadingRef.current = false;
     }
