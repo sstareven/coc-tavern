@@ -18,7 +18,26 @@ function loadPresets(): Record<string, ChatPreset> {
   try {
     const raw = localStorage.getItem(PRESET_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PRESETS };
-    return { ...DEFAULT_PRESETS, ...JSON.parse(raw) };
+    const saved = JSON.parse(raw) as Record<string, ChatPreset>;
+    const merged: Record<string, ChatPreset> = { ...DEFAULT_PRESETS };
+    for (const [k, v] of Object.entries(saved)) {
+      if (BUILTIN_PRESET_IDS.has(k)) {
+        const builtin = DEFAULT_PRESETS[k];
+        // Field-level merge: code defaults fill in any missing fields, user edits take precedence
+        const m = { ...builtin } as Record<string, unknown>;
+        for (const [fk, fv] of Object.entries(v)) {
+          if (fv !== undefined && fv !== null && fv !== '') m[fk] = fv;
+        }
+        // Special: promptItems — use saved if non-empty, otherwise code default
+        if (!v.promptItems || v.promptItems.length === 0) {
+          m.promptItems = builtin.promptItems;
+        }
+        merged[k] = m as ChatPreset;
+      } else {
+        merged[k] = v;
+      }
+    }
+    return merged;
   } catch { return { ...DEFAULT_PRESETS }; }
 }
 function savePresets(p: Record<string, ChatPreset>) {
