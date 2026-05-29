@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { restoreSessionGameState, clearAllGameState, cleanupOrphanGameState } from '../../stores/sessionLifecycle';
 import type { ChatSession } from '../../types';
 
 interface Props { onLoad: () => void; onClose: () => void }
@@ -64,7 +65,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { setActive(s.id); onLoad(); }} onDelete={() => deleteSession(s.id)} />)
+            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); setActive(s.id); restoreSessionGameState(s.id); onLoad(); }} onDelete={() => { deleteSession(s.id); clearAllGameState(); }} />)
           )}
         </div>
       </div>

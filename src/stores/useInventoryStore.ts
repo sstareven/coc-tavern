@@ -27,6 +27,7 @@ interface InventoryStore {
   findItem: (name: string) => InventoryItem | undefined;
   buildInventorySummary: () => string;
   clearAll: () => void;
+  replaceAll: (items: InventoryItem[]) => void;
 }
 
 function findByName(items: InventoryItem[], name: string): number {
@@ -142,6 +143,7 @@ export const useInventoryStore = create<InventoryStore>()(
       },
 
       clearAll: () => set({ items: [] }),
+      replaceAll: (items: InventoryItem[]) => set({ items }),
     }),
     {
       name: 'coc_inventory',

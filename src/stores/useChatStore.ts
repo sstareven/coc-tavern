@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ChatSession, ChatMessage, BookPage } from '../types';
+import type { ChatSession, ChatMessage, BookPage, SessionGameState } from '../types';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 
@@ -13,7 +13,10 @@ interface ChatStore {
   setPreset: (presetId: string) => void;
   addMessage: (role: 'user' | 'assistant', content: string) => void;
   savePages: (pages: BookPage[]) => void;
+  saveGameState: (pages: BookPage[], gameState: SessionGameState) => void;
   getActivePages: () => BookPage[];
+  getActiveGameState: () => SessionGameState | undefined;
+  getAllSessionIds: () => string[];
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -76,11 +79,28 @@ export const useChatStore = create<ChatStore>()(
             ),
           };
         }),
+      saveGameState: (pages, gameState) =>
+        set((s) => {
+          if (!s.activeId) return s;
+          return {
+            sessions: s.sessions.map((c) =>
+              c.id === s.activeId
+                ? { ...c, pages, gameState, updatedAt: Date.now() }
+                : c
+            ),
+          };
+        }),
       getActivePages: () => {
         const { sessions, activeId } = get();
         const session = sessions.find((s) => s.id === activeId);
         return session?.pages ?? [];
       },
+      getActiveGameState: () => {
+        const { sessions, activeId } = get();
+        const session = sessions.find((s) => s.id === activeId);
+        return session?.gameState;
+      },
+      getAllSessionIds: () => get().sessions.map((s) => s.id),
     }),
     {
       name: 'coc_chat_v1',

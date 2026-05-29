@@ -510,6 +510,19 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           useInventoryStore.getState().applyChanges(newPage.inventoryChanges);
           pushLog('info', `物品更新: ${newPage.inventoryChanges.length}项变化`, 'system');
         }
+
+        // Snapshot full game state into session for per-save isolation
+        {
+          const { useInventoryStore } = await import('../stores/useInventoryStore');
+          const { useCharSheetStore } = await import('../stores/useCharSheetStore');
+          const { useKeywordStore } = await import('../stores/useKeywordStore');
+          chatStore.saveGameState(useBookStore.getState().pages, {
+            character: useCharSheetStore.getState().sheet ?? undefined,
+            inventory: useInventoryStore.getState().items,
+            darkThread: useDarkThreadStore.getState().entries,
+            keywords: useKeywordStore.getState().keywords,
+          });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');

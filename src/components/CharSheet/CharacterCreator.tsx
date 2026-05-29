@@ -7,6 +7,8 @@ import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useLorebookStore } from '../../stores/useLorebookStore';
+import { useKeywordStore } from '../../stores/useKeywordStore';
+import { cleanupOrphanGameState } from '../../stores/sessionLifecycle';
 import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
@@ -403,10 +405,12 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
 
     setSheet(sheet);
+    cleanupOrphanGameState();
     useDarkThreadStore.getState().clearAll();
     useInventoryStore.getState().clearAll();
     useVariableStore.getState().clearAll();
     useLorebookStore.getState().clearSummaryEntries();
+    useKeywordStore.getState().replaceAll({});
     useChatStore.getState().createSession(sheet.identity.name || '未命名调查员');
     onComplete();
   }, [

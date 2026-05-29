@@ -6,6 +6,7 @@ import { stripFunctions } from '../db/stripFunctions';
 interface KeywordStore {
   keywords: Record<string, string>;
   addKeywords: (entries: Record<string, string>) => void;
+  replaceAll: (keywords: Record<string, string>) => void;
 }
 
 export const useKeywordStore = create<KeywordStore>()(
@@ -19,6 +20,7 @@ export const useKeywordStore = create<KeywordStore>()(
         }
         return { keywords: merged };
       }),
+      replaceAll: (keywords) => set({ keywords }),
     }),
     {
       name: 'coc_keywords_v1',

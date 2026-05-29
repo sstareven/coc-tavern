@@ -43,8 +43,8 @@ export function DebugConsole() {
       const testPage = {
         leftHeader: '调试页面 · DEBUG',
         leftContent: lorem,
-        leftPage: `— ${bookStore.pages.length * 2 + 1} —`,
-        rightPage: `— ${bookStore.pages.length * 2 + 2} —`,
+        leftPage: `— ${bookStore.pages.length * 2 + 3} —`,
+        rightPage: `— ${bookStore.pages.length * 2 + 4} —`,
         rightHeader: '测试选项',
         rightContent: '这是一个调试用的测试页面，用于检查布局是否正常。',
         rightChoices: [

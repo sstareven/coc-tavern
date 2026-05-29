@@ -76,14 +76,14 @@ const defaultPages: BookPage[] = [
   },
 ];
 
-/** Page number from floor index: 0→1, 1→3, 2→5... */
+/** Page number from floor index: 0→3, 1→5, 2→7... (pages 1-2 are TOC) */
 function pageNum(index: number): string {
-  return `— ${index * 2 + 1} —`;
+  return `— ${index * 2 + 3} —`;
 }
 
-/** Right page number from floor index: 0→2, 1→4, 2→6... */
+/** Right page number from floor index: 0→4, 1→6, 2→8... (pages 1-2 are TOC) */
 function rightPageNum(index: number): string {
-  return `— ${index * 2 + 2} —`;
+  return `— ${index * 2 + 4} —`;
 }
 
 const FLIP_DURATION = 1500;
