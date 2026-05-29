@@ -247,6 +247,15 @@ export function Storybook() {
                   borderRadius: 4, display: 'flex', flexDirection: 'column', overflow: 'hidden',
                 }}
               >
+                <style>{`
+                  @keyframes tocMarquee {
+                    0% { transform: translateX(0); }
+                    20% { transform: translateX(0); }
+                    80% { transform: translateX(calc(-100% + 200px)); }
+                    100% { transform: translateX(calc(-100% + 200px)); }
+                  }
+                  .toc-marquee { animation: tocMarquee 8s linear infinite; }
+                `}</style>
                 <div style={{ padding: '32px 40px 16px', borderBottom: '1px solid rgba(196,168,85,0.2)', flexShrink: 0 }}>
                   <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--gold)', letterSpacing: 8, margin: 0 }}>目录</h2>
                   <p style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'rgba(196,168,85,0.4)', letterSpacing: 4, marginTop: 4 }}>TABLE OF CONTENTS</p>
@@ -274,8 +283,8 @@ export function Storybook() {
                             {p.leftHeader}
                           </div>
                           {p.summary && (
-                            <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {p.summary}
+                            <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative' }}>
+                              <span className="toc-marquee" style={{ display: 'inline-block', paddingRight: 40 }}>{p.summary}</span>
                             </div>
                           )}
                         </div>
