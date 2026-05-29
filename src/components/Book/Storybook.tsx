@@ -14,6 +14,7 @@ import { TokenDisplay } from '../Shared/TokenDisplay';
 export function Storybook() {
   const pages = useBookStore((s) => s.pages);
   const [showToc, setShowToc] = useState(false);
+  const [selectedToc, setSelectedToc] = useState(-1);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
@@ -259,36 +260,56 @@ export function Storybook() {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '12px 28px', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)' }}>
                   {pages.map((p, i) => {
                     const isCurrent = i === pageIndex;
+                    const isSelected = i === selectedToc;
                     return (
                       <div
                         key={i}
-                        onClick={() => { useBookStore.getState().goToPage(i); setShowToc(false); }}
+                        onClick={() => { setSelectedToc(isSelected ? -1 : i); }}
                         style={{
-                          display: 'flex', gap: 14, alignItems: 'baseline', padding: '10px 12px', cursor: 'pointer',
+                          display: 'flex', gap: 14, alignItems: 'baseline', padding: isSelected ? '14px 12px' : '10px 12px', cursor: 'pointer',
                           borderBottom: '1px solid rgba(196,168,85,0.06)',
-                          background: isCurrent ? 'rgba(196,168,85,0.08)' : 'transparent',
-                          borderLeft: isCurrent ? '2px solid var(--gold)' : '2px solid transparent',
-                          transition: 'var(--transition-smooth)',
+                          background: isSelected ? 'rgba(196,168,85,0.12)' : isCurrent ? 'rgba(196,168,85,0.06)' : 'transparent',
+                          borderLeft: isSelected ? '3px solid var(--gold)' : isCurrent ? '2px solid rgba(196,168,85,0.4)' : '2px solid transparent',
+                          transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
-                        onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = isCurrent ? 'rgba(196,168,85,0.08)' : 'transparent'; }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = isCurrent ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.04)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = isSelected ? 'rgba(196,168,85,0.12)' : isCurrent ? 'rgba(196,168,85,0.06)' : 'transparent'; }}
                       >
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(196,168,85,0.35)', flexShrink: 0, width: 24 }}>{p.leftPage}</span>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: isSelected ? 12 : 10,
+                          color: isSelected ? 'var(--gold)' : 'rgba(196,168,85,0.35)',
+                          flexShrink: 0, width: 24,
+                          transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}>{p.leftPage}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: isCurrent ? 'var(--gold)' : 'rgba(196,168,85,0.75)', letterSpacing: 2 }}>
+                          <div style={{
+                            fontFamily: 'var(--font-display)',
+                            fontSize: isSelected ? 16 : 14,
+                            color: isSelected ? 'var(--gold)' : isCurrent ? 'rgba(196,168,85,0.8)' : 'rgba(196,168,85,0.55)',
+                            letterSpacing: isSelected ? 3 : 2,
+                            transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                          }}>
                             {p.leftHeader}
                           </div>
                           {p.summary && (
                             <div style={{
-                              fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(196,168,85,0.35)', marginTop: 3, lineHeight: 1.5,
+                              fontFamily: 'var(--font-body)', fontSize: 11,
+                              color: isSelected ? 'rgba(196,168,85,0.55)' : 'rgba(196,168,85,0.25)',
+                              marginTop: 3, lineHeight: 1.5,
                               overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative',
-                              maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
-                              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+                              maxHeight: isSelected ? 20 : 0, opacity: isSelected ? 1 : 0,
+                              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                              maskImage: isSelected ? 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' : 'none',
+                              WebkitMaskImage: isSelected ? 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' : 'none',
                             }}>
-                              <div className="toc-marquee-track" style={{ '--toc-dur': `${Math.max(6, (p.summary || '').length * 0.2 + 2)}s` } as React.CSSProperties}>
+                              {isSelected ? (
+                                <div className="toc-marquee-track" style={{ '--toc-dur': `${Math.max(6, (p.summary || '').length * 0.2 + 2)}s` } as React.CSSProperties}>
+                                  <span>{p.summary}</span>
+                                  <span>{p.summary}</span>
+                                </div>
+                              ) : (
                                 <span>{p.summary}</span>
-                                <span>{p.summary}</span>
-                              </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -300,13 +321,18 @@ export function Storybook() {
             )}
           </AnimatePresence>
 
-          {/* Navigation arrows */}
-          <PageNav
-            onFlipForward={flipForward}
-            onFlipBackward={flipBackward}
-            canGoNext={canGoNext}
-            canGoPrev={canGoPrev}
-          />
+          {/* Navigation arrows — hidden when TOC is open */}
+          <div style={{
+            opacity: showToc ? 0 : 1, pointerEvents: showToc ? 'none' : 'auto',
+            transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            <PageNav
+              onFlipForward={flipForward}
+              onFlipBackward={flipBackward}
+              canGoNext={canGoNext}
+              canGoPrev={canGoPrev}
+            />
+          </div>
         </div>
 
         {/* Bookmark tabs — positioned on the LEFT, tucked under book edge */}
@@ -343,7 +369,13 @@ export function Storybook() {
 
           {/* Tab 2: 目录 → table of contents overlay */}
           <button
-            onClick={() => setShowToc(!showToc)}
+            onClick={() => {
+              if (showToc) {
+                if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
+                setSelectedToc(-1);
+              }
+              setShowToc(!showToc);
+            }}
             style={showToc ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!showToc) {
