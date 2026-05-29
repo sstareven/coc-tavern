@@ -5,12 +5,12 @@ import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import type { DiceRecord } from '../../types';
 
 const RESULT_COLORS: Record<string, { color: string; bg: string }> = {
-  'crit-success': { color: '#c4a855', bg: 'rgba(196,168,85,0.12)' },
+  'crit-success': { color: '#e8c84a', bg: 'rgba(196,168,85,0.12)' },
   'extreme-success': { color: '#5a8a4a', bg: 'rgba(90,138,74,0.1)' },
   'hard-success': { color: '#5a8a4a', bg: 'rgba(90,138,74,0.08)' },
   'success': { color: '#6b7a4a', bg: 'rgba(107,122,74,0.08)' },
   'failure': { color: '#8b6040', bg: 'rgba(139,96,64,0.08)' },
-  'crit-failure': { color: '#8b3a3a', bg: 'rgba(139,58,58,0.1)' },
+  'crit-failure': { color: '#d45050', bg: 'rgba(139,58,58,0.1)' },
 };
 
 const RESULT_LABELS: Record<string, string> = {
