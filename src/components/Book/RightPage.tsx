@@ -297,6 +297,10 @@ const BONUS_COLORS = {
   opposed: { color: '#5c2e8b', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
 };
 
+function cleanChoiceText(text: string): string {
+  return text.replace(/\[检定\s*[:：][^\]]*\]\s*/g, '').replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '').trim();
+}
+
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const [hovered, setHovered] = useState(false);
   const check = parseCheckAction(ch.action);
@@ -324,7 +328,7 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       onMouseLeave={() => setHovered(false)}
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
-      <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{ch.text}</span>
+      <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{cleanChoiceText(ch.text)}</span>
       {isCheck && check && (() => {
         const val = playerSkill?.current ?? 0;
         const isHardOrExtreme = check.target === 0 && (check.difficulty === '困难' || check.difficulty === '极难');
