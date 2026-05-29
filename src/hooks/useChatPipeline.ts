@@ -225,14 +225,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (raw) {
           const saved = JSON.parse(raw);
           if (saved[activePresetId]) {
-            const s = saved[activePresetId];
-            const builtin = DEFAULT_PRESETS[activePresetId];
-            activePreset = {
-              ...DEFAULT_INPUT_PRESET,
-              ...(builtin || {}),
-              ...s,
-              promptItems: s.promptItems && s.promptItems.length > 0 ? s.promptItems : (builtin?.promptItems || []),
-            };
+            activePreset = { ...DEFAULT_INPUT_PRESET, ...saved[activePresetId] };
           }
         }
       } catch {
