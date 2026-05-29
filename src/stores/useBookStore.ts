@@ -229,7 +229,11 @@ export const useBookStore = create<BookStore>((set, get) => ({
     set({ pages: trimmed, pageIndex: newPageIndex });
   },
   setPages: (pages) => {
-    const withIds = pages.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
+    // 开场白随版本刷新：老存档里固化的序章页用最新模板替换，保留后续进度与原 id
+    const refreshed = pages.length > 0 && pages[0]?.leftHeader === '序章'
+      ? [{ ...defaultPages[0], id: pages[0].id }, ...pages.slice(1)]
+      : pages;
+    const withIds = refreshed.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
     set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
   },
   addDiceToCurrentPage: (record) => {
