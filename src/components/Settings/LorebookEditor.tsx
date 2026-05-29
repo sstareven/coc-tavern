@@ -480,7 +480,7 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
             </FieldGroup>
             <FieldGroup label="匹配逻辑">
               <Dropdown value={form.logic} onChange={(v) => onChange({ ...form, logic: v as LoreEntry['logic'] })}
-                options={[{ label: 'AND', value: 'AND' }, { label: 'OR', value: 'OR' }, { label: 'NOT', value: 'NOT' }]} />
+                options={[{ label: '与任意', value: 'AND_ANY' }, { label: '与所有', value: 'AND_ALL' }, { label: '非任何', value: 'NOT_ANY' }, { label: '非所有', value: 'NOT_ALL' }]} />
             </FieldGroup>
           </div>
 
@@ -495,6 +495,74 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
               <SpinField value={form.probability} min={0} max={100} onChange={(v) => onChange({ ...form, probability: v })} />
             </FieldGroup>
           </div>
+
+          {/* Advanced settings collapsible */}
+          <details style={{ marginTop: 4, borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 8 }}>
+            <summary style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', cursor: 'pointer', letterSpacing: 1 }}>高级设置</summary>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <FieldGroup label="可选过滤器">
+                <input value={form.secondaryKeys || ''} onChange={(e) => onChange({ ...form, secondaryKeys: e.target.value })} placeholder="逗号分隔列表，为空则忽略" style={fieldInputStyle} />
+              </FieldGroup>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <FieldGroup label="扫描深度">
+                  <SpinField value={form.scanDepth || 0} min={0} max={50} onChange={(v) => onChange({ ...form, scanDepth: v })} />
+                </FieldGroup>
+                <FieldGroup label="区分大小写">
+                  <Dropdown value={String(form.caseSensitive || 0)} onChange={(v) => onChange({ ...form, caseSensitive: Number(v) })}
+                    options={[{ label: '全局设置', value: '0' }, { label: '是', value: '1' }, { label: '否', value: '2' }]} />
+                </FieldGroup>
+                <FieldGroup label="完整单词">
+                  <Dropdown value={String(form.matchWholeWord || 0)} onChange={(v) => onChange({ ...form, matchWholeWord: Number(v) })}
+                    options={[{ label: '全局设置', value: '0' }, { label: '是', value: '1' }, { label: '否', value: '2' }]} />
+                </FieldGroup>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <FieldGroup label="包含组">
+                  <input value={form.inclusionGroup || ''} onChange={(e) => onChange({ ...form, inclusionGroup: e.target.value })} placeholder="只有一个带有相同标签的条目将被激活" style={fieldInputStyle} />
+                </FieldGroup>
+                <FieldGroup label="组权重">
+                  <SpinField value={form.groupWeight ?? 100} min={0} max={9999} onChange={(v) => onChange({ ...form, groupWeight: v })} />
+                </FieldGroup>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <FieldGroup label="组评分">
+                  <Dropdown value={String(form.groupScoring || 0)} onChange={(v) => onChange({ ...form, groupScoring: Number(v) })}
+                    options={[{ label: '否', value: '0' }, { label: '是', value: '1' }, { label: '全局设置', value: '2' }]} />
+                </FieldGroup>
+                <FieldGroup label="自动化 ID">
+                  <input value={form.automationId || ''} onChange={(e) => onChange({ ...form, automationId: e.target.value })} placeholder="无" style={fieldInputStyle} />
+                </FieldGroup>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <FieldGroup label="粘性 (N条消息)">
+                  <SpinField value={form.sticky || 0} min={0} max={99} onChange={(v) => onChange({ ...form, sticky: v })} />
+                </FieldGroup>
+                <FieldGroup label="冷却 (N条消息)">
+                  <SpinField value={form.cooldown || 0} min={0} max={99} onChange={(v) => onChange({ ...form, cooldown: v })} />
+                </FieldGroup>
+                <FieldGroup label="延迟 (N条消息)">
+                  <SpinField value={form.delay || 0} min={0} max={99} onChange={(v) => onChange({ ...form, delay: v })} />
+                </FieldGroup>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <input type="checkbox" checked={form.prioritizeInclusion || false} onChange={(e) => onChange({ ...form, prioritizeInclusion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />确定优先级
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <input type="checkbox" checked={form.preventRecursion || false} onChange={(e) => onChange({ ...form, preventRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />不可递归
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <input type="checkbox" checked={form.delayUntilRecursion || false} onChange={(e) => onChange({ ...form, delayUntilRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />延迟到递归
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <input type="checkbox" checked={form.excludeRecursion || false} onChange={(e) => onChange({ ...form, excludeRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />防止进一步递归
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <input type="checkbox" checked={form.ignoreReplyLimit || false} onChange={(e) => onChange({ ...form, ignoreReplyLimit: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />无视回复限额
+                </label>
+              </div>
+            </div>
+          </details>
 
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button onClick={onSave} style={saveBtnStyle}>保存</button>
