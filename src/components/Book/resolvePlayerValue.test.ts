@@ -119,6 +119,27 @@ describe('resolvePlayerValue', () => {
     expect(resolvePlayerValue('侦查', mockSheet)).toEqual({ base: 25, current: 50 });
   });
 
+  // Alias normalization — LLM 口语/简称归一到精确名
+  it('归一 闪避 → 躲闪 (DEX/2)', () => {
+    expect(resolvePlayerValue('闪避', mockSheet)).toEqual({ base: 32, current: 32 });
+  });
+
+  it('归一 母语 → 语言(母语) (EDU)', () => {
+    expect(resolvePlayerValue('母语', mockSheet)).toEqual({ base: 70, current: 70 });
+  });
+
+  it('归一 侦察(错别字) → 侦查 (用已加点的 current)', () => {
+    expect(resolvePlayerValue('侦察', mockSheet)).toEqual({ base: 25, current: 50 });
+  });
+
+  it('归一 手枪 → 枪械(手枪) (未加点取基础值 20)', () => {
+    expect(resolvePlayerValue('手枪', mockSheet)).toEqual({ base: 20, current: 20 });
+  });
+
+  it('两侧空白被 trim', () => {
+    expect(resolvePlayerValue('  侦查  ', mockSheet)).toEqual({ base: 25, current: 50 });
+  });
+
   // Unknown skill fallback
   it('returns base value for unknown skill from ALL_SKILLS', () => {
     // This test assumes ALL_SKILLS has a skill with base value

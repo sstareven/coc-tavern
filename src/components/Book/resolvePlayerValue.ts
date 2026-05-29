@@ -6,10 +6,30 @@ const CHAR_MAP: Record<string, COC7Characteristic> = {
   '外貌': 'APP', '体型': 'SIZ', '智力': 'INT', '教育': 'EDU',
 };
 
+// 技能别名归一化：LLM 常用口语/简称发起检定，归一到 ALL_SKILLS / 角色卡的精确名，
+// 避免不精确匹配落到 fallback。key 不得与任何精确技能名/属性名冲突。
+// 注意：「驾驶」是合法精确名(Pilot 飞机/船)，故不作别名 key；「汽车/开车」单独归到「汽车驾驶」。
+const SKILL_ALIASES: Record<string, string> = {
+  '闪避': '躲闪',
+  '母语': '语言(母语)',
+  '外语': '语言(其他)', '其他语言': '语言(其他)',
+  '格斗': '格斗(斗殴)', '斗殴': '格斗(斗殴)', '近战': '格斗(斗殴)',
+  '手枪': '枪械(手枪)',
+  '步枪': '枪械(步枪/霰弹枪)', '霰弹枪': '枪械(步枪/霰弹枪)', '猎枪': '枪械(步枪/霰弹枪)',
+  '计算机': '计算机使用', '电脑': '计算机使用',
+  '图书馆': '图书馆使用',
+  '信用': '信用评级', '信誉': '信用评级',
+  '侦察': '侦查',
+  '汽车': '汽车驾驶', '开车': '汽车驾驶', '驾车': '汽车驾驶',
+  '克苏鲁': '克苏鲁神话', '神话': '克苏鲁神话',
+};
+
 export function resolvePlayerValue(
-  name: string,
+  rawName: string,
   sheet: CharacterSheet,
 ): { base: number; current: number } | null {
+  const trimmed = rawName.trim();
+  const name = SKILL_ALIASES[trimmed] ?? trimmed;
   const charKey = CHAR_MAP[name];
   if (charKey) {
     const val = sheet.characteristics[charKey];
