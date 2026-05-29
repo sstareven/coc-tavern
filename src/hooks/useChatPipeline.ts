@@ -12,6 +12,7 @@ import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
+import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
@@ -401,7 +402,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               mvuSettings.mvuRetryCount,
             );
             const st = useVariableStore.getState();
-            await import('../sillytavern/variables');
             st.processResponse(hookProcessedContent);
             for (const [name, value] of Object.entries(result.variables)) {
               st.setVariable(name, value, 'llm');
@@ -456,7 +456,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
         if (validationErrors.length > 0) {
           pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
-          const { useErrorModalStore } = await import('../stores/useErrorModalStore');
           useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
         }
 
