@@ -67,42 +67,43 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
           100% { box-shadow: 0 0 8px rgba(139,58,58,0.5), 0 0 16px rgba(139,58,58,0.25), 0 0 24px rgba(139,58,58,0.1); }
         }
       `}</style>
-      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: hasMeta ? 8 : 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
-
-      {hasMeta && (
-        <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden', minWidth: 0, ...fadeStyle }}>
-          {diceResults && diceResults.slice(0, 2).map((d, i) => {
-            const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
-            const isCrit = d.type === 'crit-success';
-            const isCritFail = d.type === 'crit-failure';
-            return (
-              <span key={i} style={{
-                fontSize: 8, fontFamily: 'var(--font-mono)', flexShrink: 0,
-                padding: '1px 5px', borderRadius: 2,
-                color: rc.color,
-                background: (isCrit || isCritFail) ? 'rgba(40,28,15,0.45)' : rc.bg,
-                border: `1px solid ${rc.color}33`,
-                boxShadow: isCrit
-                  ? `0 0 6px rgba(196,168,85,0.4), 0 0 12px rgba(196,168,85,0.2)`
-                  : isCritFail
-                  ? `0 0 6px rgba(139,58,58,0.4), 0 0 12px rgba(139,58,58,0.2)`
-                  : 'none',
-                animation: isCrit ? 'critGlow 2s ease-in-out infinite alternate' : isCritFail ? 'critFailGlow 2s ease-in-out infinite alternate' : 'none',
-              }}>
-                {d.skill} {RESULT_LABELS[d.type] || d.type}
-              </span>
-            );
-          })}
-          {summary && (
-            <span style={{
-              fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
-              fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              minWidth: 0, flex: '1 1 0',
-            }}>{summary}</span>
-          )}
-        </div>
-      )}
+      <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, ...fadeStyle }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
+        {hasMeta && (
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginTop: 6, overflow: 'hidden', minWidth: 0 }}>
+            {diceResults && diceResults.slice(0, 2).map((d, i) => {
+              const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
+              const isCrit = d.type === 'crit-success';
+              const isCritFail = d.type === 'crit-failure';
+              return (
+                <span key={i} style={{
+                  fontSize: 8, fontFamily: 'var(--font-mono)', flexShrink: 0,
+                  padding: '1px 5px', borderRadius: 2,
+                  color: rc.color,
+                  background: (isCrit || isCritFail) ? 'rgba(40,28,15,0.45)' : rc.bg,
+                  border: `1px solid ${rc.color}33`,
+                  boxShadow: isCrit
+                    ? `0 0 6px rgba(196,168,85,0.4), 0 0 12px rgba(196,168,85,0.2)`
+                    : isCritFail
+                    ? `0 0 6px rgba(139,58,58,0.4), 0 0 12px rgba(139,58,58,0.2)`
+                    : 'none',
+                  animation: isCrit ? 'critGlow 2s ease-in-out infinite alternate' : isCritFail ? 'critFailGlow 2s ease-in-out infinite alternate' : 'none',
+                }}>
+                  {d.skill} {RESULT_LABELS[d.type] || d.type}
+                </span>
+              );
+            })}
+            {summary && (
+              <span style={{
+                fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
+                fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.2,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                minWidth: 0, flex: '1 1 0',
+              }}>{summary}</span>
+            )}
+          </div>
+        )}
+      </div>
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
