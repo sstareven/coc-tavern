@@ -60,8 +60,9 @@ export function DebugConsole() {
         ],
       };
       bookStore.appendPage(testPage);
-      bookStore.goToPage(bookStore.pages.length - 1);
-      result = `已生成调试页面 (第 ${bookStore.pages.length} 页)`;
+      const updatedLen = useBookStore.getState().pages.length;
+      useBookStore.getState().goToPage(updatedLen - 1);
+      result = `已生成调试页面 (第 ${updatedLen} 页)`;
     } else if (trimmed === 'info') {
       const p = bookStore.pages[bookStore.pageIndex];
       result = `当前: 第${bookStore.pageIndex + 1}/${bookStore.pages.length}页 | "${p?.leftHeader}" | summary: ${p?.summary ? '有' : '无'} | dice: ${p?.diceResults?.length || 0}条`;
