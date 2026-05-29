@@ -141,9 +141,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       let otherEntries: LoreEntry[] = [];
       let summaryEntries: LoreEntry[] = [];
       const generateInjects: LoreEntry[] = [];
+      const constantEntries: LoreEntry[] = [];
       for (const [bookId, book] of Object.entries(allBooks)) {
         if (!thOptimize.forceWorldbookSettings && book.enabled === false) continue;
         for (const entry of Object.values(book.entries)) {
+          if (entry.disabled) continue;
           const keys = entry.keys.toLowerCase();
           const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
           const isInject = entry.keys.includes('@INJECT');
@@ -151,6 +153,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             generateInjects.push(entry);
           } else if (pt.injectLoaderEnabled && isInject) {
             generateInjects.push(entry);
+          } else if (entry.constant) {
+            constantEntries.push(entry);
           } else if (bookId === AUTO_SUMMARY_BOOK_ID) {
             summaryEntries.push(entry);
           } else {
@@ -160,12 +164,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
       const matchCtx = contextText + '\n' + macroProcessedInput;
       let matchedLore = matchLoreEntries(matchCtx, otherEntries);
+      // Probability filter: entries with probability < 100 have a chance of being skipped
+      matchedLore = matchedLore.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
       let matchedSummary = matchLoreEntries(matchCtx, summaryEntries);
       const maxSummary = useSettingsStore.getState().maxSummaryEntries;
       if (matchedSummary.length > maxSummary) {
         matchedSummary = matchedSummary.slice(-maxSummary);
       }
       matchedLore.push(...matchedSummary);
+      // Constant entries are always injected (bypass keyword matching)
+      matchedLore.push(...constantEntries);
 
       // Inject dark thread context (bypasses keyword matching)
       const darkCtx = useDarkThreadStore.getState().buildContextInjection();
