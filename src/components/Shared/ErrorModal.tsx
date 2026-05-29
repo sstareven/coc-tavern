@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useErrorModalStore } from '../../stores/useErrorModalStore';
 
 const overlayStyle: React.CSSProperties = {
@@ -58,6 +59,13 @@ const btnStyle: React.CSSProperties = {
 export function ErrorModal() {
   const error = useErrorModalStore((s) => s.error);
   const dismiss = useErrorModalStore((s) => s.dismiss);
+
+  useEffect(() => {
+    if (!error) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [error, dismiss]);
 
   if (!error) return null;
 
