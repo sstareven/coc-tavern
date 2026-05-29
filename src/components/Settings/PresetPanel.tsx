@@ -15,7 +15,25 @@ interface Props {
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
 
 function loadPresets(): Record<string, ChatPreset> {
-  try { const raw = localStorage.getItem(PRESET_STORAGE_KEY); return raw ? { ...DEFAULT_PRESETS, ...JSON.parse(raw) } : { ...DEFAULT_PRESETS }; } catch { return { ...DEFAULT_PRESETS }; }
+  try {
+    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_PRESETS };
+    const saved = JSON.parse(raw) as Record<string, ChatPreset>;
+    const merged = { ...DEFAULT_PRESETS };
+    for (const [k, v] of Object.entries(saved)) {
+      if (BUILTIN_PRESET_IDS.has(k)) {
+        const builtin = DEFAULT_PRESETS[k];
+        merged[k] = {
+          ...builtin,
+          ...v,
+          promptItems: v.promptItems && v.promptItems.length > 0 ? v.promptItems : builtin.promptItems,
+        };
+      } else {
+        merged[k] = v;
+      }
+    }
+    return merged;
+  } catch { return { ...DEFAULT_PRESETS }; }
 }
 function savePresets(p: Record<string, ChatPreset>) {
   const toSave: Record<string, ChatPreset> = {};
