@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePanelStore } from '../../stores/usePanelStore';
-import { useRegexStore } from '../../stores/useRegexStore';
+import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -251,10 +251,10 @@ function RegexSettingsContent() {
                   {script.disabled ? '⊘' : '●'}
                 </button>
                 <button onClick={() => openEditor(script, activeTab)} title="编辑" style={iconBtn}>✎</button>
-                {activeTab === 'global'
+                {!BUILTIN_REGEX_IDS.has(script.id) && (activeTab === 'global'
                   ? <button onClick={() => moveScript(script.id, 'global', 'preset')} title="移至预设" style={iconBtn}>⚙</button>
                   : <button onClick={() => moveScript(script.id, 'preset', 'global')} title="移至全局" style={iconBtn}>🌐</button>
-                }
+                )}
                 <button onClick={() => {
                   const json = exportScript(script.id, activeTab);
                   if (json) {
@@ -265,10 +265,12 @@ function RegexSettingsContent() {
                     URL.revokeObjectURL(url);
                   }
                 }} title="导出" style={iconBtn}>⤓</button>
-                <button onClick={() => {
-                  deleteScript(script.id, activeTab);
-                  setSelected((prev) => { const n = new Set(prev); n.delete(script.id); return n; });
-                }} title="删除" style={{ ...iconBtn, color: 'var(--blood)' }}>✕</button>
+                {!BUILTIN_REGEX_IDS.has(script.id) && (
+                  <button onClick={() => {
+                    deleteScript(script.id, activeTab);
+                    setSelected((prev) => { const n = new Set(prev); n.delete(script.id); return n; });
+                  }} title="删除" style={{ ...iconBtn, color: 'var(--blood)' }}>✕</button>
+                )}
               </div>
             </motion.div>
           ))}

@@ -165,6 +165,8 @@ if (typeof window !== 'undefined' && window.registerMvuSchema) {
 
 const MVU_SCRIPT_IDS = ['th-mvu-loader', 'th-mvu-schema'];
 
+export const BUILTIN_TH_IDS = new Set(MVU_SCRIPT_IDS);
+
 interface TavernHelperStore extends PersistedState {
   presetScripts: THScriptTree[];
 
@@ -207,6 +209,7 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       addGlobalItem: (item) => set((s) => ({ globalScripts: [...s.globalScripts, item] })),
 
       deleteGlobalItem: (id) => set((s) => {
+        if (BUILTIN_TH_IDS.has(id)) return s;
         function remove(items: THScriptTree[]): THScriptTree[] {
           return items
             .filter((i) => i.id !== id)

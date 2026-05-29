@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useLorebookStore } from '../../stores/useLorebookStore';
+import { useLorebookStore, isBuiltinEntry } from '../../stores/useLorebookStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry, InsertPosition } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
@@ -216,6 +216,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
   const handleDelete = () => {
     if (!editingId || editingId === '__new__') return;
+    if (isBuiltinEntry(bookId, editingId)) return;
     deleteEntry(bookId, editingId);
     setEditingId(null);
   };
@@ -344,7 +345,9 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                           books: { ...s.books, [bookId]: { ...s.books[bookId], entries: { ...s.books[bookId].entries, [newId]: { ...entry, name: entry.name + '(副)' } } } },
                         }));
                       }} title="复制" className="entry-row-btn" style={{ color: 'var(--ink-subtle)', position: 'relative', top: 3 }}>⧉</button>
-                      <button onClick={() => deleteEntry(bookId, id)} title="删除" className="entry-row-btn" style={{ color: 'var(--blood)' }}>✕</button>
+                      {!isBuiltinEntry(bookId, id) && (
+                        <button onClick={() => deleteEntry(bookId, id)} title="删除" className="entry-row-btn" style={{ color: 'var(--blood)' }}>✕</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -408,6 +411,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           onDelete={handleDelete}
           onCopy={handleCopy}
           isNew={editingId === '__new__'}
+          canDelete={!editingId || editingId === '__new__' || !isBuiltinEntry(bookId, editingId)}
         />
       )}
     </div>
@@ -416,9 +420,9 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
 // ── Entry Detail Modal ──
 
-function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew }: {
+function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew, canDelete = true }: {
   form: LoreEntry; onChange: (f: LoreEntry) => void; onSave: () => void; onClose: () => void;
-  onDelete: () => void; onCopy: () => void; isNew: boolean;
+  onDelete: () => void; onCopy: () => void; isNew: boolean; canDelete?: boolean;
 }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}
@@ -489,7 +493,7 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew 
 
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button onClick={onSave} style={saveBtnStyle}>保存</button>
-            {!isNew && <button onClick={onDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.4)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>删除</button>}
+            {!isNew && canDelete && <button onClick={onDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.4)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>删除</button>}
             {!isNew && <button onClick={onCopy} style={{ ...saveBtnStyle, borderColor: 'rgba(196,168,85,0.3)', color: 'var(--gold)', background: 'rgba(196,168,85,0.06)' }}>复制</button>}
             <div style={{ flex: 1 }} />
             <button onClick={onClose} style={{ ...saveBtnStyle, borderColor: 'rgba(255,255,255,0.1)', color: 'var(--ink-subtle)' }}>取消</button>

@@ -406,6 +406,16 @@ _元数据:
   }},
 };
 
+const BUILTIN_BOOK_IDS = new Set(Object.keys(defaultBooks));
+
+function isBuiltinEntry(bookId: string, entryId: string): boolean {
+  const book = defaultBooks[bookId];
+  if (!book) return false;
+  return entryId in book.entries;
+}
+
+export { BUILTIN_BOOK_IDS, isBuiltinEntry };
+
 let entryCounter = Date.now();
 
 interface LorebookStore {
@@ -432,6 +442,7 @@ export const useLorebookStore = create<LorebookStore>()(
         return { books };
       }),
       deleteEntry: (b, e) => set((s) => {
+        if (isBuiltinEntry(b, e)) return s;
         const books = { ...s.books };
         const entries = { ...books[b].entries };
         delete entries[e];

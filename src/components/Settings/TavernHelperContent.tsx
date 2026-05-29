@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useTavernHelperStore, uid } from '../../stores/useTavernHelperStore';
+import { useTavernHelperStore, uid, BUILTIN_TH_IDS } from '../../stores/useTavernHelperStore';
 import type { THScriptTree, THScript, THScriptFolder, THCodeCollapse } from '../../types';
 
 type SubTab = 'scripts' | 'render' | 'optimize';
@@ -191,7 +191,9 @@ function ScriptTab() {
           </span>
           {item.type === 'script' && <button onClick={() => handleToggle(item)} style={{ ...miniBtn, padding: '1px 8px', fontSize: 9, color: item.enabled ? 'var(--success)' : 'var(--ink-faded)' }}>{item.enabled ? 'ON' : 'OFF'}</button>}
           <button onClick={() => startEdit(item)} style={iconBtn} title="编辑">✎</button>
-          <button onClick={() => { if (confirm(`删除 "${item.name}"？`)) deleteItem(item.id); }} style={{ ...iconBtn, color: 'var(--blood)' }} title="删除">✕</button>
+          {!BUILTIN_TH_IDS.has(item.id) && (
+            <button onClick={() => { if (confirm(`删除 "${item.name}"？`)) deleteItem(item.id); }} style={{ ...iconBtn, color: 'var(--blood)' }} title="删除">✕</button>
+          )}
         </div>
         {isFolder && (item as THScriptFolder).children.map((child) => renderItem(child, depth + 1))}
       </div>

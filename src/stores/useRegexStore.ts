@@ -64,6 +64,8 @@ const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
   },
 ];
 
+export const BUILTIN_REGEX_IDS = new Set(DEFAULT_GLOBAL_SCRIPTS.map((s) => s.id));
+
 interface RegexStore {
   // Scripts by type
   globalScripts: RegexScript[];
@@ -135,6 +137,7 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   },
 
   deleteScript: (id, type) => {
+    if (BUILTIN_REGEX_IDS.has(id)) return;
     set((st) => {
       switch (type) {
         case 'global': return { globalScripts: st.globalScripts.filter((s) => s.id !== id) };
@@ -155,6 +158,7 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   },
 
   moveScript: (id, fromType, toType) => {
+    if (BUILTIN_REGEX_IDS.has(id)) return;
     const st = get();
     const fromArr = st.getScripts(fromType);
     const script = fromArr.find((s) => s.id === id);
@@ -174,8 +178,10 @@ export const useRegexStore = create<RegexStore>((set, get) => ({
   },
 
   bulkDelete: (ids, type) => {
+    const filtered = ids.filter((id) => !BUILTIN_REGEX_IDS.has(id));
+    if (filtered.length === 0) return;
     set((st) => {
-      const filterAll = (arr: RegexScript[]) => arr.filter((s) => !ids.includes(s.id));
+      const filterAll = (arr: RegexScript[]) => arr.filter((s) => !filtered.includes(s.id));
       switch (type) {
         case 'global': return { globalScripts: filterAll(st.globalScripts) };
         case 'preset': return { presetScripts: filterAll(st.presetScripts) };
