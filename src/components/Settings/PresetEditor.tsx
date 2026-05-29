@@ -41,7 +41,14 @@ const CONTENT_SOURCE: Record<string, string> = {
 };
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
-  const [form, setForm] = useState<ChatPreset>({ ...preset });
+  const [form, _setForm] = useState<ChatPreset>({ ...preset });
+  const setForm = (updater: React.SetStateAction<ChatPreset>) => {
+    _setForm((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      queueMicrotask(() => onSave(next));
+      return next;
+    });
+  };
   const [thVarsOpen, setThVarsOpen] = useState(false);
   const [thNewName, setThNewName] = useState('');
   const [thNewValue, setThNewValue] = useState('');
@@ -96,7 +103,9 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   };
 
   type FK = keyof ChatPreset;
-  const set = (k: FK, v: string | number | boolean) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: FK, v: string | number | boolean) => {
+    setForm((p) => ({ ...p, [k]: v }));
+  };
 
   return (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -144,9 +153,9 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={s.fieldCol}>
               <span style={s.label}>最大回复长度 (Token)</span>
               <div style={s.sliderRow}>
-                <input type="range" min={64} max={8192} step={64} value={form.maxResponseTokens}
-                  onChange={(e) => set('maxResponseTokens', Number(e.target.value))} style={s.slider} />
-                <input type="number" value={form.maxResponseTokens} onChange={(e) => set('maxResponseTokens', Number(e.target.value))}
+                <input type="range" min={64} max={20000} step={64} value={form.maxTokens}
+                  onChange={(e) => set('maxTokens', Number(e.target.value))} style={s.slider} />
+                <input type="number" value={form.maxTokens} onChange={(e) => set('maxTokens', Number(e.target.value))}
                   style={s.numInput} />
               </div>
             </div>
@@ -569,12 +578,11 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
           )}
         </div>
 
-        <button onClick={() => onSave(form)} style={{
-          width: '100%', marginTop: 20, padding: '10px 0',
-          border: '1px solid var(--gold)', borderRadius: 4,
-          background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-          fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 3, cursor: 'pointer',
-        }}>保存预设</button>
+        <div style={{
+          width: '100%', marginTop: 20, padding: '8px 0',
+          textAlign: 'center',
+          fontSize: 10, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 2,
+        }}>所有更改已自动保存</div>
       </div>
     </div>
   );

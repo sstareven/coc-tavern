@@ -28,7 +28,7 @@ import {
 import { trimToBudget, getModelBudget } from '../sillytavern/context-manager';
 import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
-import { DEFAULT_INPUT_PRESET } from '../constants/presets';
+import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS } from '../constants/presets';
 import { FORMAT_INSTRUCTION } from '../sillytavern/format-instruction';
 import { parseLlmResponse } from '../sillytavern/llm-response-parser';
 import { applyPostProcessing } from '../sillytavern/post-processor';
@@ -205,19 +205,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         useChatStore
           .getState()
           .sessions.find((s) => s.id === useChatStore.getState().activeId)?.presetId ||
-        localStorage.getItem('coc_last_preset');
+        localStorage.getItem('coc_last_preset') ||
+        'p2';
       let activePreset: ChatPreset = DEFAULT_INPUT_PRESET;
-      if (activePresetId && activePresetId !== 'p1') {
-        try {
-          const raw = localStorage.getItem('coc_presets_v1');
-          if (raw) {
-            const saved = JSON.parse(raw);
-            if (saved[activePresetId]) {
-              activePreset = { ...DEFAULT_INPUT_PRESET, ...saved[activePresetId] };
-            }
+      try {
+        const raw = localStorage.getItem('coc_presets_v1');
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved[activePresetId]) {
+            activePreset = { ...DEFAULT_INPUT_PRESET, ...saved[activePresetId] };
           }
-        } catch {
-          /* use default */
+        }
+      } catch {
+        /* use default */
+      }
+      // Fall back to built-in presets if not found in localStorage
+      if (activePreset === DEFAULT_INPUT_PRESET && activePresetId) {
+        if (DEFAULT_PRESETS[activePresetId]) {
+          activePreset = { ...DEFAULT_INPUT_PRESET, ...DEFAULT_PRESETS[activePresetId] };
         }
       }
 
