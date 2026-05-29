@@ -55,6 +55,7 @@ export interface BookPage {
   rightChoices: ChoiceItem[];
   sceneInfo?: SceneInfo;
   summary?: string;
+  diceResults?: DiceRecord[];
 }
 
 export interface ChoiceItem {

@@ -2,15 +2,32 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
+import type { DiceRecord } from '../../types';
+
+const RESULT_COLORS: Record<string, { color: string; bg: string }> = {
+  'crit-success': { color: '#c4a855', bg: 'rgba(196,168,85,0.12)' },
+  'extreme-success': { color: '#5a8a4a', bg: 'rgba(90,138,74,0.1)' },
+  'hard-success': { color: '#5a8a4a', bg: 'rgba(90,138,74,0.08)' },
+  'success': { color: '#6b7a4a', bg: 'rgba(107,122,74,0.08)' },
+  'failure': { color: '#8b6040', bg: 'rgba(139,96,64,0.08)' },
+  'crit-failure': { color: '#8b3a3a', bg: 'rgba(139,58,58,0.1)' },
+};
+
+const RESULT_LABELS: Record<string, string> = {
+  'crit-success': '大成功', 'extreme-success': '极难成功', 'hard-success': '困难成功',
+  'success': '成功', 'failure': '失败', 'crit-failure': '大失败',
+};
 
 interface Props {
   header: string;
   content: string;
   pageNum: string;
   isFlipping?: boolean;
+  summary?: string;
+  diceResults?: DiceRecord[];
 }
 
-export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
+export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -18,7 +35,6 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
     opacity: isFlipping ? 0 : 1,
     transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',
   };
-  // Skip rendering if PT disabled or render disabled
   const effectiveRender = pt.enabled ? pt.renderEnabled : true;
   const renderedContent = effectiveRender
     ? renderContentWithCodeBlocks(content, {
@@ -28,6 +44,8 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
         codeBlocks: pt.enabled ? pt.codeBlocksEnabled : true,
       })
     : [content];
+
+  const hasMeta = !!(summary || (diceResults && diceResults.length > 0));
 
   return (
     <div style={{
@@ -39,7 +57,34 @@ export function LeftPage({ header, content, pageNum, isFlipping }: Props) {
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
       fontSize: 15, lineHeight: 1.75, position: 'relative',
     }}>
-      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: hasMeta ? 8 : 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
+
+      {hasMeta && (
+        <div style={{ flexShrink: 0, marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', ...fadeStyle }}>
+          {summary && (
+            <span style={{
+              fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)',
+              fontStyle: 'italic', letterSpacing: 0.5, lineHeight: 1.4,
+              flex: '1 1 auto', minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{summary}</span>
+          )}
+          {diceResults && diceResults.map((d, i) => {
+            const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
+            return (
+              <span key={i} style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)', flexShrink: 0,
+                padding: '1px 6px', borderRadius: 2,
+                color: rc.color, background: rc.bg,
+                border: `1px solid ${rc.color}22`,
+              }}>
+                {d.skill} {RESULT_LABELS[d.type] || d.type}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
