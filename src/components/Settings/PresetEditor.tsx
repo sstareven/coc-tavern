@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
+import { BUILTIN_LIBRARY_PROMPTS } from '../../constants/prompt-library';
 import { DarkSelect } from '../Shared/DarkSelect';
 import type { ChatPreset, PromptItem, THVariable } from '../../types';
 
@@ -74,16 +75,22 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // All items = existing promptItems (markers stay where they are, no auto-adding)
+  // All items = existing promptItems + built-in library prompts (always available in cache)
   const allItems: PromptItem[] = (() => {
     const existing = [...form.promptItems];
     const hasMarkers = existing.some((p: PromptItem) => p.kind === 'marker');
-    // Only auto-add missing markers for default presets with no markers
     if (!hasMarkers) {
       for (const mod of MODULE_ITEMS) {
         if (!existing.find((p: PromptItem) => p.id === mod.key)) {
           existing.unshift({ id: mod.key, name: mod.label, kind: 'marker', readOnly: mod.key === 'dialogueExamples' || mod.key === 'chatHistory', role: 'system', trigger: [], position: 'relative', depth: 0, order: 0, content: mod.content, enabled: true, _library: false });
         }
+      }
+    }
+    // Merge built-in library prompts (always present in cache dropdown)
+    const existingIds = new Set(existing.map((p: PromptItem) => p.id));
+    for (const lib of BUILTIN_LIBRARY_PROMPTS) {
+      if (!existingIds.has(lib.id)) {
+        existing.push(lib);
       }
     }
     return existing;

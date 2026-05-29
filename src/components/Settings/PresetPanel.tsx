@@ -13,40 +13,12 @@ interface Props {
 }
 
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
-const PRESET_MIGRATION_KEY = 'coc_presets_migrated_v3';
 
 function loadPresets(): Record<string, ChatPreset> {
   try {
     const raw = localStorage.getItem(PRESET_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PRESETS };
-    const saved = JSON.parse(raw) as Record<string, ChatPreset>;
-    const merged = { ...DEFAULT_PRESETS, ...saved };
-
-    if (!localStorage.getItem(PRESET_MIGRATION_KEY)) {
-      let changed = false;
-      for (const id of BUILTIN_PRESET_IDS) {
-        const builtin = DEFAULT_PRESETS[id];
-        if (!builtin || !saved[id]) continue;
-        const current = merged[id].promptItems || [];
-        const currentIds = new Set(current.map((p: { id: string }) => p.id));
-        const missing = builtin.promptItems.filter((p: { id: string }) => !currentIds.has(p.id));
-        if (missing.length > 0) {
-          merged[id] = { ...merged[id], promptItems: [...current, ...missing] };
-          changed = true;
-        }
-      }
-      localStorage.setItem(PRESET_MIGRATION_KEY, '1');
-      if (changed) {
-        localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(
-          Object.fromEntries(Object.entries(merged).filter(([k]) => {
-            const b = DEFAULT_PRESETS[k];
-            return !b || JSON.stringify(merged[k]) !== JSON.stringify(b);
-          }))
-        ));
-      }
-    }
-
-    return merged;
+    return { ...DEFAULT_PRESETS, ...JSON.parse(raw) };
   } catch { return { ...DEFAULT_PRESETS }; }
 }
 function savePresets(p: Record<string, ChatPreset>) {
