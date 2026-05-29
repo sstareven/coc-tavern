@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage } from '../types';
+import type { BookPage, DiceRecord } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 
 const defaultPages: BookPage[] = [
@@ -106,6 +106,7 @@ interface BookStore {
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
   setPages: (pages: BookPage[]) => void;
+  addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
 let flipRaf = 0;
@@ -199,5 +200,13 @@ export const useBookStore = create<BookStore>((set, get) => ({
   },
   setPages: (pages) => {
     set({ pages, pageIndex: Math.max(0, pages.length - 1) });
+  },
+  addDiceToCurrentPage: (record) => {
+    const { pages, pageIndex } = get();
+    const page = pages[pageIndex];
+    if (!page) return;
+    const updated = [...pages];
+    updated[pageIndex] = { ...page, diceResults: [...(page.diceResults || []), record] };
+    set({ pages: updated });
   },
 }));

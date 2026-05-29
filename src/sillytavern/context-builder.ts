@@ -4,7 +4,14 @@ export function buildContextFromPages(): string {
   const { pages, pageIndex } = useBookStore.getState();
   const relevantPages = pages.slice(Math.max(0, pageIndex - 2), pageIndex + 1);
   let ctx = relevantPages
-    .map((p) => `【${p.leftHeader}】${p.leftContent}\n【${p.rightHeader}】${p.rightContent}`)
+    .map((p) => {
+      let section = `【${p.leftHeader}】${p.leftContent}\n【${p.rightHeader}】${p.rightContent}`;
+      if (p.summary) section = `[摘要: ${p.summary}]\n${section}`;
+      if (p.diceResults && p.diceResults.length > 0) {
+        section += `\n[检定记录: ${p.diceResults.map((d) => `${d.skill} d100=${d.roll}/${d.target} ${d.type}`).join('; ')}]`;
+      }
+      return section;
+    })
     .join('\n\n');
 
   // Append current scene info as context for continuity

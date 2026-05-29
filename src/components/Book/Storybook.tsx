@@ -182,18 +182,18 @@ export function Storybook() {
                 {direction === 'backward' ? (
                   /* [A] flips to the right — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="backward">
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
                   </CSSFlipPage>
                 ) : (
                   /* Forward: [A] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
                   </FadingPage>
                 )}
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
               </AppearPage>
             )}
           </div>

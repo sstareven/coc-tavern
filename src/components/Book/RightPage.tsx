@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
+import { useBookStore } from '../../stores/useBookStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
@@ -170,13 +171,15 @@ function fillInputBar(text: string) {
     const outcomeLabel = r.outcome === 'win' ? '胜利' : r.outcome === 'lose' ? '失败' : '平局';
     const resultLine = `[${parsed.skillName}对抗 玩家d100=${r.pRaw}/${parsed.target}(${r.pLabel}) vs 对手d100=${r.oRaw}/${parsed.opponentTarget}(${r.oLabel}) → ${outcomeLabel}]\n`;
 
-    useDiceStore.getState().addRecord({
+    const diceRec = {
       skill: `${parsed.skillName}(对抗)`,
       roll: String(r.pRaw),
       target: String(parsed.target),
       type: r.pResult as DiceResultType,
       time: Date.now(),
-    });
+    };
+    useDiceStore.getState().addRecord(diceRec);
+    useBookStore.getState().addDiceToCurrentPage(diceRec);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -196,13 +199,15 @@ function fillInputBar(text: string) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target}${bonusLabel} ${result.label}]\n`;
 
-    useDiceStore.getState().addRecord({
+    const diceRec2 = {
       skill: parsed.bonus === 'bonus' ? `${parsed.skillName}(奖励骰)` : parsed.bonus === 'penalty' ? `${parsed.skillName}(惩罚骰)` : parsed.skillName,
       roll: String(result.raw),
       target: String(parsed.target),
       type: result.resultType as DiceResultType,
       time: Date.now(),
-    });
+    };
+    useDiceStore.getState().addRecord(diceRec2);
+    useBookStore.getState().addDiceToCurrentPage(diceRec2);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -221,13 +226,15 @@ function fillInputBar(text: string) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName}${diffLabel} d100=${rollStr}/${resolvedTarget}${bonusLabel} ${result.label}]\n`;
 
-    useDiceStore.getState().addRecord({
+    const diceRec3 = {
       skill: `${parsed.skillName}${diffLabel}${bonusLabel}`,
       roll: String(result.raw),
       target: String(resolvedTarget),
       type: result.resultType as DiceResultType,
       time: Date.now(),
-    });
+    };
+    useDiceStore.getState().addRecord(diceRec3);
+    useBookStore.getState().addDiceToCurrentPage(diceRec3);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
