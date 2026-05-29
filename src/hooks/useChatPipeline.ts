@@ -3,6 +3,7 @@ import { useBookStore } from '../stores/useBookStore';
 import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
+import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useChatStore } from '../stores/useChatStore';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
@@ -163,7 +164,6 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       matchedLore.push(...matchedSummary);
 
       // Inject dark thread context (bypasses keyword matching)
-      const { useDarkThreadStore } = await import('../stores/useDarkThreadStore');
       const darkCtx = useDarkThreadStore.getState().buildContextInjection();
       if (darkCtx) {
         matchedLore.push({
