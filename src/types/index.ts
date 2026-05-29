@@ -136,6 +136,17 @@ export interface LoreEntry {
   delayUntilRecursion: boolean;
   excludeRecursion: boolean;
   ignoreReplyLimit: boolean;
+  // ── Character filter — 角色过滤（白/黑名单），空 names+tags = 不过滤 ──
+  characterFilter?: { isExclude: boolean; names: string[]; tags: string[] };
+  // ── Triggers — 生成类型触发，空数组/undefined = 不限 ──
+  triggers?: ('normal' | 'continue' | 'regenerate' | 'quiet')[];
+  // ── Additional matching sources — 额外匹配来源（SillyTavern 兼容）──
+  matchPersonaDescription?: boolean;
+  matchCharacterDescription?: boolean;
+  matchCharacterPersonality?: boolean;
+  matchCharacterDepthPrompt?: boolean;
+  matchScenario?: boolean;
+  matchCreatorNotes?: boolean;
 }
 
 export interface LoreBook {

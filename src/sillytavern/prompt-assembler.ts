@@ -28,6 +28,15 @@ export interface MatchContext {
   tokenBudget: number;
   charName: string;
   generationType: 'normal' | 'continue' | 'regenerate' | 'quiet';
+  charTags?: string[];
+  matchSources?: {
+    personaDescription: string;
+    characterDescription: string;
+    characterPersonality: string;
+    characterDepthPrompt: string;
+    scenario: string;
+    creatorNotes: string;
+  };
 }
 
 function isRegex(key: string): RegExp | null {
@@ -97,6 +106,8 @@ export function matchLoreEntries(
   const tokenBudget = matchCtx?.tokenBudget ?? 0;
   const charName = matchCtx?.charName ?? '';
   const genType = matchCtx?.generationType ?? 'normal';
+  const charTags = matchCtx?.charTags ?? [];
+  const matchSources = matchCtx?.matchSources;
 
   function matchSingle(
     ctx: string,
@@ -107,6 +118,21 @@ export function matchLoreEntries(
     const cs = entry.caseSensitive === 1 ? true : entry.caseSensitive === 2 ? false : globalCS;
     const ww = entry.matchWholeWord === 1 ? true : entry.matchWholeWord === 2 ? false : globalWW;
 
+    // Character filter — 白/黑名单（优先于 sticky，不符合者直接排除）
+    const cf = entry.characterFilter;
+    if (cf && ((cf.names?.length ?? 0) > 0 || (cf.tags?.length ?? 0) > 0)) {
+      const nameHit = (cf.names ?? []).some((n) => n.toLowerCase() === charName.toLowerCase());
+      const tagHit = (cf.tags ?? []).some((t) => charTags.includes(t));
+      const matched = nameHit || tagHit;
+      // isExclude=false → 白名单：未命中则排除；isExclude=true → 黑名单：命中则排除
+      if (cf.isExclude ? matched : !matched) return { pass: false, score: 0 };
+    }
+
+    // Triggers — 生成类型触发（空数组 = 不限）
+    if (entry.triggers && entry.triggers.length > 0 && !entry.triggers.includes(genType)) {
+      return { pass: false, score: 0 };
+    }
+
     if (entry.delay > 0 && msgCount < entry.delay) return { pass: false, score: 0 };
     if (cooldown && (cooldown.get(id) ?? 0) > 0) return { pass: false, score: 0 };
     if (!isRecursion && entry.delayUntilRecursion) return { pass: false, score: 0 };
@@ -114,9 +140,22 @@ export function matchLoreEntries(
 
     if (sticky && (sticky.get(id) ?? 0) > 0) return { pass: true, score: 0 };
 
+    // Additional matching sources — 仅主匹配阶段把额外来源拼入扫描文本（递归阶段用已激活内容）
+    let scanText = ctx;
+    if (!isRecursion && matchSources) {
+      const extra: string[] = [];
+      if (entry.matchPersonaDescription && matchSources.personaDescription) extra.push(matchSources.personaDescription);
+      if (entry.matchCharacterDescription && matchSources.characterDescription) extra.push(matchSources.characterDescription);
+      if (entry.matchCharacterPersonality && matchSources.characterPersonality) extra.push(matchSources.characterPersonality);
+      if (entry.matchCharacterDepthPrompt && matchSources.characterDepthPrompt) extra.push(matchSources.characterDepthPrompt);
+      if (entry.matchScenario && matchSources.scenario) extra.push(matchSources.scenario);
+      if (entry.matchCreatorNotes && matchSources.creatorNotes) extra.push(matchSources.creatorNotes);
+      if (extra.length > 0) scanText = ctx + '\n' + extra.join('\n');
+    }
+
     const keys = splitKeys(entry.keys);
     if (keys.length === 0) return { pass: false, score: 0 };
-    const matches = keys.map((k) => keyMatch(ctx, k, cs, ww));
+    const matches = keys.map((k) => keyMatch(scanText, k, cs, ww));
 
     let primaryPass = false;
     switch (entry.logic) {
@@ -131,7 +170,7 @@ export function matchLoreEntries(
 
     if (entry.secondaryKeys) {
       const secKeys = splitKeys(entry.secondaryKeys);
-      if (secKeys.length > 0 && !secKeys.every((k) => keyMatch(ctx, k, cs, ww))) {
+      if (secKeys.length > 0 && !secKeys.every((k) => keyMatch(scanText, k, cs, ww))) {
         return { pass: false, score: 0 };
       }
     }

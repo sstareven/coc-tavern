@@ -21,6 +21,34 @@ interface STEntryLike {
   logic?: string;
   extensions?: Record<string, unknown>;
   depth?: number;
+  characterFilter?: { isExclude?: boolean; names?: string[]; tags?: string[] };
+  triggers?: string[];
+  matchPersonaDescription?: boolean;
+  matchCharacterDescription?: boolean;
+  matchCharacterPersonality?: boolean;
+  matchCharacterDepthPrompt?: boolean;
+  matchScenario?: boolean;
+  matchCreatorNotes?: boolean;
+}
+
+const TRIGGER_VALUES: TriggerType[] = ['normal', 'continue', 'regenerate', 'quiet'];
+
+/** Map ST-format character filter / triggers / match* fields into local LoreEntry shape */
+function stExtraFields(v: STEntryLike): Pick<LoreEntry, 'characterFilter' | 'triggers' | MatchSourceKey> {
+  return {
+    characterFilter: {
+      isExclude: !!v.characterFilter?.isExclude,
+      names: v.characterFilter?.names ?? [],
+      tags: v.characterFilter?.tags ?? [],
+    },
+    triggers: (v.triggers ?? []).filter((t): t is TriggerType => (TRIGGER_VALUES as string[]).includes(t)),
+    matchPersonaDescription: !!v.matchPersonaDescription,
+    matchCharacterDescription: !!v.matchCharacterDescription,
+    matchCharacterPersonality: !!v.matchCharacterPersonality,
+    matchCharacterDepthPrompt: !!v.matchCharacterDepthPrompt,
+    matchScenario: !!v.matchScenario,
+    matchCreatorNotes: !!v.matchCreatorNotes,
+  };
 }
 
 interface Props { bookId: string; onClose: () => void; }
@@ -33,6 +61,11 @@ const EMPTY_ENTRY: LoreEntry = {
   groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
   preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
   ignoreReplyLimit: false,
+  characterFilter: { isExclude: false, names: [], tags: [] },
+  triggers: [],
+  matchPersonaDescription: false, matchCharacterDescription: false,
+  matchCharacterPersonality: false, matchCharacterDepthPrompt: false,
+  matchScenario: false, matchCreatorNotes: false,
 };
 
 const POSITION_LABELS: Record<number, string> = {
@@ -51,6 +84,26 @@ const POSITION_OPTIONS = [
   { label: '[用户] 插入深度@D', value: '7' },
   { label: '[AI] 插入深度@D', value: '8' },
   { label: '锚点', value: '9' },
+];
+
+type TriggerType = NonNullable<LoreEntry['triggers']>[number];
+const TRIGGER_OPTIONS: { value: TriggerType; label: string }[] = [
+  { value: 'normal', label: '普通' },
+  { value: 'continue', label: '继续' },
+  { value: 'regenerate', label: '重新生成' },
+  { value: 'quiet', label: '静默' },
+];
+
+type MatchSourceKey =
+  | 'matchPersonaDescription' | 'matchCharacterDescription' | 'matchCharacterPersonality'
+  | 'matchCharacterDepthPrompt' | 'matchScenario' | 'matchCreatorNotes';
+const MATCH_SOURCE_OPTIONS: { key: MatchSourceKey; label: string }[] = [
+  { key: 'matchPersonaDescription', label: '人设描述' },
+  { key: 'matchCharacterDescription', label: '角色描述' },
+  { key: 'matchCharacterPersonality', label: '角色性格' },
+  { key: 'matchCharacterDepthPrompt', label: '深度提示' },
+  { key: 'matchScenario', label: '场景' },
+  { key: 'matchCreatorNotes', label: '创作者注释' },
 ];
 
 export function LorebookEditor({ bookId, onClose }: Props) {
@@ -111,6 +164,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                 groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
                 preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
                 ignoreReplyLimit: false,
+                ...stExtraFields(val),
               };
             }
           } else {
@@ -138,6 +192,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
                   preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
                   ignoreReplyLimit: false,
+                  ...stExtraFields(v),
                 };
               }
             }
@@ -191,6 +246,14 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         logic: entry.logic === 'AND' ? 'AND_ALL' : entry.logic === 'NOT' ? 'NOT_ANY' : entry.logic === 'AND_ALL' || entry.logic === 'AND_ANY' || entry.logic === 'NOT_ANY' || entry.logic === 'NOT_ALL' ? entry.logic : 'AND_ANY',
         extensions: {},
         depth: entry.depth,
+        characterFilter: entry.characterFilter ?? { isExclude: false, names: [], tags: [] },
+        triggers: entry.triggers ?? [],
+        matchPersonaDescription: !!entry.matchPersonaDescription,
+        matchCharacterDescription: !!entry.matchCharacterDescription,
+        matchCharacterPersonality: !!entry.matchCharacterPersonality,
+        matchCharacterDepthPrompt: !!entry.matchCharacterDepthPrompt,
+        matchScenario: !!entry.matchScenario,
+        matchCreatorNotes: !!entry.matchCreatorNotes,
       };
     }
 
@@ -439,6 +502,9 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
   form: LoreEntry; onChange: (f: LoreEntry) => void; onSave: () => void; onClose: () => void;
   onDelete: () => void; onCopy: () => void; isNew: boolean; canDelete?: boolean;
 }) {
+  const cf = form.characterFilter ?? { isExclude: false, names: [], tags: [] };
+  const setCF = (patch: Partial<typeof cf>) => onChange({ ...form, characterFilter: { ...cf, ...patch } });
+  const splitList = (s: string) => s.split(/[,，]/).map((x) => x.trim()).filter(Boolean);
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -570,6 +636,55 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.ignoreReplyLimit || false} onChange={(e) => onChange({ ...form, ignoreReplyLimit: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />无视回复限额
                 </label>
+              </div>
+
+              {/* 角色过滤 */}
+              <div style={{ borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 8 }}>
+                <label style={groupLabelStyle}>角色过滤</label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <FieldGroup label="模式">
+                    <Dropdown value={cf.isExclude ? 'exclude' : 'include'} onChange={(v) => setCF({ isExclude: v === 'exclude' })}
+                      options={[{ label: '白名单(仅这些角色)', value: 'include' }, { label: '黑名单(排除这些角色)', value: 'exclude' }]} />
+                  </FieldGroup>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <FieldGroup label="角色名 (逗号分隔)">
+                    <input value={(cf.names ?? []).join(', ')} onChange={(e) => setCF({ names: splitList(e.target.value) })}
+                      placeholder="为空则不限角色" style={fieldInputStyle} />
+                  </FieldGroup>
+                  <FieldGroup label="标签 (逗号分隔)">
+                    <input value={(cf.tags ?? []).join(', ')} onChange={(e) => setCF({ tags: splitList(e.target.value) })}
+                      placeholder="为空则不限标签" style={fieldInputStyle} />
+                  </FieldGroup>
+                </div>
+              </div>
+
+              {/* 触发类型 */}
+              <div style={{ borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 8 }}>
+                <label style={groupLabelStyle}>触发类型 (留空 = 不限生成类型)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
+                  {TRIGGER_OPTIONS.map((t) => (
+                    <label key={t.value} style={checkboxLabelStyle}>
+                      <input type="checkbox" checked={(form.triggers ?? []).includes(t.value)} onChange={(e) => {
+                        const cur = new Set(form.triggers ?? []);
+                        if (e.target.checked) cur.add(t.value); else cur.delete(t.value);
+                        onChange({ ...form, triggers: [...cur] });
+                      }} style={{ accentColor: 'var(--gold)' }} />{t.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 额外匹配来源 */}
+              <div style={{ borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 8 }}>
+                <label style={groupLabelStyle}>额外匹配来源 (扫描时纳入这些文本)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
+                  {MATCH_SOURCE_OPTIONS.map((m) => (
+                    <label key={m.key} style={checkboxLabelStyle}>
+                      <input type="checkbox" checked={Boolean(form[m.key])} onChange={(e) => onChange({ ...form, [m.key]: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />{m.label}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           </details>
@@ -715,6 +830,15 @@ const fieldInputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)',
   borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
   fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+};
+
+const groupLabelStyle: React.CSSProperties = {
+  fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold',
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 4, fontSize: 10,
+  color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
 };
 
 const saveBtnStyle: React.CSSProperties = {
