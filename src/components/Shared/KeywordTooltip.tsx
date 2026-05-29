@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
+import { useKeywordStore } from '../../stores/useKeywordStore';
+
 interface Props {
   keyword: string;
   children: React.ReactNode;
@@ -54,7 +56,7 @@ export function addKeywordMeanings(entries: Record<string, string>) {
 }
 
 function getMeaning(keyword: string): string | undefined {
-  return KEYWORD_MEANINGS[keyword] ?? dynamicKeywords[keyword];
+  return KEYWORD_MEANINGS[keyword] ?? dynamicKeywords[keyword] ?? useKeywordStore.getState().keywords[keyword];
 }
 
 export function KeywordTooltip({ keyword, children }: Props) {

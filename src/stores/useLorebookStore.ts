@@ -10,7 +10,10 @@ const e = (overrides: Partial<LoreEntry>): LoreEntry => ({
   ...overrides,
 });
 
+export const AUTO_SUMMARY_BOOK_ID = '__auto_summaries';
+
 const defaultBooks: Record<string, LoreBook> = {
+  [AUTO_SUMMARY_BOOK_ID]: { name: '剧情回顾 (自动)', enabled: true, entries: {} },
   mvu_rules: { name: 'MVU规则系统', enabled: true, entries: {
     mvu_core: e({ name: 'MVU变量规范', keys: 'MVU, var', logic: 'OR', priority: 1,
       content: '【输出变量】leftContent嵌入<var name=\'hp\' value=\'值\'/> <var name=\'san\' value=\'值\'/> <var name=\'location\' value=\'地点\'/> <var name=\'threat\' value=\'1-10\'/>。选项action含<var name=\'lastAction\' value=\'简述\'/>；检定项额外<var name=\'lastCheck\' value=\'技能名\'/>。使用单引号！' }),
@@ -329,6 +332,8 @@ interface LorebookStore {
   importBook: (book: LoreBook) => string;
   deleteBook: (id: string) => void;
   toggleBook: (id: string) => void;
+  upsertSummaryEntry: (pageId: string, keys: string, content: string, name: string) => void;
+  removeSummaryEntry: (pageId: string) => void;
 }
 
 export const useLorebookStore = create<LorebookStore>()(
@@ -378,6 +383,28 @@ export const useLorebookStore = create<LorebookStore>()(
       toggleBook: (id) => set((s) => {
         const books = { ...s.books, [id]: { ...s.books[id], enabled: !s.books[id]?.enabled } };
         return { books };
+      }),
+      upsertSummaryEntry: (pageId, keys, content, name) => set((s) => {
+        const books = { ...s.books };
+        const book = books[AUTO_SUMMARY_BOOK_ID] || { name: '剧情回顾 (自动)', enabled: true, entries: {} };
+        const entryId = `summary_${pageId}`;
+        books[AUTO_SUMMARY_BOOK_ID] = {
+          ...book,
+          entries: {
+            ...book.entries,
+            [entryId]: e({ name, keys, content, logic: 'OR', priority: 5, position: 4, depth: 4 }),
+          },
+        };
+        return { books };
+      }),
+      removeSummaryEntry: (pageId) => set((s) => {
+        const book = s.books[AUTO_SUMMARY_BOOK_ID];
+        if (!book) return s;
+        const entryId = `summary_${pageId}`;
+        if (!book.entries[entryId]) return s;
+        const entries = { ...book.entries };
+        delete entries[entryId];
+        return { books: { ...s.books, [AUTO_SUMMARY_BOOK_ID]: { ...book, entries } } };
       }),
     }),
     {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BookPage, DiceRecord } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
+import { useLorebookStore } from './useLorebookStore';
 
 const defaultPages: BookPage[] = [
   // ▸▸▸ 序章：降生之梦 + 命运歧路 ◂◂◂
@@ -151,15 +152,16 @@ export const useBookStore = create<BookStore>((set, get) => ({
   }),
 
   deletePage: (index) => set((s) => {
-    if (s.pages.length <= 1) return s; // keep at least one page
+    if (s.pages.length <= 1) return s;
+    const deleted = s.pages[index];
     const pages = s.pages.filter((_, i) => i !== index);
-    // Fix page numbers for remaining pages
     const fixed = pages.map((p, i) => ({ ...p, leftPage: pageNum(i), rightPage: rightPageNum(i) }));
-    // Adjust pageIndex if needed
     let pageIndex = s.pageIndex;
     if (pageIndex >= fixed.length) pageIndex = fixed.length - 1;
-    // If deleted page was before current, decrement
     if (index < s.pageIndex) pageIndex = s.pageIndex - 1;
+    if (deleted?.id) {
+      setTimeout(() => useLorebookStore.getState().removeSummaryEntry(deleted.id!), 0);
+    }
     return { pages: fixed, pageIndex };
   }),
 
@@ -195,11 +197,19 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (pages.length <= limit) return;
     const removed = pages.length - limit;
     const trimmed = pages.slice(removed);
+    const removedPages = pages.slice(0, removed);
     const newPageIndex = Math.max(0, pageIndex - removed);
+    setTimeout(() => {
+      const lore = useLorebookStore.getState();
+      for (const p of removedPages) {
+        if (p.id) lore.removeSummaryEntry(p.id);
+      }
+    }, 0);
     set({ pages: trimmed, pageIndex: newPageIndex });
   },
   setPages: (pages) => {
-    set({ pages, pageIndex: Math.max(0, pages.length - 1) });
+    const withIds = pages.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
+    set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
   },
   addDiceToCurrentPage: (record) => {
     const { pages, pageIndex } = get();
