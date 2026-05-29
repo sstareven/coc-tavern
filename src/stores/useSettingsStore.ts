@@ -23,6 +23,7 @@ interface SettingsState {
   mvuMaxTokens: number;
   mvuAvailableModels: string[];
   maxSummaryEntries: number;
+  contextPageDepth: number;
 }
 
 interface SettingsStore extends SettingsState {
@@ -44,6 +45,7 @@ interface SettingsStore extends SettingsState {
   setMvuMaxTokens: (n: number) => void;
   setMvuAvailableModels: (models: string[]) => void;
   setMaxSummaryEntries: (n: number) => void;
+  setContextPageDepth: (n: number) => void;
 }
 
 const defaults: SettingsState = {
@@ -66,6 +68,7 @@ const defaults: SettingsState = {
   mvuMaxTokens: 8096,
   mvuAvailableModels: [],
   maxSummaryEntries: 20,
+  contextPageDepth: 3,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -91,6 +94,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
       setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
+      setContextPageDepth: (n) => set({ contextPageDepth: n }),
     }),
     {
       name: 'coc_settings_v2',

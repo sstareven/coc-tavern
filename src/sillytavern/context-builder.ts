@@ -1,9 +1,12 @@
 import { useBookStore } from '../stores/useBookStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
+import { useSettingsStore } from '../stores/useSettingsStore';
 
 export function buildContextFromPages(): string {
   const { pages, pageIndex } = useBookStore.getState();
-  const relevantPages = pages.slice(Math.max(0, pageIndex - 2), pageIndex + 1);
+  const depth = useSettingsStore.getState().contextPageDepth;
+  const startIdx = depth <= 0 ? 0 : Math.max(0, pageIndex - (depth - 1));
+  const relevantPages = pages.slice(startIdx, pageIndex + 1);
   let ctx = relevantPages
     .map((p) => {
       let section = `【${p.leftHeader}】${p.leftContent}\n【${p.rightHeader}】${p.rightContent}`;
