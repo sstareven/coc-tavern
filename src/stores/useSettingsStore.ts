@@ -30,6 +30,7 @@ interface SettingsState {
   includeNames: boolean;
   wiBudget: number;
   alertOnOverflow: boolean;
+  worldInfoStrategy: 'evenly' | 'global-first' | 'chat-first';
 }
 
 interface SettingsStore extends SettingsState {
@@ -58,6 +59,7 @@ interface SettingsStore extends SettingsState {
   setIncludeNames: (v: boolean) => void;
   setWiBudget: (n: number) => void;
   setAlertOnOverflow: (v: boolean) => void;
+  setWorldInfoStrategy: (v: 'evenly' | 'global-first' | 'chat-first') => void;
 }
 
 const defaults: SettingsState = {
@@ -87,6 +89,7 @@ const defaults: SettingsState = {
   includeNames: true,
   wiBudget: 0,
   alertOnOverflow: false,
+  worldInfoStrategy: 'evenly',
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -119,6 +122,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setIncludeNames: (v) => set({ includeNames: v }),
       setWiBudget: (n) => set({ wiBudget: n }),
       setAlertOnOverflow: (v) => set({ alertOnOverflow: v }),
+      setWorldInfoStrategy: (v) => set({ worldInfoStrategy: v }),
     }),
     {
       name: 'coc_settings_v2',

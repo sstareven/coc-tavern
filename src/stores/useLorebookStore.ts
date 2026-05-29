@@ -482,6 +482,7 @@ interface LorebookStore {
   importBook: (book: LoreBook) => string;
   deleteBook: (id: string) => void;
   toggleBook: (id: string) => void;
+  setBookScope: (id: string, scope: 'global' | 'chat') => void;
   upsertSummaryEntry: (pageId: string, keys: string, content: string, name: string) => void;
   removeSummaryEntry: (pageId: string) => void;
   clearSummaryEntries: () => void;
@@ -534,6 +535,11 @@ export const useLorebookStore = create<LorebookStore>()(
       }),
       toggleBook: (id) => set((s) => {
         const books = { ...s.books, [id]: { ...s.books[id], enabled: !s.books[id]?.enabled } };
+        return { books };
+      }),
+      setBookScope: (id, scope) => set((s) => {
+        if (!s.books[id]) return s;
+        const books = { ...s.books, [id]: { ...s.books[id], scope } };
         return { books };
       }),
       upsertSummaryEntry: (pageId, keys, content, name) => set((s) => {

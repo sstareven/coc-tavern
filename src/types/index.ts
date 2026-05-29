@@ -153,6 +153,8 @@ export interface LoreBook {
   name: string;
   entries: Record<string, LoreEntry>;
   enabled: boolean;
+  /** 作用域：global=所有会话生效（默认）；chat=仅绑定到当前会话时生效 */
+  scope?: 'global' | 'chat';
 }
 
 // ===== Presets =====
