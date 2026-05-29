@@ -49,7 +49,9 @@ export function Storybook() {
     background: `
       linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)
     `,
-    border: '1px solid rgba(139,100,60,0.2)',
+    borderTop: '1px solid rgba(139,100,60,0.2)',
+    borderRight: '1px solid rgba(139,100,60,0.2)',
+    borderBottom: '1px solid rgba(139,100,60,0.2)',
     borderLeft: 'none',
     borderRadius: '2px 6px 6px 2px',
     cursor: 'pointer',
@@ -65,7 +67,9 @@ export function Storybook() {
     ...bookmarkTab,
     color: 'var(--gold)',
     background: 'linear-gradient(175deg, #1a1510 0%, #0e0c08 50%, #1a1510 100%)',
-    border: '1px solid rgba(196,168,85,0.3)',
+    borderTop: '1px solid rgba(196,168,85,0.3)',
+    borderRight: '1px solid rgba(196,168,85,0.3)',
+    borderBottom: '1px solid rgba(196,168,85,0.3)',
     borderLeft: 'none',
     boxShadow: '1px 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(196,168,85,0.1)',
     paddingLeft: 18,
