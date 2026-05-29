@@ -93,9 +93,10 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
       const result = importPresetFromST(reader.result as string, fileName);
       if (result) {
         const { preset, regexScripts } = result;
-        // Store regex scripts and tavern helper scripts on the preset object for per-preset scoping
+        const uid = Math.random().toString(36).slice(2, 6).toUpperCase();
         const finalPreset = {
           ...preset,
+          name: preset.name ? `${preset.name} #${uid}` : `导入预设 #${uid}`,
           regexScripts: regexScripts.length > 0 ? regexScripts.map((s) => ({ ...s, id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })) : undefined,
         };
         const updated = { ...presets, [finalPreset.id]: finalPreset };
@@ -188,6 +189,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                   )}
                   <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                     T={preset.temperature} · P={preset.topP} · max={preset.maxTokens}
+                    {!BUILTIN_PRESET_IDS.has(id) && <span style={{ marginLeft: 6, fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>{id.slice(-8)}</span>}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -227,11 +229,12 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         </button>
 
         <button onClick={() => {
+          const uid = Math.random().toString(36).slice(2, 6).toUpperCase();
           const newId = `preset-${Date.now()}`;
           const newPreset: ChatPreset = {
             ...DEFAULT_PRESETS.p2,
             id: newId,
-            name: '新建预设',
+            name: `新建预设 #${uid}`,
           };
           const updated = { ...presets, [newId]: newPreset };
           setPresets(updated);
