@@ -26,6 +26,10 @@ interface SettingsState {
   contextPageDepth: number;
   globalCaseSensitive: boolean;
   globalMatchWholeWord: boolean;
+  maxRecursionSteps: number;
+  includeNames: boolean;
+  wiBudget: number;
+  alertOnOverflow: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -50,6 +54,10 @@ interface SettingsStore extends SettingsState {
   setContextPageDepth: (n: number) => void;
   setGlobalCaseSensitive: (v: boolean) => void;
   setGlobalMatchWholeWord: (v: boolean) => void;
+  setMaxRecursionSteps: (n: number) => void;
+  setIncludeNames: (v: boolean) => void;
+  setWiBudget: (n: number) => void;
+  setAlertOnOverflow: (v: boolean) => void;
 }
 
 const defaults: SettingsState = {
@@ -75,6 +83,10 @@ const defaults: SettingsState = {
   contextPageDepth: 3,
   globalCaseSensitive: false,
   globalMatchWholeWord: false,
+  maxRecursionSteps: 0,
+  includeNames: true,
+  wiBudget: 0,
+  alertOnOverflow: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -103,6 +115,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setContextPageDepth: (n) => set({ contextPageDepth: n }),
       setGlobalCaseSensitive: (v) => set({ globalCaseSensitive: v }),
       setGlobalMatchWholeWord: (v) => set({ globalMatchWholeWord: v }),
+      setMaxRecursionSteps: (n) => set({ maxRecursionSteps: n }),
+      setIncludeNames: (v) => set({ includeNames: v }),
+      setWiBudget: (n) => set({ wiBudget: n }),
+      setAlertOnOverflow: (v) => set({ alertOnOverflow: v }),
     }),
     {
       name: 'coc_settings_v2',
