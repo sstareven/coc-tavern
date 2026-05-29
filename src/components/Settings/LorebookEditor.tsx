@@ -178,7 +178,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         disable: entry.disabled,
         excludeRecursion: false,
         secondaryKeys: [],
-        logic: entry.logic === 'AND' ? 'AND_ALL' : entry.logic === 'NOT' ? 'NOT_ANY' : 'OR_ANY',
+        logic: entry.logic === 'AND' ? 'AND_ALL' : entry.logic === 'NOT' ? 'NOT_ANY' : entry.logic === 'AND_ALL' || entry.logic === 'AND_ANY' || entry.logic === 'NOT_ANY' || entry.logic === 'NOT_ALL' ? entry.logic : 'AND_ANY',
         extensions: {},
         depth: entry.depth,
       };
@@ -335,8 +335,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                     {POSITION_LABELS[entry.position] ?? '—'}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                    <span style={{ color: entry.logic === 'AND' ? 'var(--gold)' : entry.logic === 'NOT' ? 'var(--blood)' : 'var(--success)' }}>
-                      {entry.logic}
+                    <span style={{ color: entry.logic.startsWith('AND') ? 'var(--gold)' : 'var(--blood)' }}>
+                      {entry.logic === 'AND_ANY' ? '与任意' : entry.logic === 'AND_ALL' ? '与所有' : entry.logic === 'NOT_ANY' ? '非任何' : entry.logic === 'NOT_ALL' ? '非所有' : entry.logic}
                     </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.priority}</td>
