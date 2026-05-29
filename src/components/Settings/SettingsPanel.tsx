@@ -336,6 +336,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
   const maxSummaryEntries = useSettingsStore((s) => s.maxSummaryEntries);
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
+  const contextPageDepth = useSettingsStore((s) => s.contextPageDepth);
+  const setContextPageDepth = useSettingsStore((s) => s.setContextPageDepth);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -601,6 +603,24 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
                     <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{maxSummaryEntries}</span>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    上下文回顾页数
+                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
+                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
+                      {'每次向LLM发送请求时，回顾最近N页的故事内容作为上下文。\n\n数值越大，LLM记住的剧情越多，但消耗的token也越多。\n数值过大可能导致超出模型上下文窗口或注意力分散。\n\n默认3页（推荐），输入0则包含全部页面（谨慎使用）。'}
+                    </div>
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" min={0} max={50} step={1}
+                      value={contextPageDepth}
+                      onChange={(e) => setContextPageDepth(Math.max(0, Number(e.target.value) || 0))}
+                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                    />
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
                   </div>
                 </div>
 
