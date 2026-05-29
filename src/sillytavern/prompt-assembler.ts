@@ -15,22 +15,134 @@ function resolvePlaceholders(text: string, variables: Record<string, string>): s
 /**
  * Match lorebook entries against the current context.
  */
+export interface MatchContext {
+  caseSensitive: boolean;
+  matchWholeWord: boolean;
+  messageCount: number;
+  stickyState: Map<string, number>;
+  cooldownState: Map<string, number>;
+}
+
+function keyMatch(ctx: string, key: string, caseSensitive: boolean, wholeWord: boolean): boolean {
+  if (!key) return false;
+  const haystack = caseSensitive ? ctx : ctx.toLowerCase();
+  const needle = caseSensitive ? key : key.toLowerCase();
+  if (wholeWord) {
+    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|\\b|[\\s,，.。!！?？])${escaped}(?:$|\\b|[\\s,，.。!！?？])`, caseSensitive ? '' : 'i').test(haystack);
+  }
+  return haystack.includes(needle);
+}
+
 export function matchLoreEntries(
   contextText: string,
-  entries: LoreEntry[],
+  entries: (LoreEntry & { _id?: string })[],
+  matchCtx?: MatchContext,
 ): LoreEntry[] {
-  const ctx = contextText.toLowerCase();
-  return entries.filter((entry) => {
-    const keys = entry.keys.split(/[,，]/).map((k) => k.trim().toLowerCase()).filter(Boolean);
-    if (keys.length === 0) return false;
-    const matches = keys.map((k) => ctx.includes(k));
-    switch (entry.logic) {
-      case 'AND': return matches.every(Boolean);
-      case 'OR': return matches.some(Boolean);
-      case 'NOT': return !matches.some(Boolean);
-      default: return matches.some(Boolean);
+  const globalCS = matchCtx?.caseSensitive ?? false;
+  const globalWW = matchCtx?.matchWholeWord ?? false;
+  const msgCount = matchCtx?.messageCount ?? 999;
+  const sticky = matchCtx?.stickyState;
+  const cooldown = matchCtx?.cooldownState;
+
+  const activated: (LoreEntry & { _id?: string; _score?: number })[] = [];
+
+  for (const entry of entries) {
+    const id = (entry as { _id?: string })._id || entry.name;
+    const cs = entry.caseSensitive === 1 ? true : entry.caseSensitive === 2 ? false : globalCS;
+    const ww = entry.matchWholeWord === 1 ? true : entry.matchWholeWord === 2 ? false : globalWW;
+
+    if (entry.delay > 0 && msgCount < entry.delay) continue;
+    if (cooldown && (cooldown.get(id) ?? 0) > 0) continue;
+
+    if (sticky && (sticky.get(id) ?? 0) > 0) {
+      activated.push({ ...entry, _id: id });
+      continue;
     }
-  });
+
+    const keys = entry.keys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
+    if (keys.length === 0) continue;
+    const matches = keys.map((k) => keyMatch(contextText, k, cs, ww));
+
+    let primaryPass = false;
+    let score = 0;
+    switch (entry.logic) {
+      case 'AND_ANY': primaryPass = matches.some(Boolean); break;
+      case 'AND_ALL': primaryPass = matches.every(Boolean); break;
+      case 'NOT_ANY': primaryPass = !matches.some(Boolean); break;
+      case 'NOT_ALL': primaryPass = !matches.every(Boolean); break;
+      default: primaryPass = matches.some(Boolean);
+    }
+    if (!primaryPass) continue;
+    score = matches.filter(Boolean).length;
+
+    if (entry.secondaryKeys) {
+      const secKeys = entry.secondaryKeys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
+      if (secKeys.length > 0 && !secKeys.every((k) => keyMatch(contextText, k, cs, ww))) continue;
+    }
+
+    activated.push({ ...entry, _id: id, _score: score });
+  }
+
+  // Inclusion group resolution
+  const groups = new Map<string, typeof activated>();
+  const ungrouped: typeof activated = [];
+  for (const e of activated) {
+    if (e.inclusionGroup) {
+      const labels = e.inclusionGroup.split(/[,，]/).map((g) => g.trim()).filter(Boolean);
+      for (const label of labels) {
+        if (!groups.has(label)) groups.set(label, []);
+        groups.get(label)!.push(e);
+      }
+    } else {
+      ungrouped.push(e);
+    }
+  }
+
+  const resolved: LoreEntry[] = [...ungrouped];
+  const suppressedIds = new Set<string>();
+
+  for (const [, members] of groups) {
+    let candidates = members.filter((m) => !suppressedIds.has(m._id!));
+    if (candidates.length === 0) continue;
+
+    const useScoring = candidates.some((m) => m.groupScoring === 1);
+    if (useScoring) {
+      const maxScore = Math.max(...candidates.map((m) => m._score ?? 0));
+      candidates = candidates.filter((m) => (m._score ?? 0) === maxScore);
+    }
+
+    let winner: (typeof candidates)[0];
+    const hasPrioritize = candidates.some((m) => m.prioritizeInclusion);
+    if (hasPrioritize) {
+      const prioritized = candidates.filter((m) => m.prioritizeInclusion);
+      winner = prioritized.reduce((a, b) => (a.priority > b.priority ? a : b));
+    } else {
+      const totalWeight = candidates.reduce((s, m) => s + (m.groupWeight || 100), 0);
+      let roll = Math.random() * totalWeight;
+      winner = candidates[0];
+      for (const c of candidates) {
+        roll -= (c.groupWeight || 100);
+        if (roll <= 0) { winner = c; break; }
+      }
+    }
+
+    resolved.push(winner);
+    for (const m of members) {
+      if (m._id !== winner._id) suppressedIds.add(m._id!);
+    }
+  }
+
+  // Update sticky/cooldown state
+  if (sticky && cooldown) {
+    for (const e of resolved) {
+      const id = (e as { _id?: string })._id || e.name;
+      if (e.sticky > 0) sticky.set(id, e.sticky);
+      if (e.cooldown > 0) cooldown.set(id, e.cooldown);
+    }
+  }
+
+  return resolved;
 }
 
 /** Resolve content for a system marker from its source */

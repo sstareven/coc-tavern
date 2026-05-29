@@ -107,18 +107,35 @@ export interface DiceRecord {
 // ===== Lorebooks =====
 // 0-9: before_char/after_char/before_exm/after_exm/before_an/after_an/system_d/user_d/ai_d/anchor
 export type InsertPosition = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type MatchLogic = 'AND_ANY' | 'AND_ALL' | 'NOT_ANY' | 'NOT_ALL';
 
 export interface LoreEntry {
   name: string;
   keys: string;
   content: string;
-  logic: 'AND' | 'OR' | 'NOT';
+  logic: MatchLogic;
   priority: number;
   disabled: boolean;
   constant: boolean;
   position: InsertPosition;
   depth: number;
   probability: number;
+  secondaryKeys: string;
+  scanDepth: number;
+  caseSensitive: number;
+  matchWholeWord: number;
+  groupScoring: number;
+  automationId: string;
+  inclusionGroup: string;
+  prioritizeInclusion: boolean;
+  groupWeight: number;
+  sticky: number;
+  cooldown: number;
+  delay: number;
+  preventRecursion: boolean;
+  delayUntilRecursion: boolean;
+  excludeRecursion: boolean;
+  ignoreReplyLimit: boolean;
 }
 
 export interface LoreBook {

@@ -24,6 +24,8 @@ interface SettingsState {
   mvuAvailableModels: string[];
   maxSummaryEntries: number;
   contextPageDepth: number;
+  globalCaseSensitive: boolean;
+  globalMatchWholeWord: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -46,6 +48,8 @@ interface SettingsStore extends SettingsState {
   setMvuAvailableModels: (models: string[]) => void;
   setMaxSummaryEntries: (n: number) => void;
   setContextPageDepth: (n: number) => void;
+  setGlobalCaseSensitive: (v: boolean) => void;
+  setGlobalMatchWholeWord: (v: boolean) => void;
 }
 
 const defaults: SettingsState = {
@@ -69,6 +73,8 @@ const defaults: SettingsState = {
   mvuAvailableModels: [],
   maxSummaryEntries: 20,
   contextPageDepth: 3,
+  globalCaseSensitive: false,
+  globalMatchWholeWord: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -95,6 +101,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
       setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
       setContextPageDepth: (n) => set({ contextPageDepth: n }),
+      setGlobalCaseSensitive: (v) => set({ globalCaseSensitive: v }),
+      setGlobalMatchWholeWord: (v) => set({ globalMatchWholeWord: v }),
     }),
     {
       name: 'coc_settings_v2',
