@@ -84,7 +84,6 @@ export interface InventoryChange {
   quantity?: number;
   description?: string;
   equipped?: boolean;
-  isKeyItem?: boolean;
 }
 
 export interface ChoiceItem {

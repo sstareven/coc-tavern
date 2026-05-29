@@ -64,7 +64,7 @@ export const useInventoryStore = create<InventoryStore>()(
                     description: c.description ?? '',
                     quantity: c.quantity ?? 1,
                     equipped: c.equipped ?? false,
-                    isKeyItem: c.isKeyItem ?? false,
+                    isKeyItem: (c.category ?? 'misc') === 'key_item',
                     acquiredAt: Date.now(),
                   });
                 }
