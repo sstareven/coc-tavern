@@ -42,7 +42,7 @@ const CONTENT_SOURCE: Record<string, string> = {
 };
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const debouncedSave = useCallback((p: ChatPreset) => {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => onSave(p), 400);

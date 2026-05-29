@@ -629,7 +629,7 @@ export const useLorebookStore = create<LorebookStore>()(
         // Migrate old logic values and fill new fields for ALL entries
         for (const book of Object.values(merged)) {
           for (const [eid, entry] of Object.entries(book.entries)) {
-            const raw = entry as Record<string, unknown>;
+            const raw = entry as unknown as Record<string, unknown>;
             if (LOGIC_MAP[raw.logic as string]) {
               raw.logic = LOGIC_MAP[raw.logic as string];
             }
