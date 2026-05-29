@@ -26,6 +26,14 @@ export function App() {
 
   useEffect(() => { initBuiltinCommands(); }, []);
 
+  useEffect(() => {
+    const toGame = () => setScreen('game');
+    const toMenu = () => setScreen('landing');
+    document.addEventListener('debug-enter-game', toGame);
+    document.addEventListener('debug-return-menu', toMenu);
+    return () => { document.removeEventListener('debug-enter-game', toGame); document.removeEventListener('debug-return-menu', toMenu); };
+  }, []);
+
   const openPanel = usePanelStore((s) => s.openPanel);
   const closeAll = usePanelStore((s) => s.closeAll);
   const lorebookEditorBookId = usePanelStore((s) => s.lorebookEditorBookId);
