@@ -6,7 +6,6 @@ import { stripFunctions } from '../db/stripFunctions';
 export interface DarkThreadEntry {
   id: string;
   timestamp: number;
-  description: string;
   progress: number;
   threatLevel: string;
   details: string;
