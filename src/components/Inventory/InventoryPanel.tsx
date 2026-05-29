@@ -142,16 +142,12 @@ export function InventoryOverlay() {
     >
       {/* Left page — Equipment */}
       <motion.div
-        variants={{ exit: { rotateY: 180 } }}
-        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         style={{
         flex: '1 1 0', display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '3px 0 0 3px',
         boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
         padding: '28px 20px 20px 28px',
-        transformOrigin: '100% 50%',
-        backfaceVisibility: 'hidden',
         overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 12 }}>
