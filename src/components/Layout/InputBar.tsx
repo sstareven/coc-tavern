@@ -4,6 +4,7 @@ import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
+import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { StreamingPreview } from '../Shared/StreamingPreview';
@@ -45,7 +46,9 @@ export function InputBar() {
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || pipeline.loading) return;
-    const result = await pipeline.submit(trimmed);
+    // 暗骰：把输入栏里的掩码 token 换回真实结果再提交给 LLM（玩家始终只看到掩码）
+    const forLLM = revealHiddenRolls(trimmed);
+    const result = await pipeline.submit(forLLM);
     setInput(result);
   };
   const handleSubmitRef = useRef(handleSubmit);

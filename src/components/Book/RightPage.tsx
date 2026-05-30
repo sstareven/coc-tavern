@@ -7,6 +7,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
+import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
@@ -238,6 +239,27 @@ function fillInputBar(text: string) {
         },
       }));
     }
+    return;
+  }
+
+  // ── 暗骰（心理学等）：掷骰但对玩家隐藏结果，真实结果提交时再交给 LLM ──
+  if (parsed && !parsed.opposed && isHiddenRollSkill(parsed.skillName)) {
+    const resolvedTarget = parsed.target > 0 ? parsed.target : resolveTargetFromSheet(parsed.skillName, parsed.difficulty);
+    const result = rollWithBonus(resolvedTarget, parsed.bonus);
+    const rollStr = String(result.raw).padStart(2, '0');
+    const diffLabel = parsed.difficulty !== '普通' ? ` ${parsed.difficulty}` : '';
+    const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
+    const realResult = `[${parsed.skillName}${diffLabel} d100=${rollStr}/${resolvedTarget}${bonusLabel} ${result.label}]`;
+    const token = `[${parsed.skillName} 暗骰]`;
+    stashHiddenRoll(token, realResult);
+    // 不记入检定记录面板（玩家不可见）；动画为无数字的「暗骰」
+    document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+      detail: {
+        kind: 'poly', hidden: true, polyTheme: 'sanity',
+        polyLabel: `${parsed.skillName}检定`, polyExpr: '暗骰', polyTotal: 0, polySub: '',
+        inputText: `${token}\n${text}`,
+      },
+    }));
     return;
   }
 

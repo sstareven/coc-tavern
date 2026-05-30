@@ -1,4 +1,5 @@
 import type { DiceRecord, DiceResultType } from '../types';
+import { isHiddenRollSkill } from './hidden-roll';
 
 const LABEL_TO_TYPE: Record<string, DiceResultType> = {
   '大成功！': 'crit-success',
@@ -47,6 +48,9 @@ export function parseDiceResultsFromInput(input: string): DiceRecord[] {
   const re = /\[(.+?)\s+d100=(\d+)\/(\d+)\s+(.+?)\]/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(remainder)) !== null) {
+    // 暗骰技能（心理学等）不进 page.diceResults：LeftPage/检定记录不显示，
+    // 但其真实结果仍在用户输入文本里被 LLM 读到。
+    if (isHiddenRollSkill(m[1])) continue;
     const label = m[4].trim().split(/\s+/).pop() ?? '';
     out.push({
       skill: m[1],
