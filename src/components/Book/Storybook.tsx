@@ -5,6 +5,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { usePanelStore } from '../../stores/usePanelStore';
+import { persistActivePages } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
@@ -48,6 +49,7 @@ export function Storybook() {
 
   const deletePage = () => {
     deletePageStore(pageIndex);
+    persistActivePages();
   };
 
   // --- paper-style bookmark tab ---
