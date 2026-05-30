@@ -7,7 +7,16 @@ import { useKeywordStore } from '../../stores/useKeywordStore';
 interface Props {
   keyword: string;
   children: React.ReactNode;
+  /** 'gold' = 常驻金光（用于对话内部关键词，在深色对话与米色背景上突出）。 */
+  tone?: 'default' | 'gold';
 }
+
+// 金色变体：偏暗的黄铜金 + 极细暗边（保证米色背景上可读）+ 金色辉光
+const GOLD_COLOR = 'var(--gold)';
+const GOLD_GLOW =
+  '0 0 1px rgba(0,0,0,0.55), 0 0 6px rgba(196,168,85,0.75), 0 0 12px rgba(196,168,85,0.4)';
+const GOLD_GLOW_BRIGHT =
+  '0 0 1px rgba(0,0,0,0.55), 0 0 10px rgba(245,220,130,0.9), 0 0 18px rgba(245,220,130,0.5)';
 
 const KEYWORD_MEANINGS: Record<string, string> = {
   '调查员': 'Investigator — 玩家扮演的角色，探索克苏鲁神话的秘密',
@@ -59,11 +68,12 @@ function getMeaning(keyword: string): string | undefined {
   return KEYWORD_MEANINGS[keyword] ?? dynamicKeywords[keyword] ?? useKeywordStore.getState().keywords[keyword];
 }
 
-export function KeywordTooltip({ keyword, children }: Props) {
+export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
   const [show, setShow] = useState(false);
   const [tpPos, setTpPos] = useState({ x: 0, y: 0 });
   const ref = useRef<HTMLSpanElement>(null);
   const meaning = getMeaning(keyword);
+  const gold = tone === 'gold';
 
   const TOOLTIP_W = 340; // max-width of tooltip
 
@@ -91,7 +101,11 @@ export function KeywordTooltip({ keyword, children }: Props) {
   useEffect(() => { return () => setShow(false); }, []);
 
   if (!meaning) {
-    return <b style={{ color: 'inherit' }}>{children}</b>;
+    return (
+      <b style={gold ? { color: GOLD_COLOR, textShadow: GOLD_GLOW } : { color: 'inherit' }}>
+        {children}
+      </b>
+    );
   }
 
   return (
@@ -104,13 +118,19 @@ export function KeywordTooltip({ keyword, children }: Props) {
         onMouseLeave={onLeave}
       >
         <motion.b
-          animate={show ? {
+          animate={show ? (gold ? {
+            color: [GOLD_COLOR, '#f5dc82', GOLD_COLOR],
+            textShadow: [GOLD_GLOW, GOLD_GLOW_BRIGHT, GOLD_GLOW],
+          } : {
             color: ['var(--ink)', 'var(--gold)', 'var(--ink)'],
             textShadow: ['none', '0 0 10px rgba(196,168,85,0.55)', 'none'],
+          }) : (gold ? {
+            color: GOLD_COLOR,
+            textShadow: GOLD_GLOW,
           } : {
             color: 'inherit',
             textShadow: 'none',
-          }}
+          })}
           transition={show ? {
             duration: 1.6,
             repeat: Infinity,

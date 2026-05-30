@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { ReactElement } from 'react';
 import { beautifyText } from './TextBeautifier';
 
-const ORANGE = '#e8a040';
+const ORANGE = '#a35d18';
 
 function nodes(text: string) {
   return beautifyText(text);
@@ -50,12 +50,15 @@ describe('beautifyText — 对话橘色高亮', () => {
     expect(nodes('阿卡姆的街道笼在死寂里')).toEqual(['阿卡姆的街道笼在死寂里']);
   });
 
-  it('对话内部仍解析 {{keyword}}', () => {
+  it('对话内部关键词以金色变体(tone=gold)渲染', () => {
     const spans = findDialogueSpans(nodes('他说「去过{{阿卡姆}}吗」'));
     expect(spans).toHaveLength(1);
-    const children = spans[0].props.children as unknown[];
-    // 应含一个 KeywordTooltip 元素（非纯字符串）
-    expect(children.some((c) => typeof c === 'object' && c !== null)).toBe(true);
+    const children = spans[0].props.children as ReactElement[];
+    const kw = children.find(
+      (c) => typeof c === 'object' && c !== null && c.props?.tone === 'gold',
+    );
+    expect(kw).toBeTruthy();
+    expect(kw!.props.keyword).toBe('阿卡姆');
   });
 
   it('对话外的 {{keyword}} 不受影响仍生成 tooltip', () => {
