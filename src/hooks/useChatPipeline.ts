@@ -419,7 +419,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       startStream();
 
       try {
-        const response = await sendChatCompletion(
+        // ── 发送 + 解析；解析失败时按设置自动重试（要求只输出 JSON）──
+        const correctiveMsg = {
+          role: 'user' as const,
+          content: '【系统纠正】你上一条回复不是合法的 JSON 对象（可能返回了纯叙事或夹带了额外文字），已被丢弃。请严格只输出一个符合格式规范的 JSON 对象，不要包含任何 JSON 之外的文字、解释或 Markdown 代码块标记。',
+        };
+        const maxRetries = Math.max(0, settings.jsonRetryCount ?? 0);
+
+        let response = await sendChatCompletion(
           applyPostProcessing(editedMessages, settings.promptPostProcessing),
           presetForApi,
           settings.apiBaseUrl,
@@ -429,14 +436,35 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           streamRenderEnabled ? onToken : undefined,
           controller.signal,
         );
+        pushLog('debug', `[API] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
+        let result = parseLlmResponse(response.content, lastInputRef.current);
 
-        pushLog(
-          'debug',
-          `[API] 收到响应 — ${response.content.length}字 ===\n${response.content}`,
-          'api',
-        );
+        let attempt = 0;
+        while ((!result || result.recovered) && attempt < maxRetries) {
+          attempt++;
+          pushLog('warn', `[Retry] AI回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
+          response = await sendChatCompletion(
+            applyPostProcessing([...editedMessages, correctiveMsg], settings.promptPostProcessing),
+            presetForApi,
+            settings.apiBaseUrl,
+            settings.apiKey,
+            settings.apiModel,
+            streamRenderEnabled,
+            streamRenderEnabled ? onToken : undefined,
+            controller.signal,
+          );
+          pushLog('debug', `[API] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
+          result = parseLlmResponse(response.content, lastInputRef.current);
+        }
 
-        // Apply regex scripts to AI output (placement 2 = AI_OUTPUT)
+        if (!result || result.recovered) {
+          // 所有尝试均失败 → 不生成书页（各次解析报错已记入调试日志）
+          pushLog('error', `[生成失败] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃本回合。原因见上方 [parseLlm] 报错。`, 'system');
+          setError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合（输入已保留，可重试）。`);
+          return false;
+        }
+
+        // ── 解析成功：在最终回复上跑显示regex / TH钩子 / 变量提取 ──
         const aiOutputRegexScripts = [
           ...useRegexStore.getState().globalScripts,
           ...useRegexStore.getState().presetScripts,
@@ -447,15 +475,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           aiOutputRegexScripts,
           { isMarkdown: true, isPrompt: true },
         );
-
-        // Run TH script onReceive hooks (post-receive pipeline)
         const hookProcessedContent = runReceiveHooks(thHooks, regexProcessedContent);
 
-        // Extract variables from LLM response (run on hook-processed content)
         const mvuSettings = useSettingsStore.getState();
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey) {
           try {
-            const result = await extractVariablesWithLLM(
+            const extracted = await extractVariablesWithLLM(
               hookProcessedContent,
               mvuSettings.mvuApiBaseUrl,
               mvuSettings.mvuApiKey,
@@ -466,7 +491,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             );
             const st = useVariableStore.getState();
             st.processResponse(hookProcessedContent);
-            for (const [name, value] of Object.entries(result.variables)) {
+            for (const [name, value] of Object.entries(extracted.variables)) {
               st.setVariable(name, value, 'llm');
             }
           } catch {
@@ -476,15 +501,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           useVariableStore.getState().processResponse(hookProcessedContent);
         }
 
-        // Parse JSON from raw response
         pushLog(
           'info',
-          `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens`,
+          `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
-        const result = parseLlmResponse(response.content, lastInputRef.current);
-        if (!result) {
-          throw new Error('无法解析AI回复');
-        }
         const newPage = result.page;
 
         const chatStore = useChatStore.getState();
@@ -498,23 +518,19 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         // Validate generation quality
-        if (result.recovered) {
-          pushLog('warn', '本回合回复未按标准JSON格式返回，已作为叙事页继续（本回合无结构化选项/暗线，故事仍在推进）。', 'system');
-        } else {
-          const validationErrors: string[] = [];
-          if (newPage.leftContent.length < 30) {
-            validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
-          }
-          const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
-          const isEpilogue = currentStage === '后日谈';
-          const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
-          if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
-            validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
-          }
-          if (validationErrors.length > 0) {
-            pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
-            useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
-          }
+        const validationErrors: string[] = [];
+        if (newPage.leftContent.length < 30) {
+          validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
+        }
+        const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
+        const isEpilogue = currentStage === '后日谈';
+        const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
+        if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
+          validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
+        }
+        if (validationErrors.length > 0) {
+          pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
+          useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
         }
 
         const bookStore = useBookStore.getState();
@@ -582,10 +598,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           darkThread: useDarkThreadStore.getState().entries,
           keywords: useKeywordStore.getState().keywords,
         });
+        return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');
         setError(message);
+        return false;
       } finally {
         endStream();
         setLoading(false);
@@ -640,8 +658,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (!result) return processedInput;
 
         pushLog('info', `提示词已组装 — ~${result.tokenCount} tokens`);
-        await handleSendFromPreview(result.messages, false, result.preset);
-        return '';
+        const ok = await handleSendFromPreview(result.messages, false, result.preset);
+        return ok ? '' : processedInput;
       } finally {
         loadingRef.current = false;
       }

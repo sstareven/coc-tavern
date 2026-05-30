@@ -1,4 +1,5 @@
 import { extractAllVariables, parseStatChanges } from './variables';
+import { rpmAcquire } from './rpm-limiter';
 
 const EXTRACTOR_PROMPT = `你是一个MVU（Model-View-Update）变量提取引擎。从以下COC跑团叙事文本中提取所有游戏状态变量。
 
@@ -36,6 +37,8 @@ export async function extractVariablesWithLLM(
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
+      // 全局 RPM 限流（独立 mvu API 同样受全局上限约束）
+      await rpmAcquire();
       const response = await fetch(url, {
         method: 'POST',
         headers: {
