@@ -238,7 +238,7 @@ export const useBookStore = create<BookStore>((set, get) => ({
     set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
   },
   setPageRewrite: (index, block) => set((s) => {
-    if (index < 0 || index >= s.pages.length) return {};
+    if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], rewrite: block };
     return { pages };

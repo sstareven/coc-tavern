@@ -77,11 +77,21 @@ describe('useBookStore.setPageRewrite', () => {
   });
 
   it('传 undefined 清除 rewrite', () => {
+    useBookStore.getState().setPages([
+      { id: 'p1', leftHeader: '场景', leftContent: '...', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    ]);
+    useBookStore.getState().setPageRewrite(0, block);
+    expect(useBookStore.getState().pages[0].rewrite).toEqual(block); // 前置：已写入
     useBookStore.getState().setPageRewrite(0, undefined);
     expect(useBookStore.getState().pages[0].rewrite).toBeUndefined();
   });
 
   it('越界索引安全忽略', () => {
+    useBookStore.getState().setPages([
+      { id: 'p1', leftHeader: '场景', leftContent: '...', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    ]);
+    const before = useBookStore.getState().pages;
     expect(() => useBookStore.getState().setPageRewrite(99, block)).not.toThrow();
+    expect(useBookStore.getState().pages).toBe(before); // 越界为 no-op，引用不变
   });
 });
