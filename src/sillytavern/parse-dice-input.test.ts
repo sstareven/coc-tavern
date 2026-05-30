@@ -31,6 +31,16 @@ describe('parseDiceResultsFromInput', () => {
     expect(parseDiceResultsFromInput('我直接环顾四周')).toEqual([]);
   });
 
+  it('暗骰技能(心理学)不进 diceResults', () => {
+    expect(parseDiceResultsFromInput('[心理学 d100=42/60 成功]\n看穿他的神情')).toEqual([]);
+  });
+
+  it('心理学与普通检定混排时只跳过心理学', () => {
+    const r = parseDiceResultsFromInput('[心理学 d100=42/60 成功] [侦查 d100=30/55 困难成功]');
+    expect(r).toHaveLength(1);
+    expect(r[0].skill).toBe('侦查');
+  });
+
   it('多个掷骰', () => {
     const r = parseDiceResultsFromInput('[侦查 d100=10/60 极难成功] 然后 [聆听 d100=80/40 失败]');
     expect(r.map((x) => x.type)).toEqual(['extreme-success', 'failure']);

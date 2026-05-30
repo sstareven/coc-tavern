@@ -23,8 +23,8 @@ export function GameView({ onReturnToMenu }: Props) {
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
     opposed: boolean; opponentRoll: number; opponentTarget: number; opponentResultType: string; opposedOutcome: 'win' | 'lose' | 'draw';
-    kind: 'check' | 'poly'; polyTheme: 'damage' | 'sanity'; polyLabel: string; polyExpr: string; polyTotal: number; polySub: string;
-  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '' });
+    kind: 'check' | 'poly'; polyTheme: 'damage' | 'sanity'; polyLabel: string; polyExpr: string; polyTotal: number; polySub: string; hidden: boolean;
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '', hidden: false });
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
@@ -33,7 +33,7 @@ export function GameView({ onReturnToMenu }: Props) {
         visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText,
         bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0,
         opposed: detail.opposed || false, opponentRoll: detail.opponentRoll || 0, opponentTarget: detail.opponentTarget || 0, opponentResultType: detail.opponentResultType || 'failure', opposedOutcome: detail.opposedOutcome || 'draw',
-        kind: detail.kind || 'check', polyTheme: detail.polyTheme || 'damage', polyLabel: detail.polyLabel || '', polyExpr: detail.polyExpr || '', polyTotal: detail.polyTotal || 0, polySub: detail.polySub || '',
+        kind: detail.kind || 'check', polyTheme: detail.polyTheme || 'damage', polyLabel: detail.polyLabel || '', polyExpr: detail.polyExpr || '', polyTotal: detail.polyTotal || 0, polySub: detail.polySub || '', hidden: detail.hidden || false,
       });
     };
     document.addEventListener('dice-roll-animate', handler);
@@ -143,6 +143,7 @@ export function GameView({ onReturnToMenu }: Props) {
         expr={diceAnim.polyExpr}
         total={diceAnim.polyTotal}
         sub={diceAnim.polySub}
+        hidden={diceAnim.hidden}
         onComplete={onDiceComplete}
       />
     </div>

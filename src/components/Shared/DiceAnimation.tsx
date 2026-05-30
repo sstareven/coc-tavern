@@ -481,10 +481,11 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
 interface PolyProps {
   visible: boolean;
   theme: 'damage' | 'sanity';
-  label: string;   // 造成伤害 / 理智损失
-  expr: string;    // 1D6+2
+  label: string;   // 造成伤害 / 理智损失 / 心理学检定
+  expr: string;    // 1D6+2 / 暗骰
   total: number;
   sub?: string;    // 副标题（如 SAN 检定 成功/失败）
+  hidden?: boolean; // 暗骰：不露点数，只显示「暗骰」
   onComplete: () => void;
 }
 
@@ -493,7 +494,7 @@ const POLY_COLORS: Record<'damage' | 'sanity', string> = {
   sanity: '#b388ff',
 };
 
-export function PolyRollAnimation({ visible, theme, label, expr, total, sub, onComplete }: PolyProps) {
+export function PolyRollAnimation({ visible, theme, label, expr, total, sub, hidden = false, onComplete }: PolyProps) {
   const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
   const [fading, setFading] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -534,8 +535,8 @@ export function PolyRollAnimation({ visible, theme, label, expr, total, sub, onC
 
   if (!visible) return null;
 
-  const color = POLY_COLORS[theme];
-  const rollStr = String(total);
+  const color = hidden ? '#9a86c4' : POLY_COLORS[theme];
+  const rollStr = hidden ? '?' : String(total);
   const glowColor = phase === 'rolling' ? '#555' : color;
 
   return (
@@ -566,7 +567,7 @@ export function PolyRollAnimation({ visible, theme, label, expr, total, sub, onC
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <div style={{ padding: '8px 36px', background: `${color}1f`, border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
                 <span style={{ fontSize: 24, fontWeight: 700, color, letterSpacing: 6, fontFamily: 'var(--font-display)' }}>
-                  {theme === 'sanity' ? `−${total}` : total} 点
+                  {hidden ? '暗 骰' : (theme === 'sanity' ? `−${total}` : total) + ' 点'}
                 </span>
               </div>
             </motion.div>
