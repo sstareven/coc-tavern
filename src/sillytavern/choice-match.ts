@@ -1,9 +1,10 @@
 import type { ChoiceItem } from '../types';
 
-/** 规范化：剥离 <var> 标记、去标点与空白、全角字母数字转半角、统一小写。用于强相关相等比对。 */
+/** 规范化：剥离 <var> 标记与骰子结果方括号 [..]、去标点与空白、全角字母数字转半角、统一小写。用于强相关相等比对。 */
 export function normalizeChoiceText(s: string): string {
   return s
     .replace(/<var\s+[^>]*\/>/gi, '')
+    .replace(/\[[^\]]*\]/g, '')
     .replace(/[，。！？、；：,.!?;:「」『』“”‘’()（）\[\]【】\s]/g, '')
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
     .toLowerCase();
