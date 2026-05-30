@@ -17,6 +17,11 @@ describe('normalizeChoiceText', () => {
   it('全角字母数字转半角', () => {
     expect(normalizeChoiceText('ＡＢＣ１２３')).toBe('abc123');
   });
+  it('整块剥离骰子结果方括号（含 = / 等内部字符）', () => {
+    expect(
+      normalizeChoiceText('[攀爬 困难 d100=66/10 惩罚骰 失败]\n进行攀爬检定(困难, 惩罚骰),趁着夜色冒险攀爬'),
+    ).toBe('进行攀爬检定困难惩罚骰趁着夜色冒险攀爬');
+  });
 });
 
 describe('matchesExistingChoice', () => {
@@ -31,6 +36,11 @@ describe('matchesExistingChoice', () => {
   });
   it('空输入 → false', () => {
     expect(matchesExistingChoice('   ', choices)).toBe(false);
+  });
+  it('掷骰后被前置骰子结果方括号的选项仍能匹配（advance 而非 rewrite）', () => {
+    const rolled =
+      "[攀爬 困难 d100=66/10 惩罚骰 失败]\n进行图书馆使用检定(普通)，查阅档案 <var name='lastCheck' value='攀爬'/>";
+    expect(matchesExistingChoice(rolled, choices)).toBe(true);
   });
 });
 
