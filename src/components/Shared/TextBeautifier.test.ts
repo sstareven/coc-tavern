@@ -50,12 +50,12 @@ describe('beautifyText — 对话橘色高亮', () => {
     expect(nodes('阿卡姆的街道笼在死寂里')).toEqual(['阿卡姆的街道笼在死寂里']);
   });
 
-  it('对话内部关键词以金色变体(tone=gold)渲染', () => {
+  it('对话内部关键词以红色变体(tone=red)渲染', () => {
     const spans = findDialogueSpans(nodes('他说「去过{{阿卡姆}}吗」'));
     expect(spans).toHaveLength(1);
     const children = spans[0].props.children as ReactElement[];
     const kw = children.find(
-      (c) => typeof c === 'object' && c !== null && c.props?.tone === 'gold',
+      (c) => typeof c === 'object' && c !== null && c.props?.tone === 'red',
     );
     expect(kw).toBeTruthy();
     expect(kw!.props.keyword).toBe('阿卡姆');

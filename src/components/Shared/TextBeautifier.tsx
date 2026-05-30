@@ -42,7 +42,7 @@ function beautifyKeywords(text: string): React.ReactNode[] {
     const keyword = match[1].trim();
     if (keyword) {
       result.push(
-        <KeywordTooltip key={`mk-${match.index}`} keyword={keyword} tone="gold">
+        <KeywordTooltip key={`mk-${match.index}`} keyword={keyword} tone="red">
           {keyword}
         </KeywordTooltip>,
       );
