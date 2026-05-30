@@ -34,7 +34,8 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS } from '../constants/presets';
 import { FORMAT_INSTRUCTION } from '../sillytavern/format-instruction';
-import { parseLlmResponse } from '../sillytavern/llm-response-parser';
+import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
+import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
@@ -72,6 +73,7 @@ export interface UseChatPipelineReturn {
   // Pipeline
   submit: (text: string) => Promise<string>;
   regenerate: () => Promise<void>;
+  rewriteAction: (input: string) => Promise<void>;
 
   // Slash command autocomplete
   allCommands: ReturnType<typeof getCommands>;
@@ -688,6 +690,68 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     }
   }, [buildPromptMessages, handleSendFromPreview]);
 
+  // ── rewriteAction ──
+
+  const rewriteAction = useCallback(async (input: string) => {
+    const trimmed = input.trim();
+    if (!trimmed || loadingRef.current) return;
+    loadingRef.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const settings = useSettingsStore.getState();
+      const useIndep = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey;
+      const baseUrl = useIndep ? settings.rewriteApiBaseUrl : settings.apiBaseUrl;
+      const apiKey = useIndep ? settings.rewriteApiKey : settings.apiKey;
+      const model = useIndep ? settings.rewriteApiModel : settings.apiModel;
+      if (!apiKey) {
+        setError('请先在设置中配置API');
+        return;
+      }
+
+      const bookStore = useBookStore.getState();
+      const idx = bookStore.pageIndex;
+      const hasPrev = !!bookStore.pages[idx]?.rewrite;
+      const directive = hasPrev
+        ? `${REWRITE_INSTRUCTION}\n\n（玩家对上次补写不满意，请给出与上次明显不同的 4 个方案。）`
+        : REWRITE_INSTRUCTION;
+
+      pushLog('info', `[行动补写] ${hasPrev ? '重新续写' : '生成'}: "${trimmed.slice(0, 40)}"`);
+
+      const built = buildPromptMessages(trimmed, directive);
+      if (!built) {
+        setError('行动补写提示词组装失败');
+        return;
+      }
+
+      const response = await sendChatCompletion(
+        applyPostProcessing(built.messages, settings.promptPostProcessing),
+        built.preset,
+        baseUrl,
+        apiKey,
+        model,
+        false,
+        undefined,
+      );
+
+      pushLog('debug', `[行动补写] 响应 ${response.content.length}字`, 'api');
+      const block = parseRewriteResponse(response.content);
+      if (!block) {
+        setError('行动补写生成失败');
+        return;
+      }
+      block.sourceInput = trimmed;
+      useBookStore.getState().setPageRewrite(idx, block);
+      useChatStore.getState().savePages(useBookStore.getState().pages);
+      pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项`);
+    } catch (e) {
+      setError(`行动补写失败: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+    }
+  }, [buildPromptMessages]);
+
   // ── Token counter ──
 
   const openTokenCounter = useCallback(
@@ -837,6 +901,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     // Pipeline
     submit,
     regenerate,
+    rewriteAction,
 
     // Slash command autocomplete
     allCommands,
