@@ -93,7 +93,7 @@ export function ChatlistPanel({ onClose }: Props) {
 }
 
 function SessionItem({ sess, isActive, onSelect, onDelete }: {
-  sess: { id: string; name: string; messages: unknown[]; updatedAt: number };
+  sess: { id: string; name: string; messages: unknown[]; pages: unknown[]; updatedAt: number };
   isActive: boolean; onSelect: () => void; onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -121,7 +121,7 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
           )}
         </div>
         <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-          {sess.messages.length} 条消息 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
+          {sess.pages.length} 页 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
         </span>
       </div>
       {!isActive && (confirmDelete ? (
