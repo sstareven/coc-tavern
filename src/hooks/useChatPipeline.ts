@@ -498,22 +498,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         // Validate generation quality
-        const validationErrors: string[] = [];
-        if (newPage.rightContent === '无法解析回应内容') {
-          validationErrors.push('AI回复格式解析失败，回复内容已作为原始文本展示');
-        }
-        if (newPage.leftContent.length < 30) {
-          validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
-        }
-        const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
-        const isEpilogue = currentStage === '后日谈';
-        const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
-        if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
-          validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
-        }
-        if (validationErrors.length > 0) {
-          pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
-          useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
+        if (result.recovered) {
+          pushLog('warn', '本回合回复未按标准JSON格式返回，已作为叙事页继续（本回合无结构化选项/暗线，故事仍在推进）。', 'system');
+        } else {
+          const validationErrors: string[] = [];
+          if (newPage.leftContent.length < 30) {
+            validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
+          }
+          const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
+          const isEpilogue = currentStage === '后日谈';
+          const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
+          if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
+            validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
+          }
+          if (validationErrors.length > 0) {
+            pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
+            useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
+          }
         }
 
         const bookStore = useBookStore.getState();

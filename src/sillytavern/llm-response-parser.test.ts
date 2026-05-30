@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse } from './llm-response-parser';
+import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse } from './llm-response-parser';
 
 // ============================================================
 // stripMvu — HTML tag conversion and stripping
@@ -145,5 +145,27 @@ describe('parseRewriteResponse', () => {
 
   it('完全非法 → null', () => {
     expect(parseRewriteResponse('这不是JSON')).toBeNull();
+  });
+});
+// ============================================================
+// parseLlmResponse — 纯散文救场（非 JSON 回复）
+// ============================================================
+describe('parseLlmResponse — 纯散文救场', () => {
+  it('LLM返回纯叙事时救成可玩叙事页而非报错', () => {
+    const prose = '密斯卡塔尼克大学的标本室位于地下二层。莱克教授站在尽头，「你来了。」他低声说。';
+    const r = parseLlmResponse(prose, '查看标本室');
+    expect(r).not.toBeNull();
+    expect(r!.recovered).toBe(true);
+    expect(r!.page.rightContent).toBe('接下来你打算怎么做？');
+    expect(r!.page.rightContent).not.toBe('无法解析回应内容');
+    expect(r!.page.leftContent).toContain('莱克教授');
+    expect(r!.page.rightChoices).toHaveLength(4);
+  });
+
+  it('正常JSON回复不标记 recovered', () => {
+    const json = '{"leftHeader":"书房","leftContent":"你走进书房。","rightHeader":"行动","rightContent":"怎么做？","choices":[{"num":"I","text":"搜查","action":"进行侦查检定(普通)"}]}';
+    const r = parseLlmResponse(json, '进入书房');
+    expect(r!.recovered).toBeFalsy();
+    expect(r!.page.leftHeader).toBe('书房');
   });
 });
