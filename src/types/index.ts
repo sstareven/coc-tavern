@@ -59,6 +59,7 @@ export interface BookPage {
   keywords?: Record<string, string>;
   diceResults?: DiceRecord[];
   inventoryChanges?: InventoryChange[];
+  rewrite?: RewriteBlock;
 }
 
 // ===== Inventory System =====
@@ -90,6 +91,15 @@ export interface ChoiceItem {
   num: string;
   text: string;
   action: string;
+}
+
+export interface RewriteBlock {
+  /** 承接玩家意图的过渡叙述,不含结果、不推进剧情 */
+  text: string;
+  /** 4 个候选行动选项,编号续接原选项(V–VIII) */
+  choices: ChoiceItem[];
+  /** 触发补写时玩家的原始输入,用于重新续写复用与匹配 */
+  sourceInput: string;
 }
 
 // ===== Dice =====
