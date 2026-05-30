@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useBookStore } from '../../stores/useBookStore';
+import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { StreamingPreview } from '../Shared/StreamingPreview';
@@ -10,6 +12,12 @@ export function InputBar() {
   const [input, setInput] = useState('');
   const [wandOpen, setWandOpen] = useState(false);
   const apiModel = useSettingsStore((s) => s.apiModel);
+
+  const currentChoices = useBookStore((s) => {
+    const p = s.pages[s.pageIndex];
+    return p ? [...p.rightChoices, ...(p.rewrite?.choices ?? [])] : [];
+  });
+  const buttonMode = resolveButtonMode(input, currentChoices);
 
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
@@ -45,6 +53,12 @@ export function InputBar() {
 
   const handleRegenerate = async () => {
     await pipeline.regenerate();
+  };
+
+  const handleRewrite = async () => {
+    const trimmed = input.trim();
+    if (!trimmed || pipeline.loading) return;
+    await pipeline.rewriteAction(trimmed);
   };
 
   // ── Render ──
@@ -339,37 +353,34 @@ export function InputBar() {
               }}
             />
           </div>
-          <button
-            onClick={handleSubmit}
-            disabled={pipeline.loading}
-            title="预览提示词后发送"
+          <div
             style={{
-              padding: '10px 28px',
+              display: 'flex',
+              flexDirection: 'column',
               border: '1px solid var(--gold)',
-              background: pipeline.loading
-                ? 'rgba(196,168,85,0.05)'
-                : 'rgba(196,168,85,0.1)',
-              color: pipeline.loading ? 'rgba(196,168,85,0.4)' : 'var(--gold)',
-              fontFamily: 'var(--font-ui)',
-              fontSize: 14,
-              letterSpacing: 4,
               borderRadius: 3,
-              cursor: pipeline.loading ? 'default' : 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'var(--transition-smooth)',
+              overflow: 'hidden',
               opacity: pipeline.loading ? 0.7 : 1,
             }}
-            onMouseEnter={(e) => {
-              if (!pipeline.loading)
-                e.currentTarget.style.background = 'rgba(196,168,85,0.2)';
-            }}
-            onMouseLeave={(e) => {
-              if (!pipeline.loading)
-                e.currentTarget.style.background = 'rgba(196,168,85,0.1)';
-            }}
           >
-            {pipeline.loading ? '...' : '推 进'}
-          </button>
+            <button
+              onClick={handleSubmit}
+              disabled={pipeline.loading || buttonMode !== 'advance'}
+              title="推进剧情"
+              style={dualBtnStyle(buttonMode === 'advance', pipeline.loading)}
+            >
+              {pipeline.loading && buttonMode === 'advance' ? '...' : '推 进'}
+            </button>
+            <div style={{ height: 1, background: 'rgba(196,168,85,0.25)' }} />
+            <button
+              onClick={handleRewrite}
+              disabled={pipeline.loading || buttonMode !== 'rewrite'}
+              title="补写当前自定义行动，生成新候选选项"
+              style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading)}
+            >
+              {pipeline.loading && buttonMode === 'rewrite' ? '...' : '行动补写'}
+            </button>
+          </div>
         </div>
       </footer>
     </>
@@ -434,6 +445,22 @@ function WandRow({ icon, label, iconColor, iconMono, divider, onClick }: WandRow
       </td>
     </tr>
   );
+}
+
+function dualBtnStyle(active: boolean, loading: boolean): React.CSSProperties {
+  return {
+    padding: '7px 24px',
+    border: 'none',
+    background: active ? 'rgba(196,168,85,0.18)' : 'transparent',
+    color: active ? 'var(--gold)' : 'rgba(196,168,85,0.35)',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 13,
+    letterSpacing: 3,
+    cursor: active && !loading ? 'pointer' : 'default',
+    pointerEvents: active && !loading ? 'auto' : 'none',
+    whiteSpace: 'nowrap',
+    transition: 'var(--transition-smooth)',
+  };
 }
 
 const wandBtnStyle: React.CSSProperties = {
