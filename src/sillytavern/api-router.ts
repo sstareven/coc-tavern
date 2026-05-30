@@ -1,4 +1,5 @@
 import { parseStreamChunk } from './stream-parser';
+import { rpmAcquire } from './rpm-limiter';
 import type { ChatPreset } from '../types';
 
 export interface ChatCompletionRequest {
@@ -23,6 +24,9 @@ export async function sendChatCompletion(
   signal?: AbortSignal,
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  // 全局 RPM 限流：达到上限则排队等待
+  await rpmAcquire();
 
   let response: Response;
   try {

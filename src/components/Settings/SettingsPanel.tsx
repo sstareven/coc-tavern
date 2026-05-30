@@ -338,6 +338,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
   const contextPageDepth = useSettingsStore((s) => s.contextPageDepth);
   const setContextPageDepth = useSettingsStore((s) => s.setContextPageDepth);
+  const jsonRetryCount = useSettingsStore((s) => s.jsonRetryCount);
+  const setJsonRetryCount = useSettingsStore((s) => s.setJsonRetryCount);
+  const rpmLimit = useSettingsStore((s) => s.rpmLimit);
+  const setRpmLimit = useSettingsStore((s) => s.setRpmLimit);
   const globalCaseSensitive = useSettingsStore((s) => s.globalCaseSensitive);
   const setGlobalCaseSensitive = useSettingsStore((s) => s.setGlobalCaseSensitive);
   const globalMatchWholeWord = useSettingsStore((s) => s.globalMatchWholeWord);
@@ -647,6 +651,42 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    解析失败重试次数
+                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
+                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
+                      {'当AI回复不是合法JSON（如返回纯叙事）时，自动追加「只输出JSON」的纠正提示并重试。\n\n每次重试都是一次额外的API请求。重试仍失败则放弃本回合、不生成书页，原因记入调试日志。\n\n0 = 不重试，最大 5 次。'}
+                    </div>
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" min={0} max={5} step={1}
+                      value={jsonRetryCount}
+                      onChange={(e) => setJsonRetryCount(Number(e.target.value) || 0)}
+                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                    />
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{jsonRetryCount === 0 ? '不重试' : `重试${jsonRetryCount}次`}</span>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    全局 RPM 上限
+                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
+                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
+                      {'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'}
+                    </div>
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" min={0} max={10} step={1}
+                      value={rpmLimit}
+                      onChange={(e) => setRpmLimit(Number(e.target.value) || 0)}
+                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                    />
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmLimit === 0 ? '不限制' : `${rpmLimit} 次/分`}</span>
                   </div>
                 </div>
 

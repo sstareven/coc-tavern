@@ -35,6 +35,8 @@ interface SettingsState {
   wiBudget: number;
   alertOnOverflow: boolean;
   worldInfoStrategy: 'evenly' | 'global-first' | 'chat-first';
+  jsonRetryCount: number;
+  rpmLimit: number;
 }
 
 interface SettingsStore extends SettingsState {
@@ -68,6 +70,8 @@ interface SettingsStore extends SettingsState {
   setWiBudget: (n: number) => void;
   setAlertOnOverflow: (v: boolean) => void;
   setWorldInfoStrategy: (v: 'evenly' | 'global-first' | 'chat-first') => void;
+  setJsonRetryCount: (n: number) => void;
+  setRpmLimit: (n: number) => void;
 }
 
 const defaults: SettingsState = {
@@ -102,6 +106,8 @@ const defaults: SettingsState = {
   wiBudget: 0,
   alertOnOverflow: false,
   worldInfoStrategy: 'evenly',
+  jsonRetryCount: 1,
+  rpmLimit: 10,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -139,6 +145,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setWiBudget: (n) => set({ wiBudget: n }),
       setAlertOnOverflow: (v) => set({ alertOnOverflow: v }),
       setWorldInfoStrategy: (v) => set({ worldInfoStrategy: v }),
+      setJsonRetryCount: (n) => set({ jsonRetryCount: Math.max(0, Math.min(5, Math.floor(n))) }),
+      setRpmLimit: (n) => set({ rpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
     }),
     {
       name: 'coc_settings_v2',
