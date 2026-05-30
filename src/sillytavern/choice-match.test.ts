@@ -42,6 +42,16 @@ describe('matchesExistingChoice', () => {
       "[攀爬 困难 d100=66/10 惩罚骰 失败]\n进行图书馆使用检定(普通)，查阅档案 <var name='lastCheck' value='攀爬'/>";
     expect(matchesExistingChoice(rolled, choices)).toBe(true);
   });
+  it('提交「叙事text + 机制action」合并形态仍匹配（advance）', () => {
+    // 模拟 buildChoiceInput：玩家叙事 text。机制 action
+    const combined = '仔细搜查书房的每个角落。进行侦查检定(普通)，搜查书房 <var name=\'lastAction\' value=\'搜查\'/>';
+    expect(matchesExistingChoice(combined, choices)).toBe(true);
+  });
+  it('合并形态 + 掷骰前缀仍匹配（advance）', () => {
+    const rolled =
+      "[侦查 普通 d100=42/60 成功]\n仔细搜查书房的每个角落。进行侦查检定(普通)，搜查书房 <var name='lastAction' value='搜查'/>";
+    expect(matchesExistingChoice(rolled, choices)).toBe(true);
+  });
 });
 
 describe('resolveButtonMode', () => {

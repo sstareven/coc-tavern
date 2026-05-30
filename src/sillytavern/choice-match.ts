@@ -10,13 +10,16 @@ export function normalizeChoiceText(s: string): string {
     .toLowerCase();
 }
 
-/** 输入是否与任一选项的 text 或 action 规范化后严格相等。 */
+/** 输入是否与任一选项的 text / action / 「text+action 合并」规范化后严格相等。 */
 export function matchesExistingChoice(input: string, choices: ChoiceItem[]): boolean {
   const n = normalizeChoiceText(input);
   if (!n) return false;
-  return choices.some(
-    (c) => normalizeChoiceText(c.text) === n || normalizeChoiceText(c.action) === n,
-  );
+  return choices.some((c) => {
+    const t = normalizeChoiceText(c.text);
+    const a = normalizeChoiceText(c.action);
+    // text、action 单独相等；或选中时提交的「叙事text + 机制action」合并形态
+    return t === n || a === n || (!!t && !!a && t + a === n);
+  });
 }
 
 /** 推进按钮模式：空/指令/匹配选项 → advance；选项外自定义 → rewrite。 */
