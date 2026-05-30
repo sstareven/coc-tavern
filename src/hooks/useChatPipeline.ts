@@ -118,7 +118,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── buildPromptMessages ──
 
   const buildPromptMessages = useCallback(
-    (overrideInput?: string): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
+    (overrideInput?: string, formatOverride?: string): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
       const trimmed = (overrideInput ?? '').trim();
       const effectiveInput = trimmed || '(提示词查看器预览)';
 
@@ -291,7 +291,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ...e,
         content: renderTemplate(e.content, tmplOpts),
       }));
-      const processedFormat = renderTemplate(FORMAT_INSTRUCTION, tmplOpts);
+      const processedFormat = renderTemplate(formatOverride ?? FORMAT_INSTRUCTION, tmplOpts);
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
       const macroCtx: MacroContext = {
