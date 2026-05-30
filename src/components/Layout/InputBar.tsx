@@ -13,10 +13,10 @@ export function InputBar() {
   const [wandOpen, setWandOpen] = useState(false);
   const apiModel = useSettingsStore((s) => s.apiModel);
 
-  const currentChoices = useBookStore((s) => {
-    const p = s.pages[s.pageIndex];
-    return p ? [...p.rightChoices, ...(p.rewrite?.choices ?? [])] : [];
-  });
+  const currentPage = useBookStore((s) => s.pages[s.pageIndex]);
+  const currentChoices = currentPage
+    ? [...currentPage.rightChoices, ...(currentPage.rewrite?.choices ?? [])]
+    : [];
   const buttonMode = resolveButtonMode(input, currentChoices);
 
   // ── Pipeline hook ──
@@ -368,6 +368,24 @@ export function InputBar() {
               disabled={pipeline.loading || buttonMode !== 'advance'}
               title="推进剧情"
               style={dualBtnStyle(buttonMode === 'advance', pipeline.loading)}
+              onMouseEnter={(e) => {
+                if (buttonMode === 'advance' && !pipeline.loading) {
+                  e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
+                  e.currentTarget.style.color = 'var(--gold)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  buttonMode === 'advance' ? 'rgba(196,168,85,0.18)' : 'transparent';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => {
+                if (buttonMode === 'advance' && !pipeline.loading)
+                  e.currentTarget.style.transform = 'scale(0.98)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
               {pipeline.loading && buttonMode === 'advance' ? '...' : '推 进'}
             </button>
@@ -377,6 +395,24 @@ export function InputBar() {
               disabled={pipeline.loading || buttonMode !== 'rewrite'}
               title="补写当前自定义行动，生成新候选选项"
               style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading)}
+              onMouseEnter={(e) => {
+                if (buttonMode === 'rewrite' && !pipeline.loading) {
+                  e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
+                  e.currentTarget.style.color = 'var(--gold)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  buttonMode === 'rewrite' ? 'rgba(196,168,85,0.18)' : 'transparent';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              onMouseDown={(e) => {
+                if (buttonMode === 'rewrite' && !pipeline.loading)
+                  e.currentTarget.style.transform = 'scale(0.98)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
               {pipeline.loading && buttonMode === 'rewrite' ? '...' : '行动补写'}
             </button>
