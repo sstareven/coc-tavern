@@ -7,16 +7,16 @@ import { useKeywordStore } from '../../stores/useKeywordStore';
 interface Props {
   keyword: string;
   children: React.ReactNode;
-  /** 'gold' = 常驻金光（用于对话内部关键词，在深色对话与米色背景上突出）。 */
-  tone?: 'default' | 'gold';
+  /** 'red' = 常驻红色高亮（用于对话内部关键词，在深色对话与米色背景上突出）。 */
+  tone?: 'default' | 'red';
 }
 
-// 金色变体：偏暗的黄铜金 + 极细暗边（保证米色背景上可读）+ 金色辉光
-const GOLD_COLOR = 'var(--gold)';
-const GOLD_GLOW =
-  '0 0 1px rgba(0,0,0,0.55), 0 0 6px rgba(196,168,85,0.75), 0 0 12px rgba(196,168,85,0.4)';
-const GOLD_GLOW_BRIGHT =
-  '0 0 1px rgba(0,0,0,0.55), 0 0 10px rgba(245,220,130,0.9), 0 0 18px rgba(245,220,130,0.5)';
+// 红色变体：醒目的红 + 极细暗边（保证米色背景上可读）+ 红色辉光
+const RED_COLOR = '#cf2b25';
+const RED_GLOW =
+  '0 0 1px rgba(0,0,0,0.55), 0 0 6px rgba(215,50,45,0.7), 0 0 12px rgba(215,50,45,0.38)';
+const RED_GLOW_BRIGHT =
+  '0 0 1px rgba(0,0,0,0.55), 0 0 10px rgba(255,90,80,0.92), 0 0 18px rgba(255,90,80,0.5)';
 
 const KEYWORD_MEANINGS: Record<string, string> = {
   '调查员': 'Investigator — 玩家扮演的角色，探索克苏鲁神话的秘密',
@@ -73,7 +73,7 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
   const [tpPos, setTpPos] = useState({ x: 0, y: 0 });
   const ref = useRef<HTMLSpanElement>(null);
   const meaning = getMeaning(keyword);
-  const gold = tone === 'gold';
+  const red = tone === 'red';
 
   const TOOLTIP_W = 340; // max-width of tooltip
 
@@ -102,7 +102,7 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
 
   if (!meaning) {
     return (
-      <b style={gold ? { color: GOLD_COLOR, textShadow: GOLD_GLOW } : { color: 'inherit' }}>
+      <b style={red ? { color: RED_COLOR, textShadow: RED_GLOW } : { color: 'inherit' }}>
         {children}
       </b>
     );
@@ -118,15 +118,15 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
         onMouseLeave={onLeave}
       >
         <motion.b
-          animate={show ? (gold ? {
-            color: [GOLD_COLOR, '#f5dc82', GOLD_COLOR],
-            textShadow: [GOLD_GLOW, GOLD_GLOW_BRIGHT, GOLD_GLOW],
+          animate={show ? (red ? {
+            color: [RED_COLOR, '#ff5a50', RED_COLOR],
+            textShadow: [RED_GLOW, RED_GLOW_BRIGHT, RED_GLOW],
           } : {
             color: ['var(--ink)', 'var(--gold)', 'var(--ink)'],
             textShadow: ['none', '0 0 10px rgba(196,168,85,0.55)', 'none'],
-          }) : (gold ? {
-            color: GOLD_COLOR,
-            textShadow: GOLD_GLOW,
+          }) : (red ? {
+            color: RED_COLOR,
+            textShadow: RED_GLOW,
           } : {
             color: 'inherit',
             textShadow: 'none',
