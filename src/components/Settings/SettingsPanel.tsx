@@ -407,8 +407,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [mvuConnStatus, setMvuConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
-  const [ppHelpOpen, setPpHelpOpen] = useState(false);
-  const [summaryHelpOpen, setSummaryHelpOpen] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
@@ -609,22 +607,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={{ ...labelStyle, position: 'relative' }}>
                     上下文总结上限
-                    <span onClick={() => setSummaryHelpOpen(!summaryHelpOpen)} style={helpIconStyle}>?</span>
-                    {summaryHelpOpen && (
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setSummaryHelpOpen(false)} />
-                        <div style={{
-                          position: 'absolute', top: '120%', left: 0, zIndex: 1000,
-                          background: 'var(--leather)', border: '1px solid var(--gold)',
-                          borderRadius: 4, padding: 10, minWidth: 300,
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-                          fontSize: 10, color: 'var(--text-light)',
-                          lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line',
-                        }}>
-                          {'上下文注意力有限，回顾总结条目过多可能导致LLM注意力分散，\n引发剧情混乱或遗忘近期事件。建议保持在20条以内。\n\n此设置控制每次生成时最多注入多少条「剧情回顾」摘要到LLM上下文中。'}
-                        </div>
-                      </>
-                    )}
+                    <HelpIcon text={'上下文注意力有限，回顾总结条目过多可能导致LLM注意力分散，\n引发剧情混乱或遗忘近期事件。建议保持在20条以内。\n\n此设置控制每次生成时最多注入多少条「剧情回顾」摘要到LLM上下文中。'} />
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input type="range" min={5} max={50} step={5}
@@ -639,10 +622,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     上下文回顾页数
-                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
-                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
-                      {'每次向LLM发送请求时，回顾最近N页的故事内容作为上下文。\n\n数值越大，LLM记住的剧情越多，但消耗的token也越多。\n数值过大可能导致超出模型上下文窗口或注意力分散。\n\n默认3页（推荐），输入0则包含全部页面（谨慎使用）。'}
-                    </div>
+                    <HelpIcon text={'每次向LLM发送请求时，回顾最近N页的故事内容作为上下文。\n\n数值越大，LLM记住的剧情越多，但消耗的token也越多。\n数值过大可能导致超出模型上下文窗口或注意力分散。\n\n默认3页（推荐），输入0则包含全部页面（谨慎使用）。'} />
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input type="number" min={0} max={50} step={1}
@@ -657,10 +637,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     解析失败重试次数
-                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
-                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
-                      {'当AI回复不是合法JSON（如返回纯叙事）时，自动追加「只输出JSON」的纠正提示并重试。\n\n每次重试都是一次额外的API请求。重试仍失败则放弃本回合、不生成书页，原因记入调试日志。\n\n0 = 不重试，最大 5 次。'}
-                    </div>
+                    <HelpIcon text={'当AI回复不是合法JSON（如返回纯叙事）时，自动追加「只输出JSON」的纠正提示并重试。\n\n每次重试都是一次额外的API请求。重试仍失败则放弃本回合、不生成书页，原因记入调试日志。\n\n0 = 不重试，最大 5 次。'} />
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input type="number" min={0} max={5} step={1}
@@ -675,10 +652,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     全局 RPM 上限
-                    <span onClick={(e) => { e.stopPropagation(); const el = e.currentTarget.nextElementSibling; if (el) (el as HTMLElement).style.display = (el as HTMLElement).style.display === 'block' ? 'none' : 'block'; }} style={helpIconStyle}>?</span>
-                    <div style={{ display: 'none', position: 'absolute', zIndex: 100, left: 0, top: '100%', width: 260, padding: '8px 10px', background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
-                      {'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'}
-                    </div>
+                    <HelpIcon text={'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'} />
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input type="number" min={0} max={10} step={1}
@@ -791,19 +765,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     提示词后处理
-                    <span onClick={() => setPpHelpOpen(!ppHelpOpen)} style={helpIconStyle}>?</span>
-                    {ppHelpOpen && (
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setPpHelpOpen(false)} />
-                        <div style={{ position: 'absolute', top: '120%', left: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4, padding: 10, minWidth: 340, boxShadow: '0 4px 16px rgba(0,0,0,0.6)', fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8, fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line' }}>
-                          {`None — 不进行显式处理，除非 API 严格要求
+                    <HelpIcon text={`None — 不进行显式处理，除非 API 严格要求
 合并相同角色连续的发言
 半严格 — 合并角色并只允许一条可选系统消息
 严格 — 合并角色、只允许一条可选系统消息、要求用户消息在最前
-单一用户消息 — 将所有角色的所有消息合并为一条用户消息`}
-                        </div>
-                      </>
-                    )}
+单一用户消息 — 将所有角色的所有消息合并为一条用户消息`} />
                   </span>
                   <div style={{ position: 'relative', width: 240 }}>
                     <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
@@ -1098,3 +1064,29 @@ const helpIconStyle: React.CSSProperties = {
   color: 'var(--ink-subtle)', cursor: 'help', fontSize: 9, fontWeight: 'bold',
   fontFamily: 'var(--font-ui)', marginLeft: 4,
 };
+
+/** 悬浮（hover）显示说明的问号图标。自包含定位，不依赖外层 position。 */
+function HelpIcon({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={helpIconStyle}>?</span>
+      {show && (
+        <div style={{
+          position: 'absolute', top: '140%', left: 0, zIndex: 1000,
+          width: 300, padding: '8px 10px',
+          background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8,
+          fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line', pointerEvents: 'none',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
