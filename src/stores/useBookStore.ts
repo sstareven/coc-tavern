@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 
@@ -109,6 +109,7 @@ interface BookStore {
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
   setPages: (pages: BookPage[]) => void;
+  setPageRewrite: (index: number, block: RewriteBlock | undefined) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -236,6 +237,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const withIds = refreshed.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
     set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
   },
+  setPageRewrite: (index, block) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return {};
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], rewrite: block };
+    return { pages };
+  }),
   addDiceToCurrentPage: (record) => {
     const { pages, pageIndex } = get();
     const page = pages[pageIndex];

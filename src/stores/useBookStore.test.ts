@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { useBookStore } from './useBookStore';
+import type { RewriteBlock } from '../types';
 
 // ============================================================
 // setPages — 开场白随版本刷新迁移
@@ -52,5 +53,35 @@ describe('useBookStore.setPages — 开场白刷新迁移', () => {
     };
     useBookStore.getState().setPages([nonPrologue]);
     expect(useBookStore.getState().pages[0]).toEqual(nonPrologue);
+  });
+});
+
+describe('useBookStore.setPageRewrite', () => {
+  const block: RewriteBlock = {
+    text: '过渡叙述',
+    choices: [
+      { num: 'V', text: 'a', action: 'a' },
+      { num: 'VI', text: 'b', action: 'b' },
+      { num: 'VII', text: 'c', action: 'c' },
+      { num: 'VIII', text: 'd', action: 'd' },
+    ],
+    sourceInput: '我想点燃书',
+  };
+
+  it('把 rewrite 写入指定页', () => {
+    useBookStore.getState().setPages([
+      { id: 'p1', leftHeader: '场景', leftContent: '...', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    ]);
+    useBookStore.getState().setPageRewrite(0, block);
+    expect(useBookStore.getState().pages[0].rewrite).toEqual(block);
+  });
+
+  it('传 undefined 清除 rewrite', () => {
+    useBookStore.getState().setPageRewrite(0, undefined);
+    expect(useBookStore.getState().pages[0].rewrite).toBeUndefined();
+  });
+
+  it('越界索引安全忽略', () => {
+    expect(() => useBookStore.getState().setPageRewrite(99, block)).not.toThrow();
   });
 });
