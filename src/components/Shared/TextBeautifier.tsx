@@ -22,7 +22,13 @@ const BARE_MACRO_RE = new RegExp(`\\{\\{${MACRO_GUARD}([^}]+)\\}\\}`, "g");
 const DIALOGUE_SRC = '「[^」]*」|『[^』]*』|“[^”]*”|"[^"]*"';
 const TOKEN_RE = new RegExp(`(\\{\\{${MACRO_GUARD}[^}]+\\}\\})|(${DIALOGUE_SRC})`, "g");
 
-const DIALOGUE_STYLE: React.CSSProperties = { color: "#e8a040", fontWeight: 500 };
+const DIALOGUE_STYLE: React.CSSProperties = {
+  color: "#e8a040",
+  fontWeight: 600,
+  // 暗色辉光：紧贴的暗描边定形 + 外扩的柔和黑光，在米色背景上压出对比
+  textShadow:
+    "0 0 1px rgba(0,0,0,0.85), 0 0 4px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.35)",
+};
 
 /** 仅解析 {{keyword}}（用于对话内部的嵌套关键词）。 */
 function beautifyKeywords(text: string): React.ReactNode[] {
