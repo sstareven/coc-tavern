@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripMvu, escapeStrayInnerQuotes } from './llm-response-parser';
+import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse } from './llm-response-parser';
 
 // ============================================================
 // stripMvu — HTML tag conversion and stripping
@@ -114,5 +114,36 @@ describe('escapeStrayInnerQuotes', () => {
     const broken = '{"a": "结尾是"引号""}';
     const parsed = JSON.parse(escapeStrayInnerQuotes(broken)) as { a: string };
     expect(parsed.a).toBe('结尾是"引号"');
+  });
+});
+
+describe('parseRewriteResponse', () => {
+  it('解析合法补写 JSON，选项重编号为 V–VIII', () => {
+    const raw = '{"text":"你握紧了火柴。","choices":[{"num":"1","text":"点燃书页","action":"进行神秘学检定(普通)，点燃 <var name=\'lastAction\' value=\'点燃\'/>"},{"num":"2","text":"先后退","action":"后退观察"},{"num":"3","text":"呼救","action":"大声呼救"},{"num":"4","text":"逃跑","action":"夺门而出"}]}';
+    const r = parseRewriteResponse(raw)!;
+    expect(r.text).toBe('你握紧了火柴。');
+    expect(r.choices.map((c) => c.num)).toEqual(['V', 'VI', 'VII', 'VIII']);
+    expect(r.choices[0].text).toBe('点燃书页');
+  });
+
+  it('多于 4 个选项时截断为 4', () => {
+    const raw = '{"text":"t","choices":[{"text":"a","action":"a"},{"text":"b","action":"b"},{"text":"c","action":"c"},{"text":"d","action":"d"},{"text":"e","action":"e"}]}';
+    expect(parseRewriteResponse(raw)!.choices).toHaveLength(4);
+  });
+
+  it('不足 4 个选项时补足为 4', () => {
+    const raw = '{"text":"t","choices":[{"text":"a","action":"a"}]}';
+    const r = parseRewriteResponse(raw)!;
+    expect(r.choices).toHaveLength(4);
+    expect(r.choices[3].num).toBe('VIII');
+  });
+
+  it('裸英文引号被兜底修复', () => {
+    const raw = '{"text":"他说"快跑"然后消失","choices":[{"text":"a","action":"a"},{"text":"b","action":"b"},{"text":"c","action":"c"},{"text":"d","action":"d"}]}';
+    expect(parseRewriteResponse(raw)!.text).toContain('快跑');
+  });
+
+  it('完全非法 → null', () => {
+    expect(parseRewriteResponse('这不是JSON')).toBeNull();
   });
 });
