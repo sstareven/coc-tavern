@@ -744,7 +744,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return;
       }
 
-      const response = await sendChatCompletion(
+      // ── 发送 + 解析；降级救场(recovered)按设置重试，要求只输出 JSON ──
+      const maxRetries = Math.max(0, settings.jsonRetryCount ?? 0);
+      const correctiveMsg = {
+        role: 'user' as const,
+        content: '【系统纠正】你上一条回复不是合法的 JSON 对象（可能返回了纯叙事或夹带额外文字），已被丢弃。请严格只输出一个符合行动补写格式的 JSON 对象：{ "text": "...", "choices": [...] }，不要包含任何 JSON 之外的文字、解释或 Markdown 代码块标记。',
+      };
+
+      let response = await sendChatCompletion(
         applyPostProcessing(built.messages, settings.promptPostProcessing),
         built.preset,
         baseUrl,
@@ -752,18 +759,41 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         model,
         false,
         undefined,
+        undefined,
+        'rewrite',
       );
-
       pushLog('debug', `[行动补写] 响应 ${response.content.length}字`, 'api');
-      const block = parseRewriteResponse(response.content);
-      if (!block) {
-        setError('行动补写生成失败');
+      let block = parseRewriteResponse(response.content);
+
+      let attempt = 0;
+      while ((!block || block.recovered) && attempt < maxRetries) {
+        attempt++;
+        pushLog('warn', `[行动补写] 回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
+        response = await sendChatCompletion(
+          applyPostProcessing([...built.messages, correctiveMsg], settings.promptPostProcessing),
+          built.preset,
+          baseUrl,
+          apiKey,
+          model,
+          false,
+          undefined,
+          undefined,
+          'rewrite',
+        );
+        pushLog('debug', `[行动补写] 重试响应(${attempt}) ${response.content.length}字`, 'api');
+        block = parseRewriteResponse(response.content);
+      }
+
+      if (!block || block.recovered) {
+        // 重试用尽仍非合法 JSON → 不生成补写，提示失败（不采用降级救场结果）
+        pushLog('error', `[行动补写] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃。`, 'system');
+        setError(`行动补写生成失败：AI 连续 ${attempt + 1} 次未按格式返回（可重试）。`);
         return;
       }
       block.sourceInput = trimmed;
       useBookStore.getState().setPageRewrite(idx, block);
       useChatStore.getState().savePages(useBookStore.getState().pages);
-      pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项`);
+      pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`);
     } catch (e) {
       setError(`行动补写失败: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

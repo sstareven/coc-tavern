@@ -37,6 +37,9 @@ interface SettingsState {
   worldInfoStrategy: 'evenly' | 'global-first' | 'chat-first';
   jsonRetryCount: number;
   rpmLimit: number;
+  perApiRpmEnabled: boolean;
+  mvuRpmLimit: number;
+  rewriteRpmLimit: number;
 }
 
 interface SettingsStore extends SettingsState {
@@ -72,6 +75,9 @@ interface SettingsStore extends SettingsState {
   setWorldInfoStrategy: (v: 'evenly' | 'global-first' | 'chat-first') => void;
   setJsonRetryCount: (n: number) => void;
   setRpmLimit: (n: number) => void;
+  setPerApiRpmEnabled: (v: boolean) => void;
+  setMvuRpmLimit: (n: number) => void;
+  setRewriteRpmLimit: (n: number) => void;
 }
 
 const defaults: SettingsState = {
@@ -108,6 +114,9 @@ const defaults: SettingsState = {
   worldInfoStrategy: 'evenly',
   jsonRetryCount: 1,
   rpmLimit: 10,
+  perApiRpmEnabled: false,
+  mvuRpmLimit: 10,
+  rewriteRpmLimit: 10,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -147,6 +156,9 @@ export const useSettingsStore = create<SettingsStore>()(
       setWorldInfoStrategy: (v) => set({ worldInfoStrategy: v }),
       setJsonRetryCount: (n) => set({ jsonRetryCount: Math.max(0, Math.min(5, Math.floor(n))) }),
       setRpmLimit: (n) => set({ rpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setPerApiRpmEnabled: (v) => set({ perApiRpmEnabled: v }),
+      setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
     }),
     {
       name: 'coc_settings_v2',
