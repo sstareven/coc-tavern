@@ -18,6 +18,10 @@ interface SettingsState {
   mvuApiBaseUrl: string;
   mvuApiModel: string;
   mvuApiKey: string;
+  rewriteUseIndependentApi: boolean;
+  rewriteApiBaseUrl: string;
+  rewriteApiModel: string;
+  rewriteApiKey: string;
   mvuTemperature: number;
   mvuRetryCount: number;
   mvuMaxTokens: number;
@@ -47,6 +51,10 @@ interface SettingsStore extends SettingsState {
   setMvuApiBaseUrl: (url: string) => void;
   setMvuApiModel: (model: string) => void;
   setMvuApiKey: (key: string) => void;
+  setRewriteUseIndependentApi: (v: boolean) => void;
+  setRewriteApiBaseUrl: (url: string) => void;
+  setRewriteApiModel: (model: string) => void;
+  setRewriteApiKey: (key: string) => void;
   setMvuTemperature: (t: number) => void;
   setMvuRetryCount: (n: number) => void;
   setMvuMaxTokens: (n: number) => void;
@@ -77,6 +85,10 @@ const defaults: SettingsState = {
   mvuApiBaseUrl: 'https://api.deepseek.com',
   mvuApiModel: 'deepseek-chat',
   mvuApiKey: '',
+  rewriteUseIndependentApi: false,
+  rewriteApiBaseUrl: 'https://api.deepseek.com',
+  rewriteApiModel: 'deepseek-chat',
+  rewriteApiKey: '',
   mvuTemperature: 1,
   mvuRetryCount: 1,
   mvuMaxTokens: 8096,
@@ -110,6 +122,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
       setMvuApiModel: (model) => set({ mvuApiModel: model }),
       setMvuApiKey: (key) => set({ mvuApiKey: key }),
+      setRewriteUseIndependentApi: (v) => set({ rewriteUseIndependentApi: v }),
+      setRewriteApiBaseUrl: (url) => set({ rewriteApiBaseUrl: url }),
+      setRewriteApiModel: (model) => set({ rewriteApiModel: model }),
+      setRewriteApiKey: (key) => set({ rewriteApiKey: key }),
       setMvuTemperature: (t) => set({ mvuTemperature: t }),
       setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
