@@ -189,6 +189,16 @@ describe('parseRewriteResponse', () => {
     expect(parseRewriteResponse('呃')).toBeNull();
   });
 
+  it('合法 JSON 解析成功不标 recovered', () => {
+    const raw = '{"text":"你握紧了火柴。","choices":[{"text":"点燃","action":"点燃"}]}';
+    expect(parseRewriteResponse(raw)!.recovered).toBeFalsy();
+  });
+
+  it('降级救场（自然语言/纯叙事）标 recovered=true，供调用方据此重试或放弃', () => {
+    const prose = '鹅卵石地面的凉意透过裤子慢慢渗上来，你靠在门板上一动不动，四周一片寂静。';
+    expect(parseRewriteResponse(prose)!.recovered).toBe(true);
+  });
+
   it('模型用「选项一/二/三/四」自然语言列表时，提取为真实选项而非通用占位', () => {
     const raw = '迟缓的拖拽声，像是什么沉重的东西正从走廊尽头被拖向楼梯口。\n---\n'
       + '选项一：质问柯林斯，要求他解释（进行快速交谈检定，普通难度）\n'

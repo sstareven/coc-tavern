@@ -103,6 +103,8 @@ export interface RewriteBlock {
   choices: ChoiceItem[];
   /** 触发补写时玩家的原始输入,用于重新续写复用与匹配 */
   sourceInput: string;
+  /** true = 解析走了降级救场（非合法 JSON）。调用方据此决定重试或放弃，不写入存档。 */
+  recovered?: boolean;
 }
 
 // ===== Dice =====

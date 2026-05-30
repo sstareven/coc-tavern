@@ -37,8 +37,8 @@ export async function extractVariablesWithLLM(
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      // 全局 RPM 限流（独立 mvu API 同样受全局上限约束）
-      await rpmAcquire();
+      // RPM 限流：独立 mvu API 使用 mvu 桶（关闭「每个API独立RPM」时仍归全局 main）
+      await rpmAcquire('mvu');
       const response = await fetch(url, {
         method: 'POST',
         headers: {
