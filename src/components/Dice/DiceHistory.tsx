@@ -24,10 +24,10 @@ function formatTime(ts: number): string {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
+void formatTime;
 
 export function DiceHistory({ onClose }: { onClose: () => void }) {
-  const history = useDiceStore((s) => s.history);
-  const [visible, setVisible] = useState(true);
+  const history = useDiceStore((s) => s.history);  const [visible, setVisible] = useState(true);
 
   if (!visible) return null;
 
@@ -131,7 +131,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                   background: 'var(--leather)',
                 }}
               >
-                {['检定项目', '掷出', '目标', '结果', '时间'].map((h) => (
+                {['检定项目', '掷出', '目标', '结果', '页码'].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -218,16 +218,17 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                           letterSpacing: 1,
                         }}
                       >
-                        {resultLabel[rec.type]}
+                        {rec.kind === 'poly' ? `${rec.roll} 点` : resultLabel[rec.type]}
                       </td>
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 10,
+                          fontSize: 11,
                           color: 'var(--ink-subtle)',
+                          fontFamily: 'var(--font-mono)',
                         }}
                       >
-                        {formatTime(rec.time)}
+                        {rec.page ? `第${rec.page}页` : '—'}
                       </td>
                     </tr>
                   );

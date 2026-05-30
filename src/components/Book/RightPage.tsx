@@ -4,6 +4,9 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { useBookStore } from '../../stores/useBookStore';
+import { useVariableStore } from '../../stores/useVariableStore';
+import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
@@ -63,6 +66,33 @@ function parseCheckAction(text: string): CheckInfo | null {
     return { skillName: m3[1].trim(), target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
+}
+
+interface PolyAction {
+  kind: 'sanity' | 'damage';
+  expr: string;          // 伤害骰表达式
+  sanSuccess?: string;   // 理智检定成功损失表达式
+  sanFail?: string;      // 理智检定失败损失表达式
+}
+
+/** 解析理智检定 / 伤害骰这类多面骰动作。 */
+function parsePolyAction(text: string): PolyAction | null {
+  // 理智检定: 进行理智检定(0/1D6) — 成功损失/失败损失
+  const ms = text.match(/进行理智检定\s*\(\s*([0-9dD+\-]+)\s*\/\s*([0-9dD+\-]+)\s*\)/);
+  if (ms) return { kind: 'sanity', expr: '', sanSuccess: ms[1].trim(), sanFail: ms[2].trim() };
+  // 伤害骰: 进行伤害骰(1D3) 或 进行伤害(1D6+2)
+  const md = text.match(/进行伤害(?:骰)?\s*\(\s*([0-9dD+\-]+)\s*\)/);
+  if (md) return { kind: 'damage', expr: md[1].trim() };
+  return null;
+}
+
+/** 当前理智值：优先取变量(LLM 实时更新)，回退角色卡，最后 50。 */
+function getSanValue(): number {
+  const v = useVariableStore.getState().variables['调查员.理智值.当前']?.value;
+  const fromVar = v ? parseInt(v, 10) : NaN;
+  if (!Number.isNaN(fromVar) && fromVar > 0) return fromVar;
+  const sheet = useCharSheetStore.getState().sheet;
+  return sheet?.secondary?.san?.current || 50;
 }
 
 interface RollResult {
@@ -167,6 +197,50 @@ function fillInputBar(text: string) {
 
   const parsed = parseCheckAction(text);
 
+  const page = useBookStore.getState().pageIndex + 1;
+
+  // ── 理智检定 / 伤害骰（多面骰）──
+  const poly = parsePolyAction(text);
+  if (poly) {
+    if (poly.kind === 'sanity') {
+      const sanTarget = getSanValue();
+      const t1 = Math.floor(Math.random() * 10), o = Math.floor(Math.random() * 10);
+      const d100roll = (t1 === 0 && o === 0) ? 100 : t1 * 10 + o;
+      const resultType = determineResult(d100roll, sanTarget, true);
+      const isSuccess = resultType.includes('success');
+      const lossExpr = (isSuccess ? poly.sanSuccess : poly.sanFail) || '0';
+      const loss = Math.max(0, rollDiceExpr(lossExpr)?.total ?? 0);
+      const outLabel = isSuccess ? '成功' : '失败';
+      const resultLine = `[理智检定 d100=${String(d100roll).padStart(2, '0')}/${sanTarget} ${outLabel} 损失${loss}点理智]\n`;
+      useDiceStore.getState().addRecord({
+        skill: `理智检定 损失${loss}`, roll: String(d100roll).padStart(2, '0'),
+        target: String(sanTarget), type: resultType as DiceResultType, time: Date.now(), page,
+      });
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: {
+          kind: 'poly', polyTheme: 'sanity', polyLabel: '理智损失',
+          polyExpr: lossExpr, polyTotal: loss, polySub: `${outLabel} · d100=${d100roll}/${sanTarget}`,
+          inputText: resultLine + text,
+        },
+      }));
+    } else {
+      const dmg = Math.max(0, rollDiceExpr(poly.expr)?.total ?? 0);
+      const resultLine = `[伤害 ${poly.expr}=${dmg} 造成${dmg}点伤害]\n`;
+      useDiceStore.getState().addRecord({
+        skill: `伤害 ${poly.expr}`, roll: String(dmg), target: '—',
+        type: 'failure' as DiceResultType, time: Date.now(), page, kind: 'poly',
+      });
+      document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+        detail: {
+          kind: 'poly', polyTheme: 'damage', polyLabel: '造成伤害',
+          polyExpr: poly.expr, polyTotal: dmg, polySub: '',
+          inputText: resultLine + text,
+        },
+      }));
+    }
+    return;
+  }
+
   if (parsed && parsed.opposed) {
     const r = rollOpposed(parsed.target, parsed.opponentTarget);
     const outcomeLabel = r.outcome === 'win' ? '胜利' : r.outcome === 'lose' ? '失败' : '平局';
@@ -178,6 +252,7 @@ function fillInputBar(text: string) {
       target: String(parsed.target),
       type: r.pResult as DiceResultType,
       time: Date.now(),
+      page,
     };
     useDiceStore.getState().addRecord(diceRec);
 
@@ -205,6 +280,7 @@ function fillInputBar(text: string) {
       target: String(parsed.target),
       type: result.resultType as DiceResultType,
       time: Date.now(),
+      page,
     };
     useDiceStore.getState().addRecord(diceRec2);
 
@@ -231,6 +307,7 @@ function fillInputBar(text: string) {
       target: String(resolvedTarget),
       type: result.resultType as DiceResultType,
       time: Date.now(),
+      page,
     };
     useDiceStore.getState().addRecord(diceRec3);
 
