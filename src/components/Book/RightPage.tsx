@@ -7,7 +7,7 @@ import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue } from './resolvePlayerValue';
-import type { ChoiceItem, DiceResultType } from '../../types';
+import type { ChoiceItem, DiceResultType, RewriteBlock } from '../../types';
 
 interface Props {
   header: string;
@@ -15,6 +15,7 @@ interface Props {
   choices: ChoiceItem[];
   pageNum?: string;
   isFlipping?: boolean;
+  rewrite?: RewriteBlock;
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -250,7 +251,7 @@ function fillInputBar(text: string) {
   }
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -281,6 +282,16 @@ export function RightPage({ header, content, choices, pageNum, isFlipping }: Pro
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
           </div>
+          {rewrite && (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed rgba(107,90,58,0.3)' }}>
+              <p style={{ textIndent: '2em', marginBottom: 12, color: 'var(--ink)', fontStyle: 'italic' }}>
+                {beautifyText(rewrite.text)}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {rewrite.choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {pageNum && (
