@@ -146,6 +146,35 @@ describe('parseRewriteResponse', () => {
   it('完全非法 → null', () => {
     expect(parseRewriteResponse('这不是JSON')).toBeNull();
   });
+
+  it('全角标点 JSON 被归一化后解析（中文模型常见失败）', () => {
+    const raw = '{"text"："你握紧了火柴。"，"choices"：[{"text"："点燃书页"，"action"："点燃书页"}，{"text"："后退"，"action"："后退"}]}';
+    const r = parseRewriteResponse(raw);
+    expect(r).not.toBeNull();
+    expect(r!.text).toBe('你握紧了火柴。');
+    expect(r!.choices[0].text).toBe('点燃书页');
+  });
+
+  it('尾随逗号被清理后解析', () => {
+    const raw = '{"text":"你停下脚步。","choices":[{"text":"前进","action":"前进",},{"text":"后退","action":"后退",},],}';
+    const r = parseRewriteResponse(raw);
+    expect(r).not.toBeNull();
+    expect(r!.text).toBe('你停下脚步。');
+  });
+
+  it('中文弯引号强调被转为「」后解析', () => {
+    const raw = '{"text":"他低声说“快走”，别回头。","choices":[{"text":"点头","action":"点头"}]}';
+    const r = parseRewriteResponse(raw);
+    expect(r).not.toBeNull();
+    expect(r!.text).toContain('快走');
+  });
+
+  it('代码块包裹 + 前导说明文字仍能解析', () => {
+    const raw = '好的，这是补写：\n```json\n{"text":"你环顾四周。","choices":[{"text":"搜查","action":"搜查"}]}\n```';
+    const r = parseRewriteResponse(raw);
+    expect(r).not.toBeNull();
+    expect(r!.text).toBe('你环顾四周。');
+  });
 });
 // ============================================================
 // parseLlmResponse — 纯散文救场（非 JSON 回复）
