@@ -23,6 +23,7 @@ import { processSlashCommands, getCommands } from '../sillytavern/slash-commands
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
 import { runAllRegexScripts } from '../sillytavern/regex-engine';
+import { parseDiceResultsFromInput } from '../sillytavern/parse-dice-input';
 import {
   loadThScripts,
   runSendHooks,
@@ -491,13 +492,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         chatStore.addMessage('assistant', response.content);
 
         // Parse dice results from the user input (e.g., "[侦查 d100=42/60 成功]")
-        const diceFromInput: import('../types').DiceRecord[] = [];
-        const diceRe = /\[(.+?)\s+d100=(\d+)\/(\d+)\s+(.+?)\]/g;
-        let dm;
-        while ((dm = diceRe.exec(lastInputRef.current)) !== null) {
-          const typeMap: Record<string, string> = { '大成功！': 'crit-success', '大成功': 'crit-success', '极难成功': 'extreme-success', '困难成功': 'hard-success', '成功': 'success', '失败': 'failure', '大失败！': 'crit-failure', '大失败': 'crit-failure' };
-          diceFromInput.push({ skill: dm[1], roll: dm[2], target: dm[3], type: (typeMap[dm[4]] || 'failure') as import('../types').DiceResultType, time: Date.now() });
-        }
+        const diceFromInput = parseDiceResultsFromInput(lastInputRef.current);
         if (diceFromInput.length > 0) {
           newPage.diceResults = diceFromInput;
         }
