@@ -23,11 +23,10 @@ const DIALOGUE_SRC = '「[^」]*」|『[^』]*』|“[^”]*”|"[^"]*"';
 const TOKEN_RE = new RegExp(`(\\{\\{${MACRO_GUARD}[^}]+\\}\\})|(${DIALOGUE_SRC})`, "g");
 
 const DIALOGUE_STYLE: React.CSSProperties = {
-  color: "#e8a040",
+  color: "#a35d18",
   fontWeight: 600,
-  // 暗色辉光：紧贴的暗描边定形 + 外扩的柔和黑光，在米色背景上压出对比
-  textShadow:
-    "0 0 1px rgba(0,0,0,0.85), 0 0 4px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.35)",
+  // 深琥珀对话在米色背景上已自带对比，仅留一道细暗边增加分量与边缘清晰度
+  textShadow: "0 0 1px rgba(0,0,0,0.45), 0 1px 1px rgba(0,0,0,0.2)",
 };
 
 /** 仅解析 {{keyword}}（用于对话内部的嵌套关键词）。 */
@@ -43,7 +42,7 @@ function beautifyKeywords(text: string): React.ReactNode[] {
     const keyword = match[1].trim();
     if (keyword) {
       result.push(
-        <KeywordTooltip key={`mk-${match.index}`} keyword={keyword}>
+        <KeywordTooltip key={`mk-${match.index}`} keyword={keyword} tone="gold">
           {keyword}
         </KeywordTooltip>,
       );
