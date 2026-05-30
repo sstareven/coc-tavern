@@ -112,6 +112,10 @@ export interface DiceRecord {
   target: string;
   type: DiceResultType;
   time: number;
+  /** 该检定发生时的书本页码（1 基，pageIndex+1）；老记录可能缺省。 */
+  page?: number;
+  /** 检定种类：普通 d100 检定 / 多面骰（伤害·理智损失）。缺省视为 check。 */
+  kind?: 'check' | 'poly';
 }
 
 // ===== Lorebooks =====

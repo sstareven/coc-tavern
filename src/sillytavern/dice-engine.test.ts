@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DiceResultType } from '../types';
-import { determineResult, d100, randD10 } from './dice-engine';
+import { determineResult, d100, randD10, rollDiceExpr } from './dice-engine';
 
 // ============================================================
 // d100 组合测试
@@ -190,5 +190,57 @@ describe('determineResult', () => {
         }
       }
     });
+  });
+});
+
+// ============================================================
+// rollDiceExpr — 多面骰表达式
+// ============================================================
+describe('rollDiceExpr', () => {
+  it('1D6 在 [1,6]，单骰', () => {
+    for (let i = 0; i < 50; i++) {
+      const r = rollDiceExpr('1D6')!;
+      expect(r.rolls).toHaveLength(1);
+      expect(r.total).toBeGreaterThanOrEqual(1);
+      expect(r.total).toBeLessThanOrEqual(6);
+    }
+  });
+  it('省略数量默认 1 颗（D3）', () => {
+    const r = rollDiceExpr('D3')!;
+    expect(r.rolls).toHaveLength(1);
+    expect(r.total).toBeGreaterThanOrEqual(1);
+    expect(r.total).toBeLessThanOrEqual(3);
+  });
+  it('带常数加值 1D3+1 在 [2,4]', () => {
+    for (let i = 0; i < 50; i++) {
+      const t = rollDiceExpr('1D3+1')!.total;
+      expect(t).toBeGreaterThanOrEqual(2);
+      expect(t).toBeLessThanOrEqual(4);
+    }
+  });
+  it('多项相加 1D10+1D4 两颗骰，范围 [2,14]', () => {
+    const r = rollDiceExpr('1D10+1D4')!;
+    expect(r.rolls).toHaveLength(2);
+    expect(r.total).toBeGreaterThanOrEqual(2);
+    expect(r.total).toBeLessThanOrEqual(14);
+  });
+  it('减值 2D6-1 范围 [1,11]', () => {
+    for (let i = 0; i < 50; i++) {
+      const t = rollDiceExpr('2D6-1')!.total;
+      expect(t).toBeGreaterThanOrEqual(1);
+      expect(t).toBeLessThanOrEqual(11);
+    }
+  });
+  it('纯常数', () => {
+    expect(rollDiceExpr('0')!.total).toBe(0);
+    expect(rollDiceExpr('5')!.total).toBe(5);
+  });
+  it('小写 d 也支持', () => {
+    expect(rollDiceExpr('1d6')).not.toBeNull();
+  });
+  it('非法表达式返回 null', () => {
+    expect(rollDiceExpr('abc')).toBeNull();
+    expect(rollDiceExpr('1D6+')).toBeNull();
+    expect(rollDiceExpr('')).toBeNull();
   });
 });

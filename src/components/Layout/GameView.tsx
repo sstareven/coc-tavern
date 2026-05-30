@@ -3,7 +3,7 @@ import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
-import { DiceAnimation } from '../Shared/DiceAnimation';
+import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useBookStore } from '../../stores/useBookStore';
@@ -23,12 +23,18 @@ export function GameView({ onReturnToMenu }: Props) {
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
     opposed: boolean; opponentRoll: number; opponentTarget: number; opponentResultType: string; opposedOutcome: 'win' | 'lose' | 'draw';
-  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw' });
+    kind: 'check' | 'poly'; polyTheme: 'damage' | 'sanity'; polyLabel: string; polyExpr: string; polyTotal: number; polySub: string;
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '' });
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      setDiceAnim({ visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText, bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0, opposed: detail.opposed || false, opponentRoll: detail.opponentRoll || 0, opponentTarget: detail.opponentTarget || 0, opponentResultType: detail.opponentResultType || 'failure', opposedOutcome: detail.opposedOutcome || 'draw' });
+      setDiceAnim({
+        visible: true, skillName: detail.skillName, target: detail.target, roll: detail.roll, resultType: detail.resultType, inputText: detail.inputText,
+        bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0,
+        opposed: detail.opposed || false, opponentRoll: detail.opponentRoll || 0, opponentTarget: detail.opponentTarget || 0, opponentResultType: detail.opponentResultType || 'failure', opposedOutcome: detail.opposedOutcome || 'draw',
+        kind: detail.kind || 'check', polyTheme: detail.polyTheme || 'damage', polyLabel: detail.polyLabel || '', polyExpr: detail.polyExpr || '', polyTotal: detail.polyTotal || 0, polySub: detail.polySub || '',
+      });
     };
     document.addEventListener('dice-roll-animate', handler);
     return () => document.removeEventListener('dice-roll-animate', handler);
@@ -115,7 +121,7 @@ export function GameView({ onReturnToMenu }: Props) {
       <InputBar />
 
       <DiceAnimation
-        visible={diceAnim.visible}
+        visible={diceAnim.visible && diceAnim.kind !== 'poly'}
         skillName={diceAnim.skillName}
         target={diceAnim.target}
         roll={diceAnim.roll}
@@ -128,6 +134,16 @@ export function GameView({ onReturnToMenu }: Props) {
         opponentTarget={diceAnim.opponentTarget}
         opponentResultType={diceAnim.opponentResultType}
         opposedOutcome={diceAnim.opposedOutcome}
+      />
+
+      <PolyRollAnimation
+        visible={diceAnim.visible && diceAnim.kind === 'poly'}
+        theme={diceAnim.polyTheme}
+        label={diceAnim.polyLabel}
+        expr={diceAnim.polyExpr}
+        total={diceAnim.polyTotal}
+        sub={diceAnim.polySub}
+        onComplete={onDiceComplete}
       />
     </div>
   );

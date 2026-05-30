@@ -476,3 +476,103 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
     </>
   );
 }
+
+// ── 多面骰动画（伤害 / 理智损失，如 1D3、1D6）──
+interface PolyProps {
+  visible: boolean;
+  theme: 'damage' | 'sanity';
+  label: string;   // 造成伤害 / 理智损失
+  expr: string;    // 1D6+2
+  total: number;
+  sub?: string;    // 副标题（如 SAN 检定 成功/失败）
+  onComplete: () => void;
+}
+
+const POLY_COLORS: Record<'damage' | 'sanity', string> = {
+  damage: '#ff5252',
+  sanity: '#b388ff',
+};
+
+export function PolyRollAnimation({ visible, theme, label, expr, total, sub, onComplete }: PolyProps) {
+  const [phase, setPhase] = useState<'rolling' | 'result' | 'done'>('rolling');
+  const [fading, setFading] = useState(false);
+  const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (tRef.current) clearTimeout(tRef.current);
+    setFading(false); setPhase('rolling');
+    let cancelled = false;
+
+    (async () => {
+      const buf = await loadRollingBuf();
+      if (cancelled) return;
+      const c = ctx();
+      if (buf && c) {
+        await c.resume();
+        const src = c.createBufferSource(); src.buffer = buf;
+        const g = c.createGain(); g.gain.value = 0.45;
+        src.connect(g); g.connect(c.destination); src.start();
+      }
+      tRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        const c2 = ctx(); if (c2) await c2.resume();
+        setPhase('result');
+        // 重击声：伤害用低沉撞击，理智损失用更阴冷的双层
+        if (theme === 'damage') { impact(0.34, 90, 0.2); setTimeout(() => impact(0.16, 55, 0.18), 70); }
+        else { impact(0.22, 70, 0.26); setTimeout(() => impact(0.12, 110, 0.3), 90); }
+        tRef.current = setTimeout(() => {
+          if (cancelled) return;
+          setPhase('done'); setFading(true);
+          tRef.current = setTimeout(() => onComplete(), 500);
+        }, 2100);
+      }, ROLL_DURATION);
+    })();
+
+    return () => { cancelled = true; if (tRef.current) clearTimeout(tRef.current); };
+  }, [visible, onComplete, theme]);
+
+  if (!visible) return null;
+
+  const color = POLY_COLORS[theme];
+  const rollStr = String(total);
+  const glowColor = phase === 'rolling' ? '#555' : color;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: fading ? 0 : 1 }}
+      transition={{ duration: fading ? 0.5 : 0.35, ease: fading ? [0.4, 0, 1, 1] : [0.22, 1, 0.36, 1] }}
+      style={{ position: 'fixed', inset: 0, zIndex: 960, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
+      <motion.div
+        initial={{ scale: 0.3, opacity: 0, y: -100 }}
+        animate={{ scale: fading ? 0.85 : 1, opacity: fading ? 0 : 1, y: 0 }}
+        transition={{ duration: fading ? 0.45 : 0.6, ease: fading ? [0.32, 0, 0.67, 0] : [0.34, 1.56, 0.64, 1] }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'var(--font-ui)' }}>
+
+        <div style={{ width: 220, height: 220, marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
+        </div>
+
+        <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
+          {expr}{sub ? ` · ${sub}` : ''}
+        </div>
+
+        <div style={{ height: 52, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+          {phase === 'result' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+              <div style={{ padding: '8px 36px', background: `${color}1f`, border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
+                <span style={{ fontSize: 24, fontWeight: 700, color, letterSpacing: 6, fontFamily: 'var(--font-display)' }}>
+                  {theme === 'sanity' ? `−${total}` : total} 点
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}

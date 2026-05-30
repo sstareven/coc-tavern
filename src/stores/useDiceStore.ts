@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DiceRecord, DiceResultType, DiceMode } from '../types';
 import { randD10, d100, determineResult } from '../sillytavern/dice-engine';
+import { useBookStore } from './useBookStore';
 
 interface DiceStore {
   isOpen: boolean; mode: DiceMode; target: number; bonusDice: number; sanCheck: boolean;
@@ -43,6 +44,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       target: String(s.target),
       type: resultType,
       time: Date.now(),
+      page: useBookStore.getState().pageIndex + 1,
     });
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
