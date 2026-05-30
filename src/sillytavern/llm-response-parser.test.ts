@@ -169,3 +169,35 @@ describe('parseLlmResponse — 纯散文救场', () => {
     expect(r!.page.leftHeader).toBe('书房');
   });
 });
+
+// ============================================================
+// stripMvu 单层花括号规范化 + cleanHeader
+// ============================================================
+import { cleanHeader } from './llm-response-parser';
+
+describe('stripMvu — 单层花括号关键词规范化', () => {
+  it('单层 {词} → 双层 {{词}}（高亮、不暴露花括号）', () => {
+    expect(stripMvu('一团{不可名状之物}在蠕动')).toBe('一团{{不可名状之物}}在蠕动');
+  });
+  it('已是 {{词}} 的不被改坏', () => {
+    expect(stripMvu('走进{{阿卡姆}}')).toBe('走进{{阿卡姆}}');
+  });
+  it('混排单层与双层各自正确', () => {
+    expect(stripMvu('{单层}与{{双层}}')).toBe('{{单层}}与{{双层}}');
+  });
+  it('含冒号的类宏 {set:x} 不被当关键词转换', () => {
+    expect(stripMvu('{set:x}')).toBe('{set:x}');
+  });
+});
+
+describe('cleanHeader — 标题清理尖括号/花括号', () => {
+  it('去掉标题外的 <>', () => {
+    expect(cleanHeader('<标本室·暗涌>')).toBe('标本室·暗涌');
+  });
+  it('去掉花括号', () => {
+    expect(cleanHeader('{标题}')).toBe('标题');
+  });
+  it('正常标题不变', () => {
+    expect(cleanHeader('雾夜中的奥恩楼')).toBe('雾夜中的奥恩楼');
+  });
+});
