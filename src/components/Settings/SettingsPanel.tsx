@@ -384,6 +384,18 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [localMvuUrl, setLocalMvuUrl] = useState(mvuApiBaseUrl);
   const [localMvuModel, setLocalMvuModel] = useState(mvuApiModel);
   const [localMvuKey, setLocalMvuKey] = useState(mvuApiKey);
+
+  const rewriteUseIndependentApi = useSettingsStore((s) => s.rewriteUseIndependentApi);
+  const setRewriteUseIndependentApi = useSettingsStore((s) => s.setRewriteUseIndependentApi);
+  const rewriteApiBaseUrl = useSettingsStore((s) => s.rewriteApiBaseUrl);
+  const setRewriteApiBaseUrl = useSettingsStore((s) => s.setRewriteApiBaseUrl);
+  const rewriteApiModel = useSettingsStore((s) => s.rewriteApiModel);
+  const setRewriteApiModel = useSettingsStore((s) => s.setRewriteApiModel);
+  const rewriteApiKey = useSettingsStore((s) => s.rewriteApiKey);
+  const setRewriteApiKey = useSettingsStore((s) => s.setRewriteApiKey);
+  const [localRewriteUrl, setLocalRewriteUrl] = useState(rewriteApiBaseUrl);
+  const [localRewriteModel, setLocalRewriteModel] = useState(rewriteApiModel);
+  const [localRewriteKey, setLocalRewriteKey] = useState(rewriteApiKey);
   const mvuAvailableModels = useSettingsStore((s) => s.mvuAvailableModels);
   const setMvuAvailableModels = useSettingsStore((s) => s.setMvuAvailableModels);
   const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
@@ -895,6 +907,59 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                           />
                           <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{mvuMaxTokens}</span>
                         </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* 行动补写 API */}
+                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
+                    行动补写 API
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>独立通道</span>
+                    <button
+                      onClick={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)}
+                      style={{
+                        padding: '5px 18px',
+                        border: rewriteUseIndependentApi ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
+                        borderRadius: 3,
+                        background: rewriteUseIndependentApi ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
+                        color: rewriteUseIndependentApi ? 'var(--gold)' : 'var(--ink-faded)',
+                        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
+                      }}>
+                      {rewriteUseIndependentApi ? '独立' : '跟随全局'}
+                    </button>
+                  </div>
+                  {rewriteUseIndependentApi && (
+                    <>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>API Key</span>
+                        <input type="password" value={localRewriteKey}
+                          onChange={(e) => { setLocalRewriteKey(e.target.value); setRewriteApiKey(e.target.value); }}
+                          placeholder="sk-..." style={inputStyle}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                        />
+                      </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>API 地址</span>
+                        <input value={localRewriteUrl}
+                          onChange={(e) => { setLocalRewriteUrl(e.target.value); setRewriteApiBaseUrl(e.target.value); }}
+                          style={{ ...inputStyle, width: 200 }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                        />
+                      </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>模型</span>
+                        <input value={localRewriteModel}
+                          onChange={(e) => { setLocalRewriteModel(e.target.value); setRewriteApiModel(e.target.value); }}
+                          placeholder="deepseek-chat" style={{ ...inputStyle, width: 200 }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                        />
                       </div>
                     </>
                   )}
