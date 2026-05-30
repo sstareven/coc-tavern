@@ -3,10 +3,13 @@ import { PageEditor } from './PageEditor';
 
 interface Props {
   onDeletePage: () => void;
+  /** 本页加入/装备、删除时将一并撤销的物品名（用于确认弹窗提示）。 */
+  affectedItems?: string[];
 }
 
-export function BookUtils({ onDeletePage }: Props) {
+export function BookUtils({ onDeletePage, affectedItems = [] }: Props) {
   const [showEditor, setShowEditor] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <>
@@ -39,7 +42,7 @@ export function BookUtils({ onDeletePage }: Props) {
 
         {/* Delete button */}
         <button
-          onClick={onDeletePage}
+          onClick={() => setConfirmDelete(true)}
           title="删除页面"
           style={{ ...buttonStyle, fontSize: 10 }}
           onMouseEnter={(e) => {
@@ -58,7 +61,77 @@ export function BookUtils({ onDeletePage }: Props) {
 
       {/* Page editor modal */}
       {showEditor && <PageEditor onClose={() => setShowEditor(false)} />}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <DeleteConfirm
+          affectedItems={affectedItems}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => { setConfirmDelete(false); onDeletePage(); }}
+        />
+      )}
     </>
+  );
+}
+
+function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
+  affectedItems: string[]; onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 940,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div style={{
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--blood)', borderRadius: 8,
+        padding: '22px 26px', minWidth: 360, maxWidth: 460, width: '90%',
+        boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+      }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--blood)', letterSpacing: 3, margin: '0 0 12px' }}>
+          删除本页？
+        </h3>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text-light)', lineHeight: 1.7, margin: 0 }}>
+          此页将被永久删除，且无法恢复。
+          {affectedItems.length > 0 && (
+            <>
+              <br />本回合加入/装备的物品也将一并移除：
+              <span style={{ color: 'var(--gold)' }}>{affectedItems.join('、')}</span>。
+            </>
+          )}
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '6px 16px', border: '1px solid var(--brass)', borderRadius: 4,
+              background: 'transparent', color: 'var(--ink-subtle)',
+              fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
+              transition: 'var(--transition-smooth)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+          >取消</button>
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: '6px 16px', border: '1px solid var(--blood)', borderRadius: 4,
+              background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
+              fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
+              transition: 'var(--transition-smooth)', transform: 'scale(1)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,82,82,0.22)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,82,82,0.12)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+          >确认删除</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

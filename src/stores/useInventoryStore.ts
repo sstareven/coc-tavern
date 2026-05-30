@@ -21,6 +21,8 @@ interface InventoryStore {
   close: () => void;
 
   applyChanges: (changes: InventoryChange[]) => void;
+  /** 完全逆转一组物品变化（用于删除某页/回合时撤销其物品增删与装备）。 */
+  revertChanges: (changes: InventoryChange[]) => void;
   equipItem: (name: string) => void;
   unequipItem: (name: string) => void;
   hasItem: (name: string) => boolean;
@@ -95,6 +97,75 @@ export const useInventoryStore = create<InventoryStore>()(
                     if (c.description) items[idx] = { ...items[idx], description: c.description };
                   }
                 }
+                break;
+              }
+            }
+          }
+          return { items };
+        });
+      },
+
+      revertChanges: (changes) => {
+        set((s) => {
+          const items = [...s.items];
+          // 逆序撤销本回合的每一项变化
+          for (let k = changes.length - 1; k >= 0; k--) {
+            const c = changes[k];
+            if (!c.name || !c.action) continue;
+            const idx = findByName(items, c.name);
+            switch (c.action) {
+              case 'add': {
+                // 撤销新增：减去新增的数量，归零则移除（关键物品同样移除）
+                if (idx >= 0) {
+                  const q = items[idx].quantity - (c.quantity ?? 1);
+                  if (q <= 0) items.splice(idx, 1);
+                  else items[idx] = { ...items[idx], quantity: q };
+                }
+                break;
+              }
+              case 'remove': {
+                // 撤销移除：尽力恢复（缺失则按变化记录重建）
+                if (idx < 0) {
+                  items.push({
+                    id: crypto.randomUUID(),
+                    name: c.name,
+                    category: c.category ?? 'misc',
+                    description: c.description ?? '',
+                    quantity: c.quantity ?? 1,
+                    equipped: c.equipped ?? false,
+                    isKeyItem: (c.category ?? 'misc') === 'key_item',
+                    acquiredAt: Date.now(),
+                  });
+                }
+                break;
+              }
+              case 'update': {
+                // 撤销数量变动：施加反向增量
+                const delta = -(c.quantity ?? 0);
+                if (idx >= 0) {
+                  const q = items[idx].quantity + delta;
+                  if (q <= 0) items.splice(idx, 1);
+                  else items[idx] = { ...items[idx], quantity: q };
+                } else if (delta > 0) {
+                  items.push({
+                    id: crypto.randomUUID(),
+                    name: c.name,
+                    category: c.category ?? 'misc',
+                    description: c.description ?? '',
+                    quantity: delta,
+                    equipped: false,
+                    isKeyItem: (c.category ?? 'misc') === 'key_item',
+                    acquiredAt: Date.now(),
+                  });
+                }
+                break;
+              }
+              case 'equip': {
+                if (idx >= 0) items[idx] = { ...items[idx], equipped: false };
+                break;
+              }
+              case 'unequip': {
+                if (idx >= 0) items[idx] = { ...items[idx], equipped: true };
                 break;
               }
             }
