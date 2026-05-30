@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -284,12 +285,35 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
           </div>
           {rewrite && (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed rgba(107,90,58,0.3)' }}>
-              <p style={{ textIndent: '2em', marginBottom: 12, color: 'var(--ink)', fontStyle: 'italic' }}>
-                {beautifyText(rewrite.text)}
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {rewrite.choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
-              </div>
+              {rewrite.text && (
+                <motion.p
+                  key={rewrite.text}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ textIndent: '2em', marginBottom: 12, color: 'var(--ink)', fontStyle: 'italic' }}
+                >
+                  {beautifyText(rewrite.text)}
+                </motion.p>
+              )}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={rewrite.sourceInput + '|' + rewrite.text}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
+                  {rewrite.choices.map((ch, i) => (
+                    <motion.div
+                      key={ch.num}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.32, delay: i * 0.06, ease: [0.4, 0, 0.2, 1] }}
+                    >
+                      <ChoiceButton choice={ch} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
             </div>
           )}
         </div>
