@@ -175,6 +175,43 @@ describe('parseRewriteResponse', () => {
     expect(r).not.toBeNull();
     expect(r!.text).toBe('你环顾四周。');
   });
+
+  it('模型返回纯叙事(无JSON)时救场为过渡叙述+4个续接选项', () => {
+    const prose = '鹅卵石地面的凉意透过裤子的布料慢慢渗上来——你将后背靠在那扇沉重的橡木门板上，远处传来缓慢而拖沓的脚步声，接着一切又归于沉寂。';
+    const r = parseRewriteResponse(prose);
+    expect(r).not.toBeNull();
+    expect(r!.text).toContain('鹅卵石');
+    expect(r!.choices).toHaveLength(4);
+    expect(r!.choices.map((c) => c.num)).toEqual(['V', 'VI', 'VII', 'VIII']);
+  });
+
+  it('过短的无意义文本仍返回 null', () => {
+    expect(parseRewriteResponse('呃')).toBeNull();
+  });
+
+  it('模型用「选项一/二/三/四」自然语言列表时，提取为真实选项而非通用占位', () => {
+    const raw = '迟缓的拖拽声，像是什么沉重的东西正从走廊尽头被拖向楼梯口。\n---\n'
+      + '选项一：质问柯林斯，要求他解释（进行快速交谈检定，普通难度）\n'
+      + '选项二：按他说的坐下，但保持高度警惕，仔细听他要说的话\n'
+      + '选项三：将他逼到墙边，要求立刻交出阅览证\n'
+      + '选项四：自行搜查一楼目录厅寻找线索（进行图书馆使用检定，普通难度)';
+    const r = parseRewriteResponse(raw);
+    expect(r).not.toBeNull();
+    expect(r!.choices).toHaveLength(4);
+    expect(r!.choices.map((c) => c.num)).toEqual(['V', 'VI', 'VII', 'VIII']);
+    // 真实选项内容被保留，不是「继续观察四周」之类占位
+    expect(r!.choices[0].text).toContain('质问柯林斯');
+    expect(r!.choices[0].text).not.toContain('选项一');
+    expect(r!.choices[1].text).toContain('坐下');
+    expect(r!.choices[3].text).toContain('搜查');
+    // text 去掉检定括号，action 规范为标准检定标记供下游触发
+    expect(r!.choices[0].text).not.toContain('检定');
+    expect(r!.choices[0].action).toContain('进行快速交谈检定(普通)');
+    expect(r!.choices[3].action).toContain('进行图书馆使用检定(普通)');
+    // 过渡叙述取选项前的部分，不含「选项一」
+    expect(r!.text).toContain('拖拽声');
+    expect(r!.text).not.toContain('选项一');
+  });
 });
 // ============================================================
 // parseLlmResponse — 纯散文救场（非 JSON 回复）
