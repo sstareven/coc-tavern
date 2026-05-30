@@ -5,7 +5,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { usePanelStore } from '../../stores/usePanelStore';
-import { persistActivePages } from '../../stores/sessionLifecycle';
+import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
@@ -47,9 +47,19 @@ export function Storybook() {
 
   const deletePageStore = useBookStore((s) => s.deletePage);
 
+  // 本页加入/装备的物品（删除时将一并撤销），用于确认弹窗提示
+  const affectedItems = (page.inventoryChanges ?? [])
+    .filter((c) => c.action === 'add' || c.action === 'equip' || (c.action === 'update' && (c.quantity ?? 0) > 0))
+    .map((c) => c.name)
+    .filter((n): n is string => Boolean(n));
+
   const deletePage = () => {
+    const target = useBookStore.getState().pages[pageIndex];
+    if (target?.inventoryChanges?.length) {
+      useInventoryStore.getState().revertChanges(target.inventoryChanges);
+    }
     deletePageStore(pageIndex);
-    persistActivePages();
+    persistActiveGameState();
   };
 
   // --- paper-style bookmark tab ---
@@ -114,7 +124,7 @@ export function Storybook() {
         maxWidth: 880,
       }}>
         {/* BookUtils — outside the book at top-right */}
-        <BookUtils onDeletePage={deletePage} />
+        <BookUtils onDeletePage={deletePage} affectedItems={affectedItems} />
 
         {/* Book container — perspective for 3D page flip */}
         <div style={{
