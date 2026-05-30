@@ -557,6 +557,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
           <AnimatePresence mode="wait">
             {section === 'general' && (
               <motion.div key="general" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <CategoryBar label="界面与音效" first />
                 {/* Sound toggle */}
                 <div style={rowStyle}>
                   <span style={labelStyle}>环境音效</span>
@@ -606,6 +607,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   }}>{autoSubmitChoice ? 'ON' : 'OFF'}</button>
                 </div>
 
+                <CategoryBar label="上下文" />
                 {/* Max summary entries */}
                 <div style={rowStyle}>
                   <span style={{ ...labelStyle, position: 'relative' }}>
@@ -637,6 +639,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </div>
                 </div>
 
+                <CategoryBar label="生成与稳定性" />
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     解析失败重试次数
@@ -667,6 +670,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </div>
                 </div>
 
+                <CategoryBar label="世界书匹配" />
                 <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={globalCaseSensitive} onChange={(e) => setGlobalCaseSensitive(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
@@ -717,10 +721,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
 
                 {/* API section */}
-                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
-                    API 配置
-                  </div>
+                <div style={{ marginTop: 4 }}>
+                  <CategoryBar label="主 API 配置" />
 
                   <div style={rowStyle}>
                     <span style={labelStyle}>API Key</span>
@@ -821,10 +823,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
 
                 {/* MVU Variable Engine API */}
-                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
-                    MVU 变量引擎 API
-                  </div>
+                <div style={{ marginTop: 4 }}>
+                  <CategoryBar label="MVU 变量引擎 API" />
 
                   {/* Toggle independent/global */}
                   <div style={rowStyle}>
@@ -929,10 +929,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
 
                 {/* 行动补写 API */}
-                <div style={{ marginTop: 16, borderTop: '1px solid rgba(196,168,85,0.08)', paddingTop: 14 }}>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 3, marginBottom: 10, textTransform: 'uppercase' }}>
-                    行动补写 API
-                  </div>
+                <div style={{ marginTop: 4 }}>
+                  <CategoryBar label="行动补写 API" />
                   <div style={rowStyle}>
                     <span style={labelStyle}>独立通道</span>
                     <button
@@ -1035,6 +1033,19 @@ const rowStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)',
 };
+
+/** 设置分类分割栏：金色小标题 + 两侧渐隐分割线。 */
+function CategoryBar({ label, first }: { label: string; first?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: first ? '2px 0 10px' : '20px 0 10px' }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: 3, color: 'var(--gold)',
+        fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', flexShrink: 0,
+      }}>{label}</span>
+      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(196,168,85,0.35), rgba(196,168,85,0.04))' }} />
+    </div>
+  );
+}
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
