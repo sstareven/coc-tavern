@@ -35,4 +35,34 @@ describe('parseDiceResultsFromInput', () => {
     const r = parseDiceResultsFromInput('[侦查 d100=10/60 极难成功] 然后 [聆听 d100=80/40 失败]');
     expect(r.map((x) => x.type)).toEqual(['extreme-success', 'failure']);
   });
+
+  it('对抗检定 — 记录胜负与玩家个人成功等级', () => {
+    const r = parseDiceResultsFromInput(
+      '[侦查对抗 玩家d100=16/61(困难成功) vs 对手d100=45/50(失败) → 胜利]\n进行侦查对抗',
+    );
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({
+      skill: '侦查对抗(胜利)',
+      roll: '16',
+      target: '61',
+      type: 'hard-success',
+    });
+  });
+
+  it('对抗失败 — 技能名记负，type 仍反映玩家个人掷骰', () => {
+    const r = parseDiceResultsFromInput(
+      '[力量对抗 玩家d100=55/60(成功) vs 对手d100=10/70(困难成功) → 失败]',
+    );
+    expect(r[0].skill).toBe('力量对抗(失败)');
+    expect(r[0].type).toBe('success');
+  });
+
+  it('对抗与普通混排 — 各自正确解析，不互相污染', () => {
+    const r = parseDiceResultsFromInput(
+      '[侦查对抗 玩家d100=16/61(困难成功) vs 对手d100=45/50(失败) → 胜利] [聆听 d100=30/40 成功]',
+    );
+    expect(r).toHaveLength(2);
+    expect(r.map((x) => x.skill)).toEqual(['侦查对抗(胜利)', '聆听']);
+    expect(r.map((x) => x.type)).toEqual(['hard-success', 'success']);
+  });
 });
