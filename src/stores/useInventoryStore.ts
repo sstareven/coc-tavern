@@ -38,6 +38,17 @@ function findByName(items: InventoryItem[], name: string): number {
   return items.findIndex((i) => i.name.includes(name) || name.includes(i.name));
 }
 
+/** 按 category 推定可否装备：武器/工具默认可装备，其余默认不可（信件、纸张、线索等）。 */
+const EQUIPPABLE_CATEGORIES: ItemCategory[] = ['weapon', 'tool'];
+function deriveEquippable(category: ItemCategory, explicit?: boolean): boolean {
+  if (typeof explicit === 'boolean') return explicit;
+  return EQUIPPABLE_CATEGORIES.includes(category);
+}
+/** 物品当前是否可装备：以显式 equippable 为准，缺省按 category 兜底。 */
+function itemEquippable(item: InventoryItem): boolean {
+  return item.equippable ?? EQUIPPABLE_CATEGORIES.includes(item.category);
+}
+
 export const useInventoryStore = create<InventoryStore>()(
   persist(
     (set, get) => ({
@@ -60,14 +71,17 @@ export const useInventoryStore = create<InventoryStore>()(
                   items[idx] = { ...items[idx], quantity: items[idx].quantity + (c.quantity ?? 1) };
                   if (c.description) items[idx] = { ...items[idx], description: c.description };
                 } else {
+                  const category = c.category ?? 'misc';
+                  const equippable = deriveEquippable(category, c.equippable);
                   items.push({
                     id: crypto.randomUUID(),
                     name: c.name,
-                    category: c.category ?? 'misc',
+                    category,
                     description: c.description ?? '',
                     quantity: c.quantity ?? 1,
-                    equipped: c.equipped ?? false,
-                    isKeyItem: (c.category ?? 'misc') === 'key_item',
+                    equipped: (c.equipped ?? false) && equippable,
+                    equippable,
+                    isKeyItem: category === 'key_item',
                     acquiredAt: Date.now(),
                   });
                 }
@@ -80,7 +94,7 @@ export const useInventoryStore = create<InventoryStore>()(
                 break;
               }
               case 'equip': {
-                if (idx >= 0) items[idx] = { ...items[idx], equipped: true };
+                if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
                 break;
               }
               case 'unequip': {
@@ -126,14 +140,17 @@ export const useInventoryStore = create<InventoryStore>()(
               case 'remove': {
                 // 撤销移除：尽力恢复（缺失则按变化记录重建）
                 if (idx < 0) {
+                  const category = c.category ?? 'misc';
+                  const equippable = deriveEquippable(category, c.equippable);
                   items.push({
                     id: crypto.randomUUID(),
                     name: c.name,
-                    category: c.category ?? 'misc',
+                    category,
                     description: c.description ?? '',
                     quantity: c.quantity ?? 1,
-                    equipped: c.equipped ?? false,
-                    isKeyItem: (c.category ?? 'misc') === 'key_item',
+                    equipped: (c.equipped ?? false) && equippable,
+                    equippable,
+                    isKeyItem: category === 'key_item',
                     acquiredAt: Date.now(),
                   });
                 }
@@ -147,14 +164,17 @@ export const useInventoryStore = create<InventoryStore>()(
                   if (q <= 0) items.splice(idx, 1);
                   else items[idx] = { ...items[idx], quantity: q };
                 } else if (delta > 0) {
+                  const category = c.category ?? 'misc';
+                  const equippable = deriveEquippable(category, c.equippable);
                   items.push({
                     id: crypto.randomUUID(),
                     name: c.name,
-                    category: c.category ?? 'misc',
+                    category,
                     description: c.description ?? '',
                     quantity: delta,
                     equipped: false,
-                    isKeyItem: (c.category ?? 'misc') === 'key_item',
+                    equippable,
+                    isKeyItem: category === 'key_item',
                     acquiredAt: Date.now(),
                   });
                 }
@@ -178,7 +198,7 @@ export const useInventoryStore = create<InventoryStore>()(
         set((s) => {
           const items = [...s.items];
           const idx = findByName(items, name);
-          if (idx >= 0) items[idx] = { ...items[idx], equipped: true };
+          if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
           return { items };
         });
       },
@@ -224,4 +244,4 @@ export const useInventoryStore = create<InventoryStore>()(
   ),
 );
 
-export { CATEGORY_LABELS };
+export { CATEGORY_LABELS, itemEquippable };
