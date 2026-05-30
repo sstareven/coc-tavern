@@ -413,6 +413,19 @@ function cleanChoiceText(text: string): string {
   return text.replace(/\[检定\s*[:：][^\]]*\]\s*/g, '').replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '').trim();
 }
 
+/**
+ * 选中选项时提交给 LLM 的内容：把玩家可见的叙事文字(text)与机制动作(action)合并，
+ * 让 LLM 拿到完整意图与上下文，而不只是 action。若 action 已含该叙事则不重复。
+ */
+function buildChoiceInput(ch: ChoiceItem): string {
+  const t = cleanChoiceText(ch.text || '').trim();
+  const a = (ch.action || '').trim();
+  if (!t) return a;
+  if (!a) return t;
+  if (a.includes(t)) return a;
+  return `${t}。${a}`;
+}
+
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const [hovered, setHovered] = useState(false);
   const check = parseCheckAction(ch.action);
@@ -420,7 +433,7 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
 
   return (
-    <button onClick={() => fillInputBar(ch.action)} style={{
+    <button onClick={() => fillInputBar(buildChoiceInput(ch))} style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
       border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
