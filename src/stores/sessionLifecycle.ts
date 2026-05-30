@@ -43,3 +43,12 @@ export function cleanupOrphanGameState() {
     clearAllGameState();
   }
 }
+
+/**
+ * 将书本 store 当前页面同步保存到活跃会话存档。
+ * 手动增删改页面（删除页、编辑页等绕过 useChatPipeline 的操作）后必须调用，
+ * 否则改动只停留在内存书本里，回主菜单/读档时会被会话里的旧页面覆盖。
+ */
+export function persistActivePages() {
+  useChatStore.getState().savePages(useBookStore.getState().pages);
+}

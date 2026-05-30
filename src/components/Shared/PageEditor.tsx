@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useBookStore } from '../../stores/useBookStore';
+import { persistActivePages } from '../../stores/sessionLifecycle';
 
 interface Props {
   onClose: () => void;
@@ -23,6 +24,7 @@ export function PageEditor({ onClose }: Props) {
 
   const handleSave = () => {
     updateLeftPage(pageIndex, title.trim(), content.trim());
+    persistActivePages();
     onClose();
   };
 
