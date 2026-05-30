@@ -107,7 +107,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
           )}
         </div>
         <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
-          {fmtDate(s.updatedAt)} · {s.messages.length} 条消息
+          {fmtDate(s.updatedAt)} · {s.pages.length} 页
         </div>
       </div>
       {confirmDelete ? (
