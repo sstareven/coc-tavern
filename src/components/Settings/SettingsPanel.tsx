@@ -174,15 +174,11 @@ function RegexSettingsContent() {
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             style={{ overflow: 'hidden', marginBottom: 10 }}>
             <div style={{ padding: 8, background: 'rgba(0,0,0,0.2)', borderRadius: 6 }}>
-              <select value={importType} onChange={(e) => setImportType(e.target.value as RegexScriptType)}
-                style={{
-                  marginBottom: 6, padding: '3px 6px', borderRadius: 3,
-                  border: '1px solid rgba(196,168,85,0.2)', fontSize: 11,
-                  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-                }}>
-                <option value="global">导入为全局</option>
-                <option value="preset">导入为预设</option>
-              </select>
+              <div style={{ marginBottom: 6 }}>
+                <DarkSelect compact value={importType} onChange={(v) => setImportType(v as RegexScriptType)}
+                  options={[{ value: 'global', label: '导入为全局' }, { value: 'preset', label: '导入为预设' }]}
+                  style={{ width: 160 }} />
+              </div>
               <textarea value={importJson} onChange={(e) => setImportJson(e.target.value)}
                 placeholder="粘贴 JSON..."
                 rows={3}
@@ -561,14 +557,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 {/* Sound toggle */}
                 <div style={rowStyle}>
                   <span style={labelStyle}>环境音效</span>
-                  <button onClick={toggleSound} style={{
-                    padding: '5px 18px', border: soundEnabled ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
-                    borderRadius: 3, background: soundEnabled ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
-                    color: soundEnabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)',
-                    fontSize: 11, letterSpacing: 2, cursor: 'pointer',
-                  }}>
-                    {soundEnabled ? 'ON' : 'OFF'}
-                  </button>
+                  <Toggle on={soundEnabled} onChange={toggleSound} />
                 </div>
 
                 {/* Music volume */}
@@ -598,13 +587,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 {/* Auto-submit choice */}
                 <div style={rowStyle}>
                   <span style={labelStyle}>选项自动推进</span>
-                  <button onClick={() => setAutoSubmitChoice(!autoSubmitChoice)} style={{
-                    padding: '5px 18px', border: autoSubmitChoice ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
-                    borderRadius: 20, background: autoSubmitChoice ? 'rgba(58,107,90,0.18)' : 'rgba(0,0,0,0.15)',
-                    color: autoSubmitChoice ? 'var(--success-bright)' : 'var(--ink-subtle)',
-                    fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer', letterSpacing: 1,
-                    transition: 'var(--transition-smooth)',
-                  }}>{autoSubmitChoice ? 'ON' : 'OFF'}</button>
+                  <Toggle on={autoSubmitChoice} onChange={() => setAutoSubmitChoice(!autoSubmitChoice)} />
                 </div>
 
                 <CategoryBar label="上下文" />
@@ -633,7 +616,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <input type="number" min={0} max={50} step={1}
                       value={contextPageDepth}
                       onChange={(e) => setContextPageDepth(Math.max(0, Number(e.target.value) || 0))}
-                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                      style={numInputStyle}
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
                   </div>
@@ -649,7 +632,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <input type="number" min={0} max={5} step={1}
                       value={jsonRetryCount}
                       onChange={(e) => setJsonRetryCount(Number(e.target.value) || 0)}
-                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                      style={numInputStyle}
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{jsonRetryCount === 0 ? '不重试' : `重试${jsonRetryCount}次`}</span>
                   </div>
@@ -664,7 +647,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <input type="number" min={0} max={10} step={1}
                       value={rpmLimit}
                       onChange={(e) => setRpmLimit(Number(e.target.value) || 0)}
-                      style={{ width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' }}
+                      style={numInputStyle}
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmLimit === 0 ? '不限制' : `${rpmLimit} 次/分`}</span>
                   </div>
@@ -698,25 +681,22 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>递归步数</span>
                     <HelpIcon text={'世界书条目被激活后，其内容里的关键词可以继续触发别的条目（递归扫描）。\n此值限制递归的层数。\n0 = 不限制（可能连锁激活大量条目、撑大上下文）。'} />
                     <input type="number" min={0} max={20} value={maxRecursionSteps} onChange={(e) => setMaxRecursionSteps(Number(e.target.value) || 0)}
-                      style={{ width: 50, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
+                      style={numInputStyle} />
                     <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>Token预算</span>
                     <HelpIcon text={'单次注入世界书内容的 Token 上限。\n超出预算时，优先级低的条目会被裁掉、不进入上下文。\n0 = 不限制（注入所有匹配到的条目）。'} />
                     <input type="number" min={0} max={99999} step={100} value={wiBudget} onChange={(e) => setWiBudget(Number(e.target.value) || 0)}
-                      style={{ width: 60, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
+                      style={numInputStyle} />
                     <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>插入策略</span>
                     <HelpIcon text={'多个匹配到的世界书条目注入提示词时的排布方式：\n均匀 — 按顺序均匀分布在上下文中\n全局优先 — 全局世界书排在更靠前的位置\n会话优先 — 当前会话绑定的世界书排在更靠前的位置'} />
-                    <select value={worldInfoStrategy} onChange={(e) => setWorldInfoStrategy(e.target.value as 'evenly' | 'global-first' | 'chat-first')}
-                      style={{ padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none', cursor: 'pointer' }}>
-                      <option value="evenly">均匀</option>
-                      <option value="global-first">全局优先</option>
-                      <option value="chat-first">会话优先</option>
-                    </select>
+                    <DarkSelect compact value={worldInfoStrategy} onChange={(v) => setWorldInfoStrategy(v as 'evenly' | 'global-first' | 'chat-first')}
+                      options={[{ value: 'evenly', label: '均匀' }, { value: 'global-first', label: '全局优先' }, { value: 'chat-first', label: '会话优先' }]}
+                      style={{ width: 110 }} />
                   </div>
                 </div>
 
@@ -829,18 +809,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   {/* Toggle independent/global */}
                   <div style={rowStyle}>
                     <span style={labelStyle}>独立通道</span>
-                    <button
-                      onClick={() => setMvuUseIndependentApi(!mvuUseIndependentApi)}
-                      style={{
-                        padding: '5px 18px',
-                        border: mvuUseIndependentApi ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
-                        borderRadius: 3,
-                        background: mvuUseIndependentApi ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
-                        color: mvuUseIndependentApi ? 'var(--gold)' : 'var(--ink-faded)',
-                        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
-                      }}>
-                      {mvuUseIndependentApi ? '独立' : '跟随全局'}
-                    </button>
+                    <Toggle on={mvuUseIndependentApi} onChange={() => setMvuUseIndependentApi(!mvuUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
                   </div>
 
                   {mvuUseIndependentApi && (
@@ -933,18 +902,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <CategoryBar label="行动补写 API" />
                   <div style={rowStyle}>
                     <span style={labelStyle}>独立通道</span>
-                    <button
-                      onClick={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)}
-                      style={{
-                        padding: '5px 18px',
-                        border: rewriteUseIndependentApi ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
-                        borderRadius: 3,
-                        background: rewriteUseIndependentApi ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
-                        color: rewriteUseIndependentApi ? 'var(--gold)' : 'var(--ink-faded)',
-                        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
-                      }}>
-                      {rewriteUseIndependentApi ? '独立' : '跟随全局'}
-                    </button>
+                    <Toggle on={rewriteUseIndependentApi} onChange={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
                   </div>
                   {rewriteUseIndependentApi && (
                     <>
@@ -1050,6 +1008,36 @@ function CategoryBar({ label, first }: { label: string; first?: boolean }) {
 const labelStyle: React.CSSProperties = {
   fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
 };
+
+/** 统一的数字输入框样式。 */
+const numInputStyle: React.CSSProperties = {
+  width: 64, padding: '4px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
+  fontSize: 11, textAlign: 'center', outline: 'none',
+};
+
+/** 统一的开关按钮（药丸形，开启时金色高亮）。 */
+function Toggle({ on, onChange, onLabel = 'ON', offLabel = 'OFF' }: {
+  on: boolean; onChange: () => void; onLabel?: string; offLabel?: string;
+}) {
+  return (
+    <button
+      onClick={onChange}
+      style={{
+        padding: '5px 16px', borderRadius: 20, minWidth: 80, textAlign: 'center',
+        border: on ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
+        background: on ? 'rgba(196,168,85,0.18)' : 'rgba(0,0,0,0.18)',
+        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
+        transition: 'var(--transition-smooth)',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = on ? 'var(--gold)' : 'var(--ink-faded)'; e.currentTarget.style.color = on ? 'var(--gold)' : 'var(--ink-subtle)'; }}
+    >
+      {on ? onLabel : offLabel}
+    </button>
+  );
+}
 
 const inputStyle: React.CSSProperties = {
   width: 200, padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
