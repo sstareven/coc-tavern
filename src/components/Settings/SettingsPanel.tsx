@@ -668,35 +668,42 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={globalCaseSensitive} onChange={(e) => setGlobalCaseSensitive(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     世界书全局区分大小写
+                    <HelpIcon text={'全局开关：世界书关键词匹配时是否区分大小写。\n开启后「Arkham」与「arkham」视为不同关键词；关闭则忽略大小写。\n会覆盖各条目自身的大小写设置。'} />
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={globalMatchWholeWord} onChange={(e) => setGlobalMatchWholeWord(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     世界书全局完整单词匹配
+                    <HelpIcon text={'全局开关：关键词是否必须作为「完整单词」才算命中。\n开启后关键词「cat」不会命中「category」里的片段。\n主要影响英文；中文没有单词边界，一般无影响。'} />
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={includeNames} onChange={(e) => setIncludeNames(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     包含角色名称
+                    <HelpIcon text={'组装提示词时，是否在每条消息前标注发言者名称（如 User: / Char:）。\n部分模型或预设需要它来区分角色，部分则不需要。\n如果AI回复里莫名出现名字前缀，可尝试关闭。'} />
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={alertOnOverflow} onChange={(e) => setAlertOnOverflow(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     溢出警告
+                    <HelpIcon text={'当注入的世界书内容超出下方「Token预算」、有条目被裁掉时，弹出提醒。\n方便你察觉部分世界书没能进入上下文。'} />
                   </label>
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>递归步数</span>
+                    <HelpIcon text={'世界书条目被激活后，其内容里的关键词可以继续触发别的条目（递归扫描）。\n此值限制递归的层数。\n0 = 不限制（可能连锁激活大量条目、撑大上下文）。'} />
                     <input type="number" min={0} max={20} value={maxRecursionSteps} onChange={(e) => setMaxRecursionSteps(Number(e.target.value) || 0)}
                       style={{ width: 50, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
                     <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>Token预算</span>
+                    <HelpIcon text={'单次注入世界书内容的 Token 上限。\n超出预算时，优先级低的条目会被裁掉、不进入上下文。\n0 = 不限制（注入所有匹配到的条目）。'} />
                     <input type="number" min={0} max={99999} step={100} value={wiBudget} onChange={(e) => setWiBudget(Number(e.target.value) || 0)}
                       style={{ width: 60, padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center', outline: 'none' }} />
                     <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>插入策略</span>
+                    <HelpIcon text={'多个匹配到的世界书条目注入提示词时的排布方式：\n均匀 — 按顺序均匀分布在上下文中\n全局优先 — 全局世界书排在更靠前的位置\n会话优先 — 当前会话绑定的世界书排在更靠前的位置'} />
                     <select value={worldInfoStrategy} onChange={(e) => setWorldInfoStrategy(e.target.value as 'evenly' | 'global-first' | 'chat-first')}
                       style={{ padding: '2px 4px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none', cursor: 'pointer' }}>
                       <option value="evenly">均匀</option>
@@ -1073,6 +1080,7 @@ function HelpIcon({ text }: { text: string }) {
       style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
+      onClick={(e) => e.preventDefault()}
     >
       <span style={helpIconStyle}>?</span>
       {show && (
