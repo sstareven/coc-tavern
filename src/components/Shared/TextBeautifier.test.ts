@@ -25,6 +25,11 @@ describe('beautifyText — 对话橘色高亮', () => {
     expect(spans[0].props.children).toEqual(['「主人终将归来」']);
   });
 
+  it('对话 span 带暗色辉光 textShadow 提升对比', () => {
+    const spans = findDialogueSpans(nodes('他说「快走」'));
+    expect(spans[0].props.style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/);
+  });
+
   it('中文弯引号 “” 也高亮', () => {
     const spans = findDialogueSpans(nodes('扉页写着“深渊”二字'));
     expect(spans).toHaveLength(1);
