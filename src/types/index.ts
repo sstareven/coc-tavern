@@ -72,6 +72,8 @@ export interface InventoryItem {
   description: string;
   quantity: number;
   equipped: boolean;
+  /** 能否被装备（武器/工具/可佩戴物为 true；信件/纸张/线索等为 false）。缺省时按 category 兜底推定。 */
+  equippable?: boolean;
   isKeyItem: boolean;
   acquiredAt: number;
 }
@@ -85,6 +87,7 @@ export interface InventoryChange {
   quantity?: number;
   description?: string;
   equipped?: boolean;
+  equippable?: boolean;
 }
 
 export interface ChoiceItem {

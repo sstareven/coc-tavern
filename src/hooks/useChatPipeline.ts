@@ -34,7 +34,7 @@ import { trimToBudget, getModelBudget } from '../sillytavern/context-manager';
 import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS } from '../constants/presets';
-import { FORMAT_INSTRUCTION } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
@@ -294,7 +294,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ...e,
         content: renderTemplate(e.content, tmplOpts),
       }));
-      const processedFormat = renderTemplate(formatOverride ?? FORMAT_INSTRUCTION, tmplOpts);
+      // 序章首回合（尚无生成页，pages.length<=1）：追加起始装备指令，让 AI 按职业+情境生成起始物品。
+      // 行动补写走 formatOverride，故 !formatOverride 可自然排除补写场景。
+      let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
+      if (!formatOverride && useBookStore.getState().pages.length <= 1) {
+        baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
+      }
+      const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
       const macroCtx: MacroContext = {

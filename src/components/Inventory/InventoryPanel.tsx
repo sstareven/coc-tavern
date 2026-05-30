@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useInventoryStore, CATEGORY_LABELS } from '../../stores/useInventoryStore';
+import { useInventoryStore, CATEGORY_LABELS, itemEquippable } from '../../stores/useInventoryStore';
 import type { InventoryItem, ItemCategory } from '../../types';
 
 type Filter = 'all' | ItemCategory;
@@ -55,29 +55,33 @@ function ItemRow({ item, onEquipToggle }: { item: InventoryItem; onEquipToggle: 
           {CATEGORY_LABELS[item.category]}
         </span>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onEquipToggle(item.name, !item.equipped); }}
-          style={{
-            flexShrink: 0, padding: '1px 5px', fontSize: 9, fontFamily: 'var(--font-ui)',
-            border: '1px solid rgba(107,90,58,0.18)', borderRadius: 2,
-            background: 'transparent', color: 'var(--ink-subtle)', cursor: 'pointer',
-            transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--ink)';
-            e.currentTarget.style.color = 'var(--ink)';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(107,90,58,0.18)';
-            e.currentTarget.style.color = 'var(--ink-subtle)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-        >
-          {item.equipped ? '卸下' : '装备'}
-        </button>
+        {itemEquippable(item) ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEquipToggle(item.name, !item.equipped); }}
+            style={{
+              flexShrink: 0, padding: '1px 5px', fontSize: 9, fontFamily: 'var(--font-ui)',
+              border: '1px solid rgba(107,90,58,0.18)', borderRadius: 2,
+              background: 'transparent', color: 'var(--ink-subtle)', cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--ink)';
+              e.currentTarget.style.color = 'var(--ink)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(107,90,58,0.18)';
+              e.currentTarget.style.color = 'var(--ink-subtle)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+          >
+            {item.equipped ? '卸下' : '装备'}
+          </button>
+        ) : (
+          <span style={{ width: 34, flexShrink: 0 }} />
+        )}
 
         <span style={{
           width: 12, flexShrink: 0, fontSize: 10,
