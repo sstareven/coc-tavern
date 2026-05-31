@@ -19,6 +19,7 @@ import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assemble
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
+import { selectLoreForRewrite } from '../sillytavern/rewrite-lite';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
@@ -149,9 +150,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── buildPromptMessages ──
 
   const buildPromptMessages = useCallback(
-    (overrideInput?: string, formatOverride?: string): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
+    (overrideInput?: string, formatOverride?: string, opts?: { lite?: boolean; liteIncludeMatchedLore?: boolean }): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
       const trimmed = (overrideInput ?? '').trim();
       const effectiveInput = trimmed || '(提示词查看器预览)';
+      const liteMode = opts?.lite === true;
 
       // Unified macro engine handles all {{...}} syntax after EJS rendering
       const pt = useTavernHelperStore.getState().promptTemplate;
@@ -219,22 +221,22 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           creatorNotes: '',           // COC 无对应来源
         },
       };
-      let matchedLore = matchLoreEntries(matchCtx, otherEntries, matchSettings);
+      let matchedKeyword = matchLoreEntries(matchCtx, otherEntries, matchSettings);
       // Probability filter: entries with probability < 100 have a chance of being skipped
-      matchedLore = matchedLore.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
+      matchedKeyword = matchedKeyword.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
       let matchedSummary = matchLoreEntries(matchCtx, summaryEntries, matchSettings);
       const maxSummary = useSettingsStore.getState().maxSummaryEntries;
       if (matchedSummary.length > maxSummary) {
         matchedSummary = matchedSummary.slice(-maxSummary);
       }
-      matchedLore.push(...matchedSummary);
       // Constant entries are always injected (bypass keyword matching), but still respect triggers
-      matchedLore.push(...constantEntries.filter((e) => !e.triggers?.length || e.triggers.includes('normal')));
+      const constantBucket = constantEntries.filter((e) => !e.triggers?.length || e.triggers.includes('normal'));
 
-      // Inject dark thread context (bypasses keyword matching)
+      // Dark thread context (bypasses keyword matching)
+      const darkThreadBucket: LoreEntry[] = [];
       const darkCtx = useDarkThreadStore.getState().buildContextInjection();
       if (darkCtx) {
-        matchedLore.push({
+        darkThreadBucket.push({
           name: '暗线状态', keys: '', content: darkCtx,
           logic: 'AND_ANY', priority: 2, disabled: false,
           constant: true, position: 0, depth: 0, probability: 100,
@@ -247,24 +249,41 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } as LoreEntry);
       }
 
-      // Add GENERATE/INJECT entries regardless of keyword match (they're always injected)
-      if (pt.generateLoaderEnabled || pt.injectLoaderEnabled) {
-        matchedLore.push(...generateInjects);
-      }
+      // GENERATE/INJECT entries (always injected regardless of keyword match)
+      const generateInjectBucket: LoreEntry[] =
+        pt.generateLoaderEnabled || pt.injectLoaderEnabled ? generateInjects : [];
+
       // Invert compatibility: disabled entries still get processed if invertEnabled
+      const invertedBucket: LoreEntry[] = [];
       if (pt.invertEnabled) {
         for (const book2 of Object.values(allBooks)) {
           if (book2.enabled === false) continue;
           for (const e of Object.values(book2.entries)) {
-            if (e.disabled) matchedLore.push(e);
+            if (e.disabled) invertedBucket.push(e);
           }
         }
       }
+
+      // Merge buckets into the final lore list. In lite (action-rewrite) mode this drops the
+      // expensive, rewrite-irrelevant buckets (summary/dark-thread/generate-inject/inverted, and
+      // keyword-matched unless liteIncludeMatchedLore) — see selectLoreForRewrite. Non-lite returns
+      // the canonical full ordering, byte-for-byte equivalent to the previous inline assembly.
+      const matchedLore = selectLoreForRewrite(
+        {
+          matchedKeyword,
+          summary: matchedSummary,
+          constant: constantBucket,
+          darkThread: darkThreadBucket,
+          generateInjects: generateInjectBucket,
+          inverted: invertedBucket,
+        },
+        { lite: liteMode, liteIncludeMatchedLore: opts?.liteIncludeMatchedLore },
+      );
       // Debug logging
       if (pt.debugEnabled) {
         pushLog(
           'debug',
-          `[PT] 世界书条目: ${matchedLore.length}条匹配(含${matchedSummary.length}条总结/${maxSummary}上限) + ${generateInjects.length}条注入${darkCtx ? ' + 暗线注入' : ''}`,
+          `[PT] 世界书条目: ${matchedLore.length}条匹配(含${matchedSummary.length}条总结/${maxSummary}上限) + ${generateInjectBucket.length}条注入${darkCtx ? ' + 暗线注入' : ''}${liteMode ? ' [轻量补写]' : ''}`,
           'system',
         );
       }
@@ -765,7 +784,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       pushLog('info', `[行动补写] ${hasPrev ? '重新续写' : '生成'}: "${trimmed.slice(0, 40)}"`);
 
-      const built = buildPromptMessages(trimmed, directive);
+      const built = buildPromptMessages(trimmed, directive, { lite: settings.rewriteLite });
       if (!built) {
         setError('行动补写提示词组装失败');
         return;

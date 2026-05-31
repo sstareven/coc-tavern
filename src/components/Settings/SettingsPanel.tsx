@@ -397,6 +397,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
   const rewriteUseIndependentApi = useSettingsStore((s) => s.rewriteUseIndependentApi);
   const setRewriteUseIndependentApi = useSettingsStore((s) => s.setRewriteUseIndependentApi);
+  const rewriteLite = useSettingsStore((s) => s.rewriteLite);
+  const setRewriteLite = useSettingsStore((s) => s.setRewriteLite);
   const rewriteApiBaseUrl = useSettingsStore((s) => s.rewriteApiBaseUrl);
   const setRewriteApiBaseUrl = useSettingsStore((s) => s.setRewriteApiBaseUrl);
   const rewriteApiModel = useSettingsStore((s) => s.rewriteApiModel);
@@ -823,6 +825,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <div style={rowStyle}>
                     <span style={labelStyle}>独立通道</span>
                     <Toggle on={rewriteUseIndependentApi} onChange={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
+                  </div>
+
+                  {/* 轻量补写模式：补写仅需当前场景+角色卡+常驻设定即可产 4 选项,无需重发全量世界书/摘要/暗线,省 token */}
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>
+                      轻量补写模式
+                      <HelpIcon text={'关闭（完整,默认）：行动补写复用主叙事的完整上下文(系统提示+全量匹配世界书+角色卡+页面+摘要+暗线+注入)生成 4 个候选选项。\n\n打开（轻量）：补写仅发送 当前场景(当前页) + 角色卡(技能/HP/SAN) + 常驻设定(constant 世界书) + 补写指令,跳过摘要/暗线/注入/关键词匹配世界书。大幅省 token,但选项可能略降对「仅靠匹配世界书才知道的设定」的感知。\n\n建议先用 5-10 个真实回合 A/B 验证选项质量不降后再常开。'} />
+                    </span>
+                    <Toggle on={rewriteLite} onChange={() => setRewriteLite(!rewriteLite)} onLabel="轻量" offLabel="完整" />
                   </div>
                   {rewriteUseIndependentApi && (
                     <ModelEndpointConfig
