@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
@@ -399,6 +400,9 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setRewriteUseIndependentApi = useSettingsStore((s) => s.setRewriteUseIndependentApi);
   const rewriteLite = useSettingsStore((s) => s.rewriteLite);
   const setRewriteLite = useSettingsStore((s) => s.setRewriteLite);
+  const rewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.rewriteLiteIncludeMatchedLore);
+  const setRewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.setRewriteLiteIncludeMatchedLore);
+  const lastRewriteSaving = usePromptViewerStore((s) => s.lastRewriteSaving);
   const rewriteApiBaseUrl = useSettingsStore((s) => s.rewriteApiBaseUrl);
   const setRewriteApiBaseUrl = useSettingsStore((s) => s.setRewriteApiBaseUrl);
   const rewriteApiModel = useSettingsStore((s) => s.rewriteApiModel);
@@ -835,6 +839,25 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </span>
                     <Toggle on={rewriteLite} onChange={() => setRewriteLite(!rewriteLite)} onLabel="轻量" offLabel="完整" />
                   </div>
+                  {rewriteLite && (
+                    <>
+                      {/* 轻量模式子开关：保留关键词匹配世界书(中间档,牺牲部分节省换取设定感知) */}
+                      <div style={{ ...rowStyle, paddingLeft: 16 }}>
+                        <span style={labelStyle}>
+                          ↳ 保留匹配世界书
+                          <HelpIcon text={'轻量补写默认连「关键词匹配世界书」也跳过(最大节省)。\n\n打开此项：保留匹配世界书,仅跳过摘要/暗线/注入——当补写选项需要引用「只有匹配世界书才知道的设定」时使用,在「最大节省」与「设定感知」之间取中间档。'} />
+                        </span>
+                        <Toggle on={rewriteLiteIncludeMatchedLore} onChange={() => setRewriteLiteIncludeMatchedLore(!rewriteLiteIncludeMatchedLore)} onLabel="保留" offLabel="跳过" />
+                      </div>
+                      {/* 上次轻量补写节省的 token 量(运行时统计,执行补写后更新) */}
+                      <div style={{ ...rowStyle, paddingLeft: 16 }}>
+                        <span style={{ ...labelStyle, opacity: 0.75 }}>上次节省</span>
+                        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
+                          {lastRewriteSaving > 0 ? `~${lastRewriteSaving} tokens` : '— (尚未补写)'}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   {rewriteUseIndependentApi && (
                     <ModelEndpointConfig
                       apiKey={localRewriteKey}

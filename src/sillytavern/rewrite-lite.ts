@@ -64,3 +64,20 @@ export function selectLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpti
   out.push(...buckets.constant);
   return out;
 }
+
+/**
+ * The lore entries that lite mode DROPS relative to the full (non-lite) build — i.e. the set
+ * difference (full \ lite). Used to report how many tokens the lightweight rewrite saves.
+ * Returns [] when not in lite mode (nothing dropped).
+ */
+export function droppedLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOptions): LoreEntry[] {
+  if (!opts.lite) return [];
+  const dropped: LoreEntry[] = [
+    ...buckets.summary,
+    ...buckets.darkThread,
+    ...buckets.generateInjects,
+    ...buckets.inverted,
+  ];
+  if (!opts.liteIncludeMatchedLore) dropped.push(...buckets.matchedKeyword);
+  return dropped;
+}

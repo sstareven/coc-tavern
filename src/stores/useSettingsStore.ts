@@ -21,6 +21,7 @@ interface SettingsState {
   mvuApiKey: string;
   rewriteUseIndependentApi: boolean;
   rewriteLite: boolean;
+  rewriteLiteIncludeMatchedLore: boolean;
   rewriteApiBaseUrl: string;
   rewriteApiModel: string;
   rewriteApiKey: string;
@@ -62,6 +63,7 @@ interface SettingsStore extends SettingsState {
   setMvuApiKey: (key: string) => void;
   setRewriteUseIndependentApi: (v: boolean) => void;
   setRewriteLite: (v: boolean) => void;
+  setRewriteLiteIncludeMatchedLore: (v: boolean) => void;
   setRewriteApiBaseUrl: (url: string) => void;
   setRewriteApiModel: (model: string) => void;
   setRewriteApiKey: (key: string) => void;
@@ -104,6 +106,7 @@ const defaults: SettingsState = {
   mvuApiKey: '',
   rewriteUseIndependentApi: false,
   rewriteLite: false,
+  rewriteLiteIncludeMatchedLore: false,
   rewriteApiBaseUrl: 'https://api.deepseek.com',
   rewriteApiModel: 'deepseek-chat',
   rewriteApiKey: '',
@@ -149,6 +152,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuApiKey: (key) => set({ mvuApiKey: key }),
       setRewriteUseIndependentApi: (v) => set({ rewriteUseIndependentApi: v }),
       setRewriteLite: (v) => set({ rewriteLite: v }),
+      setRewriteLiteIncludeMatchedLore: (v) => set({ rewriteLiteIncludeMatchedLore: v }),
       setRewriteApiBaseUrl: (url) => set({ rewriteApiBaseUrl: url }),
       setRewriteApiModel: (model) => set({ rewriteApiModel: model }),
       setRewriteApiKey: (key) => set({ rewriteApiKey: key }),

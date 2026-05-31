@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectLoreForRewrite } from './rewrite-lite';
+import { selectLoreForRewrite, droppedLoreForRewrite } from './rewrite-lite';
 import type { LoreEntry } from '../types';
 
 const BASE: LoreEntry = {
@@ -49,5 +49,31 @@ describe('selectLoreForRewrite', () => {
       { lite: true },
     );
     expect(out).toEqual([]);
+  });
+});
+
+describe('droppedLoreForRewrite', () => {
+  it('non-lite: drops nothing', () => {
+    expect(droppedLoreForRewrite(buckets(), { lite: false })).toEqual([]);
+  });
+
+  it('lite (max savings): drops summary/dark/generate/inverted/keyword', () => {
+    const out = droppedLoreForRewrite(buckets(), { lite: true });
+    expect(out.map((x) => x.name).sort()).toEqual(['dark1', 'gen1', 'inv1', 'kw1', 'kw2', 'sum1']);
+  });
+
+  it('lite + liteIncludeMatchedLore: keeps keyword (does NOT drop it)', () => {
+    const out = droppedLoreForRewrite(buckets(), { lite: true, liteIncludeMatchedLore: true });
+    expect(out.map((x) => x.name).sort()).toEqual(['dark1', 'gen1', 'inv1', 'sum1']);
+  });
+
+  it('invariant: kept + dropped = full set (no entry lost or duplicated)', () => {
+    const b = buckets();
+    const opts = { lite: true } as const;
+    const kept = selectLoreForRewrite(b, opts);
+    const dropped = droppedLoreForRewrite(b, opts);
+    const full = selectLoreForRewrite(b, { lite: false });
+    expect((kept.length + dropped.length)).toBe(full.length);
+    expect([...kept, ...dropped].map((x) => x.name).sort()).toEqual(full.map((x) => x.name).sort());
   });
 });

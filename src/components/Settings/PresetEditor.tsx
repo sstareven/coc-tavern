@@ -219,6 +219,14 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   <button onClick={() => set('mainPrompt', DEFAULT_EDITOR_PRESET.mainPrompt)} style={resetBtn}>重置</button>
                 </div>
                 <textarea value={form.mainPrompt} onChange={(e) => set('mainPrompt', e.target.value)} style={s.textarea} />
+                {/* 只读显示 systemPrompt：内置/ST导入预设的系统指令存于此字段(非UI编辑的mainPrompt),
+                    若非空则展示,让用户知晓实际发送给模型的系统提示。'main'标记会回退读取它。 */}
+                {form.systemPrompt && form.systemPrompt !== form.mainPrompt && (
+                  <div style={{ ...s.fieldCol, marginTop: 6 }}>
+                    <span style={{ ...s.label, opacity: 0.7 }}>系统提示（只读，内置/导入来源）</span>
+                    <textarea value={form.systemPrompt} readOnly style={{ ...s.textarea, opacity: 0.6, cursor: 'default' }} />
+                  </div>
+                )}
               </div>
               <div style={{ ...s.fieldCol, marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

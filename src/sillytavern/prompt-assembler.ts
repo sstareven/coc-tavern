@@ -296,7 +296,19 @@ export function matchLoreEntries(
   return final;
 }
 
-/** Resolve content for a system marker from its source */
+/**
+ * Resolve content for a system marker from its source.
+ *
+ * Note on the `'main'` marker precedence: a preset carries system-level instruction in
+ * TWO legitimate, non-redundant fields — `mainPrompt` (authored via the preset editor UI)
+ * and `systemPrompt` (populated by ST imports and built-in presets such as COC_KP_PRESET).
+ * The marker resolves `mainPrompt` first and falls back to `systemPrompt`, so neither
+ * channel is silently dropped. This `preset` is the macro-PROCESSED preset
+ * (see useChatPipeline buildPromptMessages — `processedPreset.systemPrompt` is EJS/macro
+ * resolved before assembly), so the fallback already returns fully-resolved text.
+ * The `||` precedence is REQUIRED for PATH A (promptItems) correctness regardless of which
+ * field a given preset uses — do not remove it.
+ */
 function resolveMarkerContent(
   markerId: string,
   preset: ChatPreset,
@@ -307,8 +319,6 @@ function resolveMarkerContent(
 ): string {
   switch (markerId) {
     case 'main':
-      // Fall back to systemPrompt when mainPrompt is empty — otherwise the preset's
-      // system instruction is silently dropped in this (promptItems) path.
       return preset.mainPrompt || preset.systemPrompt || '';
     case 'formatInstruction':
       return formatInstruction;

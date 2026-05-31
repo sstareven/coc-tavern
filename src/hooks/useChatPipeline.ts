@@ -19,7 +19,7 @@ import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assemble
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
-import { selectLoreForRewrite } from '../sillytavern/rewrite-lite';
+import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
@@ -150,7 +150,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   // ── buildPromptMessages ──
 
   const buildPromptMessages = useCallback(
-    (overrideInput?: string, formatOverride?: string, opts?: { lite?: boolean; liteIncludeMatchedLore?: boolean }): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset } | null => {
+    (overrideInput?: string, formatOverride?: string, opts?: { lite?: boolean; liteIncludeMatchedLore?: boolean }): { messages: AssembledMessage[]; tokenCount: number; preset: ChatPreset; liteSavedTokens: number } | null => {
       const trimmed = (overrideInput ?? '').trim();
       const effectiveInput = trimmed || '(提示词查看器预览)';
       const liteMode = opts?.lite === true;
@@ -268,17 +268,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // expensive, rewrite-irrelevant buckets (summary/dark-thread/generate-inject/inverted, and
       // keyword-matched unless liteIncludeMatchedLore) — see selectLoreForRewrite. Non-lite returns
       // the canonical full ordering, byte-for-byte equivalent to the previous inline assembly.
-      const matchedLore = selectLoreForRewrite(
-        {
-          matchedKeyword,
-          summary: matchedSummary,
-          constant: constantBucket,
-          darkThread: darkThreadBucket,
-          generateInjects: generateInjectBucket,
-          inverted: invertedBucket,
-        },
-        { lite: liteMode, liteIncludeMatchedLore: opts?.liteIncludeMatchedLore },
-      );
+      const loreBuckets = {
+        matchedKeyword,
+        summary: matchedSummary,
+        constant: constantBucket,
+        darkThread: darkThreadBucket,
+        generateInjects: generateInjectBucket,
+        inverted: invertedBucket,
+      };
+      const loreOpts = { lite: liteMode, liteIncludeMatchedLore: opts?.liteIncludeMatchedLore };
+      const matchedLore = selectLoreForRewrite(loreBuckets, loreOpts);
+      // Token savings of lite mode = estimated tokens of the lore entries it dropped vs the full build.
+      // Pure calculation over the bucket diff (no second buildPromptMessages call → no side effects).
+      const liteSavedTokens = liteMode
+        ? droppedLoreForRewrite(loreBuckets, loreOpts).reduce((sum, e) => sum + estimateTokens(e.content), 0)
+        : 0;
       // Debug logging
       if (pt.debugEnabled) {
         pushLog(
@@ -444,7 +448,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
       }
 
-      return { messages: result.trimmed, tokenCount: finalTokens, preset: activePreset };
+      return { messages: result.trimmed, tokenCount: finalTokens, preset: activePreset, liteSavedTokens };
     },
     [thHooks],
   );
@@ -784,10 +788,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       pushLog('info', `[行动补写] ${hasPrev ? '重新续写' : '生成'}: "${trimmed.slice(0, 40)}"`);
 
-      const built = buildPromptMessages(trimmed, directive, { lite: settings.rewriteLite });
+      const built = buildPromptMessages(trimmed, directive, {
+        lite: settings.rewriteLite,
+        liteIncludeMatchedLore: settings.rewriteLiteIncludeMatchedLore,
+      });
       if (!built) {
         setError('行动补写提示词组装失败');
         return;
+      }
+      // Record lite-mode token savings for the Settings display (runtime only, not persisted).
+      if (settings.rewriteLite) {
+        usePromptViewerStore.getState().setLastRewriteSaving(built.liteSavedTokens);
+        pushLog('info', `[行动补写] 轻量模式节省 ~${built.liteSavedTokens} tokens（跳过摘要/暗线/注入${settings.rewriteLiteIncludeMatchedLore ? '' : '/匹配世界书'}）`);
       }
 
       // ── 发送 + 解析；解析失败按设置重试，要求只输出 JSON ──

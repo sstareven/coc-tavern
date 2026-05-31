@@ -60,7 +60,7 @@ npm run dev
 ## 测试
 
 ```bash
-npm test         # Vitest (373 tests: 宏引擎 + LLM响应解析 + 骰子引擎 + COC 规则 + 数据库迁移 + 会话生命周期 + 角色变量 + 选项匹配 等)
+npm test         # Vitest (392 tests: 宏引擎 + LLM响应解析 + 骰子引擎 + COC 规则 + 数据库迁移 + 会话生命周期 + 角色变量 + 选项匹配 + 提示词组装 + 轻量补写 等)
 npm run build    # tsc -b 类型检查 + Vite 构建
 ```
 
