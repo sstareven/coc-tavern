@@ -9,7 +9,7 @@ function loadExts(): Extension[] {
   try { const d = kvGet(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
 }
 function saveExts(exts: Extension[]) {
-  try { kvSet(STORAGE_KEY, JSON.stringify(exts)); } catch {}
+  try { kvSet(STORAGE_KEY, JSON.stringify(exts)); } catch (err) { console.warn('[ExtManager] saveExts 失败:', err); }
 }
 
 interface Props { onClose: () => void; }

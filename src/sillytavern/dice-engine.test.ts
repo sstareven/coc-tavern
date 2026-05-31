@@ -191,6 +191,39 @@ describe('determineResult', () => {
       }
     });
   });
+  // ── 回归：RightPage 内联五档判定合一等价性（sanCheck=false） ──
+  describe('RightPage inline-classifier equivalence (sanCheck=false)', () => {
+    // 复刻 RightPage 合一前的内联规则，作为对照真值
+    function legacyInline(raw: number, target: number): DiceResultType {
+      const fifth = Math.floor(target / 5);
+      const half = Math.floor(target / 2);
+      if (raw === 100 || (target < 50 && raw >= 96)) return 'crit-failure';
+      if (raw === 1) return 'crit-success';
+      if (raw <= fifth) return 'extreme-success';
+      if (raw <= half) return 'hard-success';
+      if (raw <= target) return 'success';
+      return 'failure';
+    }
+
+    it('determineResult(raw,target,false) 对所有 raw×target 与旧内联逐值一致', () => {
+      for (let raw = 1; raw <= 100; raw++) {
+        for (const target of [0, 1, 5, 30, 49, 50, 65, 80, 95, 100]) {
+          expect(determineResult(raw, target, false)).toBe(legacyInline(raw, target));
+        }
+      }
+    });
+
+    it('保留 target<50 && raw>=96 失误特例', () => {
+      expect(determineResult(96, 49, false)).toBe('crit-failure');
+      expect(determineResult(99, 30, false)).toBe('crit-failure');
+      expect(determineResult(96, 50, false)).toBe('failure');
+    });
+
+    it('保留大成功/大失败边界', () => {
+      expect(determineResult(1, 65, false)).toBe('crit-success');
+      expect(determineResult(100, 65, false)).toBe('crit-failure');
+    });
+  });
 });
 
 // ============================================================

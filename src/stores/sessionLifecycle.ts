@@ -243,7 +243,10 @@ async function loadConversationInner(cid: string): Promise<void> {
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           statData = parsed as Record<string, unknown>;
         }
-      } catch { /* 损坏则视为空树 */ }
+      } catch (err) {
+        // 损坏则视为空树
+        console.warn('[sessionLifecycle] __statData__ blob 解析失败，回退空树:', err);
+      }
       continue;
     }
     variables[name] = { ...variable, name };

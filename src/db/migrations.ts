@@ -30,7 +30,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
   await db.kvStore.put({ key: FLAG, value: 'true' });
   // Delete localStorage after successful migration
   for (const key of LS_KEYS) {
-    try { localStorage.removeItem(key); } catch {}
+    try { localStorage.removeItem(key); } catch (err) { console.warn(`[DB] localStorage.removeItem(${key}) 失败:`, err); }
   }
   console.log(`[DB] Migrated ${migrated}/${LS_KEYS.length} keys from localStorage`);
 }

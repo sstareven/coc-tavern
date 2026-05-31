@@ -16,7 +16,7 @@ import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
 import type { CharacterSheet, COC7Characteristic } from '../../types';
 import {
-  CHAR_ROLL, getDBBuild, resolveSkillBase,
+  CHAR_ROLL, resolveSkillBase, deriveSecondaryStats,
 } from '../../sillytavern/coc-rules';
 import {
   STEPS, CHAR_ORDER, type SkillCat, ALL_SKILLS, SKILL_DESC, COC_OCCUPATIONS,
@@ -32,9 +32,8 @@ import { StepReview } from './steps/StepReview';
 /* ============================== Helpers ============================== */
 
 function getBaseForSkill(sk: typeof ALL_SKILLS[number], charValues: Record<COC7Characteristic, number>): number {
-  if (typeof sk.base === 'number') return sk.base;
-  if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
-  return charValues.EDU ?? 50;
+  // 取值这层保留在本地（从 ALL_SKILLS 项取 base spec），spec→base 解析委托给 resolveSkillBase 统一规则。
+  return resolveSkillBase(sk.base, charValues);
 }
 
 /* ============================== Component ============================== */
@@ -198,18 +197,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [luckValue, setLuckValue] = useState<number | null>(null);
 
   /* ---- Step 3: Derived (auto-calc) ---- */
-  const derived = useMemo(() => {
-    const c = (k: COC7Characteristic) => charValues[k] ?? 0;
-    const siz = c('SIZ');
-    const con = c('CON');
-    const pow = c('POW');
-    const str = c('STR');
-    const hpMax = Math.floor((siz + con) / 10);
-    const sanMax = pow;
-    const mpMax = Math.floor(pow / 5);
-    const { db, build } = getDBBuild(str + siz);
-    return { hpMax, sanMax, mpMax, db, build };
-  }, [charValues]);
+  const derived = useMemo(() => deriveSecondaryStats(charValues), [charValues]);
 
   /* ---- Step 4: Skills ---- */
   const [creditRating, setCreditRating] = useState(0);
@@ -351,14 +339,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       CHAR_ORDER.map((c) => [c.key, charValues[c.key] ?? 50]),
     ) as Record<COC7Characteristic, number>;
 
-    const siz = chars.SIZ;
-    const con = chars.CON;
-    const pow = chars.POW;
-    const str = chars.STR;
-    const hpMax = Math.floor((siz + con) / 10);
-    const sanMax = pow;
-    const mpMax = Math.floor(pow / 5);
-    const { db, build } = getDBBuild(str + siz);
+    const { hpMax, sanMax, mpMax, db, build } = deriveSecondaryStats(chars);
 
     const halfFifth = Object.fromEntries(
       CHAR_ORDER.map((c) => {

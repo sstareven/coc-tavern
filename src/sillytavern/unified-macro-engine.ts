@@ -19,6 +19,11 @@ export interface MacroContext {
 export interface MacroResult {
   text: string;
   outletMap: Map<string, string[]>;
+  /**
+   * 仅用于测试断言/审计日志，记录本次宏解析中发生的变量写操作。
+   * 生产管线（useChatPipeline.ts）的变量持久化走 ctx.macroVars diff（对比 store 后 setMacroVar），
+   * 并不消费此数组。切勿据此重放副作用——副作用已在解析过程中就地写入 ctx.macroVars。
+   */
   mutations: MacroMutation[];
 }
 

@@ -138,6 +138,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const buildFnRef = useRef<((text?: string) => void) | null>(null);
   const currentInputRef = useRef('');
   const abortRef = useRef<AbortController | null>(null);
+  const rewriteAbortRef = useRef<AbortController | null>(null);
   const messageCountRef = useRef(0);
   const stickyStateRef = useRef(new Map<string, number>());
   const cooldownStateRef = useRef(new Map<string, number>());
@@ -875,6 +876,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     setLoading(true);
     setError('');
     useStatusToastStore.getState().showProcessing('正在推演可能的行动…');
+    // 新请求开始时中止在途 rewrite，并为本次补写建立可取消的 controller（与主生成 abortRef 同模式，桶仍为 'rewrite'）。
+    rewriteAbortRef.current?.abort();
+    const controller = new AbortController();
+    rewriteAbortRef.current = controller;
     try {
       const settings = useSettingsStore.getState();
       const useIndep = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey;
@@ -928,7 +933,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           model,
           false,
           undefined,
-          undefined,
+          controller.signal,
           'rewrite',
         ),
         parse: (content) => parseRewriteResponse(content),
@@ -947,6 +952,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`);
       useStatusToastStore.getState().markDone(`已拟出 ${block.choices.length} 种可能`);
     } catch (e) {
+      // 用户主动取消（新 rewrite 或卸载触发的 abort）不是失败，静默返回。
+      // 与主生成同策略：用 controller.signal.aborted 而非 err.name==='AbortError'，
+      // 因为非流式路径的中止在 api-router 已被重包装成普通 Error。
+      if (controller.signal.aborted) {
+        return;
+      }
       useStatusToastStore.getState().showError(`补写失败：${e instanceof Error ? e.message : String(e)}`);
       setError(`行动补写失败: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -1054,7 +1065,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
   // Abort in-flight request on unmount
   useEffect(() => {
-    return () => { abortRef.current?.abort(); };
+    return () => { abortRef.current?.abort(); rewriteAbortRef.current?.abort(); };
   }, []);
 
   // Listen for mock generation request (from Prompt Viewer refresh)

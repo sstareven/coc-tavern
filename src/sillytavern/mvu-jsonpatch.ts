@@ -59,8 +59,9 @@ export function extractJsonPatchBlocks(text: string): unknown[] {
         if (Array.isArray(parsed)) {
           for (const op of parsed) result.push(op);
         }
-      } catch {
+      } catch (err) {
         // malformed block: skip, do not abort other blocks
+        console.warn('[mvu-jsonpatch] 跳过畸形 JSONPatch 块:', err, '原文:', raw.slice(0, 200));
       }
     }
   }
@@ -191,7 +192,8 @@ export function applyMvuPatch(
   ops: unknown[],
   opts?: ApplyOpts,
 ): void {
-  const onError = opts?.onError ?? (() => {});
+  const onError =
+    opts?.onError ?? ((msg: string) => console.warn('[mvu-jsonpatch] op 跳过:', msg));
   const redirect = opts?.redirect;
 
   for (const rawOp of ops) {

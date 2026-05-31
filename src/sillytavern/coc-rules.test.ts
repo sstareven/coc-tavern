@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getDBBuild, resolveSkillBase, roll3D6, roll2D6, CHAR_ROLL } from './coc-rules';
+import { getDBBuild, resolveSkillBase, roll3D6, roll2D6, CHAR_ROLL } from './coc-rules';import { deriveSecondaryStats } from './coc-rules';
 
 // ============================================================
 // getDBBuild — Damage Bonus / Build 判定
@@ -78,6 +78,54 @@ describe('resolveSkillBase', () => {
   it('EDU: missing EDU defaults to 50', () => {
     expect(resolveSkillBase('EDU', {})).toBe(50);
     expect(resolveSkillBase('EDU', { STR: 60 })).toBe(50);
+  });
+});
+// ============================================================
+// deriveSecondaryStats — 次生属性派生（HP/SAN/MP/DB/Build）
+// 替代 CharacterCreator 中 derived useMemo 与 handleConfirm 的重复内联公式
+// ============================================================
+describe('deriveSecondaryStats', () => {
+  it('hpMax = floor((SIZ + CON) / 10)', () => {
+    expect(deriveSecondaryStats({ SIZ: 60, CON: 50 }).hpMax).toBe(11);
+    expect(deriveSecondaryStats({ SIZ: 65, CON: 64 }).hpMax).toBe(12); // 129/10 → 12
+    expect(deriveSecondaryStats({ SIZ: 0, CON: 0 }).hpMax).toBe(0);
+  });
+
+  it('sanMax = POW (直接等于 POW)', () => {
+    expect(deriveSecondaryStats({ POW: 70 }).sanMax).toBe(70);
+    expect(deriveSecondaryStats({ POW: 50 }).sanMax).toBe(50);
+  });
+
+  it('mpMax = floor(POW / 5)', () => {
+    expect(deriveSecondaryStats({ POW: 70 }).mpMax).toBe(14);
+    expect(deriveSecondaryStats({ POW: 52 }).mpMax).toBe(10); // 52/5 → 10
+    expect(deriveSecondaryStats({ POW: 0 }).mpMax).toBe(0);
+  });
+
+  it('db/build 桥接 getDBBuild(STR + SIZ)', () => {
+    expect(deriveSecondaryStats({ STR: 50, SIZ: 50 })).toMatchObject({ db: '0', build: 0 });
+    expect(deriveSecondaryStats({ STR: 65, SIZ: 65 })).toMatchObject({ db: '+1D4', build: 1 });
+    expect(deriveSecondaryStats({ STR: 90, SIZ: 80 })).toMatchObject({ db: '+1D6', build: 2 });
+  });
+
+  it('缺省特征回退为 0（与 derived useMemo 的 ?? 0 一致）', () => {
+    const r = deriveSecondaryStats({});
+    expect(r.hpMax).toBe(0);
+    expect(r.sanMax).toBe(0);
+    expect(r.mpMax).toBe(0);
+    expect(r).toMatchObject({ db: '-1', build: -1 }); // getDBBuild(0) 落入 -1 档
+  });
+
+  it('完整角色：返回全部五个字段且数值与原内联公式等价', () => {
+    const chars = { STR: 60, CON: 70, SIZ: 65, POW: 55, DEX: 50, APP: 50, INT: 60, EDU: 70 };
+    const r = deriveSecondaryStats(chars);
+    expect(r).toEqual({
+      hpMax: Math.floor((65 + 70) / 10), // 13
+      sanMax: 55,
+      mpMax: Math.floor(55 / 5), // 11
+      db: getDBBuild(60 + 65).db,
+      build: getDBBuild(60 + 65).build,
+    });
   });
 });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   extractJsonPatchBlocks,
   applyMvuPatch,
@@ -87,6 +87,12 @@ some text
     expect(extractJsonPatchBlocks(text)).toEqual([
       { op: 'replace', path: '/ok', value: 1 },
     ]);
+  });
+  it('畸形块会 console.warn（不静默吞错）', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    extractJsonPatchBlocks(`<UpdateVariable><JSONPatch>not json</JSONPatch></UpdateVariable>`);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
@@ -388,6 +394,13 @@ describe('applyMvuPatch redirect', () => {
       redirect: () => false,
     });
     expect(tree.hp).toBe(20);
+  });
+  it('未传 onError 时默认 console.warn（不静默吞校验错）', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const tree: Record<string, unknown> = { hp: 10 };
+    applyMvuPatch(tree, [{ op: 'replace', path: '/missing', value: 1 }]);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 

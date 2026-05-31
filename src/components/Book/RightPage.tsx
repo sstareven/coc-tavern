@@ -123,14 +123,9 @@ function rollWithBonus(target: number, bonus: BonusType): RollResult {
     bonusTens = t1;
   }
   const raw = (t === 0 && o === 0) ? 100 : t * 10 + o;
-  let resultType = 'failure';
-  const fifth = Math.floor(target / 5);
-  const half = Math.floor(target / 2);
-  if (raw === 100 || (target < 50 && raw >= 96)) resultType = 'crit-failure';
-  else if (raw === 1) resultType = 'crit-success';
-  else if (raw <= fifth) resultType = 'extreme-success';
-  else if (raw <= half) resultType = 'hard-success';
-  else if (raw <= target) resultType = 'success';
+  // 五档判定单源真理：dice-engine determineResult（sanCheck=false）。
+  // 内联旧版的 target<50&&raw>=96 失误特例等价于 determineResult 的 step7，结果一致。
+  const resultType = determineResult(raw, target, false);
   const labels: Record<string, string> = {
     'crit-success': '大成功！', 'extreme-success': '极难成功', 'hard-success': '困难成功',
     'success': '成功', 'failure': '失败', 'crit-failure': '大失败！',
@@ -148,19 +143,9 @@ function rollOpposed(playerTarget: number, opponentTarget: number) {
   const pRaw = (pt === 0 && po === 0) ? 100 : pt * 10 + po;
   const oRaw = (ot === 0 && oo === 0) ? 100 : ot * 10 + oo;
 
-  function getResult(roll: number, target: number) {
-    const fifth = Math.floor(target / 5), half = Math.floor(target / 2);
-    let rt = 'failure';
-    if (roll === 100 || (target < 50 && roll >= 96)) rt = 'crit-failure';
-    else if (roll === 1) rt = 'crit-success';
-    else if (roll <= fifth) rt = 'extreme-success';
-    else if (roll <= half) rt = 'hard-success';
-    else if (roll <= target) rt = 'success';
-    return rt;
-  }
-
-  const pResult = getResult(pRaw, playerTarget);
-  const oResult = getResult(oRaw, opponentTarget);
+  // 五档判定单源真理：dice-engine determineResult（对抗双方均为技能检定，sanCheck=false）。
+  const pResult = determineResult(pRaw, playerTarget, false);
+  const oResult = determineResult(oRaw, opponentTarget, false);
   const pRank = RESULT_RANK[pResult] ?? 1;
   const oRank = RESULT_RANK[oResult] ?? 1;
   let outcome: 'win' | 'lose' | 'draw' = 'draw';

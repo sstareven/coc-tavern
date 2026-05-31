@@ -193,7 +193,8 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
       }
       set((s) => ({ variables: { ...s.variables, ...vars } }));
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('[useVariableStore] importVariables JSON 解析失败:', err);
       return false;
     }
   },

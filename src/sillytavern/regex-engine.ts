@@ -56,11 +56,17 @@ const SubstituteFindRegexValues = {
   ESCAPED: 2 as const,
 };
 
+// 转义正则元字符，使变量值按字面匹配。对照 SillyTavern regex.js getRegexedString：
+// ESCAPED 模式下 substituteParams 用此函数后处理每个被宏注入到 findRegex 的变量值。
+export function escapeRegexMetachars(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ===== Run a single regex script on a string =====
 export function runRegexScript(
   script: RegexScript,
   rawString: string,
-  variableResolver?: (text: string) => string,
+  variableResolver?: (text: string, escaper?: (value: string) => string) => string,
 ): string {
   if (!script || script.disabled || !script.findRegex || !rawString) {
     return rawString;
@@ -74,7 +80,9 @@ export function runRegexScript(
         return variableResolver ? variableResolver(script.findRegex) : script.findRegex;
       case SubstituteFindRegexValues.ESCAPED: {
         if (!variableResolver) return script.findRegex;
-        return variableResolver(script.findRegex);
+        // 与 RAW 区别：把 escaper 传给 resolver，使其对注入到 findRegex 的变量值
+        // 转义正则元字符，从而按字面匹配（pattern 自身的字面量不受影响）。
+        return variableResolver(script.findRegex, escapeRegexMetachars);
       }
       default:
         return script.findRegex;
@@ -125,7 +133,7 @@ export function runAllRegexScripts(
   placement: RegexPlacement,
   scripts: RegexScript[],
   options?: {
-    variableResolver?: (text: string) => string;
+    variableResolver?: (text: string, escaper?: (value: string) => string) => string;
     isMarkdown?: boolean;
     isPrompt?: boolean;
     depth?: number;

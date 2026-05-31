@@ -23,8 +23,9 @@ export function parseStreamChunk(line: string): StreamToken[] {
     if (content) {
       tokens.push({ content, done: false });
     }
-  } catch {
+  } catch (err) {
     // Skip malformed JSON lines
+    console.warn('[stream-parser] 跳过畸形 SSE 行:', err, '原文:', data.slice(0, 200));
   }
 
   return tokens;
