@@ -21,13 +21,17 @@ npm run dev
 
 ### 叙事界面
 - 故事书双页翻页叙事（CSS 3D 翻页 + 状态栏 + 桌面视觉）
+- 状态栏实时显示场景信息（日期/天气/地点）与角色 HP/SAN/MP
+- 物品变化提示（每页顶部显示获取/消耗，可点击直达背包）
 - 流式渲染引擎（打字机效果 + 思考块折叠）
-- 悬停提示系统（进度环 + 关键词嵌套窗）
+- 关键词悬停提示（释义浮窗 + 相似词归一化匹配）
+- 背包 / 调查员记录 / 目录 均为书内双页翻页式浮层
 
 ### COC 规则系统
-- COC 7th 角色创建向导（6 步完整创建流程）
-- d100 骰子检定（五级判定 + 奖励/惩罚骰 + SAN 检定 + 对抗骰）
+- COC 7th 角色创建向导（6 步完整创建流程，属性点数池支持拖拽骰子分配）
+- d100 骰子检定（五级判定 + 奖励/惩罚骰 + SAN 检定 + 对抗骰 + 暗骰）
 - 大成功/大失败动效 + 粒子效果
+- 物品栏管理（按职业生成起始物品 + 分类 + 装备态，物品得失需有剧情叙事支撑）
 
 ### SillyTavern 引擎
 - 世界书管理系统（多本独立数据 + 条目编辑器）
@@ -41,35 +45,38 @@ npm run dev
 - 提示词查看器（发送前预览编辑 + Token 分解）
 - Token 计数器（上下文用量分解 + 手动计数）
 - 聊天预设管理（采样参数 / Prompt 模板）
-- 对话会话管理 + 扩展脚本管理
+- 多对话会话管理（每个会话独立存档，游戏状态按会话隔离：角色/物品/暗线/关键词/变量互不串档）
+- 扩展脚本管理
 - 目录系统（自动生成章节摘要）
 
 ## 测试
 
 ```bash
-npm test         # Vitest (182 tests: 骰子引擎 + COC 规则 + 数据库 + 角色变量 + 宏引擎)
+npm test         # Vitest (343 tests: 宏引擎 + LLM响应解析 + 骰子引擎 + COC 规则 + 数据库 + 角色变量 + 选项匹配 等)
 npm run build    # tsc -b 类型检查 + Vite 构建
 ```
 
 ## 项目结构
 
 ```
-src/                          # ~111 source files
+src/                          # ~110 source files
 ├── components/
-│   ├── Book/                 # 故事书翻页 (6 files)
-│   ├── CharSheet/            # 角色卡 + 创建向导 (7 files + steps/ 子目录 6 files)
+│   ├── Book/                 # 故事书翻页 + 状态栏 + 右页交互 (9 files)
+│   ├── CharSheet/            # 角色卡 overlay + 创建向导 (含 steps/ 子目录)
+│   ├── Inventory/            # 背包/物品栏浮层
 │   ├── Dice/                 # 骰子面板 + 历史 (3 files)
-│   ├── Landing/              # 开始界面 (2 files)
+│   ├── Landing/              # 开始界面 + 读档 (3 files)
 │   ├── Layout/               # GameView + TopBar + InputBar (3 files)
 │   ├── Settings/             # 设置面板群 (13 files)
-│   └── Shared/               # 共享组件 (11 files)
-├── hooks/                    # React Hooks (4 files)
+│   └── Shared/               # 共享组件 (14 files)
+├── hooks/                    # React Hooks (5 files)
 │   ├── useChatPipeline.ts    #   聊天管道 hook
 │   ├── useStreamingRenderer.ts #  流式渲染 hook
 │   └── usePageFlip.ts        #   翻页 hook
-├── stores/                   # Zustand 状态管理 (13 stores)
-│   └── 全部接入 IndexedDB (Dexie persist 中间件)
-├── sillytavern/              # SillyTavern 引擎 (22 files)
+├── stores/                   # Zustand 状态管理 (18 store/helper)
+│   ├── sessionLifecycle.ts   #   跨 store 会话游戏态 保存/恢复/清空
+│   └── 7 个 store 经 Dexie persist 持久化至 IndexedDB
+├── sillytavern/              # SillyTavern 引擎 (23 files)
 │   ├── api-router.ts         #   LLM API 调用 (stream + non-stream)
 │   ├── prompt-assembler.ts   #   提示词组装 + 世界书注入
 │   ├── regex-engine.ts       #   正则脚本执行 (LRU 缓存)
@@ -77,7 +84,8 @@ src/                          # ~111 source files
 │   ├── slash-commands.ts     #   斜杠命令系统
 │   ├── ejs-template.ts       #   EJS 模板引擎 (LRU 缓存)
 │   ├── unified-macro-engine.ts #   统一宏引擎 (99 tests, 详见 docs/macro-engine.md)
-│   ├── dice-engine.ts        #   骰子检定引擎 (27 tests)
+│   ├── dice-engine.ts        #   骰子检定引擎 (35 tests)
+│   ├── llm-response-parser.ts #  LLM 响应解析 (含物品叙事一致性校验)
 │   ├── coc-rules.ts          #   COC 规则数据 + 纯函数
 │   └── ...
 ├── db/                       # Dexie IndexedDB 持久化层 (5 files)
