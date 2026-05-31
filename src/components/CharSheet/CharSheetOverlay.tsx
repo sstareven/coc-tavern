@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { CHAR_ORDER, DEFAULT_CHARS, SECONDARY_STATS } from '../../sillytavern/coc-data';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 
 /** Parse description into 【section】 blocks, or null if no sections found */
 function parseSections(text: string): { title: string; body: string }[] | null {
@@ -39,6 +41,8 @@ export function CharSheetOverlay() {
 
   const [dossierOpen, setDossierOpen] = useState<Record<string, boolean>>({});
   const [subOpen, setSubOpen] = useState<Record<string, boolean>>({});
+  const isMobile = useIsMobile();
+  const [side, setSide] = useState<Side>('left');
   const toggleDossier = (k: string) => setDossierOpen((p) => ({ ...p, [k]: !p[k] }));
   const toggleSub = (k: string) => setSubOpen((p) => ({ ...p, [k]: !p[k] }));
 
@@ -98,11 +102,12 @@ export function CharSheetOverlay() {
       exit="exit"
       variants={{ enter: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }}
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
-      style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', borderRadius: 4 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: isMobile ? 'column' : 'row', borderRadius: 4 }}
     >
+      {isMobile && <MobilePageToggle left="属性·记录" right="技能·档案" side={side} onSide={setSide} />}
       {/* Left page — Characteristics + Secondary + Identity */}
       <motion.div style={{
-        flex: '1 1 0', display: 'flex', flexDirection: 'column',
+        flex: '1 1 0', display: isMobile && side !== 'left' ? 'none' : 'flex', flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         borderRadius: '3px 0 0 3px',
         boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.2)',
@@ -194,16 +199,16 @@ export function CharSheetOverlay() {
 
       {/* Spine */}
       <div style={{
-        width: 2, flexShrink: 0,
+        width: 2, flexShrink: 0, display: isMobile ? 'none' : 'block',
         background: 'linear-gradient(to right, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.4) 100%)',
       }} />
 
       {/* Right page — Skills + Dossier */}
       <motion.div
-        variants={{ exit: { rotateY: -180 } }}
+        variants={isMobile ? undefined : { exit: { rotateY: -180 } }}
         transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         style={{
-          flex: '1 1 0', display: 'flex', flexDirection: 'column',
+          flex: '1 1 0', display: isMobile && side !== 'right' ? 'none' : 'flex', flexDirection: 'column',
           background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
           borderRadius: '0 3px 3px 0',
           boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.2)',

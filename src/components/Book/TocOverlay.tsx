@@ -1,6 +1,7 @@
 // src/components/Book/TocOverlay.tsx
 import { motion } from 'framer-motion';
 import type { BookPage } from '../../types';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface Props {
   pages: BookPage[];
@@ -11,6 +12,7 @@ interface Props {
 
 /** 目录覆盖层（书页风格）。从 Storybook 抽出，桌面/手机共用。 */
 export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
+  const isMobile = useIsMobile();
   return (
     <motion.div
       initial="enter"
@@ -33,10 +35,10 @@ export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
         .toc-marquee-track span { flex-shrink: 0; padding-right: 80px; }
       `}</style>
 
-      {/* Left page — Title */}
+      {/* Left page — Title（手机端隐藏装饰标题页） */}
       <motion.div
         style={{
-          flex: '1 1 0', display: 'flex', flexDirection: 'column',
+          flex: '1 1 0', display: isMobile ? 'none' : 'flex', flexDirection: 'column',
           justifyContent: 'center', alignItems: 'center',
           background: 'linear-gradient(180deg, #0a0808 0%, #12100c 50%, #0a0808 100%)',
           borderRadius: '4px 0 0 4px',
@@ -54,18 +56,18 @@ export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
 
       {/* Spine */}
       <div style={{
-        width: 2, flexShrink: 0,
+        width: 2, flexShrink: 0, display: isMobile ? 'none' : 'block',
         background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
       }} />
 
       {/* Right page — Entries */}
       <motion.div
-        variants={{ exit: { rotateY: -180 } }}
+        variants={isMobile ? undefined : { exit: { rotateY: -180 } }}
         transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         style={{
           flex: '1 1 0', display: 'flex', flexDirection: 'column',
           background: 'linear-gradient(180deg, #0a0808 0%, #12100c 50%, #0a0808 100%)',
-          borderRadius: '0 4px 4px 0',
+          borderRadius: isMobile ? 4 : '0 4px 4px 0',
           transformOrigin: '0% 50%',
           backfaceVisibility: 'hidden',
           overflow: 'hidden',
