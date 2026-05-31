@@ -460,7 +460,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       /* quota exceeded */
     }
 
-    setSheet(sheet);
+    // 先清空所有按会话隔离的旧态（含角色卡重置为默认），再设置新角色卡——
+    // 次序关键：clearAllGameState 现在会重置角色卡（P0-1），若 setSheet 在其之前会被清掉，
+    // 导致 saveConversation 读到默认卡而跳过持久化、新人物角色卡丢失。
     cleanupOrphanGameState();
     useDarkThreadStore.getState().clearAll();
     useInventoryStore.getState().clearAll();
@@ -469,6 +471,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     useKeywordStore.getState().replaceAll({});
     // 重置书本到全新序章——新会话不残留上一局页面，确保新建人物后立即显示序章页。
     useBookStore.getState().resetToPrologue();
+    // 清干净后再设置新角色卡，确保不被上面的重置清掉。
+    setSheet(sheet);
     const newId = useChatStore.getState().createSession(sheet.identity.name || '未命名调查员');
     // 持久化新会话（含刚 setSheet 的角色卡 + 序章页）到关系表，避免未交互即返回主菜单时丢档。
     void saveConversation(newId);
