@@ -8,6 +8,7 @@ import { kvSet } from '../../db/kv';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
+import { createInitialStatData } from '../../sillytavern/mvu-initial-statdata';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { useKeywordStore } from '../../stores/useKeywordStore';
 import { cleanupOrphanGameState, saveConversation } from '../../stores/sessionLifecycle';
@@ -467,6 +468,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     useDarkThreadStore.getState().clearAll();
     useInventoryStore.getState().clearAll();
     useVariableStore.getState().clearAll();
+    // MVU ZOD：种入初始 statData 叙事树(世界/剧情/战斗;调查员.* 归角色卡故排除)。
+    useVariableStore.getState().setStatData(createInitialStatData());
     useLorebookStore.getState().clearSummaryEntries();
     useKeywordStore.getState().replaceAll({});
     // 重置书本到全新序章——新会话不残留上一局页面，确保新建人物后立即显示序章页。

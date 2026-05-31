@@ -21,7 +21,7 @@ const defaultBooks: Record<string, LoreBook> = {
   [AUTO_SUMMARY_BOOK_ID]: { name: '剧情回顾 (自动)', enabled: true, entries: {} },
   mvu_rules: { name: 'MVU规则系统', enabled: true, entries: {
     mvu_core: e({ name: 'MVU变量规范', keys: 'MVU, var', logic: 'AND_ANY', priority: 1,
-      content: '【输出变量】leftContent嵌入<var name=\'hp\' value=\'值\'/> <var name=\'san\' value=\'值\'/> <var name=\'location\' value=\'地点\'/> <var name=\'threat\' value=\'1-10\'/>。选项action含<var name=\'lastAction\' value=\'简述\'/>；检定项额外<var name=\'lastCheck\' value=\'技能名\'/>。使用单引号！' }),
+      content: '【变量更新 · JSON Patch】在回复末尾用 <UpdateVariable><JSONPatch>[...]</JSONPatch></UpdateVariable> 输出本回合所有状态变化。JSONPatch 是操作对象数组，op 取值：replace(替换已存在路径)、delta(数值增减，如理智-5)、insert(新增对象键或数组元素，数组用 /- 追加)、remove(删除)。路径用 JSON Pointer：调查员状态写 /调查员/生命值/当前、/调查员/理智值/当前；世界写 /世界/时间、/世界/地点；剧情写 /剧情/阶段、/剧情/线索/-。示例：[{"op":"delta","path":"/调查员/理智值/当前","value":-5},{"op":"replace","path":"/世界/地点","value":"地下室"}]。不要再用 <var>/{{set}} 旧格式。' }),
     skill_check: e({ name: 'CoC检定规则', keys: '检定, d100, 大成功', logic: 'AND_ANY', priority: 20,
       content: '【CoC 7th检定】成功=d100≤技能，困难≤半值，极难≤1/5，大成功=01，大失败=96-100。有利→奖励骰(双十面取优)，不利→惩罚骰(取差)。\n侦查系：查账→会计学，变装→乔装，查资料→图书馆使用，偷听→聆听，开锁→锁匠，藏东西→妙手，搜证→侦查，暗处→潜行，追迹→追踪，拍照→摄影。\n交涉系：魅力→取悦，欺瞒→话术，威吓→恐吓，辩论→说服，读心→心理学。\n战斗系：近战→格斗(斗殴)，手枪→枪械(手枪)，步枪→枪械(步枪/霰弹枪)。\n运动系：攀爬→攀爬，闪躲→躲闪，跳过沟→跳跃，骑马→骑术，渡水→游泳，扔东西→投掷。\n护理系：止血→急救，治病→医学，心理→精神分析。\n生活系：看文化→人类学，估价→估价，挖遗迹→考古学，创作→艺术与手艺，用电脑→计算机使用Ω，开车→汽车驾驶，修电器→电气维修，修电路→电子学Ω，回想→历史，读外语→语言(其他)，打官司→法律，修机器→机械维修，认动物→博物学，找方向→导航，辨灵异→神秘学，开起重机→操作重型机械，开飞机→驾驶，荒野→生存，炸东西→爆破，邪神知识→克苏鲁神话(掉SAN)。日常无需检定。' }),
     combat: e({ name: '战斗规则', keys: '战斗, 格斗, 闪避', logic: 'AND_ANY', priority: 30,
@@ -249,7 +249,7 @@ const defaultBooks: Record<string, LoreBook> = {
         }
       check:
         - 用于「世界观/秘密」的循序渐进解锁：标识为 true 后，世界书才会向模型揭示对应的深层设定。未解锁前模型只能依据表层公开信息叙事，严禁提前透露未解锁的秘密。
-        - 触发即输出扁平变量 <var name='剧情.已解锁.{标识}' value='true'/>（与 hp/san 同协议）
+        - 触发即用 JSON Patch 输出：{"op":"insert","path":"/剧情/已解锁/{标识}","value":true}（与 MVU 变量规范同协议）
         - 一旦解锁不可逆，只 insert/置 true，绝不 remove 或改回 false
         - **固定标识清单（仅使用以下键，不要自创）**：
           - 地点到访：角色亲自抵达该地点时 → 密大 / 印斯茅斯 / 敦威治 / 疯狂山脉 / 阿卡姆
