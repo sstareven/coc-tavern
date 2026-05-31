@@ -42,6 +42,10 @@ export async function sendChatCompletion(
         messages,
         temperature: preset.temperature,
         top_p: preset.topP,
+        frequency_penalty: preset.frequencyPenalty,
+        presence_penalty: preset.presencePenalty,
+        // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
+        ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
         max_tokens: preset.maxTokens,
         stream,
       }),
