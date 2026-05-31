@@ -6,6 +6,7 @@ import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { usePanelStore } from '../../stores/usePanelStore';
+import { useChatStore } from '../../stores/useChatStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
@@ -33,6 +34,13 @@ export function Storybook() {
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
   const deletePageStore = useBookStore((s) => s.deletePage);
   const isMobile = useIsMobile();
+  const activeConvId = useChatStore((s) => s.activeId);
+
+  // 切换/读取会话时收起目录浮层（库存/角色卡由 clearAllGameState 负责关闭）。
+  useEffect(() => {
+    setShowToc(false);
+    setSelectedToc(-1);
+  }, [activeConvId]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
