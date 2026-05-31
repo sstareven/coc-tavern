@@ -107,3 +107,21 @@ export async function sendChatCompletion(
   console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
   return { content, model: json.model };
 }
+
+/**
+ * 拉取 OpenAI 兼容端点的可用模型列表（GET {base}/models）。
+ * 纯网络助手——不读/写 store，由调用方编排加载/错误状态。
+ * 供设置面板各 API 通道（main/mvu/rewrite）的「测试连接 → 获取模型」复用。
+ * @throws 当响应非 2xx 时抛出，调用方据此置失败态。
+ */
+export async function fetchModelList(baseUrl: string, apiKey: string): Promise<string[]> {
+  const base = baseUrl.trim().replace(/\/+$/, '');
+  const headers: Record<string, string> = { 'Accept': 'application/json' };
+  if (apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+  const res = await fetch(`${base}/models`, { method: 'GET', headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data?.data)
+    ? data.data.map((m: Record<string, string>) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
+    : [];
+}

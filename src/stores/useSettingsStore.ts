@@ -22,6 +22,7 @@ interface SettingsState {
   rewriteApiBaseUrl: string;
   rewriteApiModel: string;
   rewriteApiKey: string;
+  rewriteAvailableModels: string[];
   mvuTemperature: number;
   mvuRetryCount: number;
   mvuMaxTokens: number;
@@ -60,6 +61,7 @@ interface SettingsStore extends SettingsState {
   setRewriteApiBaseUrl: (url: string) => void;
   setRewriteApiModel: (model: string) => void;
   setRewriteApiKey: (key: string) => void;
+  setRewriteAvailableModels: (models: string[]) => void;
   setMvuTemperature: (t: number) => void;
   setMvuRetryCount: (n: number) => void;
   setMvuMaxTokens: (n: number) => void;
@@ -99,6 +101,7 @@ const defaults: SettingsState = {
   rewriteApiBaseUrl: 'https://api.deepseek.com',
   rewriteApiModel: 'deepseek-chat',
   rewriteApiKey: '',
+  rewriteAvailableModels: [],
   mvuTemperature: 1,
   mvuRetryCount: 1,
   mvuMaxTokens: 8096,
@@ -141,6 +144,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setRewriteApiBaseUrl: (url) => set({ rewriteApiBaseUrl: url }),
       setRewriteApiModel: (model) => set({ rewriteApiModel: model }),
       setRewriteApiKey: (key) => set({ rewriteApiKey: key }),
+      setRewriteAvailableModels: (models) => set({ rewriteAvailableModels: models }),
       setMvuTemperature: (t) => set({ mvuTemperature: t }),
       setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
