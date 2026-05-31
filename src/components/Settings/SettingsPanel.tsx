@@ -6,6 +6,7 @@ import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -323,6 +324,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 // ── Main Settings Panel ──
 
 export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
+  const isMobile = useIsMobile();
   const [section, setSection] = useState<SettingsSection>('general');
 
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
@@ -437,40 +439,50 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
     >
       <div style={{
         display: 'flex',
-        width: 820, maxWidth: '95vw', height: 560, maxHeight: '90vh',
+        flexDirection: isMobile ? 'column' : 'row',
+        width: isMobile ? '100vw' : 820, maxWidth: isMobile ? '100vw' : '95vw',
+        height: isMobile ? '100vh' : 560, maxHeight: isMobile ? '100vh' : '90vh',
         background: 'linear-gradient(135deg, var(--leather) 0%, var(--abyss) 100%)',
-        border: '1px solid var(--gold)',
-        borderRadius: 8,
+        border: isMobile ? 'none' : '1px solid var(--gold)',
+        borderRadius: isMobile ? 0 : 8,
         boxShadow: '0 0 80px rgba(0,0,0,0.6)',
         overflow: 'hidden',
       }}>
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar (桌面竖栏 / 手机顶部横向 Tab) ── */}
         <div style={{
-          width: 180, flexShrink: 0,
+          width: isMobile ? '100%' : 180, flexShrink: 0,
           background: 'rgba(0,0,0,0.25)',
-          borderRight: '1px solid rgba(196,168,85,0.1)',
-          display: 'flex', flexDirection: 'column',
-          padding: '16px 0',
+          borderRight: isMobile ? 'none' : '1px solid rgba(196,168,85,0.1)',
+          borderBottom: isMobile ? '1px solid rgba(196,168,85,0.12)' : 'none',
+          display: 'flex', flexDirection: isMobile ? 'row' : 'column',
+          alignItems: isMobile ? 'center' : 'stretch',
+          padding: isMobile ? '6px 8px' : '16px 0',
+          overflowX: isMobile ? 'auto' : 'visible',
+          whiteSpace: isMobile ? 'nowrap' : 'normal',
         }}>
-          <div style={{
-            padding: '0 16px 12px', borderBottom: '1px solid rgba(196,168,85,0.12)', marginBottom: 8,
-            fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 2,
-            textAlign: 'center',
-          }}>
-            设置
-          </div>
+          {!isMobile && (
+            <div style={{
+              padding: '0 16px 12px', borderBottom: '1px solid rgba(196,168,85,0.12)', marginBottom: 8,
+              fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 2,
+              textAlign: 'center',
+            }}>
+              设置
+            </div>
+          )}
 
           {SIDEBAR_ITEMS.map((item) => (
             <button key={item.key}
               onClick={() => setSection(item.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 16px', margin: '2px 8px',
+                padding: '10px 16px', margin: isMobile ? '0 4px' : '2px 8px',
+                flexShrink: 0,
                 border: 'none', borderRadius: 4,
                 background: section === item.key ? 'rgba(196,168,85,0.1)' : 'transparent',
+                boxShadow: isMobile && section === item.key ? 'inset 0 -2px 0 var(--gold)' : 'none',
                 color: section === item.key ? 'var(--gold)' : 'var(--ink-subtle)',
                 fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1,
-                cursor: 'pointer', textAlign: 'left',
+                cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap',
                 transition: 'background 0.2s, color 0.2s',
               }}
               onMouseEnter={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--text-light)'; e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; } }}
@@ -485,11 +497,12 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
           <button onClick={onClose} style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 16px', margin: '8px 8px 0',
+            padding: '10px 16px', margin: isMobile ? '0 4px' : '8px 8px 0',
+            flexShrink: 0,
             border: 'none', borderRadius: 4,
             background: 'transparent', color: 'var(--ink-subtle)',
             fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
-            cursor: 'pointer', textAlign: 'left',
+            cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap',
           }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; }}
@@ -502,7 +515,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         {/* ── Content ── */}
         <style>{`.settings-scroll::-webkit-scrollbar{width:5px}.settings-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
         <div className="settings-scroll" style={{
-          flex: 1, padding: '24px 28px', overflowY: 'auto',
+          flex: 1, padding: isMobile ? '16px 14px' : '24px 28px', overflowY: 'auto',
           display: 'flex', flexDirection: 'column', minWidth: 0,
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.15)',
         }}>
