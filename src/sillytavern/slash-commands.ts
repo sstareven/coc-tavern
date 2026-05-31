@@ -5,6 +5,9 @@
  * Provides command registration, parsing, and execution for in-chat commands.
  */
 
+import { useVariableStore } from '../stores/useVariableStore';
+import { useTavernHelperStore } from '../stores/useTavernHelperStore';
+
 // ── Types ──
 
 export interface SlashCommand {
@@ -132,7 +135,6 @@ export function initBuiltinCommands(): void {
       const name = parsed[0];
       if (!name) return '[用法: /var <变量名>]';
       try {
-        const { useVariableStore } = require('../stores/useVariableStore');
         const v = useVariableStore.getState().variables[name];
         return v ? `[${name} = ${v.value}]` : `[变量 "${name}" 不存在]`;
       } catch {
@@ -149,7 +151,6 @@ export function initBuiltinCommands(): void {
       const parsed = parseArgs(args);
       if (parsed.length < 2) return '[用法: /set <变量名> <值>]';
       try {
-        const { useVariableStore } = require('../stores/useVariableStore');
         useVariableStore.getState().setVariable(parsed[0], parsed.slice(1).join(' '), 'manual');
         return `[变量 "${parsed[0]}" 已设置]`;
       } catch {
@@ -286,7 +287,6 @@ export function initBuiltinCommands(): void {
       const name = parsed[0];
       if (!name) return '[用法: /thvar <变量名>]';
       try {
-        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
         const val = useTavernHelperStore.getState().getMacroVar(name);
         return val ? `[${name} = ${val}]` : `[宏变量 "${name}" 不存在]`;
       } catch {
@@ -303,7 +303,6 @@ export function initBuiltinCommands(): void {
       const parsed = parseArgs(args);
       if (parsed.length < 2) return '[用法: /thset <变量名> <值>]';
       try {
-        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
         useTavernHelperStore.getState().setMacroVar(parsed[0], parsed.slice(1).join(' '));
         return `[宏变量 "${parsed[0]}" 已设置]`;
       } catch {
@@ -318,7 +317,6 @@ export function initBuiltinCommands(): void {
     description: '列出所有宏变量。用法: /thvars',
     execute: () => {
       try {
-        const { useTavernHelperStore } = require('../stores/useTavernHelperStore');
         const vars = useTavernHelperStore.getState().macroVars;
         const entries = Object.entries(vars);
         if (entries.length === 0) return '[无宏变量]';
