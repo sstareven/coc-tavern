@@ -4,23 +4,23 @@
 
 ## OVERVIEW
 
-所有状态管理集中于此。17 个独立扁平 store + 1 个生命周期 helper，无 store 组合/切片。持久化通过 `zustand/persist` + `createDexieStorage` 适配器，非手动 `localStorage`。`useCharSheetStore` 是跨 store 的中心依赖。`sessionLifecycle.restoreSessionGameState()` 在切换会话时从 `useChatStore` 一次性恢复 7 个 store 的游戏态。
+所有状态管理集中于此。17 个独立扁平 store + 1 个生命周期 helper，无 store 组合/切片。全局态（settings/th/lorebook/chat-meta/charPresets）通过 `zustand/persist` + `createDexieStorage` 持久化；会话态（charsheet/inventory/darkThread/keyword/variable/book pages + TH.macroVars）为纯内存，由 `sessionLifecycle.saveConversation/loadConversation` 显式读写 Dexie v2 关系子表。`useCharSheetStore` 是跨 store 的中心依赖。`sessionLifecycle.restoreSessionGameState()`/`loadConversation()` 在切换会话时从关系表一次性恢复所有会话态 store（先 `clearAllGameState` 再 replaceAll，角色卡无行时回退 `defaultSheet`，杜绝跨会话泄漏）。
 
 ## WHERE TO LOOK
 
 | Store | Domain | Persistence | Key |
 |-------|--------|-------------|-----|
 | `useSettingsStore.ts` | API key、模型、音量、工具提示、RPM 限流配置 | Dexie persist | `coc_settings_v2` |
-| `useTavernHelperStore.ts` | TH 脚本、渲染设置、宏变量 | Dexie persist | `coc_th_v2` |
+| `useTavernHelperStore.ts` | TH 脚本、渲染设置（macroVars 已移出持久化，改按会话存关系表） | Dexie persist | `coc_th_v2` |
 | `useLorebookStore.ts` | 世界书 CRUD、会话书绑定 | Dexie persist | `coc_lorebooks_v1` |
-| `useCharSheetStore.ts` | COC 角色卡 | Dexie persist | `coc_character` |
-| `useChatStore.ts` | 会话管理、预设加载、gameState | Dexie persist | `coc_chat_v1` |
+| `useChatStore.ts` | 会话管理、预设加载（仅轻量元数据 + pageCount） | Dexie persist | `coc_chat_v1` |
 | `useCharacterPresetsStore.ts` | 角色创建预设 | Dexie persist | `coc_char_presets` |
-| `useKeywordStore.ts` | 关键词释义累积 | Dexie persist | `coc_keywords` |
-| `useInventoryStore.ts` | 物品栏（按职业起始物品 + 分类 + 装备态） | 内存 | — |
-| `useDarkThreadStore.ts` | 暗线/伏笔/威胁进度条目 | 内存 | — |
+| `useCharSheetStore.ts` | COC 角色卡 | 内存（会话态，存关系表 `charsheets`） | — |
+| `useKeywordStore.ts` | 关键词释义累积 | 内存（会话态，存关系表 `keywords`） | — |
+| `useInventoryStore.ts` | 物品栏（按职业起始物品 + 分类 + 装备态） | 内存（会话态，存关系表 `inventory`） | — |
+| `useDarkThreadStore.ts` | 暗线/伏笔/威胁进度条目 | 内存（会话态，存关系表 `darkThreads`） | — |
 | `useErrorModalStore.ts` | 全局错误弹窗状态（配 Shared/ErrorModal） | 内存 | — |
-| `useBookStore.ts` | 故事书页面、翻页状态 | 内存 | — |
+| `useBookStore.ts` | 故事书页面、翻页状态 | 内存（会话态，存关系表 `pages`） | — |
 | `useDiceStore.ts` | 骰子检定状态机 | 内存 | — |
 | `useRegexStore.ts` | 全局/预设正则脚本 | 内存 | — |
 | `useVariableStore.ts` | MVU 游戏变量 | 内存 | — |

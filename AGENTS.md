@@ -75,7 +75,7 @@
 
 **组件**: PascalCase + `interface Props` 在文件顶部，无 compound components / render props / slots。
 
-**Zustand stores**: `useXxxStore` 命名，`create<XxxStore>()(persist(...))`，7 个 store 使用 persist middleware + Dexie 持久化（settings/th/lorebooks/charsheet/chat/charPresets/keyword）。跨 store 访问用 ESM `import` + `getState()`。
+**Zustand stores**: `useXxxStore` 命名，`create<XxxStore>()(persist(...))`。全局态 5 个 store 用 persist + Dexie 持久化（settings/th/lorebooks/chat-meta/charPresets）；会话态（charsheet/inventory/darkThread/keyword/variable/book pages + TH.macroVars）为纯内存，由 `sessionLifecycle` 显式读写 Dexie v2 关系子表（按 conversationId 分表）。跨 store 访问用 ESM `import` + `getState()`。
 
 **SillyTavern 引擎**: kebab-case 文件名，JSDoc 注明来源 ("inspired by SillyTavern's...")，纯计算函数与 store-glue 分层。
 

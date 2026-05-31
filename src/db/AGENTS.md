@@ -35,15 +35,15 @@ lorebook/charPresets/chat-meta)  (charsheet/inventory/darkThread/keyword/variabl
 ```
 
 - **全局态** → persist → kvStore 单行。
-- **会话态** → sessionLifecycle 显式读写 → 关系子表（按 conversationId）。load = clearAll + replaceAll；save = 单 rw 事务内 delete-then-bulkPut（bulkPut 不删旧行）；delete = 范围删全部子表。
-- **switchConversation** = 链式 promise 互斥 + latest-wins，串行化 save(prev)→setActive→load(next)，防并发切档撕裂。
-- `useChatStore` → key `coc_chat_v1`
-- `useTavernHelperStore` → key `coc_th_v2`（自定义 `merge` 重新注入 MVU 默认值）
+- **会话态** → sessionLifecycle 显式读写 → 关系子表（按 conversationId）。load = clearAll + replaceAll（角色卡无行时回退 `defaultSheet`，杜绝跨会话泄漏）；save = 单 rw 事务内 delete-then-bulkPut（bulkPut 不删旧行；默认空角色卡跳过 put 并删残留行）；delete = 范围删全部子表。
+- **统一串行化** = `save/load/delete/switchConversation` 全部经单一全局 `enqueue` 链串行，杜绝交错/撕裂/孤儿复活；`switchConversation` 同步捕获 prevId（防并发 createSession 改 activeId）+ latest-wins，内部用 `*Inner`（未入队）版本避免重入死锁。
+- **持久化到 kvStore 的全局态 store**（经 zustand/persist）：
+- `useChatStore` → key `coc_chat_v1`（仅轻量元数据：id/name/messages/presetId/lorebookIds/pageCount，不含 pages/gameState）
+- `useTavernHelperStore` → key `coc_th_v2`（自定义 `merge` 重新注入 MVU 默认值；macroVars 已移出 partialize）
 - `useLorebookStore` → key `coc_lorebooks_v1`
-- `useCharSheetStore` → key `coc_character`
 - `useSettingsStore` → key `coc_settings_v2`
 - `useCharacterPresetsStore` → key `coc_char_presets`
-- `useKeywordStore` → key `coc_keywords`
+- **会话态 store（纯内存，存关系子表，非 kvStore）**：useCharSheetStore(`charsheets`)、useInventoryStore(`inventory`)、useDarkThreadStore(`darkThreads`)、useKeywordStore(`keywords`)、useVariableStore(`gameVars`)、useBookStore(`pages`)、TH.macroVars(`macroVars`)。
 
 ## MIGRATION FLOW
 
