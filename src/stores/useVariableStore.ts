@@ -9,10 +9,15 @@ import {
   stripVariableMarkup,
   buildSubstitutionMap,
 } from '../sillytavern/variables';
+import { applyMvuPatch, extractJsonPatchBlocks } from '../sillytavern/mvu-jsonpatch';
+import { isCharsheetPath, applyCharsheetRedirect } from '../sillytavern/mvu-charsheet-redirect';
+import { flattenStatData } from '../sillytavern/mvu-flatten';
 
 interface VariableStore {
-  // All game variables
+  // All game variables (legacy flat map: <var>/{{set:}}, manual, locked, hpChange aliases)
   variables: Record<string, GameVariable>;
+  // MVU ZOD nested narrative-state tree (世界.* / 剧情.* / NPC / flags). NOT 调查员.* (char sheet owns those).
+  statData: Record<string, unknown>;
 
   // Actions
   setVariable: (name: string, value: string, source?: GameVariable['source']) => void;
@@ -22,8 +27,11 @@ interface VariableStore {
   // Process LLM response — extract variables, return cleaned text
   processResponse: (text: string) => { cleanedText: string; extracted: Record<string, string> };
 
-  // Build the full substitution map (variables + character sheet)
+  // Build the full substitution map (variables + statData + character sheet)
   buildFullSubstitutionMap: () => Record<string, string>;
+
+  // statData direct access (persistence + initvar seeding)
+  setStatData: (tree: Record<string, unknown>) => void;
 
   // Bulk import/export
   importVariables: (json: string) => boolean;
@@ -34,6 +42,7 @@ interface VariableStore {
 
 export const useVariableStore = create<VariableStore>((set, get) => ({
   variables: {},
+  statData: {},
 
   setVariable: (name, value, source = 'manual') => {
     set((s) => {
@@ -65,14 +74,38 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
   },
 
   processResponse: (text) => {
+    // ── Legacy flat path: <var>/{{set:}} + narrative stat regex (kept for back-compat) ──
     const extracted = extractAllVariables(text);
     const statChanges = parseStatChanges(text);
-
-    // Merge all extracted variables
     const allExtracted = { ...extracted, ...statChanges };
     const st = get();
     const merged = mergeVariables(st.variables, allExtracted, 'llm');
-    set({ variables: merged });
+
+    // ── MVU ZOD path: <UpdateVariable><JSONPatch> applied to the statData tree ──
+    const ops = extractJsonPatchBlocks(text);
+    let nextStatData = st.statData;
+    if (ops.length > 0) {
+      nextStatData = structuredClone(st.statData);
+      // redirect: ops targeting 调查员.* are applied to the character sheet, NOT statData.
+      let sheet = useCharSheetStore.getState().sheet;
+      let sheetChanged = false;
+      applyMvuPatch(nextStatData, ops, {
+        redirect: (dotPath, op, value) => {
+          if (!isCharsheetPath(dotPath)) return false;
+          const updated = applyCharsheetRedirect(sheet, dotPath, op, value);
+          if (updated) {
+            sheet = updated;
+            sheetChanged = true;
+          }
+          // Always consume 调查员.* here so statData never stores a char-sheet leaf,
+          // even when the specific field wasn't writable (avoids parallel source of truth).
+          return true;
+        },
+      });
+      if (sheetChanged) useCharSheetStore.getState().setSheet(sheet);
+    }
+
+    set({ variables: merged, statData: nextStatData });
 
     return {
       cleanedText: stripVariableMarkup(text),
@@ -80,9 +113,19 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     };
   },
 
+  setStatData: (tree) => set({ statData: { ...tree } }),
+
   buildFullSubstitutionMap: () => {
     const st = get();
     const map = buildSubstitutionMap(st.variables);
+
+    // MVU statData (narrative 世界.*/剧情.* tree) flattened to dotted keys, UNDER flat vars
+    // (a locked manual flat var overrides) but the char-sheet 调查员.* injection below still wins
+    // for 调查员.* (statData never contains those — they're redirected to the sheet).
+    const flatStat = flattenStatData(st.statData);
+    for (const [key, value] of Object.entries(flatStat)) {
+      if (!(key in map)) map[key] = value;
+    }
 
     // Auto-inject character sheet data
     const sheet = useCharSheetStore.getState().sheet;
@@ -157,6 +200,6 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
   },
 
   clearAll: () => {
-    set({ variables: {} });
+    set({ variables: {}, statData: {} });
   },
 }));
