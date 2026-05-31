@@ -278,11 +278,15 @@ export interface ChatSession {
   id: string;
   name: string;
   messages: ChatMessage[];
+  /** In-memory only for the active session; NOT persisted in the lightweight chat blob (Dexie v2). Pages live in the `pages` table. */
   pages: BookPage[];
   presetId: string | null;
   lorebookIds: string[];
   createdAt: number;
   updatedAt: number;
+  /** Denormalized page count for session-list display without loading the pages table. */
+  pageCount?: number;
+  /** In-memory only; gameState is persisted per-conversation in relational child tables (Dexie v2), not in the chat blob. */
   gameState?: SessionGameState;
 }
 
