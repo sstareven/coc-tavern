@@ -630,7 +630,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (newPage.leftContent.length < 30) {
           validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
         }
-        const currentStage = useVariableStore.getState().variables['剧情.阶段']?.value;
+        // 剧情.阶段 改读 buildFullSubstitutionMap(statData JSON Patch 真值优先,老存档 flat 兜底)
+        const currentStage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'];
         const isEpilogue = currentStage === '后日谈';
         const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
         if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {

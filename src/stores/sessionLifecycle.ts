@@ -7,6 +7,8 @@ import { useBookStore } from './useBookStore';
 import { useVariableStore } from './useVariableStore';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
+import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
+import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import type { GameVariable, BookPage } from '../types';
 import {
   db,
@@ -245,6 +247,13 @@ async function loadConversationInner(cid: string): Promise<void> {
       continue;
     }
     variables[name] = { ...variable, name };
+  }
+  // 老存档兼容：legacy flat 点路径变量(世界.*/剧情.* 等叙事状态,非 调查员.*)回灌进 statData 树，
+  // 使其在纯 JSON Patch 读路径下仍可读、并被 statData 快照注入；仅当树未含该路径时回灌(blob 优先)。
+  for (const [vname, gv] of Object.entries(variables)) {
+    if (!vname.includes('.') || isCharsheetPath(vname)) continue;
+    if (getTreePath(statData, vname) !== undefined) continue;
+    setTreePath(statData, vname, gv.value);
   }
   useVariableStore.getState().replaceAll(variables);
   useVariableStore.getState().setStatData(statData);

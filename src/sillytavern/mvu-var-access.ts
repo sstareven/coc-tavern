@@ -7,10 +7,10 @@ import { isCharsheetPath, applyCharsheetRedirect } from './mvu-charsheet-redirec
  * (historically copy-paste twins) cannot drift. Implements the source-of-truth precedence
  * decided in the MVU ZOD architecture review.
  *
- * READ precedence for `readVar(name)`:
+ * READ precedence for `readVar(name)` (statData/JSON Patch 真值优先于非锁定历史 flat):
  *   1. locked flat variable (manual override) — highest
- *   2. flat variable (legacy <var>/{{set:}}/manual)
- *   3. statData tree walk (dotted path, e.g. 世界 / 剧情 narrative keys)
+ *   2. statData tree walk (dotted path, e.g. 世界 / 剧情 narrative keys) — JSON Patch 真值
+ *   3. non-locked flat variable (legacy <var>/{{set:}}/manual fallback)
  *   4. char-sheet live value for 调查员 paths (via the substitution map's same derivation)
  *   5. fallback
  *
@@ -20,7 +20,7 @@ import { isCharsheetPath, applyCharsheetRedirect } from './mvu-charsheet-redirec
  *   - non-dotted / legacy → flat variable
  */
 
-function getTreePath(tree: Record<string, unknown>, dotPath: string): unknown {
+export function getTreePath(tree: Record<string, unknown>, dotPath: string): unknown {
   const parts = dotPath.split('.');
   let cur: unknown = tree;
   for (const p of parts) {
@@ -30,7 +30,7 @@ function getTreePath(tree: Record<string, unknown>, dotPath: string): unknown {
   return cur;
 }
 
-function setTreePath(tree: Record<string, unknown>, dotPath: string, value: unknown): void {
+export function setTreePath(tree: Record<string, unknown>, dotPath: string, value: unknown): void {
   const parts = dotPath.split('.');
   let cur: Record<string, unknown> = tree;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -53,14 +53,16 @@ function scalarString(v: unknown): string {
 export function readVar(name: string, fallback = ''): string {
   try {
     const st = useVariableStore.getState();
-    // 1+2. flat variable (locked or not) — legacy/manual takes precedence over the tree
     const flat = st.variables[name];
-    if (flat) return flat.value ?? fallback;
-    // 3. statData tree walk (dotted narrative path)
+    // 1. locked flat (手动锁定) — highest
+    if (flat?.locked) return flat.value ?? fallback;
+    // 2. statData tree (JSON Patch 真值) — 优先于非锁定历史 flat
     if (name.includes('.')) {
       const fromTree = getTreePath(st.statData, name);
       if (fromTree !== undefined) return scalarString(fromTree);
     }
+    // 3. 非锁定 flat (legacy <var>/{{set:}}/manual 兜底)
+    if (flat) return flat.value ?? fallback;
     // 4. char-sheet live for 调查员.* (and legacy char* aliases) via the substitution map
     if (isCharsheetPath(name) || name.startsWith('char')) {
       const map = st.buildFullSubstitutionMap();

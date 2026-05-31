@@ -20,10 +20,23 @@ describe('readVar', () => {
     expect(readVar('剧情.阶段')).toBe('高潮');
   });
 
-  it('扁平变量优先于 statData 树(locked 手动覆盖)', () => {
+  it('statData 树优先于非锁定扁平变量(JSON Patch 真值优先)', () => {
     useVariableStore.getState().setStatData({ 世界: { 时间: '深夜' } });
     useVariableStore.getState().setVariable('世界.时间', '白天', 'manual');
+    expect(readVar('世界.时间')).toBe('深夜');
+  });
+
+  it('locked 扁平变量(手动锁定)覆盖 statData 树', () => {
+    useVariableStore.getState().setStatData({ 世界: { 时间: '深夜' } });
+    useVariableStore.getState().setVariable('世界.时间', '白天', 'manual');
+    useVariableStore.getState().toggleLock('世界.时间');
     expect(readVar('世界.时间')).toBe('白天');
+  });
+
+  it('statData 无该键时回退非锁定扁平变量(兜底)', () => {
+    useVariableStore.getState().setStatData({ 世界: { 时间: '深夜' } });
+    useVariableStore.getState().setVariable('世界.天气', '雨', 'manual');
+    expect(readVar('世界.天气')).toBe('雨');
   });
 
   it('调查员.* 读角色卡 live 值', () => {
@@ -59,5 +72,14 @@ describe('writeVar', () => {
   it('深层路径自动建中间对象', () => {
     writeVar('剧情.NPC.韦瑟比.态度', '-30');
     expect(readVar('剧情.NPC.韦瑟比.态度')).toBe('-30');
+  });
+});
+
+describe('processResponse — 调查员.* legacy <var> 不进 flat(单源真理)', () => {
+  it('legacy <var name="调查员.*"> 被剔除，非角色卡路径仍进 flat', () => {
+    useVariableStore.getState().processResponse('叙事文本 <var name="调查员.生命值.当前" value="3"/> <var name="世界.地点" value="码头"/>');
+    const vars = useVariableStore.getState().variables;
+    expect(vars['调查员.生命值.当前']).toBeUndefined();
+    expect(vars['世界.地点']?.value).toBe('码头');
   });
 });

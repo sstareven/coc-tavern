@@ -78,8 +78,14 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     const extracted = extractAllVariables(text);
     const statChanges = parseStatChanges(text);
     const allExtracted = { ...extracted, ...statChanges };
+    // 调查员.* 属角色卡(单源真理)：legacy <var> 提取出的 调查员.* 不进 flat map，
+    // 防扁平表留下平行真理叶子(其真值改由角色卡 + buildFullSubstitutionMap 注入提供)。
+    const flatExtracted: Record<string, string> = {};
+    for (const [k, v] of Object.entries(allExtracted)) {
+      if (!isCharsheetPath(k)) flatExtracted[k] = v;
+    }
     const st = get();
-    const merged = mergeVariables(st.variables, allExtracted, 'llm');
+    const merged = mergeVariables(st.variables, flatExtracted, 'llm');
 
     // ── MVU ZOD path: <UpdateVariable><JSONPatch> applied to the statData tree ──
     const ops = extractJsonPatchBlocks(text);
@@ -119,12 +125,13 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     const st = get();
     const map = buildSubstitutionMap(st.variables);
 
-    // MVU statData (narrative 世界.*/剧情.* tree) flattened to dotted keys, UNDER flat vars
-    // (a locked manual flat var overrides) but the char-sheet 调查员.* injection below still wins
-    // for 调查员.* (statData never contains those — they're redirected to the sheet).
+    // MVU statData (narrative 世界.*/剧情.* tree) flattened to dotted keys, OVER flat vars
+    // (JSON Patch 真值优先；仅 locked manual flat var 不被覆盖) — char-sheet 调查员.* injection
+    // below still wins for 调查员.* (statData never contains those — redirected to the sheet).
     const flatStat = flattenStatData(st.statData);
     for (const [key, value] of Object.entries(flatStat)) {
-      if (!(key in map)) map[key] = value;
+      // statData(JSON Patch 真值)优先于历史 flat var；仅 locked flat(手动锁定)不被覆盖。
+      if (!st.variables[key]?.locked) map[key] = value;
     }
 
     // Auto-inject character sheet data
