@@ -74,7 +74,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
 
   if (compact) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap',
         fontFamily: 'var(--font-display)', fontSize: 11, color: 'var(--parchment)', userSelect: 'none' }}>
         <span style={{ color: 'var(--gold)', letterSpacing: 1 }}>{location}</span>
         <span style={{ opacity: 0.5 }}>·</span>
