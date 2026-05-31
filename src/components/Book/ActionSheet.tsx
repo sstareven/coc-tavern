@@ -90,8 +90,8 @@ export function ActionSheet() {
                 onScroll={(e) => { if (e.currentTarget.scrollTop > 4) setScrolled(true); }}
                 style={{ maxHeight: '42vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: showCue ? 28 : 0, WebkitOverflowScrolling: 'touch' }}
               >
-                <InventoryChangesBar inventoryChanges={invChanges} />
-                {allChoices.map((ch) => <ChoiceButton key={`${ch.num}-${ch.text}`} choice={ch} />)}
+                <InventoryChangesBar inventoryChanges={invChanges} variant="dark" />
+                {allChoices.map((ch) => <ChoiceButton key={`${ch.num}-${ch.text}`} choice={ch} variant="dark" />)}
               </div>
 
               {/* 下隐滚动暗示：渐隐遮罩 + 下弹箭头 */}

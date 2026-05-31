@@ -485,11 +485,13 @@ function commitRewriteItemGain(ch: ChoiceItem): void {
   pushLog('info', `[补写拾取] 已获得「${gain.name}」`, 'system');
 }
 
-export function InventoryChangesBar({ inventoryChanges, fadeStyle }: {
+export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light' }: {
   inventoryChanges: InventoryChange[];
   fadeStyle?: React.CSSProperties;
+  variant?: 'light' | 'dark';
 }) {
   if (!inventoryChanges || inventoryChanges.length === 0) return null;
+  const dark = variant === 'dark';
   return (
     <button
       type="button"
@@ -507,7 +509,7 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle }: {
       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
         <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -536,7 +538,9 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle }: {
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '2px 8px', borderRadius: 3,
               fontSize: 11, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
-              color: tone.color, background: tone.bg, border: tone.border,
+              color: dark ? '#ece0c8' : tone.color,
+              background: dark ? 'rgba(196,168,85,0.12)' : tone.bg,
+              border: dark ? '1px solid rgba(196,168,85,0.25)' : tone.border,
             }}>
               <span>{prefix}{c.name}{qtyLabel}</span>
               {cat && <span style={{ fontSize: 9, opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
@@ -548,8 +552,9 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle }: {
   );
 }
 
-export function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
+export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: ChoiceItem; variant?: 'light' | 'dark' }) {
   const [hovered, setHovered] = useState(false);
+  const dark = variant === 'dark';
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   const check = parseCheckAction(ch.action);
@@ -574,8 +579,8 @@ export function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       boxShadow: isCheck
         ? (isHovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
         : 'none',
-      borderColor: isHovered ? 'var(--gold)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'),
-      color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
+      borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)')),
+      color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
       textAlign: 'left', cursor: isLatestPage ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
       opacity: isLatestPage ? 1 : 0.45,
       filter: isLatestPage ? 'none' : 'grayscale(0.6)',
@@ -592,12 +597,15 @@ export function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
           ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
           : val;
         const c = BONUS_COLORS[check.opposed ? 'opposed' : check.bonus];
+        const tag = dark
+          ? { color: '#ece0c8', bg: 'rgba(196,168,85,0.14)', border: '1px solid rgba(196,168,85,0.3)' }
+          : c;
         return (
         <span style={{
           marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
           padding: '2px 8px', borderRadius: 3,
           fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
-          color: c.color, background: c.bg, border: c.border,
+          color: tag.color, background: tag.bg, border: tag.border,
           transition: 'border-color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {check.skillName}
