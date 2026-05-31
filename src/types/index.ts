@@ -103,8 +103,6 @@ export interface RewriteBlock {
   choices: ChoiceItem[];
   /** 触发补写时玩家的原始输入,用于重新续写复用与匹配 */
   sourceInput: string;
-  /** true = 解析走了降级救场（非合法 JSON）。调用方据此决定重试或放弃，不写入存档。 */
-  recovered?: boolean;
 }
 
 // ===== Dice =====
@@ -262,6 +260,10 @@ export interface SessionGameState {
   inventory?: InventoryItem[];
   darkThread?: { id: string; timestamp: number; progress: number; threatLevel: string; details: string; foreshadowing: string }[];
   keywords?: Record<string, string>;
+  /** MVU 游戏变量（调查员.生命值.当前 等）。按会话隔离，避免跨对话泄漏。 */
+  variables?: Record<string, GameVariable>;
+  /** TavernHelper 宏变量（/set 设置）。按会话隔离。 */
+  macroVars?: Record<string, string>;
 }
 
 // ===== Chat Sessions =====

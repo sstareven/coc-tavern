@@ -96,6 +96,8 @@ const defaultBooks: Record<string, LoreBook> = {
         - 拾取或购买时 insert 新物品
         - 使用/丢弃时 remove 或 delta 数量
         - 关键剧情物品标记"是否关键物品: true"
+        - 物品的每一次获取或消耗都必须先在叙事(leftContent/rightContent)中具体描写其经过——如何拿到、交出、丢弃或用掉，描述是核心，绝不能遗漏
+        - 严禁叙事未提及却凭空增减物品；叙事中确实发生的得失也必须如实记入，不得漏记
 
     技能:
       type: |-

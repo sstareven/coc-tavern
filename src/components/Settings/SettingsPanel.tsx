@@ -653,66 +653,34 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
 
                 {!perApiRpmEnabled && (
-                  <div style={rowStyle}>
-                    <span style={labelStyle}>
-                      全局 RPM 上限
-                      <HelpIcon text={'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'} />
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input type="number" min={0} max={10} step={1}
-                        value={rpmLimit}
-                        onChange={(e) => setRpmLimit(Number(e.target.value) || 0)}
-                        style={numInputStyle}
-                      />
-                      <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmLimit === 0 ? '不限制' : `${rpmLimit} 次/分`}</span>
-                    </div>
-                  </div>
+                  <RpmRow
+                    label="全局 RPM 上限"
+                    help={'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'}
+                    value={rpmLimit}
+                    onChange={setRpmLimit}
+                  />
                 )}
 
                 {perApiRpmEnabled && (
                   <>
-                    <div style={rowStyle}>
-                      <span style={labelStyle}>
-                        主 API RPM
-                        <HelpIcon text={'主对话生成（序章、整页生成等）每分钟最多请求数。\n\n0 = 不限制，最大 10。'} />
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input type="number" min={0} max={10} step={1}
-                          value={rpmLimit}
-                          onChange={(e) => setRpmLimit(Number(e.target.value) || 0)}
-                          style={numInputStyle}
-                        />
-                        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmLimit === 0 ? '不限制' : `${rpmLimit} 次/分`}</span>
-                      </div>
-                    </div>
-                    <div style={rowStyle}>
-                      <span style={labelStyle}>
-                        MVU RPM
-                        <HelpIcon text={'独立 MVU 变量提取 API 每分钟最多请求数（仅当 MVU 启用独立API时单独计窗）。\n\n0 = 不限制，最大 10。'} />
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input type="number" min={0} max={10} step={1}
-                          value={mvuRpmLimit}
-                          onChange={(e) => setMvuRpmLimit(Number(e.target.value) || 0)}
-                          style={numInputStyle}
-                        />
-                        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{mvuRpmLimit === 0 ? '不限制' : `${mvuRpmLimit} 次/分`}</span>
-                      </div>
-                    </div>
-                    <div style={rowStyle}>
-                      <span style={labelStyle}>
-                        补写 RPM
-                        <HelpIcon text={'行动补写 API 每分钟最多请求数（含解析失败重试的额外请求）。\n\n0 = 不限制，最大 10。'} />
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input type="number" min={0} max={10} step={1}
-                          value={rewriteRpmLimit}
-                          onChange={(e) => setRewriteRpmLimit(Number(e.target.value) || 0)}
-                          style={numInputStyle}
-                        />
-                        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rewriteRpmLimit === 0 ? '不限制' : `${rewriteRpmLimit} 次/分`}</span>
-                      </div>
-                    </div>
+                    <RpmRow
+                      label="主 API RPM"
+                      help={'主对话生成（序章、整页生成等）每分钟最多请求数。\n\n0 = 不限制，最大 10。'}
+                      value={rpmLimit}
+                      onChange={setRpmLimit}
+                    />
+                    <RpmRow
+                      label="MVU RPM"
+                      help={'独立 MVU 变量提取 API 每分钟最多请求数（仅当 MVU 启用独立API时单独计窗）。\n\n0 = 不限制，最大 10。'}
+                      value={mvuRpmLimit}
+                      onChange={setMvuRpmLimit}
+                    />
+                    <RpmRow
+                      label="补写 RPM"
+                      help={'行动补写 API 每分钟最多请求数（含解析失败重试的额外请求）。\n\n0 = 不限制，最大 10。'}
+                      value={rewriteRpmLimit}
+                      onChange={setRewriteRpmLimit}
+                    />
                   </>
                 )}
 
@@ -1182,5 +1150,30 @@ function HelpIcon({ text }: { text: string }) {
         document.body,
       )}
     </span>
+  );
+}
+
+/** RPM 数字输入行（label + 帮助 + 0–10 number input + 「N 次/分」后缀）。去重 4 处近乎相同的 RPM 设置行。 */
+function RpmRow({ label, help, value, onChange }: {
+  label: string;
+  help: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div style={rowStyle}>
+      <span style={labelStyle}>
+        {label}
+        <HelpIcon text={help} />
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input type="number" min={0} max={10} step={1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          style={numInputStyle}
+        />
+        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{value === 0 ? '不限制' : `${value} 次/分`}</span>
+      </div>
+    </div>
   );
 }

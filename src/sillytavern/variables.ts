@@ -84,6 +84,8 @@ export function mergeVariables(
 export function stripVariableMarkup(text: string): string {
   return text
     .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
+    // 兜底：LLM 偶发畸形 var 标签（漏空格/漏关键字/引号错配，如 <Varname=x'value='y'/>）
+    .replace(/<\s*var[A-Za-z]*\b[^<>]*?\/?>/gi, '')
     .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
 }
 

@@ -28,6 +28,7 @@ interface VariableStore {
   // Bulk import/export
   importVariables: (json: string) => boolean;
   exportVariables: () => string;
+  replaceAll: (variables: Record<string, GameVariable>) => void;
   clearAll: () => void;
 }
 
@@ -149,6 +150,10 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
 
   exportVariables: () => {
     return JSON.stringify(Object.values(get().variables), null, 2);
+  },
+
+  replaceAll: (variables) => {
+    set({ variables: { ...variables } });
   },
 
   clearAll: () => {

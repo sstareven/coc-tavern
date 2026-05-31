@@ -144,15 +144,21 @@ export const useBookStore = create<BookStore>((set, get) => ({
   }),
 
   deletePage: (index) => set((s) => {
-    if (s.pages.length <= 1) return s;
-    const deleted = s.pages[index];
-    const pages = s.pages.filter((_, i) => i !== index);
-    const fixed = pages.map((p, i) => ({ ...p, leftPage: pageNum(i), rightPage: rightPageNum(i) }));
-    let pageIndex = s.pageIndex;
-    if (pageIndex >= fixed.length) pageIndex = fixed.length - 1;
-    if (index < s.pageIndex) pageIndex = s.pageIndex - 1;
-    if (deleted?.id) {
-      setTimeout(() => useLorebookStore.getState().removeSummaryEntry(deleted.id!), 0);
+    if (index < 0 || index >= s.pages.length) return s;
+    // 序章（第 0 页）不可删除——至少保留一页
+    const start = Math.max(1, index);
+    if (start >= s.pages.length) return s;
+    // 删除该页及其之后到最新页的所有页面，保持剧情连续性（不留断层）
+    const removedPages = s.pages.slice(start);
+    const kept = s.pages.slice(0, start);
+    const fixed = kept.map((p, i) => ({ ...p, leftPage: pageNum(i), rightPage: rightPageNum(i) }));
+    const pageIndex = Math.min(s.pageIndex, fixed.length - 1);
+    const removedIds = removedPages.map((p) => p.id).filter((id): id is string => Boolean(id));
+    if (removedIds.length) {
+      setTimeout(() => {
+        const lore = useLorebookStore.getState();
+        for (const id of removedIds) lore.removeSummaryEntry(id);
+      }, 0);
     }
     return { pages: fixed, pageIndex };
   }),

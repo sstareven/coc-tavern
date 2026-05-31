@@ -7,15 +7,23 @@ import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useBookStore } from '../../stores/useBookStore';
+import { restoreSessionGameState } from '../../stores/sessionLifecycle';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
-  // Restore pages from active session on mount
+  // Restore the active session's FULL game state on mount (pages + character/inventory/
+  // darkThread/keywords/variables/macroVars). restoreSessionGameState clears all per-session
+  // stores first, so启动时不会残留上一次运行/上一个会话的变量（HP/SAN 等）。
   useEffect(() => {
-    const savedPages = useChatStore.getState().getActivePages();
-    if (savedPages.length > 0) {
-      useBookStore.getState().setPages(savedPages);
+    const activeId = useChatStore.getState().activeId;
+    if (activeId) {
+      restoreSessionGameState(activeId);
+    } else {
+      const savedPages = useChatStore.getState().getActivePages();
+      if (savedPages.length > 0) {
+        useBookStore.getState().setPages(savedPages);
+      }
     }
   }, []);
 
@@ -71,8 +79,6 @@ export function GameView({ onReturnToMenu }: Props) {
         overflow: 'hidden',
         padding: '12px 24px 24px',
       }}>
-        <StatusBar />
-
         <div style={{
           position: 'relative',
           display: 'flex',
@@ -80,8 +86,24 @@ export function GameView({ onReturnToMenu }: Props) {
           justifyContent: 'center',
           flex: 1, minHeight: 0,
           width: '100%',
-          padding: '8px 0',
+          padding: '0 0 8px',
         }}>
+          {/* Status bar — anchored just ABOVE the desk(书皮) top edge, outside it (does not overlap the 书皮) */}
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 'calc(50% + min(65vh, 600px) / 2 + 4px)',
+            display: 'flex',
+            justifyContent: 'center',
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}>
+            <div style={{ pointerEvents: 'auto' }}>
+              <StatusBar />
+            </div>
+          </div>
+
           {/* Desk table surface */}
           <div style={{
             position: 'absolute',

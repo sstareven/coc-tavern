@@ -4,6 +4,7 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
+import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
@@ -25,17 +26,19 @@ export function Storybook() {
   const direction = useBookStore((s) => s.flipDirection);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
+  const charSheetOpen = useCharSheetStore((s) => s.isOpen);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (inventoryOpen) useInventoryStore.getState().close();
+        if (charSheetOpen) useCharSheetStore.getState().close();
         if (showToc) { setShowToc(false); setSelectedToc(-1); }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [inventoryOpen, showToc]);
+  }, [inventoryOpen, charSheetOpen, showToc]);
 
   const page = pages[pageIndex];
   if (!page) return null;
@@ -47,16 +50,20 @@ export function Storybook() {
 
   const deletePageStore = useBookStore((s) => s.deletePage);
 
-  // 本页加入/装备的物品（删除时将一并撤销），用于确认弹窗提示
-  const affectedItems = (page.inventoryChanges ?? [])
+  // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入/装备的全部物品
+  const affectedItems = pages
+    .slice(pageIndex)
+    .flatMap((p) => p.inventoryChanges ?? [])
     .filter((c) => c.action === 'add' || c.action === 'equip' || (c.action === 'update' && (c.quantity ?? 0) > 0))
     .map((c) => c.name)
     .filter((n): n is string => Boolean(n));
 
   const deletePage = () => {
-    const target = useBookStore.getState().pages[pageIndex];
-    if (target?.inventoryChanges?.length) {
-      useInventoryStore.getState().revertChanges(target.inventoryChanges);
+    // 级联删除本页至最新页：撤销这些页的全部物品变更，避免遗留幽灵物品
+    const all = useBookStore.getState().pages.slice(pageIndex);
+    const changes = all.flatMap((p) => p.inventoryChanges ?? []);
+    if (changes.length) {
+      useInventoryStore.getState().revertChanges(changes);
     }
     deletePageStore(pageIndex);
     persistActiveGameState();
@@ -246,18 +253,18 @@ export function Storybook() {
                 {direction === 'forward' ? (
                   /* [B] flips to the left — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="forward">
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
                   </CSSFlipPage>
                 ) : (
                   /* Backward: [B] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
                   </FadingPage>
                 )}
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} />
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
               </AppearPage>
             )}
           </div>
@@ -397,9 +404,14 @@ export function Storybook() {
             {inventoryOpen && <InventoryOverlay />}
           </AnimatePresence>
 
-          {/* Navigation arrows — hidden when TOC or Inventory is open */}
+          {/* Investigator record overlay — book-page style */}
+          <AnimatePresence>
+            {charSheetOpen && <CharSheetOverlay />}
+          </AnimatePresence>
+
+          {/* Navigation arrows — hidden when TOC, Inventory or record is open */}
           <div style={{
-            opacity: showToc || inventoryOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen ? 'none' : 'auto',
+            opacity: showToc || inventoryOpen || charSheetOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen ? 'none' : 'auto',
             transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             <PageNav
@@ -457,28 +469,39 @@ export function Storybook() {
             {inventoryOpen ? '返回' : '背包/装备'}
           </button>
 
-          {/* Tab 1: 调查员记录 → character sheet */}
+          {/* Tab 1: 调查员记录 → character sheet overlay */}
           <button
             onClick={() => {
+              if (charSheetOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
+                useCharSheetStore.getState().close();
+                return;
+              }
               useInventoryStore.getState().close();
+              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              useBookStore.getState().decorativeFlip('backward', 800);
               useCharSheetStore.getState().toggle();
             }}
-            style={bookmarkTab}
+            style={charSheetOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#8b3a3a';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
-              e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
-              e.currentTarget.style.paddingLeft = '18px';
+              if (!charSheetOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#4a3020';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
-              e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
-              e.currentTarget.style.paddingLeft = '14px';
+              if (!charSheetOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>✦</span>
-            调查员记录
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{charSheetOpen ? '◁' : '✦'}</span>
+            {charSheetOpen ? '返回' : '调查员记录'}
           </button>
 
           {/* Tab 2: 目录 → table of contents overlay */}
@@ -492,6 +515,7 @@ export function Storybook() {
                 return;
               }
               useInventoryStore.getState().close();
+              useCharSheetStore.getState().close();
               useBookStore.getState().decorativeFlip('backward', 800);
               setShowToc(true);
             }}

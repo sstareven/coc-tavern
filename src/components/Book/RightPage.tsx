@@ -5,6 +5,7 @@ import { useDiceStore } from '../../stores/useDiceStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
+import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
@@ -12,7 +13,7 @@ import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue } from './resolvePlayerValue';
-import type { ChoiceItem, DiceResultType, RewriteBlock } from '../../types';
+import type { ChoiceItem, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
 
 interface Props {
   header: string;
@@ -21,6 +22,7 @@ interface Props {
   pageNum?: string;
   isFlipping?: boolean;
   rewrite?: RewriteBlock;
+  inventoryChanges?: InventoryChange[];
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -190,6 +192,10 @@ function resolveTargetFromSheet(skillName: string, difficulty: string): number {
 }
 
 function fillInputBar(text: string) {
+  // 仅允许在最新一页（最后一页）触发选项，防止在历史页面生成新页造成推进错乱
+  const bs = useBookStore.getState();
+  if (bs.pageIndex !== bs.pages.length - 1) return;
+
   const input = document.querySelector<HTMLTextAreaElement>('footer textarea');
   if (!input) return;
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -351,7 +357,16 @@ function fillInputBar(text: string) {
   }
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite }: Props) {
+/** 翻页一下并打开背包浮层。 */
+function openBackpack() {
+  const inv = useInventoryStore.getState();
+  if (inv.isOpen) return;
+  useBookStore.getState().decorativeFlip('backward', 800, () => {
+    useInventoryStore.getState().toggle();
+  });
+}
+
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -369,6 +384,62 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
+      {inventoryChanges && inventoryChanges.length > 0 && (
+        <button
+          type="button"
+          onClick={openBackpack}
+          title="点击打开背包"
+          style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            marginBottom: 16, padding: '8px 10px',
+            border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
+            background: 'rgba(196,168,85,0.06)', cursor: 'pointer',
+            flexShrink: 0,
+            ...fadeStyle,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {inventoryChanges.map((c, i) => {
+              const cat = c.category ? ITEM_CAT_LABELS[c.category] : '';
+              const isGain = c.action === 'add' || c.action === 'equip'
+                || (c.action === 'update' && (c.quantity ?? 0) > 0);
+              const isLoss = c.action === 'remove' || c.action === 'unequip'
+                || (c.action === 'update' && (c.quantity ?? 0) < 0);
+              const tone = isGain ? BONUS_COLORS.bonus : isLoss ? BONUS_COLORS.penalty : BONUS_COLORS.none;
+              let prefix = '';
+              if (c.action === 'add') prefix = '＋';
+              else if (c.action === 'equip') prefix = '装备 ';
+              else if (c.action === 'remove') prefix = '－';
+              else if (c.action === 'unequip') prefix = '卸下 ';
+              let qtyLabel = '';
+              if (c.action === 'update' && typeof c.quantity === 'number') {
+                const q = c.quantity;
+                prefix = q > 0 ? '＋' : '－';
+                qtyLabel = ` ×${Math.abs(q)}`;
+              } else if (typeof c.quantity === 'number' && c.quantity > 1) {
+                qtyLabel = ` ×${c.quantity}`;
+              }
+              return (
+                <span key={i} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '2px 8px', borderRadius: 3,
+                  fontSize: 11, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
+                  color: tone.color, background: tone.bg, border: tone.border,
+                }}>
+                  <span>{prefix}{c.name}{qtyLabel}</span>
+                  {cat && <span style={{ fontSize: 9, opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
+                </span>
+              );
+            })}
+          </div>
+        </button>
+      )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
@@ -424,6 +495,10 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
   );
 }
 
+const ITEM_CAT_LABELS: Record<string, string> = {
+  weapon: '武器', tool: '工具', consumable: '消耗品', clue: '线索', key_item: '关键物品', misc: '杂物',
+};
+
 const BONUS_COLORS = {
   bonus: { color: '#2e5c1e', bg: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.35)' },
   penalty: { color: '#8b2020', bg: 'rgba(183,28,28,0.08)', border: '1px solid rgba(183,28,28,0.3)' },
@@ -432,7 +507,14 @@ const BONUS_COLORS = {
 };
 
 function cleanChoiceText(text: string): string {
-  return text.replace(/\[检定\s*[:：][^\]]*\]\s*/g, '').replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '').trim();
+  return text
+    .replace(/\[检定\s*[:：][^\]]*\]\s*/g, '')
+    .replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '')
+    // 显示层兜底：剥除残留 var 标签（含畸形写法）与裸露的难度文字
+    .replace(/<\s*var[A-Za-z]*\b[^<>]*?\/?>/gi, '')
+    .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /**
@@ -450,26 +532,35 @@ function buildChoiceInput(ch: ChoiceItem): string {
 
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const [hovered, setHovered] = useState(false);
+  // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
+  const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   const check = parseCheckAction(ch.action);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
+  const isHovered = hovered && isLatestPage;
 
   return (
-    <button onClick={() => fillInputBar(buildChoiceInput(ch))} style={{
+    <button
+      onClick={() => fillInputBar(buildChoiceInput(ch))}
+      disabled={!isLatestPage}
+      title={!isLatestPage ? '只有最新一页的选项可以选择' : undefined}
+      style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
       border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
       borderRadius: isCheck ? 5 : 3,
-      background: hovered
+      background: isHovered
         ? (isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)')
         : (isCheck ? 'rgba(196,168,85,0.08)' : 'rgba(196,168,85,0.06)'),
       backdropFilter: isCheck ? 'blur(8px)' : 'none',
       boxShadow: isCheck
-        ? (hovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
+        ? (isHovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
         : 'none',
-      borderColor: hovered ? 'var(--gold)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'),
+      borderColor: isHovered ? 'var(--gold)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'),
       color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
-      textAlign: 'left', cursor: 'pointer', transition: 'var(--transition-smooth)',
+      textAlign: 'left', cursor: isLatestPage ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
+      opacity: isLatestPage ? 1 : 0.45,
+      filter: isLatestPage ? 'none' : 'grayscale(0.6)',
     }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -494,8 +585,8 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
           {check.skillName}
           <span style={{
             display: 'inline-block', overflow: 'hidden', verticalAlign: 'middle',
-            maxWidth: hovered ? (isHardOrExtreme ? 70 : 40) : 0,
-            opacity: hovered ? 1 : 0,
+            maxWidth: isHovered ? (isHardOrExtreme ? 70 : 40) : 0,
+            opacity: isHovered ? 1 : 0,
             transition: 'max-width 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s cubic-bezier(0.4,0,0.2,1)',
           }}>
             {isHardOrExtreme ? (

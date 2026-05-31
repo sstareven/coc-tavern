@@ -1,12 +1,29 @@
 import { useBookStore } from '../../stores/useBookStore';
 import { useVariableStore } from '../../stores/useVariableStore';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
 const NO_VALUE = '未知';
+
+/** 取实时变量(LLM 游戏中更新)优先，回退角色卡 secondary。返回 current/max 数对。 */
+function resolveStat(
+  vars: Record<string, { value: string } | undefined>,
+  curKey: string,
+  maxKey: string,
+  fallback: { current: number; max: number },
+): { current: number; max: number } {
+  const c = parseInt(vars[curKey]?.value ?? '', 10);
+  const m = parseInt(vars[maxKey]?.value ?? '', 10);
+  return {
+    current: Number.isNaN(c) ? fallback.current : c,
+    max: Number.isNaN(m) ? fallback.max : m,
+  };
+}
 
 export function StatusBar() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const vars = useVariableStore((s) => s.variables);
+  const secondary = useCharSheetStore((s) => s.sheet.secondary);
   let scene = pages[pageIndex]?.sceneInfo;
 
   // Fallback: fill missing fields from MVU variable store (ZOD nested paths)
@@ -34,49 +51,93 @@ export function StatusBar() {
     || vars.location?.value  // legacy flat key
     || NO_VALUE;
 
+  // HP/SAN/MP：实时变量优先，回退角色卡
+  const hp = resolveStat(vars, '调查员.生命值.当前', '调查员.生命值.最大', secondary.hp);
+  const san = resolveStat(vars, '调查员.理智值.当前', '调查员.理智值.最大', secondary.san);
+  const mp = resolveStat(vars, '调查员.魔法值.当前', '调查员.魔法值.最大', secondary.mp);
+  const hasStats = hp.max > 0 || san.max > 0 || mp.max > 0;
+
   return (
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        padding: '6px 0 8px',
+        gap: 4,
+        padding: '0 0 6px',
         flexShrink: 0,
-        fontFamily: 'var(--font-display)',
-        fontSize: 13,
-        color: 'var(--parchment)',
-        letterSpacing: 2,
         userSelect: 'none',
       }}
     >
-      {/* Date */}
-      <span style={itemStyle}>{date}</span>
-      {weekday ? <><span style={dividerStyle}>·</span><span style={itemStyle}>{weekday}</span></> : null}
-      <span style={dividerStyle}>·</span>
+      {/* Row 1 — scene info */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
+          fontFamily: 'var(--font-display)',
+          fontSize: 13,
+          color: 'var(--parchment)',
+          letterSpacing: 2,
+        }}
+      >
+        {/* Date */}
+        <span style={itemStyle}>{date}</span>
+        {weekday ? <><span style={dividerStyle}>·</span><span style={itemStyle}>{weekday}</span></> : null}
+        <span style={dividerStyle}>·</span>
 
-      {/* Weather icon + text */}
-      <span style={itemStyle}>
-        {weatherIcon(weather)}
-        {' '}{weather}
-      </span>
-      <span style={dividerStyle}>·</span>
+        {/* Weather icon + text */}
+        <span style={itemStyle}>
+          {weatherIcon(weather)}
+          {' '}{weather}
+        </span>
+        <span style={dividerStyle}>·</span>
 
-      {/* Time */}
-      <span style={itemStyle}>{time}</span>
+        {/* Time */}
+        <span style={itemStyle}>{time}</span>
 
-      <span style={{ margin: '0 10px', width: 1, height: 18, background: 'rgba(196,168,85,0.25)' }} />
+        <span style={{ margin: '0 10px', width: 1, height: 18, background: 'rgba(196,168,85,0.25)' }} />
 
-      {/* Location */}
-      <span style={{
-        ...itemStyle,
-        color: 'var(--gold)',
-        fontSize: 14,
-        letterSpacing: 3,
-      }}>
-        {location}
-      </span>
+        {/* Location */}
+        <span style={{
+          ...itemStyle,
+          color: 'var(--gold)',
+          fontSize: 14,
+          letterSpacing: 3,
+        }}>
+          {location}
+        </span>
+      </div>
+
+      {/* Row 2 — HP / SAN / MP (below the time row) */}
+      {hasStats && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <StatPill label="HP" stat={hp} color="var(--success)" />
+          <StatPill label="SAN" stat={san} color="var(--blood)" />
+          <StatPill label="MP" stat={mp} color="var(--gold)" />
+        </div>
+      )}
     </div>
+  );
+}
+
+/** 单个属性药丸：标签 + 当前/最大，按属性语义着色。 */
+function StatPill({ label, stat, color }: { label: string; stat: { current: number; max: number }; color: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '2px 10px', borderRadius: 10,
+      background: 'rgba(0,0,0,0.25)',
+      border: `1px solid ${color}`,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 0.5,
+      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+    }}>
+      <span style={{ color, fontWeight: 700, letterSpacing: 1 }}>{label}</span>
+      <span style={{ color: 'var(--parchment)' }}>
+        {stat.current}<span style={{ color: 'var(--ink-faded)', margin: '0 1px' }}>/</span>{stat.max}
+      </span>
+    </span>
   );
 }
 

@@ -1,9 +1,11 @@
 import type { ChoiceItem } from '../types';
 
-/** 规范化：剥离 <var> 标记与骰子结果方括号 [..]、去标点与空白、全角字母数字转半角、统一小写。用于强相关相等比对。 */
+/** 规范化：剥离 <var> 标记（含畸形写法）与骰子结果方括号 [..]、去标点与空白、全角字母数字转半角、统一小写。用于强相关相等比对。 */
 export function normalizeChoiceText(s: string): string {
   return s
     .replace(/<var\s+[^>]*\/>/gi, '')
+    // 兜底：畸形 var 标签（漏空格/漏关键字，如 <Varname=x'value='y'/>）
+    .replace(/<\s*var[A-Za-z]*\b[^<>]*?\/?>/gi, '')
     .replace(/\[[^\]]*\]/g, '')
     .replace(/[，。！？、；：,.!?;:「」『』“”‘’()（）\[\]【】\s]/g, '')
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))

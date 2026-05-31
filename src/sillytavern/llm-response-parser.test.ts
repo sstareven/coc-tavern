@@ -1,5 +1,71 @@
 import { describe, it, expect } from 'vitest';
-import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse } from './llm-response-parser';
+import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse, coerceJsonObject, cleanChoiceField, stripVarTagsLoose } from './llm-response-parser';
+
+// ============================================================
+// cleanChoiceField / stripVarTagsLoose — 剥除畸形 var 标签 + 裸难度文字（真实 bug 回归）
+// ============================================================
+describe('stripVarTagsLoose — 畸形 var 标签兜底剥除', () => {
+  it('剥除正常 var 标签', () => {
+    expect(stripVarTagsLoose("查阅 <var name='x' value='y'/> 档案").trim()).toBe('查阅  档案'.trim());
+  });
+  it('剥除畸形 <Varname=...> 标签（漏空格漏关键字）', () => {
+    expect(stripVarTagsLoose("追踪<Varname=lastAction'value='追踪地面痕迹'/>")).toBe('追踪');
+  });
+  it('剥除畸形 <varname="...> 标签（引号错配）', () => {
+    expect(stripVarTagsLoose('线索<varname="lastCheck\'value=\'追踪\'/>')).toBe('线索');
+  });
+});
+
+describe('cleanChoiceField — 选项字段清理（真实 bug 回归）', () => {
+  it('剥除畸形 var 标签 + 裸(普通难度)文字，保留叙事', () => {
+    const input = '绕到仓库另一侧，仔细观察地面拖痕与粘液的延伸方向。尝试追踪痕迹(普通难度)，以获得更多线索<Varname=lastAction\'value=\'追踪地面痕迹\'/><varname="lastCheck\'value=\'追踪\'/>';
+    const out = cleanChoiceField(input);
+    expect(out).not.toContain('<');
+    expect(out).not.toContain('Varname');
+    expect(out).not.toContain('普通难度');
+    expect(out).toContain('绕到仓库另一侧');
+    expect(out).toContain('以获得更多线索');
+  });
+  it('保留合法检定标记 进行XX检定(普通)（不带「难度」二字）', () => {
+    const out = cleanChoiceField("进行追踪检定(普通)，追踪痕迹 <var name='lastCheck' value='追踪'/>");
+    expect(out).toContain('进行追踪检定(普通)');
+    expect(out).not.toContain('<var');
+  });
+});
+
+// ============================================================
+// coerceJsonObject — 标点归一化只作用于 JSON 结构位置，不破坏字符串值内的中文标点
+// ============================================================
+describe('coerceJsonObject — 结构标点归一化保护字符串内容', () => {
+  it('字符串值内的中文标点（，、：；）原样保留', () => {
+    const raw = '{"text":"他停下，低声说：走吧；快。","n":1}';
+    const { parsed } = coerceJsonObject(raw);
+    expect(parsed).not.toBeNull();
+    expect((parsed as { text: string }).text).toBe('他停下，低声说：走吧；快。');
+  });
+
+  it('结构位置的全角标点（key：value，pair）仍被修复', () => {
+    const raw = '{"a"："你好"，"b"："世界"}';
+    const { parsed } = coerceJsonObject(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed).toEqual({ a: '你好', b: '世界' });
+  });
+
+  it('混合：结构全角标点被修复，字符串内中文标点存活', () => {
+    const raw = '{"text"："他说：走吧；快。"，"k"：1}';
+    const { parsed } = coerceJsonObject(raw);
+    expect(parsed).not.toBeNull();
+    expect((parsed as { text: string; k: number }).text).toBe('他说：走吧；快。');
+    expect((parsed as { text: string; k: number }).k).toBe(1);
+  });
+
+  it('字符串内含转义引号时不脱轨，标点仍受保护', () => {
+    const raw = '{"text":"他说\\"走\\"，然后；离开。"}';
+    const { parsed } = coerceJsonObject(raw);
+    expect(parsed).not.toBeNull();
+    expect((parsed as { text: string }).text).toBe('他说"走"，然后；离开。');
+  });
+});
 
 // ============================================================
 // stripMvu — HTML tag conversion and stripping
@@ -176,73 +242,73 @@ describe('parseRewriteResponse', () => {
     expect(r!.text).toBe('你环顾四周。');
   });
 
-  it('模型返回纯叙事(无JSON)时救场为过渡叙述+4个续接选项', () => {
-    const prose = '鹅卵石地面的凉意透过裤子的布料慢慢渗上来——你将后背靠在那扇沉重的橡木门板上，远处传来缓慢而拖沓的脚步声，接着一切又归于沉寂。';
-    const r = parseRewriteResponse(prose);
-    expect(r).not.toBeNull();
-    expect(r!.text).toContain('鹅卵石');
-    expect(r!.choices).toHaveLength(4);
-    expect(r!.choices.map((c) => c.num)).toEqual(['V', 'VI', 'VII', 'VIII']);
-  });
-
-  it('过短的无意义文本仍返回 null', () => {
-    expect(parseRewriteResponse('呃')).toBeNull();
-  });
-
-  it('合法 JSON 解析成功不标 recovered', () => {
-    const raw = '{"text":"你握紧了火柴。","choices":[{"text":"点燃","action":"点燃"}]}';
-    expect(parseRewriteResponse(raw)!.recovered).toBeFalsy();
-  });
-
-  it('降级救场（自然语言/纯叙事）标 recovered=true，供调用方据此重试或放弃', () => {
-    const prose = '鹅卵石地面的凉意透过裤子慢慢渗上来，你靠在门板上一动不动，四周一片寂静。';
-    expect(parseRewriteResponse(prose)!.recovered).toBe(true);
-  });
-
-  it('模型用「选项一/二/三/四」自然语言列表时，提取为真实选项而非通用占位', () => {
-    const raw = '迟缓的拖拽声，像是什么沉重的东西正从走廊尽头被拖向楼梯口。\n---\n'
-      + '选项一：质问柯林斯，要求他解释（进行快速交谈检定，普通难度）\n'
-      + '选项二：按他说的坐下，但保持高度警惕，仔细听他要说的话\n'
-      + '选项三：将他逼到墙边，要求立刻交出阅览证\n'
-      + '选项四：自行搜查一楼目录厅寻找线索（进行图书馆使用检定，普通难度)';
-    const r = parseRewriteResponse(raw);
-    expect(r).not.toBeNull();
-    expect(r!.choices).toHaveLength(4);
-    expect(r!.choices.map((c) => c.num)).toEqual(['V', 'VI', 'VII', 'VIII']);
-    // 真实选项内容被保留，不是「继续观察四周」之类占位
-    expect(r!.choices[0].text).toContain('质问柯林斯');
-    expect(r!.choices[0].text).not.toContain('选项一');
-    expect(r!.choices[1].text).toContain('坐下');
-    expect(r!.choices[3].text).toContain('搜查');
-    // text 去掉检定括号，action 规范为标准检定标记供下游触发
-    expect(r!.choices[0].text).not.toContain('检定');
-    expect(r!.choices[0].action).toContain('进行快速交谈检定(普通)');
-    expect(r!.choices[3].action).toContain('进行图书馆使用检定(普通)');
-    // 过渡叙述取选项前的部分，不含「选项一」
-    expect(r!.text).toContain('拖拽声');
-    expect(r!.text).not.toContain('选项一');
+  it('模型返回非JSON（纯叙事/自然语言列表）时返回 null（救场已移除）', () => {
+    const prose = '鹅卵石地面的凉意透过裤子的布料慢慢渗上来——你将后背靠在那扇沉重的橡木门板上。';
+    expect(parseRewriteResponse(prose)).toBeNull();
+    const list = '迟缓的拖拽声。\n选项一：质问柯林斯\n选项二：坐下\n选项三：逼到墙边\n选项四：搜查';
+    expect(parseRewriteResponse(list)).toBeNull();
   });
 });
 // ============================================================
-// parseLlmResponse — 纯散文救场（非 JSON 回复）
+// parseLlmResponse — 非 JSON 返回 null（救场已移除）
 // ============================================================
-describe('parseLlmResponse — 纯散文救场', () => {
-  it('LLM返回纯叙事时救成可玩叙事页而非报错', () => {
+describe('parseLlmResponse', () => {
+  it('LLM返回纯叙事（非JSON）时返回 null', () => {
     const prose = '密斯卡塔尼克大学的标本室位于地下二层。莱克教授站在尽头，「你来了。」他低声说。';
-    const r = parseLlmResponse(prose, '查看标本室');
-    expect(r).not.toBeNull();
-    expect(r!.recovered).toBe(true);
-    expect(r!.page.rightContent).toBe('接下来你打算怎么做？');
-    expect(r!.page.rightContent).not.toBe('无法解析回应内容');
-    expect(r!.page.leftContent).toContain('莱克教授');
-    expect(r!.page.rightChoices).toHaveLength(4);
+    expect(parseLlmResponse(prose)).toBeNull();
   });
 
-  it('正常JSON回复不标记 recovered', () => {
+  it('正常JSON回复解析为书页', () => {
     const json = '{"leftHeader":"书房","leftContent":"你走进书房。","rightHeader":"行动","rightContent":"怎么做？","choices":[{"num":"I","text":"搜查","action":"进行侦查检定(普通)"}]}';
-    const r = parseLlmResponse(json, '进入书房');
-    expect(r!.recovered).toBeFalsy();
+    const r = parseLlmResponse(json);
+    expect(r).not.toBeNull();
     expect(r!.page.leftHeader).toBe('书房');
+  });
+
+  // ── 物品叙事一致性硬执行 ──
+  describe('物品叙事一致性硬执行', () => {
+    it('叙事提及的物品(add)保留', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你在抽屉里发现一封泛黄的信件，小心收起。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"泛黄的信件","category":"clue"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toHaveLength(1);
+      expect(r!.page.inventoryChanges![0].name).toBe('泛黄的信件');
+    });
+
+    it('叙事未提及的幻影物品(add)被丢弃', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你环顾四周，空无一物。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"黄金护身符","category":"misc"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toBeUndefined();
+    });
+
+    it('{{关键词}}括号包裹的物品名也能匹配', () => {
+      const json = '{"leftHeader":"书房","leftContent":"桌上放着一本{{奈克特抄本}}，你将它收入怀中。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"奈克特抄本","category":"key_item"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toHaveLength(1);
+    });
+
+    it('名称变体（叙事"泛黄的信"↔物品"泛黄的信件"）通过片段匹配保留', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你拾起一封泛黄的信。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"泛黄的信件","category":"clue"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toHaveLength(1);
+    });
+
+    it('叙事未提及的失去(remove)被丢弃', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你静静站着。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"remove","name":"银质怀表"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toBeUndefined();
+    });
+
+    it('skipInventoryNarrativeCheck=true 时保留未点名的 add（序章起始装备）', () => {
+      const json = '{"leftHeader":"序章","leftContent":"清晨，你准备出发。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"出发","action":"出发"}],"inventoryChanges":[{"action":"add","name":"怀表","category":"misc"},{"action":"add","name":"外套","category":"misc"}]}';
+      const r = parseLlmResponse(json, { skipInventoryNarrativeCheck: true });
+      expect(r!.page.inventoryChanges).toHaveLength(2);
+    });
+
+    it('equip/update 不强制点名（对已有物品的装备/数量变化）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你整理了一下行装。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"equip","name":"左轮手枪"},{"action":"update","name":"子弹","quantity":-2}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toHaveLength(2);
+    });
   });
 });
 

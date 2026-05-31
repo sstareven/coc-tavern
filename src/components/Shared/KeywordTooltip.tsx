@@ -11,12 +11,10 @@ interface Props {
   tone?: 'default' | 'red';
 }
 
-// 红色变体：醒目的红 + 极细暗边（保证米色背景上可读）+ 红色辉光
+// 红色变体：醒目的红 + 极细暗边（保证米色背景上可读）。已去除外发光辉光。
 const RED_COLOR = '#cf2b25';
-const RED_GLOW =
-  '0 0 1px rgba(0,0,0,0.55), 0 0 6px rgba(215,50,45,0.7), 0 0 12px rgba(215,50,45,0.38)';
-const RED_GLOW_BRIGHT =
-  '0 0 1px rgba(0,0,0,0.55), 0 0 10px rgba(255,90,80,0.92), 0 0 18px rgba(255,90,80,0.5)';
+const RED_GLOW = '0 0 1px rgba(0,0,0,0.55)';
+const RED_GLOW_BRIGHT = '0 0 1px rgba(0,0,0,0.55)';
 
 const KEYWORD_MEANINGS: Record<string, string> = {
   '调查员': 'Investigator — 玩家扮演的角色，探索克苏鲁神话的秘密',
@@ -54,18 +52,48 @@ const KEYWORD_MEANINGS: Record<string, string> = {
   '黑暗': '宇宙的本质是冰冷黑暗的，人类只是微小的存在',
 };
 
-const dynamicKeywords: Record<string, string> = {};
+/**
+ * 历史遗留入口：LLM 释义现已统一写入 useKeywordStore（按会话隔离，见 sessionLifecycle）。
+ * 此处不再维护模块级全局缓存——那会导致不同会话的关键词相互污染。保留空实现以兼容调用方。
+ */
+export function addKeywordMeanings(_entries: Record<string, string>) {
+  // no-op：释义来源仅 KEYWORD_MEANINGS（通用术语）+ useKeywordStore（当前会话）。
+}
 
-export function addKeywordMeanings(entries: Record<string, string>) {
-  for (const [k, v] of Object.entries(entries)) {
-    if (k && v && !KEYWORD_MEANINGS[k]) {
-      dynamicKeywords[k] = v;
-    }
+/**
+ * 字面归一化关键词键：用于「相似词合并」的模糊查找。
+ * 处理：全角字母数字→半角、去除标点/空白、剥离常见中文后缀（们/的/之/啊/呀/吧）。
+ * 例：「调查员们」→「调查员」、「密斯卡塔尼克　大学」→「密斯卡塔尼克大学」。
+ * 不做繁简转换/语义匹配，保持纯字面、快速、可预测。
+ */
+function normalizeKeyword(s: string): string {
+  return s
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[\s\p{P}\p{S}]/gu, '')
+    .replace(/(们|的|之|啊|呀|吧|呢|了)+$/u, '')
+    .toLowerCase();
+}
+
+/** 在一个 key→meaning 表里按归一化键反查，命中返回释义。 */
+function findNormalized(table: Record<string, string>, target: string): string | undefined {
+  if (!target) return undefined;
+  for (const [k, v] of Object.entries(table)) {
+    if (v && normalizeKeyword(k) === target) return v;
   }
+  return undefined;
 }
 
 function getMeaning(keyword: string): string | undefined {
-  return KEYWORD_MEANINGS[keyword] ?? dynamicKeywords[keyword] ?? useKeywordStore.getState().keywords[keyword];
+  // 释义来源：(1) KEYWORD_MEANINGS 通用 COC 术语（跨会话共享）；
+  //          (2) useKeywordStore 当前会话的 LLM 释义（按会话隔离，不会跨对话混用）。
+  const store = useKeywordStore.getState().keywords;
+  // 1) 精确匹配（最快路径）
+  const exact = KEYWORD_MEANINGS[keyword] ?? store[keyword];
+  if (exact) return exact;
+  // 2) 相似词合并：字面归一化后模糊反查（如「调查员们」命中「调查员」）
+  const norm = normalizeKeyword(keyword);
+  if (!norm) return undefined;
+  return findNormalized(KEYWORD_MEANINGS, norm) ?? findNormalized(store, norm);
 }
 
 export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
@@ -123,7 +151,7 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
             textShadow: [RED_GLOW, RED_GLOW_BRIGHT, RED_GLOW],
           } : {
             color: ['var(--ink)', 'var(--gold)', 'var(--ink)'],
-            textShadow: ['none', '0 0 10px rgba(196,168,85,0.55)', 'none'],
+            textShadow: ['none', 'none', 'none'],
           }) : (red ? {
             color: RED_COLOR,
             textShadow: RED_GLOW,

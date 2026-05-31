@@ -66,16 +66,17 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     CHAR_ORDER.forEach((c) => { init[c.key] = null; });
     return init;
   });
+  const [poolValues, setPoolValues] = useState<number[]>(() => [...POOL_VALUES]);
 
   const availablePoolValues = useMemo(() => {
-    const remaining = [...POOL_VALUES];
+    const remaining = [...poolValues];
     const assigned = (Object.values(poolAssignments) as (number | null)[]).filter((v): v is number => v != null);
     for (const v of assigned) {
       const idx = remaining.indexOf(v);
       if (idx >= 0) remaining.splice(idx, 1);
     }
     return remaining;
-  }, [poolAssignments]);
+  }, [poolAssignments, poolValues]);
 
   const allCharsAssigned = poolMode
     ? CHAR_ORDER.every((c) => poolAssignments[c.key] != null)
@@ -125,7 +126,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   const switchToPoolMode = () => {
     const newAssignments = {} as Record<COC7Characteristic, number | null>;
-    const remaining = [...POOL_VALUES];
+    const remaining = [...poolValues];
     CHAR_ORDER.forEach(({ key }) => {
       const val = charValues[key] ?? 50;
       const idx = remaining.indexOf(val);
@@ -138,6 +139,59 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     });
     setPoolAssignments(newAssignments);
     setPoolMode(true);
+  };
+
+  // 清空点数池分配：所有骰子退回托盘
+  const resetPool = () => {
+    const cleared = {} as Record<COC7Characteristic, number | null>;
+    CHAR_ORDER.forEach(({ key }) => { cleared[key] = null; });
+    setPoolAssignments(cleared);
+  };
+
+  // 「随机」：用 COC 骰子公式重掷 8 个池数值，放回骰子池等待拖拽分配（不填入属性）
+  const randomizePool = () => {
+    const rolled = CHAR_ORDER.map(({ key }) => {
+      const fn = CHAR_ROLL[key];
+      return fn ? fn() : 50;
+    });
+    setPoolValues(rolled);
+    // 清空旧分配：旧骰子数值可能已不在新池中
+    const cleared = {} as Record<COC7Characteristic, number | null>;
+    CHAR_ORDER.forEach(({ key }) => { cleared[key] = null; });
+    setPoolAssignments(cleared);
+  };
+
+  // 随机打乱：把 8 个固定池数值洗牌后逐一分配到 8 个属性
+  const shufflePool = () => {
+    const shuffled = [...poolValues];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const nextAssign = {} as Record<COC7Characteristic, number | null>;
+    const nextChars = { ...charValues };
+    CHAR_ORDER.forEach(({ key }, i) => {
+      nextAssign[key] = shuffled[i];
+      nextChars[key] = shuffled[i];
+    });
+    setPoolAssignments(nextAssign);
+    setCharValues(nextChars);
+  };
+
+  // 交换两个属性的骰子（拖到已占用的槽位时触发；目标可为空=移动）
+  const swapPool = (from: COC7Characteristic, to: COC7Characteristic) => {
+    if (from === to) return;
+    setPoolAssignments((prev) => {
+      const fromVal = prev[from];
+      const toVal = prev[to];
+      const next = { ...prev, [to]: fromVal, [from]: toVal };
+      setCharValues((cv) => ({
+        ...cv,
+        [to]: fromVal != null ? fromVal : cv[to],
+        [from]: toVal != null ? toVal : cv[from],
+      }));
+      return next;
+    });
   };
 
   const [luckValue, setLuckValue] = useState<number | null>(null);
@@ -741,6 +795,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             onRollChar={rollChar}
             onRandomAll={randomAll}
             onPoolAssign={handlePoolAssign}
+            onSwapPool={swapPool}
+            onResetPool={resetPool}
+            onRandomizePool={randomizePool}
+            onShufflePool={shufflePool}
             onSwitchToFreeMode={switchToFreeMode}
             onSwitchToPoolMode={switchToPoolMode}
           />

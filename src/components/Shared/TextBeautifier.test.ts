@@ -1,20 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import { beautifyText } from './TextBeautifier';
 
 const ORANGE = '#a35d18';
+
+type SpanProps = { style: CSSProperties; children: ReactNode };
+type DialogueSpan = ReactElement<SpanProps>;
+type KeywordEl = ReactElement<{ tone?: string; keyword?: string }>;
 
 function nodes(text: string) {
   return beautifyText(text);
 }
 
-function findDialogueSpans(out: ReturnType<typeof nodes>): ReactElement[] {
+function findDialogueSpans(out: ReturnType<typeof nodes>): DialogueSpan[] {
   return out.filter(
-    (n): n is ReactElement =>
+    (n): n is DialogueSpan =>
       typeof n === 'object' &&
       n !== null &&
       (n as ReactElement).type === 'span' &&
-      (n as ReactElement).props?.style?.color === ORANGE,
+      (n as DialogueSpan).props?.style?.color === ORANGE,
   );
 }
 
@@ -53,7 +57,7 @@ describe('beautifyText — 对话橘色高亮', () => {
   it('对话内部关键词以红色变体(tone=red)渲染', () => {
     const spans = findDialogueSpans(nodes('他说「去过{{阿卡姆}}吗」'));
     expect(spans).toHaveLength(1);
-    const children = spans[0].props.children as ReactElement[];
+    const children = spans[0].props.children as KeywordEl[];
     const kw = children.find(
       (c) => typeof c === 'object' && c !== null && c.props?.tone === 'red',
     );

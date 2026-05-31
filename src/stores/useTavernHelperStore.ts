@@ -80,6 +80,7 @@ interface TavernHelperStore extends PersistedState {
   setPromptTemplate: (partial: Partial<PTSettings>) => void;
 
   setMacroVar: (name: string, value: string) => void;
+  setMacroVars: (vars: Record<string, string>) => void;
   getMacroVar: (name: string) => string;
   incMacroVar: (name: string, amount: number) => void;
   decMacroVar: (name: string, amount: number) => void;
@@ -154,6 +155,7 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       setPromptTemplate: (partial) => set((s) => ({ promptTemplate: { ...s.promptTemplate, ...partial } })),
 
       setMacroVar: (name, value) => set((s) => ({ macroVars: { ...s.macroVars, [name]: value } })),
+    setMacroVars: (vars) => set({ macroVars: { ...vars } }),
       getMacroVar: (name) => get().macroVars[name] ?? '',
       incMacroVar: (name, amount) => {
         const current = parseFloat(get().macroVars[name] || '0') || 0;

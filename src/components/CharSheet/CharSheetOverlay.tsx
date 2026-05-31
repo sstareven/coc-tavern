@@ -1,0 +1,312 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { CHAR_ORDER, DEFAULT_CHARS, SECONDARY_STATS } from '../../sillytavern/coc-data';
+
+/** Parse description into 【section】 blocks, or null if no sections found */
+function parseSections(text: string): { title: string; body: string }[] | null {
+  const parts = text.split(/【(.+?)】/);
+  if (parts.length <= 2) return null;
+  const sections: { title: string; body: string }[] = [];
+  if (parts[0].trim()) sections.push({ title: '简介', body: parts[0].trim() });
+  for (let i = 1; i < parts.length; i += 2) {
+    const title = parts[i];
+    const body = (parts[i + 1] || '').trim();
+    if (body) sections.push({ title, body });
+  }
+  return sections.length > 0 ? sections : null;
+}
+
+const DOSSIER_FIELDS = [
+  { key: 'description' as const, label: '个人描述', en: 'Physical Description' },
+  { key: 'personality' as const, label: '性格特征', en: 'Personality Profile' },
+  { key: 'scenario' as const, label: '场景设定', en: 'Case File / Scenario' },
+  { key: 'personaDescription' as const, label: '角色设定', en: 'Persona Directive' },
+];
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)',
+  letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
+};
+
+export function CharSheetOverlay() {
+  const sheet = useCharSheetStore((s) => s.sheet);
+  const chars = sheet.characteristics;
+  const hf = sheet.halfFifth;
+  const sec = sheet.secondary;
+  const identity = sheet.identity;
+  const skillEntries = Object.entries(sheet.skills);
+
+  const [dossierOpen, setDossierOpen] = useState<Record<string, boolean>>({});
+  const [subOpen, setSubOpen] = useState<Record<string, boolean>>({});
+  const toggleDossier = (k: string) => setDossierOpen((p) => ({ ...p, [k]: !p[k] }));
+  const toggleSub = (k: string) => setSubOpen((p) => ({ ...p, [k]: !p[k] }));
+
+  const renderSecValue = (key: string): string => {
+    switch (key) {
+      case 'hp': return `${sec.hp.current} / ${sec.hp.max}`;
+      case 'san': return `${sec.san.current} / ${sec.san.max}`;
+      case 'mp': return `${sec.mp.current} / ${sec.mp.max}`;
+      case 'luck': return String(sec.luck);
+      case 'mov': return String(sec.mov);
+      case 'db': return sec.db;
+      default: return '';
+    }
+  };
+
+  function renderDossierContent(content: string, parentKey: string) {
+    const sections = parseSections(content);
+    if (!sections) return <>{content}</>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {sections.map((sectionItem, si) => {
+          const subKey = `${parentKey}_${si}`;
+          const open = !!subOpen[subKey];
+          return (
+            <div key={subKey} style={{ borderBottom: si < sections.length - 1 ? '1px solid rgba(196,168,85,0.08)' : 'none' }}>
+              <div
+                onClick={() => toggleSub(subKey)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 0', userSelect: 'none' }}
+              >
+                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--brass)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>▸</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: open ? 'var(--gold)' : 'var(--ink-subtle)', fontWeight: 600, letterSpacing: 1, transition: 'color 0.2s' }}>{sectionItem.title}</span>
+              </div>
+              <div style={{
+                overflow: 'hidden',
+                maxHeight: open ? '800px' : '0px',
+                opacity: open ? 1 : 0,
+                transition: 'max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease',
+                paddingLeft: 18,
+                paddingTop: open ? 4 : 0,
+                paddingBottom: open ? 6 : 0,
+              }}>
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                  {sectionItem.body}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial="enter"
+      animate="visible"
+      exit="exit"
+      variants={{ enter: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }}
+      transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+      style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', borderRadius: 4 }}
+    >
+      {/* Left page — Characteristics + Secondary + Identity */}
+      <motion.div style={{
+        flex: '1 1 0', display: 'flex', flexDirection: 'column',
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        borderRadius: '3px 0 0 3px',
+        boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.2)',
+        padding: '28px 20px 20px 28px',
+        overflow: 'hidden',
+      }}>
+        <div style={{ borderBottom: '1px solid rgba(196,168,85,0.25)', paddingBottom: 8, marginBottom: 12 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+            调查员记录
+          </h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>
+            INVESTIGATOR RECORD
+          </span>
+        </div>
+
+        <div className="inv-scroll" style={{
+          flex: 1, overflowY: 'auto', minHeight: 0,
+          scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
+        }}>
+          {/* Identity header */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+            <div style={{
+              width: 44, height: 56, border: '1px solid rgba(196,168,85,0.3)', borderRadius: 3,
+              background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 16, color: 'var(--gold)' }}>&#9733;</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2 }}>
+                {identity.name || '未命名'}
+              </div>
+              <div style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 1 }}>
+                {identity.occupation}
+              </div>
+              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--brass)', letterSpacing: 1, marginTop: 2 }}>
+                {[identity.age ? `${identity.age}岁` : '', identity.gender, identity.residence].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+          </div>
+
+          {/* Characteristics */}
+          <div style={sectionLabel}>基础属性 · CHARACTERISTICS</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+            {CHAR_ORDER.map(({ key, zh, en }) => {
+              const val = chars[key] ?? DEFAULT_CHARS[key];
+              const half = hf[key]?.half ?? Math.floor(val / 2);
+              const fifth = hf[key]?.fifth ?? Math.floor(val / 5);
+              return (
+                <div key={key} style={{
+                  padding: '8px 10px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4,
+                  background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 3,
+                }}>
+                  <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{zh}</div>
+                  <div style={{ fontSize: 22, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--gold)', lineHeight: 1 }}>{val}</div>
+                  <div style={{ display: 'flex', gap: 6, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+                    <span>1/2 {half}</span>
+                    <span>1/5 {fifth}</span>
+                  </div>
+                  <div style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{en}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Secondary stats */}
+          <div style={sectionLabel}>衍生属性 · SECONDARY</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            {SECONDARY_STATS.map((s) => (
+              <div key={s.key} style={{
+                padding: '8px 6px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 3,
+                background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              }}>
+                <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{s.zh}</div>
+                <div style={{ fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>{renderSecValue(s.key)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{
+          borderTop: '1px solid rgba(196,168,85,0.15)', paddingTop: 8, marginTop: 6,
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1,
+        }}>
+          <span>{identity.id || '—'}</span>
+          <span>COC 7th Edition</span>
+        </div>
+      </motion.div>
+
+      {/* Spine */}
+      <div style={{
+        width: 2, flexShrink: 0,
+        background: 'linear-gradient(to right, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.4) 100%)',
+      }} />
+
+      {/* Right page — Skills + Dossier */}
+      <motion.div
+        variants={{ exit: { rotateY: -180 } }}
+        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          flex: '1 1 0', display: 'flex', flexDirection: 'column',
+          background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+          borderRadius: '0 3px 3px 0',
+          boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.2)',
+          padding: '28px 28px 20px 20px',
+          transformOrigin: '0% 50%',
+          backfaceVisibility: 'hidden',
+          overflow: 'hidden',
+        }}>
+        <div style={{ borderBottom: '1px solid rgba(196,168,85,0.25)', paddingBottom: 8, marginBottom: 8 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+            技能 · 档案
+          </h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>
+            SKILLS · DOSSIER
+          </span>
+        </div>
+
+        <div className="inv-scroll" style={{
+          flex: 1, overflowY: 'auto', minHeight: 0,
+          scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
+        }}>
+          {/* Skills */}
+          <div style={sectionLabel}>已习得技能 · SKILLS ({skillEntries.length})</div>
+          {skillEntries.length === 0 ? (
+            <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+              暂无已习得技能
+            </div>
+          ) : (
+            <div style={{ marginBottom: 16 }}>
+              {/* column header */}
+              <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 4, borderBottom: '1px solid rgba(196,168,85,0.12)', marginBottom: 2 }}>
+                <span style={{ flex: 1, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>名称</span>
+                <span style={{ width: 40, textAlign: 'center', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)' }}>基础</span>
+                <span style={{ width: 44, textAlign: 'center', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)' }}>当前</span>
+                <span style={{ width: 56, textAlign: 'center', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)' }}>半/五</span>
+              </div>
+              {skillEntries.map(([name, skill]) => {
+                const half = Math.floor(skill.current / 2);
+                const fifth = Math.floor(skill.current / 5);
+                return (
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(196,168,85,0.08)' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    <span style={{ width: 40, textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>{skill.base}</span>
+                    <span style={{ width: 44, textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--gold)', fontWeight: 700 }}>{skill.current}</span>
+                    <span style={{ width: 56, textAlign: 'center', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>{half}/{fifth}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Dossier */}
+          <div style={sectionLabel}>个人档案 · DOSSIER</div>
+          <div style={{ border: '1px solid rgba(196,168,85,0.15)', borderRadius: 3, overflow: 'hidden' }}>
+            {DOSSIER_FIELDS.every(({ key }) => !(sheet[key] as string)?.trim()) ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+                暂无档案记录
+              </div>
+            ) : (
+              DOSSIER_FIELDS.map(({ key, label, en }, i) => {
+                const content = (sheet[key] as string)?.trim();
+                if (!content) return null;
+                const open = !!dossierOpen[key];
+                return (
+                  <div key={key} style={{ borderBottom: i < DOSSIER_FIELDS.length - 1 ? '1px solid rgba(196,168,85,0.08)' : 'none' }}>
+                    <div
+                      onClick={() => toggleDossier(key)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', userSelect: 'none' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: 12, textAlign: 'center', flexShrink: 0 }}>▸</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>{en}</div>
+                      </div>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{open ? '收起' : '展开'}</span>
+                    </div>
+                    <div style={{
+                      overflow: 'hidden',
+                      maxHeight: open ? '3000px' : '0px',
+                      opacity: open ? 1 : 0,
+                      transition: 'max-height 0.4s ease, opacity 0.3s ease',
+                      borderTop: open ? '1px dashed rgba(196,168,85,0.12)' : 'none',
+                    }}>
+                      <div style={{ padding: '4px 14px 14px 34px', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+                        {renderDossierContent(content, key)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div style={{
+          borderTop: '1px solid rgba(196,168,85,0.15)', paddingTop: 8, marginTop: 6,
+          fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2,
+        }}>
+          技能 {skillEntries.length} 项
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}

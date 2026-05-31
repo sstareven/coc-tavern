@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { InventoryItem, InventoryChange, ItemCategory } from '../types';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
+import { pushLog } from './useLogStore';
 
 const CATEGORY_LABELS: Record<ItemCategory, string> = {
   weapon: '武器',
@@ -49,6 +50,20 @@ function itemEquippable(item: InventoryItem): boolean {
   return item.equippable ?? EQUIPPABLE_CATEGORIES.includes(item.category);
 }
 
+/**
+ * 规范化一组物品（用于持久化迁移、replaceAll、会话恢复等所有外部入口）：
+ * 1) 回填缺省的 equippable（按 category 推定）；
+ * 2) 卸下「不可装备却 equipped=true」的非法老存档物品，避免按钮消失后永久卡在已装备态。
+ */
+export function normalizeItems(items: InventoryItem[]): InventoryItem[] {
+  return items.map((it) => {
+    const equippable = it.equippable ?? EQUIPPABLE_CATEGORIES.includes(it.category);
+    const equipped = it.equipped && equippable;
+    if (equippable === it.equippable && equipped === it.equipped) return it;
+    return { ...it, equippable, equipped };
+  });
+}
+
 export const useInventoryStore = create<InventoryStore>()(
   persist(
     (set, get) => ({
@@ -73,6 +88,10 @@ export const useInventoryStore = create<InventoryStore>()(
                 } else {
                   const category = c.category ?? 'misc';
                   const equippable = deriveEquippable(category, c.equippable);
+                  // 问题5：AI 要求装备但物品判定为不可装备（常因漏标 equippable 且 category 落到非武器/工具）→ 静默降级，记日志
+                  if (c.equipped === true && !equippable) {
+                    pushLog('warn', `[物品栏] "${c.name}"(${category}) 请求 equipped:true 但判定为不可装备（AI 可能漏标 equippable），已降级为未装备`, 'system');
+                  }
                   items.push({
                     id: crypto.randomUUID(),
                     name: c.name,
@@ -185,7 +204,8 @@ export const useInventoryStore = create<InventoryStore>()(
                 break;
               }
               case 'unequip': {
-                if (idx >= 0) items[idx] = { ...items[idx], equipped: true };
+                // 撤销 unequip = 恢复装备，但须守卫：不可装备物品不得被装回（与 applyChanges equip 对称）
+                if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
                 break;
               }
             }
@@ -234,12 +254,21 @@ export const useInventoryStore = create<InventoryStore>()(
       },
 
       clearAll: () => set({ items: [] }),
-      replaceAll: (items: InventoryItem[]) => set({ items }),
+      replaceAll: (items: InventoryItem[]) => set({ items: normalizeItems(items) }),
     }),
     {
       name: 'coc_inventory',
+      version: 1,
       storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state as unknown as Record<string, unknown>) as Partial<InventoryStore>,
+      // 老存档（v0，无 equippable 字段或残留非法 equipped 物品）迁移时统一规范化
+      migrate: (persisted) => {
+        const s = persisted as Partial<InventoryStore> | undefined;
+        if (s && Array.isArray(s.items)) {
+          return { ...s, items: normalizeItems(s.items) } as InventoryStore;
+        }
+        return s as InventoryStore;
+      },
     },
   ),
 );

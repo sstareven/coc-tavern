@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useInventoryStore } from './useInventoryStore';
-import type { InventoryChange } from '../types';
+import { useInventoryStore, normalizeItems } from './useInventoryStore';
+import type { InventoryChange, InventoryItem } from '../types';
 
 function reset() {
   useInventoryStore.getState().clearAll();
@@ -110,5 +110,79 @@ describe('useInventoryStore — equippable 能否装备', () => {
     useInventoryStore.getState().applyChanges([{ action: 'add', name: '笔记', category: 'misc' }]);
     useInventoryStore.getState().equipItem('笔记');
     expect(useInventoryStore.getState().findItem('笔记')?.equipped).toBe(false);
+  });
+});
+
+describe('useInventoryStore.revertChanges — unequip 撤销加装备守卫（问题4）', () => {
+  beforeEach(reset);
+
+  it('撤销 unequip 不会把不可装备物品重新装备', () => {
+    // 构造一个老存档式非法物品：misc + equipped=true + equippable 缺省（read 时判定为不可装备）
+    useInventoryStore.getState().replaceAll([
+      { id: 'x1', name: '怪异硬币', category: 'misc', description: '', quantity: 1, equipped: true, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    // 对它发 unequip 再撤销
+    const ch: InventoryChange[] = [{ action: 'unequip', name: '怪异硬币' }];
+    useInventoryStore.getState().applyChanges(ch);
+    expect(useInventoryStore.getState().findItem('怪异硬币')?.equipped).toBe(false);
+    useInventoryStore.getState().revertChanges(ch);
+    // 撤销 unequip 本应恢复 equipped=true，但物品不可装备 → 守卫拦截，保持 false
+    expect(useInventoryStore.getState().findItem('怪异硬币')?.equipped).toBe(false);
+  });
+
+  it('撤销 unequip 对可装备物品仍正常恢复装备', () => {
+    useInventoryStore.getState().applyChanges([{ action: 'add', name: '左轮手枪', category: 'weapon' }]);
+    useInventoryStore.getState().equipItem('左轮手枪');
+    const ch: InventoryChange[] = [{ action: 'unequip', name: '左轮手枪' }];
+    useInventoryStore.getState().applyChanges(ch);
+    expect(useInventoryStore.getState().findItem('左轮手枪')?.equipped).toBe(false);
+    useInventoryStore.getState().revertChanges(ch);
+    expect(useInventoryStore.getState().findItem('左轮手枪')?.equipped).toBe(true);
+  });
+});
+
+describe('normalizeItems — 老存档规范化（问题3）', () => {
+  it('缺省 equippable 按 category 回填', () => {
+    const out = normalizeItems([
+      { id: 'a', name: '左轮', category: 'weapon', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+      { id: 'b', name: '密信', category: 'clue', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(out[0].equippable).toBe(true);
+    expect(out[1].equippable).toBe(false);
+  });
+
+  it('卸下「不可装备却 equipped=true」的非法老物品', () => {
+    const out = normalizeItems([
+      { id: 'c', name: '怪异硬币', category: 'misc', description: '', quantity: 1, equipped: true, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(out[0].equippable).toBe(false);
+    expect(out[0].equipped).toBe(false);
+  });
+
+  it('保留可装备物品的 equipped=true', () => {
+    const out = normalizeItems([
+      { id: 'd', name: '左轮', category: 'weapon', description: '', quantity: 1, equipped: true, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(out[0].equippable).toBe(true);
+    expect(out[0].equipped).toBe(true);
+  });
+
+  it('显式 equippable=true 的 misc 物品保留装备态', () => {
+    const out = normalizeItems([
+      { id: 'e', name: '护身符', category: 'misc', description: '', quantity: 1, equipped: true, equippable: true, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(out[0].equipped).toBe(true);
+  });
+});
+
+describe('replaceAll 走规范化（问题3）', () => {
+  beforeEach(reset);
+
+  it('replaceAll 注入老存档非法物品时自动卸下', () => {
+    useInventoryStore.getState().replaceAll([
+      { id: 'z', name: '旧符', category: 'misc', description: '', quantity: 1, equipped: true, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(useInventoryStore.getState().findItem('旧符')?.equipped).toBe(false);
+    expect(useInventoryStore.getState().findItem('旧符')?.equippable).toBe(false);
   });
 });

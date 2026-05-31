@@ -93,13 +93,13 @@ function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
         boxShadow: '0 0 80px rgba(0,0,0,0.6)',
       }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--blood)', letterSpacing: 3, margin: '0 0 12px' }}>
-          删除本页？
+          删除本页及之后？
         </h3>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text-light)', lineHeight: 1.7, margin: 0 }}>
-          此页将被永久删除，且无法恢复。
+          为保持剧情连续，本页及其之后的所有页面将一并永久删除，且无法恢复。
           {affectedItems.length > 0 && (
             <>
-              <br />本回合加入/装备的物品也将一并移除：
+              <br />这些页加入/装备的物品也将一并移除：
               <span style={{ color: 'var(--gold)' }}>{affectedItems.join('、')}</span>。
             </>
           )}

@@ -90,6 +90,34 @@ interface TokenContext {
   userMessage: string;
 }
 
+/**
+ * 「发送 → 解析 → 失败带纠正消息重试」的公共骨架，主生成与行动补写共用（去重两套近乎相同的 harness）。
+ * 差异点（streaming / rpmKind / 消息构造 / 解析器）由调用方通过 send/parse 注入。
+ * @param send 发送一次请求；corrective=true 表示这是重试，调用方应附加「系统纠正」消息。
+ * @returns result=解析结果(null 表示重试用尽仍失败)，attempts=重试次数，lastContent=最后一次响应原文（成功后处理用）。
+ */
+async function sendWithJsonRetry<T>(opts: {
+  maxRetries: number;
+  send: (corrective: boolean) => Promise<{ content: string }>;
+  parse: (content: string) => T | null;
+  logTag: string;
+}): Promise<{ result: T | null; attempts: number; lastContent: string }> {
+  const { maxRetries, send, parse, logTag } = opts;
+  let response = await send(false);
+  pushLog('debug', `[${logTag}] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
+  let result = parse(response.content);
+
+  let attempt = 0;
+  while (!result && attempt < maxRetries) {
+    attempt++;
+    pushLog('warn', `[${logTag}] 回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
+    response = await send(true);
+    pushLog('debug', `[${logTag}] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
+    result = parse(response.content);
+  }
+  return { result, attempts: attempt, lastContent: response.content };
+}
+
 // ── Hook ──
 
 export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn {
@@ -432,25 +460,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         };
         const maxRetries = Math.max(0, settings.jsonRetryCount ?? 0);
 
-        let response = await sendChatCompletion(
-          applyPostProcessing(editedMessages, settings.promptPostProcessing),
-          presetForApi,
-          settings.apiBaseUrl,
-          settings.apiKey,
-          settings.apiModel,
-          streamRenderEnabled,
-          streamRenderEnabled ? onToken : undefined,
-          controller.signal,
-        );
-        pushLog('debug', `[API] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
-        let result = parseLlmResponse(response.content, lastInputRef.current);
+        // 序章首回合（pages.length<=1，起始装备由 AI 凭职业+情境生成，叙事未必逐一点名）跳过物品叙事校验。
+        // 此路径只走整页生成（parseLlmResponse），补写走 parseRewriteResponse，故无需排除补写。
+        const skipInventoryNarrativeCheck = useBookStore.getState().pages.length <= 1;
 
-        let attempt = 0;
-        while ((!result || result.recovered) && attempt < maxRetries) {
-          attempt++;
-          pushLog('warn', `[Retry] AI回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
-          response = await sendChatCompletion(
-            applyPostProcessing([...editedMessages, correctiveMsg], settings.promptPostProcessing),
+        const { result, attempts: attempt, lastContent } = await sendWithJsonRetry({
+          maxRetries,
+          logTag: 'API',
+          send: (corrective) => sendChatCompletion(
+            applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
             presetForApi,
             settings.apiBaseUrl,
             settings.apiKey,
@@ -458,12 +476,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             streamRenderEnabled,
             streamRenderEnabled ? onToken : undefined,
             controller.signal,
-          );
-          pushLog('debug', `[API] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
-          result = parseLlmResponse(response.content, lastInputRef.current);
-        }
+          ),
+          parse: (content) => parseLlmResponse(content, { skipInventoryNarrativeCheck }),
+        });
 
-        if (!result || result.recovered) {
+        if (!result) {
           // 所有尝试均失败 → 不生成书页（各次解析报错已记入调试日志）
           pushLog('error', `[生成失败] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃本回合。原因见上方 [parseLlm] 报错。`, 'system');
           setError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合（输入已保留，可重试）。`);
@@ -471,6 +488,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         // ── 解析成功：在最终回复上跑显示regex / TH钩子 / 变量提取 ──
+        const response = { content: lastContent };
         const aiOutputRegexScripts = [
           ...useRegexStore.getState().globalScripts,
           ...useRegexStore.getState().presetScripts,
@@ -603,6 +621,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           inventory: useInventoryStore.getState().items,
           darkThread: useDarkThreadStore.getState().entries,
           keywords: useKeywordStore.getState().keywords,
+          variables: useVariableStore.getState().variables,
+          macroVars: useTavernHelperStore.getState().macroVars,
         });
         return true;
       } catch (err) {
@@ -744,33 +764,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return;
       }
 
-      // ── 发送 + 解析；降级救场(recovered)按设置重试，要求只输出 JSON ──
+      // ── 发送 + 解析；解析失败按设置重试，要求只输出 JSON ──
       const maxRetries = Math.max(0, settings.jsonRetryCount ?? 0);
       const correctiveMsg = {
         role: 'user' as const,
         content: '【系统纠正】你上一条回复不是合法的 JSON 对象（可能返回了纯叙事或夹带额外文字），已被丢弃。请严格只输出一个符合行动补写格式的 JSON 对象：{ "text": "...", "choices": [...] }，不要包含任何 JSON 之外的文字、解释或 Markdown 代码块标记。',
       };
 
-      let response = await sendChatCompletion(
-        applyPostProcessing(built.messages, settings.promptPostProcessing),
-        built.preset,
-        baseUrl,
-        apiKey,
-        model,
-        false,
-        undefined,
-        undefined,
-        'rewrite',
-      );
-      pushLog('debug', `[行动补写] 响应 ${response.content.length}字`, 'api');
-      let block = parseRewriteResponse(response.content);
-
-      let attempt = 0;
-      while ((!block || block.recovered) && attempt < maxRetries) {
-        attempt++;
-        pushLog('warn', `[行动补写] 回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
-        response = await sendChatCompletion(
-          applyPostProcessing([...built.messages, correctiveMsg], settings.promptPostProcessing),
+      const { result: block, attempts: attempt } = await sendWithJsonRetry({
+        maxRetries,
+        logTag: '行动补写',
+        send: (corrective) => sendChatCompletion(
+          applyPostProcessing(corrective ? [...built.messages, correctiveMsg] : built.messages, settings.promptPostProcessing),
           built.preset,
           baseUrl,
           apiKey,
@@ -779,13 +784,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           undefined,
           undefined,
           'rewrite',
-        );
-        pushLog('debug', `[行动补写] 重试响应(${attempt}) ${response.content.length}字`, 'api');
-        block = parseRewriteResponse(response.content);
-      }
+        ),
+        parse: (content) => parseRewriteResponse(content),
+      });
 
-      if (!block || block.recovered) {
-        // 重试用尽仍非合法 JSON → 不生成补写，提示失败（不采用降级救场结果）
+      if (!block) {
+        // 重试用尽仍非合法 JSON → 不生成补写，提示失败
         pushLog('error', `[行动补写] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃。`, 'system');
         setError(`行动补写生成失败：AI 连续 ${attempt + 1} 次未按格式返回（可重试）。`);
         return;

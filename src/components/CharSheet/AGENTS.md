@@ -1,10 +1,10 @@
 # 角色卡组件群
 
-**7 files + steps/ 子目录 (6 files).** CharacterCreator 已从 2221 lines god component 拆分为编排器 + 6 个步骤子组件。styles.ts 提供 9 个共享 CSSProperties。
+**3 files + steps/ 子目录 (6 files).** CharacterCreator 已从 2221 lines god component 拆分为编排器 + 6 个步骤子组件。styles.ts 提供 9 个共享 CSSProperties。
 
 ## OVERVIEW
 
-角色卡系统包含创建向导、属性网格、面板展示、技能表、次级属性。创建流程 6 步（身份→属性→衍生属性→技能→背景→复核），每步独立文件。DarkSelect 在 Shared/ 中单独维护。
+角色卡系统包含创建向导与调查员记录书页浮层。创建流程 6 步（身份→属性→衍生属性→技能→背景→复核），每步独立文件。调查员记录已从左侧抽屉重构为故事书双页浮层（`CharSheetOverlay.tsx`，匹配物品栏/目录的书页样式）。DarkSelect 在 Shared/ 中单独维护。
 
 ## WHERE TO LOOK
 
@@ -18,11 +18,7 @@
 | 技能分配 | `steps/StepSkills.tsx` | Step 3，职业/兴趣技能点分配 |
 | 背景设定 | `steps/StepBackground.tsx` | Step 4，背景故事/肖像 |
 | 复核与提交 | `steps/StepReview.tsx` | Step 5，最终确认 |
-| 角色展示 | `CharSheetPanel.tsx` | 角色卡详情面板 |
-| 属性网格 | `CharGrid.tsx` | 当前属性值网格展示 |
-| 调查员卡片 | `InvestigatorCard.tsx` | 名片式摘要 |
-| 技能表 | `SkillsTable.tsx` | 技能列表 + 检定 |
-| 次级属性 | `SecStats.tsx` | 衍生属性行 |
+| 调查员记录 | `CharSheetOverlay.tsx` | 调查员记录书页浮层（双页，暗色档案风，挂载于 Storybook，匹配物品栏/目录浮层） |
 
 ## CONVENTIONS
 
