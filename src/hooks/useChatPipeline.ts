@@ -4,6 +4,7 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
@@ -20,6 +21,7 @@ import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } fro
 import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
 import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
+import { buildKeywordInjection } from '../sillytavern/keyword-injection';
 import { filterAlreadyAcquiredAdds } from '../sillytavern/item-acquisition';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
@@ -251,6 +253,29 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } as LoreEntry);
       }
 
+      // Keyword dictionary context (混合策略：最近 3 页 page.keywords 常驻 + 老词按当前文本匹配)。
+      // scanText 用 matchCtx(上下文+输入)，让最近叙事提到的老关键词也被回灌。轻量补写模式由 selectLoreForRewrite 丢弃。
+      const keywordBucket: LoreEntry[] = [];
+      const kwInjection = buildKeywordInjection({
+        recentPages: useBookStore.getState().pages.slice(-3),
+        accumulated: useKeywordStore.getState().keywords,
+        scanText: matchCtx,
+        maxEntries: 40,
+      });
+      if (kwInjection) {
+        keywordBucket.push({
+          name: '已知词条', keys: '', content: kwInjection,
+          logic: 'AND_ANY', priority: 2, disabled: false,
+          constant: true, position: 0, depth: 0, probability: 100,
+          secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+          groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+          groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+          preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+          ignoreReplyLimit: false,
+          _source: 'global',
+        } as LoreEntry);
+      }
+
       // GENERATE/INJECT entries (always injected regardless of keyword match)
       const generateInjectBucket: LoreEntry[] =
         pt.generateLoaderEnabled || pt.injectLoaderEnabled ? generateInjects : [];
@@ -275,6 +300,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         summary: matchedSummary,
         constant: constantBucket,
         darkThread: darkThreadBucket,
+        keyword: keywordBucket,
         generateInjects: generateInjectBucket,
         inverted: invertedBucket,
       };
@@ -628,6 +654,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        // 累积 LLM 本页产出的关键词释义入会话级 DB（addKeywords 保留首见去重）——
+        // 供 KeywordTooltip 悬停显示，并经 buildKeywordInjection 在后续回合回灌给 LLM。
+        // 随后的 saveConversation 会把 keywords 持久化进 Dexie keywords 表。
+        if (newPage.keywords) {
+          useKeywordStore.getState().addKeywords(newPage.keywords);
+        }
 
         if (newPage.summary && newPage.id) {
           const keys = newPage.keywords

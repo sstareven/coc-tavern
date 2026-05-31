@@ -16,6 +16,8 @@ export interface LoreBuckets {
   constant: LoreEntry[];
   /** Dark-thread / foreshadowing injection entries. */
   darkThread: LoreEntry[];
+  /** 已知词条字典注入（混合策略：最近 N 页常驻 + 老词按当前文本匹配）。可选，缺省视为空。 */
+  keyword?: LoreEntry[];
   /** GENERATE/INJECT loader entries. */
   generateInjects: LoreEntry[];
   /** Invert-compatibility disabled entries. */
@@ -55,6 +57,7 @@ export function selectLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpti
       ...buckets.summary,
       ...buckets.constant,
       ...buckets.darkThread,
+      ...(buckets.keyword ?? []),
       ...buckets.generateInjects,
       ...buckets.inverted,
     ];
@@ -75,6 +78,7 @@ export function droppedLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpt
   const dropped: LoreEntry[] = [
     ...buckets.summary,
     ...buckets.darkThread,
+    ...(buckets.keyword ?? []),
     ...buckets.generateInjects,
     ...buckets.inverted,
   ];
