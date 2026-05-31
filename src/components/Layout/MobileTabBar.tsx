@@ -19,8 +19,8 @@ export function MobileTabBar({ active, onTab }: Props) {
   return (
     <nav style={{
       display: 'flex', flexShrink: 0, height: 46,
-      background: 'rgba(13,10,7,0.55)',
-      borderBottom: '1px solid rgba(196,168,85,0.15)',
+      background: '#14100b',
+      borderBottom: '1px solid rgba(196,168,85,0.2)',
     }}>
       {TABS.map(({ key, label, Icon }) => {
         const isActive = active === key;

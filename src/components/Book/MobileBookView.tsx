@@ -33,7 +33,7 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
       <MobileTabBar active={active} onTab={onTab} />
 
       {/* 紧凑状态栏 */}
-      <div style={{ flexShrink: 0, padding: '4px 8px', borderBottom: '1px solid rgba(196,168,85,0.12)', overflowX: 'auto' }}>
+      <div style={{ flexShrink: 0, padding: '5px 8px', background: '#14100b', borderBottom: '1px solid rgba(196,168,85,0.12)', overflowX: 'auto' }}>
         <StatusBar compact />
       </div>
 
