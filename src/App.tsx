@@ -21,12 +21,43 @@ import { ErrorModal } from './components/Shared/ErrorModal';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
+import { migrateFromLocalStorage } from './db/migrations';
+import { db, V2_UPGRADE_FAILED } from './db/database';
+import { loadConversation } from './stores/sessionLifecycle';
+import { useChatStore } from './stores/useChatStore';
 
 export function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
   const [ready, setReady] = useState(false);
 
-  useEffect(() => { initBuiltinCommands(); initKvCache().then(() => setReady(true)); }, []);
+  useEffect(() => {
+    initBuiltinCommands();
+    (async () => {
+      await initKvCache();
+      // 一次性 localStorage → Dexie 迁移（幂等）。Dexie v2 .upgrade() 在 db 打开时自动运行。
+      await migrateFromLocalStorage();
+      // 触碰 db 确保 v2 升级已执行；若升级失败标志已写入则告警（降级路径尽力而为）。
+      try {
+        await db.open();
+        const failed = await db.kvStore.get(V2_UPGRADE_FAILED);
+        if (failed?.value === 'true') {
+          console.warn('[DB] v2 迁移曾失败，部分历史存档可能未完全迁移到关系表。');
+        }
+      } catch (err) {
+        console.error('[DB] 打开数据库失败：', err);
+      }
+      // 启动恢复活跃会话的完整状态（pages + gameState 各域）自关系表。
+      const activeId = useChatStore.getState().activeId;
+      if (activeId) {
+        try {
+          await loadConversation(activeId);
+        } catch (err) {
+          console.error('[DB] 启动恢复会话失败：', err);
+        }
+      }
+      setReady(true);
+    })();
+  }, []);
 
   useEffect(() => {
     const toGame = () => setScreen('game');
@@ -55,7 +86,22 @@ export function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [closeAll]);
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'radial-gradient(circle at 50% 40%, var(--abyss) 0%, var(--void) 100%)',
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%',
+          border: '2px solid rgba(196,168,85,0.15)', borderTopColor: 'var(--gold)',
+          animation: 'spin 0.9s linear infinite',
+        }} />
+        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>

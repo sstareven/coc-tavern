@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
-import { restoreSessionGameState, clearAllGameState } from '../../stores/sessionLifecycle';
+import { switchConversation, deleteConversation, clearAllGameState } from '../../stores/sessionLifecycle';
 import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
@@ -11,7 +11,6 @@ export function ChatlistPanel({ onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
   const createSession = useChatStore((s) => s.createSession);
   const deleteSession = useChatStore((s) => s.deleteSession);
-  const setActive = useChatStore((s) => s.setActive);
   const activeId = useChatStore((s) => s.activeId);
 
   const [newName, setNewName] = useState('');
@@ -82,8 +81,8 @@ export function ChatlistPanel({ onClose }: Props) {
           ) : (
             sessions.map((sess) => (
               <SessionItem key={sess.id} sess={sess} isActive={activeId === sess.id}
-                onSelect={() => { setActive(sess.id); restoreSessionGameState(sess.id); onClose(); }}
-                onDelete={() => { deleteSession(sess.id); if (activeId === sess.id) clearAllGameState(); }} />
+                onSelect={() => { void switchConversation(sess.id); onClose(); }}
+                onDelete={() => { const wasActive = activeId === sess.id; deleteSession(sess.id); void deleteConversation(sess.id); if (wasActive) clearAllGameState(); }} />
             ))
           )}
         </div>
@@ -93,7 +92,7 @@ export function ChatlistPanel({ onClose }: Props) {
 }
 
 function SessionItem({ sess, isActive, onSelect, onDelete }: {
-  sess: { id: string; name: string; messages: unknown[]; pages: unknown[]; updatedAt: number };
+  sess: { id: string; name: string; messages: unknown[]; pages: unknown[]; pageCount?: number; updatedAt: number };
   isActive: boolean; onSelect: () => void; onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -121,7 +120,7 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
           )}
         </div>
         <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
-          {sess.pages.length} 页 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
+          {sess.pageCount ?? sess.pages.length} 页 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
         </span>
       </div>
       {!isActive && (confirmDelete ? (

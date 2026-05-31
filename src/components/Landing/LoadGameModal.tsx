@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
-import { restoreSessionGameState, clearAllGameState, cleanupOrphanGameState } from '../../stores/sessionLifecycle';
+import { switchConversation, deleteConversation, clearAllGameState, cleanupOrphanGameState } from '../../stores/sessionLifecycle';
 import type { ChatSession } from '../../types';
 
 interface Props { onLoad: () => void; onClose: () => void }
@@ -13,7 +13,6 @@ function fmtDate(ts: number): string {
 
 export function LoadGameModal({ onLoad, onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
-  const setActive = useChatStore((s) => s.setActive);
   const deleteSession = useChatStore((s) => s.deleteSession);
 
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -65,7 +64,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); setActive(s.id); restoreSessionGameState(s.id); onLoad(); }} onDelete={() => { deleteSession(s.id); clearAllGameState(); }} />)
+            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); void switchConversation(s.id); onLoad(); }} onDelete={() => { deleteSession(s.id); void deleteConversation(s.id); clearAllGameState(); }} />)
           )}
         </div>
       </div>
@@ -107,7 +106,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
           )}
         </div>
         <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
-          {fmtDate(s.updatedAt)} · {s.pages.length} 页
+          {fmtDate(s.updatedAt)} · {s.pageCount ?? s.pages.length} 页
         </div>
       </div>
       {confirmDelete ? (

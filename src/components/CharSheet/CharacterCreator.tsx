@@ -3,13 +3,14 @@ import { btnBase, btnDisabled } from './styles';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
+import { useBookStore } from '../../stores/useBookStore';
 import { kvSet } from '../../db/kv';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useLorebookStore } from '../../stores/useLorebookStore';
 import { useKeywordStore } from '../../stores/useKeywordStore';
-import { cleanupOrphanGameState } from '../../stores/sessionLifecycle';
+import { cleanupOrphanGameState, saveConversation } from '../../stores/sessionLifecycle';
 import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
@@ -466,7 +467,11 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     useVariableStore.getState().clearAll();
     useLorebookStore.getState().clearSummaryEntries();
     useKeywordStore.getState().replaceAll({});
-    useChatStore.getState().createSession(sheet.identity.name || '未命名调查员');
+    // 重置书本到全新序章——新会话不残留上一局页面，确保新建人物后立即显示序章页。
+    useBookStore.getState().resetToPrologue();
+    const newId = useChatStore.getState().createSession(sheet.identity.name || '未命名调查员');
+    // 持久化新会话（含刚 setSheet 的角色卡 + 序章页）到关系表，避免未交互即返回主菜单时丢档。
+    void saveConversation(newId);
     onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,

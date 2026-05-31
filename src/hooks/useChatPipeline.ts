@@ -5,13 +5,13 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useChatStore } from '../stores/useChatStore';
+import { saveConversation } from '../stores/sessionLifecycle';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
-import { useKeywordStore } from '../stores/useKeywordStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 
@@ -615,15 +615,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('info', `物品更新: ${newPage.inventoryChanges.length}项变化`, 'system');
         }
 
-        // Snapshot full game state into session for per-save isolation
-        chatStore.saveGameState(useBookStore.getState().pages, {
-          character: useCharSheetStore.getState().sheet ?? undefined,
-          inventory: useInventoryStore.getState().items,
-          darkThread: useDarkThreadStore.getState().entries,
-          keywords: useKeywordStore.getState().keywords,
-          variables: useVariableStore.getState().variables,
-          macroVars: useTavernHelperStore.getState().macroVars,
-        });
+        // Persist full game state for this conversation into Dexie v2 relational
+        // tables (pages + character/inventory/darkThread/keywords/variables/macroVars).
+        // Reads live in-memory stores, so no snapshot object needed here.
+        chatStore.savePages(useBookStore.getState().pages);
+        if (chatStore.activeId) void saveConversation(chatStore.activeId);
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
