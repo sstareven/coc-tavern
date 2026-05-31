@@ -4,34 +4,33 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
 const NO_VALUE = '未知';
 
-/** 取实时变量(LLM 游戏中更新)优先，回退角色卡 secondary。返回 current/max 数对。 */
-function resolveStat(
-  vars: Record<string, { value: string } | undefined>,
-  curKey: string,
-  maxKey: string,
-  fallback: { current: number; max: number },
-): { current: number; max: number } {
-  const c = parseInt(vars[curKey]?.value ?? '', 10);
-  const m = parseInt(vars[maxKey]?.value ?? '', 10);
-  return {
-    current: Number.isNaN(c) ? fallback.current : c,
-    max: Number.isNaN(m) ? fallback.max : m,
-  };
+/** 从 statData 嵌套树按点号路径取标量(如 世界.时间)。缺失/非标量返回 ''。 */
+function statPath(tree: Record<string, unknown>, dotPath: string): string {
+  let cur: unknown = tree;
+  for (const seg of dotPath.split('.')) {
+    if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return '';
+    cur = (cur as Record<string, unknown>)[seg];
+  }
+  if (cur === null || cur === undefined) return '';
+  if (typeof cur === 'object') return '';
+  return String(cur);
 }
 
 export function StatusBar() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const vars = useVariableStore((s) => s.variables);
+  const statData = useVariableStore((s) => s.statData);
   const secondary = useCharSheetStore((s) => s.sheet.secondary);
   let scene = pages[pageIndex]?.sceneInfo;
 
-  // Fallback: fill missing fields from MVU variable store (ZOD nested paths)
-  // Also triggers for partial sceneInfo (e.g. prologue has location but no date/time)
+  // Fallback: fill missing fields from MVU variable store.
+  // 世界.* 现存于 statData 嵌套树(MVU ZOD);兼容旧扁平 variables key。
   if (!scene) {
     scene = { date: '', weekday: '', time: '', weather: '', location: '' };
   }
   const date = scene.date
+    || statPath(statData, '世界.日期')
     || vars['世界.日期']?.value
     || vars.date?.value  // legacy flat key
     || NO_VALUE;
@@ -39,22 +38,26 @@ export function StatusBar() {
     || computeWeekday(date)
     || '';
   const time = scene.time
+    || statPath(statData, '世界.时间')
     || vars['世界.时间']?.value
     || vars.time?.value  // legacy flat key
     || NO_VALUE;
   const weather = scene.weather
+    || statPath(statData, '世界.天气')
     || vars['世界.天气']?.value
     || vars.weather?.value  // legacy flat key
     || NO_VALUE;
   const location = scene.location
+    || statPath(statData, '世界.地点')
     || vars['世界.地点']?.value
     || vars.location?.value  // legacy flat key
     || NO_VALUE;
 
-  // HP/SAN/MP：实时变量优先，回退角色卡
-  const hp = resolveStat(vars, '调查员.生命值.当前', '调查员.生命值.最大', secondary.hp);
-  const san = resolveStat(vars, '调查员.理智值.当前', '调查员.理智值.最大', secondary.san);
-  const mp = resolveStat(vars, '调查员.魔法值.当前', '调查员.魔法值.最大', secondary.mp);
+  // HP/SAN/MP：角色卡(useCharSheetStore)是 调查员.* 的唯一源真理(MVU 把 调查员.* 的
+  // patch 重定向到角色卡,故绝不读扁平变量,避免任何平行/残留值污染显示)。
+  const hp = { current: secondary.hp.current, max: secondary.hp.max };
+  const san = { current: secondary.san.current, max: secondary.san.max };
+  const mp = { current: secondary.mp.current, max: secondary.mp.max };
   const hasStats = hp.max > 0 || san.max > 0 || mp.max > 0;
 
   return (

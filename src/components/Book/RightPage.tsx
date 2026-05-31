@@ -6,7 +6,6 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
-import { useVariableStore } from '../../stores/useVariableStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
 import { itemNarrated } from '../../sillytavern/llm-response-parser';
@@ -91,11 +90,9 @@ function parsePolyAction(text: string): PolyAction | null {
   return null;
 }
 
-/** 当前理智值：优先取变量(LLM 实时更新)，回退角色卡，最后 50。 */
+/** 当前理智值：角色卡(useCharSheetStore)是 调查员.理智值 的唯一源真理(MVU 重定向
+ *  到角色卡,故不读扁平变量),回退 50。 */
 function getSanValue(): number {
-  const v = useVariableStore.getState().variables['调查员.理智值.当前']?.value;
-  const fromVar = v ? parseInt(v, 10) : NaN;
-  if (!Number.isNaN(fromVar) && fromVar > 0) return fromVar;
   const sheet = useCharSheetStore.getState().sheet;
   return sheet?.secondary?.san?.current || 50;
 }
