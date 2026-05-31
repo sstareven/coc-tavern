@@ -54,7 +54,7 @@ export function GameView({ onReturnToMenu }: Props) {
   const isMobile = useIsMobile();
 
   return (
-    <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
       <TopBar onReturnToMenu={onReturnToMenu} />
 
       {isMobile ? (

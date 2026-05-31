@@ -918,7 +918,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         overflow: 'hidden',
         ...(isMobile
-          ? { inset: 0, width: '100vw', height: '100vh', border: 'none', borderRadius: 0, boxShadow: 'none' }
+          ? { inset: 0, width: '100vw', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none' }
           : {
               top: '50%',
               left: '50%',

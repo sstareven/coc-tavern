@@ -441,7 +441,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         width: isMobile ? '100vw' : 820, maxWidth: isMobile ? '100vw' : '95vw',
-        height: isMobile ? '100vh' : 560, maxHeight: isMobile ? '100vh' : '90vh',
+        height: isMobile ? '100dvh' : 560, maxHeight: isMobile ? '100dvh' : '90vh',
         background: 'linear-gradient(135deg, var(--leather) 0%, var(--abyss) 100%)',
         border: isMobile ? 'none' : '1px solid var(--gold)',
         borderRadius: isMobile ? 0 : 8,
