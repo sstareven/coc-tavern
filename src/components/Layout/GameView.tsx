@@ -6,6 +6,7 @@ import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useViewportHeight } from '../../hooks/useViewportHeight';
 
 interface Props { onReturnToMenu: () => void }
 
@@ -52,9 +53,12 @@ export function GameView({ onReturnToMenu }: Props) {
   }, []);
 
   const isMobile = useIsMobile();
+  const viewportH = useViewportHeight();
+  // 手机端用可视视口高度（软键盘弹出时收缩，输入栏随之顶到键盘上方）；桌面/无 API 回退 100dvh。
+  const appHeight = isMobile && viewportH ? `${viewportH}px` : '100dvh';
 
   return (
-    <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div className="app" style={{ display: 'flex', flexDirection: 'column', height: appHeight }}>
       <TopBar onReturnToMenu={onReturnToMenu} />
 
       {isMobile ? (
