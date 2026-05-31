@@ -54,6 +54,34 @@ describe('useBookStore.setPages — 开场白刷新迁移', () => {
     useBookStore.getState().setPages([nonPrologue]);
     expect(useBookStore.getState().pages[0]).toEqual(nonPrologue);
   });
+
+  it('传入空数组时回退到默认序章（修复新建人物后空白书页）', () => {
+    // 先放入一页非序章内容，再用空数组覆盖
+    useBookStore.getState().setPages([
+      { id: 'x', leftHeader: '调查现场', leftContent: '某段叙事', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    ]);
+    useBookStore.getState().setPages([]);
+    const pages = useBookStore.getState().pages;
+    expect(pages).toHaveLength(1);
+    expect(pages[0].leftHeader).toBe('序章');
+    expect(pages[0].id).toBeTruthy(); // 已分配 id
+    expect(useBookStore.getState().pageIndex).toBe(0);
+  });
+});
+
+describe('useBookStore.resetToPrologue', () => {
+  it('重置到全新序章，分配新 id，pageIndex 归零', () => {
+    useBookStore.getState().setPages([
+      { id: 'p1', leftHeader: '序章', leftContent: '旧', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '命运的歧路', rightContent: '', rightChoices: [] },
+      { id: 'p2', leftHeader: '第二章', leftContent: '进度', leftPage: '— 5 —', rightPage: '— 6 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    ]);
+    useBookStore.getState().resetToPrologue();
+    const pages = useBookStore.getState().pages;
+    expect(pages).toHaveLength(1);
+    expect(pages[0].leftHeader).toBe('序章');
+    expect(pages[0].id).toBeTruthy();
+    expect(useBookStore.getState().pageIndex).toBe(0);
+  });
 });
 
 describe('useBookStore.setPageRewrite', () => {

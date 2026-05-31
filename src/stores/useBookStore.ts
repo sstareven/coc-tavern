@@ -98,6 +98,8 @@ interface BookStore {
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
   setPages: (pages: BookPage[]) => void;
+  /** 重置到全新序章（新建人物时调用，确保新会话不残留上一局的页面）。 */
+  resetToPrologue: () => void;
   setPageRewrite: (index: number, block: RewriteBlock | undefined) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
@@ -225,12 +227,21 @@ export const useBookStore = create<BookStore>((set, get) => ({
     set({ pages: trimmed, pageIndex: newPageIndex });
   },
   setPages: (pages) => {
+    // 空页面（新会话 / 关系表无 pages 行 / 读档竞态）时，回退到默认序章——
+    // 否则 Storybook 渲染空白书页（pages[0] 为 undefined）。与「序章不可删除、至少保留一页」不变量一致。
+    if (pages.length === 0) {
+      set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0 });
+      return;
+    }
     // 开场白随版本刷新：老存档里固化的序章页用最新模板替换，保留后续进度与原 id
-    const refreshed = pages.length > 0 && pages[0]?.leftHeader === '序章'
+    const refreshed = pages[0]?.leftHeader === '序章'
       ? [{ ...defaultPages[0], id: pages[0].id }, ...pages.slice(1)]
       : pages;
     const withIds = refreshed.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
     set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
+  },
+  resetToPrologue: () => {
+    set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0 });
   },
   setPageRewrite: (index, block) => set((s) => {
     if (index < 0 || index >= s.pages.length) return s;
