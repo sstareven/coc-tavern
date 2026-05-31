@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ChatSession, ChatMessage, BookPage, SessionGameState } from '../types';
+import type { ChatSession, ChatMessage, BookPage } from '../types';
 import { createDexieStorage } from '../db/storage';
-import { stripFunctions } from '../db/stripFunctions';
 
 interface ChatStore {
   sessions: ChatSession[];
@@ -13,11 +12,28 @@ interface ChatStore {
   setPreset: (presetId: string) => void;
   toggleSessionLorebook: (bookId: string) => void;
   addMessage: (role: 'user' | 'assistant', content: string) => void;
+  /** Update the active session's in-memory pages + denormalized pageCount.
+   *  Page CONTENT persists via sessionLifecycle.saveConversation (pages table). */
   savePages: (pages: BookPage[]) => void;
-  saveGameState: (pages: BookPage[], gameState: SessionGameState) => void;
   getActivePages: () => BookPage[];
-  getActiveGameState: () => SessionGameState | undefined;
   getAllSessionIds: () => string[];
+}
+
+/** Lightweight projection persisted into the `coc_chat_v1` blob.
+ *  Excludes pages + gameState (Dexie v2: those live in relational child tables).
+ *  Keeping the blob small kills the per-turn write-amplification. */
+function projectSession(c: ChatSession): ChatSession {
+  return {
+    id: c.id,
+    name: c.name,
+    messages: c.messages,
+    pages: [],
+    presetId: c.presetId,
+    lorebookIds: c.lorebookIds,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    pageCount: c.pageCount ?? c.pages.length,
+  };
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -34,6 +50,7 @@ export const useChatStore = create<ChatStore>()(
           pages: [],
           presetId: null,
           lorebookIds: [],
+          pageCount: 0,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -78,24 +95,15 @@ export const useChatStore = create<ChatStore>()(
             ),
           };
         }),
+      // pages/gameState 仅存活跃会话内存态（不入持久化 blob）；pageCount 反规范化供会话列表展示。
+      // 关系表写入由 sessionLifecycle.saveConversation 负责。
       savePages: (pages) =>
         set((s) => {
           if (!s.activeId) return s;
           return {
             sessions: s.sessions.map((c) =>
               c.id === s.activeId
-                ? { ...c, pages, updatedAt: Date.now() }
-                : c
-            ),
-          };
-        }),
-      saveGameState: (pages, gameState) =>
-        set((s) => {
-          if (!s.activeId) return s;
-          return {
-            sessions: s.sessions.map((c) =>
-              c.id === s.activeId
-                ? { ...c, pages, gameState, updatedAt: Date.now() }
+                ? { ...c, pages, pageCount: pages.length, updatedAt: Date.now() }
                 : c
             ),
           };
@@ -105,17 +113,17 @@ export const useChatStore = create<ChatStore>()(
         const session = sessions.find((s) => s.id === activeId);
         return session?.pages ?? [];
       },
-      getActiveGameState: () => {
-        const { sessions, activeId } = get();
-        const session = sessions.find((s) => s.id === activeId);
-        return session?.gameState;
-      },
       getAllSessionIds: () => get().sessions.map((s) => s.id),
     }),
     {
       name: 'coc_chat_v1',
       storage: createJSONStorage(createDexieStorage),
-      partialize: (state) => stripFunctions(state),
+      // 轻量持久化：仅会话元数据。pages / gameState 不入 blob（关系表 + 内存态托管），
+      // 仅保留 pageCount 反规范化字段供读档/会话列表展示。
+      partialize: (state) => ({
+        sessions: state.sessions.map(projectSession),
+        activeId: state.activeId,
+      }),
     }
   )
 );
