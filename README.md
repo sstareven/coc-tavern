@@ -1,126 +1,316 @@
-# 深渊档案馆 (Abyssal Archive)
+# 深渊档案馆 / Abyssal Archive
 
-克苏鲁的呼唤 7 版 TRPG 前端。故事书式 AI 叙事界面，融合 SillyTavern 酒馆架构（世界书、变量引擎、正则脚本、EJS 模板、斜杠命令）。
+> 一本会随你的抉择自我书写的克苏鲁「故事书」——无需 KP，独自踏入不可名状的深渊。
 
-## 技术栈
+React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.0.0 · 纯前端 SPA · 非商业许可
 
-- **核心**: React 19 + TypeScript 6 + Vite 8
-- **状态管理**: Zustand 5 + Dexie 4（IndexedDB 关系型混合持久化：全局态 kvStore + 会话态 conversations 父子表）
-- **动画**: Framer Motion 12 + CSS 3D Transform
-- **音效**: Web Audio API 合成
-- **测试**: Vitest + fake-indexeddb
+---
 
-## 快速开始
+## 目录
+
+- [简介](#简介)
+- [核心特性](#核心特性)
+- [本地架设 / 快速开始](#本地架设--快速开始)
+- [配置 AI 接口](#配置-ai-接口)
+- [开始游戏](#开始游戏)
+- [技术栈与项目结构](#技术栈与项目结构)
+- [开发命令](#开发命令)
+- [已知限制](#已知限制)
+- [许可与致谢](#许可与致谢)
+
+---
+
+## 简介
+
+**深渊档案馆（Abyssal Archive）** 是一个面向 COC 7th 版（《克苏鲁的呼唤》Call of Cthulhu）的**单人 TRPG 跑团前端**——一本会随你的抉择自我书写的「故事书」。它把 AI 叙事界面与 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 酒馆生态的核心机制（世界书 / 变量引擎 / 正则脚本 / EJS 模板 / 斜杠命令）熔铸进一套洛夫克拉夫特式暗色羊皮纸界面里，让你无需 KP（守密人）也能独自踏入不可名状的深渊。
+
+它是一个**纯前端 SPA**：没有后端服务器，所有存档、设置、世界书、角色卡都存在浏览器本地的 IndexedDB 里；你只需自备一个 OpenAI 兼容的 LLM API（默认指向 [DeepSeek](https://platform.deepseek.com/)），即可在自己的电脑上架设并游玩。
+
+适合人群：
+
+- 想一个人跑 COC 团、又苦于约不到 KP 的调查员；
+- 喜欢 AI 文字冒险 / 角色扮演，想要一套带规则判定、状态追踪的沉浸式叙事工具；
+- 玩过 SillyTavern，希望把世界书、预设、正则、宏这套玩法用在 COC 主题上的玩家；
+- 注重隐私、偏好数据完全留在本地、自带 API Key 的用户。
+
+---
+
+## 核心特性
+
+- **双页故事书叙事**：原生 CSS 3D 翻页（`rotateY` + `preserve-3d`）的左右双页排版，配合卷轴粒子、桌面纹理与暗色档案馆风格 UI，把 AI 续写呈现为一本可翻阅的实体书。
+- **COC 7th 骰子检定系统**：d100 掷骰，五级判定（大成功 / 极难成功 / 困难成功 / 普通成功 / 失败 / 大失败）外加奖励骰 / 惩罚骰与 SAN 理智检定；按颜色编码的掷骰历史一目了然，并带 Framer Motion 动画、Web Audio 音效与粒子特效。
+- **暗骰（隐藏检定）**：心理学等技能的掷骰结果对玩家隐藏，仅供叙事使用——保留「你无法确定对方是否在说谎」的克苏鲁式不确定感。
+- **角色卡创建向导**：六步流程（身份 → 属性 → 衍生属性 → 技能 → 背景 → 复核），覆盖 STR/DEX/INT/CON/APP/POW/SIZ/EDU/LUCK 九维属性、HP/MP/SAN/DB/MOV/体格/闪避等衍生值，以及按职业 / 兴趣分配技能点；调查员记录以双页书页浮层随时翻阅。
+- **世界书与关键词注入**：完整的世界书匹配引擎（全局 / 会话双作用域、大小写与全词匹配、递归触发、预算控制、`evenly`/`global-first`/`chat-first` 多种插入策略），叙事中的关键词可悬停查看释义。
+- **AI 多会话与预设**：聊天列表管理多条独立存档；Studio 风格的预设编辑器支持采样参数与可拖拽排序的 Prompt 条目；正则脚本、EJS 模板与 ST 兼容统一宏引擎可对收发文本做转换。
+- **斜杠命令**：在输入框直接用 `/roll`、`/var`、`/set`、`/help` 等命令操控掷骰与变量。
+- **流式输出**：LLM 回复支持流式渲染，文字随生成逐步显示在书页上。
+- **行动补写与选项**：序章 / 补写模式自动生成行动选项供你选择，解析失败会自动重试；可一键续写或重写当前页。
+- **MVU 变量与状态追踪**：基于 JSON Patch 的 MVU 变量系统维护调查员状态、物品栏（按职业生成起始装备、分类与装备态）与暗线伏笔进度，并可注入 Prompt 让 AI 持续记住世界状态。
+- **多 API 路由与限流**：主叙事、变量提取、行动补写可各自配置独立的 API 端点与模型，并支持按 API 独立的 RPM 滑动窗口限流。
+- **完全本地持久化**：基于 Dexie 4 的 IndexedDB 存储，存档、设置与世界书全部留在浏览器本地，无云端、无服务器、自带 LLM API 即可游玩。
+
+---
+
+## 本地架设 / 快速开始
+
+深渊档案馆是一个**纯静态前端 SPA**，没有任何后端服务器：所有游戏数据都保存在浏览器本地的 IndexedDB 中，AI 叙事则通过你自备的 LLM API（OpenAI 兼容接口，默认指向 DeepSeek）实时生成。因此本地架设只需在你的电脑上把前端跑起来即可。
+
+### 环境要求
+
+- **Node.js**：项目未在 `package.json` 中声明 `engines`，但本项目使用 Vite 8，对运行环境有较新要求，建议安装 **Node.js 20+（推荐 LTS）**。可在终端用 `node -v` 确认版本。
+- **包管理器**：随 Node 附带的 **npm** 即可（下文命令以 npm 为例，你也可以换用 pnpm / yarn）。
+- **现代浏览器**：Chrome / Edge / Firefox 等支持 IndexedDB 的现代浏览器。
+
+### 1. 克隆仓库
+
+```bash
+git clone https://github.com/sstareven/coc-tavern.git
+cd coc-tavern
+```
+
+### 2. 安装依赖
 
 ```bash
 npm install
+```
+
+### 3. 启动本地开发服务器
+
+```bash
 npm run dev
 ```
 
-## 功能特性
+启动后访问 Vite 默认地址 **http://localhost:5173** 即可打开应用。开发模式带热更新（HMR），改代码即时生效。
 
-### 叙事界面
-- 故事书双页翻页叙事（CSS 3D 翻页 + 状态栏 + 桌面视觉）
-- 状态栏实时显示场景信息（日期/天气/地点）与角色 HP/SAN/MP
-- 物品变化提示（每页顶部显示获取/消耗，可点击直达背包）
-- 流式渲染引擎（打字机效果 + 思考块折叠）
-- 关键词悬停提示（释义浮窗 + 相似词归一化匹配）
-- 背包 / 调查员记录 / 目录 均为书内双页翻页式浮层
+> 提示：本项目 `vite.config.ts` 未自定义端口，沿用 Vite 默认的 `5173`。若该端口被占用，Vite 会自动顺延到下一个可用端口，请以终端输出的实际地址为准。
 
-### COC 规则系统
-- COC 7th 角色创建向导（6 步完整创建流程，属性点数池支持拖拽骰子分配）
-- d100 骰子检定（五级判定 + 奖励/惩罚骰 + SAN 检定 + 对抗骰 + 暗骰）
-- 大成功/大失败动效 + 粒子效果
-- 物品栏管理（按职业生成起始物品 + 分类 + 装备态，物品得失需有剧情叙事支撑）
-
-### SillyTavern 引擎
-- 世界书管理系统（多本独立数据 + 条目编辑器）
-- **[统一宏引擎](docs/macro-engine.md)**（`{{...}}` 语法：占位符 / 变量简写 / 条件判断 / Outlet / 嵌套宏，兼容 ST）
-- MVU 变量引擎（自动提取 LLM 回复中的变量，支持独立 API 通道）
-- 正则脚本系统（全局/预设，查找替换 + 测试模式）
-- EJS 模板引擎（`<% %>` JavaScript 逻辑在 Prompt 中执行）
-- 斜杠命令系统（`/roll` `/var` `/set` `/help` `/testopposed`）
-
-### 聊天系统
-- 提示词查看器（发送前预览编辑 + Token 分解）
-- Token 计数器（上下文用量分解 + 手动计数）
-- 聊天预设管理（采样参数 / Prompt 模板）
-- 多对话会话管理（每个会话独立存档，游戏状态按会话隔离：角色卡 / 物品 / 暗线 / 关键词 / MVU变量 / 宏变量 / 故事页面 / 剧情摘要 互不串档；注入 LLM 的每一项参数都严格服务于当前对话）
-- 扩展脚本管理
-- 目录系统（自动生成章节摘要）
-
-### 数据持久化（Dexie v2 关系型混合架构）
-- **关系型多表存储**：会话态由 `conversations` 父表 + 7 张按 `conversationId` 分表的子表（pages / charsheets / inventory / darkThreads / keywords / gameVars / macroVars）承载，全局态（设置 / 预设 / 世界书 / 酒馆脚本）仍走 kvStore 单表
-- **解决写放大**：每回合只写当前会话的相关子表，告别旧版「全量 JSON.stringify 整库」（50 对话 × 50 页时单 blob 可达 ~10MB），保存与启动显著提速
-- **会话隔离零串档**：切换存档时先清空所有按会话隔离的内存态再从关系表恢复（`clearAllGameState` + `loadConversation`），角色卡 / 变量 / 摘要 等绝不跨对话泄漏
-- **自动迁移 + 失败安全**：启动时 v1 单 blob 自动炸开进关系表（`upgradeV2`），per-session 数据优先；迁移失败则中止版本提交、保留源数据、下次重试，杜绝部分迁移与白屏
-- **切档串行化**：save / load / delete / switch 统一经单一序列化链，防并发切档撕裂与孤儿数据
-- **剧情摘要派生**：每页「剧情回顾」摘要随页面持久化，切档时从页面重建注入世界书，不单独冗余存储
-
-## 测试
+### 4. 构建生产版本
 
 ```bash
-npm test         # Vitest (519 tests: 宏引擎 + LLM响应解析 + MVU ZOD(JSON Patch/YAML/角色卡重定向) + 骰子引擎 + COC 规则 + 数据库迁移 + 会话生命周期 + 选项匹配 + 提示词组装 + 轻量补写 + 物品获取 等)
-npm run build    # tsc -b 类型检查 + Vite 构建
+npm run build
 ```
 
-## 项目结构
+该命令实际执行 `tsc -b && vite build`：先用 TypeScript 做类型检查与项目引用构建，再由 Vite 打包。产物输出到项目根目录下的 **`dist/`** 文件夹。
+
+### 5. 本地预览生产构建
+
+```bash
+npm run preview
+```
+
+用于在本地起一个静态服务器预览 `dist/` 中已构建的产物，验证打包结果是否符合预期。
+
+### 部署：纯静态托管，无需后端
+
+构建出的 `dist/` 目录是一组**纯静态文件**（HTML / JS / CSS / 资源），不依赖任何服务端进程。你可以把它直接托管到任意静态托管平台或服务器，例如：
+
+- **GitHub Pages**
+- **Vercel**
+- **Netlify**
+- 任意能提供静态文件服务的 Web 服务器（Nginx、Apache、`python -m http.server` 等）
+
+由于游戏存档落在浏览器 IndexedDB、AI 调用走你自己的 LLM API，整套应用在浏览器端闭环运行，部署后无需额外的后端服务。
+
+---
+
+## 配置 AI 接口
+
+深渊档案馆是**纯前端应用，自身不附带任何 AI 服务**，需要你自备一个 **OpenAI 兼容**的大模型接口（官方 API 或第三方中转皆可）。首次进入游戏前，请先到「设置」里填好接口信息，否则无法生成叙事。
+
+### 在哪里配置
+
+打开应用后进入**设置**面板，默认停留的「界面与音效」分区往下滚动，即可看到 **主 API 配置** 区块。每个通道（主 API、MVU 变量引擎 API、行动补写 API）都用同一组「API Key + API 地址 + 模型」三件套。
+
+### 需要填写的三项
+
+| 输入项 | 说明 | 默认值 |
+| --- | --- | --- |
+| **API Key** | 你的接口密钥，密码框显示，占位提示为 `sk-...` | 空（**必须自己填**） |
+| **API 地址** | OpenAI 兼容的 Base URL（官方或中转均可） | `https://api.deepseek.com` |
+| **模型** | 下拉点选（先「测试」拉取列表后才可选） | `deepseek-v4-pro` |
+
+> 说明：模型一律通过「测试连接 → 拉取列表 → 下拉点选」获取，**不需要手填模型名**。在拉取到列表之前，模型一栏会显示「请先测试连接」。
+
+### 操作步骤
+
+1. 在 **API Key** 框填入你的密钥。
+2. 在 **API 地址** 框填入 Base URL。
+   - 用 DeepSeek 官方：保持默认 `https://api.deepseek.com` 即可。
+   - 用 OpenAI 官方：填 `https://api.openai.com/v1`。
+   - 用第三方中转：填中转站给出的 Base URL（任何 OpenAI 兼容地址都行）。
+3. 点击地址右侧的 **测试** 按钮。程序会向 `<API地址>/models` 发起请求拉取可用模型列表：
+   - 成功时按钮旁显示绿色 **已连接** 徽标，并自动填充「模型」下拉框；
+   - 失败时显示红色 **失败**，请检查 Key、地址是否正确、是否有网络/跨域限制。
+4. 在 **模型** 下拉框中选择要使用的模型（例如 `deepseek-v4-pro`、`deepseek-chat` 等，取决于你的服务商返回的列表）。
+
+填写的 Key、地址、模型与已拉取的模型列表都会保存在浏览器本地（IndexedDB），刷新页面后依然保留，无需重复配置。
+
+### 进阶：独立 API 通道（可选）
+
+除「主 API」外，**MVU 变量引擎**与**行动补写**两项功能默认复用主 API。如需为它们单独指定接口，可在对应区块打开 **独立通道** 开关，开关打开后会展开同样的「API Key / API 地址 / 模型」三件套（默认地址同为 `https://api.deepseek.com`，默认模型为 `deepseek-chat`），配置方式与主 API 完全一致。普通游玩保持关闭、只配主 API 即可。
+
+---
+
+## 开始游戏
+
+第一次进来不知道从哪儿点起？跟着下面七步走，十分钟就能开始你的第一场跑团。
+
+### ① 先配置好 API
+
+本作是纯前端应用，自己不带 AI——叙事得靠你自备的大模型。所以**第一步永远是去「设置」里填 API**：
+
+1. 在主界面（深渊档案馆 / ABYSSAL ARCHIVE 标题下）点最下面那颗「**设 置**」按钮。
+2. 填入三样东西：
+   - **接口地址（API Base URL）**：默认已经填好 `https://api.deepseek.com`（指向 DeepSeek 的 OpenAI 兼容接口）。如果你用别家中转/官方 OpenAI 兼容端点，改成对应地址即可。
+   - **API 密钥（API Key）**：粘贴你自己的密钥，初始为空，**必须填**，否则无法生成剧情。
+   - **模型（Model）**：默认 `deepseek-v4-pro`，可在拉取到模型列表后改成你想用的型号。
+
+> 提示：没填密钥就开局，AI 不会有任何回应；创建角色时的「快速填充」背景也会提示先去设置里配置密钥。
+
+### ② 点「开始游戏」
+
+回到主界面，三颗按钮各司其职：
+
+| 按钮 | 作用 |
+| --- | --- |
+| **开 始 游 戏** | 新建一名调查员，开启全新的故事 |
+| **读 取 游 戏** | 打开存档列表，继续之前的某一局 |
+| **设 置** | 就是上一步那个 API 配置面板 |
+
+第一次玩，点「**开 始 游 戏**」。
+
+### ③ 创建你的调查员
+
+弹出「创建调查员角色 / INVESTIGATOR CREATOR」向导，顶部有六步进度条，按 `下一步 →` 推进，已完成的步骤圆点可点回去重改：
+
+1. **身份信息**——填姓名（必填）、职业、年龄、性别、出生地、居住地。这里也能从之前保存的「**预设**」里一键载入现成角色。
+2. **基础属性**——分配 STR / CON / SIZ / DEX / APP / INT / POW / EDU 八项。默认是「点数池」模式：系统按 COC 7 版骰子公式掷出一组数值，你把它们拖到各属性槽里；也能用「随机」重掷、「打乱」洗牌后自动铺满，或切到自由模式手动加减。八项都分配满才能继续。
+3. **衍生属性**——HP / SAN / MP / 体格 / 伤害加值等由属性自动算出，无需填；这一步**掷一次幸运（Luck）**（3D6×5）后即可继续。
+4. **职业与技能**——选好职业后分配技能点：职业技能点 = EDU×4（含信用评级），兴趣技能点 = INT×2，职业技能最多选 8 项。点数必须正好分配完。觉得繁琐就用底部的「**⚄ 随机分配**」一键铺满。
+5. **背景故事**——填个人描述、信念、重要之人、珍贵之物、特质、恐惧症等。懒得写？点「**快速填充**」让 AI 根据你的职业与属性自动生成一份贴切的背景（需已配置 API 密钥）。
+6. **确认创建**——核对总览，可「保存为预设」方便下次复用，最后点「**确认创建**」正式入场。
+
+### ④ 阅读序章，选择你的开场情境
+
+确认后，你会落在一本摊开的故事书上：**左页是叙事正文，右页是你的选项**。
+
+开局的序章名为「**降生之梦**」——你在梦中听见湖底的低语，醒来时是 1925 年的清晨。右页「命运的歧路」列出了数条开场情境，每一条都是一个完全不同的克苏鲁故事起点，例如：
+
+- **导师的急信**——密斯卡塔尼克大学的恩师急召你去辨认一卷残籍；
+- **海风中的遗产**——你继承了印斯茅斯海边一处旧宅与一枚古怪金饰；
+- **山丘的委托**——受托前往敦威治核实某个古老家族的旧事；
+- **极地的邀约**——为一支南极考察队整理冰封中解冻出的史前化石；
+- **镇上的异变**——你所在的小镇悄然出现了难以言说的变化……
+
+点中某个选项，故事就此展开，AI 会接续生成属于你的第一段剧情。
+
+### ⑤ 在右页点选项推进剧情，遇到检定就掷骰
+
+之后的玩法就是一个循环：**读左页 → 在右页选择 → AI 写出下一页**。
+
+- 选项分两种。普通选项点了直接推进；带**金色边框、右侧标着技能名**的是**检定选项**（如「侦查」「图书馆使用」），鼠标悬停时还会展开显示你这项技能的成功率，困难/极难检定会把原值划掉、显示折算后的目标值。
+- 点检定选项会弹出「**掷骰检定 / DICE ROLL**」面板。顶部可切换 **技能检定 / 对抗检定 / 自由掷骰** 三种模式，并按需勾选 **奖励骰 / 惩罚骰 / SAN**（理智检定）。点中央的「**掷 骰**」按钮，d100 出目与判定结果（大成功 / 极难成功 / 困难成功 / 成功 / 失败 / 大失败）会带动画呈现，大成功/大失败还有专属的粒子特效。结果会自动填进底部输入框，提交后 AI 据此续写。
+- 只有**最新一页**的选项可以点击；翻回历史页面时选项会变灰锁定，避免剧情错乱。
+
+### ⑥ 悬停看释义，用书签查角色卡 / 物品 / 检定记录
+
+- **关键词释义**：正文里带**虚线下划线**的词（如「调查员」「理智值」「阿卡姆」「密斯卡塔尼克大学」「深潜者」），鼠标悬停即弹出解释卡片，帮你快速读懂克苏鲁世界观与规则术语——无需另开维基。
+- **左侧书签栏**（贴在书本左缘）随时取用：
+  - **背包/装备**——查看与管理获得的物品、武器、线索；剧情里出现物品变化时，右页顶部还会有「物品变化」提示，点一下直接翻进背包。
+  - **调查员记录**——打开你的角色卡，查看属性、技能、HP/SAN/MP 等当前状态。
+  - **目录**——一览全书各页大纲，点选条目可跳转回任意一页重温。
+  - **检定记录**——「检定记录 / ROLL HISTORY」表格，按检定项目 / 掷出 / 目标 / 结果 / 页码列出你这一局掷过的每一次骰，方便回溯。
+
+### ⑦ 随时存档与读取
+
+存档是**自动**的：创建角色、每次推进剧情后，进度都会即时保存到浏览器本地（IndexedDB），不用手动点保存。
+
+- 想换一局或继续旧档：回到主界面点「**读 取 游 戏**」，或在游戏内顶栏点「**对 话**」切换不同的存档会话。
+- 因为数据全在你自己的浏览器里，请别随意清空站点数据；想长期保留，记得用相应入口导出备份。
+
+至此，你已经掌握了完整的首次游玩流程——掷骰吧，调查员，你的命运尚未书写。
+
+---
+
+## 技术栈与项目结构
+
+### 技术栈
+
+| 类别 | 选型 | 说明 |
+|------|------|------|
+| 框架 | React `19` + TypeScript `~6.0` | 函数组件 + Hooks，全量命名导出（无 `export default`） |
+| 构建 | Vite `8` | `tsc -b && vite build`（项目引用模式，先类型检查后打包） |
+| 状态管理 | Zustand `5` | `useXxxStore` 模式，全局态走 `persist` 中间件 |
+| 持久化 | Dexie `4`（IndexedDB） | `kvStore` 单表 + 关系子表（按 `conversationId` 分表），含 localStorage→IndexedDB 自动迁移 |
+| 动效 | Framer Motion `12` | 仅用于出现/消失类动画；3D 翻页用原生 CSS `rotateY` + `preserve-3d` |
+| 样式 | 纯 CSS 变量（`tokens.css`） | 100% 内联 `style={{}}` + `var(--gold)` 引用，无 Tailwind / CSS Modules |
+| 测试 | Vitest `4` + fake-indexeddb | 浏览器 IndexedDB 在 Node 环境下的内存模拟 |
+| Lint | ESLint `10`（flat config）+ typescript-eslint | `noUnusedLocals` / `noUnusedParameters` 下未使用变量即构建失败 |
+
+> 纯前端 SPA，无后端服务器：所有游戏数据存于浏览器本地 IndexedDB，LLM 推理由用户自备的 OpenAI 兼容接口（默认指向 DeepSeek）完成。
+
+### 项目结构（精简）
 
 ```
-src/                          # ~110 source files
+src/
+├── sillytavern/     # 酒馆引擎层 — 纯计算 + store-glue
+│   ├── api-router.ts            # LLM 调用（流式 / 非流式）
+│   ├── prompt-assembler.ts      # 世界书注入 + 模板渲染
+│   ├── unified-macro-engine.ts  # ST 兼容统一宏（占位符 / 条件 / outlet / 嵌套）
+│   ├── regex-engine.ts          # 正则脚本执行（LRU 缓存）
+│   ├── ejs-template.ts          # EJS 模板（沙箱 eval + LRU 缓存）
+│   ├── slash-commands.ts        # 斜杠命令 /roll /var /set /help
+│   ├── dice-engine.ts           # d100 五级判定 + 奖励/惩罚骰
+│   ├── coc-rules.ts             # COC 7th 规则纯函数（属性、技能基础值等）
+│   ├── mvu-*.ts                 # MVU 变量系统（JSON Patch over statData 树）
+│   └── …                        # 限流、暗骰、行动补写、世界书作用域 等
+├── stores/          # Zustand 状态层（含 sessionLifecycle 跨 store 恢复）
 ├── components/
-│   ├── Book/                 # 故事书翻页 + 状态栏 + 右页交互 (9 files)
-│   ├── CharSheet/            # 角色卡 overlay + 创建向导 (含 steps/ 子目录)
-│   ├── Inventory/            # 背包/物品栏浮层
-│   ├── Dice/                 # 骰子面板 + 历史 (3 files)
-│   ├── Landing/              # 开始界面 + 读档 (3 files)
-│   ├── Layout/               # GameView + TopBar + InputBar (3 files)
-│   ├── Settings/             # 设置面板群 (13 files)
-│   └── Shared/               # 共享组件 (14 files)
-├── hooks/                    # React Hooks (5 files)
-│   ├── useChatPipeline.ts    #   聊天管道 hook
-│   ├── useStreamingRenderer.ts #  流式渲染 hook
-│   └── usePageFlip.ts        #   翻页 hook
-├── stores/                   # Zustand 状态管理 (18 store/helper)
-│   ├── sessionLifecycle.ts   #   会话游戏态 保存/恢复/清空 + 关系表读写 + 切档串行化
-│   └── 全局态 5 store 经 Dexie persist；会话态 store 纯内存,由 sessionLifecycle 写关系子表
-├── sillytavern/              # SillyTavern 引擎 (23 files)
-│   ├── api-router.ts         #   LLM API 调用 (stream + non-stream)
-│   ├── prompt-assembler.ts   #   提示词组装 + 世界书注入
-│   ├── regex-engine.ts       #   正则脚本执行 (LRU 缓存)
-│   ├── variables.ts          #   变量提取/合并
-│   ├── slash-commands.ts     #   斜杠命令系统
-│   ├── ejs-template.ts       #   EJS 模板引擎 (LRU 缓存)
-│   ├── unified-macro-engine.ts #   统一宏引擎 (99 tests, 详见 docs/macro-engine.md)
-│   ├── dice-engine.ts        #   骰子检定引擎 (35 tests)
-│   ├── llm-response-parser.ts #  LLM 响应解析 (含物品叙事一致性校验)
-│   ├── coc-rules.ts          #   COC 规则数据 + 纯函数
-│   └── ...
-├── db/                       # Dexie IndexedDB 持久化层 (5 files)
-│   ├── database.ts           #   Dexie v2 schema：kvStore 全局态 + conversations 父表 + 7 子表 + upgradeV2 迁移
-│   ├── storage.ts            #   Zustand persist 适配器（全局态 store 用）
-│   └── migrations.ts         #   localStorage→IndexedDB 自动迁移
-├── test/                     # Vitest 测试环境
-├── types/                    # TypeScript 类型定义
-├── styles/                   # 设计令牌 + 全局样式
-├── constants/                # 共享常量
-└── audio/                    # Web Audio 音效合成
+│   ├── Book/        # 故事书双页 3D 翻页
+│   ├── CharSheet/   # COC 角色卡 + 创建向导
+│   ├── Dice/        # 骰子检定面板
+│   ├── Layout/      # GameView / TopBar / InputBar
+│   ├── Settings/    # 设置面板群（API / 预设 / 世界书 / 扩展）
+│   └── Shared/      # 共享组件
+├── hooks/           # useChatPipeline（主聊天管道）/ useStreamingRenderer 等
+├── db/              # Dexie 持久化层（schema + 迁移 + 适配器）
+├── types/index.ts   # 单一类型源
+└── styles/          # tokens.css（设计令牌）+ global.css
 ```
 
-## 代码来源
+---
 
-本项目部分功能受以下开源项目启发：
+## 开发命令
 
-| 功能 | 来源 | 许可证 |
-|------|------|--------|
-| 斜杠命令执行 | [N0VI028/JS-Slash-Runner](https://github.com/N0VI028/JS-Slash-Runner) | AFPL |
-| EJS 模板引擎 | [zonde306/ST-Prompt-Template](https://github.com/zonde306/ST-Prompt-Template) | AGPL v3 |
-| MVU 变量引擎 | [MagicalAstrogy/MagVarUpdate](https://github.com/MagicalAstrogy/MagVarUpdate) | — |
-| 正则脚本架构 | [SillyTavern/SillyTavern](https://github.com/SillyTavern/SillyTavern) | AGPL v3 |
-| 世界书引擎 | [SillyTavern/SillyTavern](https://github.com/SillyTavern/SillyTavern) | AGPL v3 |
+```bash
+npm install        # 安装依赖
 
-以上功能的实现为参照原始设计思路，以 React + TypeScript 重新编写。
+npm run dev        # 启动 Vite 开发服务器
+npm run build      # tsc -b 类型检查 + Vite 生产构建
+npm run preview    # 本地预览生产构建产物
 
-## 许可证
+npm run lint       # ESLint 检查
+npm test           # Vitest 跑全部测试（一次性，CI 模式）
+npm run test:watch # Vitest 监听模式
+```
 
-非商业使用许可证 — 开源可用，禁止商业销售，详见 [LICENSE](LICENSE)
+当前测试套件 **578 个测试 / 36 个文件** 全部通过，覆盖宏引擎、LLM 响应解析、MVU JSON Patch、骰子引擎、COC 规则、行动补写等核心逻辑。
+
+---
+
+## 已知限制
+
+- **需自备 LLM API。** 项目不内置任何模型或密钥，须填入 OpenAI 兼容接口（默认配置指向 DeepSeek）方可游玩。
+- **数据仅存本地浏览器。** 存档落在 IndexedDB，换浏览器/设备或清理站点数据后不会自动同步；请自行通过导出功能备份。
+- **预设角色档案字段不全。** 内置预设调查员的 `personality` / `scenario` / `personaDescription` 仅保留默认值（角色创建流程暂未收集这些字段）。
+- **行动补写「重新续写」的物品边界。** 若在已点击「拾取」选项（物品已入库）后再触发重新续写，会清空该页的去重记录但**不回滚已入库物品**；随后再拾取其他物品，二者会同时留在物品栏。此为 v1.0.0 已接受的已知边界。
+- **TypeScript 未开启 `strict: true`。** 采用 `verbatimModuleSyntax` / `erasableSyntaxOnly` / `noUnused*` 等 strict-adjacent 标志，但未启用 `strictNullChecks` 等。
+- 另有约 110 条 ESLint 警告（多为故意的 setState / 沙箱 eval / Zustand selector 误报），不影响构建与运行。
+
+---
+
+## 许可与致谢
+
+- **许可：** 本仓库采用自定义的[非商业使用许可证](LICENSE)（Non-Commercial License，Copyright © 2025 sstareven）——允许个人使用、学习、研究、修改、衍生与分发，但**禁止任何商业销售、商业订阅或直接营利用途**（需作者书面许可）；软件按「原样」提供，不附带任何担保。完整条款以仓库 `LICENSE` 文件中的英文为准。
+- **致谢：** 本项目的世界书 / 变量引擎 / 正则脚本 / EJS 模板 / 斜杠命令等架构，灵感来自开源前端 **[SillyTavern](https://github.com/SillyTavern/SillyTavern)**（酒馆）。引擎层文件均以 kebab-case 命名并在 JSDoc 中标注来源（"inspired by SillyTavern's…"），感谢其社区的开创性工作。
