@@ -5,7 +5,7 @@
 ## 技术栈
 
 - **核心**: React 19 + TypeScript 6 + Vite 8
-- **状态管理**: Zustand 5 + Dexie 4 (IndexedDB 持久化)
+- **状态管理**: Zustand 5 + Dexie 4（IndexedDB 关系型混合持久化：全局态 kvStore + 会话态 conversations 父子表）
 - **动画**: Framer Motion 12 + CSS 3D Transform
 - **音效**: Web Audio API 合成
 - **测试**: Vitest + fake-indexeddb
@@ -45,14 +45,22 @@ npm run dev
 - 提示词查看器（发送前预览编辑 + Token 分解）
 - Token 计数器（上下文用量分解 + 手动计数）
 - 聊天预设管理（采样参数 / Prompt 模板）
-- 多对话会话管理（每个会话独立存档，游戏状态按会话隔离：角色/物品/暗线/关键词/变量互不串档）
+- 多对话会话管理（每个会话独立存档，游戏状态按会话隔离：角色卡 / 物品 / 暗线 / 关键词 / MVU变量 / 宏变量 / 故事页面 / 剧情摘要 互不串档；注入 LLM 的每一项参数都严格服务于当前对话）
 - 扩展脚本管理
 - 目录系统（自动生成章节摘要）
+
+### 数据持久化（Dexie v2 关系型混合架构）
+- **关系型多表存储**：会话态由 `conversations` 父表 + 7 张按 `conversationId` 分表的子表（pages / charsheets / inventory / darkThreads / keywords / gameVars / macroVars）承载，全局态（设置 / 预设 / 世界书 / 酒馆脚本）仍走 kvStore 单表
+- **解决写放大**：每回合只写当前会话的相关子表，告别旧版「全量 JSON.stringify 整库」（50 对话 × 50 页时单 blob 可达 ~10MB），保存与启动显著提速
+- **会话隔离零串档**：切换存档时先清空所有按会话隔离的内存态再从关系表恢复（`clearAllGameState` + `loadConversation`），角色卡 / 变量 / 摘要 等绝不跨对话泄漏
+- **自动迁移 + 失败安全**：启动时 v1 单 blob 自动炸开进关系表（`upgradeV2`），per-session 数据优先；迁移失败则中止版本提交、保留源数据、下次重试，杜绝部分迁移与白屏
+- **切档串行化**：save / load / delete / switch 统一经单一序列化链，防并发切档撕裂与孤儿数据
+- **剧情摘要派生**：每页「剧情回顾」摘要随页面持久化，切档时从页面重建注入世界书，不单独冗余存储
 
 ## 测试
 
 ```bash
-npm test         # Vitest (343 tests: 宏引擎 + LLM响应解析 + 骰子引擎 + COC 规则 + 数据库 + 角色变量 + 选项匹配 等)
+npm test         # Vitest (373 tests: 宏引擎 + LLM响应解析 + 骰子引擎 + COC 规则 + 数据库迁移 + 会话生命周期 + 角色变量 + 选项匹配 等)
 npm run build    # tsc -b 类型检查 + Vite 构建
 ```
 
@@ -74,8 +82,8 @@ src/                          # ~110 source files
 │   ├── useStreamingRenderer.ts #  流式渲染 hook
 │   └── usePageFlip.ts        #   翻页 hook
 ├── stores/                   # Zustand 状态管理 (18 store/helper)
-│   ├── sessionLifecycle.ts   #   跨 store 会话游戏态 保存/恢复/清空
-│   └── 7 个 store 经 Dexie persist 持久化至 IndexedDB
+│   ├── sessionLifecycle.ts   #   会话游戏态 保存/恢复/清空 + 关系表读写 + 切档串行化
+│   └── 全局态 5 store 经 Dexie persist；会话态 store 纯内存,由 sessionLifecycle 写关系子表
 ├── sillytavern/              # SillyTavern 引擎 (23 files)
 │   ├── api-router.ts         #   LLM API 调用 (stream + non-stream)
 │   ├── prompt-assembler.ts   #   提示词组装 + 世界书注入
@@ -89,8 +97,8 @@ src/                          # ~110 source files
 │   ├── coc-rules.ts          #   COC 规则数据 + 纯函数
 │   └── ...
 ├── db/                       # Dexie IndexedDB 持久化层 (5 files)
-│   ├── database.ts           #   kvStore 单表 + Dexie schema
-│   ├── storage.ts            #   Zustand persist 适配器
+│   ├── database.ts           #   Dexie v2 schema：kvStore 全局态 + conversations 父表 + 7 子表 + upgradeV2 迁移
+│   ├── storage.ts            #   Zustand persist 适配器（全局态 store 用）
 │   └── migrations.ts         #   localStorage→IndexedDB 自动迁移
 ├── test/                     # Vitest 测试环境
 ├── types/                    # TypeScript 类型定义
