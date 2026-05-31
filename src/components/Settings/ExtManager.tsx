@@ -19,16 +19,22 @@ export function ExtManager({ onClose }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importPath, setImportPath] = useState('');
+  const [importCode, setImportCode] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => { saveExts(exts); }, [exts]);
 
   const handleImport = () => {
-    if (!importPath.trim()) return;
-    const name = importPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '新扩展';
-    const newExt: Extension = { id: 'ext-' + Date.now(), name, version: '0.1.0', author: '未知', description: '从 ' + importPath.trim() + ' 导入', enabled: false, entryPoint: importPath.trim() };
+    if (!importPath.trim() && !importCode.trim()) return;
+    const name = (importPath.split('/').pop()?.replace(/\.[^.]+$/, '') || '新扩展');
+    const newExt: Extension = {
+      id: 'ext-' + Date.now(), name, version: '0.1.0', author: '未知',
+      description: importPath.trim() ? '从 ' + importPath.trim() + ' 导入' : '内联脚本扩展',
+      enabled: false, entryPoint: importPath.trim(),
+      code: importCode.trim() || undefined,
+    };
     setExts((prev) => { const n = [...prev, newExt]; saveExts(n); return n; });
-    setImportPath(''); setShowImport(false);
+    setImportPath(''); setImportCode(''); setShowImport(false);
   };
 
   const toggleExt = (id: string) => {
@@ -137,7 +143,7 @@ export function ExtManager({ onClose }: Props) {
                           style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>入口文件</label>
+                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>入口文件（仅元数据）</label>
                         <input value={ext.entryPoint} onChange={(e) => updateExtParam(ext.id, 'entryPoint', e.target.value)}
                           style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none' }} />
                       </div>
@@ -146,6 +152,12 @@ export function ExtManager({ onClose }: Props) {
                       <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>描述</label>
                       <textarea value={ext.description} onChange={(e) => updateExtParam(ext.id, 'description', e.target.value)}
                         rows={2} style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 10, outline: 'none', resize: 'vertical' }} />
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>脚本代码（沙箱执行，可定义 onSend / onReceive / init）</label>
+                      <textarea value={ext.code ?? ''} onChange={(e) => updateExtParam(ext.id, 'code', e.target.value)}
+                        rows={5} spellCheck={false} placeholder={'function onReceive(text){\n  return text;\n}'}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 9, color: ext.enabled ? 'var(--success)' : 'var(--ink-faded)', letterSpacing: 1 }}>
@@ -200,12 +212,24 @@ export function ExtManager({ onClose }: Props) {
                 导入扩展
               </h4>
               <input value={importPath} onChange={(e) => setImportPath(e.target.value)}
-                placeholder="扩展文件路径或URL..."
+                placeholder="名称或路径（可选，仅作元数据）..."
                 style={{
                   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
                   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
                   fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
-                  marginBottom: 14,
+                  marginBottom: 10,
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+              />
+              <textarea value={importCode} onChange={(e) => setImportCode(e.target.value)}
+                rows={6} spellCheck={false}
+                placeholder={'扩展脚本（沙箱执行）：\nfunction onReceive(text){ return text; }'}
+                style={{
+                  width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+                  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
+                  fontFamily: 'var(--font-mono)', fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
+                  resize: 'vertical', lineHeight: 1.5, marginBottom: 14,
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}

@@ -302,7 +302,10 @@ export interface Extension {
   author: string;
   description: string;
   enabled: boolean;
+  /** 可选元数据（路径/URL）；运行时不加载它，仅展示。实际执行 `code`。 */
   entryPoint: string;
+  /** 内联脚本代码：经 extensionsToScripts 转 TH 脚本，在 th-script-engine 受限沙箱执行（可定义 init/onSend/onReceive）。 */
+  code?: string;
 }
 
 // ===== Regex Scripts =====

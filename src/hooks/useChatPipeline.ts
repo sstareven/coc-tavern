@@ -34,6 +34,7 @@ import {
   runReceiveHooks,
   type ThScriptHooks,
 } from '../sillytavern/th-script-engine';
+import { extensionsToScripts } from '../sillytavern/extension-runtime';
 import { trimToBudget, getModelBudget } from '../sillytavern/context-manager';
 import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
@@ -47,7 +48,7 @@ import { buildCharacterVariables } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 
-import type { ChatPreset, LoreEntry } from '../types';
+import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
 
 // ── Return Type ──
@@ -147,7 +148,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const thGlobalScripts = useTavernHelperStore((s) => s.globalScripts);
   const thPresetScripts = useTavernHelperStore((s) => s.presetScripts);
   const thHooks = useMemo<ThScriptHooks>(
-    () => loadThScripts(thGlobalScripts, thPresetScripts),
+    () => {
+      // 启用的扩展(内联代码)复用同一 TH 沙箱执行。扩展经 kv 读取(非响应式)，
+      // 改动在组件重挂载/切换会话后生效——属低频配置，可接受。
+      let exts: Extension[] = [];
+      try {
+        const raw = kvGet('coc_extensions_v2');
+        if (raw) {
+          const parsed: unknown = JSON.parse(raw);
+          if (Array.isArray(parsed)) exts = parsed as Extension[];
+        }
+      } catch {
+        exts = [];
+      }
+      return loadThScripts([...thGlobalScripts, ...extensionsToScripts(exts)], thPresetScripts);
+    },
     [thGlobalScripts, thPresetScripts],
   );
 
