@@ -29,7 +29,7 @@ const KEYWORD_MEANINGS: Record<string, string> = {
   '信用评级': 'Credit Rating — 反映社会地位和经济水平',
   '阿卡姆': 'Arkham — 马萨诸塞州北部的古老城镇，密斯卡塔尼克大学所在地',
   '密斯卡塔尼克大学': 'Miskatonic University — 始建于1690年，以神秘学研究闻名',
-  '密斯卡托尼河': 'Miskatonic River — 流经阿卡姆的河流，常发生无法解释的事件',
+  '密斯卡塔尼克河': 'Miskatonic River — 流经阿卡姆的河流，常发生无法解释的事件',
   '印斯茅斯': 'Innsmouth — 马萨诸塞州海岸的没落渔港，深潜者的据点',
   '邓里奇': 'Dunwich — 马萨诸塞州北部荒村，发生过著名的恐怖事件',
   '波士顿': 'Boston — 马萨诸塞州首府，新英格兰的文化中心',
@@ -75,17 +75,59 @@ function findNormalized(table: Record<string, string>, target: string): string |
   return undefined;
 }
 
+/** Levenshtein 编辑距离（小串，用于音译拼写变体容错）。 */
+function editDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/**
+ * 在多个 key→meaning 表中解析关键词释义，容忍 LLM 音译拼写变体。
+ * 三级匹配（按表顺序，先全表精确、再全表归一化、最后全表模糊）：
+ *  1) 精确键匹配；2) 归一化（去标点/后缀）精确匹配；
+ *  3) 归一化后编辑距离 ≤1 的模糊匹配——仅对 ≥4 字的长词，避免短词误配
+ *     （如「密斯卡托尼克河」↔「密斯卡塔尼克河」托/塔一字之差）。
+ * 纯函数，便于单测；KEYWORD_MEANINGS 优先于会话 store 由调用方传入顺序决定。
+ */
+export function resolveMeaning(keyword: string, tables: Record<string, string>[]): string | undefined {
+  for (const t of tables) {
+    const v = t[keyword];
+    if (v) return v;
+  }
+  const norm = normalizeKeyword(keyword);
+  if (!norm) return undefined;
+  for (const t of tables) {
+    const v = findNormalized(t, norm);
+    if (v) return v;
+  }
+  // 模糊兜底：长词的音译变体（编辑距离 ≤1）。短词跳过以免「梦↔门」之类误配。
+  if (norm.length < 4) return undefined;
+  for (const t of tables) {
+    for (const [k, v] of Object.entries(t)) {
+      if (!v) continue;
+      const nk = normalizeKeyword(k);
+      if (nk.length >= 4 && editDistance(nk, norm) <= 1) return v;
+    }
+  }
+  return undefined;
+}
+
 function getMeaning(keyword: string): string | undefined {
   // 释义来源：(1) KEYWORD_MEANINGS 通用 COC 术语（跨会话共享）；
   //          (2) useKeywordStore 当前会话的 LLM 释义（按会话隔离，不会跨对话混用）。
-  const store = useKeywordStore.getState().keywords;
-  // 1) 精确匹配（最快路径）
-  const exact = KEYWORD_MEANINGS[keyword] ?? store[keyword];
-  if (exact) return exact;
-  // 2) 相似词合并：字面归一化后模糊反查（如「调查员们」命中「调查员」）
-  const norm = normalizeKeyword(keyword);
-  if (!norm) return undefined;
-  return findNormalized(KEYWORD_MEANINGS, norm) ?? findNormalized(store, norm);
+  // 容忍音译拼写变体：见 resolveMeaning。
+  return resolveMeaning(keyword, [KEYWORD_MEANINGS, useKeywordStore.getState().keywords]);
 }
 
 export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
