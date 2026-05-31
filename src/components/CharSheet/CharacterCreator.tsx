@@ -4,7 +4,6 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useBookStore } from '../../stores/useBookStore';
-import { kvSet } from '../../db/kv';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
@@ -443,23 +442,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         scenario: '',
         personaDescription: '',
       };
-
-    try {
-      const bg = {
-        player,
-        description,
-        beliefs,
-        significantPeople,
-        meaningfulLocations,
-        treasuredPossessions,
-        traits,
-        injuries,
-        phobias,
-      };
-      kvSet('coc_character_bg', JSON.stringify(bg));
-    } catch {
-      /* quota exceeded */
-    }
 
     // 先清空所有按会话隔离的旧态（含角色卡重置为默认），再设置新角色卡——
     // 次序关键：clearAllGameState 现在会重置角色卡（P0-1），若 setSheet 在其之前会被清掉，

@@ -327,18 +327,6 @@ export interface RegexScript {
   maxDepth: number | null;
 }
 
-export interface RegexPresetItem {
-  id: string;
-}
-
-export interface RegexPreset {
-  id: string;
-  name: string;
-  isSelected: boolean;
-  global: RegexPresetItem[];
-  preset: RegexPresetItem[];
-}
-
 // ===== MVU Game Variables =====
 export interface GameVariable {
   name: string;
@@ -376,11 +364,6 @@ export interface THVariable {
   name: string;
   value: string;
   updatedAt?: number;
-}
-
-// ===== Macro Variables =====
-export interface MacroVarStore {
-  [name: string]: string;
 }
 
 // ===== Prompt Template Settings =====
@@ -423,6 +406,3 @@ export interface THOptimizeSettings {
   forceWorldbookSettings: boolean;
   maximizePresetContext: boolean;
 }
-
-// ===== Tooltip Keywords =====
-export type KeywordDB = Record<string, string>;

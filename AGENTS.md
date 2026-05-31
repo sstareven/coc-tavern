@@ -85,13 +85,13 @@
 ## ANTI-PATTERNS (THIS PROJECT)
 
 - **`as any` 强制转换** — 全 src 树 **0 处**（`format-converter.ts` 的 31 any → 0）。禁止新增。
-- **`require()` 在 sillytavern 引擎中** — 仅 `slash-commands.ts` (5 处) 用于避免循环依赖，绕过 Tree-shaking 和类型检查。`ejs-template.ts` 已不再使用 require()，stores 已改用 ESM import。
+- **`require()` 在 sillytavern 引擎中** — `slash-commands.ts` 的 5 处 require 已改顶层 ESM import（原 CJS 写法在纯 ESM 浏览器运行时恒抛 ReferenceError 被 catch 吞掉，致 /var /set /thvar 等命令永久失效）。引擎内现已无 require()，stores 全走 ESM import。
 - **无 barrel 导出** — 每个 import 走显式路径。唯一的 barrel 是 `src/types/index.ts`（22 个消费者）。`@ts-ignore`/`@ts-expect-error` 全树 0 处，`export default` 全树 0 处。
 - **`DEFAULT_PRESET` 已提取至 `src/constants/presets.ts`** ✅ — InputBar 用 `DEFAULT_INPUT_PRESET`，PresetEditor 用 `DEFAULT_EDITOR_PRESET`。
 - **内联 style 对象重复** — `closeBtnStyle` / `actionBtnStyle` / `inputStyle` 在 10+ 文件中重复定义。`src/styles/panelStyles.ts` 仅提供 `closeBtnStyle`。新增 CSSProperties 前检查是否已有。
 - **空 catch 块** — 已大幅清理至 **2 处**（`ExtManager.tsx:12`、`migrations.ts:33`）。`ejs-template.ts` 内的 catch 在模板字符串里（生成代码），非真实捕获。新增 catch 至少加 `console.warn`。
 - **直接 `localStorage` 绕过 Dexie** — 现仅剩 `db/` 层合法用法（`kv.ts`、`migrations.ts` 共 4 处）。`PresetPanel.tsx`/`ExtManager.tsx`/`useChatPipeline.ts` 的旧绕过已消除。
-- **测试覆盖** — 519 个 test，29 个 `.test.ts` 文件（macro-engine 102 + llm-response-parser 58 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + mvu-flatten/mvu-var-access/mvu-initial-statdata + prompt-assembler + rewrite-lite + item-acquisition 等）。新增复杂逻辑应补测试。
+- **测试覆盖** — 525 个 test，30 个 `.test.ts` 文件（macro-engine 102 + llm-response-parser 60 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + regex-engine 4 + mvu-flatten/mvu-var-access/mvu-initial-statdata + prompt-assembler + rewrite-lite + item-acquisition 等）。新增复杂逻辑应补测试。
 
 ## UNIQUE STYLES
 
@@ -107,7 +107,7 @@
 npm run dev        # Vite 开发服务器
 npm run build      # tsc -b 类型检查 + Vite 构建
 npm run lint       # ESLint (flat config v10)
-npm test           # Vitest (519 tests)
+npm test           # Vitest (525 tests)
 npm run preview    # 预览生产构建
 ```
 
@@ -116,7 +116,7 @@ npm run preview    # 预览生产构建
 - `src/db/database.ts` — Dexie schema + Zustand persist 中间件已激活（7 个 store 持久化至 IndexedDB）。白屏问题已修复
 - `src/components/Book/PageFlip.tsx` 已删除 — 翻页统一由 `PageFlip3D.tsx`（CSS 3D）实现。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
-- 测试覆盖：519 tests / 29 文件（macro-engine 102 + llm-response-parser 58 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + choice-match 15 + prompt-assembler + rewrite-lite + item-acquisition + mvu-flatten/var-access/initial-statdata + ...），Vitest + fake-indexeddb
+- 测试覆盖：525 tests / 30 文件（macro-engine 102 + llm-response-parser 58 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + choice-match 15 + prompt-assembler + rewrite-lite + item-acquisition + mvu-flatten/var-access/initial-statdata + ...），Vitest + fake-indexeddb
 - 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/db/` `src/components/Book/` `src/components/CharSheet/` `src/components/Dice/` `src/components/Layout/` `src/components/Settings/` `src/components/Shared/`
 
 ## 待办 / 已知问题

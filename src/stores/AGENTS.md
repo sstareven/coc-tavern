@@ -4,7 +4,7 @@
 
 ## OVERVIEW
 
-所有状态管理集中于此。17 个独立扁平 store + 1 个生命周期 helper，无 store 组合/切片。全局态（settings/th/lorebook/chat-meta/charPresets）通过 `zustand/persist` + `createDexieStorage` 持久化；会话态（charsheet/inventory/darkThread/keyword/variable/book pages + TH.macroVars）为纯内存，由 `sessionLifecycle.saveConversation/loadConversation` 显式读写 Dexie v2 关系子表。`useCharSheetStore` 是跨 store 的中心依赖。`sessionLifecycle.restoreSessionGameState()`/`loadConversation()` 在切换会话时从关系表一次性恢复所有会话态 store（先 `clearAllGameState` 再 replaceAll，角色卡无行时回退 `defaultSheet`，杜绝跨会话泄漏）。
+所有状态管理集中于此。17 个独立扁平 store + 1 个生命周期 helper，无 store 组合/切片。全局态（settings/th/lorebook/chat-meta/charPresets）通过 `zustand/persist` + `createDexieStorage` 持久化；会话态（charsheet/inventory/darkThread/keyword/variable/book pages + TH.macroVars）为纯内存，由 `sessionLifecycle.saveConversation/loadConversation` 显式读写 Dexie v2 关系子表。`useCharSheetStore` 是跨 store 的中心依赖。`sessionLifecycle.loadConversation()` 在切换会话时从关系表一次性恢复所有会话态 store（先 `clearAllGameState` 再 replaceAll，角色卡无行时回退 `defaultSheet`，杜绝跨会话泄漏）。
 
 ## WHERE TO LOOK
 

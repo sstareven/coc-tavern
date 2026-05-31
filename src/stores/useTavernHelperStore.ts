@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { THScriptTree, THRenderSettings, THOptimizeSettings, PTSettings, THScope, THVariable } from '../types';
-import { useCharSheetStore } from './useCharSheetStore';
+import type { THScriptTree, THRenderSettings, THOptimizeSettings, PTSettings } from '../types';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 
@@ -82,10 +81,7 @@ interface TavernHelperStore extends PersistedState {
   setMacroVar: (name: string, value: string) => void;
   setMacroVars: (vars: Record<string, string>) => void;
   getMacroVar: (name: string) => string;
-  incMacroVar: (name: string, amount: number) => void;
-  decMacroVar: (name: string, amount: number) => void;
 
-  getVariable: (scope: THScope, name: string, presetVars?: Record<string, THVariable>) => string | null;
   findItem: (tree: THScriptTree[], id: string) => THScriptTree | null;
 }
 
@@ -157,47 +153,6 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       setMacroVar: (name, value) => set((s) => ({ macroVars: { ...s.macroVars, [name]: value } })),
     setMacroVars: (vars) => set({ macroVars: { ...vars } }),
       getMacroVar: (name) => get().macroVars[name] ?? '',
-      incMacroVar: (name, amount) => {
-        const current = parseFloat(get().macroVars[name] || '0') || 0;
-        get().setMacroVar(name, String(current + amount));
-      },
-      decMacroVar: (name, amount) => {
-        const current = parseFloat(get().macroVars[name] || '0') || 0;
-        get().setMacroVar(name, String(current - amount));
-      },
-
-      getVariable: (scope, name, presetVars) => {
-        switch (scope) {
-          case 'global':
-            return get().macroVars[name] ?? null;
-          case 'preset':
-            return presetVars?.[name]?.value ?? null;
-          case 'chat':
-            return get().macroVars[name] ?? null;
-          case 'character': {
-            const sheet = useCharSheetStore.getState().sheet;
-            const charVars: Record<string, string> = {
-              name: sheet.identity.name,
-              occupation: sheet.identity.occupation,
-              age: String(sheet.identity.age),
-              gender: sheet.identity.gender,
-              hp: String(sheet.secondary.hp.current),
-              hpMax: String(sheet.secondary.hp.max),
-              san: String(sheet.secondary.san.current),
-              sanMax: String(sheet.secondary.san.max),
-              mp: String(sheet.secondary.mp.current),
-              mpMax: String(sheet.secondary.mp.max),
-              luck: String(sheet.secondary.luck),
-            };
-            for (const [k, v] of Object.entries(sheet.characteristics)) {
-              charVars[k.toLowerCase()] = String(v);
-            }
-            return charVars[name] ?? charVars[name.toLowerCase()] ?? null;
-          }
-          default:
-            return null;
-        }
-      },
 
       findItem: (tree, id) => {
         for (const item of tree) {

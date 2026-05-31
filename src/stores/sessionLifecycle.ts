@@ -23,14 +23,6 @@ import {
 const STAT_DATA_ROW_NAME = '__statData__';
 
 /**
- * 恢复某会话的完整游戏态。Dexie v2：从关系表加载（pages + 6 个 gameState 域），
- * 而非从已废弃的 chat blob gameState 字段读取。委托 loadConversation（已串行化）。
- */
-export function restoreSessionGameState(sessionId: string): Promise<void> {
-  return loadConversation(sessionId);
-}
-
-/**
  * 清空所有按会话隔离的内存态。P0-1：角色卡也必须重置为 defaultSheet——
  * 否则切到无角色卡行的会话时残留上一会话角色（且后续 save 会把它写进当前会话行 = 数据污染）。
  */

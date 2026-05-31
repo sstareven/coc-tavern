@@ -12,7 +12,6 @@ export interface DarkThreadEntry {
 interface DarkThreadStore {
   entries: DarkThreadEntry[];
   addEntry: (entry: Omit<DarkThreadEntry, 'id' | 'timestamp'>) => void;
-  getRecentEntries: (n: number) => DarkThreadEntry[];
   buildContextInjection: () => string;
   clearAll: () => void;
   replaceAll: (entries: DarkThreadEntry[]) => void;
@@ -29,11 +28,6 @@ export const useDarkThreadStore = create<DarkThreadStore>()((set, get) => ({
       ];
       return { entries: updated.length > 50 ? updated.slice(-50) : updated };
     }),
-
-  getRecentEntries: (n) => {
-    const { entries } = get();
-    return entries.slice(-n);
-  },
 
   buildContextInjection: () => {
     const { entries } = get();
