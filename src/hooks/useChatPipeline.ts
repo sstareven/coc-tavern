@@ -555,7 +555,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             for (const [name, value] of Object.entries(extracted.variables)) {
               st.setVariable(name, value, 'llm');
             }
-          } catch {
+          } catch (err) {
+            pushLog(
+              'warn',
+              `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
+              'system',
+            );
             useVariableStore.getState().processResponse(hookProcessedContent);
           }
         } else {
@@ -672,6 +677,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (chatStore.activeId) void saveConversation(chatStore.activeId);
         return true;
       } catch (err) {
+        // 用户主动取消/重新生成/卸载触发的中止不是失败，静默返回。
+        // 用 controller.signal.aborted 而非 err.name==='AbortError'：非流式路径的中止
+        // 在 api-router 已被重包装成普通 Error，仅流式路径才原样冒泡 AbortError。
+        if (controller.signal.aborted) {
+          return false;
+        }
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');
         useStatusToastStore.getState().showError(`窥探失败：${message}`);
