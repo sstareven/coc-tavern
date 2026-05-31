@@ -4,6 +4,18 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
 const NO_VALUE = '未知';
 
+/** 状态栏取的场景值可能残留关键词标签 {{词}}（供正文高亮，本栏不渲染高亮）、var 标签或 HTML，
+ *  显示前清成纯文本：去掉花括号保留词、剥除标签。 */
+function cleanStatus(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\{\{([^{}]*)\}\}/g, '$1')
+    .replace(/\{([^{}:=,]+)\}/g, '$1')
+    .trim();
+}
+
 /** 从 statData 嵌套树按点号路径取标量(如 世界.时间)。缺失/非标量返回 ''。 */
 function statPath(tree: Record<string, unknown>, dotPath: string): string {
   let cur: unknown = tree;
@@ -29,29 +41,29 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   if (!scene) {
     scene = { date: '', weekday: '', time: '', weather: '', location: '' };
   }
-  const date = scene.date
+  const date = cleanStatus(scene.date
     || statPath(statData, '世界.日期')
     || vars['世界.日期']?.value
     || vars.date?.value  // legacy flat key
-    || NO_VALUE;
-  const weekday = scene.weekday
+    || NO_VALUE);
+  const weekday = cleanStatus(scene.weekday
     || computeWeekday(date)
-    || '';
-  const time = scene.time
+    || '');
+  const time = cleanStatus(scene.time
     || statPath(statData, '世界.时间')
     || vars['世界.时间']?.value
     || vars.time?.value  // legacy flat key
-    || NO_VALUE;
-  const weather = scene.weather
+    || NO_VALUE);
+  const weather = cleanStatus(scene.weather
     || statPath(statData, '世界.天气')
     || vars['世界.天气']?.value
     || vars.weather?.value  // legacy flat key
-    || NO_VALUE;
-  const location = scene.location
+    || NO_VALUE);
+  const location = cleanStatus(scene.location
     || statPath(statData, '世界.地点')
     || vars['世界.地点']?.value
     || vars.location?.value  // legacy flat key
-    || NO_VALUE;
+    || NO_VALUE);
 
   // HP/SAN/MP：角色卡(useCharSheetStore)是 调查员.* 的唯一源真理(MVU 把 调查员.* 的
   // patch 重定向到角色卡,故绝不读扁平变量,避免任何平行/残留值污染显示)。
