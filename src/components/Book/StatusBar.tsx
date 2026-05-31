@@ -16,7 +16,7 @@ function statPath(tree: Record<string, unknown>, dotPath: string): string {
   return String(cur);
 }
 
-export function StatusBar() {
+export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const vars = useVariableStore((s) => s.variables);
@@ -59,6 +59,30 @@ export function StatusBar() {
   const san = { current: secondary.san.current, max: secondary.san.max };
   const mp = { current: secondary.mp.current, max: secondary.mp.max };
   const hasStats = hp.max > 0 || san.max > 0 || mp.max > 0;
+
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-display)', fontSize: 11, color: 'var(--parchment)', userSelect: 'none' }}>
+        <span style={{ color: 'var(--gold)', letterSpacing: 1 }}>{location}</span>
+        <span style={{ opacity: 0.5 }}>·</span>
+        <span>{date}</span>
+        {weekday && <><span style={{ opacity: 0.5 }}>·</span><span>{weekday}</span></>}
+        <span style={{ opacity: 0.5 }}>·</span>
+        <span>{weatherIcon(weather)} {weather}</span>
+        <span style={{ opacity: 0.5 }}>·</span>
+        <span>{time}</span>
+        {hasStats && (
+          <>
+            <span style={{ width: 1, height: 12, background: 'rgba(196,168,85,0.25)', margin: '0 2px' }} />
+            <CompactStat label="HP" stat={hp} color="var(--success)" />
+            <CompactStat label="SAN" stat={san} color="var(--blood)" />
+            <CompactStat label="MP" stat={mp} color="var(--gold)" />
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -140,6 +164,15 @@ function StatPill({ label, stat, color }: { label: string; stat: { current: numb
       <span style={{ color: 'var(--parchment)' }}>
         {stat.current}<span style={{ color: 'var(--ink-faded)', margin: '0 1px' }}>/</span>{stat.max}
       </span>
+    </span>
+  );
+}
+
+function CompactStat({ label, stat, color }: { label: string; stat: { current: number; max: number }; color: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+      <span style={{ color, fontWeight: 700 }}>{label}</span>
+      <span style={{ color: 'var(--parchment)' }}>{stat.current}/{stat.max}</span>
     </span>
   );
 }
