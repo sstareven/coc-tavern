@@ -39,6 +39,9 @@ export function clearAllGameState() {
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
+  // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
+  // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
+  useBookStore.getState().resetToPrologue();
 }
 
 /** 从本会话页面重建剧情摘要世界书条目（与 useChatPipeline 每回合写摘要逻辑一致）。

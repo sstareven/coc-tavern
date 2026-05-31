@@ -642,6 +642,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     async (text: string): Promise<string> => {
       const trimmed = text.trim();
       if (!trimmed || loadingRef.current) return trimmed;
+      // 防御性兜底：无活跃会话时绝不发起 LLM 调用——避免删活跃会话后残留态被注入(跨会话混档防线)。
+      if (!useChatStore.getState().activeId) return trimmed;
 
       // Tick sticky/cooldown counters and increment message count
       messageCountRef.current++;
