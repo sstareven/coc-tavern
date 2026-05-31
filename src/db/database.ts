@@ -1,14 +1,265 @@
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Transaction } from 'dexie';
+import type {
+  BookPage,
+  ChatMessage,
+  CharacterSheet,
+  InventoryItem,
+  GameVariable,
+} from '../types';
+import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
 
+// ===== KV (legacy single-table blob store; v1, unchanged in v2) =====
 interface KVRecord {
   key: string;
   value: string;
 }
 
+// ===== Relational row shapes (v2) =====
+// Conversation metadata. Pages + gameState domains live in child tables.
+export interface ConversationRow {
+  id: string;
+  name: string;
+  presetId: string | null;
+  lorebookIds: string[];
+  messages: ChatMessage[];
+  /** Denormalized count of rows in the `pages` table for this conversation. */
+  pageCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// One storybook page. Compound primary key [conversationId+index].
+export type PageRow = { conversationId: string; index: number } & BookPage;
+
+// COC character sheet, one per conversation. Primary key conversationId.
+export interface CharsheetRow {
+  conversationId: string;
+  sheet: CharacterSheet;
+}
+
+// One inventory item. Compound primary key [conversationId+itemId].
+export type InventoryRow = { conversationId: string; itemId: string } & InventoryItem;
+
+// One dark-thread entry. Compound primary key [conversationId+entryId].
+export type DarkThreadRow = { conversationId: string; entryId: string } & DarkThreadEntry;
+
+// One keyword definition. Compound primary key [conversationId+word].
+export interface KeywordRow {
+  conversationId: string;
+  word: string;
+  meaning: string;
+}
+
+// One MVU game variable. Compound primary key [conversationId+name].
+export type GameVarRow = { conversationId: string; name: string } & GameVariable;
+
+// One TavernHelper macro variable. Compound primary key [conversationId+name].
+export interface MacroVarRow {
+  conversationId: string;
+  name: string;
+  value: string;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
+  conversations: EntityTable<ConversationRow, 'id'>;
+  pages: EntityTable<PageRow>;
+  charsheets: EntityTable<CharsheetRow, 'conversationId'>;
+  inventory: EntityTable<InventoryRow>;
+  darkThreads: EntityTable<DarkThreadRow>;
+  keywords: EntityTable<KeywordRow>;
+  gameVars: EntityTable<GameVarRow>;
+  macroVars: EntityTable<MacroVarRow>;
 };
 
 db.version(1).stores({
   kvStore: '&key',
 });
+
+/** v2 schema definition. Exported so tests can build isolated DB instances
+ *  that reproduce the exact same store layout + upgrade hook. */
+export const V2_SCHEMA = {
+  kvStore: '&key', // unchanged
+  conversations: '&id, updatedAt',
+  pages: '[conversationId+index], conversationId',
+  charsheets: '&conversationId',
+  inventory: '[conversationId+itemId], conversationId',
+  darkThreads: '[conversationId+entryId], conversationId',
+  keywords: '[conversationId+word], conversationId',
+  gameVars: '[conversationId+name], conversationId',
+  macroVars: '[conversationId+name], conversationId',
+} as const;
+
+db.version(2).stores(V2_SCHEMA).upgrade(upgradeV2);
+
+export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
+
+// Minimal shapes for parsing the legacy persisted blobs.
+interface LegacyGameState {
+  character?: CharacterSheet;
+  inventory?: InventoryItem[];
+  darkThread?: DarkThreadEntry[];
+  keywords?: Record<string, string>;
+  variables?: Record<string, GameVariable>;
+  macroVars?: Record<string, string>;
+}
+
+interface LegacyChatSession {
+  id: string;
+  name: string;
+  messages?: ChatMessage[];
+  pages?: BookPage[];
+  presetId?: string | null;
+  lorebookIds?: string[];
+  createdAt?: number;
+  updatedAt?: number;
+  gameState?: LegacyGameState;
+}
+
+interface PersistEnvelope<T> {
+  state?: T;
+  version?: number;
+}
+
+function parseEnvelope<T>(raw: string | undefined): T | null {
+  if (raw === undefined) return null;
+  try {
+    const parsed = JSON.parse(raw) as PersistEnvelope<T> | T;
+    if (parsed && typeof parsed === 'object' && 'state' in parsed) {
+      return ((parsed as PersistEnvelope<T>).state ?? null) as T | null;
+    }
+    return parsed as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * v1 -> v2 upgrade: explode the `coc_chat_v1` blob (and per-session gameState)
+ * into relational tables. Per-session gameState WINS — standalone residual
+ * blobs (coc_character / coc_darkthread_v1 / coc_keywords_v1) are last-active
+ * leftovers and are intentionally NOT used as a source of truth here.
+ *
+ * Idempotent (rewrites the same rows from the same source blob on re-run),
+ * never deletes the source blobs, and records `_v2_upgrade_failed` in kvStore
+ * if anything throws so callers can detect a partial migration.
+ */
+export async function upgradeV2(tx: Transaction): Promise<void> {
+  try {
+    const kv = tx.table<KVRecord, string>('kvStore');
+    const chatRec = await kv.get('coc_chat_v1');
+    const chat = parseEnvelope<{ sessions?: LegacyChatSession[] }>(chatRec?.value);
+    const sessions = chat?.sessions;
+    if (!Array.isArray(sessions) || sessions.length === 0) return;
+
+    const conversations = tx.table<ConversationRow, string>('conversations');
+    const pages = tx.table<PageRow>('pages');
+    const charsheets = tx.table<CharsheetRow, string>('charsheets');
+    const inventory = tx.table<InventoryRow>('inventory');
+    const darkThreads = tx.table<DarkThreadRow>('darkThreads');
+    const keywords = tx.table<KeywordRow>('keywords');
+    const gameVars = tx.table<GameVarRow>('gameVars');
+    const macroVars = tx.table<MacroVarRow>('macroVars');
+
+    for (const session of sessions) {
+      if (!session || typeof session.id !== 'string') continue;
+      const cid = session.id;
+      const now = Date.now();
+
+      const pageList = Array.isArray(session.pages) ? session.pages : [];
+      const pageRows: PageRow[] = pageList.map((page, index) => ({
+        ...page,
+        conversationId: cid,
+        index,
+      }));
+
+      await conversations.put({
+        id: cid,
+        name: typeof session.name === 'string' ? session.name : '',
+        presetId: session.presetId ?? null,
+        lorebookIds: Array.isArray(session.lorebookIds) ? session.lorebookIds : [],
+        messages: Array.isArray(session.messages) ? session.messages : [],
+        pageCount: pageRows.length,
+        createdAt: typeof session.createdAt === 'number' ? session.createdAt : now,
+        updatedAt: typeof session.updatedAt === 'number' ? session.updatedAt : now,
+      });
+
+      await pages.where('conversationId').equals(cid).delete();
+      if (pageRows.length > 0) await pages.bulkPut(pageRows);
+
+      const gs = session.gameState;
+
+      // charsheet (one per conversation; put = upsert)
+      if (gs?.character) {
+        await charsheets.put({ conversationId: cid, sheet: gs.character });
+      } else {
+        await charsheets.delete(cid);
+      }
+
+      // inventory
+      await inventory.where('conversationId').equals(cid).delete();
+      if (Array.isArray(gs?.inventory) && gs.inventory.length > 0) {
+        const rows: InventoryRow[] = gs.inventory.map((item) => ({
+          ...item,
+          conversationId: cid,
+          itemId: item.id,
+        }));
+        await inventory.bulkPut(rows);
+      }
+
+      // darkThreads
+      await darkThreads.where('conversationId').equals(cid).delete();
+      if (Array.isArray(gs?.darkThread) && gs.darkThread.length > 0) {
+        const rows: DarkThreadRow[] = gs.darkThread.map((entry) => ({
+          ...entry,
+          conversationId: cid,
+          entryId: entry.id,
+        }));
+        await darkThreads.bulkPut(rows);
+      }
+
+      // keywords
+      await keywords.where('conversationId').equals(cid).delete();
+      if (gs?.keywords) {
+        const rows: KeywordRow[] = Object.entries(gs.keywords).map(([word, meaning]) => ({
+          conversationId: cid,
+          word,
+          meaning,
+        }));
+        if (rows.length > 0) await keywords.bulkPut(rows);
+      }
+
+      // gameVars (MVU variables)
+      await gameVars.where('conversationId').equals(cid).delete();
+      if (gs?.variables) {
+        const rows: GameVarRow[] = Object.entries(gs.variables).map(([name, variable]) => ({
+          ...variable,
+          conversationId: cid,
+          name,
+        }));
+        if (rows.length > 0) await gameVars.bulkPut(rows);
+      }
+
+      // macroVars (TavernHelper /set variables)
+      await macroVars.where('conversationId').equals(cid).delete();
+      if (gs?.macroVars) {
+        const rows: MacroVarRow[] = Object.entries(gs.macroVars).map(([name, value]) => ({
+          conversationId: cid,
+          name,
+          value,
+        }));
+        if (rows.length > 0) await macroVars.bulkPut(rows);
+      }
+    }
+  } catch (err) {
+    console.error('[DB] v2 upgrade failed:', err);
+    try {
+      await tx.table<KVRecord, string>('kvStore').put({
+        key: V2_UPGRADE_FAILED,
+        value: 'true',
+      });
+    } catch {
+      // best-effort flag; swallow secondary failure
+    }
+  }
+}
