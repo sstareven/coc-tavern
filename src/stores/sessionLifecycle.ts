@@ -30,7 +30,9 @@ const STAT_DATA_ROW_NAME = '__statData__';
  */
 export function clearAllGameState() {
   useCharSheetStore.getState().setSheet(defaultSheet);
+  useCharSheetStore.getState().close();
   useInventoryStore.getState().clearAll();
+  useInventoryStore.getState().close();
   useDarkThreadStore.getState().clearAll();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});
