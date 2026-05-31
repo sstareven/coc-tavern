@@ -5,28 +5,13 @@ import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useChatStore } from '../../stores/useChatStore';
-import { useBookStore } from '../../stores/useBookStore';
-import { restoreSessionGameState } from '../../stores/sessionLifecycle';
 
 interface Props { onReturnToMenu: () => void }
 
 export function GameView({ onReturnToMenu }: Props) {
-  // Restore the active session's FULL game state on mount (pages + character/inventory/
-  // darkThread/keywords/variables/macroVars). restoreSessionGameState clears all per-session
-  // stores first, so启动时不会残留上一次运行/上一个会话的变量（HP/SAN 等）。
-  useEffect(() => {
-    const activeId = useChatStore.getState().activeId;
-    if (activeId) {
-      restoreSessionGameState(activeId);
-    } else {
-      const savedPages = useChatStore.getState().getActivePages();
-      if (savedPages.length > 0) {
-        useBookStore.getState().setPages(savedPages);
-      }
-    }
-  }, []);
-
+  // Session game state is loaded by switchConversation/loadConversation when entering a game
+  // (via LoadGameModal onSelect or new-game flow), so GameView does NOT re-restore on mount —
+  // that would double-load over the already-loaded state.
   const [diceAnim, setDiceAnim] = useState<{
     visible: boolean; skillName: string; target: number; roll: number; resultType: string; inputText: string;
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
