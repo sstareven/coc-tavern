@@ -49,7 +49,7 @@ export function ActionSheet() {
             flexShrink: 0, margin: '0 10px 8px', padding: '10px',
             borderRadius: 8, border: 'none',
             background: 'linear-gradient(180deg, #c4a855, #a8893f)',
-            color: '#1a1410', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 14, letterSpacing: 1,
+            color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, letterSpacing: 3,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             boxShadow: '0 3px 9px rgba(0,0,0,0.4)', cursor: 'pointer',
             transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1), filter 0.2s cubic-bezier(0.4,0,0.2,1)',
@@ -78,9 +78,9 @@ export function ActionSheet() {
             {/* grip */}
             <div onClick={() => setOpen(false)}
               style={{ width: 36, height: 4, background: 'var(--ink-subtle)', borderRadius: 3, margin: '0 auto 8px', cursor: 'pointer' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7,
-              fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, color: 'var(--gold)', textTransform: 'uppercase' }}>
-              <span>选择行动</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7,
+              fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, color: 'var(--gold)' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 3 }}>选择行动</span>
               <span style={{ color: 'var(--ink-subtle)', cursor: 'pointer' }} onClick={() => setOpen(false)}>收起 ▼</span>
             </div>
 
