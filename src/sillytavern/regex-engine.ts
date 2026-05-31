@@ -89,7 +89,10 @@ export function runRegexScript(
 
   return rawString.replace(findRegex, function (this: string, ...args: (string | number | undefined)[]) {
     const matched = args[0] as string;
-    const groups = args[args.length - 2];
+    // String.prototype.replace 回调实参：有命名组时末位(len-1)才是 groups 对象，
+    // len-2 是输入字符串；无命名组时末位是输入字符串、len-2 是 offset 数字。
+    // 故取末位并在下方用 typeof === 'object' 守卫（无命名组时末位为 string，自动跳过）。
+    const groups = args[args.length - 1];
 
     let replaceString = script.replaceString.replace(/{{match}}/gi, matched);
 
