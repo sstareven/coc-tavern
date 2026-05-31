@@ -34,6 +34,7 @@ import {
 import { trimToBudget, getModelBudget } from '../sillytavern/context-manager';
 import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
+import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
@@ -471,6 +472,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       setLoading(true);
       setError('');
+      useStatusToastStore.getState().showProcessing('正在窥探深渊，等待档案浮现…');
       pushLog(
         'info',
         `发送API请求 — 模型: ${settings.apiModel}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`,
@@ -535,6 +537,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
+          useStatusToastStore.getState().showProcessing('正在解析状态变量…');
           try {
             const extracted = await extractVariablesWithLLM(
               hookProcessedContent,
@@ -561,6 +564,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           'info',
           `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
+        useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
 
         const chatStore = useChatStore.getState();
@@ -656,6 +660,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       } catch (err) {
         const message = err instanceof Error ? err.message : 'AI请求失败';
         pushLog('error', `API请求失败: ${message}`, 'api');
+        useStatusToastStore.getState().showError(`窥探失败：${message}`);
         setError(message);
         return false;
       } finally {
@@ -768,6 +773,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     loadingRef.current = true;
     setLoading(true);
     setError('');
+    useStatusToastStore.getState().showProcessing('正在推演可能的行动…');
     try {
       const settings = useSettingsStore.getState();
       const useIndep = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey;
@@ -775,6 +781,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const apiKey = useIndep ? settings.rewriteApiKey : settings.apiKey;
       const model = useIndep ? settings.rewriteApiModel : settings.apiModel;
       if (!apiKey) {
+        useStatusToastStore.getState().showError('请先在设置中配置API');
         setError('请先在设置中配置API');
         return;
       }
@@ -829,6 +836,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!block) {
         // 重试用尽仍非合法 JSON → 不生成补写，提示失败
         pushLog('error', `[行动补写] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃。`, 'system');
+        useStatusToastStore.getState().showError('补写失败：未能拟出可行的行动');
         setError(`行动补写生成失败：AI 连续 ${attempt + 1} 次未按格式返回（可重试）。`);
         return;
       }
@@ -836,7 +844,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       useBookStore.getState().setPageRewrite(idx, block);
       useChatStore.getState().savePages(useBookStore.getState().pages);
       pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`);
+      useStatusToastStore.getState().markDone(`已拟出 ${block.choices.length} 种可能`);
     } catch (e) {
+      useStatusToastStore.getState().showError(`补写失败：${e instanceof Error ? e.message : String(e)}`);
       setError(`行动补写失败: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       loadingRef.current = false;

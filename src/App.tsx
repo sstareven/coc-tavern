@@ -18,6 +18,7 @@ import { VariablePanel } from './components/Settings/VariablePanel';
 import { DebugLog } from './components/Shared/DebugLog';
 import { DebugConsole } from './components/Shared/DebugConsole';
 import { ErrorModal } from './components/Shared/ErrorModal';
+import { StatusToast } from './components/Shared/StatusToast';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
@@ -155,6 +156,7 @@ export function App() {
       <DebugLog />
       <DebugConsole />
       <ErrorModal />
+      <StatusToast />
     </>
     </ErrorBoundary>
   );
