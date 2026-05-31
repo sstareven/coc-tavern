@@ -20,6 +20,7 @@ import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } fro
 import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
 import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
+import { filterAlreadyAcquiredAdds } from '../sillytavern/item-acquisition';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
@@ -594,6 +595,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         const bookStore = useBookStore.getState();
+        // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。
+        const rewriteSourceIdx = bookStore.pageIndex;
         if (replace) {
           bookStore.replacePage(bookStore.pageIndex, newPage);
           pushLog('info', `页面已重新生成 — ${newPage.leftHeader}`);
@@ -647,8 +650,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {
-          useInventoryStore.getState().applyChanges(newPage.inventoryChanges);
-          pushLog('info', `物品更新: ${newPage.inventoryChanges.length}项变化`, 'system');
+          // 防重复：若上一页（补写所在页）已通过拾取选项直接入库了某物品，
+          // 则丢弃本回合正文对同名物品的 add，避免 applyChanges 按名合并致数量翻倍。
+          const rewritePage = bookStore.pages[rewriteSourceIdx];
+          const acquired = rewritePage?.acquiredItems ?? [];
+          const dedupedChanges = filterAlreadyAcquiredAdds(newPage.inventoryChanges, acquired);
+          if (dedupedChanges.length > 0) {
+            useInventoryStore.getState().applyChanges(dedupedChanges);
+            pushLog('info', `物品更新: ${dedupedChanges.length}项变化`, 'system');
+          }
+          if (dedupedChanges.length < newPage.inventoryChanges.length) {
+            pushLog('debug', `[物品] 已过滤 ${newPage.inventoryChanges.length - dedupedChanges.length} 项补写已入库的重复物品`, 'system');
+          }
         }
 
         // Persist full game state for this conversation into Dexie v2 relational

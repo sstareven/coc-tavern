@@ -14,4 +14,12 @@ export const REWRITE_INSTRUCTION = [
   '  ]',
   '}',
   'choices 的 text 必须是纯叙事文字，禁止包含检定标记或技能名前缀；检定信息只能出现在 action 字段。必须恰好 4 个选项。',
+  '',
+  '【拾取物品规则】若玩家这次输入表达了「拿走 / 捡起 / 获取 / 收起 某物」的取物意图：',
+  '1) 先核对该物品是否已在【当前场景叙述】（上文正文）中明确出现过。',
+  '2) 仅当该物品确实在场景中存在时，才在对应那一个选项上附加 "itemGain" 字段，例如：',
+  '   {"num": "V", "text": "你拾起那把黄铜钥匙", "action": "捡起黄铜钥匙", "itemGain": {"name": "黄铜钥匙", "category": "key_item"}}',
+  '   category 取值：weapon/tool/consumable/clue/key_item/misc 之一。name 用场景中该物品的称呼。',
+  '3) 严禁凭空臆造场景中并不存在的物品；若场景没有该物品、或你不确定，则不要附加 itemGain（可改为引导玩家四处搜寻）。',
+  '4) 其余非取物选项一律不要带 itemGain。',
 ].join('\n');

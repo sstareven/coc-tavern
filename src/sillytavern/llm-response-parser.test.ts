@@ -248,6 +248,25 @@ describe('parseRewriteResponse', () => {
     const list = '迟缓的拖拽声。\n选项一：质问柯林斯\n选项二：坐下\n选项三：逼到墙边\n选项四：搜查';
     expect(parseRewriteResponse(list)).toBeNull();
   });
+
+  it('保留拾取选项的 itemGain（name + 合法 category）', () => {
+    const raw = '{"text":"你伸手去拿。","choices":[{"num":"V","text":"捡起黄铜钥匙","action":"拾取","itemGain":{"name":"黄铜钥匙","category":"key_item"}},{"text":"后退","action":"后退"}]}';
+    const r = parseRewriteResponse(raw)!;
+    expect(r.choices[0].itemGain).toEqual({ name: '黄铜钥匙', category: 'key_item' });
+    expect(r.choices[1].itemGain).toBeUndefined();
+  });
+
+  it('itemGain 非法 category 时丢弃 category 仅留 name', () => {
+    const raw = '{"text":"t","choices":[{"text":"捡起信件","action":"a","itemGain":{"name":"泛黄的信","category":"乱填"}}]}';
+    const r = parseRewriteResponse(raw)!;
+    expect(r.choices[0].itemGain).toEqual({ name: '泛黄的信' });
+  });
+
+  it('itemGain.name 为空时整体忽略', () => {
+    const raw = '{"text":"t","choices":[{"text":"x","action":"a","itemGain":{"name":"  ","category":"tool"}}]}';
+    const r = parseRewriteResponse(raw)!;
+    expect(r.choices[0].itemGain).toBeUndefined();
+  });
 });
 // ============================================================
 // parseLlmResponse — 非 JSON 返回 null（救场已移除）

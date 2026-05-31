@@ -5,6 +5,8 @@ import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
 
+const VALID_ITEM_CATEGORIES = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
+
 export interface DarkThreadData {
   development: string;
   progress: number;
@@ -277,7 +279,7 @@ function longestCommonSubstr(a: string, b: string): number {
   return best;
 }
 
-function itemNarrated(name: string, narrative: string): boolean {
+export function itemNarrated(name: string, narrative: string): boolean {
   const n = normForMatch(name);
   if (!n) return false;
   const hay = normForMatch(narrative);
@@ -375,7 +377,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     const summary = typeof parsed.summary === 'string' ? parsed.summary : undefined;
 
     const validActions = new Set<InventoryAction>(['add', 'remove', 'equip', 'unequip', 'update']);
-    const validCategories = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
+    const validCategories = VALID_ITEM_CATEGORIES;
     let inventoryChanges: InventoryChange[] | undefined;
     if (Array.isArray(parsed.inventoryChanges)) {
       // 物品叙事一致性硬执行：获取(add)/失去(remove)的物品名必须在本回合叙事中被提及，
@@ -460,11 +462,26 @@ export function parseRewriteResponse(raw: string): RewriteBlock | null {
   const rawChoices = Array.isArray(parsed.choices) ? (parsed.choices as Record<string, unknown>[]) : [];
   if (!text && rawChoices.length === 0) return null;
 
-  const choices: ChoiceItem[] = rawChoices.slice(0, 4).map((c, i) => ({
-    num: REWRITE_NUMERALS[i],
-    text: cleanChoiceField(String(c?.text ?? `选项 ${i + 1}`)),
-    action: cleanChoiceField(String(c?.action ?? c?.text ?? '')),
-  }));
+  const choices: ChoiceItem[] = rawChoices.slice(0, 4).map((c, i) => {
+    const choice: ChoiceItem = {
+      num: REWRITE_NUMERALS[i],
+      text: cleanChoiceField(String(c?.text ?? `选项 ${i + 1}`)),
+      action: cleanChoiceField(String(c?.action ?? c?.text ?? '')),
+    };
+    // 拾取物品：仅当 itemGain.name 为非空字符串时保留；category 非法则丢弃（让入库时按 misc 兜底）。
+    const ig = c?.itemGain;
+    if (ig && typeof ig === 'object') {
+      const name = String((ig as Record<string, unknown>).name ?? '').trim();
+      if (name) {
+        const rawCat = (ig as Record<string, unknown>).category;
+        const category = typeof rawCat === 'string' && VALID_ITEM_CATEGORIES.has(rawCat as ItemCategory)
+          ? (rawCat as ItemCategory)
+          : undefined;
+        choice.itemGain = category ? { name, category } : { name };
+      }
+    }
+    return choice;
+  });
   while (choices.length < 4) {
     const i = choices.length;
     choices.push({ num: REWRITE_NUMERALS[i], text: '继续当前行动', action: '继续当前行动' });

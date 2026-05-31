@@ -101,6 +101,8 @@ interface BookStore {
   /** 重置到全新序章（新建人物时调用，确保新会话不残留上一局的页面）。 */
   resetToPrologue: () => void;
   setPageRewrite: (index: number, block: RewriteBlock | undefined) => void;
+  /** 记录某页经行动补写已直接入库的物品名（用于阻止后续正文重复计数）。 */
+  setPageAcquiredItems: (index: number, names: string[]) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -246,7 +248,16 @@ export const useBookStore = create<BookStore>((set, get) => ({
   setPageRewrite: (index, block) => set((s) => {
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
-    pages[index] = { ...pages[index], rewrite: block };
+    // 重新续写（re-roll）会重生选项，清空该页此前补写拾取记录，避免拾取A后重写又拾取B二者皆入库。
+    pages[index] = { ...pages[index], rewrite: block, acquiredItems: undefined };
+    return { pages };
+  }),
+  setPageAcquiredItems: (index, names) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    const prev = pages[index].acquiredItems ?? [];
+    const merged = Array.from(new Set([...prev, ...names]));
+    pages[index] = { ...pages[index], acquiredItems: merged };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {

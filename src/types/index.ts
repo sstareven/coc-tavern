@@ -60,6 +60,8 @@ export interface BookPage {
   diceResults?: DiceRecord[];
   inventoryChanges?: InventoryChange[];
   rewrite?: RewriteBlock;
+  /** 行动补写拾取已直接入库的物品名，用于阻止后续正文 API 对同名物品重复计数。随页面持久化。 */
+  acquiredItems?: string[];
 }
 
 // ===== Inventory System =====
@@ -94,6 +96,8 @@ export interface ChoiceItem {
   num: string;
   text: string;
   action: string;
+  /** 行动补写专用：玩家拾取意图选项上附带的获取物品（仅当该物品已在当前场景叙述中出现）。 */
+  itemGain?: { name: string; category?: ItemCategory };
 }
 
 export interface RewriteBlock {

@@ -9,6 +9,8 @@ import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
+import { itemNarrated } from '../../sillytavern/llm-response-parser';
+import { pushLog } from '../../stores/useLogStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
@@ -530,6 +532,29 @@ function buildChoiceInput(ch: ChoiceItem): string {
   return `${t}。${a}`;
 }
 
+/**
+ * 行动补写拾取提交：当玩家点选带 itemGain 的补写选项时，
+ * 第二道防无中生有校验——物品名必须在当前页场景叙述(左+右正文)中出现，
+ * 通过则直接入库并记到该页 acquiredItems（供后续正文去重），否则拒绝并告警。
+ */
+function commitRewriteItemGain(ch: ChoiceItem): void {
+  const gain = ch.itemGain;
+  if (!gain?.name) return;
+  const bs = useBookStore.getState();
+  const idx = bs.pageIndex;
+  const page = bs.pages[idx];
+  const scene = (page?.leftContent ?? '') + '\n' + (page?.rightContent ?? '');
+  if (!itemNarrated(gain.name, scene)) {
+    pushLog('warn', `[补写拾取] 物品「${gain.name}」未在当前场景叙述中出现，已拒绝拾取（防无中生有）`, 'system');
+    return;
+  }
+  useInventoryStore.getState().applyChanges([
+    { action: 'add', name: gain.name, ...(gain.category ? { category: gain.category } : {}) },
+  ]);
+  bs.setPageAcquiredItems(idx, [gain.name]);
+  pushLog('info', `[补写拾取] 已获得「${gain.name}」`, 'system');
+}
+
 function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
   const [hovered, setHovered] = useState(false);
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
@@ -541,7 +566,7 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
 
   return (
     <button
-      onClick={() => fillInputBar(buildChoiceInput(ch))}
+      onClick={() => { commitRewriteItemGain(ch); fillInputBar(buildChoiceInput(ch)); }}
       disabled={!isLatestPage}
       title={!isLatestPage ? '只有最新一页的选项可以选择' : undefined}
       style={{

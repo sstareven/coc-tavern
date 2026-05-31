@@ -125,4 +125,5 @@ npm run preview    # 预览生产构建
 - [ ] 预设角色档案的 personality/scenario/personaDescription 仅保留默认值（创建流程未收集）
 - [ ] `src/sillytavern/llm-response-parser.ts` 从 `../components/Shared/KeywordTooltip` 导入 — 引擎→组件跨层违规，`addKeywordMeanings` 应移到引擎层
 - [ ] `CodeBlockRenderer.tsx` 的 `setInterval` 未在 unmount 时清理，可能内存泄漏
+- [ ] 行动补写拾取（`itemGain`）：玩家点拾取选项A（已入库+记 `acquiredItems`）后再「重新续写」，会清空该页 `acquiredItems` 但**不移除已入库的物品A**；若随后再拾取B，则A、B皆在物品栏（v1 已接受的边界，re-roll 仅清去重记录不回滚物品）
 - [x] ~~`PageFlip.tsx`（Framer Motion 版）已删除，翻页统一由 `PageFlip3D.tsx`（CSS 3D 版）实现~~
