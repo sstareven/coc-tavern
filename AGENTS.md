@@ -15,7 +15,7 @@
 ```
 ./
 ├── src/
-│   ├── sillytavern/     # 引擎层 — 28 源文件 (+test), 纯计算 + store-glue + dice engine
+│   ├── sillytavern/     # 引擎层 — 35 源文件 (+test), 纯计算 + store-glue + dice engine + MVU ZOD
 │   ├── stores/          # 18 个 store/helper (+3 test) — 7 个接入 IndexedDB (Dexie persist)
 │   ├── components/
 │   │   ├── Book/        # 故事书双页翻页 (9 files, PageFlip.tsx 已删除)
@@ -42,6 +42,7 @@
 | Prompt 组装 | `src/sillytavern/prompt-assembler.ts` | 世界书注入 + 模板渲染 |
 | 正则脚本执行 | `src/sillytavern/regex-engine.ts` | LRU 缓存 Provider |
 | 变量提取/合并 | `src/sillytavern/variables.ts` + `mvu-extractor.ts` | XML + LLM-based |
+| MVU ZOD 变量系统 | `mvu-jsonpatch.ts` + `mvu-charsheet-redirect.ts` + `mvu-var-access.ts` + `mvu-flatten.ts` + `mvu-format.ts` + `mvu-initial-statdata.ts` | JSON Patch(replace/delta/insert/remove/move) over statData 嵌套树;调查员.* 重定向角色卡(单源真理);`{{format_message_variable::stat_data}}` 宏;statData 存 useVariableStore 树 + blob 持久化 |
 | 斜杠命令 | `src/sillytavern/slash-commands.ts` | `/roll /var /set /help` |
 | EJS 模板 | `src/sillytavern/ejs-template.ts` | LRU 缓存，沙箱 eval |
 | 状态管理 | `src/stores/useXxxStore.ts` | 18 store/helper，7 个 Dexie persist 持久化，其余纯内存 |
@@ -90,7 +91,7 @@
 - **内联 style 对象重复** — `closeBtnStyle` / `actionBtnStyle` / `inputStyle` 在 10+ 文件中重复定义。`src/styles/panelStyles.ts` 仅提供 `closeBtnStyle`。新增 CSSProperties 前检查是否已有。
 - **空 catch 块** — 已大幅清理至 **2 处**（`ExtManager.tsx:12`、`migrations.ts:33`）。`ejs-template.ts` 内的 catch 在模板字符串里（生成代码），非真实捕获。新增 catch 至少加 `console.warn`。
 - **直接 `localStorage` 绕过 Dexie** — 现仅剩 `db/` 层合法用法（`kv.ts`、`migrations.ts` 共 4 处）。`PresetPanel.tsx`/`ExtManager.tsx`/`useChatPipeline.ts` 的旧绕过已消除。
-- **测试覆盖** — 392 个 test，22 个 `.test.ts` 文件（macro-engine 99 + llm-response-parser 43 + dice-engine 35 + resolvePlayerValue 23 + coc-rules 18 + prompt-assembler + rewrite-lite + mvu-extractor 等）。新增复杂逻辑应补测试。
+- **测试覆盖** — 519 个 test，29 个 `.test.ts` 文件（macro-engine 102 + llm-response-parser 58 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + mvu-flatten/mvu-var-access/mvu-initial-statdata + prompt-assembler + rewrite-lite + item-acquisition 等）。新增复杂逻辑应补测试。
 
 ## UNIQUE STYLES
 
@@ -106,7 +107,7 @@
 npm run dev        # Vite 开发服务器
 npm run build      # tsc -b 类型检查 + Vite 构建
 npm run lint       # ESLint (flat config v10)
-npm test           # Vitest (392 tests)
+npm test           # Vitest (519 tests)
 npm run preview    # 预览生产构建
 ```
 
@@ -115,7 +116,7 @@ npm run preview    # 预览生产构建
 - `src/db/database.ts` — Dexie schema + Zustand persist 中间件已激活（7 个 store 持久化至 IndexedDB）。白屏问题已修复
 - `src/components/Book/PageFlip.tsx` 已删除 — 翻页统一由 `PageFlip3D.tsx`（CSS 3D）实现。
 - Playwright `test-results/` 来自环境 agent，非项目测试。
-- 测试覆盖：392 tests / 22 文件（macro-engine 99 + llm-response-parser 43 + dice-engine 35 + resolvePlayerValue 23 + coc-rules 18 + choice-match 15 + prompt-assembler + rewrite-lite + mvu-extractor + ...），Vitest + fake-indexeddb
+- 测试覆盖：519 tests / 29 文件（macro-engine 102 + llm-response-parser 58 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + choice-match 15 + prompt-assembler + rewrite-lite + item-acquisition + mvu-flatten/var-access/initial-statdata + ...），Vitest + fake-indexeddb
 - 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/db/` `src/components/Book/` `src/components/CharSheet/` `src/components/Dice/` `src/components/Layout/` `src/components/Settings/` `src/components/Shared/`
 
 ## 待办 / 已知问题

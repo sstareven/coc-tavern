@@ -23,7 +23,7 @@
 | `useBookStore.ts` | 故事书页面、翻页状态 | 内存（会话态，存关系表 `pages`） | — |
 | `useDiceStore.ts` | 骰子检定状态机 | 内存 | — |
 | `useRegexStore.ts` | 全局/预设正则脚本 | 内存 | — |
-| `useVariableStore.ts` | MVU 游戏变量 | 内存 | — |
+| `useVariableStore.ts` | MVU 游戏变量(扁平 variables + statData ZOD 嵌套树) | 内存 | — |
 | `usePanelStore.ts` | UI 面板开/关状态 | 内存 | — |
 | `useLogStore.ts` | 调试日志缓冲 | 内存 | — |
 | `usePromptViewerStore.ts` | Prompt 预览快照 | 内存 | — |
