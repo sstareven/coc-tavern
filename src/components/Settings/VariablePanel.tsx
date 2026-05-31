@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVariableStore } from '../../stores/useVariableStore';
+import { flattenStatData } from '../../sillytavern/mvu-flatten';
 import type { GameVariable } from '../../types';
 
 const SOURCE_LABELS: Record<GameVariable['source'], { label: string; color: string }> = {
@@ -23,6 +24,7 @@ export function VariablePanel({ visible, onClose }: Props) {
   const importVariables = useVariableStore((s) => s.importVariables);
   const exportVariables = useVariableStore((s) => s.exportVariables);
   const clearAll = useVariableStore((s) => s.clearAll);
+  const statData = useVariableStore((s) => s.statData);
 
   const [addName, setAddName] = useState('');
   const [addValue, setAddValue] = useState('');
@@ -32,6 +34,7 @@ export function VariablePanel({ visible, onClose }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [importJson, setImportJson] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showStat, setShowStat] = useState(true);
 
   const entries = Object.values(variables);
   const filtered = filter === 'all'
@@ -39,6 +42,9 @@ export function VariablePanel({ visible, onClose }: Props) {
     : entries.filter((v) => v.source === filter);
   // Sort by name
   filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+  // statData 剧情状态树拍平为 点路径=值（复用引擎层 flattenStatData，自动跳过 _/$ 元键、JSON 化数组）
+  const flatStat = Object.entries(flattenStatData(statData)).sort((a, b) => a[0].localeCompare(b[0]));
 
   const handleAdd = () => {
     if (!addName.trim()) return;
@@ -280,6 +286,61 @@ export function VariablePanel({ visible, onClose }: Props) {
               {filter === 'all' ? '暂无变量，在上方添加或通过 AI 自动生成' : `没有来源为"${SOURCE_LABELS[filter].label}"的变量`}
             </div>
           )}
+        </div>
+
+        {/* statData 剧情状态树（只读 · 世界/剧情/战斗，由 AI 经 JSONPatch 演化） */}
+        <div style={{ marginTop: 14, flexShrink: 0 }}>
+          <button
+            onClick={() => setShowStat(!showStat)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 9,
+              letterSpacing: 2, textTransform: 'uppercase', padding: '4px 0',
+            }}>
+            <span style={{
+              display: 'inline-block', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)',
+              transform: showStat ? 'rotate(90deg)' : 'none',
+            }}>▸</span>
+            剧情状态树 · statData（只读 · {flatStat.length}）
+          </button>
+          <AnimatePresence>
+            {showStat && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                style={{ overflow: 'hidden' }}>
+                <div style={{
+                  maxHeight: 180, overflowY: 'auto', borderRadius: 4,
+                  border: '1px solid rgba(196,168,85,0.08)', background: 'rgba(0,0,0,0.15)',
+                }}>
+                  {flatStat.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-subtle)', fontSize: 10 }}>
+                      暂无剧情状态，开始游戏后由 AI 演化（世界 / 剧情 / 战斗）
+                    </div>
+                  ) : (
+                    flatStat.map(([path, val]) => (
+                      <div key={path} style={{
+                        display: 'flex', gap: 10, padding: '4px 10px',
+                        borderTop: '1px solid rgba(255,255,255,0.02)',
+                      }}>
+                        <span style={{
+                          color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                          flexShrink: 0, minWidth: 130, wordBreak: 'break-all',
+                        }}>{path}</span>
+                        <span style={{
+                          color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                          wordBreak: 'break-all',
+                        }}>{val || '(空)'}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>
