@@ -307,7 +307,9 @@ function resolveMarkerContent(
 ): string {
   switch (markerId) {
     case 'main':
-      return preset.mainPrompt || '';
+      // Fall back to systemPrompt when mainPrompt is empty — otherwise the preset's
+      // system instruction is silently dropped in this (promptItems) path.
+      return preset.mainPrompt || preset.systemPrompt || '';
     case 'formatInstruction':
       return formatInstruction;
     case 'worldInfoBefore':

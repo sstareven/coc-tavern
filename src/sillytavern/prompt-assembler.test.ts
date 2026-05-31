@@ -268,6 +268,45 @@ describe('assemblePrompt — P3b static FORMAT prefix front-loading', () => {
     expect(sysIdx).toBeLessThan(fmtIdx);
     expect(fmtIdx).toBeLessThan(loreIdx);
   });
+
+  it('PATH A: `main` marker falls back to preset.systemPrompt when mainPrompt is empty', () => {
+    // Regression guard for the production COC_KP_PRESET (mainPrompt:'' + non-empty systemPrompt).
+    // Without the fallback, the system prompt never reaches the model in PATH A.
+    const preset: ChatPreset = {
+      ...minimalPreset,
+      mainPrompt: '', // empty — like the shipping preset
+      systemPrompt: 'KP_SYSTEM_PROMPT_PERSONA',
+      promptItems: [
+        markerItem('main', 0),
+        markerItem('formatInstruction', 0.5),
+        markerItem('worldInfoBefore', 1),
+      ],
+    };
+    const lore: LoreEntry[] = [loreEntry('wb', 'WORLDBOOK_BEFORE_CONTENT')];
+    const messages = assemblePrompt(
+      'user input', [], preset, lore, {}, 'FORMAT_INSTRUCTION_BLOCK',
+      { before: 'WORLDBOOK_BEFORE_CONTENT', after: '' },
+    );
+    const sysIdx = messages.findIndex((m) => m.content.includes('KP_SYSTEM_PROMPT_PERSONA'));
+    const fmtIdx = messages.findIndex((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK'));
+    const wbIdx = messages.findIndex((m) => m.content.includes('WORLDBOOK_BEFORE_CONTENT'));
+    // systemPrompt MUST reach the model, and form the static [main+FORMAT] prefix before worldbook
+    expect(sysIdx).toBeGreaterThanOrEqual(0);
+    expect(sysIdx).toBeLessThan(fmtIdx);
+    expect(fmtIdx).toBeLessThan(wbIdx);
+  });
+
+  it('PATH A: explicit mainPrompt takes precedence over systemPrompt', () => {
+    const preset: ChatPreset = {
+      ...minimalPreset,
+      mainPrompt: 'EXPLICIT_MAIN',
+      systemPrompt: 'FALLBACK_SYSTEM',
+      promptItems: [markerItem('main', 0)],
+    };
+    const messages = assemblePrompt('user input', [], preset, [], {}, '');
+    expect(messages.some((m) => m.content.includes('EXPLICIT_MAIN'))).toBe(true);
+    expect(messages.some((m) => m.content.includes('FALLBACK_SYSTEM'))).toBe(false);
+  });
 });
 
 describe('matchLoreEntries — additional matching sources', () => {
