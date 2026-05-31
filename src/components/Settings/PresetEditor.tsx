@@ -3,6 +3,7 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { DEFAULT_EDITOR_PRESET } from '../../constants/presets';
 import { BUILTIN_LIBRARY_PROMPTS } from '../../constants/prompt-library';
 import { DarkSelect } from '../Shared/DarkSelect';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { ChatPreset, PromptItem, THVariable } from '../../types';
 
 interface Props { preset: ChatPreset; onClose: () => void; onSave: (preset: ChatPreset) => void; }
@@ -42,6 +43,7 @@ const CONTENT_SOURCE: Record<string, string> = {
 };
 
 export function PresetEditor({ preset, onClose, onSave }: Props) {
+  const isMobile = useIsMobile();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const debouncedSave = useCallback((p: ChatPreset) => {
     clearTimeout(saveTimer.current);
@@ -122,7 +124,8 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
 
   return (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="pe-scroll" style={{ ...panel, minWidth: 620, maxWidth: 660, maxHeight: '90vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+      <div className="pe-scroll" style={{ ...panel, minWidth: 620, maxWidth: 660, maxHeight: '90vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
+        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
         <style>{`
           .pe-scroll::-webkit-scrollbar { width: 5px; }
           .pe-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }

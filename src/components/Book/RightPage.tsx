@@ -371,62 +371,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
-      {inventoryChanges && inventoryChanges.length > 0 && (
-        <button
-          type="button"
-          onClick={openBackpack}
-          title="点击打开背包"
-          style={{
-            display: 'block', width: '100%', textAlign: 'left',
-            marginBottom: 16, padding: '8px 10px',
-            border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
-            background: 'rgba(196,168,85,0.06)', cursor: 'pointer',
-            flexShrink: 0,
-            ...fadeStyle,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {inventoryChanges.map((c, i) => {
-              const cat = c.category ? ITEM_CAT_LABELS[c.category] : '';
-              const isGain = c.action === 'add' || c.action === 'equip'
-                || (c.action === 'update' && (c.quantity ?? 0) > 0);
-              const isLoss = c.action === 'remove' || c.action === 'unequip'
-                || (c.action === 'update' && (c.quantity ?? 0) < 0);
-              const tone = isGain ? BONUS_COLORS.bonus : isLoss ? BONUS_COLORS.penalty : BONUS_COLORS.none;
-              let prefix = '';
-              if (c.action === 'add') prefix = '＋';
-              else if (c.action === 'equip') prefix = '装备 ';
-              else if (c.action === 'remove') prefix = '－';
-              else if (c.action === 'unequip') prefix = '卸下 ';
-              let qtyLabel = '';
-              if (c.action === 'update' && typeof c.quantity === 'number') {
-                const q = c.quantity;
-                prefix = q > 0 ? '＋' : '－';
-                qtyLabel = ` ×${Math.abs(q)}`;
-              } else if (typeof c.quantity === 'number' && c.quantity > 1) {
-                qtyLabel = ` ×${c.quantity}`;
-              }
-              return (
-                <span key={i} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '2px 8px', borderRadius: 3,
-                  fontSize: 11, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
-                  color: tone.color, background: tone.bg, border: tone.border,
-                }}>
-                  <span>{prefix}{c.name}{qtyLabel}</span>
-                  {cat && <span style={{ fontSize: 9, opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
-                </span>
-              );
-            })}
-          </div>
-        </button>
-      )}
+      <InventoryChangesBar inventoryChanges={inventoryChanges ?? []} fadeStyle={fadeStyle} />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
@@ -540,8 +485,76 @@ function commitRewriteItemGain(ch: ChoiceItem): void {
   pushLog('info', `[补写拾取] 已获得「${gain.name}」`, 'system');
 }
 
-function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
+export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light' }: {
+  inventoryChanges: InventoryChange[];
+  fadeStyle?: React.CSSProperties;
+  variant?: 'light' | 'dark';
+}) {
+  if (!inventoryChanges || inventoryChanges.length === 0) return null;
+  const dark = variant === 'dark';
+  return (
+    <button
+      type="button"
+      onClick={openBackpack}
+      title="点击打开背包"
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        marginBottom: 16, padding: '8px 10px',
+        border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
+        background: 'rgba(196,168,85,0.06)', cursor: 'pointer',
+        flexShrink: 0,
+        ...fadeStyle,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {inventoryChanges.map((c, i) => {
+          const cat = c.category ? ITEM_CAT_LABELS[c.category] : '';
+          const isGain = c.action === 'add' || c.action === 'equip'
+            || (c.action === 'update' && (c.quantity ?? 0) > 0);
+          const isLoss = c.action === 'remove' || c.action === 'unequip'
+            || (c.action === 'update' && (c.quantity ?? 0) < 0);
+          const tone = isGain ? BONUS_COLORS.bonus : isLoss ? BONUS_COLORS.penalty : BONUS_COLORS.none;
+          let prefix = '';
+          if (c.action === 'add') prefix = '＋';
+          else if (c.action === 'equip') prefix = '装备 ';
+          else if (c.action === 'remove') prefix = '－';
+          else if (c.action === 'unequip') prefix = '卸下 ';
+          let qtyLabel = '';
+          if (c.action === 'update' && typeof c.quantity === 'number') {
+            const q = c.quantity;
+            prefix = q > 0 ? '＋' : '－';
+            qtyLabel = ` ×${Math.abs(q)}`;
+          } else if (typeof c.quantity === 'number' && c.quantity > 1) {
+            qtyLabel = ` ×${c.quantity}`;
+          }
+          return (
+            <span key={i} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', borderRadius: 3,
+              fontSize: 11, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
+              color: dark ? '#ece0c8' : tone.color,
+              background: dark ? 'rgba(196,168,85,0.12)' : tone.bg,
+              border: dark ? '1px solid rgba(196,168,85,0.25)' : tone.border,
+            }}>
+              <span>{prefix}{c.name}{qtyLabel}</span>
+              {cat && <span style={{ fontSize: 9, opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
+            </span>
+          );
+        })}
+      </div>
+    </button>
+  );
+}
+
+export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: ChoiceItem; variant?: 'light' | 'dark' }) {
   const [hovered, setHovered] = useState(false);
+  const dark = variant === 'dark';
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   const check = parseCheckAction(ch.action);
@@ -566,8 +579,8 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
       boxShadow: isCheck
         ? (isHovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
         : 'none',
-      borderColor: isHovered ? 'var(--gold)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)'),
-      color: isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
+      borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)')),
+      color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
       textAlign: 'left', cursor: isLatestPage ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
       opacity: isLatestPage ? 1 : 0.45,
       filter: isLatestPage ? 'none' : 'grayscale(0.6)',
@@ -584,12 +597,15 @@ function ChoiceButton({ choice: ch }: { choice: ChoiceItem }) {
           ? (check.difficulty === '极难' ? Math.floor(val / 5) : Math.floor(val / 2))
           : val;
         const c = BONUS_COLORS[check.opposed ? 'opposed' : check.bonus];
+        const tag = dark
+          ? { color: '#ece0c8', bg: 'rgba(196,168,85,0.14)', border: '1px solid rgba(196,168,85,0.3)' }
+          : c;
         return (
         <span style={{
           marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
           padding: '2px 8px', borderRadius: 3,
           fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
-          color: c.color, background: c.bg, border: c.border,
+          color: tag.color, background: tag.bg, border: tag.border,
           transition: 'border-color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {check.skillName}

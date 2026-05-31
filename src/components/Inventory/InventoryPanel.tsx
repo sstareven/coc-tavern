@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useInventoryStore, CATEGORY_LABELS, itemEquippable } from '../../stores/useInventoryStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import type { InventoryItem, ItemCategory } from '../../types';
 
 type Filter = 'all' | ItemCategory;
@@ -118,6 +120,8 @@ export function InventoryOverlay() {
   const unequipItem = useInventoryStore((s) => s.unequipItem);
 
   const [filter, setFilter] = useState<Filter>('all');
+  const isMobile = useIsMobile();
+  const [side, setSide] = useState<Side>('left');
 
   const equipped = items.filter((i) => i.equipped);
   const bagItems = items.filter((i) => !i.equipped);
@@ -141,13 +145,14 @@ export function InventoryOverlay() {
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: 'absolute', inset: 0, zIndex: 10,
-        display: 'flex', borderRadius: 4,
+        display: 'flex', flexDirection: isMobile ? 'column' : 'row', borderRadius: 4,
       }}
     >
+      {isMobile && <MobilePageToggle left="装备中" right="物品栏" side={side} onSide={setSide} />}
       {/* Left page — Equipment */}
       <motion.div
         style={{
-        flex: '1 1 0', display: 'flex', flexDirection: 'column',
+        flex: '1 1 0', display: isMobile && side !== 'left' ? 'none' : 'flex', flexDirection: 'column',
         background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '3px 0 0 3px',
         boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
@@ -214,16 +219,16 @@ export function InventoryOverlay() {
       </motion.div>
       {/* Spine */}
       <div style={{
-        width: 2, flexShrink: 0,
+        width: 2, flexShrink: 0, display: isMobile ? 'none' : 'block',
         background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)',
       }} />
 
       {/* Right page — Inventory */}
       <motion.div
-        variants={{ exit: { rotateY: -180 } }}
+        variants={isMobile ? undefined : { exit: { rotateY: -180 } }}
         transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
         style={{
-        flex: '1 1 0', display: 'flex', flexDirection: 'column',
+        flex: '1 1 0', display: isMobile && side !== 'right' ? 'none' : 'flex', flexDirection: 'column',
         background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '0 3px 3px 0',
         boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)',

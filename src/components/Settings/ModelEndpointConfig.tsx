@@ -23,7 +23,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  width: 200, padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
+  width: 200, maxWidth: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
   fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
 };
@@ -97,7 +97,7 @@ export function ModelEndpointConfig({
 
       <div style={rowStyle}>
         <span style={labelStyle}>模型</span>
-        <div style={{ width: 200 }}>
+        <div style={{ width: 200, maxWidth: '100%' }}>
           {availableModels.length > 0 ? (
             <DarkSelect compact value={model}
               onChange={(v) => setModel(v)}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { RegexScript, RegexPlacement } from '../../types';
 import { useRegexStore } from '../../stores/useRegexStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { RegexProvider, runRegexScript } from '../../sillytavern/regex-engine';
 
 const PLACEMENT_OPTIONS: { value: RegexPlacement; label: string }[] = [
@@ -17,6 +18,7 @@ function uid(): string {
 }
 
 export function RegexEditor() {
+  const isMobile = useIsMobile();
   const isOpen = useRegexStore((s) => s.isEditorOpen);
   const editingScript = useRegexStore((s) => s.editingScript);
   const editingType = useRegexStore((s) => s.editingType);
@@ -127,7 +129,7 @@ export function RegexEditor() {
     <div onClick={closeEditor} style={{ position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: 24, width: 620, maxHeight: '90vh', overflowY: 'auto', fontFamily: 'var(--font-ui)', boxShadow: '0 0 80px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+        style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: 24, width: 620, maxWidth: '100vw', maxHeight: '90vh', overflowY: 'auto', fontFamily: 'var(--font-ui)', boxShadow: '0 0 80px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)', ...(isMobile ? { width: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none', padding: 16 } : {}) }}>
         <style>{`.re-scroll::-webkit-scrollbar{width:5px}.re-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.re-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.re-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
 
         {/* Title bar */}
