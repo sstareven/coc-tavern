@@ -13,24 +13,19 @@
  */
 
 import type { THScriptTree, THScript } from '../types';
-import { useVariableStore } from '../stores/useVariableStore';
 import { useLorebookStore } from '../stores/useLorebookStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
+import { readVar, writeVar } from './mvu-var-access';
 
 // ── Script API (mirrors ejs-template.ts TemplateAPI) ──
 
 function createScriptAPI() {
   return {
     getvar(name: string, fallback = '') {
-      try {
-        const v = useVariableStore.getState().variables[name];
-        return v?.value ?? fallback;
-      } catch { return fallback; }
+      return readVar(name, fallback);
     },
     setvar(name: string, value: string) {
-      try {
-        useVariableStore.getState().setVariable(name, value, 'llm');
-      } catch { /* ignore */ }
+      writeVar(name, value);
     },
     getwi(keyword: string) {
       try {

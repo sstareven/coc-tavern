@@ -7,8 +7,8 @@
  * Supports with/without context modes and LRU template compilation cache.
  */
 
-import { useVariableStore } from '../stores/useVariableStore';
 import { useLorebookStore } from '../stores/useLorebookStore';
+import { readVar, writeVar } from './mvu-var-access';
 
 // ── Template API (injected into execution context) ──
 
@@ -21,15 +21,10 @@ interface TemplateAPI {
 function createAPI(): TemplateAPI {
   return {
     getvar(name, fallback = '') {
-      try {
-        const v = useVariableStore.getState().variables[name];
-        return v?.value ?? fallback;
-      } catch { return fallback; }
+      return readVar(name, fallback);
     },
     setvar(name, value) {
-      try {
-        useVariableStore.getState().setVariable(name, value, 'llm');
-      } catch { /* ignore */ }
+      writeVar(name, value);
     },
     getwi(keyword) {
       try {
