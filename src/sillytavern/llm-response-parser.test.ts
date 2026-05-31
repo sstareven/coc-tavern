@@ -328,6 +328,19 @@ describe('parseLlmResponse', () => {
       const r = parseLlmResponse(json);
       expect(r!.page.inventoryChanges).toHaveLength(2);
     });
+
+    it('透传 AI 显式标注的 equippable（misc 类可装备物品，如护身符）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你拾起一枚黄金护身符，戴在颈间。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"黄金护身符","category":"misc","equippable":true}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges).toHaveLength(1);
+      expect(r!.page.inventoryChanges![0].equippable).toBe(true);
+    });
+
+    it('未标注 equippable 时该字段保持 undefined（回退 category 默认）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你拾起一封泛黄的信件。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"泛黄的信件","category":"clue"}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.page.inventoryChanges![0].equippable).toBeUndefined();
+    });
   });
 });
 

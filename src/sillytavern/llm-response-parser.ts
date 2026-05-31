@@ -395,6 +395,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
           if (typeof c.quantity === 'number') change.quantity = c.quantity;
           if (typeof c.description === 'string') change.description = c.description;
           if (typeof c.equipped === 'boolean') change.equipped = c.equipped;
+          if (typeof c.equippable === 'boolean') change.equippable = c.equippable;
           return change;
         })
         .filter((change) => {
