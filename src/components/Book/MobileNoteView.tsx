@@ -44,12 +44,19 @@ export function MobileNoteView() {
   };
 
   const effectiveRender = pt.enabled ? pt.renderEnabled : true;
+  const renderOpts = {
+    enabled: thRender.renderEnabled, collapse: thRender.codeCollapse,
+    noHighlight: thRender.disableCodeHighlight, codeBlocks: pt.enabled ? pt.codeBlocksEnabled : true,
+  };
   const rendered = effectiveRender
-    ? renderContentWithCodeBlocks(page.leftContent, {
-        enabled: thRender.renderEnabled, collapse: thRender.codeCollapse,
-        noHighlight: thRender.disableCodeHighlight, codeBlocks: pt.enabled ? pt.codeBlocksEnabled : true,
-      })
+    ? renderContentWithCodeBlocks(page.leftContent, renderOpts)
     : [page.leftContent];
+
+  // 手机端把右页（抉择时刻）正文并入同一张便条，跟在左页叙事之后。
+  const rightText = (page.rightContent ?? '').trim();
+  const renderedRight = rightText
+    ? (effectiveRender ? renderContentWithCodeBlocks(page.rightContent, renderOpts) : [page.rightContent])
+    : null;
 
   const dice: DiceRecord[] = page.diceResults ?? [];
   const enterX = direction === 'forward' ? 60 : -60;
@@ -99,6 +106,21 @@ export function MobileNoteView() {
               : rendered.map((node, i) => typeof node === 'string'
                   ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
                   : <span key={i}>{node}</span>)}
+            {renderedRight && (
+              <>
+                {/* 抉择时刻 —— 左右页正文分割线（仅手机端） */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(107,90,58,0.4))' }} />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(107,90,58,0.4))' }} />
+                </div>
+                {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
+                  ? <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedRight[0])}</p>
+                  : renderedRight.map((node, i) => typeof node === 'string'
+                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
+                      : <span key={`r${i}`}>{node}</span>)}
+              </>
+            )}
           </div>
           {page.leftPage && (
             <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0 }}>{page.leftPage}</div>
