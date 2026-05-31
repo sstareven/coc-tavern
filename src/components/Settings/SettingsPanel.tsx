@@ -729,7 +729,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 严格 — 合并角色、只允许一条可选系统消息、要求用户消息在最前
 单一用户消息 — 将所有角色的所有消息合并为一条用户消息`} />
                   </span>
-                  <div style={{ position: 'relative', width: 240 }}>
+                  <div style={{ position: 'relative', width: 240, maxWidth: '100%' }}>
                     <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
                       width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
@@ -1050,7 +1050,7 @@ function HelpIcon({ text }: { text: string }) {
         <div style={{
           position: 'fixed', left: pos.x, top: pos.y, zIndex: 2000,
           ...(pos.below ? {} : { transform: 'translateY(-100%)' }),
-          width: 300, padding: '8px 10px',
+          width: 300, maxWidth: 'calc(100vw - 16px)', padding: '8px 10px',
           background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
           boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
           fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8,

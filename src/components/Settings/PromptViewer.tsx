@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 function estimateTokens(text: string): number {
   let tokens = 0;
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function PromptViewer({ visible, onClose }: Props) {
+  const isMobile = useIsMobile();
   const { messages, model, presetName, updatedAt } = usePromptViewerStore();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -75,7 +77,8 @@ export function PromptViewer({ visible, onClose }: Props) {
         style={{
           background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
           border: '1px solid var(--gold)', borderRadius: 8,
-          padding: 24, width: 780, maxHeight: '90vh',
+          padding: 24, width: 780, maxWidth: '100vw', maxHeight: '90vh',
+          ...(isMobile ? { width: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none', padding: 16 } : {}),
           display: 'flex', flexDirection: 'column',
           fontFamily: 'var(--font-ui)',
           boxShadow: '0 0 80px rgba(0,0,0,0.6)',

@@ -3,6 +3,7 @@ import { useLorebookStore, isBuiltinEntry } from '../../stores/useLorebookStore'
 import { usePanelStore } from '../../stores/usePanelStore';
 import type { LoreEntry, InsertPosition } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // ── ST entry format for import/export ──
 interface STEntryLike {
@@ -118,6 +119,7 @@ const MATCH_SOURCE_OPTIONS: { key: MatchSourceKey; label: string }[] = [
 ];
 
 export function LorebookEditor({ bookId, onClose }: Props) {
+  const isMobile = useIsMobile();
   const books = useLorebookStore((s) => s.books);
   const updateEntry = useLorebookStore((s) => s.updateEntry);
   const deleteEntry = useLorebookStore((s) => s.deleteEntry);
@@ -369,7 +371,8 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ ...panelStyle, minWidth: 720, maxWidth: 820 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ ...panelStyle, minWidth: 720, maxWidth: 820,
+        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
