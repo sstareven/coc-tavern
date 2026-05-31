@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from './useChatStore';
 import { useBookStore } from './useBookStore';
 import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
+import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from './useLorebookStore';
 import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
 import { db } from '../db/database';
@@ -159,5 +160,67 @@ describe('新建人物 finalize 落档（P0-1 修复回归——孤儿态下 set
     expect(row).toBeDefined();
     expect(row?.sheet.identity.name).toBe('新调查员');
     expect(isDefaultSheet(row!.sheet)).toBe(false);
+  });
+});
+
+describe('摘要按会话重建（方案B：从 pages 派生，修切档丢摘要 bug）', () => {
+  beforeEach(async () => {
+    await clearDb();
+    useLorebookStore.getState().clearSummaryEntries();
+  });
+
+  function summaryPage(id: string, header: string, summary: string, kw: string[]): BookPage {
+    const keywords: Record<string, string> = {};
+    for (const k of kw) keywords[k] = '释义';
+    return { id, leftHeader: header, leftContent: '', leftPage: '', rightPage: '', rightHeader: '', rightContent: '', rightChoices: [], summary, keywords };
+  }
+
+  function summaryEntries() {
+    const book = useLorebookStore.getState().books[AUTO_SUMMARY_BOOK_ID];
+    return book ? Object.entries(book.entries) : [];
+  }
+
+  it('切回带摘要的旧会话时，摘要世界书条目被从 pages 重建（修 bug）', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useBookStore.getState().setPages([summaryPage('pg1', '调查现场', '调查员发现了血迹', ['血迹', '现场'])]);
+    await saveConversation(a);
+
+    // 切到 B（loadConversation 会 clearAllGameState → 清空摘要书）
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(summaryEntries()).toHaveLength(0); // B 无摘要
+
+    // 切回 A：摘要必须从 A 的页面重建
+    await loadConversation(a);
+    const entries = summaryEntries();
+    expect(entries).toHaveLength(1);
+    const [entryId, entry] = entries[0];
+    expect(entryId).toBe('summary_pg1');
+    expect(entry.content).toBe('[剧情回顾] 调查员发现了血迹');
+    expect(entry.name).toBe('摘要: 调查现场');
+    expect(entry.keys).toBe('血迹, 现场');
+  });
+
+  it('无 summary 字段的页面不产生摘要条目', async () => {
+    const c = useChatStore.getState().createSession('C');
+    useChatStore.getState().setActive(c);
+    useBookStore.getState().setPages([
+      { id: 'p0', leftHeader: '序章', leftContent: '', leftPage: '', rightPage: '', rightHeader: '', rightContent: '', rightChoices: [] },
+    ]);
+    await saveConversation(c);
+    await loadConversation(c);
+    expect(summaryEntries()).toHaveLength(0);
+  });
+
+  it('切到无摘要会话时不残留上一会话摘要', async () => {
+    const a = useChatStore.getState().createSession('A2');
+    useChatStore.getState().setActive(a);
+    useBookStore.getState().setPages([summaryPage('s1', '场景', '剧情甲', ['甲'])]);
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B2');
+    await loadConversation(b);
+    expect(summaryEntries()).toHaveLength(0);
   });
 });

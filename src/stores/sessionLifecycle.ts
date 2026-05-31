@@ -7,7 +7,7 @@ import { useBookStore } from './useBookStore';
 import { useVariableStore } from './useVariableStore';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
-import type { GameVariable } from '../types';
+import type { GameVariable, BookPage } from '../types';
 import {
   db,
   type ConversationRow,
@@ -39,6 +39,19 @@ export function clearAllGameState() {
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
+}
+
+/** 从本会话页面重建剧情摘要世界书条目（与 useChatPipeline 每回合写摘要逻辑一致）。
+ *  摘要是 page.summary 的派生投影，不单独持久化——切档加载页面后由此重建，
+ *  修复「切档清空 __auto_summaries 却从不重建致旧会话剧情回顾丢失」的 bug。 */
+function rebuildSummariesFromPages(pages: BookPage[]): void {
+  const lore = useLorebookStore.getState();
+  for (const page of pages) {
+    if (!page.summary || !page.id) continue;
+    const keys = page.keywords ? Object.keys(page.keywords).join(', ') : page.leftHeader;
+    if (!keys.trim()) continue;
+    lore.upsertSummaryEntry(page.id, keys, `[剧情回顾] ${page.summary}`, `摘要: ${page.leftHeader}`);
+  }
 }
 
 export function cleanupOrphanGameState() {
@@ -185,6 +198,11 @@ async function loadConversationInner(cid: string): Promise<void> {
     .sort((a, b) => a.index - b.index)
     .map(({ conversationId: _cid, index: _index, ...page }) => page);
   useBookStore.getState().setPages(pages);
+
+  // 剧情摘要（小总结）：clearAllGameState 已清空全局 __auto_summaries 书，这里从本会话页面
+  // 重建摘要条目——否则切档后旧会话的「剧情回顾」上下文永久丢失（摘要本是 page.summary 的派生投影）。
+  // 生成逻辑与 useChatPipeline 每回合写摘要处保持一致。
+  rebuildSummariesFromPages(pages);
 
   // 角色卡：P0-1 无条件设置——无行则回退默认卡，杜绝残留上一会话角色。
   useCharSheetStore.getState().setSheet(charRow?.sheet ?? defaultSheet);
