@@ -33,7 +33,7 @@ import {
 import { trimToBudget, getModelBudget } from '../sillytavern/context-manager';
 import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
-import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS } from '../constants/presets';
+import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
@@ -313,6 +313,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Process EJS templates in system prompt and lore entries
       const processedPreset = {
         ...activePreset,
+        // P3b: retrofit persisted presets edited before the formatInstruction marker existed,
+        // so the static FORMAT block front-loads (order 0.5) for prefix-cache reuse.
+        promptItems: ensureFormatInstructionMarker(activePreset.promptItems),
         systemPrompt: renderTemplate(
           activePreset.systemPrompt || DEFAULT_INPUT_PRESET.systemPrompt,
           tmplOpts,

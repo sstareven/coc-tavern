@@ -183,6 +183,93 @@ describe('matchLoreEntries — triggers', () => {
   });
 });
 
+// ── P3b: static FORMAT prefix front-loading for prefix-cache reuse ──
+
+const markerItem = (id: string, order: number): import('../types').PromptItem => ({
+  id, name: id, role: 'system', trigger: [], position: 'relative', depth: 0,
+  order, content: '', enabled: true, kind: 'marker',
+});
+
+const loreEntry = (name: string, content: string): LoreEntry =>
+  makeEntry({ name, content, position: 0 });
+
+describe('assemblePrompt — P3b static FORMAT prefix front-loading', () => {
+  it('PATH A: formatInstruction marker emits at its order (before worldInfoBefore)', () => {
+    const preset: ChatPreset = {
+      ...minimalPreset,
+      mainPrompt: 'MAIN_SYSTEM_PROMPT',
+      promptItems: [
+        markerItem('main', 0),
+        markerItem('formatInstruction', 0.5),
+        markerItem('worldInfoBefore', 1),
+      ],
+    };
+    const lore: LoreEntry[] = [loreEntry('wb', 'WORLDBOOK_BEFORE_CONTENT')];
+    const messages = assemblePrompt(
+      'user input', [], preset, lore, {}, 'FORMAT_INSTRUCTION_BLOCK',
+      { before: 'WORLDBOOK_BEFORE_CONTENT', after: '' },
+    );
+    const fmtIdx = messages.findIndex((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK'));
+    const mainIdx = messages.findIndex((m) => m.content.includes('MAIN_SYSTEM_PROMPT'));
+    const wbIdx = messages.findIndex((m) => m.content.includes('WORLDBOOK_BEFORE_CONTENT'));
+    expect(fmtIdx).toBeGreaterThanOrEqual(0);
+    expect(mainIdx).toBeGreaterThanOrEqual(0);
+    expect(wbIdx).toBeGreaterThanOrEqual(0);
+    expect(mainIdx).toBeLessThan(fmtIdx);
+    expect(fmtIdx).toBeLessThan(wbIdx);
+    const fmtCount = messages.filter((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK')).length;
+    expect(fmtCount).toBe(1);
+  });
+
+  it('PATH A: user-moved formatInstruction marker order is honored', () => {
+    const preset: ChatPreset = {
+      ...minimalPreset,
+      mainPrompt: 'MAIN_SYSTEM_PROMPT',
+      promptItems: [
+        markerItem('main', 0),
+        markerItem('worldInfoBefore', 1),
+        markerItem('formatInstruction', 200),
+      ],
+    };
+    const lore: LoreEntry[] = [loreEntry('wb', 'WORLDBOOK_BEFORE_CONTENT')];
+    const messages = assemblePrompt(
+      'user input', [], preset, lore, {}, 'FORMAT_INSTRUCTION_BLOCK',
+      { before: 'WORLDBOOK_BEFORE_CONTENT', after: '' },
+    );
+    const fmtIdx = messages.findIndex((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK'));
+    const wbIdx = messages.findIndex((m) => m.content.includes('WORLDBOOK_BEFORE_CONTENT'));
+    expect(wbIdx).toBeLessThan(fmtIdx);
+    expect(messages.filter((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK')).length).toBe(1);
+  });
+
+  it('PATH A: legacy preset WITHOUT formatInstruction marker still gets FORMAT appended (fallback)', () => {
+    const preset: ChatPreset = {
+      ...minimalPreset,
+      mainPrompt: 'MAIN_SYSTEM_PROMPT',
+      promptItems: [markerItem('main', 0), markerItem('worldInfoBefore', 1)],
+    };
+    const lore: LoreEntry[] = [loreEntry('wb', 'WORLDBOOK_BEFORE_CONTENT')];
+    const messages = assemblePrompt(
+      'user input', [], preset, lore, {}, 'FORMAT_INSTRUCTION_BLOCK',
+      { before: 'WORLDBOOK_BEFORE_CONTENT', after: '' },
+    );
+    expect(messages.filter((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK')).length).toBe(1);
+  });
+
+  it('PATH B: fallback (no promptItems) emits [system, FORMAT, ...lore]', () => {
+    const lore: LoreEntry[] = [loreEntry('wb', 'LORE_CONTENT_X')];
+    const messages = assemblePrompt(
+      'user input', [], minimalPreset, lore, {}, 'FORMAT_INSTRUCTION_BLOCK',
+    );
+    const sysIdx = messages.findIndex((m) => m.content.includes('You are a GM.'));
+    const fmtIdx = messages.findIndex((m) => m.content.includes('FORMAT_INSTRUCTION_BLOCK'));
+    const loreIdx = messages.findIndex((m) => m.content.includes('LORE_CONTENT_X'));
+    expect(sysIdx).toBeGreaterThanOrEqual(0);
+    expect(sysIdx).toBeLessThan(fmtIdx);
+    expect(fmtIdx).toBeLessThan(loreIdx);
+  });
+});
+
 describe('matchLoreEntries — additional matching sources', () => {
   it('matches a key found only in an enabled extra source', () => {
     const entry = makeEntry({ keys: '密室', matchScenario: true });

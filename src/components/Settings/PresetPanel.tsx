@@ -3,7 +3,7 @@ import { useChatStore } from '../../stores/useChatStore';
 import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
-import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS } from '../../constants/presets';
+import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS, ensureFormatInstructionMarker } from '../../constants/presets';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
 import { kvGet, kvSet } from '../../db/kv';
@@ -32,6 +32,9 @@ function loadPresets(): Record<string, ChatPreset> {
         // Special: promptItems — use saved if non-empty, otherwise code default
         if (!v.promptItems || v.promptItems.length === 0) {
           m.promptItems = builtin.promptItems;
+        } else {
+          // P3b: retrofit the formatInstruction marker into persisted user-edited promptItems
+          m.promptItems = ensureFormatInstructionMarker(v.promptItems);
         }
         merged[k] = m as unknown as ChatPreset;
       } else {

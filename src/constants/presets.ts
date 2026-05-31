@@ -1,4 +1,4 @@
-import type { ChatPreset } from '../types';
+import type { ChatPreset, PromptItem } from '../types';
 
 export const DEFAULT_INPUT_PRESET: ChatPreset = {
   id: 'default',
@@ -133,6 +133,7 @@ export const COC_KP_PRESET: ChatPreset = {
   emptyMessagePrompt: '',
   promptItems: [
     { id: 'main', name: 'Main Prompt', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 0, content: '', enabled: true },
+    { id: 'formatInstruction', name: 'Format Instruction', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 0.5, content: '', enabled: true },
     { id: 'worldInfoBefore', name: 'World Info (before)', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 1, content: '', enabled: true },
     { id: 'personaDescription', name: 'Persona Description', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 20, content: '', enabled: true },
     { id: 'charDescription', name: 'Char Description', kind: 'marker', role: 'system', trigger: [], position: 'relative', depth: 0, order: 21, content: '', enabled: true },
@@ -155,3 +156,24 @@ export const DEFAULT_PRESETS: Record<string, ChatPreset> = {
 };
 
 export const BUILTIN_PRESET_IDS = new Set(['p1', 'p2']);
+
+/**
+ * Idempotently ensure a preset's promptItems contain a `formatInstruction` marker.
+ *
+ * P3b: the FORMAT_INSTRUCTION (~1700 static tokens) used to be appended dead-last, after
+ * the per-turn-varying worldbook, breaking deepseek's prefix cache. The marker (default
+ * order 0.5, right after `main`) lets FORMAT emit early so the static `[main + FORMAT]`
+ * prefix is contiguous and cacheable. Built-in presets already ship the marker; this
+ * migration retrofits persisted presets whose users edited promptItems before P3b.
+ *
+ * No-op when the marker already exists (returns the same array reference for stability).
+ */
+export function ensureFormatInstructionMarker(items: PromptItem[]): PromptItem[] {
+  if (!items || items.length === 0) return items;
+  if (items.some((p) => p.kind === 'marker' && p.id === 'formatInstruction')) return items;
+  const marker: PromptItem = {
+    id: 'formatInstruction', name: 'Format Instruction', kind: 'marker', role: 'system',
+    trigger: [], position: 'relative', depth: 0, order: 0.5, content: '', enabled: true,
+  };
+  return [...items, marker];
+}

@@ -303,10 +303,13 @@ function resolveMarkerContent(
   charVars: Record<string, string>,
   worldInfoBefore: string,
   worldInfoAfter: string,
+  formatInstruction: string,
 ): string {
   switch (markerId) {
     case 'main':
       return preset.mainPrompt || '';
+    case 'formatInstruction':
+      return formatInstruction;
     case 'worldInfoBefore':
       return worldInfoBefore;
     case 'worldInfoAfter':
@@ -348,6 +351,13 @@ export function assemblePrompt(
 
   const wbBefore = loreContent?.before || '';
   const wbAfter = loreContent?.after || '';
+  const fmtInstruction = formatInstruction || '';
+  // Whether a dedicated formatInstruction marker is present — if so, FORMAT emits in-loop
+  // at its configured order (default 0.5, right after `main`), forming a contiguous static
+  // [main + FORMAT] prefix for deepseek prefix-cache reuse. Otherwise we append it (legacy).
+  const hasFormatMarker = enabledItems.some(
+    (p) => p.kind === 'marker' && p.id === 'formatInstruction',
+  );
 
   // Build messages from promptItems in order
   for (const item of enabledItems) {
@@ -355,7 +365,7 @@ export function assemblePrompt(
 
     if (item.kind === 'marker') {
       // Marker — resolve content from source
-      content = resolveMarkerContent(item.id, preset, variables, wbBefore, wbAfter);
+      content = resolveMarkerContent(item.id, preset, variables, wbBefore, wbAfter, fmtInstruction);
       // If the marker has its own content set (user edited it), use that instead
       if (item.content) content = item.content;
     } else {
@@ -376,7 +386,13 @@ export function assemblePrompt(
       content: resolvePlaceholders(preset.systemPrompt, variables),
     });
 
-    // Lore entries
+    // Format instruction — emitted BEFORE lore so the static [system + FORMAT] prefix is
+    // contiguous and cacheable; all per-turn-varying lore follows it.
+    if (formatInstruction) {
+      messages.push({ role: 'system', content: resolvePlaceholders(formatInstruction, variables) });
+    }
+
+    // Lore entries (per-turn varying)
     const loreSorted = [...loreEntries].sort((a, b) => b.priority - a.priority);
     for (const entry of loreSorted) {
       messages.push({
@@ -384,15 +400,11 @@ export function assemblePrompt(
         content: resolvePlaceholders(entry.content, variables),
       });
     }
-
-    // Format instruction
-    if (formatInstruction) {
-      messages.push({ role: 'system', content: resolvePlaceholders(formatInstruction, variables) });
-    }
   } else {
-    // promptItems exist — lore and format are handled by worldInfo markers + enhanceDefinitions
-    // Add format instruction if it hasn't been covered by a marker
-    if (formatInstruction) {
+    // promptItems exist — lore and format are handled by markers (worldInfo + formatInstruction).
+    // Fallback safety: if the preset has NO formatInstruction marker (legacy presets), append
+    // it so the format block is never silently dropped.
+    if (formatInstruction && !hasFormatMarker) {
       messages.push({ role: 'system', content: resolvePlaceholders(formatInstruction, variables) });
     }
   }
