@@ -32,3 +32,4 @@ test-results/
 # 工作/临时目录（handoff 笔记、一次性 workflow 脚本、release notes 等）
 .omo/
 
+.superpowers/
