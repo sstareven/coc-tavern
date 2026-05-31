@@ -27,6 +27,7 @@ export function Storybook() {
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
+  const deletePageStore = useBookStore((s) => s.deletePage);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -47,8 +48,6 @@ export function Storybook() {
   if (page.rightHeader === '行动' && page.rightContent === '接下来你打算怎么做？') {
     console.warn('[Storybook] 第' + pageIndex + '页右页使用默认值 — 可能JSON解析失败或字段缺失', page);
   }
-
-  const deletePageStore = useBookStore((s) => s.deletePage);
 
   // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入/装备的全部物品
   const affectedItems = pages
