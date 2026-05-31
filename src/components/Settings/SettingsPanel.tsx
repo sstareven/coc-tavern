@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
+import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
 import { PromptTemplateContent } from './PromptTemplateContent';
@@ -405,64 +406,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const [localRewriteKey, setLocalRewriteKey] = useState(rewriteApiKey);
   const mvuAvailableModels = useSettingsStore((s) => s.mvuAvailableModels);
   const setMvuAvailableModels = useSettingsStore((s) => s.setMvuAvailableModels);
-  const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [mvuConnStatus, setMvuConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
-  const [mvuModelsLoading, setMvuModelsLoading] = useState(false);
+  const rewriteAvailableModels = useSettingsStore((s) => s.rewriteAvailableModels);
+  const setRewriteAvailableModels = useSettingsStore((s) => s.setRewriteAvailableModels);
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
 
   const handleReturnToMenu = () => {
     onClose();
     usePanelStore.getState().closeAll();
     onReturnToMenu();
-  };
-
-  const testMvuConnection = () => {
-    if (!localMvuUrl.trim()) return;
-    setMvuConnStatus('testing');
-    setMvuModelsLoading(true);
-    const base = localMvuUrl.trim().replace(/\/+$/, '');
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (localMvuKey.trim()) headers['Authorization'] = `Bearer ${localMvuKey.trim()}`;
-    fetch(`${base}/models`, { method: 'GET', headers })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const models: string[] = Array.isArray(data?.data)
-          ? data.data.map((m: Record<string, string>) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
-          : [];
-        setMvuAvailableModels(models);
-        setMvuConnStatus('connected');
-      })
-      .catch(() => {
-        setMvuAvailableModels([]);
-        setMvuConnStatus('failed');
-      })
-      .finally(() => setMvuModelsLoading(false));
-  };
-
-  const testConnection = () => {
-    if (!localApiUrl.trim()) return;
-    setConnStatus('testing');
-    setModelsLoading(true);
-    const base = localApiUrl.trim().replace(/\/+$/, '');
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (localApiKey.trim()) headers['Authorization'] = `Bearer ${localApiKey.trim()}`;
-    fetch(`${base}/models`, { method: 'GET', headers })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const models: string[] = Array.isArray(data?.data)
-          ? data.data.map((m: Record<string, string>) => m.id ?? m.name ?? m.model ?? '').filter(Boolean)
-          : [];
-        setAvailableModels(models);
-        setConnStatus('connected');
-      })
-      .catch(() => {
-        setAvailableModels([]);
-        setConnStatus('failed');
-      })
-      .finally(() => setModelsLoading(false));
   };
 
   if (!visible) return null;
@@ -735,53 +686,16 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={{ marginTop: 4 }}>
                   <CategoryBar label="主 API 配置" />
 
-                  <div style={rowStyle}>
-                    <span style={labelStyle}>API Key</span>
-                    <input type="password" value={localApiKey}
-                      onChange={(e) => { setLocalApiKey(e.target.value); setApiKey(e.target.value); }}
-                      placeholder="sk-..." style={inputStyle}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                    />
-                  </div>
-
-                  <div style={rowStyle}>
-                    <span style={labelStyle}>API 地址</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input value={localApiUrl}
-                        onChange={(e) => { setLocalApiUrl(e.target.value); setApiBaseUrl(e.target.value); }}
-                        style={{ ...inputStyle, width: 160 }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                      />
-                      <button onClick={testConnection} disabled={connStatus === 'testing'}
-                        style={{
-                          padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
-                          background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-                          fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
-                          opacity: connStatus === 'testing' ? 0.5 : 1,
-                        }}>
-                        {connStatus === 'testing' ? '...' : '测试'}
-                      </button>
-                      {connStatus === 'connected' && (
-                        <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
-                      )}
-                      {connStatus === 'failed' && (
-                        <span style={{ fontSize: 9, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={rowStyle}>
-                    <span style={labelStyle}>模型</span>
-                    <div style={{ width: 200 }}>
-                      {availableModels.length > 0 ? (
-                        <DarkSelect compact value={localApiModel} onChange={(v) => { setLocalApiModel(v); setApiModel(v); }} options={availableModels.map(m => ({ value: m, label: m }))} />
-                      ) : (
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{modelsLoading ? '加载中...' : '请先测试连接'}</div>
-                      )}
-                    </div>
-                  </div>
+                  <ModelEndpointConfig
+                    apiKey={localApiKey}
+                    setApiKey={(v) => { setLocalApiKey(v); setApiKey(v); }}
+                    url={localApiUrl}
+                    setUrl={(v) => { setLocalApiUrl(v); setApiBaseUrl(v); }}
+                    model={localApiModel}
+                    setModel={(v) => { setLocalApiModel(v); setApiModel(v); }}
+                    availableModels={availableModels}
+                    setAvailableModels={setAvailableModels}
+                  />
                 </div>
 
                 {/* Prompt Post-Processing */}
@@ -845,52 +759,16 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                   {mvuUseIndependentApi && (
                     <>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>API Key</span>
-                        <input type="password" value={localMvuKey}
-                          onChange={(e) => { setLocalMvuKey(e.target.value); setMvuApiKey(e.target.value); }}
-                          placeholder="sk-..." style={inputStyle}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                        />
-                      </div>
-
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>API 地址</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <input value={localMvuUrl}
-                            onChange={(e) => { setLocalMvuUrl(e.target.value); setMvuApiBaseUrl(e.target.value); }}
-                            style={{ ...inputStyle, width: 160 }}
-                            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                          />
-                          <button onClick={testMvuConnection} disabled={mvuConnStatus === 'testing'}
-                            style={{
-                              padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
-                              background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-                              fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
-                              opacity: mvuConnStatus === 'testing' ? 0.5 : 1,
-                            }}>
-                            {mvuConnStatus === 'testing' ? '...' : '测试'}
-                          </button>
-                          {mvuConnStatus === 'connected' && (
-                            <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
-                          )}
-                          {mvuConnStatus === 'failed' && (
-                            <span style={{ fontSize: 9, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>模型</span>
-                        <div style={{ width: 200 }}>
-                          {mvuAvailableModels.length > 0 ? (
-                            <DarkSelect compact value={localMvuModel} onChange={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }} options={mvuAvailableModels.map(m => ({ value: m, label: m }))} />
-                          ) : (
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>{mvuModelsLoading ? '加载中...' : '请先测试连接'}</div>
-                          )}
-                        </div>
-                      </div>
+                      <ModelEndpointConfig
+                        apiKey={localMvuKey}
+                        setApiKey={(v) => { setLocalMvuKey(v); setMvuApiKey(v); }}
+                        url={localMvuUrl}
+                        setUrl={(v) => { setLocalMvuUrl(v); setMvuApiBaseUrl(v); }}
+                        model={localMvuModel}
+                        setModel={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }}
+                        availableModels={mvuAvailableModels}
+                        setAvailableModels={setMvuAvailableModels}
+                      />
 
                       <div style={rowStyle}>
                         <span style={labelStyle}>温度</span>
@@ -936,35 +814,16 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <Toggle on={rewriteUseIndependentApi} onChange={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
                   </div>
                   {rewriteUseIndependentApi && (
-                    <>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>API Key</span>
-                        <input type="password" value={localRewriteKey}
-                          onChange={(e) => { setLocalRewriteKey(e.target.value); setRewriteApiKey(e.target.value); }}
-                          placeholder="sk-..." style={inputStyle}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                        />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>API 地址</span>
-                        <input value={localRewriteUrl}
-                          onChange={(e) => { setLocalRewriteUrl(e.target.value); setRewriteApiBaseUrl(e.target.value); }}
-                          style={{ ...inputStyle, width: 200 }}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                        />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>模型</span>
-                        <input value={localRewriteModel}
-                          onChange={(e) => { setLocalRewriteModel(e.target.value); setRewriteApiModel(e.target.value); }}
-                          placeholder="deepseek-chat" style={{ ...inputStyle, width: 200 }}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
-                        />
-                      </div>
-                    </>
+                    <ModelEndpointConfig
+                      apiKey={localRewriteKey}
+                      setApiKey={(v) => { setLocalRewriteKey(v); setRewriteApiKey(v); }}
+                      url={localRewriteUrl}
+                      setUrl={(v) => { setLocalRewriteUrl(v); setRewriteApiBaseUrl(v); }}
+                      model={localRewriteModel}
+                      setModel={(v) => { setLocalRewriteModel(v); setRewriteApiModel(v); }}
+                      availableModels={rewriteAvailableModels}
+                      setAvailableModels={setRewriteAvailableModels}
+                    />
                   )}
                 </div>
 
@@ -1069,12 +928,6 @@ function Toggle({ on, onChange, onLabel = 'ON', offLabel = 'OFF' }: {
     </button>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: 200, padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
-  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
-};
 
 const miniBtnStyle: React.CSSProperties = {
   background: 'rgba(196,168,85,0.08)',
