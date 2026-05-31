@@ -49,15 +49,17 @@ function itemEquippable(item: InventoryItem): boolean {
 
 /**
  * 规范化一组物品（用于持久化迁移、replaceAll、会话恢复等所有外部入口）：
- * 1) 回填缺省的 equippable（按 category 推定）；
- * 2) 卸下「不可装备却 equipped=true」的非法老存档物品，避免按钮消失后永久卡在已装备态。
+ * 1) 保证每个物品都有非空 id（saveConversation 用 itemId: item.id 作复合主键，缺 id 会破坏键）；
+ * 2) 回填缺省的 equippable（按 category 推定）；
+ * 3) 卸下「不可装备却 equipped=true」的非法老存档物品，避免按钮消失后永久卡在已装备态。
  */
 export function normalizeItems(items: InventoryItem[]): InventoryItem[] {
   return items.map((it) => {
+    const id = it.id || crypto.randomUUID();
     const equippable = it.equippable ?? EQUIPPABLE_CATEGORIES.includes(it.category);
     const equipped = it.equipped && equippable;
-    if (equippable === it.equippable && equipped === it.equipped) return it;
-    return { ...it, equippable, equipped };
+    if (id === it.id && equippable === it.equippable && equipped === it.equipped) return it;
+    return { ...it, id, equippable, equipped };
   });
 }
 

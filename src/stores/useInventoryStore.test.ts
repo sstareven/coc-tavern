@@ -186,3 +186,42 @@ describe('replaceAll 走规范化（问题3）', () => {
     expect(useInventoryStore.getState().findItem('旧符')?.equippable).toBe(false);
   });
 });
+
+describe('normalizeItems — 保证每个物品都有 id（P2-8 复合主键保护）', () => {
+  // 老存档/外部入口可能缺失 id；saveConversation 用 itemId: item.id 作复合主键，
+  // id 为 undefined 会破坏 [conversationId+itemId] 键。normalizeItems 须兜底回填 id。
+  // 用 Omit<InventoryItem,'id'> 构造无 id 物品，避免 `as any`。
+  function itemWithoutId(partial: Omit<InventoryItem, 'id'>): InventoryItem {
+    // id 缺省：用 Omit 精确建模无 id 的老存档物品，再窄化为 InventoryItem（非 `as any`）。
+    const idless: Omit<InventoryItem, 'id'> & { id?: string } = { ...partial };
+    return idless as InventoryItem;
+  }
+
+  it('无 id 的物品被回填非空字符串 id', () => {
+    const out = normalizeItems([
+      itemWithoutId({ name: 'x', category: 'misc', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 }),
+    ]);
+    expect(typeof out[0].id).toBe('string');
+    expect(out[0].id.length).toBeGreaterThan(0);
+  });
+
+  it('已有 id 的物品保留原 id', () => {
+    const out = normalizeItems([
+      { id: 'keep-me', name: '左轮', category: 'weapon', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 } as InventoryItem,
+    ]);
+    expect(out[0].id).toBe('keep-me');
+  });
+
+  it('replaceAll 注入无 id 老存档物品时全部回填 id', () => {
+    useInventoryStore.getState().replaceAll([
+      itemWithoutId({ name: '断剑', category: 'weapon', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 }),
+      itemWithoutId({ name: '残页', category: 'clue', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 1 }),
+    ]);
+    const items = useInventoryStore.getState().items;
+    expect(items).toHaveLength(2);
+    for (const it of items) {
+      expect(typeof it.id).toBe('string');
+      expect(it.id.length).toBeGreaterThan(0);
+    }
+  });
+});
