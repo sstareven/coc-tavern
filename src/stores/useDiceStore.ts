@@ -7,16 +7,22 @@ interface DiceStore {
   isOpen: boolean; mode: DiceMode; target: number; bonusDice: number; sanCheck: boolean;
   tens: number; ones: number; finalTens: number; bonusTens: number; oppTens: number; oppOnes: number;
   originalRoll: number; finalRoll: number; resultType: DiceResultType | null; history: DiceRecord[];
+  pending: DiceRecord[];
   open: () => void; close: () => void;
   setMode: (m: DiceMode) => void; setTarget: (t: number) => void;
   toggleBonus: () => void; togglePenalty: () => void; toggleSan: () => void;
   roll: () => void; addRecord: (r: DiceRecord) => void;
+  // 剧情选项的检定先暂存，待剧情真正推进后由 commitPending 落入 history，
+  // 避免「点了选项但没提交/提交失败」时留下永不成真的记录。手动骰子面板(roll)不走这条。
+  stashRecord: (r: DiceRecord) => void;
+  commitPending: () => void;
+  clearPending: () => void;
 }
 
 export const useDiceStore = create<DiceStore>((set, get) => ({
   isOpen: false, mode: 'check', target: 65, bonusDice: 0, sanCheck: false,
   tens: 0, ones: 0, finalTens: 0, bonusTens: 0, oppTens: 0, oppOnes: 0,
-  originalRoll: 0, finalRoll: 0, resultType: null, history: [],
+  originalRoll: 0, finalRoll: 0, resultType: null, history: [], pending: [],
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   setMode: (m) => set({ mode: m }),
@@ -48,4 +54,10 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
     });
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
+  stashRecord: (r) => set((s) => ({ pending: [...s.pending, r] })),
+  commitPending: () => set((s) => ({
+    history: [...[...s.pending].reverse(), ...s.history].slice(0, 20),
+    pending: [],
+  })),
+  clearPending: () => set({ pending: [] }),
 }));

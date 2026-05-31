@@ -13,6 +13,7 @@ import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 
@@ -698,6 +699,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
+        // 此前点选项时只 stash 不记录，故未提交/提交失败的掷骰不会污染检定记录面板。
+        useDiceStore.getState().commitPending();
 
         // 累积 LLM 本页产出的关键词释义入会话级 DB（addKeywords 保留首见去重）——
         // 供 KeywordTooltip 悬停显示，并经 buildKeywordInjection 在后续回合回灌给 LLM。

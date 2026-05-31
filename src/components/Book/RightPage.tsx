@@ -180,6 +180,9 @@ function fillInputBar(text: string) {
   const bs = useBookStore.getState();
   if (bs.pageIndex !== bs.pages.length - 1) return;
 
+  // 新选项会覆盖输入框内容，上一次暂存的检定作废 —— 只有最终被提交、剧情真正推进的那次才入 history。
+  useDiceStore.getState().clearPending();
+
   const input = document.querySelector<HTMLTextAreaElement>('footer textarea');
   if (!input) return;
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -203,7 +206,7 @@ function fillInputBar(text: string) {
       const loss = Math.max(0, rollDiceExpr(lossExpr)?.total ?? 0);
       const outLabel = isSuccess ? '成功' : '失败';
       const resultLine = `[理智检定 d100=${String(d100roll).padStart(2, '0')}/${sanTarget} ${outLabel} 损失${loss}点理智]\n`;
-      useDiceStore.getState().addRecord({
+      useDiceStore.getState().stashRecord({
         skill: `理智检定 损失${loss}`, roll: String(d100roll).padStart(2, '0'),
         target: String(sanTarget), type: resultType as DiceResultType, time: Date.now(), page,
       });
@@ -217,7 +220,7 @@ function fillInputBar(text: string) {
     } else {
       const dmg = Math.max(0, rollDiceExpr(poly.expr)?.total ?? 0);
       const resultLine = `[伤害 ${poly.expr}=${dmg} 造成${dmg}点伤害]\n`;
-      useDiceStore.getState().addRecord({
+      useDiceStore.getState().stashRecord({
         skill: `伤害 ${poly.expr}`, roll: String(dmg), target: '—',
         type: 'failure' as DiceResultType, time: Date.now(), page, kind: 'poly',
       });
@@ -266,7 +269,7 @@ function fillInputBar(text: string) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().addRecord(diceRec);
+    useDiceStore.getState().stashRecord(diceRec);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -294,7 +297,7 @@ function fillInputBar(text: string) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().addRecord(diceRec2);
+    useDiceStore.getState().stashRecord(diceRec2);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -321,7 +324,7 @@ function fillInputBar(text: string) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().addRecord(diceRec3);
+    useDiceStore.getState().stashRecord(diceRec3);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
