@@ -1,33 +1,42 @@
 # Dexie IndexedDB 持久化层
 
-**7 files (5 source + 2 test).** Zustand persist 与 IndexedDB 之间的适配器。kvStore 单表架构，含 localStorage→IndexedDB 自动迁移与同步 KV 缓存。
+**Zustand persist + 关系型多表混合架构 (Dexie v2)。** kvStore 单表存全局态；conversations 父表 + 8 个 per-conversation 子表存会话态。含 localStorage→IndexedDB 自动迁移、v1→v2 关系化迁移、同步 KV 缓存。
 
 ## OVERVIEW
 
-持久化层实现 Zustand persist middleware 的 `StateStorage` 接口，通过 Dexie 将 7 个 store 持久化到 IndexedDB。`stripFunctions` 用于序列化前剥离函数字段。`migrations` 从旧版 localStorage 一次性迁移数据。`kv.ts` 提供同步内存缓存 + localStorage 回退，供需同步读取的场景使用。
+持久化分两层：
+1. **全局态（kvStore 单表）** — settings/presets/TH脚本+渲染/静态lorebook 等仍走 Zustand persist + `createDexieStorage` 适配器，每个 store 占一行。`useChatStore` 也走 persist，但只持久化**轻量元数据**（id/name/messages/presetId/lorebookIds/pageCount），不含 pages/gameState。
+2. **会话态（关系型子表，Dexie v2）** — pages + 6 个 gameState 域（角色卡/物品/暗线/关键词/MVU变量/宏变量）按 conversationId 分表存储。读写由 `sessionLifecycle.ts` 的 `saveConversation/loadConversation/deleteConversation` 显式编排，**不走 persist**（这 5 个 store 已改为纯内存）。这解决了旧架构「每回合全量 JSON.stringify 整个 coc_chat_v1 blob」的写放大问题。
+
+`database.ts` 的 `.upgrade()` 把旧 v1 的 `coc_chat_v1` blob 炸开进关系表（per-session gameState WINS，幂等，失败写 `_v2_upgrade_failed` 标志且不删源 blob 作备份）。
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Dexie schema | `database.ts` | 单表 `kvStore`，`&key` 主键，`value` 任意 |
-| Zustand persist 适配器 | `storage.ts` | `createDexieStorage()` 返回 `StateStorage`，实现 `getItem/setItem/removeItem` |
+| Dexie schema (v1+v2) | `database.ts` | v1 `kvStore '&key'`；v2 `V2_SCHEMA` = conversations + pages/charsheets/inventory/darkThreads/keywords/gameVars/macroVars，含 Row 接口导出 |
+| v1→v2 关系化迁移 | `database.ts` `upgradeV2(tx)` | 炸开 coc_chat_v1 blob；导出供测试直接调用 |
+| 会话态读写编排 | `../stores/sessionLifecycle.ts` | saveConversation/loadConversation/deleteConversation + switchConversation 互斥 |
+| Zustand persist 适配器 | `storage.ts` | `createDexieStorage()` 返回 `StateStorage`（仅 kvStore 系 store 用） |
 | 同步 KV 缓存 | `kv.ts` | `initKvCache()` 预载 + localStorage 迁移；同步 get/set，写穿 Dexie |
 | 数据迁移 | `migrations.ts` | `migrateFromLocalStorage()` — 一次性迁移多个 key，幂等 |
-| 序列化安全 | `stripFunctions.ts` | `partialize` 辅助函数，移除 store 中的函数字段 |
-| 测试 | `database.test.ts` + `migrations.test.ts` | Vitest + fake-indexeddb，覆盖 CRUD + 迁移幂等性 |
+| 序列化安全 | `stripFunctions.ts` | `partialize` 辅助函数（kvStore 系 store 用） |
+| 测试 | `database.test.ts` + `migrations.test.ts` | Vitest + fake-indexeddb，覆盖 CRUD + v2 关系表 + upgradeV2 8 场景 + 迁移幂等性 |
 
 ## ARCHITECTURE
 
 ```
-database.ts  (Dexie schema)
-     ↑
-storage.ts   (Zustand StateStorage 适配器)    stripFunctions.ts  (partialize)
-     ↑                                                ↑
-     └──────────── 6 Zustand stores ─────────────────┘
+database.ts  (Dexie v1 kvStore + v2 关系表 + upgradeV2)
+     ↑                              ↑
+storage.ts (persist 适配器)    sessionLifecycle.ts (save/load/deleteConversation)
+     ↑                              ↑
+全局态 store (settings/TH/      会话态：5 个纯内存 store + useBookStore
+lorebook/charPresets/chat-meta)  (charsheet/inventory/darkThread/keyword/variable + TH.macroVars)
 ```
 
-**消费者** (7 个 store，均使用 `persist` middleware):
+- **全局态** → persist → kvStore 单行。
+- **会话态** → sessionLifecycle 显式读写 → 关系子表（按 conversationId）。load = clearAll + replaceAll；save = 单 rw 事务内 delete-then-bulkPut（bulkPut 不删旧行）；delete = 范围删全部子表。
+- **switchConversation** = 链式 promise 互斥 + latest-wins，串行化 save(prev)→setActive→load(next)，防并发切档撕裂。
 - `useChatStore` → key `coc_chat_v1`
 - `useTavernHelperStore` → key `coc_th_v2`（自定义 `merge` 重新注入 MVU 默认值）
 - `useLorebookStore` → key `coc_lorebooks_v1`
