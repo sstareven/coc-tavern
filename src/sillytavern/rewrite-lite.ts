@@ -18,6 +18,8 @@ export interface LoreBuckets {
   darkThread: LoreEntry[];
   /** 已知词条字典注入（混合策略：最近 N 页常驻 + 老词按当前文本匹配）。可选，缺省视为空。 */
   keyword?: LoreEntry[];
+  /** statData 快照（世界/剧情/战斗 YAML 实时状态）注入。可选，缺省视为空。 */
+  statSnapshot?: LoreEntry[];
   /** GENERATE/INJECT loader entries. */
   generateInjects: LoreEntry[];
   /** Invert-compatibility disabled entries. */
@@ -58,6 +60,7 @@ export function selectLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpti
       ...buckets.constant,
       ...buckets.darkThread,
       ...(buckets.keyword ?? []),
+      ...(buckets.statSnapshot ?? []),
       ...buckets.generateInjects,
       ...buckets.inverted,
     ];
@@ -79,6 +82,7 @@ export function droppedLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpt
     ...buckets.summary,
     ...buckets.darkThread,
     ...(buckets.keyword ?? []),
+    ...(buckets.statSnapshot ?? []),
     ...buckets.generateInjects,
     ...buckets.inverted,
   ];

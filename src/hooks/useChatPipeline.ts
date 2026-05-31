@@ -22,6 +22,7 @@ import { sendChatCompletion } from '../sillytavern/api-router';
 import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
 import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
 import { buildKeywordInjection } from '../sillytavern/keyword-injection';
+import { formatStatDataYaml } from '../sillytavern/mvu-format';
 import { filterAlreadyAcquiredAdds } from '../sillytavern/item-acquisition';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
@@ -291,6 +292,31 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } as LoreEntry);
       }
 
+      // statData 快照(世界/剧情/战斗整树 YAML)：让 AI 看到当前叙事状态(调查员.* 在角色卡,不在此)。
+      // 与暗线同模式的运行时常驻注入；轻量补写由 selectLoreForRewrite 丢弃。
+      const statSnapshotBucket: LoreEntry[] = [];
+      const rawStat = useVariableStore.getState().statData;
+      const visibleStat: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(rawStat)) {
+        if (!k.startsWith('_') && !k.startsWith('$')) visibleStat[k] = v;
+      }
+      if (Object.keys(visibleStat).length > 0) {
+        const snapshotYaml = formatStatDataYaml(visibleStat);
+        if (snapshotYaml && snapshotYaml !== '{}') {
+          statSnapshotBucket.push({
+            name: '当前状态', keys: '', content: `[当前状态 — 守秘人参考，世界/剧情/战斗的实时快照]\n${snapshotYaml}`,
+            logic: 'AND_ANY', priority: 2, disabled: false,
+            constant: true, position: 0, depth: 0, probability: 100,
+            secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+            groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+            groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+            preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+            ignoreReplyLimit: false,
+            _source: 'global',
+          } as LoreEntry);
+        }
+      }
+
       // GENERATE/INJECT entries (always injected regardless of keyword match)
       const generateInjectBucket: LoreEntry[] =
         pt.generateLoaderEnabled || pt.injectLoaderEnabled ? generateInjects : [];
@@ -316,6 +342,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         constant: constantBucket,
         darkThread: darkThreadBucket,
         keyword: keywordBucket,
+        statSnapshot: statSnapshotBucket,
         generateInjects: generateInjectBucket,
         inverted: invertedBucket,
       };
