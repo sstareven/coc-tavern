@@ -53,14 +53,6 @@ const KEYWORD_MEANINGS: Record<string, string> = {
 };
 
 /**
- * 历史遗留入口：LLM 释义现已统一写入 useKeywordStore（按会话隔离，见 sessionLifecycle）。
- * 此处不再维护模块级全局缓存——那会导致不同会话的关键词相互污染。保留空实现以兼容调用方。
- */
-export function addKeywordMeanings(_entries: Record<string, string>) {
-  // no-op：释义来源仅 KEYWORD_MEANINGS（通用术语）+ useKeywordStore（当前会话）。
-}
-
-/**
  * 字面归一化关键词键：用于「相似词合并」的模糊查找。
  * 处理：全角字母数字→半角、去除标点/空白、剥离常见中文后缀（们/的/之/啊/呀/吧）。
  * 例：「调查员们」→「调查员」、「密斯卡塔尼克　大学」→「密斯卡塔尼克大学」。

@@ -124,7 +124,7 @@ npm run preview    # 预览生产构建
 - [ ] 剩余 ~110 lint 警告（多为故意的 setState/沙箱 eval/Zustand selector 误报）
 - [x] ~~`macro-engine.ts` + `tavern-helper-macros.ts` 已合并为 `unified-macro-engine.ts`~~ (99 tests)
 - [ ] 预设角色档案的 personality/scenario/personaDescription 仅保留默认值（创建流程未收集）
-- [ ] `src/sillytavern/llm-response-parser.ts` 从 `../components/Shared/KeywordTooltip` 导入 — 引擎→组件跨层违规，`addKeywordMeanings` 应移到引擎层
-- [ ] `CodeBlockRenderer.tsx` 的 `setInterval` 未在 unmount 时清理，可能内存泄漏
+- [x] ~~`llm-response-parser.ts` 引擎→组件跨层违规已消除；`KeywordTooltip` 的死桩 `addKeywordMeanings` 已删除~~
+- [x] ~~`CodeBlockRenderer.tsx` 的 `setInterval` 已在 useEffect cleanup 中 `clearInterval`，无泄漏~~
 - [ ] 行动补写拾取（`itemGain`）：玩家点拾取选项A（已入库+记 `acquiredItems`）后再「重新续写」，会清空该页 `acquiredItems` 但**不移除已入库的物品A**；若随后再拾取B，则A、B皆在物品栏（v1 已接受的边界，re-roll 仅清去重记录不回滚物品）
 - [x] ~~`PageFlip.tsx`（Framer Motion 版）已删除，翻页统一由 `PageFlip3D.tsx`（CSS 3D 版）实现~~

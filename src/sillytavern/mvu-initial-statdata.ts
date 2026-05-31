@@ -34,6 +34,9 @@ export function createInitialStatData(): Record<string, unknown> {
       已解锁: {},
     },
     战斗: {
+      // 是否战斗中 / 回合数：被世界书条目 ejs_combat 经 getvar 读取，注入「战斗进行中」提示词。
+      // 敌人：LLM 经 JSONPatch 维护，经 format_message_variable YAML 快照回灌给 AI；暂无专用前端 UI（预留可视化）。
+      // 注意：与 useDiceStore（掷骰检定 UI）是两套独立机制，无数据通路。
       是否战斗中: false,
       回合数: 0,
       敌人: {},
