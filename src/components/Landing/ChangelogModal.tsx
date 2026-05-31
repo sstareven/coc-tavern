@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.0.0';
+const CURRENT_VERSION = 'v1.1.0';
 
 interface Release {
   version: string;
@@ -12,6 +12,19 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.1.0',
+    label: '手机端支持',
+    items: [
+      '手机端适配 — 窄屏（≤768px）自动从横向双页书本切换为单页便条式界面，桌面/宽屏体验不变',
+      '单页便条 — 左右页正文并入同一张卷轴、以「抉择时刻」分隔；左右滑动或点箭头翻页',
+      '行动抽屉 — 剧情推进选项收进底部「选择行动」二级菜单，防误触；选项多时带下隐滚动暗示',
+      '顶部工具条 — 库存 / 角色卡 / 目录 / 检定记录改为顶部古典线描图标 Tab；状态栏居中单行',
+      '浮层单列 — 库存、角色卡浮层手机端改单列 + 顶部分段切换，无需关闭即可切换另一页',
+      '全屏面板 — 人物创建、设置与各编辑器弹窗手机端铺满全屏；软键盘弹出时输入栏自动跟随',
+      '多项修复 — 状态栏残留关键词标签清理、选职业 insertBefore 崩溃修复、深色抽屉选项改浅色字、读档自动收起浮层',
+    ],
+  },
   {
     version: 'v1.0.0',
     label: '正式发布',
