@@ -11,10 +11,10 @@ export function createVariable(
 
 // ── Extraction ──
 
-/** Extract <var name="X" value="Y" /> XML-style variables from text */
+/** Extract <var name="X" value="Y" /> XML-style variables from text (单/双引号皆可，兼容 LLM 历史输出) */
 export function extractXmlVariables(text: string): Record<string, string> {
   const vars: Record<string, string> = {};
-  const regex = /<var\s+name="([^"]+)"\s+value="([^"]*)"\s*\/>/gi;
+  const regex = /<var\s+name=["']([^"']+)["']\s+value=["']([^"']*)["']\s*\/>/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
     vars[match[1]] = match[2];
