@@ -55,9 +55,11 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
   const menuItemAlign = compact ? 'left' : 'center';
   const menuItemFont = compact ? 'var(--font-ui)' : 'var(--font-body)';
 
-  const menu = open && rect && createPortal(
+  const menu = (open && rect) ? createPortal(
     <div className="darkselect-menu" style={{
-      position: 'fixed', left: rect.left, top: rect.bottom + 2, minWidth: rect.width, zIndex: 9999,
+      position: 'fixed',
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+      top: rect.bottom + 2, minWidth: rect.width, maxWidth: 'calc(100vw - 16px)', zIndex: 9999,
       background: 'linear-gradient(180deg, rgba(26,20,14,0.99) 0%, rgba(18,14,10,0.99) 100%)',
       border: '1px solid var(--gold)', borderRadius: 4,
       boxShadow: '0 6px 24px rgba(0,0,0,0.7)',
@@ -87,7 +89,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
       })}
     </div>,
     document.body,
-  );
+  ) : null;
 
   const selectTriggerStyle = compact
     ? { ...selectTriggerBase, ...compactOverride }
