@@ -136,7 +136,7 @@ function parseEnvelope<T>(raw: string | undefined): T | null {
 
 /**
  * v1 -> v2 upgrade: explode the `coc_chat_v1` blob (and per-session gameState)
- * into relational tables. Per-session gameState WINS — standalone residual
+ * into relational tables. Per-session gameState WINS ??standalone residual
  * blobs (coc_character / coc_darkthread_v1 / coc_keywords_v1) are last-active
  * leftovers and are intentionally NOT used as a source of truth here.
  *
@@ -261,5 +261,13 @@ export async function upgradeV2(tx: Transaction): Promise<void> {
     } catch {
       // best-effort flag; swallow secondary failure
     }
+    // Re-throw so Dexie ABORTS the version transaction: the v2 schema bump is
+    // NOT committed (verno stays 1), every partial relational write is rolled
+    // back, and the source coc_chat_v1 blob is preserved. The upgrade hook then
+    // re-runs on the next db.open(), converting a permanent silent partial
+    // migration into a safe, idempotent retry. The flag write above rolls back
+    // with the rest of the transaction; the binding failure signal is the
+    // un-advanced version, not the (best-effort) flag.
+    throw err;
   }
 }

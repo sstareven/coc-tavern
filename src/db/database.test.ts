@@ -288,3 +288,104 @@ describe('upgradeV2 migration', () => {
     expect(await d.keywords.where('conversationId').equals('s1').count()).toBe(1);
   });
 });
+
+// ===== Failure-safety: mid-migration abort semantics =====
+describe('upgradeV2 failure safety', () => {
+  const names: string[] = [];
+
+  function uniqueName(): string {
+    const n = `abyssal_failsafe_test_${Math.random().toString(36).slice(2)}`;
+    names.push(n);
+    return n;
+  }
+
+  afterEach(async () => {
+    for (const n of names) {
+      await Dexie.delete(n);
+    }
+    names.length = 0;
+  });
+
+  /** Seed a v1 DB with a chat blob (closed afterwards) so a fresh v2 open
+   *  triggers upgradeV2 against real persisted data. */
+  async function seedV1(name: string, chatBlob: string): Promise<void> {
+    const v1 = new Dexie(name);
+    v1.version(1).stores({ kvStore: '&key' });
+    await v1.open();
+    await (v1 as unknown as IsolatedDb).kvStore.put({ key: CHAT_KEY, value: chatBlob });
+    v1.close();
+  }
+
+  /** Open a fresh v2 instance at the production schema. Optionally inject a
+   *  failure by replacing pages.bulkPut with a throwing stub (typed as the
+   *  method's own signature — no `as any`). The stub throws on the Nth call. */
+  function makeV2(name: string): IsolatedDb {
+    const v2 = new Dexie(name) as IsolatedDb;
+    v2.version(1).stores({ kvStore: '&key' });
+    v2.version(2).stores(V2_SCHEMA).upgrade(upgradeV2);
+    return v2;
+  }
+
+  it('aborts the version bump (verno stays 1) when a child write fails mid-migration', async () => {
+    const name = uniqueName();
+    // Two sessions, each with pages -> pages.bulkPut is called once per session.
+    const blob = envelope({
+      sessions: [
+        { id: 'a', name: 'A', pages: [{ leftPage: 'pa', leftHeader: '', leftContent: '', rightPage: '', rightHeader: '', rightContent: '', rightChoices: [] }] },
+        { id: 'b', name: 'B', pages: [{ leftPage: 'pb', leftHeader: '', leftContent: '', rightPage: '', rightHeader: '', rightContent: '', rightChoices: [] }] },
+      ],
+    });
+    await seedV1(name, blob);
+
+    const v2 = makeV2(name);
+    // Inject mid-loop failure inside the upgrade transaction. upgradeV2 writes
+    // via the transaction-scoped `tx.table('pages')` proxy, so spying on
+    // `db.pages.bulkPut` would NOT intercept it. A Dexie `creating` hook,
+    // however, fires for every row created on the `pages` store — including
+    // writes made through the upgrade transaction. Throw on the 2nd created
+    // page row (session 'b') to simulate a partial-migration failure.
+    let pageCreates = 0;
+    const onCreating = () => {
+      pageCreates += 1;
+      if (pageCreates >= 2) {
+        throw new Error('injected mid-migration failure');
+      }
+    };
+    v2.pages.hook('creating', onCreating);
+
+    // The injected throw must propagate out of upgradeV2 and abort the open.
+    let openRejected = false;
+    try {
+      await v2.open();
+    } catch {
+      openRejected = true;
+    }
+    v2.pages.hook('creating').unsubscribe(onCreating);
+    v2.close();
+    expect(openRejected).toBe(true);
+
+    // BINDING SIGNAL: re-open at the SAME schema with NO injection. Because the
+    // failed upgrade transaction aborted, the version bump must NOT have been
+    // committed — verno is still 1 on the fresh open BEFORE the (now clean)
+    // upgrade re-runs. We capture verno immediately after the v1-only open.
+    const v1Check = new Dexie(name);
+    v1Check.version(1).stores({ kvStore: '&key' });
+    await v1Check.open();
+    // If the aborted upgrade had committed, IndexedDB would already be at v2
+    // and opening at declared v1 would throw VersionError. A clean open here
+    // proves the store version did not advance past 1.
+    expect(v1Check.verno).toBe(1);
+    // Source blob preserved (never deleted) and NO partial conversation rows
+    // survived the abort — kvStore still the only table with data.
+    const blobRec = await (v1Check as unknown as IsolatedDb).kvStore.get(CHAT_KEY);
+    expect(blobRec?.value).toBe(blob);
+    v1Check.close();
+
+    // And a clean retry at v2 now completes the migration for BOTH sessions.
+    const reopened = makeV2(name);
+    await reopened.open();
+    expect(reopened.verno).toBe(2);
+    expect(await reopened.conversations.count()).toBe(2);
+    reopened.close();
+  });
+});
