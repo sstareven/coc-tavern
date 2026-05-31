@@ -29,6 +29,17 @@ interface STEntryLike {
   matchCharacterDepthPrompt?: boolean;
   matchScenario?: boolean;
   matchCreatorNotes?: boolean;
+  // ST 高级字段（导入/导出往返保真，避免丢失用户已编辑或源 JSON 携带的数据）
+  scanDepth?: number;
+  caseSensitive?: boolean | number;
+  matchWholeWord?: boolean | number;
+  automationId?: string;
+  inclusionGroup?: string;
+  groupWeight?: number;
+  sticky?: number;
+  cooldown?: number;
+  delay?: number;
+  probability?: number;
 }
 
 const TRIGGER_VALUES: TriggerType[] = ['normal', 'continue', 'regenerate', 'quiet'];
@@ -158,11 +169,21 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                 constant: (val.constant as boolean) ?? false,
                 position: (typeof val.position === 'number' ? val.position : 0) as InsertPosition,
                 depth: (val.depth as number) ?? 0,
-                probability: 100,
-                secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
-                groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
-                groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
-                preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+                probability: typeof val.probability === 'number' ? val.probability : 100,
+                secondaryKeys: Array.isArray(val.keysecondary) ? val.keysecondary.join(', ') : (Array.isArray(val.secondaryKeys) ? val.secondaryKeys.join(', ') : ''),
+                scanDepth: typeof val.scanDepth === 'number' ? val.scanDepth : 0,
+                caseSensitive: val.caseSensitive ? 1 : 0,
+                matchWholeWord: val.matchWholeWord ? 1 : 0,
+                groupScoring: 0,
+                automationId: typeof val.automationId === 'string' ? val.automationId : '',
+                inclusionGroup: typeof val.inclusionGroup === 'string' ? val.inclusionGroup : '',
+                prioritizeInclusion: false,
+                groupWeight: typeof val.groupWeight === 'number' ? val.groupWeight : 100,
+                sticky: typeof val.sticky === 'number' ? val.sticky : 0,
+                cooldown: typeof val.cooldown === 'number' ? val.cooldown : 0,
+                delay: typeof val.delay === 'number' ? val.delay : 0,
+                preventRecursion: false, delayUntilRecursion: false,
+                excludeRecursion: !!val.excludeRecursion,
                 ignoreReplyLimit: false,
                 ...stExtraFields(val),
               };
@@ -186,11 +207,21 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                   constant: (v.constant as boolean) ?? false,
                   position: (typeof v.position === 'number' ? v.position : 0) as InsertPosition,
                   depth: (v.depth as number) ?? 0,
-                  probability: 100,
-                  secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
-                  groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
-                  groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
-                  preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+                  probability: typeof v.probability === 'number' ? v.probability : 100,
+                  secondaryKeys: Array.isArray(v.keysecondary) ? v.keysecondary.join(', ') : (Array.isArray(v.secondaryKeys) ? v.secondaryKeys.join(', ') : ''),
+                  scanDepth: typeof v.scanDepth === 'number' ? v.scanDepth : 0,
+                  caseSensitive: v.caseSensitive ? 1 : 0,
+                  matchWholeWord: v.matchWholeWord ? 1 : 0,
+                  groupScoring: 0,
+                  automationId: typeof v.automationId === 'string' ? v.automationId : '',
+                  inclusionGroup: typeof v.inclusionGroup === 'string' ? v.inclusionGroup : '',
+                  prioritizeInclusion: false,
+                  groupWeight: typeof v.groupWeight === 'number' ? v.groupWeight : 100,
+                  sticky: typeof v.sticky === 'number' ? v.sticky : 0,
+                  cooldown: typeof v.cooldown === 'number' ? v.cooldown : 0,
+                  delay: typeof v.delay === 'number' ? v.delay : 0,
+                  preventRecursion: false, delayUntilRecursion: false,
+                  excludeRecursion: !!v.excludeRecursion,
                   ignoreReplyLimit: false,
                   ...stExtraFields(v),
                 };
@@ -230,22 +261,33 @@ export function LorebookEditor({ bookId, onClose }: Props) {
       const entry = book?.entries[id];
       if (!entry) continue;
       const keys = entry.keys.split(/[,，]/).map((k) => k.trim()).filter(Boolean);
+      const sk = entry.secondaryKeys
+        ? entry.secondaryKeys.split(/[,，]/).map((k) => k.trim()).filter(Boolean)
+        : [];
       entriesToExport[id] = {
         uid: idx++,
         key: keys.length === 1 ? keys[0] : keys,
-        keysecondary: [],
+        keysecondary: sk,
         comment: entry.name,
         content: entry.content,
         constant: entry.constant,
-        selective: false,
+        selective: sk.length > 0,
         order: entry.priority,
         position: entry.position,
         disable: entry.disabled,
-        excludeRecursion: false,
-        secondaryKeys: [],
+        excludeRecursion: !!entry.excludeRecursion,
+        secondaryKeys: sk,
         logic: entry.logic,
         extensions: {},
         depth: entry.depth,
+        scanDepth: entry.scanDepth,
+        probability: entry.probability,
+        automationId: entry.automationId,
+        inclusionGroup: entry.inclusionGroup,
+        groupWeight: entry.groupWeight,
+        sticky: entry.sticky,
+        cooldown: entry.cooldown,
+        delay: entry.delay,
         characterFilter: entry.characterFilter ?? { isExclude: false, names: [], tags: [] },
         triggers: entry.triggers ?? [],
         matchPersonaDescription: !!entry.matchPersonaDescription,
