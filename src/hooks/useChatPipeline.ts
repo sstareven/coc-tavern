@@ -18,7 +18,7 @@ import { useStreamingRenderer } from './useStreamingRenderer';
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
-import { extractVariablesWithLLM } from '../sillytavern/mvu-extractor';
+import { extractVariablesWithLLM, shouldUseLlmExtraction } from '../sillytavern/mvu-extractor';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
@@ -502,7 +502,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const hookProcessedContent = runReceiveHooks(thHooks, regexProcessedContent);
 
         const mvuSettings = useSettingsStore.getState();
-        if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey) {
+        // Gate the LLM extraction call: the local regex extractors already cover explicit
+        // <var>/{{set:}} tags, so an LLM round-trip only adds value when the narrative
+        // *implies* a numeric change without an explicit tag. Skip the call otherwise
+        // (mvuForceAlways forces it every turn for max extraction fidelity).
+        const needLlmExtraction =
+          mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
+        if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
           try {
             const extracted = await extractVariablesWithLLM(
               hookProcessedContent,

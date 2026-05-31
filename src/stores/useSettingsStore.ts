@@ -15,6 +15,7 @@ interface SettingsState {
   promptPostProcessing: string;
 
   mvuUseIndependentApi: boolean;
+  mvuForceAlways: boolean;
   mvuApiBaseUrl: string;
   mvuApiModel: string;
   mvuApiKey: string;
@@ -54,6 +55,7 @@ interface SettingsStore extends SettingsState {
   setAvailableModels: (models: string[]) => void;
   setPromptPostProcessing: (v: string) => void;
   setMvuUseIndependentApi: (v: boolean) => void;
+  setMvuForceAlways: (v: boolean) => void;
   setMvuApiBaseUrl: (url: string) => void;
   setMvuApiModel: (model: string) => void;
   setMvuApiKey: (key: string) => void;
@@ -94,6 +96,7 @@ const defaults: SettingsState = {
   promptPostProcessing: '',
 
   mvuUseIndependentApi: false,
+  mvuForceAlways: false,
   mvuApiBaseUrl: 'https://api.deepseek.com',
   mvuApiModel: 'deepseek-chat',
   mvuApiKey: '',
@@ -137,6 +140,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setAvailableModels: (models) => set({ availableModels: models }),
       setPromptPostProcessing: (v) => set({ promptPostProcessing: v }),
       setMvuUseIndependentApi: (v) => set({ mvuUseIndependentApi: v }),
+      setMvuForceAlways: (v) => set({ mvuForceAlways: v }),
       setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
       setMvuApiModel: (model) => set({ mvuApiModel: model }),
       setMvuApiKey: (key) => set({ mvuApiKey: key }),

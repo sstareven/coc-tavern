@@ -373,6 +373,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
   const mvuUseIndependentApi = useSettingsStore((s) => s.mvuUseIndependentApi);
   const setMvuUseIndependentApi = useSettingsStore((s) => s.setMvuUseIndependentApi);
+  const mvuForceAlways = useSettingsStore((s) => s.mvuForceAlways);
+  const setMvuForceAlways = useSettingsStore((s) => s.setMvuForceAlways);
   const mvuApiBaseUrl = useSettingsStore((s) => s.mvuApiBaseUrl);
   const setMvuApiBaseUrl = useSettingsStore((s) => s.setMvuApiBaseUrl);
   const mvuApiModel = useSettingsStore((s) => s.mvuApiModel);
@@ -755,6 +757,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <div style={rowStyle}>
                     <span style={labelStyle}>独立通道</span>
                     <Toggle on={mvuUseIndependentApi} onChange={() => setMvuUseIndependentApi(!mvuUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
+                  </div>
+
+                  {/* 始终调用 LLM 提取（关闭则仅在叙事暗示数值变化且无显式标签时才调用，省 token） */}
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>
+                      始终用 LLM 提取
+                      <HelpIcon text={'关闭（智能）：仅当回复有「叙事暗示的数值变化」（如「感到眩晕」暗示SAN降）且缺少显式 <var>/{{set:}} 标签时才调用 LLM 提取——纯标签回复由本地正则处理，省下一次 API 调用。\n\n打开（始终）：每回合都调用 LLM 提取，最大化提取保真度（更费 token）。\n\n注意：本开关仅在「独立通道」开启且已配置 API Key 时生效。'} />
+                    </span>
+                    <Toggle on={mvuForceAlways} onChange={() => setMvuForceAlways(!mvuForceAlways)} onLabel="始终" offLabel="智能" />
                   </div>
 
                   {mvuUseIndependentApi && (
