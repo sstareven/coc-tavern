@@ -4,6 +4,8 @@
 
 React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.0.0 · 纯前端 SPA · 非商业许可
 
+**🎮 在线试玩：[coc-tavern.vercel.app](https://coc-tavern.vercel.app)** —— 由 Vercel 托管，打开即玩、无需本地架设（首次进入需在「设置」里填入你自己的 AI 接口；密钥只存在你的浏览器本地，不经过任何服务器）。
+
 ---
 
 ## 目录
@@ -53,6 +55,8 @@ React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.0.0 · 
 ---
 
 ## 本地架设 / 快速开始
+
+> 💡 只是想玩玩？直接打开在线版 **[coc-tavern.vercel.app](https://coc-tavern.vercel.app)**（Vercel 托管）即可，无需下面的步骤。想自行架设、二次开发或离线游玩，再往下看。
 
 深渊档案馆是一个**纯静态前端 SPA**，没有任何后端服务器：所有游戏数据都保存在浏览器本地的 IndexedDB 中，AI 叙事则通过你自备的 LLM API（OpenAI 兼容接口，默认指向 DeepSeek）实时生成。因此本地架设只需在你的电脑上把前端跑起来即可。
 
