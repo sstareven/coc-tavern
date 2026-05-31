@@ -28,6 +28,7 @@ import { StepDerivedStats } from './steps/StepDerivedStats';
 import { StepSkills } from './steps/StepSkills';
 import { StepBackground } from './steps/StepBackground';
 import { StepReview } from './steps/StepReview';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 /* ============================== Helpers ============================== */
 
@@ -45,6 +46,7 @@ interface Props {
 
 export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
+  const isMobile = useIsMobile();
   const [step, setStep] = useState(0);
 
   /* ---- Step 1: Identity ---- */
@@ -910,22 +912,24 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
       {/* Modal */}
       <div style={{
         position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
         zIndex: 850,
-        width: 560,
-        maxWidth: '94vw',
-        ...(step === 4
-          ? { height: '55vh' }
-          : { maxHeight: '88vh' }),
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
-        border: '1px solid rgba(196,168,85,0.25)',
-        borderRadius: 6,
-        boxShadow: '0 8px 60px rgba(0,0,0,0.7)',
         overflow: 'hidden',
+        ...(isMobile
+          ? { inset: 0, width: '100vw', height: '100vh', border: 'none', borderRadius: 0, boxShadow: 'none' }
+          : {
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 560,
+              maxWidth: '94vw',
+              ...(step === 4 ? { height: '55vh' } : { maxHeight: '88vh' }),
+              border: '1px solid rgba(196,168,85,0.25)',
+              borderRadius: 6,
+              boxShadow: '0 8px 60px rgba(0,0,0,0.7)',
+            }),
       }}>
         {/* Header */}
         <div style={{
@@ -972,6 +976,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           {/* Step indicator */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14,
+            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8,
           }}>
             {STEPS.map((label, i) => {
               const active = i === step;
