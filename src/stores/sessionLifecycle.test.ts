@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from './useChatStore';
 import { useBookStore } from './useBookStore';
+import { useVariableStore } from './useVariableStore';
 import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from './useLorebookStore';
 import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState } from './sessionLifecycle';
@@ -250,5 +251,42 @@ describe('clearAllGameState 重置书本页面（修删活跃会话后旧页面�
     expect(pages.length).toBe(1);
     expect(pages[0].leftHeader).toBe('序章');
     expect(pages.some((p) => p.leftContent.includes('机密剧情'))).toBe(false);
+  });
+});
+
+describe('MVU statData 持久化 + 跨会话隔离', () => {
+  beforeEach(async () => { await clearDb(); });
+
+  it('statData 树 save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useVariableStore.getState().setStatData({ 世界: { 时间: '深夜', 天气: '雨' }, 剧情: { 阶段: '高潮', 进度: 60 } });
+    await saveConversation(a);
+
+    // 清空内存后从库恢复
+    useVariableStore.getState().clearAll();
+    expect(useVariableStore.getState().statData).toEqual({});
+    await loadConversation(a);
+    expect(useVariableStore.getState().statData).toEqual({ 世界: { 时间: '深夜', 天气: '雨' }, 剧情: { 阶段: '高潮', 进度: 60 } });
+  });
+
+  it('切到无 statData 的会话 → 重置为空树(不残留上一会话)', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useVariableStore.getState().setStatData({ 世界: { 地点: '阿卡姆' } });
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(useVariableStore.getState().statData).toEqual({});
+  });
+
+  it('空 statData 不写 blob 行(老存档零迁移:无行→空树)', async () => {
+    const c = useChatStore.getState().createSession('C');
+    useChatStore.getState().setActive(c);
+    useVariableStore.getState().clearAll(); // statData = {}
+    await saveConversation(c);
+    const rows = await db.gameVars.where('conversationId').equals(c).toArray();
+    expect(rows.some((r) => r.name === '__statData__')).toBe(false);
   });
 });

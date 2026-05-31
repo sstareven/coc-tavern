@@ -364,6 +364,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         presetVars: activePreset.tavernHelperVars,
         charVars,
         gameVars,
+        statData: useVariableStore.getState().statData,
         charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
         userName: charVars['charName'] || '调查员',
         modelName: useSettingsStore.getState().apiModel,

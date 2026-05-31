@@ -19,6 +19,9 @@ import {
   type MacroVarRow,
 } from '../db/database';
 
+/** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */
+const STAT_DATA_ROW_NAME = '__statData__';
+
 /**
  * 恢复某会话的完整游戏态。Dexie v2：从关系表加载（pages + 6 个 gameState 域），
  * 而非从已废弃的 chat blob gameState 字段读取。委托 loadConversation（已串行化）。
@@ -101,6 +104,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const entries = useDarkThreadStore.getState().entries;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
+  const statData = useVariableStore.getState().statData;
   const macroVars = useTavernHelperStore.getState().macroVars;
 
   const pageRows: PageRow[] = pages.map((page, index) => ({ ...page, conversationId: cid, index }));
@@ -108,6 +112,17 @@ async function saveConversationInner(cid: string): Promise<void> {
   const darkThreadRows: DarkThreadRow[] = entries.map((entry) => ({ ...entry, conversationId: cid, entryId: entry.id }));
   const keywordRows: KeywordRow[] = Object.entries(keywords).map(([word, meaning]) => ({ conversationId: cid, word, meaning }));
   const gameVarRows: GameVarRow[] = Object.entries(variables).map(([name, variable]) => ({ ...variable, conversationId: cid, name }));
+  // MVU statData (nested narrative tree) persisted as a single reserved blob row.
+  if (Object.keys(statData).length > 0) {
+    gameVarRows.push({
+      conversationId: cid,
+      name: STAT_DATA_ROW_NAME,
+      value: JSON.stringify(statData),
+      locked: false,
+      source: 'llm',
+      updatedAt: Date.now(),
+    });
+  }
   const macroVarRows: MacroVarRow[] = Object.entries(macroVars).map(([name, value]) => ({ conversationId: cid, name, value }));
 
   const conversationRow: ConversationRow = {
@@ -225,10 +240,22 @@ async function loadConversationInner(cid: string): Promise<void> {
 
   // MVU 变量
   const variables: Record<string, GameVariable> = {};
+  let statData: Record<string, unknown> = {};
   for (const { conversationId: _cid, name, ...variable } of gameVarRows) {
+    if (name === STAT_DATA_ROW_NAME) {
+      // 保留的 statData blob 行:解析回嵌套树,不进扁平 variables。
+      try {
+        const parsed: unknown = JSON.parse(variable.value);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          statData = parsed as Record<string, unknown>;
+        }
+      } catch { /* 损坏则视为空树 */ }
+      continue;
+    }
     variables[name] = { ...variable, name };
   }
   useVariableStore.getState().replaceAll(variables);
+  useVariableStore.getState().setStatData(statData);
 
   // 宏变量
   const macroVars: Record<string, string> = {};

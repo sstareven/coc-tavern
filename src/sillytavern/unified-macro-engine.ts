@@ -1,4 +1,5 @@
 import type { THVariable } from '../types';
+import { formatStatDataYaml } from './mvu-format';
 
 // ── Types ──
 
@@ -7,6 +8,8 @@ export interface MacroContext {
   presetVars?: Record<string, THVariable>;
   charVars: Record<string, string>;
   gameVars: Record<string, string>;
+  /** MVU ZOD nested narrative-state tree, for {{format_message_variable::stat_data[.path]}}. */
+  statData?: Record<string, unknown>;
   charName: string;
   userName: string;
   modelName?: string;
@@ -125,8 +128,8 @@ const DAYS_ZH = ['星期日', '星期一', '星期二', '星期三', '星期四'
 // Two separate patterns to avoid matching command macros like {{getvar::x}}
 // No-arg: matches {{char}}, {{user}}, {{time}}, etc.
 const BASIC_NOARG_RE = /\{\{\s*(\w+)\s*\}\}/gi;
-// With-arg: only for macros that take :: args (random, roll, newline)
-const BASIC_WITHARG_RE = /\{\{\s*(random|roll|newline)\s*::\s*([\s\S]*?)\s*\}\}/gi;
+// With-arg: only for macros that take :: args (random, roll, newline, format_message_variable)
+const BASIC_WITHARG_RE = /\{\{\s*(random|roll|newline|format_message_variable)\s*::\s*([\s\S]*?)\s*\}\}/gi;
 
 export function resolvePlaceholders(text: string, ctx: MacroContext): string {
   const now = new Date();
@@ -141,6 +144,23 @@ export function resolvePlaceholders(text: string, ctx: MacroContext): string {
         return options[Math.floor(Math.random() * options.length)];
       }
       case 'roll': return String(rollDice(rawArg.trim()));
+      case 'format_message_variable': {
+        // {{format_message_variable::stat_data}} or ::stat_data.世界.时间 — serialize the
+        // statData (sub)tree to YAML so the AI sees current narrative state. The leading
+        // "stat_data" segment is the root; an optional dotted suffix selects a subtree.
+        const arg = rawArg.trim();
+        const tree = ctx.statData ?? {};
+        const path = arg.replace(/^stat_data\.?/, '').trim();
+        let target: unknown = tree;
+        if (path) {
+          for (const seg of path.split('.')) {
+            if (target && typeof target === 'object' && !Array.isArray(target)) {
+              target = (target as Record<string, unknown>)[seg];
+            } else { target = undefined; break; }
+          }
+        }
+        return formatStatDataYaml(target);
+      }
       default: return match;
     }
   });

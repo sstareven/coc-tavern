@@ -146,6 +146,26 @@ describe('Basic placeholders', () => {
     expect(resolvePlaceholders('Hi {{user}}', makeCtx())).toBe('Hi 调查员');
   });
 
+  it('resolves {{format_message_variable::stat_data}} 整树 YAML', () => {
+    const ctx = makeCtx({ statData: { 世界: { 时间: '深夜' }, 剧情: { 阶段: '高潮' } } });
+    const out = resolvePlaceholders('当前状态：\n{{format_message_variable::stat_data}}', ctx);
+    expect(out).toContain('世界:');
+    expect(out).toContain('时间: 深夜');
+    expect(out).toContain('阶段: 高潮');
+  });
+
+  it('resolves {{format_message_variable::stat_data.世界}} 子树', () => {
+    const ctx = makeCtx({ statData: { 世界: { 时间: '黎明', 天气: '雾' }, 剧情: { 阶段: 'x' } } });
+    const out = resolvePlaceholders('{{format_message_variable::stat_data.世界}}', ctx);
+    expect(out).toContain('时间: 黎明');
+    expect(out).toContain('天气: 雾');
+    expect(out).not.toContain('阶段');
+  });
+
+  it('{{format_message_variable::stat_data}} 空树/缺失 → 空对象 {}', () => {
+    expect(resolvePlaceholders('[{{format_message_variable::stat_data}}]', makeCtx())).toBe('[{}]');
+  });
+
   it('resolves {{model}}', () => {
     expect(resolvePlaceholders('Using {{model}}', makeCtx())).toBe('Using gpt-4');
   });
