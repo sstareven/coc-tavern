@@ -1,8 +1,5 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CharacterSheet } from '../types';
-import { createDexieStorage } from '../db/storage';
-import { stripFunctions } from '../db/stripFunctions';
 
 const defaultSheet: CharacterSheet = {
   characteristics: { STR: 0, CON: 0, POW: 0, DEX: 0, APP: 0, SIZ: 0, INT: 0, EDU: 0 },
@@ -25,19 +22,10 @@ interface CharSheetStore {
   setSheet: (sheet: CharacterSheet) => void;
 }
 
-export const useCharSheetStore = create<CharSheetStore>()(
-  persist(
-    (set) => ({
-      sheet: defaultSheet,
-      isOpen: false,
-      toggle: () => set((s) => ({ isOpen: !s.isOpen })),
-      close: () => set({ isOpen: false }),
-      setSheet: (sheet: CharacterSheet) => set({ sheet }),
-    }),
-    {
-      name: 'coc_character',
-      storage: createJSONStorage(createDexieStorage),
-      partialize: (state) => stripFunctions(state as unknown as Record<string, unknown>) as Partial<CharSheetStore>,
-    },
-  ),
-);
+export const useCharSheetStore = create<CharSheetStore>()((set) => ({
+  sheet: defaultSheet,
+  isOpen: false,
+  toggle: () => set((s) => ({ isOpen: !s.isOpen })),
+  close: () => set({ isOpen: false }),
+  setSheet: (sheet: CharacterSheet) => set({ sheet }),
+}));

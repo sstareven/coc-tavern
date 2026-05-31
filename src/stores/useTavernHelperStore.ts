@@ -216,6 +216,8 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       partialize: (state) => {
         const data = stripFunctions(state);
         delete (data as Record<string, unknown>).presetScripts;
+        // macroVars 改为按会话隔离，存入关系表（gameState），不再随 TH 全局持久化
+        delete (data as Record<string, unknown>).macroVars;
         return data;
       },
       merge: (persisted, current) => {
