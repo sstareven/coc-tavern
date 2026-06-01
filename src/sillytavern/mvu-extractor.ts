@@ -1,5 +1,6 @@
 import { extractAllVariables, parseStatChanges } from './variables';
 import { rpmAcquire } from './rpm-limiter';
+import { appIdHeaders } from './api-router';
 
 const EXTRACTOR_PROMPT = `你是一个MVU（Model-View-Update）变量提取引擎。从以下COC跑团叙事文本中提取所有游戏状态变量。
 
@@ -61,6 +62,7 @@ export async function extractVariablesWithLLM(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          ...appIdHeaders(),
         },
         body: JSON.stringify({
           model,

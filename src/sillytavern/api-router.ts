@@ -2,6 +2,14 @@ import { parseStreamChunk } from './stream-parser';
 import { rpmAcquire, type RpmKind } from './rpm-limiter';
 import type { ChatPreset } from '../types';
 
+/**
+ * 应用署名 header：让中转站/服务端在日志与面板里能识别请求来源（署名 coc-tavern）。
+ * 仅一个自定义头，尽量减小 CORS 预检负担；来源域名另由浏览器自动附带的 Origin/Referer 提供。
+ * 注意：极少数 CORS 严格、未放行 X-Title 的中转站可能因此预检失败——若某站连不上可移除本头。
+ */
+export const APP_TITLE = 'coc-tavern';
+export const appIdHeaders = (): Record<string, string> => ({ 'X-Title': APP_TITLE });
+
 export interface ChatCompletionRequest {
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   preset: ChatPreset;
@@ -70,6 +78,7 @@ export async function sendChatCompletion(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        ...appIdHeaders(),
       },
       body: JSON.stringify({
         model,
@@ -152,7 +161,7 @@ export async function sendChatCompletion(
  */
 export async function fetchModelList(baseUrl: string, apiKey: string): Promise<string[]> {
   const base = baseUrl.trim().replace(/\/+$/, '');
-  const headers: Record<string, string> = { 'Accept': 'application/json' };
+  const headers: Record<string, string> = { 'Accept': 'application/json', ...appIdHeaders() };
   if (apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`;
   let res: Response;
   try {
