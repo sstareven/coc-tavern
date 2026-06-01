@@ -53,7 +53,6 @@ import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
-import { useGenStatsStore } from '../stores/useGenStatsStore';
 import type { TokenUsage } from '../sillytavern/stream-parser';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
@@ -662,19 +661,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const promptTok = realUsage ? lastUsage!.prompt_tokens : promptEst;
         const completionTok = realUsage ? lastUsage!.completion_tokens : completionEst;
         const totalTok = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
-        useGenStatsStore.getState().setStats({
+        // 本页生成记录：随页面持久化、翻回该页即显示该页当时的用量与耗时。
+        const pageGenStats = {
           totalTokens: totalTok,
           promptTokens: promptTok,
           completionTokens: completionTok,
           durationMs,
           estimated: !realUsage,
-        });
+        };
         pushLog(
           'info',
           `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok ?? '?'} / 输出 ${completionTok ?? '?'}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
+        newPage.genStats = pageGenStats;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
         if (result.clues) newPage.clues = result.clues;
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
