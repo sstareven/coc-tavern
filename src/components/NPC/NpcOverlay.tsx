@@ -36,7 +36,7 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
   const skillStr = npc.skills ? Object.entries(npc.skills).map(([n, v]) => `${n}${v}`).join('、') : '';
   const charStr = npc.characteristics ? Object.entries(npc.characteristics).map(([k, v]) => `${k}${v}`).join(' ') : '';
   return (
-    <div style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
+    <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>

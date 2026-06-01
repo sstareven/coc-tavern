@@ -21,7 +21,7 @@ const FILTER_TABS: { key: Filter; label: string }[] = [
 function ItemRow({ item }: { item: InventoryItem }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)' }}>
+    <div className="cv-row" style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)' }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)' }}
@@ -53,7 +53,7 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
   const [expanded, setExpanded] = useState(false);
   const major = clue.tier === 'major';
   return (
-    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', opacity: archived ? 0.55 : 1 }}>
+    <div className="cv-row" style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', opacity: archived ? 0.55 : 1 }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '8px 0', cursor: 'pointer', transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)' }}

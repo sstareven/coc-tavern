@@ -10,3 +10,6 @@ html, body {
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
+
+/* 渲染隔断：长列表行用浏览器原生 content-visibility 跳过视口外行的布局/绘制 */
+.cv-row { content-visibility: auto; contain-intrinsic-size: auto 40px; }
