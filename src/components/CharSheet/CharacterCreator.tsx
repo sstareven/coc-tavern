@@ -468,15 +468,11 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   };
 
   const randomAllocate = () => {
-    // Reset all
-    setOccSkills([]); setOccPoints({});
-    setInterestSkills([]); setInterestPoints({});
-    setCreditRating(0);
-    // Get suggested skills from current occupation
     const selectedOcc = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
     const suggested = selectedOcc?.skills || [];
     const crMin = selectedOcc?.crMin ?? 0;
     const crMax = selectedOcc?.crMax ?? 99;
+    const isCustomOcc = occupation === '__custom__';
     const getBaseVal = (name: string) => {
       const sk = ALL_SKILLS.find((x) => x.name === name);
       if (!sk) return 0;
@@ -501,35 +497,47 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       return alloc;
     };
     const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
-    const isCustomOcc = occupation === '__custom__';
-    if (!isCustomOcc && suggested.length > 0) {
+
+    if (isCustomOcc) {
+      // 自定义职业：保留玩家已选的职业/兴趣技能，仅重新分配点数（不清空选择）。
+      const cr = Math.min(creditRating, occPointPool);
+      setCreditRating(cr);
+      const occPoolForSkills = occPointPool - cr;
+      setOccPoints(occSkills.length > 0 && occPoolForSkills > 0 ? allocLoop({}, occSkills, occPoolForSkills) : {});
+      setInterestPoints(interestSkills.length > 0 && intPointPool > 0 ? allocLoop({}, interestSkills, intPointPool) : {});
+    } else {
+      // 预定义职业：用推荐技能、随机选兴趣技能并随机信用评级。
       const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
       setCreditRating(cr);
       setOccSkills([...suggested]);
       const occPoolForSkills = occPointPool - cr;
-      if (occPoolForSkills > 0) {
-        setOccPoints((prev) => allocLoop(prev, suggested, occPoolForSkills));
-      }
-    } else {
-      setCreditRating(0);
+      setOccPoints(suggested.length > 0 && occPoolForSkills > 0 ? allocLoop({}, suggested, occPoolForSkills) : {});
+      const usedNames = new Set(suggested);
+      const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
+      const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
+      setInterestSkills(pickInt);
+      setInterestPoints(pickInt.length > 0 && intPointPool > 0 ? allocLoop({}, pickInt, intPointPool) : {});
     }
-    const usedNames = new Set(isCustomOcc ? [] : suggested);
-    const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
-    const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
-    setInterestSkills(pickInt);
-    if (pickInt.length > 0 && intPointPool > 0) {
-      setInterestPoints((prev) => allocLoop(prev, pickInt, intPointPool));
-    }
+  };
+
+  // 重置技能分配（清空职业/兴趣技能与点数，信用评级回到该职业最低基础值），允许重新分配。
+  const resetAllocation = () => {
+    const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    setOccSkills([]); setOccPoints({});
+    setInterestSkills([]); setInterestPoints({});
+    setCreditRating(occObj?.crMin ?? 0);
   };
 
   const nextStep = () => { if (canGoNext() && step < STEPS.length - 1) setStep(step + 1); };
   const prevStep = () => { if (step > 0) setStep(step - 1); };
   const prevOccRef = useRef(occupation);
   useEffect(() => {
-    if (occupation && prevOccRef.current && occupation !== prevOccRef.current) {
+    if (occupation !== prevOccRef.current) {
+      // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)，自定义职业为 0。
+      const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
       setOccSkills([]); setOccPoints({});
       setInterestSkills([]); setInterestPoints({});
-      setCreditRating(0);
+      setCreditRating(occObj?.crMin ?? 0);
     }
     prevOccRef.current = occupation;
   }, [occupation]);
@@ -1051,10 +1059,16 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           </button>
 
           {step === 3 && (
-            <button onClick={(e) => { e.stopPropagation(); randomAllocate(); }}
-              className="sk-btn"
-              style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
-            >⚄ 随机分配</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={(e) => { e.stopPropagation(); resetAllocation(); }}
+                className="sk-btn"
+                style={{ ...btnBase, background: 'rgba(139,58,58,0.1)', borderColor: 'rgba(139,58,58,0.3)', color: 'var(--blood-bright)' }}
+              >↺ 重置</button>
+              <button onClick={(e) => { e.stopPropagation(); randomAllocate(); }}
+                className="sk-btn"
+                style={{ ...btnBase, background: 'rgba(196,168,85,0.08)', borderColor: 'rgba(196,168,85,0.25)', color: 'var(--gold)' }}
+              >⚄ 随机分配</button>
+            </div>
           )}
 
           {step < STEPS.length - 1 ? (

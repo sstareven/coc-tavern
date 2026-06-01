@@ -5,6 +5,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { useClueStore } from '../../stores/useClueStore';
+import { useDiceStore } from '../../stores/useDiceStore';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { NpcOverlay } from '../NPC/NpcOverlay';
@@ -172,6 +173,11 @@ export function Storybook() {
     // 老存档页面无快照则不动角色卡，避免误清。
     const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
     if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
+
+    // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first），并补上页码。
+    useDiceStore.getState().setHistory(
+      remaining.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),
+    );
 
     persistActiveGameState();
   };

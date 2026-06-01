@@ -173,6 +173,8 @@ export function StepSkills({
       <div style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, alignItems: 'start' }}>
           {ALL_SKILLS
+            // 克苏鲁神话不在创建期开放加点（仅游戏中通过遭遇神话获得），从加点网格隐藏。
+            .filter((sk) => sk.name !== '克苏鲁神话')
             .filter((sk) => !filterCat || sk.cat === filterCat)
             .sort((a, b) => {
               const aStar = suggestedSkills.includes(a.name) ? 0 : 1;

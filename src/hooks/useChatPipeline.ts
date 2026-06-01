@@ -671,7 +671,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Parse dice results from the user input (e.g., "[侦查 d100=42/60 成功]")
         const diceFromInput = parseDiceResultsFromInput(lastInputRef.current);
         if (diceFromInput.length > 0) {
-          newPage.diceResults = diceFromInput;
+          // 标注检定发生时的页码（与实时检定记录的 pageIndex+1 一致），随页面持久化、供读档重建带页码。
+          const checkPage = useBookStore.getState().pageIndex + 1;
+          newPage.diceResults = diceFromInput.map((r) => ({ ...r, page: r.page ?? checkPage }));
         }
 
         // Validate generation quality

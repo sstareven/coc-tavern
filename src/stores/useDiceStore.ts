@@ -17,6 +17,10 @@ interface DiceStore {
   stashRecord: (r: DiceRecord) => void;
   commitPending: () => void;
   clearPending: () => void;
+  /** 用一组记录替换历史（newest-first，取前 20）——供读档/删页从页面 diceResults 重建。 */
+  setHistory: (records: DiceRecord[]) => void;
+  /** 清空检定历史与暂存——切换/读取会话时调用，杜绝跨档残留。 */
+  clearAll: () => void;
 }
 
 export const useDiceStore = create<DiceStore>((set, get) => ({
@@ -60,4 +64,6 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
     pending: [],
   })),
   clearPending: () => set({ pending: [] }),
+  setHistory: (records) => set({ history: records.slice(0, 20), pending: [] }),
+  clearAll: () => set({ history: [], pending: [] }),
 }));
