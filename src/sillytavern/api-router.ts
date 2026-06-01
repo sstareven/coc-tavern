@@ -13,6 +13,40 @@ export interface ChatCompletionResponse {
   model?: string;
 }
 
+/**
+ * 把 fetch 在网络层抛出的错误翻译成对用户有意义的中文说明。
+ *
+ * 浏览器出于安全考虑，对地址不可达、跨域(CORS)被拦、断网、混合内容、DNS 失败等
+ * 一律只抛出 `TypeError: Failed to fetch`，不暴露真实原因。这里据此给出排查方向，
+ * 而不是把这句无信息量的英文直接甩给用户。
+ */
+function describeFetchError(err: unknown, baseUrl: string): string {
+  // 用户主动取消（点了停止 / 切走）——不是错误，不该报「网络失败」
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return '生成已取消。';
+  }
+
+  const raw = err instanceof Error ? err.message : String(err);
+
+  // fetch 的通用网络层失败：Failed to fetch / NetworkError / Load failed（各浏览器措辞不同）
+  const isGenericNetworkError =
+    err instanceof TypeError ||
+    /failed to fetch|networkerror|load failed/i.test(raw);
+
+  if (isGenericNetworkError) {
+    return [
+      '无法连接到 API 服务器，请逐项排查：',
+      `· API 地址是否正确、可访问（当前：${baseUrl || '未填写'}）`,
+      '· 网络是否正常、是否需要代理 / 梯子才能访问该接口',
+      '· 该接口是否允许跨域(CORS)——部分中转站需在其后台开启浏览器跨域',
+      '· 若本站为 https，API 地址也须为 https（浏览器会拦截 https 页面里的 http 请求）',
+      `（底层报错：${raw}）`,
+    ].join('\n');
+  }
+
+  return `网络请求失败：${raw}`;
+}
+
 export async function sendChatCompletion(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   preset: ChatPreset,
@@ -52,9 +86,7 @@ export async function sendChatCompletion(
       signal,
     });
   } catch (err) {
-    throw new Error(`网络请求失败: ${err instanceof Error ? err.message : String(err)}`, {
-      cause: err,
-    });
+    throw new Error(describeFetchError(err, baseUrl), { cause: err });
   }
 
   if (!response.ok) {
@@ -122,7 +154,12 @@ export async function fetchModelList(baseUrl: string, apiKey: string): Promise<s
   const base = baseUrl.trim().replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Accept': 'application/json' };
   if (apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`;
-  const res = await fetch(`${base}/models`, { method: 'GET', headers });
+  let res: Response;
+  try {
+    res = await fetch(`${base}/models`, { method: 'GET', headers });
+  } catch (err) {
+    throw new Error(describeFetchError(err, base), { cause: err });
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return Array.isArray(data?.data)
