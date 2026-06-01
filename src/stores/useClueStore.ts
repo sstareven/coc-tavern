@@ -1,14 +1,7 @@
 import { create } from 'zustand';
-import type { Clue } from '../types';
+import type { Clue, ClueInput } from '../types';
 
-/** LLM 回包里的线索条目（写入前的原始形态）。 */
-export interface ClueInput {
-  name: string;
-  summary?: string;
-  discoveryNarrative?: string;
-  foundAtPage?: string;
-  relatedTo?: string[];
-}
+export type { ClueInput };
 
 interface ClueStore {
   clues: Clue[];

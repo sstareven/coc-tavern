@@ -656,6 +656,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
+        // 把本回合的线索/NPC/地图更新随页面持久化，供删页时从剩余页面重建派生状态。
+        if (result.clues) newPage.clues = result.clues;
+        if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
+        if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);

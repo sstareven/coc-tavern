@@ -1,29 +1,7 @@
 import { create } from 'zustand';
-import type { NpcProfile, COC7Characteristic } from '../types';
+import type { NpcProfile, NpcUpdate } from '../types';
 
-/** LLM 回包里的单条 NPC 更新（新建或增量更新）。name 为匹配/创建键。 */
-export interface NpcUpdate {
-  name: string;
-  identity?: string;
-  faction?: string;
-  gender?: string;
-  appearanceAge?: string;
-  characteristics?: Partial<Record<COC7Characteristic, number>>;
-  derived?: string;
-  skills?: Record<string, number>;
-  /** 好感度增量（正=变好，负=变差）。新建 NPC 时作为初始值（基于 0）。 */
-  favorabilityDelta?: number;
-  appearance?: string;
-  personality?: string;
-  innerThoughts?: string;
-  /** 追加一条互动记忆 */
-  addMemory?: string;
-  experience?: string;
-  backstory?: string;
-  possessions?: string[];
-  isPresent?: boolean;
-  status?: string;
-}
+export type { NpcUpdate };
 
 interface NpcStore {
   isOpen: boolean;

@@ -4,6 +4,7 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
+import { useClueStore } from '../../stores/useClueStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
@@ -127,13 +128,23 @@ export function Storybook() {
     .filter((n): n is string => Boolean(n));
 
   const deletePage = () => {
-    // 级联删除本页至最新页：撤销这些页的全部物品变更，避免遗留幽灵物品
-    const all = useBookStore.getState().pages.slice(pageIndex);
-    const changes = all.flatMap((p) => p.inventoryChanges ?? []);
-    if (changes.length) {
-      useInventoryStore.getState().revertChanges(changes);
-    }
+    // 级联删除本页至最新页，然后以「剩余页面」为单源真理，清空并重放重建
+    // 物品 / 线索 / NPC / 地图——确保这些派生状态随删页彻底回溯（不残留幽灵数据）。
     deletePageStore(pageIndex);
+    const remaining = useBookStore.getState().pages;
+
+    useInventoryStore.getState().clearAll();
+    useClueStore.getState().clearAll();
+    useNpcStore.getState().clearAll();
+    useMapStore.getState().clearAll();
+
+    for (const p of remaining) {
+      if (p.inventoryChanges?.length) useInventoryStore.getState().applyChanges(p.inventoryChanges);
+      if (p.clues?.length) useClueStore.getState().addClues(p.clues);
+      if (p.npcUpdates?.length) useNpcStore.getState().applyUpdates(p.npcUpdates);
+      if (p.mapUpdates) useMapStore.getState().applyUpdates(p.mapUpdates);
+    }
+
     persistActiveGameState();
   };
 

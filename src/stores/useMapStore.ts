@@ -1,15 +1,7 @@
 import { create } from 'zustand';
-import type { MapLocation, MapEdge } from '../types';
+import type { MapLocation, MapEdge, MapUpdates } from '../types';
 
-/** LLM 回包里的地图更新（独立字段，便于解析）。 */
-export interface MapUpdates {
-  /** 当前所在地点名（每回合都应给出） */
-  current?: string;
-  /** 本回合新出现的地点 */
-  newLocations?: { name: string; description?: string }[];
-  /** 本回合新增的连线（地点名引用） */
-  newEdges?: { from: string; to: string; type?: 'bidirectional' | 'oneway'; description?: string }[];
-}
+export type { MapUpdates };
 
 interface MapStore {
   isOpen: boolean;

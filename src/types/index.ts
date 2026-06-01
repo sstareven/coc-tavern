@@ -73,6 +73,46 @@ export interface BookPage {
   rewrite?: RewriteBlock;
   /** 行动补写拾取已直接入库的物品名，用于阻止后续正文 API 对同名物品重复计数。随页面持久化。 */
   acquiredItems?: string[];
+  /** 本页 LLM 产生的线索/NPC/地图更新——随页面持久化，用于删页时从剩余页面重建这些派生状态。 */
+  clues?: ClueInput[];
+  npcUpdates?: NpcUpdate[];
+  mapUpdates?: MapUpdates;
+}
+
+// ===== LLM 派生更新（随页面持久化，供删页重建）=====
+export interface ClueInput {
+  name: string;
+  summary?: string;
+  discoveryNarrative?: string;
+  foundAtPage?: string;
+  relatedTo?: string[];
+}
+
+export interface NpcUpdate {
+  name: string;
+  identity?: string;
+  faction?: string;
+  gender?: string;
+  appearanceAge?: string;
+  characteristics?: Partial<Record<COC7Characteristic, number>>;
+  derived?: string;
+  skills?: Record<string, number>;
+  favorabilityDelta?: number;
+  appearance?: string;
+  personality?: string;
+  innerThoughts?: string;
+  addMemory?: string;
+  experience?: string;
+  backstory?: string;
+  possessions?: string[];
+  isPresent?: boolean;
+  status?: string;
+}
+
+export interface MapUpdates {
+  current?: string;
+  newLocations?: { name: string; description?: string }[];
+  newEdges?: { from: string; to: string; type?: 'bidirectional' | 'oneway'; description?: string }[];
 }
 
 // ===== Inventory System =====
