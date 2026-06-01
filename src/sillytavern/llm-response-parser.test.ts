@@ -48,6 +48,19 @@ describe('cleanChoiceField — 选项字段清理（真实 bug 回归）', () =>
     expect(out).toContain('进行追踪检定(普通)');
     expect(out).not.toContain('<var');
   });
+  it('剥除关键词高亮花括号 {{词}} → 词（选项不展示 {{}}）', () => {
+    const out = cleanChoiceField('喝下那摊{{粘液}}，无视{{调查员}}的迟疑');
+    expect(out).toBe('喝下那摊粘液，无视调查员的迟疑');
+    expect(out).not.toContain('{');
+    expect(out).not.toContain('}');
+  });
+  it('清掉残留的孤立花括号，且不误伤检定括号', () => {
+    const out = cleanChoiceField('进行体质检定(普通)，强行咽下{{毒液}');
+    expect(out).toContain('进行体质检定(普通)');
+    expect(out).toContain('毒液');
+    expect(out).not.toContain('{');
+    expect(out).not.toContain('}');
+  });
 });
 
 // ============================================================
