@@ -1023,7 +1023,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       pushLog('info', `[行动补写] ${hasPrev ? '重新续写' : '生成'}: "${trimmed.slice(0, 40)}"`);
 
-      const built = buildPromptMessages(trimmed, directive, {
+      // 把玩家原话显式标注为「必须忠实执行的指定动作」，避免 AI 把裸输入当普通对话而发散成替代方案。
+      // 仅作用于送给 AI 的提示；block.sourceInput 仍用干净的 trimmed（前端展示/回填不受影响）。
+      const rewriteInput = `【玩家坚持要执行的动作】${trimmed}\n（请据此生成 4 个都用于执行该动作的候选选项，第一个最忠实地照做。）`;
+
+      const built = buildPromptMessages(rewriteInput, directive, {
         lite: settings.rewriteLite,
         liteIncludeMatchedLore: settings.rewriteLiteIncludeMatchedLore,
       });
