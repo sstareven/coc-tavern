@@ -105,6 +105,7 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
   buildContextInjection: () => {
     const present = get().getPresent();
     if (present.length === 0) return '';
+    const keep = useSettingsStore.getState().npcMemoryKeep ?? MEMORY_RECENT_KEEP;
     const lines = present.map((p) => {
       const fav = p.favorability > 30 ? '友好' : p.favorability < -30 ? '敌对' : '中立';
       const parts = [`- ${p.name}（${p.identity || '身份不明'}，对调查员好感度${p.favorability}/${fav}）`];
@@ -112,7 +113,8 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       if (p.innerThoughts) parts.push(`  内心想法(KP视角)：${p.innerThoughts}`);
       if (p.memorySummary) parts.push(`  记忆梗概：${p.memorySummary}`);
       if (p.memories.length) parts.push(`  近期互动：${p.memories.slice(-3).join('；')}`);
-      if (p.memories.length >= MEMORY_FOLD_THRESHOLD) parts.push(`  （"${p.name}"的互动记忆已较多，请本回合在其 npcUpdates 提供 memorySummary 浓缩既往关键互动以便归纳）`);
+      // 仅当原始记忆既达到折叠阈值、又确实超出保留窗口时才提示——避免 keep 调高(>阈值)时每回合反复催促折叠
+      if (p.memories.length >= MEMORY_FOLD_THRESHOLD && p.memories.length > keep) parts.push(`  （"${p.name}"的互动记忆已较多，请本回合在其 npcUpdates 提供 memorySummary 浓缩既往关键互动以便归纳）`);
       return parts.join('\n');
     });
     return `[在场NPC——请严格按各自的身份、性格、动机、好感度与记忆一致地扮演]\n${lines.join('\n')}`;
