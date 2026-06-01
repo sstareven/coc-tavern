@@ -108,7 +108,7 @@ export function NpcOverlay() {
         background: 'linear-gradient(135deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
         borderRadius: '3px 0 0 3px', boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)', padding: '28px 20px 20px 28px', overflow: 'hidden',
       }}>
-        <NpcColumn npcs={present} header="在场" sub="PRESENT" emptyText="当前没有在场的 NPC" />
+        <NpcColumn npcs={present} header="在场" sub="PRESENT" emptyText="当前没有在场的人物" />
       </motion.div>
 
       <div style={{ width: 2, flexShrink: 0, display: isMobile ? 'none' : 'block', background: 'linear-gradient(to right, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%)' }} />
@@ -122,7 +122,7 @@ export function NpcOverlay() {
           borderRadius: '0 3px 3px 0', boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)',
           padding: '28px 28px 20px 20px', transformOrigin: '0% 50%', backfaceVisibility: 'hidden', overflow: 'hidden',
         }}>
-        <NpcColumn npcs={absent} header="离场" sub="ABSENT" emptyText="没有已离场的 NPC" />
+        <NpcColumn npcs={absent} header="离场" sub="ABSENT" emptyText="没有已离场的人物" />
       </motion.div>
     </motion.div>
   );

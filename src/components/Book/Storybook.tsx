@@ -5,6 +5,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { useClueStore } from '../../stores/useClueStore';
+import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
@@ -137,13 +138,27 @@ export function Storybook() {
     useClueStore.getState().clearAll();
     useNpcStore.getState().clearAll();
     useMapStore.getState().clearAll();
+    useDarkThreadStore.getState().clearAll();
 
     for (const p of remaining) {
       if (p.inventoryChanges?.length) useInventoryStore.getState().applyChanges(p.inventoryChanges);
       if (p.clues?.length) useClueStore.getState().addClues(p.clues);
       if (p.npcUpdates?.length) useNpcStore.getState().applyUpdates(p.npcUpdates);
       if (p.mapUpdates) useMapStore.getState().applyUpdates(p.mapUpdates);
+      if (p.darkThread?.development) {
+        useDarkThreadStore.getState().addEntry({
+          progress: p.darkThread.progress,
+          threatLevel: p.darkThread.threatLevel,
+          details: p.darkThread.development,
+          foreshadowing: p.darkThread.foreshadowing,
+        });
+      }
     }
+
+    // 人物状态回溯：恢复到剩余最后一页的角色卡快照（HP/SAN/MP/姿态/状态/技能）。
+    // 老存档页面无快照则不动角色卡，避免误清。
+    const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
+    if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
 
     persistActiveGameState();
   };
@@ -506,7 +521,7 @@ export function Storybook() {
             }}
           >
             <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
-            {npcOpen ? '返回' : 'NPC'}
+            {npcOpen ? '返回' : '人物名册'}
           </button>
 
           {/* Tab: 地图 → map overlay */}

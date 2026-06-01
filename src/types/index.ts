@@ -77,6 +77,9 @@ export interface BookPage {
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
+  darkThread?: DarkThreadData;
+  /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
+  sheetSnapshot?: CharacterSheet;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
@@ -113,6 +116,13 @@ export interface MapUpdates {
   current?: string;
   newLocations?: { name: string; description?: string }[];
   newEdges?: { from: string; to: string; type?: 'bidirectional' | 'oneway'; description?: string }[];
+}
+
+export interface DarkThreadData {
+  development: string;
+  progress: number;
+  threatLevel: string;
+  foreshadowing: string;
 }
 
 // ===== Inventory System =====

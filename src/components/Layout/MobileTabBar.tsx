@@ -11,7 +11,7 @@ interface Props {
 const TABS: Array<{ key: MobileTab; label: string; Icon: (p: { size?: number }) => React.ReactElement }> = [
   { key: 'inventory', label: '物品', Icon: IconInventory },
   { key: 'charsheet', label: '角色', Icon: IconCharSheet },
-  { key: 'npc', label: 'NPC', Icon: IconNpc },
+  { key: 'npc', label: '人物', Icon: IconNpc },
   { key: 'map', label: '地图', Icon: IconMap },
   { key: 'toc', label: '目录', Icon: IconToc },
   { key: 'dice', label: '骰子', Icon: IconDice },
