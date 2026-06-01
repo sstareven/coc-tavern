@@ -623,6 +623,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // (mvuForceAlways forces it every turn for max extraction fidelity).
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
+        let mvuUsage: TokenUsage | undefined;
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
           useStatusToastStore.getState().showProcessing('正在解析状态变量…');
           try {
@@ -635,6 +636,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               mvuSettings.mvuRetryCount,
               mvuSettings.mvuMaxTokens,
             );
+            mvuUsage = extracted.usage;
             const st = useVariableStore.getState();
             st.processResponse(hookProcessedContent);
             for (const [name, value] of Object.entries(extracted.variables)) {
@@ -658,9 +660,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const promptEst = estimateTokens(JSON.stringify(editedMessages));
         const completionEst = estimateTokens(response.content);
         const realUsage = lastUsage?.total_tokens != null;
-        const promptTok = realUsage ? lastUsage!.prompt_tokens : promptEst;
-        const completionTok = realUsage ? lastUsage!.completion_tokens : completionEst;
-        const totalTok = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
+        const mainPrompt = realUsage ? (lastUsage!.prompt_tokens ?? 0) : promptEst;
+        const mainCompletion = realUsage ? (lastUsage!.completion_tokens ?? 0) : completionEst;
+        const mainTotal = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
+        // 并入 MVU（独立变量通道）那次提取的真实用量——它与主生成同属本回合。
+        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0);
+        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0);
+        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0);
         // 本页生成记录：随页面持久化、翻回该页即显示该页当时的用量与耗时。
         const pageGenStats = {
           totalTokens: totalTok,
@@ -671,7 +677,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         };
         pushLog(
           'info',
-          `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok ?? '?'} / 输出 ${completionTok ?? '?'}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
+          `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok} / 输出 ${completionTok}${mvuUsage ? ' · 含MVU' : ''}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
@@ -989,7 +995,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         content: '【系统纠正】你上一条回复不是合法的 JSON 对象（可能返回了纯叙事或夹带额外文字），已被丢弃。请严格只输出一个符合行动补写格式的 JSON 对象：{ "text": "...", "choices": [...] }，不要包含任何 JSON 之外的文字、解释或 Markdown 代码块标记。',
       };
 
-      const { result: block, attempts: attempt } = await sendWithJsonRetry({
+      const { result: block, attempts: attempt, lastContent: rewriteContent, lastUsage: rewriteUsage } = await sendWithJsonRetry({
         maxRetries,
         logTag: '行动补写',
         send: (corrective) => sendChatCompletion(
@@ -1015,6 +1021,22 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
       block.sourceInput = trimmed;
       useBookStore.getState().setPageRewrite(idx, block);
+      // 把补写这次的 token 用量追加进该页 genStats（中途增加 → 右下角数字翻滚）。
+      {
+        const real = rewriteUsage?.total_tokens != null;
+        useBookStore.getState().addPageGenStats(idx, real
+          ? {
+              totalTokens: rewriteUsage!.total_tokens!,
+              promptTokens: rewriteUsage!.prompt_tokens,
+              completionTokens: rewriteUsage!.completion_tokens,
+              estimated: false,
+            }
+          : (() => {
+              const p = estimateTokens(JSON.stringify(built.messages));
+              const c = estimateTokens(rewriteContent);
+              return { totalTokens: p + c, promptTokens: p, completionTokens: c, estimated: true };
+            })());
+      }
       useChatStore.getState().savePages(useBookStore.getState().pages);
       pushLog('info', `[行动补写] 已生成 ${block.choices.length} 个候选选项${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`);
       useStatusToastStore.getState().markDone(`已拟出 ${block.choices.length} 种可能`);

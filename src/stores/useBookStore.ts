@@ -101,6 +101,8 @@ interface BookStore {
   /** 重置到全新序章（新建人物时调用，确保新会话不残留上一局的页面）。 */
   resetToPrologue: () => void;
   setPageRewrite: (index: number, block: RewriteBlock | undefined) => void;
+  /** 把一笔生成用量累加进某页的 genStats（如行动补写中途追加）；耗时不叠加，保留主生成时长。 */
+  addPageGenStats: (index: number, delta: { totalTokens: number; promptTokens?: number; completionTokens?: number; estimated: boolean }) => void;
   /** 记录某页经行动补写已直接入库的物品名（用于阻止后续正文重复计数）。 */
   setPageAcquiredItems: (index: number, names: string[]) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
@@ -250,6 +252,22 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const pages = [...s.pages];
     // 重新续写（re-roll）会重生选项，清空该页此前补写拾取记录，避免拾取A后重写又拾取B二者皆入库。
     pages[index] = { ...pages[index], rewrite: block, acquiredItems: undefined };
+    return { pages };
+  }),
+  addPageGenStats: (index, delta) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    const prev = pages[index].genStats;
+    pages[index] = {
+      ...pages[index],
+      genStats: {
+        totalTokens: (prev?.totalTokens ?? 0) + delta.totalTokens,
+        promptTokens: (prev?.promptTokens ?? 0) + (delta.promptTokens ?? 0),
+        completionTokens: (prev?.completionTokens ?? 0) + (delta.completionTokens ?? 0),
+        durationMs: prev?.durationMs ?? 0,
+        estimated: (prev?.estimated ?? false) || delta.estimated,
+      },
+    };
     return { pages };
   }),
   setPageAcquiredItems: (index, names) => set((s) => {

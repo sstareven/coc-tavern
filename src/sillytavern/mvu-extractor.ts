@@ -1,6 +1,7 @@
 import { extractAllVariables, parseStatChanges } from './variables';
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
+import type { TokenUsage } from './stream-parser';
 
 const EXTRACTOR_PROMPT = `你是一个MVU（Model-View-Update）变量提取引擎。从以下COC跑团叙事文本中提取所有游戏状态变量。
 
@@ -49,7 +50,7 @@ export async function extractVariablesWithLLM(
   temperature = 1,
   retries = 1,
   maxTokens = 8096,
-): Promise<{ variables: Record<string, string>; cleanedText: string }> {
+): Promise<{ variables: Record<string, string>; cleanedText: string; usage?: TokenUsage }> {
   const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   let lastError: Error | null = null;
 
@@ -81,6 +82,7 @@ export async function extractVariablesWithLLM(
 
       const json = await response.json();
       const content: string = json.choices?.[0]?.message?.content ?? '';
+      const usage: TokenUsage | undefined = json.usage;
 
       // Try to parse the LLM's JSON response
       let variables: Record<string, string> = {};
@@ -110,7 +112,7 @@ export async function extractVariablesWithLLM(
         .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
         .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
 
-      return { variables, cleanedText };
+      return { variables, cleanedText, usage };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < retries - 1) {
