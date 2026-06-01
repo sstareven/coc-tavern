@@ -627,6 +627,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         let mvuUsage: TokenUsage | undefined;
         let patchReport: { applied: number; failed: MvuOpError[] } | undefined;
+        let selfCorrectUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
           useStatusToastStore.getState().showProcessing('正在解析状态变量…');
           try {
@@ -669,7 +670,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           );
           if (settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
             useStatusToastStore.getState().showProcessing('正在校正状态变量…');
-            await runMvuSelfCorrect(
+            const sc = await runMvuSelfCorrect(
               editedMessages,
               patchReport.failed,
               settings.mvuSelfCorrectRetries,
@@ -687,13 +688,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                     controller.signal,
                     'mvu',
                   );
-                  return r.content;
+                  return { content: r.content, usage: r.usage };
                 },
                 applyOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
                 log: (level, msg) => pushLog(level, msg, 'system'),
                 isAborted: () => controller.signal.aborted,
               },
             );
+            // 自纠消耗的 token 计入本回合 genStats（与主生成、MVU 提取同源汇总）。
+            if (sc.usage.total_tokens > 0 || sc.usage.prompt_tokens > 0 || sc.usage.completion_tokens > 0) {
+              selfCorrectUsage = sc.usage;
+            }
           }
         }
 
@@ -707,9 +712,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const mainCompletion = realUsage ? (lastUsage!.completion_tokens ?? 0) : completionEst;
         const mainTotal = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
         // 并入 MVU（独立变量通道）那次提取的真实用量——它与主生成同属本回合。
-        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0);
-        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0);
-        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0);
+        // 同时并入失败回灌自纠（mvu 桶）那几次往返的用量，统一进本页 genStats。
+        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0);
+        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0);
+        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0);
         // 本页生成记录：随页面持久化、翻回该页即显示该页当时的用量与耗时。
         const pageGenStats = {
           totalTokens: totalTok,

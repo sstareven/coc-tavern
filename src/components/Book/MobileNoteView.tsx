@@ -130,9 +130,9 @@ export function MobileNoteView() {
             {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
             <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
             {rendered.length === 1 && typeof rendered[0] === 'string'
-              ? <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(rendered[0])}</p>
+              ? <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(rendered[0])}</p>
               : rendered.map((node, i) => typeof node === 'string'
-                  ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
+                  ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
                   : <span key={i}>{node}</span>)}
             {renderedRight && (
               <>
@@ -143,9 +143,9 @@ export function MobileNoteView() {
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
                 {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
-                  ? <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedRight[0])}</p>
+                  ? <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedRight[0])}</p>
                   : renderedRight.map((node, i) => typeof node === 'string'
-                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
+                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
                       : <span key={`r${i}`}>{node}</span>)}
               </>
             )}
@@ -157,7 +157,7 @@ export function MobileNoteView() {
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
-                <p style={{ textIndent: '2em', marginBottom: 12, fontStyle: 'italic', color: 'var(--ink-subtle)' }}>{beautifyText(page.rewrite.text)}</p>
+                <p style={{ textIndent: '2em', marginBottom: 12, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
               </>
             )}
           </div>

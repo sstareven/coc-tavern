@@ -35,6 +35,17 @@ function extractVarTags(text: string): Record<string, string> {
   return vars;
 }
 
+/** 把 JSON 双重转义残留的字面 \n \r \t 还原为真实字符（仅作用于已 JSON.parse 解码后的字符串）。
+ *  只匹配「反斜杠+字母」这种转义残体；真实换行字符(U+000A)不含反斜杠，不会被误伤。
+ *  根因：LLM 偶尔产出双重转义 JSON（值内是两个字面字符 \ + n），JSON.parse 解码后残留字面 \n。 */
+export function unescapeLiteralNewlines(s: string): string {
+  return s
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n')
+    .replace(/\\t/g, '\t');
+}
+
 export function stripMvu(s: string): string {
   return s
     .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, '{{$2}}')
@@ -353,9 +364,9 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     const leftHeader = cleanHeader(String(parsed.leftHeader ?? '探索')) || '探索';
-    const leftContent = stripMvu(String(parsed.leftContent ?? raw));
+    const leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
     const rightHeader = cleanHeader(String(parsed.rightHeader ?? '行动')) || '行动';
-    const rightContent = stripMvu(String(parsed.rightContent ?? '接下来你打算怎么做？'));
+    const rightContent = stripMvu(unescapeLiteralNewlines(String(parsed.rightContent ?? '接下来你打算怎么做？')));
 
     let choices = Array.isArray(parsed.choices)
       ? parsed.choices.map((c: unknown, i: number) => {
@@ -527,7 +538,7 @@ export function parseRewriteResponse(raw: string): RewriteBlock | null {
     return null;
   }
 
-  const text = typeof parsed.text === 'string' ? parsed.text : '';
+  const text = typeof parsed.text === 'string' ? unescapeLiteralNewlines(parsed.text) : '';
   const rawChoices = Array.isArray(parsed.choices) ? (parsed.choices as Record<string, unknown>[]) : [];
   if (!text && rawChoices.length === 0) return null;
 

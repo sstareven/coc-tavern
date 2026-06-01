@@ -24,22 +24,26 @@ export interface MvuSchema {
 }
 
 /**
- * COC 项目的示例 schema。路径用 dot-path 表达，`*` 表示任意单段通配
- * （如 '剧情.暗线.*.进度' 匹配 '剧情.暗线.邪教.进度'）。
+ * COC 项目的受控字段 schema。路径用 dot-path 表达，`*` 表示任意单段通配。
  *
- * 注：'调查员.技能.*' 与 mvu-charsheet-redirect.ts 中
- * '调查员.技能.<技能名>' 的命名空间一致，作为技能字段约束蓝本（0..99）。
- * 枚举严重度等借鉴该文件的 SEVERITIES 风格。
+ * 校准依据（权威来源：mvu-initial-statdata.ts 种子 + useLorebookStore 的 [initvar]/schema/EJS）：
+ *  - statData 真实根只有 世界.* / 剧情.* / 战斗.*；调查员.* 整支被 redirect 改道角色卡，
+ *    **永不进 statData**，故不在此声明（旧的 调查员.HP/SAN/技能.* 是死规则，已删除）。
+ *  - 只约束"有明确枚举/范围、且确实落 statData"的字段；自由文本(日期/地点/章节)、动态 map
+ *    (关键事件/线索/敌人.*)、以及取值模糊的字段(世界.天气、剧情.结局类型)一律不写规则 →
+ *    matchRule 返回 undefined → 调用方走软校验/放行，避免误报触发无谓自纠。
  */
 export const COC_MVU_SCHEMA: MvuSchema = {
   rules: {
-    '调查员.HP': { kind: 'number', min: 0 },
-    '调查员.SAN': { kind: 'number', min: 0, max: 99 },
-    '调查员.技能.*': { kind: 'number', min: 0, max: 99 },
-    '世界.时间.小时': { kind: 'number', min: 0, max: 23 },
-    '世界.天气': { kind: 'enum', values: ['晴', '阴', '雨', '雾', '雪'] },
-    '剧情.暗线.*.进度': { kind: 'number', min: 0, max: 100 },
-    '剧情.暗线.*.状态': { kind: 'enum', values: ['未触发', '进行中', '已揭示', '已闭合'] },
+    // ── 剧情（强枚举/范围）──
+    '剧情.阶段': { kind: 'enum', values: ['调查期', '揭露期', '高潮', '结局', '后日谈'] },
+    '剧情.暗线.进度': { kind: 'number', min: 0, max: 100 },
+    '剧情.暗线.威胁等级': { kind: 'enum', values: ['潜伏', '浮现', '紧迫', '爆发'] },
+    '剧情.NPC.*.态度': { kind: 'number', min: -100, max: 100 },
+    '剧情.NPC.*.是否存活': { kind: 'boolean' },
+    // ── 战斗 ──
+    '战斗.是否战斗中': { kind: 'boolean' },
+    '战斗.回合数': { kind: 'number', min: 0 },
   },
 };
 

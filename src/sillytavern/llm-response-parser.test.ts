@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse, coerceJsonObject, cleanChoiceField, stripVarTagsLoose } from './llm-response-parser';
+import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse, coerceJsonObject, cleanChoiceField, stripVarTagsLoose, unescapeLiteralNewlines } from './llm-response-parser';
+
+describe('unescapeLiteralNewlines — 双重转义 JSON 残留的字面换行还原', () => {
+  it('字面 \\n\\n 还原为真实换行', () => {
+    expect(unescapeLiteralNewlines('你推开门。\\n\\n房间一片狼藉。')).toBe('你推开门。\n\n房间一片狼藉。');
+  });
+  it('字面 \\r\\n / \\r / \\t 归一', () => {
+    expect(unescapeLiteralNewlines('a\\r\\nb')).toBe('a\nb');
+    expect(unescapeLiteralNewlines('a\\rb')).toBe('a\nb');
+    expect(unescapeLiteralNewlines('a\\tb')).toBe('a\tb');
+  });
+  it('不误伤真实换行字符（无反斜杠则原样保留）', () => {
+    expect(unescapeLiteralNewlines('真实\n换行')).toBe('真实\n换行');
+  });
+  it('纯文本无转义残体时不变', () => {
+    expect(unescapeLiteralNewlines('正常的一段叙事。')).toBe('正常的一段叙事。');
+  });
+});
 
 // ============================================================
 // cleanChoiceField / stripVarTagsLoose — 剥除畸形 var 标签 + 裸难度文字（真实 bug 回归）

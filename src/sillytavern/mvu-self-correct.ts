@@ -5,6 +5,7 @@
 
 import { extractJsonPatchBlocks, type MvuOpError } from './mvu-jsonpatch';
 import type { AssembledMessage } from './prompt-assembler';
+import type { TokenUsage } from './stream-parser';
 
 /** 重试预算硬上限（即便设置传入更大值也夹到此）。 */
 export const MVU_SELF_CORRECT_MAX_BUDGET = 3;
@@ -33,8 +34,11 @@ export function buildCorrectiveMvuMessages(
 }
 
 export interface SelfCorrectDeps {
-  /** 发起一次纠正请求并返回回复原文。调用方须让此函数走 'mvu' RPM 桶并传中止信号。 */
-  send: (messages: AssembledMessage[]) => Promise<string>;
+  /**
+   * 发起一次纠正请求并返回回复原文与（可选）token 用量。
+   * 调用方须让此函数走 'mvu' RPM 桶并传中止信号。
+   */
+  send: (messages: AssembledMessage[]) => Promise<{ content: string; usage?: TokenUsage }>;
   /** 把修正 ops 叠加到当前状态、返回残余失败清单（通常是 useVariableStore.applyCorrectiveOps）。 */
   applyOps: (ops: unknown[]) => MvuOpError[];
   /** 可选日志钩子。 */
@@ -43,8 +47,14 @@ export interface SelfCorrectDeps {
   isAborted?: () => boolean;
 }
 
+/** 自纠循环结果：残余失败清单 + 本次自纠累计的 token 用量（计入页面 genStats）。 */
+export interface SelfCorrectResult {
+  remaining: MvuOpError[];
+  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}
+
 /**
- * 失败回灌自纠循环。返回最终残余失败清单（已 fail-open——能改的都改了，剩余跳过）。
+ * 失败回灌自纠循环。返回残余失败清单（已 fail-open）与累计 token 用量。
  *
  * 死线保障（与 RPM 联动）：
  *  - 最多发起 budget 次 send（budget 夹在 0..MVU_SELF_CORRECT_MAX_BUDGET）；
@@ -58,40 +68,47 @@ export async function runMvuSelfCorrect(
   initialFailed: MvuOpError[],
   budget: number,
   deps: SelfCorrectDeps,
-): Promise<MvuOpError[]> {
+): Promise<SelfCorrectResult> {
   const cap = Math.max(0, Math.min(MVU_SELF_CORRECT_MAX_BUDGET, Math.floor(budget || 0)));
+  const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   let failed = initialFailed;
   let attempt = 0;
   while (attempt < cap && failed.length > 0) {
-    if (deps.isAborted?.()) return failed;
+    if (deps.isAborted?.()) return { remaining: failed, usage };
     attempt++;
     const prevCount = failed.length;
     deps.log?.('info', `[MVU自纠] 第 ${attempt}/${cap} 次：请求 AI 修正 ${failed.length} 项非法变量更新…`);
-    let reply: string;
+    let reply: { content: string; usage?: TokenUsage };
     try {
       reply = await deps.send(buildCorrectiveMvuMessages(baseMessages, failed));
     } catch (e) {
-      if (deps.isAborted?.()) return failed;
+      if (deps.isAborted?.()) return { remaining: failed, usage };
       deps.log?.('warn', `[MVU自纠] 请求失败，放弃自纠: ${e instanceof Error ? e.message : String(e)}`);
-      return failed;
+      return { remaining: failed, usage };
     }
-    const fixOps = extractJsonPatchBlocks(reply);
+    // 累计用量（即便本轮 patch 无效也已消耗 token，须计入 genStats）。
+    if (reply.usage) {
+      usage.prompt_tokens += reply.usage.prompt_tokens ?? 0;
+      usage.completion_tokens += reply.usage.completion_tokens ?? 0;
+      usage.total_tokens += reply.usage.total_tokens ?? 0;
+    }
+    const fixOps = extractJsonPatchBlocks(reply.content);
     if (fixOps.length === 0) {
       deps.log?.('warn', `[MVU自纠] AI 未返回有效 JSONPatch，停止。`);
-      return failed;
+      return { remaining: failed, usage };
     }
     failed = deps.applyOps(fixOps);
     if (failed.length === 0) {
       deps.log?.('info', `[MVU自纠] 全部修正成功。`);
-      return failed;
+      return { remaining: failed, usage };
     }
     if (failed.length >= prevCount) {
       deps.log?.('warn', `[MVU自纠] 失败数未下降(${prevCount}→${failed.length})，停止以防原地打转。`);
-      return failed;
+      return { remaining: failed, usage };
     }
   }
   if (failed.length > 0) {
     deps.log?.('warn', `[MVU自纠] 预算用尽，仍有 ${failed.length} 项未修正（已 fail-open 跳过）。`);
   }
-  return failed;
+  return { remaining: failed, usage };
 }

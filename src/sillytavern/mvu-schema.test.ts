@@ -3,27 +3,33 @@ import { COC_MVU_SCHEMA, matchRule, validateValue, type MvuSchema } from './mvu-
 
 describe('matchRule', () => {
   it('精确命中：完整 dot-path 直接取规则', () => {
-    const rule = matchRule(COC_MVU_SCHEMA, '调查员.SAN');
-    expect(rule).toEqual({ kind: 'number', min: 0, max: 99 });
-  });
-
-  it('通配命中：单段 * 匹配任意技能名', () => {
-    const rule = matchRule(COC_MVU_SCHEMA, '调查员.技能.侦查');
-    expect(rule).toEqual({ kind: 'number', min: 0, max: 99 });
-  });
-
-  it('通配命中：中间段 * 匹配暗线名（剧情.暗线.邪教.进度）', () => {
-    const rule = matchRule(COC_MVU_SCHEMA, '剧情.暗线.邪教.进度');
+    const rule = matchRule(COC_MVU_SCHEMA, '剧情.暗线.进度');
     expect(rule).toEqual({ kind: 'number', min: 0, max: 100 });
   });
 
-  it('段数不等不命中：技能下多一段返回 undefined', () => {
-    // '调查员.技能.*' 是 3 段，'调查员.技能.侦查.当前' 是 4 段，段数必须相等
-    expect(matchRule(COC_MVU_SCHEMA, '调查员.技能.侦查.当前')).toBeUndefined();
+  it('通配命中：单段 * 匹配任意 NPC 名（剧情.NPC.张三.态度）', () => {
+    const rule = matchRule(COC_MVU_SCHEMA, '剧情.NPC.张三.态度');
+    expect(rule).toEqual({ kind: 'number', min: -100, max: 100 });
+  });
+
+  it('通配命中：NPC 存活布尔字段（剧情.NPC.无名氏.是否存活）', () => {
+    const rule = matchRule(COC_MVU_SCHEMA, '剧情.NPC.无名氏.是否存活');
+    expect(rule).toEqual({ kind: 'boolean' });
+  });
+
+  it('段数不等不命中：NPC 态度下多一段返回 undefined', () => {
+    // '剧情.NPC.*.态度' 是 4 段，'剧情.NPC.张三.态度.附加' 是 5 段，段数必须相等
+    expect(matchRule(COC_MVU_SCHEMA, '剧情.NPC.张三.态度.附加')).toBeUndefined();
   });
 
   it('未命中：完全无关路径返回 undefined', () => {
     expect(matchRule(COC_MVU_SCHEMA, '不存在.的.路径')).toBeUndefined();
+  });
+
+  it('未命中：被 redirect 的 调查员.* 不在 statData schema 内', () => {
+    // 调查员.* 整支改道角色卡，永不进 statData，schema 不应声明
+    expect(matchRule(COC_MVU_SCHEMA, '调查员.SAN')).toBeUndefined();
+    expect(matchRule(COC_MVU_SCHEMA, '调查员.技能.侦查')).toBeUndefined();
   });
 
   it('多通配取最具体：* 段数最少者胜出', () => {
