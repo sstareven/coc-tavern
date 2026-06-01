@@ -424,6 +424,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         personality: '',
         scenario: '',
         personaDescription: '',
+        posture: '站立',
+        statusConditions: [],
       };
 
     // 先清空所有按会话隔离的旧态（含角色卡重置为默认），再设置新角色卡——

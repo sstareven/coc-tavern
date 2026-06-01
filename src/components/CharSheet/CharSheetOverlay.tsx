@@ -5,6 +5,14 @@ import { CHAR_ORDER, DEFAULT_CHARS, SECONDARY_STATS } from '../../sillytavern/co
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 
+/** 状态条件严重度配色（金→血红渐进）。 */
+const SEVERITY_TONE: Record<string, { color: string; bg: string }> = {
+  minor: { color: '#8b7a4a', bg: 'rgba(139,122,74,0.12)' },
+  moderate: { color: 'var(--gold)', bg: 'rgba(196,168,85,0.12)' },
+  severe: { color: '#c06a3a', bg: 'rgba(192,106,58,0.14)' },
+  critical: { color: '#d45050', bg: 'rgba(212,80,80,0.16)' },
+};
+
 /** Parse description into 【section】 blocks, or null if no sections found */
 function parseSections(text: string): { title: string; body: string }[] | null {
   const parts = text.split(/【(.+?)】/);
@@ -184,6 +192,38 @@ export function CharSheetOverlay() {
                 <div style={{ fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>{renderSecValue(s.key)}</div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* 当前姿态 + 状态条件 */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={sectionLabel}>状态 · CONDITION</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>当前姿态</span>
+            <span style={{
+              fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2,
+              padding: '2px 10px', borderRadius: 3, border: '1px solid rgba(196,168,85,0.3)', background: 'rgba(196,168,85,0.08)',
+            }}>{sheet.posture || '站立'}</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {sheet.statusConditions.length === 0 ? (
+              <span style={{ fontSize: 11, color: 'var(--ink-faded)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>无异常状态</span>
+            ) : (
+              sheet.statusConditions.map((c, i) => {
+                const tone = SEVERITY_TONE[c.severity] || SEVERITY_TONE.moderate;
+                return (
+                  <span key={i} title={c.description} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 0.5, whiteSpace: 'nowrap',
+                    padding: '3px 9px', borderRadius: 10,
+                    color: tone.color, background: tone.bg, border: `1px solid ${tone.color}`,
+                  }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: tone.color }} />
+                    {c.name}
+                  </span>
+                );
+              })
+            )}
           </div>
         </div>
 

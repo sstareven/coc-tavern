@@ -12,6 +12,8 @@ export const defaultSheet: CharacterSheet = {
   personality: '',
   scenario: '',
   personaDescription: '',
+  posture: '站立',
+  statusConditions: [],
 };
 
 interface CharSheetStore {

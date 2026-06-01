@@ -33,6 +33,17 @@ export interface CharacterSheet {
   scenario: string;
   /** 用户设定描述 — persona / user description */
   personaDescription: string;
+  /** 当前姿态 — 站立/倒下/昏迷/被束缚 等，供 LLM 遵守物理约束 */
+  posture: string;
+  /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
+  statusConditions: StatusCondition[];
+}
+
+/** 角色的持续状态条件（如中毒、着火、极度口渴）。 */
+export interface StatusCondition {
+  name: string;
+  severity: 'minor' | 'moderate' | 'severe' | 'critical';
+  description: string;
 }
 
 // ===== Scene Info =====

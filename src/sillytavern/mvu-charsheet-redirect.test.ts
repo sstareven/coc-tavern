@@ -72,3 +72,31 @@ describe('applyCharsheetRedirect — 不可识别 / 不可写', () => {
     expect(applyCharsheetRedirect(sheet(), '调查员.生命值.当前', 'replace', '不是数字')).toBeNull();
   });
 });
+
+describe('applyCharsheetRedirect — 姿态 / 状态条件', () => {
+  function s2(): CharacterSheet {
+    return { ...sheet(), posture: '站立', statusConditions: [] } as CharacterSheet;
+  }
+  it('replace 姿态', () => {
+    const next = applyCharsheetRedirect(s2(), '调查员.姿态', 'replace', '倒下');
+    expect(next?.posture).toBe('倒下');
+  });
+  it('insert 状态条件（对象）', () => {
+    const next = applyCharsheetRedirect(s2(), '调查员.状态条件', 'insert', { 名称: '身体着火', 严重度: 'severe', 描述: '全身燃烧' });
+    expect(next?.statusConditions).toEqual([{ name: '身体着火', severity: 'severe', description: '全身燃烧' }]);
+  });
+  it('insert 同名状态覆盖旧的', () => {
+    const base = { ...s2(), statusConditions: [{ name: '中毒', severity: 'minor' as const, description: '旧' }] } as CharacterSheet;
+    const next = applyCharsheetRedirect(base, '调查员.状态条件', 'insert', { name: '中毒', severity: 'severe', description: '新' });
+    expect(next?.statusConditions).toEqual([{ name: '中毒', severity: 'severe', description: '新' }]);
+  });
+  it('remove 单个状态条件', () => {
+    const base = { ...s2(), statusConditions: [{ name: '中毒', severity: 'minor' as const, description: 'x' }, { name: '骨折', severity: 'moderate' as const, description: 'y' }] } as CharacterSheet;
+    const next = applyCharsheetRedirect(base, '调查员.状态条件.中毒', 'remove', undefined);
+    expect(next?.statusConditions).toEqual([{ name: '骨折', severity: 'moderate', description: 'y' }]);
+  });
+  it('replace 整个状态条件数组', () => {
+    const next = applyCharsheetRedirect(s2(), '调查员.状态条件', 'replace', [{ 名称: '极度口渴', 描述: '需尽快补水' }]);
+    expect(next?.statusConditions).toEqual([{ name: '极度口渴', severity: 'moderate', description: '需尽快补水' }]);
+  });
+});

@@ -41,6 +41,8 @@ const mockSheet: CharacterSheet = {
   personality: 'Curious and methodical.',
   scenario: 'A mysterious case in Arkham.',
   personaDescription: 'A dedicated investigator of the unknown.',
+  posture: '站立',
+  statusConditions: [],
 };
 
 describe('resolvePlayerValue', () => {
