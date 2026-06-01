@@ -5,6 +5,8 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
+import { NpcOverlay } from '../NPC/NpcOverlay';
+import { useNpcStore } from '../../stores/useNpcStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
@@ -32,6 +34,7 @@ export function Storybook() {
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
+  const npcOpen = useNpcStore((s) => s.isOpen);
   const deletePageStore = useBookStore((s) => s.deletePage);
   const isMobile = useIsMobile();
   const activeConvId = useChatStore((s) => s.activeId);
@@ -47,34 +50,43 @@ export function Storybook() {
       if (e.key === 'Escape') {
         if (inventoryOpen) useInventoryStore.getState().close();
         if (charSheetOpen) useCharSheetStore.getState().close();
+        if (npcOpen) useNpcStore.getState().close();
         if (showToc) { setShowToc(false); setSelectedToc(-1); }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [inventoryOpen, charSheetOpen, showToc]);
+  }, [inventoryOpen, charSheetOpen, npcOpen, showToc]);
 
   const page = pages[pageIndex];
   if (!page) return null;
 
+  const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'toc') => {
+    if (keep !== 'inventory') useInventoryStore.getState().close();
+    if (keep !== 'charsheet') useCharSheetStore.getState().close();
+    if (keep !== 'npc') useNpcStore.getState().close();
+    if (keep !== 'toc' && showToc) { setShowToc(false); setSelectedToc(-1); }
+  };
+
   const handleMobileTab = (tab: MobileTab) => {
     if (tab === 'inventory') {
       if (inventoryOpen) { useInventoryStore.getState().close(); return; }
-      useCharSheetStore.getState().close();
-      if (showToc) { setShowToc(false); setSelectedToc(-1); }
+      closeOtherOverlays('inventory');
       useInventoryStore.getState().toggle();
     } else if (tab === 'charsheet') {
       if (charSheetOpen) { useCharSheetStore.getState().close(); return; }
-      useInventoryStore.getState().close();
-      if (showToc) { setShowToc(false); setSelectedToc(-1); }
+      closeOtherOverlays('charsheet');
       useCharSheetStore.getState().toggle();
+    } else if (tab === 'npc') {
+      if (npcOpen) { useNpcStore.getState().close(); return; }
+      closeOtherOverlays('npc');
+      useNpcStore.getState().toggle();
     } else if (tab === 'toc') {
       if (showToc) {
         if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
         setSelectedToc(-1); setShowToc(false); return;
       }
-      useInventoryStore.getState().close();
-      useCharSheetStore.getState().close();
+      closeOtherOverlays('toc');
       setShowToc(true);
     } else if (tab === 'dice') {
       usePanelStore.getState().open('diceHistory');
@@ -119,7 +131,7 @@ export function Storybook() {
   // --- paper-style bookmark tab ---
   const bookmarkTab: React.CSSProperties = {
     width: 130,
-    height: 32,
+    height: 28,
     display: 'flex',
     alignItems: 'center',
     paddingLeft: 14,
@@ -336,9 +348,14 @@ export function Storybook() {
             {charSheetOpen && <CharSheetOverlay />}
           </AnimatePresence>
 
-          {/* Navigation arrows — hidden when TOC, Inventory or record is open */}
+          {/* NPC overlay — book-page style */}
+          <AnimatePresence>
+            {npcOpen && <NpcOverlay />}
+          </AnimatePresence>
+
+          {/* Navigation arrows — hidden when an overlay is open */}
           <div style={{
-            opacity: showToc || inventoryOpen || charSheetOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen ? 'none' : 'auto',
+            opacity: showToc || inventoryOpen || charSheetOpen || npcOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen || npcOpen ? 'none' : 'auto',
             transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             <PageNav
@@ -354,11 +371,11 @@ export function Storybook() {
         <div style={{
           position: 'absolute',
           left: 0,
-          top: '12%',
+          top: '4%',
           transform: 'translateX(-100%)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 8,
           zIndex: 2,
         }}>
           {/* Tab 0: 物品/线索 → inventory overlay */}
@@ -429,6 +446,42 @@ export function Storybook() {
           >
             <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{charSheetOpen ? '◁' : '✦'}</span>
             {charSheetOpen ? '返回' : '调查员记录'}
+          </button>
+
+          {/* Tab: NPC → npc overlay */}
+          <button
+            onClick={() => {
+              if (npcOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
+                useNpcStore.getState().close();
+                return;
+              }
+              useInventoryStore.getState().close();
+              useCharSheetStore.getState().close();
+              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              useBookStore.getState().decorativeFlip('backward', 800);
+              useNpcStore.getState().toggle();
+            }}
+            style={npcOpen ? tocTabActive : bookmarkTab}
+            onMouseEnter={(e) => {
+              if (!npcOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!npcOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
+            }}
+          >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
+            {npcOpen ? '返回' : 'NPC'}
           </button>
 
           {/* Tab 2: 目录 → table of contents overlay */}

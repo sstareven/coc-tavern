@@ -6,6 +6,7 @@ import type {
   InventoryItem,
   GameVariable,
   Clue,
+  NpcProfile,
 } from '../types';
 import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
 
@@ -57,6 +58,9 @@ export type GameVarRow = { conversationId: string; name: string } & GameVariable
 // One clue (independent clue library). Compound primary key [conversationId+clueId].
 export type ClueRow = { conversationId: string; clueId: string } & Clue;
 
+// One NPC profile. Compound primary key [conversationId+npcId].
+export type NpcRow = { conversationId: string; npcId: string } & NpcProfile;
+
 // One TavernHelper macro variable. Compound primary key [conversationId+name].
 export interface MacroVarRow {
   conversationId: string;
@@ -75,6 +79,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   gameVars: EntityTable<GameVarRow>;
   macroVars: EntityTable<MacroVarRow>;
   clues: EntityTable<ClueRow>;
+  npcProfiles: EntityTable<NpcRow>;
 };
 
 db.version(1).stores({
@@ -104,6 +109,14 @@ export const V3_SCHEMA = {
 } as const;
 
 db.version(3).stores(V3_SCHEMA);
+
+/** v4: 新增 NPC 档案表（新表，无数据迁移）。 */
+export const V4_SCHEMA = {
+  ...V3_SCHEMA,
+  npcProfiles: '[conversationId+npcId], conversationId',
+} as const;
+
+db.version(4).stores(V4_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

@@ -5,6 +5,7 @@ import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
+import type { NpcUpdate } from '../stores/useNpcStore';
 
 const VALID_ITEM_CATEGORIES = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
 
@@ -19,6 +20,7 @@ export interface ParsedLlmResult {
   page: BookPage;
   darkThread?: DarkThreadData;
   clues?: ClueInput[];
+  npcUpdates?: NpcUpdate[];
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -428,6 +430,29 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       else pushLog('debug', `[parseLlm] 线索: ${clues.map((c) => c.name).join(', ')}`, 'system');
     }
 
+    // ── NPC 更新 ──
+    let npcUpdates: NpcUpdate[] | undefined;
+    if (Array.isArray(parsed.npcUpdates)) {
+      npcUpdates = (parsed.npcUpdates as Record<string, unknown>[])
+        .filter((n) => n && typeof n.name === 'string' && String(n.name).trim())
+        .map((n) => {
+          const u: NpcUpdate = { name: String(n.name).trim() };
+          const uRec = u as unknown as Record<string, unknown>;
+          const strFields = ['identity', 'faction', 'gender', 'appearanceAge', 'derived', 'appearance', 'personality', 'innerThoughts', 'experience', 'backstory', 'status', 'addMemory'] as const;
+          for (const f of strFields) {
+            if (typeof n[f] === 'string' && String(n[f]).trim()) uRec[f] = String(n[f]);
+          }
+          if (n.characteristics && typeof n.characteristics === 'object') u.characteristics = n.characteristics as NpcUpdate['characteristics'];
+          if (n.skills && typeof n.skills === 'object') u.skills = n.skills as Record<string, number>;
+          if (Array.isArray(n.possessions)) u.possessions = (n.possessions as unknown[]).map(String);
+          if (typeof n.favorabilityDelta === 'number') u.favorabilityDelta = n.favorabilityDelta;
+          if (typeof n.isPresent === 'boolean') u.isPresent = n.isPresent;
+          return u;
+        });
+      if (npcUpdates.length === 0) npcUpdates = undefined;
+      else pushLog('debug', `[parseLlm] NPC: ${npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+    }
+
     let darkThread: DarkThreadData | undefined;
     if (parsed.darkThread && typeof parsed.darkThread === 'object') {
       const dt = parsed.darkThread as Record<string, unknown>;
@@ -459,6 +484,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       },
       darkThread,
       clues,
+      npcUpdates,
     };
 }
 

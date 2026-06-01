@@ -113,6 +113,47 @@ export interface Clue {
   acquiredAt: number;
 }
 
+// ===== NPC System（在场/离场 NPC 角色卡）=====
+export interface NpcProfile {
+  id: string;
+  name: string;
+  /** 身份/职业 */
+  identity: string;
+  /** 阵营/立场（可选） */
+  faction?: string;
+  gender?: string;
+  /** 外观年龄印象，如「四十出头」 */
+  appearanceAge?: string;
+  /** 基础属性（仅在 NPC 可能参战/检定时给出，键用 STR/INT 等） */
+  characteristics?: Partial<Record<COC7Characteristic, number>>;
+  /** 衍生数值文本，如 HP 12 / SAN 55 / DB +1D4 */
+  derived?: string;
+  /** 所有技能：技能名→值 */
+  skills?: Record<string, number>;
+  /** 好感度（对玩家角色）：-100 极端敌对 ~ 0 中立 ~ 100 盲目信任 */
+  favorability: number;
+  /** 外观印象 */
+  appearance: string;
+  /** 性格 */
+  personality: string;
+  /** 内心想法（KP 视角，玩家通常不可直接得知） */
+  innerThoughts: string;
+  /** 与调查员互动的记忆（按时间累积） */
+  memories: string[];
+  /** 人物经历 */
+  experience: string;
+  /** 背景故事 */
+  backstory: string;
+  /** 随身物品 */
+  possessions: string[];
+  /** 是否在场 */
+  isPresent: boolean;
+  /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
+  status?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ChoiceItem {
   num: string;
   text: string;

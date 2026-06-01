@@ -5,6 +5,7 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore } from '../stores/useClueStore';
+import { useNpcStore } from '../stores/useNpcStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
@@ -432,6 +433,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
         baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
       }
+      // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
+      if (!formatOverride) {
+        const npcCtx = useNpcStore.getState().buildContextInjection();
+        if (npcCtx) baseFormat += '\n\n' + npcCtx;
+      }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
@@ -747,6 +753,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.clues && result.clues.length > 0) {
           useClueStore.getState().addClues(result.clues.map((c) => ({ ...c, foundAtPage: newPage.leftPage })));
           pushLog('debug', `[Pipeline] 线索更新: ${result.clues.map((c) => c.name).join(', ')}`, 'system');
+        }
+
+        // NPC 档案更新
+        if (result.npcUpdates && result.npcUpdates.length > 0) {
+          useNpcStore.getState().applyUpdates(result.npcUpdates);
+          pushLog('debug', `[Pipeline] NPC 更新: ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {

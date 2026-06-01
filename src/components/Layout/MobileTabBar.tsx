@@ -1,7 +1,7 @@
 // src/components/Layout/MobileTabBar.tsx
-import { IconInventory, IconCharSheet, IconToc, IconDice } from './TabIcons';
+import { IconInventory, IconCharSheet, IconToc, IconDice, IconNpc } from './TabIcons';
 
-export type MobileTab = 'inventory' | 'charsheet' | 'toc' | 'dice';
+export type MobileTab = 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc' | 'dice';
 
 interface Props {
   active: MobileTab | null;            // 当前打开的覆盖层（dice 无持续态，可不高亮）
@@ -9,8 +9,9 @@ interface Props {
 }
 
 const TABS: Array<{ key: MobileTab; label: string; Icon: (p: { size?: number }) => React.ReactElement }> = [
-  { key: 'inventory', label: '库存', Icon: IconInventory },
-  { key: 'charsheet', label: '角色卡', Icon: IconCharSheet },
+  { key: 'inventory', label: '物品', Icon: IconInventory },
+  { key: 'charsheet', label: '角色', Icon: IconCharSheet },
+  { key: 'npc', label: 'NPC', Icon: IconNpc },
   { key: 'toc', label: '目录', Icon: IconToc },
   { key: 'dice', label: '骰子', Icon: IconDice },
 ];

@@ -75,6 +75,8 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。后日谈阶段省略darkThread字段。
 
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+
 重要：choices的text字段是玩家看到的行动描述，必须是纯粹的叙事文字（如"仔细搜查书房的每个角落"），禁止包含任何检定标记、方括号标注或技能名称前缀（如[检定:侦查]、[侦查]等）。检定信息只能出现在action字段中。`;
 
 /**
