@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.4';
+const CURRENT_VERSION = 'v1.3.5';
 
 interface Release {
   version: string;
@@ -12,6 +12,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.5',
+    label: '行动补写更忠实',
+    items: [
+      '自定义行动补写更忠于你的本意 — 比如你写「喝下去」，给出的 4 个候选里第一个一定是直接照做，其余是同一动作的不同方式（小口试、捏鼻灌等），不再发散成「闻一闻 / 化验 / 倒掉」这类替你改主意的替代方案',
+      '补写不再因「危险/不理智」就回避 — 后果交给掷骰和剧情承担；只有动作在当前场景物理上真的做不到时，才会说明受阻原因',
+    ],
+  },
   {
     version: 'v1.3.4',
     label: '热修：专精技能检定目标值',
