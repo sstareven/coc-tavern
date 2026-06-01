@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.5';
+const CURRENT_VERSION = 'v1.3.6';
 
 interface Release {
   version: string;
@@ -12,6 +12,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.6',
+    label: '选项不再出现 {{}} 花括号',
+    items: [
+      '修复选项文字偶尔带「{{}}」花括号的问题 — 正文用花括号做关键词悬停高亮，但选项是纯文字直接显示，AI 写在选项里的「{{粘液}}」等会露出字面括号；现已自动剥除（正文关键词高亮不受影响）',
+    ],
+  },
   {
     version: 'v1.3.5',
     label: '行动补写更忠实',
