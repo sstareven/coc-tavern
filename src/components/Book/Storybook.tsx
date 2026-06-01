@@ -174,8 +174,10 @@ export function Storybook() {
     const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
     if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
 
-    // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first）。
-    useDiceStore.getState().setHistory(remaining.flatMap((p) => p.diceResults ?? []).reverse());
+    // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first），并补上页码。
+    useDiceStore.getState().setHistory(
+      remaining.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),
+    );
 
     persistActiveGameState();
   };

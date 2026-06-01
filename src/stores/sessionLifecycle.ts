@@ -252,8 +252,11 @@ async function loadConversationInner(cid: string): Promise<void> {
     .map(({ conversationId: _cid, index: _index, ...page }) => page);
   useBookStore.getState().setPages(pages);
 
-  // 检定历史：从各页 diceResults 重建（newest-first），使「检定记录」面板随存档持久、与页面一致。
-  useDiceStore.getState().setHistory(pages.flatMap((p) => p.diceResults ?? []).reverse());
+  // 检定历史：从各页 diceResults 重建（newest-first），并补上页码（与实时游戏 pageIndex+1 编号一致），
+  // 使「检定记录」面板随存档持久、与页面一致且带页码。
+  useDiceStore.getState().setHistory(
+    pages.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),
+  );
 
   // 剧情摘要（小总结）：clearAllGameState 已清空全局 __auto_summaries 书，这里从本会话页面
   // 重建摘要条目——否则切档后旧会话的「剧情回顾」上下文永久丢失（摘要本是 page.summary 的派生投影）。
