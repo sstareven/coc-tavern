@@ -53,6 +53,8 @@ import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
+import { useGenStatsStore } from '../stores/useGenStatsStore';
+import type { TokenUsage } from '../sillytavern/stream-parser';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -110,10 +112,10 @@ interface TokenContext {
  */
 async function sendWithJsonRetry<T>(opts: {
   maxRetries: number;
-  send: (corrective: boolean) => Promise<{ content: string }>;
+  send: (corrective: boolean) => Promise<{ content: string; usage?: TokenUsage }>;
   parse: (content: string) => T | null;
   logTag: string;
-}): Promise<{ result: T | null; attempts: number; lastContent: string }> {
+}): Promise<{ result: T | null; attempts: number; lastContent: string; lastUsage?: TokenUsage }> {
   const { maxRetries, send, parse, logTag } = opts;
   let response = await send(false);
   pushLog('debug', `[${logTag}] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
@@ -127,7 +129,7 @@ async function sendWithJsonRetry<T>(opts: {
     pushLog('debug', `[${logTag}] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
     result = parse(response.content);
   }
-  return { result, attempts: attempt, lastContent: response.content };
+  return { result, attempts: attempt, lastContent: response.content, lastUsage: response.usage };
 }
 
 // ── Hook ──
@@ -577,7 +579,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 此路径只走整页生成（parseLlmResponse），补写走 parseRewriteResponse，故无需排除补写。
         const skipInventoryNarrativeCheck = useBookStore.getState().pages.length <= 1;
 
-        const { result, attempts: attempt, lastContent } = await sendWithJsonRetry({
+        const genStart = performance.now();
+        const { result, attempts: attempt, lastContent, lastUsage } = await sendWithJsonRetry({
           maxRetries,
           logTag: 'API',
           send: (corrective) => sendChatCompletion(
@@ -662,6 +665,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           'info',
           `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
+
+        // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
+        {
+          const durationMs = Math.round(performance.now() - genStart);
+          const promptEst = estimateTokens(JSON.stringify(editedMessages));
+          const completionEst = estimateTokens(response.content);
+          if (lastUsage?.total_tokens != null) {
+            useGenStatsStore.getState().setStats({
+              totalTokens: lastUsage.total_tokens,
+              promptTokens: lastUsage.prompt_tokens,
+              completionTokens: lastUsage.completion_tokens,
+              durationMs,
+              estimated: false,
+            });
+          } else {
+            useGenStatsStore.getState().setStats({
+              totalTokens: promptEst + completionEst,
+              promptTokens: promptEst,
+              completionTokens: completionEst,
+              durationMs,
+              estimated: true,
+            });
+          }
+        }
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
