@@ -5,6 +5,10 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
+import { NpcOverlay } from '../NPC/NpcOverlay';
+import { useNpcStore } from '../../stores/useNpcStore';
+import { MapOverlay } from '../Map/MapOverlay';
+import { useMapStore } from '../../stores/useMapStore';
 import { MobileTabBar, type MobileTab } from '../Layout/MobileTabBar';
 import { StatusBar } from './StatusBar';
 import { MobileNoteView } from './MobileNoteView';
@@ -23,10 +27,12 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
   const pageIndex = useBookStore((s) => s.pageIndex);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
+  const npcOpen = useNpcStore((s) => s.isOpen);
+  const mapOpen = useMapStore((s) => s.isOpen);
 
   const active: MobileTab | null =
-    inventoryOpen ? 'inventory' : charSheetOpen ? 'charsheet' : showToc ? 'toc' : null;
-  const anyOverlay = inventoryOpen || charSheetOpen || showToc;
+    inventoryOpen ? 'inventory' : charSheetOpen ? 'charsheet' : npcOpen ? 'npc' : mapOpen ? 'map' : showToc ? 'toc' : null;
+  const anyOverlay = inventoryOpen || charSheetOpen || npcOpen || mapOpen || showToc;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
@@ -44,6 +50,8 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
 
         <AnimatePresence>{inventoryOpen && <InventoryOverlay />}</AnimatePresence>
         <AnimatePresence>{charSheetOpen && <CharSheetOverlay />}</AnimatePresence>
+        <AnimatePresence>{npcOpen && <NpcOverlay />}</AnimatePresence>
+        <AnimatePresence>{mapOpen && <MapOverlay />}</AnimatePresence>
         <AnimatePresence>
           {showToc && (
             <TocOverlay pages={pages} pageIndex={pageIndex} selectedToc={selectedToc} onSelect={onTocSelect} />

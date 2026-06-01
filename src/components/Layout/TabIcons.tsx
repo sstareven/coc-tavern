@@ -24,3 +24,15 @@ export function IconToc({ size = 18 }: IconProps) {
 export function IconDice({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" /><path d="M12 3v18M4 7.5l8 4.5 8-4.5" /></svg>);
 }
+/** NPC：人物半身剪影 */
+export function IconNpc({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20a6.5 6.5 0 0113 0" /></svg>);
+}
+/** 地图：折叠地图 + 路径节点 */
+export function IconMap({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z" /><path d="M9 4v14M15 6v14" /></svg>);
+}
+/** 线索：放大镜 */
+export function IconClue({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="10.5" cy="10.5" r="6" /><path d="M20 20l-5.3-5.3" /></svg>);
+}

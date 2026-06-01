@@ -4,6 +4,9 @@ import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
+import type { ClueInput } from '../stores/useClueStore';
+import type { NpcUpdate } from '../stores/useNpcStore';
+import type { MapUpdates } from '../stores/useMapStore';
 
 const VALID_ITEM_CATEGORIES = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
 
@@ -17,6 +20,9 @@ export interface DarkThreadData {
 export interface ParsedLlmResult {
   page: BookPage;
   darkThread?: DarkThreadData;
+  clues?: ClueInput[];
+  npcUpdates?: NpcUpdate[];
+  mapUpdates?: MapUpdates;
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -376,12 +382,12 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
 
     const summary = typeof parsed.summary === 'string' ? parsed.summary : undefined;
 
-    const validActions = new Set<InventoryAction>(['add', 'remove', 'equip', 'unequip', 'update']);
+    const validActions = new Set<InventoryAction>(['add', 'remove', 'update']);
     const validCategories = VALID_ITEM_CATEGORIES;
     let inventoryChanges: InventoryChange[] | undefined;
     if (Array.isArray(parsed.inventoryChanges)) {
       // 物品叙事一致性硬执行：获取(add)/失去(remove)的物品名必须在本回合叙事中被提及，
-      // 否则丢弃该变化并告警。equip/unequip(对已有物品)与 update(纯数量增减)不强制点名，避免误删。
+      // 否则丢弃该变化并告警。update(纯数量增减)不强制点名，避免误删。
       const narrative = leftContent + '\n' + rightContent;
       const skipCheck = opts?.skipInventoryNarrativeCheck === true;
       inventoryChanges = (parsed.inventoryChanges as Record<string, unknown>[])
@@ -394,8 +400,6 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
           if (c.category && validCategories.has(String(c.category) as ItemCategory)) change.category = String(c.category) as ItemCategory;
           if (typeof c.quantity === 'number') change.quantity = c.quantity;
           if (typeof c.description === 'string') change.description = c.description;
-          if (typeof c.equipped === 'boolean') change.equipped = c.equipped;
-          if (typeof c.equippable === 'boolean') change.equippable = c.equippable;
           return change;
         })
         .filter((change) => {
@@ -409,6 +413,67 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         pushLog('debug', `[parseLlm] 物品变化: ${inventoryChanges.map((c) => `${c.action}:${c.name}`).join(', ')}`, 'system');
       } else {
         inventoryChanges = undefined;
+      }
+    }
+
+    // ── 独立线索库 ──
+    let clues: ClueInput[] | undefined;
+    if (Array.isArray(parsed.clues)) {
+      clues = (parsed.clues as Record<string, unknown>[])
+        .filter((c) => c && typeof c.name === 'string')
+        .map((c) => ({
+          name: String(c.name).trim(),
+          summary: typeof c.summary === 'string' ? c.summary : (typeof c['简述'] === 'string' ? String(c['简述']) : ''),
+          discoveryNarrative: typeof c.discoveryNarrative === 'string' ? c.discoveryNarrative : (typeof c['发现细节'] === 'string' ? String(c['发现细节']) : ''),
+          relatedTo: Array.isArray(c.relatedTo) ? (c.relatedTo as unknown[]).map(String) : undefined,
+        }))
+        .filter((c) => c.name);
+      if (clues.length === 0) clues = undefined;
+      else pushLog('debug', `[parseLlm] 线索: ${clues.map((c) => c.name).join(', ')}`, 'system');
+    }
+
+    // ── NPC 更新 ──
+    let npcUpdates: NpcUpdate[] | undefined;
+    if (Array.isArray(parsed.npcUpdates)) {
+      npcUpdates = (parsed.npcUpdates as Record<string, unknown>[])
+        .filter((n) => n && typeof n.name === 'string' && String(n.name).trim())
+        .map((n) => {
+          const u: NpcUpdate = { name: String(n.name).trim() };
+          const uRec = u as unknown as Record<string, unknown>;
+          const strFields = ['identity', 'faction', 'gender', 'appearanceAge', 'derived', 'appearance', 'personality', 'innerThoughts', 'experience', 'backstory', 'status', 'addMemory'] as const;
+          for (const f of strFields) {
+            if (typeof n[f] === 'string' && String(n[f]).trim()) uRec[f] = String(n[f]);
+          }
+          if (n.characteristics && typeof n.characteristics === 'object') u.characteristics = n.characteristics as NpcUpdate['characteristics'];
+          if (n.skills && typeof n.skills === 'object') u.skills = n.skills as Record<string, number>;
+          if (Array.isArray(n.possessions)) u.possessions = (n.possessions as unknown[]).map(String);
+          if (typeof n.favorabilityDelta === 'number') u.favorabilityDelta = n.favorabilityDelta;
+          if (typeof n.isPresent === 'boolean') u.isPresent = n.isPresent;
+          return u;
+        });
+      if (npcUpdates.length === 0) npcUpdates = undefined;
+      else pushLog('debug', `[parseLlm] NPC: ${npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+    }
+
+    // ── 地图更新 ──
+    let mapUpdates: MapUpdates | undefined;
+    if (parsed.mapUpdates && typeof parsed.mapUpdates === 'object' && !Array.isArray(parsed.mapUpdates)) {
+      const m = parsed.mapUpdates as Record<string, unknown>;
+      const mu: MapUpdates = {};
+      if (typeof m.current === 'string' && m.current.trim()) mu.current = m.current.trim();
+      if (Array.isArray(m.newLocations)) {
+        mu.newLocations = (m.newLocations as Record<string, unknown>[])
+          .filter((l) => l && typeof l.name === 'string' && String(l.name).trim())
+          .map((l) => ({ name: String(l.name).trim(), description: typeof l.description === 'string' ? l.description : (typeof l['描述'] === 'string' ? String(l['描述']) : '') }));
+      }
+      if (Array.isArray(m.newEdges)) {
+        mu.newEdges = (m.newEdges as Record<string, unknown>[])
+          .filter((e) => e && typeof e.from === 'string' && typeof e.to === 'string')
+          .map((e) => ({ from: String(e.from).trim(), to: String(e.to).trim(), type: e.type === 'oneway' ? 'oneway' as const : 'bidirectional' as const, description: typeof e.description === 'string' ? e.description : undefined }));
+      }
+      if (mu.current || mu.newLocations?.length || mu.newEdges?.length) {
+        mapUpdates = mu;
+        pushLog('debug', `[parseLlm] 地图: 当前=${mu.current ?? '-'} 新地点=${mu.newLocations?.length ?? 0} 新连线=${mu.newEdges?.length ?? 0}`, 'system');
       }
     }
 
@@ -442,6 +507,9 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         inventoryChanges,
       },
       darkThread,
+      clues,
+      npcUpdates,
+      mapUpdates,
     };
 }
 

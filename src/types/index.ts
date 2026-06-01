@@ -33,6 +33,17 @@ export interface CharacterSheet {
   scenario: string;
   /** 用户设定描述 — persona / user description */
   personaDescription: string;
+  /** 当前姿态 — 站立/倒下/昏迷/被束缚 等，供 LLM 遵守物理约束 */
+  posture: string;
+  /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
+  statusConditions: StatusCondition[];
+}
+
+/** 角色的持续状态条件（如中毒、着火、极度口渴）。 */
+export interface StatusCondition {
+  name: string;
+  severity: 'minor' | 'moderate' | 'severe' | 'critical';
+  description: string;
 }
 
 // ===== Scene Info =====
@@ -62,6 +73,56 @@ export interface BookPage {
   rewrite?: RewriteBlock;
   /** 行动补写拾取已直接入库的物品名，用于阻止后续正文 API 对同名物品重复计数。随页面持久化。 */
   acquiredItems?: string[];
+  /** 本页 LLM 产生的线索/NPC/地图更新——随页面持久化，用于删页时从剩余页面重建这些派生状态。 */
+  clues?: ClueInput[];
+  npcUpdates?: NpcUpdate[];
+  mapUpdates?: MapUpdates;
+  darkThread?: DarkThreadData;
+  /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
+  sheetSnapshot?: CharacterSheet;
+}
+
+// ===== LLM 派生更新（随页面持久化，供删页重建）=====
+export interface ClueInput {
+  name: string;
+  summary?: string;
+  discoveryNarrative?: string;
+  foundAtPage?: string;
+  relatedTo?: string[];
+}
+
+export interface NpcUpdate {
+  name: string;
+  identity?: string;
+  faction?: string;
+  gender?: string;
+  appearanceAge?: string;
+  characteristics?: Partial<Record<COC7Characteristic, number>>;
+  derived?: string;
+  skills?: Record<string, number>;
+  favorabilityDelta?: number;
+  appearance?: string;
+  personality?: string;
+  innerThoughts?: string;
+  addMemory?: string;
+  experience?: string;
+  backstory?: string;
+  possessions?: string[];
+  isPresent?: boolean;
+  status?: string;
+}
+
+export interface MapUpdates {
+  current?: string;
+  newLocations?: { name: string; description?: string }[];
+  newEdges?: { from: string; to: string; type?: 'bidirectional' | 'oneway'; description?: string }[];
+}
+
+export interface DarkThreadData {
+  development: string;
+  progress: number;
+  threatLevel: string;
+  foreshadowing: string;
 }
 
 // ===== Inventory System =====
@@ -73,14 +134,11 @@ export interface InventoryItem {
   category: ItemCategory;
   description: string;
   quantity: number;
-  equipped: boolean;
-  /** 能否被装备（武器/工具/可佩戴物为 true；信件/纸张/线索等为 false）。缺省时按 category 兜底推定。 */
-  equippable?: boolean;
   isKeyItem: boolean;
   acquiredAt: number;
 }
 
-export type InventoryAction = 'add' | 'remove' | 'equip' | 'unequip' | 'update';
+export type InventoryAction = 'add' | 'remove' | 'update';
 
 export interface InventoryChange {
   action: InventoryAction;
@@ -88,8 +146,81 @@ export interface InventoryChange {
   category?: ItemCategory;
   quantity?: number;
   description?: string;
-  equipped?: boolean;
-  equippable?: boolean;
+}
+
+// ===== Clue Library（独立线索库）=====
+export interface Clue {
+  id: string;
+  name: string;
+  /** 一句话简述 */
+  summary: string;
+  /** 发现细节 —— 多句描述角色从中发现了什么蛛丝马迹 */
+  discoveryNarrative: string;
+  /** 在第几页/回合发现 */
+  foundAtPage?: string;
+  /** 关联的人/地/事关键词 */
+  relatedTo?: string[];
+  acquiredAt: number;
+}
+
+// ===== Map System（地点有向连线网络）=====
+export interface MapLocation {
+  id: string;
+  name: string;
+  description: string;
+  /** 可选画布坐标（缺省时由前端自动布局） */
+  x?: number;
+  y?: number;
+}
+
+export interface MapEdge {
+  id: string;
+  fromId: string;
+  toId: string;
+  /** bidirectional: A<->B 自由通行；oneway: A-->B 单向不可逆 */
+  type: 'bidirectional' | 'oneway';
+  description?: string;
+}
+
+// ===== NPC System（在场/离场 NPC 角色卡）=====
+export interface NpcProfile {
+  id: string;
+  name: string;
+  /** 身份/职业 */
+  identity: string;
+  /** 阵营/立场（可选） */
+  faction?: string;
+  gender?: string;
+  /** 外观年龄印象，如「四十出头」 */
+  appearanceAge?: string;
+  /** 基础属性（仅在 NPC 可能参战/检定时给出，键用 STR/INT 等） */
+  characteristics?: Partial<Record<COC7Characteristic, number>>;
+  /** 衍生数值文本，如 HP 12 / SAN 55 / DB +1D4 */
+  derived?: string;
+  /** 所有技能：技能名→值 */
+  skills?: Record<string, number>;
+  /** 好感度（对玩家角色）：-100 极端敌对 ~ 0 中立 ~ 100 盲目信任 */
+  favorability: number;
+  /** 外观印象 */
+  appearance: string;
+  /** 性格 */
+  personality: string;
+  /** 内心想法（KP 视角，玩家通常不可直接得知） */
+  innerThoughts: string;
+  /** 与调查员互动的记忆（按时间累积） */
+  memories: string[];
+  /** 人物经历 */
+  experience: string;
+  /** 背景故事 */
+  backstory: string;
+  /** 随身物品 */
+  possessions: string[];
+  /** 是否在场 */
+  isPresent: boolean;
+  /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
+  status?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ChoiceItem {

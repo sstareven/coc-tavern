@@ -2,11 +2,12 @@
 import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
-import { usePageFlip } from '../../hooks/usePageFlip';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
+import { InventoryChangesBar } from './RightPage';
 import { resolveSwipe } from './swipe';
+import { sfxPageFlip } from '../../audio/sfx';
 import type { DiceRecord } from '../../types';
 
 const RESULT_COLORS: Record<string, string> = {
@@ -22,13 +23,31 @@ export function MobileNoteView() {
   const pages = useBookStore((s) => s.pages);
   const pageIndex = useBookStore((s) => s.pageIndex);
   const direction = useBookStore((s) => s.flipDirection);
-  const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
+  const nextPage = useBookStore((s) => s.nextPage);
+  const prevPage = useBookStore((s) => s.prevPage);
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const touch = useRef<{ x: number; y: number } | null>(null);
 
   const page = pages[pageIndex];
   if (!page) return null;
+
+  const canGoNext = pageIndex < pages.length - 1;
+  const canGoPrev = pageIndex > 0;
+
+  // 手机端即时翻页（不走桌面 1500ms 的 3D 翻转），配合快速横滑动画——手一滑就翻。
+  const goNext = () => {
+    if (!canGoNext) return;
+    useBookStore.setState({ flipDirection: 'forward' });
+    nextPage();
+    try { sfxPageFlip(); } catch { /* audio not available */ }
+  };
+  const goPrev = () => {
+    if (!canGoPrev) return;
+    useBookStore.setState({ flipDirection: 'backward' });
+    prevPage();
+    try { sfxPageFlip(); } catch { /* audio not available */ }
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -38,9 +57,10 @@ export function MobileNoteView() {
     const dx = e.changedTouches[0].clientX - touch.current.x;
     const dy = e.changedTouches[0].clientY - touch.current.y;
     touch.current = null;
-    const dir = resolveSwipe(dx, dy);
-    if (dir === 'left' && canGoNext) flipForward();
-    else if (dir === 'right' && canGoPrev) flipBackward();
+    // 更低阈值 = 手一滑就翻
+    const dir = resolveSwipe(dx, dy, { threshold: 36 });
+    if (dir === 'left') goNext();
+    else if (dir === 'right') goPrev();
   };
 
   const effectiveRender = pt.enabled ? pt.renderEnabled : true;
@@ -67,13 +87,13 @@ export function MobileNoteView() {
       onTouchEnd={onTouchEnd}
       style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence initial={false}>
         <motion.div
           key={pageIndex}
           initial={{ opacity: 0, x: enterX }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -enterX }}
-          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', minHeight: 0,
@@ -98,9 +118,17 @@ export function MobileNoteView() {
                 </div>
               );
             })}
+            {/* 小总结（剧情回顾）—— 与检定结果一起冻结在顶部 */}
+            {page.summary && (
+              <p style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
+                {page.summary}
+              </p>
+            )}
           </div>
           {/* 叙事卷轴 */}
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
+            {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
+            <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
             {rendered.length === 1 && typeof rendered[0] === 'string'
               ? <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(rendered[0])}</p>
               : rendered.map((node, i) => typeof node === 'string'
@@ -128,31 +156,19 @@ export function MobileNoteView() {
         </motion.div>
       </AnimatePresence>
 
-      {/* 半透明箭头兜底 */}
-      <NoteArrow side="left" onClick={flipBackward} disabled={!canGoPrev} />
-      <NoteArrow side="right" onClick={flipForward} disabled={!canGoNext} />
+      {/* 左上角翻页提示（小字，稍后淡隐）——靠左右滑动/拖动翻页 */}
+      <motion.div
+        initial={{ opacity: 0.75 }}
+        animate={{ opacity: 0.3 }}
+        transition={{ delay: 1.8, duration: 1.4, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          position: 'absolute', top: 0, left: 16, zIndex: 6, pointerEvents: 'none',
+          fontSize: 9.5, letterSpacing: 1.5, whiteSpace: 'nowrap',
+          color: 'rgba(196,168,85,0.7)', fontFamily: 'var(--font-ui)',
+        }}
+      >
+        ‹ 左右滑动翻页 ›
+      </motion.div>
     </div>
-  );
-}
-
-function NoteArrow({ side, onClick, disabled }: { side: 'left' | 'right'; onClick: () => void; disabled: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={side === 'left' ? '上一张' : '下一张'}
-      style={{
-        position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-        [side]: 4, width: 32, height: 32, borderRadius: '50%',
-        border: `1px solid ${disabled ? 'rgba(107,90,58,0.25)' : 'var(--gold)'}`,
-        background: disabled ? 'transparent' : 'rgba(26,20,14,0.35)',
-        color: disabled ? 'var(--ink-subtle)' : 'var(--gold)',
-        fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: disabled ? 0.3 : 0.75, cursor: disabled ? 'default' : 'pointer',
-        transition: 'opacity 0.35s cubic-bezier(0.4,0,0.2,1)', zIndex: 5,
-      } as React.CSSProperties}
-    >
-      {side === 'left' ? '‹' : '›'}
-    </button>
   );
 }

@@ -4,6 +4,10 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useClueStore } from '../stores/useClueStore';
+import { useNpcStore } from '../stores/useNpcStore';
+import { useMapStore } from '../stores/useMapStore';
+import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
@@ -12,7 +16,7 @@ import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
-import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
@@ -42,11 +46,11 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
-import { buildCharacterVariables } from '../sillytavern/character-variables';
+import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 
@@ -426,6 +430,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride && useBookStore.getState().pages.length <= 1) {
         baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
       }
+      // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
+      if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
+        baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
+      }
+      // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
+      if (!formatOverride) {
+        const npcCtx = useNpcStore.getState().buildContextInjection();
+        if (npcCtx) baseFormat += '\n\n' + npcCtx;
+      }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
@@ -643,6 +656,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
+        // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
+        if (result.clues) newPage.clues = result.clues;
+        if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
+        if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
+        if (result.darkThread) newPage.darkThread = result.darkThread;
+        // 角色卡快照（此时 processResponse 已应用本回合的 HP/SAN/MP/姿态/状态 JSON Patch）
+        newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);
@@ -737,6 +757,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}, 威胁等级=${result.darkThread.threatLevel}`, 'system');
         }
 
+        // 独立线索库
+        if (result.clues && result.clues.length > 0) {
+          useClueStore.getState().addClues(result.clues.map((c) => ({ ...c, foundAtPage: newPage.leftPage })));
+          pushLog('debug', `[Pipeline] 线索更新: ${result.clues.map((c) => c.name).join(', ')}`, 'system');
+        }
+
+        // NPC 档案更新
+        if (result.npcUpdates && result.npcUpdates.length > 0) {
+          useNpcStore.getState().applyUpdates(result.npcUpdates);
+          pushLog('debug', `[Pipeline] NPC 更新: ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+        }
+
+        // 地图更新（新地点/连线/当前位置）
+        if (result.mapUpdates) {
+          useMapStore.getState().applyUpdates(result.mapUpdates);
+          pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'}`, 'system');
+        }
+
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {
           // 防重复：若上一页（补写所在页）已通过拾取选项直接入库了某物品，
           // 则丢弃本回合正文对同名物品的 add，避免 applyChanges 按名合并致数量翻倍。
@@ -800,6 +838,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         else cooldownStateRef.current.set(k, v - 1);
       }
       loadingRef.current = true;
+      useChoiceLockStore.getState().lock(); // 提交开始即锁灰选项，防止生成中连点重掷/二次推进
 
       try {
         pushLog('debug', `[提交] 原始输入: "${trimmed}"`, 'system');
@@ -830,6 +869,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return ok ? '' : processedInput;
       } finally {
         loadingRef.current = false;
+        useChoiceLockStore.getState().unlock(); // 解锁选项（本次提交已结束：成功/失败/中止）
       }
     },
     [buildPromptMessages, handleSendFromPreview],

@@ -1,4 +1,4 @@
-import type { CharacterSheet } from '../types';
+import type { CharacterSheet, StatusCondition } from '../types';
 
 /** Whether a dot-path belongs to the character-sheet namespace (调查员.*). */
 export function isCharsheetPath(dotPath: string): boolean {
@@ -26,6 +26,33 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+const SEVERITIES = ['minor', 'moderate', 'severe', 'critical'] as const;
+
+/** 把任意 LLM 给的值规整为一个 StatusCondition（容忍中英文键、裸字符串）。 */
+function coerceCondition(v: unknown, fallbackName?: string): StatusCondition | null {
+  if (typeof v === 'string') {
+    return fallbackName ? { name: fallbackName, severity: 'moderate', description: v } : null;
+  }
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const name = String(o.name ?? o['名称'] ?? fallbackName ?? '').trim();
+  if (!name) return null;
+  const sevRaw = String(o.severity ?? o['严重度'] ?? 'moderate');
+  const severity = (SEVERITIES as readonly string[]).includes(sevRaw)
+    ? (sevRaw as StatusCondition['severity'])
+    : 'moderate';
+  const description = String(o.description ?? o['描述'] ?? '');
+  return { name, severity, description };
+}
+
+function coerceConditions(v: unknown): StatusCondition[] {
+  if (Array.isArray(v)) {
+    return v.map((x) => coerceCondition(x)).filter((x): x is StatusCondition => x !== null);
+  }
+  const one = coerceCondition(v);
+  return one ? [one] : [];
+}
+
 /**
  * Apply an MVU JSON Patch op that targets the 调查员.* (character-sheet) namespace,
  * returning a NEW CharacterSheet. Returns null if the op cannot/should not be applied to
@@ -43,6 +70,44 @@ export function applyCharsheetRedirect(
   op: string,
   value: unknown,
 ): CharacterSheet | null {
+  // ── Posture (调查员.姿态 → posture string) ──
+  if (dotPath === '调查员.姿态') {
+    if (op !== 'replace') return null;
+    const s = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+    if (!s) return null;
+    return { ...sheet, posture: s };
+  }
+
+  // ── Status conditions (调查员.状态条件 数组) ──
+  if (dotPath === '调查员.状态条件') {
+    if (op === 'replace') {
+      return { ...sheet, statusConditions: coerceConditions(value) };
+    }
+    if (op === 'insert') {
+      const added = coerceConditions(value);
+      if (added.length === 0) return null;
+      const addedNames = new Set(added.map((c) => c.name));
+      const kept = sheet.statusConditions.filter((c) => !addedNames.has(c.name)); // 同名覆盖
+      return { ...sheet, statusConditions: [...kept, ...added] };
+    }
+    return null;
+  }
+  // 单条状态：调查员.状态条件.<名称>（remove 删除 / replace|insert 覆盖单条）
+  if (dotPath.startsWith('调查员.状态条件.')) {
+    const name = dotPath.slice('调查员.状态条件.'.length);
+    if (!name) return null;
+    if (op === 'remove') {
+      return { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) };
+    }
+    if (op === 'replace' || op === 'insert') {
+      const cond = coerceCondition(value, name);
+      if (!cond) return null;
+      const kept = sheet.statusConditions.filter((c) => c.name !== name);
+      return { ...sheet, statusConditions: [...kept, cond] };
+    }
+    return null;
+  }
+
   if (op !== 'replace' && op !== 'delta') return null;
 
   // ── Secondary stats (HP/SAN/MP current|max) + luck ──

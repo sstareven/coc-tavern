@@ -41,6 +41,8 @@ const mockSheet: CharacterSheet = {
   personality: 'Curious and methodical.',
   scenario: 'A mysterious case in Arkham.',
   personaDescription: 'A dedicated investigator of the unknown.',
+  posture: '站立',
+  statusConditions: [],
 };
 
 describe('resolvePlayerValue', () => {
@@ -84,6 +86,12 @@ describe('resolvePlayerValue', () => {
 
   it('returns skill value for 侦查', () => {
     expect(resolvePlayerValue('侦查', mockSheet)).toEqual({ base: 25, current: 50 });
+  });
+
+  // 别名归一：LLM 用「快速交谈」发起检定，须归一到规范技能名「话术」(Fast Talk, base 5)，
+  // 否则落 fallback 致目标值≈0/1。
+  it('归一 快速交谈 → 话术 (Fast Talk base 5)，不落 fallback', () => {
+    expect(resolvePlayerValue('快速交谈', mockSheet)).toEqual({ base: 5, current: 5 });
   });
 
   // Secondary stats — 幸运 / 理智(SAN) live in secondary, not skills

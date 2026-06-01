@@ -5,6 +5,10 @@ import type {
   CharacterSheet,
   InventoryItem,
   GameVariable,
+  Clue,
+  NpcProfile,
+  MapLocation,
+  MapEdge,
 } from '../types';
 import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
 
@@ -53,6 +57,18 @@ export interface KeywordRow {
 // One MVU game variable. Compound primary key [conversationId+name].
 export type GameVarRow = { conversationId: string; name: string } & GameVariable;
 
+// One clue (independent clue library). Compound primary key [conversationId+clueId].
+export type ClueRow = { conversationId: string; clueId: string } & Clue;
+
+// One NPC profile. Compound primary key [conversationId+npcId].
+export type NpcRow = { conversationId: string; npcId: string } & NpcProfile;
+
+// One map location node. Compound primary key [conversationId+locationId].
+export type MapLocationRow = { conversationId: string; locationId: string } & MapLocation;
+
+// One map edge. Compound primary key [conversationId+edgeId].
+export type MapEdgeRow = { conversationId: string; edgeId: string } & MapEdge;
+
 // One TavernHelper macro variable. Compound primary key [conversationId+name].
 export interface MacroVarRow {
   conversationId: string;
@@ -70,6 +86,10 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   keywords: EntityTable<KeywordRow>;
   gameVars: EntityTable<GameVarRow>;
   macroVars: EntityTable<MacroVarRow>;
+  clues: EntityTable<ClueRow>;
+  npcProfiles: EntityTable<NpcRow>;
+  mapLocations: EntityTable<MapLocationRow>;
+  mapEdges: EntityTable<MapEdgeRow>;
 };
 
 db.version(1).stores({
@@ -91,6 +111,31 @@ export const V2_SCHEMA = {
 } as const;
 
 db.version(2).stores(V2_SCHEMA).upgrade(upgradeV2);
+
+/** v3: 新增独立线索库表（新表，无数据迁移）。 */
+export const V3_SCHEMA = {
+  ...V2_SCHEMA,
+  clues: '[conversationId+clueId], conversationId',
+} as const;
+
+db.version(3).stores(V3_SCHEMA);
+
+/** v4: 新增 NPC 档案表（新表，无数据迁移）。 */
+export const V4_SCHEMA = {
+  ...V3_SCHEMA,
+  npcProfiles: '[conversationId+npcId], conversationId',
+} as const;
+
+db.version(4).stores(V4_SCHEMA);
+
+/** v5: 新增地图地点/连线表（新表，无数据迁移）。 */
+export const V5_SCHEMA = {
+  ...V4_SCHEMA,
+  mapLocations: '[conversationId+locationId], conversationId',
+  mapEdges: '[conversationId+edgeId], conversationId',
+} as const;
+
+db.version(5).stores(V5_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

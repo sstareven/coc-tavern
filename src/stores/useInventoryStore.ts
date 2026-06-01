@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { InventoryItem, InventoryChange, ItemCategory } from '../types';
-import { pushLog } from './useLogStore';
 
 const CATEGORY_LABELS: Record<ItemCategory, string> = {
   weapon: '武器',
@@ -19,10 +18,8 @@ interface InventoryStore {
   close: () => void;
 
   applyChanges: (changes: InventoryChange[]) => void;
-  /** 完全逆转一组物品变化（用于删除某页/回合时撤销其物品增删与装备）。 */
+  /** 完全逆转一组物品变化（用于删除某页/回合时撤销其物品增删）。 */
   revertChanges: (changes: InventoryChange[]) => void;
-  equipItem: (name: string) => void;
-  unequipItem: (name: string) => void;
   hasItem: (name: string) => boolean;
   findItem: (name: string) => InventoryItem | undefined;
   buildInventorySummary: () => string;
@@ -36,30 +33,18 @@ function findByName(items: InventoryItem[], name: string): number {
   return items.findIndex((i) => i.name.includes(name) || name.includes(i.name));
 }
 
-/** 按 category 推定可否装备：武器/工具默认可装备，其余默认不可（信件、纸张、线索等）。 */
-const EQUIPPABLE_CATEGORIES: ItemCategory[] = ['weapon', 'tool'];
-function deriveEquippable(category: ItemCategory, explicit?: boolean): boolean {
-  if (typeof explicit === 'boolean') return explicit;
-  return EQUIPPABLE_CATEGORIES.includes(category);
-}
-/** 物品当前是否可装备：以显式 equippable 为准，缺省按 category 兜底。 */
-function itemEquippable(item: InventoryItem): boolean {
-  return item.equippable ?? EQUIPPABLE_CATEGORIES.includes(item.category);
-}
-
 /**
  * 规范化一组物品（用于持久化迁移、replaceAll、会话恢复等所有外部入口）：
- * 1) 保证每个物品都有非空 id（saveConversation 用 itemId: item.id 作复合主键，缺 id 会破坏键）；
- * 2) 回填缺省的 equippable（按 category 推定）；
- * 3) 卸下「不可装备却 equipped=true」的非法老存档物品，避免按钮消失后永久卡在已装备态。
+ * 保证每个物品都有非空 id（saveConversation 用 itemId: item.id 作复合主键，缺 id 会破坏键）。
+ * 顺带剥除旧存档可能残留的 equipped/equippable 字段（已废弃「装备中」概念）。
  */
 export function normalizeItems(items: InventoryItem[]): InventoryItem[] {
   return items.map((it) => {
-    const id = it.id || crypto.randomUUID();
-    const equippable = it.equippable ?? EQUIPPABLE_CATEGORIES.includes(it.category);
-    const equipped = it.equipped && equippable;
-    if (id === it.id && equippable === it.equippable && equipped === it.equipped) return it;
-    return { ...it, id, equippable, equipped };
+    const legacy = it as InventoryItem & { equipped?: unknown; equippable?: unknown };
+    if (it.id && legacy.equipped === undefined && legacy.equippable === undefined) return it;
+    const { equipped: _e, equippable: _q, ...rest } = legacy;
+    void _e; void _q;
+    return { ...rest, id: it.id || crypto.randomUUID() } as InventoryItem;
   });
 }
 
@@ -84,19 +69,12 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
               if (c.description) items[idx] = { ...items[idx], description: c.description };
             } else {
               const category = c.category ?? 'misc';
-              const equippable = deriveEquippable(category, c.equippable);
-              // 问题5：AI 要求装备但物品判定为不可装备（常因漏标 equippable 且 category 落到非武器/工具）→ 静默降级，记日志
-              if (c.equipped === true && !equippable) {
-                pushLog('warn', `[物品栏] "${c.name}"(${category}) 请求 equipped:true 但判定为不可装备（AI 可能漏标 equippable），已降级为未装备`, 'system');
-              }
               items.push({
                 id: crypto.randomUUID(),
                 name: c.name,
                 category,
                 description: c.description ?? '',
                 quantity: c.quantity ?? 1,
-                equipped: (c.equipped ?? false) && equippable,
-                equippable,
                 isKeyItem: category === 'key_item',
                 acquiredAt: Date.now(),
               });
@@ -107,14 +85,6 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
             if (idx >= 0 && !items[idx].isKeyItem) {
               items.splice(idx, 1);
             }
-            break;
-          }
-          case 'equip': {
-            if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
-            break;
-          }
-          case 'unequip': {
-            if (idx >= 0) items[idx] = { ...items[idx], equipped: false };
             break;
           }
           case 'update': {
@@ -157,15 +127,12 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
             // 撤销移除：尽力恢复（缺失则按变化记录重建）
             if (idx < 0) {
               const category = c.category ?? 'misc';
-              const equippable = deriveEquippable(category, c.equippable);
               items.push({
                 id: crypto.randomUUID(),
                 name: c.name,
                 category,
                 description: c.description ?? '',
                 quantity: c.quantity ?? 1,
-                equipped: (c.equipped ?? false) && equippable,
-                equippable,
                 isKeyItem: category === 'key_item',
                 acquiredAt: Date.now(),
               });
@@ -181,50 +148,20 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
               else items[idx] = { ...items[idx], quantity: q };
             } else if (delta > 0) {
               const category = c.category ?? 'misc';
-              const equippable = deriveEquippable(category, c.equippable);
               items.push({
                 id: crypto.randomUUID(),
                 name: c.name,
                 category,
                 description: c.description ?? '',
                 quantity: delta,
-                equipped: false,
-                equippable,
                 isKeyItem: category === 'key_item',
                 acquiredAt: Date.now(),
               });
             }
             break;
           }
-          case 'equip': {
-            if (idx >= 0) items[idx] = { ...items[idx], equipped: false };
-            break;
-          }
-          case 'unequip': {
-            // 撤销 unequip = 恢复装备，但须守卫：不可装备物品不得被装回（与 applyChanges equip 对称）
-            if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
-            break;
-          }
         }
       }
-      return { items };
-    });
-  },
-
-  equipItem: (name) => {
-    set((s) => {
-      const items = [...s.items];
-      const idx = findByName(items, name);
-      if (idx >= 0 && itemEquippable(items[idx])) items[idx] = { ...items[idx], equipped: true };
-      return { items };
-    });
-  },
-
-  unequipItem: (name) => {
-    set((s) => {
-      const items = [...s.items];
-      const idx = findByName(items, name);
-      if (idx >= 0) items[idx] = { ...items[idx], equipped: false };
       return { items };
     });
   },
@@ -238,20 +175,15 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
   buildInventorySummary: () => {
     const { items } = get();
     if (items.length === 0) return '';
-    const equipped = items.filter((i) => i.equipped);
-    const bag = items.filter((i) => !i.equipped);
     const fmt = (i: InventoryItem) =>
       i.quantity > 1
         ? `${i.name}x${i.quantity}(${CATEGORY_LABELS[i.category]})`
         : `${i.name}(${CATEGORY_LABELS[i.category]})`;
-    const parts: string[] = ['[调查员物品栏]'];
-    if (equipped.length > 0) parts.push(`装备中: ${equipped.map(fmt).join(', ')}`);
-    if (bag.length > 0) parts.push(`背包: ${bag.map(fmt).join(', ')}`);
-    return parts.join('\n');
+    return `[调查员随身物品]\n${items.map(fmt).join(', ')}`;
   },
 
   clearAll: () => set({ items: [] }),
   replaceAll: (items: InventoryItem[]) => set({ items: normalizeItems(items) }),
 }));
 
-export { CATEGORY_LABELS, itemEquippable };
+export { CATEGORY_LABELS };

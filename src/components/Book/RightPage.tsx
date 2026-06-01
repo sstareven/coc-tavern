@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
+import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
 import { itemNarrated } from '../../sillytavern/llm-response-parser';
@@ -485,46 +486,32 @@ function commitRewriteItemGain(ch: ChoiceItem): void {
   pushLog('info', `[补写拾取] 已获得「${gain.name}」`, 'system');
 }
 
-export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light' }: {
+export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light', interactive = true }: {
   inventoryChanges: InventoryChange[];
   fadeStyle?: React.CSSProperties;
   variant?: 'light' | 'dark';
+  interactive?: boolean;
 }) {
   if (!inventoryChanges || inventoryChanges.length === 0) return null;
   const dark = variant === 'dark';
-  return (
-    <button
-      type="button"
-      onClick={openBackpack}
-      title="点击打开背包"
-      style={{
-        display: 'block', width: '100%', textAlign: 'left',
-        marginBottom: 16, padding: '8px 10px',
-        border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
-        background: 'rgba(196,168,85,0.06)', cursor: 'pointer',
-        flexShrink: 0,
-        ...fadeStyle,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
-    >
+
+  const inner = (
+    <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
+        {interactive && <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {inventoryChanges.map((c, i) => {
           const cat = c.category ? ITEM_CAT_LABELS[c.category] : '';
-          const isGain = c.action === 'add' || c.action === 'equip'
+          const isGain = c.action === 'add'
             || (c.action === 'update' && (c.quantity ?? 0) > 0);
-          const isLoss = c.action === 'remove' || c.action === 'unequip'
+          const isLoss = c.action === 'remove'
             || (c.action === 'update' && (c.quantity ?? 0) < 0);
           const tone = isGain ? BONUS_COLORS.bonus : isLoss ? BONUS_COLORS.penalty : BONUS_COLORS.none;
           let prefix = '';
           if (c.action === 'add') prefix = '＋';
-          else if (c.action === 'equip') prefix = '装备 ';
           else if (c.action === 'remove') prefix = '－';
-          else if (c.action === 'unequip') prefix = '卸下 ';
           let qtyLabel = '';
           if (c.action === 'update' && typeof c.quantity === 'number') {
             const q = c.quantity;
@@ -548,6 +535,33 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
           );
         })}
       </div>
+    </>
+  );
+
+  const baseStyle: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    marginBottom: 16, padding: '8px 10px',
+    border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
+    background: 'rgba(196,168,85,0.06)',
+    flexShrink: 0,
+    ...fadeStyle,
+  };
+
+  // 手机端等场景用非交互版（仅展示，不可点——防误触跳转背包）
+  if (!interactive) {
+    return <div style={baseStyle}>{inner}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={openBackpack}
+      title="点击打开背包"
+      style={{ ...baseStyle, cursor: 'pointer' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
+    >
+      {inner}
     </button>
   );
 }
@@ -557,16 +571,23 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   const dark = variant === 'dark';
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
+  // 选项锁：本回合已按下一个会推进/掷骰的选项后，全部选项置灰禁用，防止重复点击重掷
+  const locked = useChoiceLockStore((s) => s.locked);
   const check = parseCheckAction(ch.action);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-  const isHovered = hovered && isLatestPage;
+  const enabled = isLatestPage && !locked;
+  const isHovered = hovered && enabled;
 
   return (
     <button
-      onClick={() => { commitRewriteItemGain(ch); fillInputBar(buildChoiceInput(ch)); }}
-      disabled={!isLatestPage}
-      title={!isLatestPage ? '只有最新一页的选项可以选择' : undefined}
+      onClick={() => {
+        if (!enabled) return;
+        commitRewriteItemGain(ch);
+        fillInputBar(buildChoiceInput(ch));
+      }}
+      disabled={!enabled}
+      title={!isLatestPage ? '只有最新一页的选项可以选择' : (locked ? '正在处理上一个选择…' : undefined)}
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
@@ -581,9 +602,9 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         : 'none',
       borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)')),
       color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
-      textAlign: 'left', cursor: isLatestPage ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
-      opacity: isLatestPage ? 1 : 0.45,
-      filter: isLatestPage ? 'none' : 'grayscale(0.6)',
+      textAlign: 'left', cursor: enabled ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
+      opacity: enabled ? 1 : 0.45,
+      filter: enabled ? 'none' : 'grayscale(0.6)',
     }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

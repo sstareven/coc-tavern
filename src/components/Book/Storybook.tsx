@@ -4,7 +4,13 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { InventoryOverlay } from '../Inventory/InventoryPanel';
+import { useClueStore } from '../../stores/useClueStore';
+import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
+import { NpcOverlay } from '../NPC/NpcOverlay';
+import { useNpcStore } from '../../stores/useNpcStore';
+import { MapOverlay } from '../Map/MapOverlay';
+import { useMapStore } from '../../stores/useMapStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
@@ -32,6 +38,8 @@ export function Storybook() {
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
+  const npcOpen = useNpcStore((s) => s.isOpen);
+  const mapOpen = useMapStore((s) => s.isOpen);
   const deletePageStore = useBookStore((s) => s.deletePage);
   const isMobile = useIsMobile();
   const activeConvId = useChatStore((s) => s.activeId);
@@ -47,36 +55,64 @@ export function Storybook() {
       if (e.key === 'Escape') {
         if (inventoryOpen) useInventoryStore.getState().close();
         if (charSheetOpen) useCharSheetStore.getState().close();
+        if (npcOpen) useNpcStore.getState().close();
+        if (mapOpen) useMapStore.getState().close();
         if (showToc) { setShowToc(false); setSelectedToc(-1); }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [inventoryOpen, charSheetOpen, showToc]);
+  }, [inventoryOpen, charSheetOpen, npcOpen, mapOpen, showToc]);
 
   const page = pages[pageIndex];
   if (!page) return null;
 
+  const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc') => {
+    // 若本次切换会关掉某个正打开的浮层，播一次翻页音效（与「返回」一致，配合右页退场动画）。
+    const willClose =
+      (keep !== 'inventory' && inventoryOpen) ||
+      (keep !== 'charsheet' && charSheetOpen) ||
+      (keep !== 'npc' && npcOpen) ||
+      (keep !== 'map' && mapOpen) ||
+      (keep !== 'toc' && showToc);
+    if (willClose) { try { sfxPageFlip(); } catch { /* audio not available */ } }
+    if (keep !== 'inventory') useInventoryStore.getState().close();
+    if (keep !== 'charsheet') useCharSheetStore.getState().close();
+    if (keep !== 'npc') useNpcStore.getState().close();
+    if (keep !== 'map') useMapStore.getState().close();
+    if (keep !== 'toc' && showToc) { setShowToc(false); setSelectedToc(-1); }
+  };
+
+  // 已有浮层打开时再切到另一个浮层：跳过书本装饰翻页（否则会多播一次"左页翻页"，体验割裂）。
+  const anyOverlayOpen = inventoryOpen || charSheetOpen || npcOpen || mapOpen || showToc;
+  const flipIfFromBook = () => { if (!anyOverlayOpen) useBookStore.getState().decorativeFlip('backward', 800); };
+
   const handleMobileTab = (tab: MobileTab) => {
     if (tab === 'inventory') {
       if (inventoryOpen) { useInventoryStore.getState().close(); return; }
-      useCharSheetStore.getState().close();
-      if (showToc) { setShowToc(false); setSelectedToc(-1); }
+      closeOtherOverlays('inventory');
       useInventoryStore.getState().toggle();
     } else if (tab === 'charsheet') {
       if (charSheetOpen) { useCharSheetStore.getState().close(); return; }
-      useInventoryStore.getState().close();
-      if (showToc) { setShowToc(false); setSelectedToc(-1); }
+      closeOtherOverlays('charsheet');
       useCharSheetStore.getState().toggle();
+    } else if (tab === 'npc') {
+      if (npcOpen) { useNpcStore.getState().close(); return; }
+      closeOtherOverlays('npc');
+      useNpcStore.getState().toggle();
+    } else if (tab === 'map') {
+      if (mapOpen) { useMapStore.getState().close(); return; }
+      closeOtherOverlays('map');
+      useMapStore.getState().toggle();
     } else if (tab === 'toc') {
       if (showToc) {
         if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
         setSelectedToc(-1); setShowToc(false); return;
       }
-      useInventoryStore.getState().close();
-      useCharSheetStore.getState().close();
+      closeOtherOverlays('toc');
       setShowToc(true);
     } else if (tab === 'dice') {
+      closeOtherOverlays();
       usePanelStore.getState().open('diceHistory');
     }
   };
@@ -97,29 +133,53 @@ export function Storybook() {
     console.warn('[Storybook] 第' + pageIndex + '页右页使用默认值 — 可能JSON解析失败或字段缺失', page);
   }
 
-  // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入/装备的全部物品
+  // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入的全部物品
   const affectedItems = pages
     .slice(pageIndex)
     .flatMap((p) => p.inventoryChanges ?? [])
-    .filter((c) => c.action === 'add' || c.action === 'equip' || (c.action === 'update' && (c.quantity ?? 0) > 0))
+    .filter((c) => c.action === 'add' || (c.action === 'update' && (c.quantity ?? 0) > 0))
     .map((c) => c.name)
     .filter((n): n is string => Boolean(n));
 
   const deletePage = () => {
-    // 级联删除本页至最新页：撤销这些页的全部物品变更，避免遗留幽灵物品
-    const all = useBookStore.getState().pages.slice(pageIndex);
-    const changes = all.flatMap((p) => p.inventoryChanges ?? []);
-    if (changes.length) {
-      useInventoryStore.getState().revertChanges(changes);
-    }
+    // 级联删除本页至最新页，然后以「剩余页面」为单源真理，清空并重放重建
+    // 物品 / 线索 / NPC / 地图——确保这些派生状态随删页彻底回溯（不残留幽灵数据）。
     deletePageStore(pageIndex);
+    const remaining = useBookStore.getState().pages;
+
+    useInventoryStore.getState().clearAll();
+    useClueStore.getState().clearAll();
+    useNpcStore.getState().clearAll();
+    useMapStore.getState().clearAll();
+    useDarkThreadStore.getState().clearAll();
+
+    for (const p of remaining) {
+      if (p.inventoryChanges?.length) useInventoryStore.getState().applyChanges(p.inventoryChanges);
+      if (p.clues?.length) useClueStore.getState().addClues(p.clues);
+      if (p.npcUpdates?.length) useNpcStore.getState().applyUpdates(p.npcUpdates);
+      if (p.mapUpdates) useMapStore.getState().applyUpdates(p.mapUpdates);
+      if (p.darkThread?.development) {
+        useDarkThreadStore.getState().addEntry({
+          progress: p.darkThread.progress,
+          threatLevel: p.darkThread.threatLevel,
+          details: p.darkThread.development,
+          foreshadowing: p.darkThread.foreshadowing,
+        });
+      }
+    }
+
+    // 人物状态回溯：恢复到剩余最后一页的角色卡快照（HP/SAN/MP/姿态/状态/技能）。
+    // 老存档页面无快照则不动角色卡，避免误清。
+    const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
+    if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
+
     persistActiveGameState();
   };
 
   // --- paper-style bookmark tab ---
   const bookmarkTab: React.CSSProperties = {
     width: 130,
-    height: 32,
+    height: 28,
     display: 'flex',
     alignItems: 'center',
     paddingLeft: 14,
@@ -336,9 +396,19 @@ export function Storybook() {
             {charSheetOpen && <CharSheetOverlay />}
           </AnimatePresence>
 
-          {/* Navigation arrows — hidden when TOC, Inventory or record is open */}
+          {/* NPC overlay — book-page style */}
+          <AnimatePresence>
+            {npcOpen && <NpcOverlay />}
+          </AnimatePresence>
+
+          {/* Map overlay */}
+          <AnimatePresence>
+            {mapOpen && <MapOverlay />}
+          </AnimatePresence>
+
+          {/* Navigation arrows — hidden when an overlay is open */}
           <div style={{
-            opacity: showToc || inventoryOpen || charSheetOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen ? 'none' : 'auto',
+            opacity: showToc || inventoryOpen || charSheetOpen || npcOpen || mapOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen || npcOpen || mapOpen ? 'none' : 'auto',
             transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             <PageNav
@@ -354,14 +424,14 @@ export function Storybook() {
         <div style={{
           position: 'absolute',
           left: 0,
-          top: '12%',
+          top: '4%',
           transform: 'translateX(-100%)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 8,
           zIndex: 2,
         }}>
-          {/* Tab 0: 背包/装备 → inventory overlay */}
+          {/* Tab 0: 物品/线索 → inventory overlay */}
           <button
             onClick={() => {
               if (inventoryOpen) {
@@ -369,9 +439,8 @@ export function Storybook() {
                 useInventoryStore.getState().close();
                 return;
               }
-              useCharSheetStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
-              useBookStore.getState().decorativeFlip('backward', 800);
+              closeOtherOverlays('inventory');
+              flipIfFromBook();
               useInventoryStore.getState().toggle();
             }}
             style={inventoryOpen ? tocTabActive : bookmarkTab}
@@ -393,7 +462,7 @@ export function Storybook() {
             }}
           >
             <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{inventoryOpen ? '◁' : '◆'}</span>
-            {inventoryOpen ? '返回' : '背包/装备'}
+            {inventoryOpen ? '返回' : '物品/线索'}
           </button>
 
           {/* Tab 1: 调查员记录 → character sheet overlay */}
@@ -404,9 +473,8 @@ export function Storybook() {
                 useCharSheetStore.getState().close();
                 return;
               }
-              useInventoryStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
-              useBookStore.getState().decorativeFlip('backward', 800);
+              closeOtherOverlays('charsheet');
+              flipIfFromBook();
               useCharSheetStore.getState().toggle();
             }}
             style={charSheetOpen ? tocTabActive : bookmarkTab}
@@ -431,6 +499,74 @@ export function Storybook() {
             {charSheetOpen ? '返回' : '调查员记录'}
           </button>
 
+          {/* Tab: NPC → npc overlay */}
+          <button
+            onClick={() => {
+              if (npcOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
+                useNpcStore.getState().close();
+                return;
+              }
+              closeOtherOverlays('npc');
+              flipIfFromBook();
+              useNpcStore.getState().toggle();
+            }}
+            style={npcOpen ? tocTabActive : bookmarkTab}
+            onMouseEnter={(e) => {
+              if (!npcOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!npcOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
+            }}
+          >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
+            {npcOpen ? '返回' : '人物名册'}
+          </button>
+
+          {/* Tab: 地图 → map overlay */}
+          <button
+            onClick={() => {
+              if (mapOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
+                useMapStore.getState().close();
+                return;
+              }
+              closeOtherOverlays('map');
+              flipIfFromBook();
+              useMapStore.getState().toggle();
+            }}
+            style={mapOpen ? tocTabActive : bookmarkTab}
+            onMouseEnter={(e) => {
+              if (!mapOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!mapOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
+            }}
+          >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{mapOpen ? '◁' : '✛'}</span>
+            {mapOpen ? '返回' : '地图'}
+          </button>
+
           {/* Tab 2: 目录 → table of contents overlay */}
           <button
             onClick={() => {
@@ -441,9 +577,8 @@ export function Storybook() {
                 setShowToc(false);
                 return;
               }
-              useInventoryStore.getState().close();
-              useCharSheetStore.getState().close();
-              useBookStore.getState().decorativeFlip('backward', 800);
+              closeOtherOverlays('toc');
+              flipIfFromBook();
               setShowToc(true);
             }}
             style={showToc ? tocTabActive : bookmarkTab}
@@ -470,7 +605,7 @@ export function Storybook() {
 
           {/* Tab 3: 检定记录 → dice history */}
           <button
-            onClick={() => usePanelStore.getState().open('diceHistory')}
+            onClick={() => { closeOtherOverlays(); usePanelStore.getState().open('diceHistory'); }}
             style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#8b3a3a';

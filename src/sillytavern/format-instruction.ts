@@ -15,11 +15,19 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 关键词词条：凡是你在叙事中用{{}}标记的每一个关键词，都必须在keywords字段中提供简短解释（10-30字），不得遗漏——包括经典地名/术语等你认为「已知」的词也必须给出释义。keywords字段的键须与叙事中{{}}内的文字完全一致。这是硬性要求：标记了却没有对应释义的关键词将无法显示悬浮提示，破坏体验。
 
-物品栏管理：当调查员获得、失去、装备或消耗物品时，在inventoryChanges中记录变化。action可选值：add(获得新物品)/remove(失去或丢弃)/equip(装备到身上)/unequip(卸下装备)/update(数量变化)。category可选值：weapon(武器)/tool(工具)/consumable(消耗品)/clue(线索文件)/key_item(关键剧情物品)/misc(杂物)。add时必须提供category、description(15-40字的物品简介)和equippable(布尔值)。equippable表示该物品能否被装备或穿戴在身上：武器、手电筒、护身符、外套、怀表、绳索等可佩戴或随身手持之物为true；信件、纸张、笔记、照片、剪报、线索文件等纯信息类物品为false。update时quantity为增减值(如-1表示消耗一个)。若本回合无物品变化则省略inventoryChanges字段。
+物品栏管理：调查员的物品统一为「随身物品」（在身上携带或穿戴之物，不区分是否装备）。当调查员获得、失去或消耗物品时，在inventoryChanges中记录变化。action可选值：add(获得新物品)/remove(失去或丢弃)/update(数量变化)。category可选值：weapon(武器)/tool(工具)/consumable(消耗品)/key_item(关键剧情物品)/misc(杂物)。add时必须提供category与description(15-40字的物品简介)。update时quantity为增减值(如-1表示消耗一个)。若本回合无物品变化则省略inventoryChanges字段。注意：线索、信件、笔记等"信息类发现"不要放进inventoryChanges，改用下面的clues字段。
 
-【物品叙事一致性·硬约束】物品的获取与消耗是故事的核心，绝不能凭空发生：任何inventoryChanges（add获得、remove失去/丢弃、equip装备、unequip卸下、update增减）都必须在同一回合的leftContent或rightContent叙事中有对应的、具体的描写——必须写清调查员是如何拿到、交出、丢弃、使用或消耗该物品的动作与情节（谁给的/在哪找到的/为何丢弃/如何用掉）。严禁出现"叙事里只字未提，却在inventoryChanges里凭空增减物品"的情况；反之，凡叙事中确实发生了物品的获得或失去，就必须如实记入inventoryChanges，不得遗漏。若本回合叙事中没有任何物品的得失，则不得输出inventoryChanges。
+【物品叙事一致性·硬约束】物品的获取与消耗是故事的核心，绝不能凭空发生：任何inventoryChanges（add获得、remove失去/丢弃、update增减）都必须在同一回合的leftContent或rightContent叙事中有对应的、具体的描写——必须写清调查员是如何拿到、交出、丢弃、使用或消耗该物品的动作与情节（谁给的/在哪找到的/为何丢弃/如何用掉）。严禁出现"叙事里只字未提，却在inventoryChanges里凭空增减物品"的情况；反之，凡叙事中确实发生了物品的获得或失去，就必须如实记入inventoryChanges，不得遗漏。若本回合叙事中没有任何物品的得失，则不得输出inventoryChanges。
+
+【线索库·clues】当调查员通过观察、搜查、检定、对话等方式发现重要线索、证据或蛛丝马迹时，在clues数组中记录。每条线索含：name(线索名)、summary(一句话简述)、discoveryNarrative(发现细节——用2-4句话描述角色是如何、从何处发现这条线索的，以及从中察觉到了什么不寻常之处、推断出什么)、relatedTo(可选，关联的人/地/事关键词数组)。线索是"知识与推理"，与物品(inventoryChanges)分开记录；同一物证既可作为物品add，也可同时在clues里登记其揭示的信息。若本回合无新线索则省略clues字段。
 
 重要物品约束：调查员只能使用当前物品栏中实际拥有的物品。如果玩家试图使用不在物品栏中的物品，应在叙事中自然地说明该物品不在手边或身上没有，并引导玩家采取其他行动。环境中的物品需要先通过add获取后才能使用。
+
+【姿态与状态·物理约束】调查员有「当前姿态」(如 站立/倒下/昏迷/被束缚/趴伏)与「状态条件」(如 中毒/身体着火/极度口渴/骨折)。这些是物理现实，叙事与可选行动必须严格遵守：倒下或昏迷的人无法做需要站立的动作（如正常奔跑、近身爆头一个站立的目标）；被束缚者不能自由移动；着火者每回合持续受伤、需先设法灭火。绝不能让处于某姿态/状态的角色做该状态下物理上不可能的事。当姿态或状态发生变化时，用 JSON Patch 更新（变化必须在本回合叙事中有对应描写，不得凭空增减）：
+- 改姿态：{"op":"replace","path":"/调查员/姿态","value":"倒下"}
+- 新增状态：{"op":"insert","path":"/调查员/状态条件","value":{"名称":"身体着火","严重度":"severe","描述":"全身燃起火焰，每回合受到灼烧"}}
+- 解除单个状态：{"op":"remove","path":"/调查员/状态条件/身体着火"}
+严重度（严重度字段）取值：minor(轻微)/moderate(中等)/severe(严重)/critical(危急)。恢复站立、脱困、灭火、解毒等也要相应更新姿态或移除状态条件。
 
 技能检定规则（COC 7th）：检定只需指定技能名称和难度等级（普通/困难/极难），目标值由系统自动从角色卡读取。格式：进行XX检定(普通) 或 进行XX检定(困难) 或 进行XX检定(极难)。大多数检定为普通难度。
 
@@ -46,14 +54,25 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
   "keywords": {"大学图书馆": "密斯卡塔尼克大学附属图书馆，藏有大量珍稀古籍", "密信": "来源不明的信件，纸张边缘有可疑的褐色斑点"},
   "summary": "调查员在图书馆中发现了一封神秘信件和可疑的档案记录",
   "inventoryChanges": [
-    {"action": "add", "name": "密信", "category": "clue", "quantity": 1, "equippable": false, "description": "来源不明的信件，潦草字迹透露着急迫，边缘有褐色斑点"},
+    {"action": "add", "name": "煤油灯", "category": "tool", "quantity": 1, "description": "黄铜煤油灯，光线昏黄但足以照亮书架间的暗影"},
     {"action": "update", "name": "火柴", "quantity": -1}
+  ],
+  "clues": [
+    {"name": "密信", "summary": "来源不明的信件，边缘有褐色斑点", "discoveryNarrative": "你在登记簿下发现这封没有署名的信，纸张边缘的褐色斑点凑近闻有铁锈味——像是干涸的血。字迹潦草急促，末尾提到「子夜的地窖」，似乎写信人当时极度惊恐。", "relatedTo": ["大学图书馆", "地窖"]}
   ],
   "darkThread": {
     "development": "黑夜教团的一名信徒潜入了大学图书馆，在调查员离开后秘密抄录了《死灵之书》中的某段仪式",
     "progress": 15,
     "threatLevel": "潜伏",
     "foreshadowing": "图书馆管理员提到近日有人在闭馆后偷偷进入特藏室，几本古籍的摆放位置似乎被动过"
+  },
+  "npcUpdates": [
+    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "他知道特藏室近来出过怪事，但怕惹祸上身不敢明说", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
+  ],
+  "mapUpdates": {
+    "current": "大学图书馆",
+    "newLocations": [{"name": "大学图书馆", "description": "密斯卡塔尼克大学的图书馆，藏书浩繁，特藏室戒备森严"}],
+    "newEdges": [{"from": "校门", "to": "大学图书馆", "type": "bidirectional"}]
   }
 }
 
@@ -64,10 +83,21 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。后日谈阶段省略darkThread字段。
 
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+
+【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
+- current：调查员当前所在地点名（每当所在地点变化时给出）。
+- newLocations：本回合首次出现的新地点数组，每项含 name 与 description（一句话简述）。生成任何新地点时都必须在此登记。
+- newEdges：本回合新增的连线数组，每项含 from（起点名）、to（终点名）、type、可选 description。type 取值：bidirectional 表示 A 与 B 之间可自由往返（如一条走廊、一扇门）；oneway 表示从 A 到 B 单向、不可逆行（如从悬崖跳入湖泊、滑入坍塌的地洞）。
+移动规则（务必遵守）：调查员只能沿已存在的连线移动，或进入一个与当前地点相连的新生成地点（同时用 newLocations 登记该新地点、并用 newEdges 登记它与当前地点的连线）。不可瞬移到与当前地点无连线的地点；oneway 连线不可逆向通行。current 应与 sceneInfo.location 保持一致。若本回合地点与连线均无变化则省略 mapUpdates。
+
 重要：choices的text字段是玩家看到的行动描述，必须是纯粹的叙事文字（如"仔细搜查书房的每个角落"），禁止包含任何检定标记、方括号标注或技能名称前缀（如[检定:侦查]、[侦查]等）。检定信息只能出现在action字段中。`;
 
 /**
  * 序章首回合追加指令：玩家刚选定开场情境，需据角色背景与处境生成一套起始物品/装备。
  * 仅在序章后的第一次正式生成时注入（pages.length <= 1）。
  */
-export const PROLOGUE_STARTING_ITEMS_INSTRUCTION = '【起始装备】这是冒险的开端，调查员尚无任何随身物品。请依据调查员的职业背景与本次所选的开场情境，在inventoryChanges中用add生成3-6件贴合其身份与当前处境的起始物品或装备。每件都必须标注category、description与equippable。显然随身穿戴或手持之物（外套、怀表、随身武器、手电筒等可装备物）设为"equipped": true；信件、文件、纸张、笔记等不可装备的物品放入背包（不设equipped或设为false）。物品应符合1920年代背景与角色身份，避免与情境无关的现代或奇幻物品。';
+export const PROLOGUE_STARTING_ITEMS_INSTRUCTION = '【起始装备】这是冒险的开端，调查员尚无任何随身物品。请依据调查员的职业背景与本次所选的开场情境，在inventoryChanges中用add生成3-6件贴合其身份与当前处境的起始随身物品（在身上携带或穿戴之物）。每件都必须标注category与description。物品应符合1920年代背景与角色身份，避免与情境无关的现代或奇幻物品。';
+
+/** 选项契合规则：与「调查员能力概览」配合注入，让选项贴合角色强项与性格。 */
+export const CHOICE_FIT_RULE = '【行动选项须贴合调查员的能力与性格】生成4个行动选项时，必须参考上面给出的「调查员能力概览」，让选项倾向于发挥该调查员的强项与性格，而不是清一色的蛮力/体能路径：\n- 高智力/高教育或拥有图书馆使用、心理学、侦查、说服、话术、科学、法律等高值技能的角色，应优先获得依靠观察、推理、学识、交涉、心理洞察的「智慧型」选项——一个聪明的角色面对难题时会先思考、查证、设法智取，而不是像笨蛋一样硬闯或蛮力破门。\n- 高力量/高敏捷或擅长格斗、运动、潜行、机械维修等的角色，才更适合体能、战斗、敏捷或动手型的选项。\n- 4个选项里至少有1-2个明确契合该角色的强项技能（检定选项所用技能应尽量落在角色的高值技能上），让玩家能「像这个角色那样」解决问题；同时仍保留多样性与至少一个有风险的选择，不要让所有选项都指向同一结果。\n- 若角色当前姿态/状态受限（如倒下、被束缚、着火），选项也必须符合该处境下物理上可行的行动。';

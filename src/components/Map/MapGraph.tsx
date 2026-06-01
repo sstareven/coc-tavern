@@ -1,0 +1,82 @@
+import type { MapLocation, MapEdge } from '../../types';
+
+const W = 520;
+const H = 460;
+
+/** 用确定性圆形布局排布节点（无外部依赖）；当前地点居中高亮。 */
+function layout(locations: MapLocation[], currentId: string | null): Map<string, { x: number; y: number }> {
+  const pos = new Map<string, { x: number; y: number }>();
+  const cx = W / 2, cy = H / 2;
+  const n = locations.length;
+  if (n === 0) return pos;
+  const ring = locations.filter((l) => l.id !== currentId);
+  if (currentId && locations.some((l) => l.id === currentId)) {
+    pos.set(currentId, { x: cx, y: cy });
+  }
+  const r = Math.min(W, H) * (ring.length > 1 ? 0.36 : 0.0);
+  ring.forEach((l, i) => {
+    const a = (-Math.PI / 2) + (2 * Math.PI * i) / Math.max(1, ring.length);
+    pos.set(l.id, { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+  });
+  if (!pos.has(locations[0].id)) pos.set(locations[0].id, { x: cx, y: cy });
+  return pos;
+}
+
+/** 受控的地图网络可视化（仅 SVG）。选中态/详情由父级管理。 */
+export function MapGraph({ locations, edges, currentId, selectedId, onSelect }: {
+  locations: MapLocation[];
+  edges: MapEdge[];
+  currentId: string | null;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const pos = layout(locations, currentId);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ flex: 1, minHeight: 0, width: '100%' }}>
+      <defs>
+        <marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(196,168,85,0.85)" />
+        </marker>
+      </defs>
+      {/* 边 */}
+      {edges.map((e) => {
+        const a = pos.get(e.fromId), b = pos.get(e.toId);
+        if (!a || !b) return null;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const R = 26;
+        const x1 = a.x + ux * R, y1 = a.y + uy * R, x2 = b.x - ux * R, y2 = b.y - uy * R;
+        return (
+          <line key={e.id} x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke={e.type === 'oneway' ? 'rgba(196,168,85,0.7)' : 'rgba(140,120,80,0.55)'}
+            strokeWidth={1.6}
+            strokeDasharray={e.type === 'oneway' ? '5 3' : undefined}
+            markerEnd={e.type === 'oneway' ? 'url(#map-arrow)' : undefined}
+          />
+        );
+      })}
+      {/* 节点 */}
+      {locations.map((l) => {
+        const p = pos.get(l.id);
+        if (!p) return null;
+        const isCur = l.id === currentId;
+        const isSel = l.id === selectedId;
+        return (
+          <g key={l.id} onClick={() => onSelect(l.id)} style={{ cursor: 'pointer' }}>
+            <circle cx={p.x} cy={p.y} r={24}
+              fill={isCur ? 'rgba(196,168,85,0.22)' : 'rgba(26,20,14,0.55)'}
+              stroke={isCur ? 'var(--gold)' : isSel ? 'rgba(196,168,85,0.7)' : 'rgba(196,168,85,0.35)'}
+              strokeWidth={isCur ? 2.5 : isSel ? 2 : 1.4} />
+            <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11}
+              fill={isCur ? 'var(--gold)' : 'var(--parchment)'} fontFamily="var(--font-ui)"
+              style={{ pointerEvents: 'none' }}>
+              {l.name.length > 5 ? l.name.slice(0, 4) + '…' : l.name}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
