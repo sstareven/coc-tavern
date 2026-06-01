@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import type { NpcProfile, NpcUpdate } from '../types';
+import { useSettingsStore } from './useSettingsStore';
 
 export type { NpcUpdate };
+
+/** 折叠后默认保留的最近原始记忆条数（被 settings.npcMemoryKeep 覆盖） */
+export const MEMORY_RECENT_KEEP = 6;
+/** 原始记忆数 ≥ 此值时，注入端提示 AI 提供 memorySummary 折叠 */
+export const MEMORY_FOLD_THRESHOLD = 10;
+/** 安全兜底：memories 绝不超过此数，超出本地丢最旧 */
+export const MEMORY_HARD_CAP = 14;
 
 interface NpcStore {
   isOpen: boolean;
@@ -76,7 +84,14 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         if (Array.isArray(u.possessions)) p.possessions = u.possessions;
         if (typeof u.favorabilityDelta === 'number') p.favorability = clampFav(p.favorability + u.favorabilityDelta);
         if (typeof u.isPresent === 'boolean') p.isPresent = u.isPresent;
-        if (u.addMemory?.trim()) p.memories = [...p.memories, u.addMemory.trim()].slice(-30);
+        if (u.addMemory?.trim()) p.memories = [...p.memories, u.addMemory.trim()];
+        if (u.memorySummary?.trim()) {
+          p.memorySummary = u.memorySummary.trim();
+          const keep = useSettingsStore.getState().npcMemoryKeep ?? MEMORY_RECENT_KEEP;
+          if (p.memories.length > keep) p.memories = p.memories.slice(-keep);
+        }
+        // 安全兜底：即便 AI 未提供梗概，也绝不无限增长
+        if (p.memories.length > MEMORY_HARD_CAP) p.memories = p.memories.slice(-MEMORY_HARD_CAP);
         p.updatedAt = now;
         profiles[id] = p;
       }
@@ -95,7 +110,9 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       const parts = [`- ${p.name}（${p.identity || '身份不明'}，对调查员好感度${p.favorability}/${fav}）`];
       if (p.personality) parts.push(`  性格：${p.personality}`);
       if (p.innerThoughts) parts.push(`  内心想法(KP视角)：${p.innerThoughts}`);
+      if (p.memorySummary) parts.push(`  记忆梗概：${p.memorySummary}`);
       if (p.memories.length) parts.push(`  近期互动：${p.memories.slice(-3).join('；')}`);
+      if (p.memories.length >= MEMORY_FOLD_THRESHOLD) parts.push(`  （"${p.name}"的互动记忆已较多，请本回合在其 npcUpdates 提供 memorySummary 浓缩既往关键互动以便归纳）`);
       return parts.join('\n');
     });
     return `[在场NPC——请严格按各自的身份、性格、动机、好感度与记忆一致地扮演]\n${lines.join('\n')}`;
