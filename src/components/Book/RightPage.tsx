@@ -583,10 +583,9 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
     <button
       onClick={() => {
         if (!enabled) return;
-        // 会推进/掷骰的选项（检定，或开了自动提交）按下即锁，避免连点重掷/二次提交
-        if (isCheck || useSettingsStore.getState().autoSubmitChoice) {
-          useChoiceLockStore.getState().lock();
-        }
+        // 任何选项按下即锁灰，防止连点重掷/二次提交（解锁在提交结束的 pipeline finally）。
+        // 输入栏的提交按钮不受此锁影响，故即便关闭自动提交也能正常提交并解锁。
+        useChoiceLockStore.getState().lock();
         commitRewriteItemGain(ch);
         fillInputBar(buildChoiceInput(ch));
       }}
