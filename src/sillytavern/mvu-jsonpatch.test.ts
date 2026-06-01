@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   extractJsonPatchBlocks,
   applyMvuPatch,
+  applyMvuPatchCollect,
   type MvuOp,
   type ApplyOpts,
 } from './mvu-jsonpatch';
@@ -426,5 +427,102 @@ describe('applyMvuPatch integration', () => {
       理智: [55, '心智'],
       list: [1, 2, 3],
     });
+  });
+});
+
+/* ============================== applyMvuPatchCollect + schema ============================== */
+
+describe('applyMvuPatchCollect — 结构化失败收集', () => {
+  it('成功的 op 不产生错误，畸形/未知 op 收进清单', () => {
+    const tree: Record<string, unknown> = { hp: 10 };
+    const errors = applyMvuPatchCollect(tree, [
+      { op: 'replace', path: '/hp', value: 20 }, // ok
+      { op: 'frobnicate', path: '/hp' },          // unknown op
+      'not-an-object',                             // 畸形
+      { op: 'replace' },                           // missing path
+    ]);
+    expect(tree.hp).toBe(20);
+    expect(errors).toHaveLength(3);
+    expect(errors.map((e) => e.op)).toEqual(['frobnicate', '?', 'replace']);
+    // 每条错误都带 reason
+    for (const e of errors) expect(typeof e.reason).toBe('string');
+  });
+
+  it('path 不存在 / delta 非数值 → 结构化错误且 tree 不变', () => {
+    const tree: Record<string, unknown> = { hp: 10 };
+    const errors = applyMvuPatchCollect(tree, [
+      { op: 'replace', path: '/nope', value: 1 },
+      { op: 'delta', path: '/hp', value: 'abc' },
+    ]);
+    expect(tree).toEqual({ hp: 10 });
+    expect(errors).toHaveLength(2);
+    expect(errors[0].path).toBe('nope');
+  });
+
+  it('合法 insert 新建动态路径不报错（不误杀自由扩展树）', () => {
+    const tree: Record<string, unknown> = {};
+    const errors = applyMvuPatchCollect(tree, [
+      { op: 'insert', path: '/剧情/暗线/邪教/线索', value: '血字' },
+    ]);
+    expect(errors).toHaveLength(0);
+    expect(tree).toEqual({ 剧情: { 暗线: { 邪教: { 线索: '血字' } } } });
+  });
+
+  it('数字串 replace 不误报（与 coerceNumeric 一致）', () => {
+    const tree: Record<string, unknown> = { hp: 10 };
+    const errors = applyMvuPatchCollect(tree, [{ op: 'replace', path: '/hp', value: '42' }]);
+    expect(errors).toHaveLength(0);
+    expect(tree.hp).toBe(42);
+  });
+});
+
+describe('schema 校验 — 越界/枚举拒绝', () => {
+  const schema = {
+    rules: {
+      '世界.时间.小时': { kind: 'number' as const, min: 0, max: 23 },
+      '世界.天气': { kind: 'enum' as const, values: ['晴', '阴', '雨'] },
+      hp: { kind: 'number' as const, min: 0 },
+    },
+  };
+
+  it('replace 越界被拒绝并记错误，tree 不变', () => {
+    const tree: Record<string, unknown> = { 世界: { 时间: { 小时: 12 } } };
+    const errors = applyMvuPatchCollect(
+      tree,
+      [{ op: 'replace', path: '/世界/时间/小时', value: 25 }],
+      { schema },
+    );
+    expect((tree as any).世界.时间.小时).toBe(12);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reason).toContain('range');
+  });
+
+  it('delta 后跌破 min 被拒绝（HP -100）', () => {
+    const tree: Record<string, unknown> = { hp: 10 };
+    const errors = applyMvuPatchCollect(tree, [{ op: 'delta', path: '/hp', value: -100 }], { schema });
+    expect(tree.hp).toBe(10);
+    expect(errors[0].reason).toContain('range');
+  });
+
+  it('枚举非法值被拒绝', () => {
+    const tree: Record<string, unknown> = { 世界: { 天气: '晴' } };
+    const errors = applyMvuPatchCollect(tree, [{ op: 'replace', path: '/世界/天气', value: '冰雹' }], { schema });
+    expect((tree as any).世界.天气).toBe('晴');
+    expect(errors[0].reason).toContain('enum');
+  });
+
+  it('合法值通过；未受控路径放行', () => {
+    const tree: Record<string, unknown> = { 世界: { 时间: { 小时: 12 }, 天气: '晴' }, 自由字段: 1 };
+    const errors = applyMvuPatchCollect(
+      tree,
+      [
+        { op: 'replace', path: '/世界/时间/小时', value: 8 },
+        { op: 'replace', path: '/世界/天气', value: '雨' },
+        { op: 'replace', path: '/自由字段', value: 999 },
+      ],
+      { schema },
+    );
+    expect(errors).toHaveLength(0);
+    expect(tree).toEqual({ 世界: { 时间: { 小时: 8 }, 天气: '雨' }, 自由字段: 999 });
   });
 });

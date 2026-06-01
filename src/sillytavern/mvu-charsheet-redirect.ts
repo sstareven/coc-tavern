@@ -5,6 +5,19 @@ export function isCharsheetPath(dotPath: string): boolean {
   return dotPath === '调查员' || dotPath.startsWith('调查员.');
 }
 
+/**
+ * 是否为「角色卡数值目标」路径——HP/SAN/MP 当前|最大、幸运、技能.*。
+ * 这些路径用 replace/delta 时必须给数字值；redirect 返回 null 即意味着值非数字，
+ * 属真实失败（应上报），区别于身份字段等良性「不消费」的 null。
+ */
+export function isNumericCharsheetTarget(dotPath: string): boolean {
+  return (
+    secondaryTarget(dotPath) !== null ||
+    dotPath === '调查员.幸运' ||
+    dotPath.startsWith('调查员.技能.')
+  );
+}
+
 /** Map a 调查员.* secondary path to its sheet location. Returns null if unrecognized. */
 function secondaryTarget(dotPath: string): { stat: 'hp' | 'san' | 'mp'; field: 'current' | 'max' } | 'luck' | null {
   const map: Record<string, { stat: 'hp' | 'san' | 'mp'; field: 'current' | 'max' }> = {

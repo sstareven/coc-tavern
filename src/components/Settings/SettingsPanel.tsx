@@ -394,6 +394,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMvuRetryCount = useSettingsStore((s) => s.setMvuRetryCount);
   const mvuMaxTokens = useSettingsStore((s) => s.mvuMaxTokens);
   const setMvuMaxTokens = useSettingsStore((s) => s.setMvuMaxTokens);
+  const mvuSelfCorrectEnabled = useSettingsStore((s) => s.mvuSelfCorrectEnabled);
+  const setMvuSelfCorrectEnabled = useSettingsStore((s) => s.setMvuSelfCorrectEnabled);
+  const mvuSelfCorrectRetries = useSettingsStore((s) => s.mvuSelfCorrectRetries);
+  const setMvuSelfCorrectRetries = useSettingsStore((s) => s.setMvuSelfCorrectRetries);
 
   const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
   const [localApiModel, setLocalApiModel] = useState(apiModel);
@@ -813,6 +817,31 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </span>
                     <Toggle on={mvuForceAlways} onChange={() => setMvuForceAlways(!mvuForceAlways)} onLabel="始终" offLabel="智能" />
                   </div>
+
+                  {/* 失败回灌自纠：变量更新未通过校验(类型/范围/枚举)时，回灌给 AI 让其修正。
+                      默认关闭——开启会增加 LLM 调用；走 MVU 桶且受重试预算硬上限约束，绝不超 RPM。 */}
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>
+                      变量更新自纠
+                      <HelpIcon text={'关闭（默认）：变量更新若未通过校验（如 HP 跌破 0、天气填了非法值）则丢弃该条并记入调试日志，回合照常推进（零额外 LLM 调用）。\n\n打开：把未通过的更新回灌给 AI，要求其只重输出修正后的合法值。每次修正额外发起一次「MVU 通道」请求——严格走 MVU 的 RPM 桶并受下方重试预算硬上限约束（达上限即排队，绝不超出每分钟限制），失败数不再下降时提前停止。'} />
+                    </span>
+                    <Toggle on={mvuSelfCorrectEnabled} onChange={() => setMvuSelfCorrectEnabled(!mvuSelfCorrectEnabled)} onLabel="开启" offLabel="关闭" />
+                  </div>
+                  {mvuSelfCorrectEnabled && (
+                    <div style={{ ...rowStyle, paddingLeft: 16 }}>
+                      <span style={labelStyle}>
+                        ↳ 自纠重试预算
+                        <HelpIcon text={'每回合最多向 AI 请求修正变量更新的次数（0–3，默认 1）。这是 RPM 死线的硬上限——无论失败多少项，本回合自纠请求数都不超过此值，且每次都走 MVU 桶排队限流。设为 0 等价于关闭自纠。'} />
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input type="range" min={0} max={3} step={1} value={mvuSelfCorrectRetries}
+                          onChange={(e) => setMvuSelfCorrectRetries(Number(e.target.value))}
+                          style={{ width: 100, accentColor: 'var(--gold)' }}
+                        />
+                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuSelfCorrectRetries}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {mvuUseIndependentApi && (
                     <>

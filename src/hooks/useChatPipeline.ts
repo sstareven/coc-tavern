@@ -48,6 +48,8 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
+import { type MvuOpError } from '../sillytavern/mvu-jsonpatch';
+import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -624,6 +626,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         let mvuUsage: TokenUsage | undefined;
+        let patchReport: { applied: number; failed: MvuOpError[] } | undefined;
+        let selfCorrectUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
           useStatusToastStore.getState().showProcessing('正在解析状态变量…');
           try {
@@ -638,7 +642,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             );
             mvuUsage = extracted.usage;
             const st = useVariableStore.getState();
-            st.processResponse(hookProcessedContent);
+            patchReport = st.processResponse(hookProcessedContent).patchReport;
             for (const [name, value] of Object.entries(extracted.variables)) {
               st.setVariable(name, value, 'llm');
             }
@@ -648,10 +652,54 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
               'system',
             );
-            useVariableStore.getState().processResponse(hookProcessedContent);
+            patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
           }
         } else {
-          useVariableStore.getState().processResponse(hookProcessedContent);
+          patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
+        }
+
+        // ── MVU 变量更新校验失败 → 可见 + (可选)失败回灌自纠 ──
+        // (A) 校验始终生效、零额外 LLM：把未通过的更新记入日志让其可见。
+        // (B) 自纠默认关闭；开启后受预算约束、走 mvu 桶（见 runMvuSelfCorrect 的 RPM 死线保障）。
+        if (patchReport && patchReport.failed.length > 0) {
+          pushLog(
+            'warn',
+            `[MVU校验] ${patchReport.failed.length} 项变量更新未通过校验：\n` +
+              patchReport.failed.map((f) => `· ${f.path || f.op}: ${f.reason}`).join('\n'),
+            'system',
+          );
+          if (settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
+            useStatusToastStore.getState().showProcessing('正在校正状态变量…');
+            const sc = await runMvuSelfCorrect(
+              editedMessages,
+              patchReport.failed,
+              settings.mvuSelfCorrectRetries,
+              {
+                // send 显式走 'mvu' RPM 桶 + 传中止信号 —— RPM 死线在此落实。
+                send: async (msgs) => {
+                  const r = await sendChatCompletion(
+                    applyPostProcessing(msgs, settings.promptPostProcessing),
+                    presetForApi,
+                    settings.apiBaseUrl,
+                    settings.apiKey,
+                    settings.apiModel,
+                    false,
+                    undefined,
+                    controller.signal,
+                    'mvu',
+                  );
+                  return { content: r.content, usage: r.usage };
+                },
+                applyOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
+                log: (level, msg) => pushLog(level, msg, 'system'),
+                isAborted: () => controller.signal.aborted,
+              },
+            );
+            // 自纠消耗的 token 计入本回合 genStats（与主生成、MVU 提取同源汇总）。
+            if (sc.usage.total_tokens > 0 || sc.usage.prompt_tokens > 0 || sc.usage.completion_tokens > 0) {
+              selfCorrectUsage = sc.usage;
+            }
+          }
         }
 
         // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
@@ -664,9 +712,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const mainCompletion = realUsage ? (lastUsage!.completion_tokens ?? 0) : completionEst;
         const mainTotal = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
         // 并入 MVU（独立变量通道）那次提取的真实用量——它与主生成同属本回合。
-        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0);
-        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0);
-        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0);
+        // 同时并入失败回灌自纠（mvu 桶）那几次往返的用量，统一进本页 genStats。
+        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0);
+        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0);
+        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0);
         // 本页生成记录：随页面持久化、翻回该页即显示该页当时的用量与耗时。
         const pageGenStats = {
           totalTokens: totalTok,

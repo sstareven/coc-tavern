@@ -394,7 +394,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                  style={{ textIndent: '2em', marginBottom: 12, color: 'var(--ink)', fontStyle: 'italic' }}
+                  style={{ textIndent: '2em', marginBottom: 12, color: 'var(--ink)', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}
                 >
                   {beautifyText(rewrite.text)}
                 </motion.p>

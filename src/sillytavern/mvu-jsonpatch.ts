@@ -3,6 +3,8 @@
 // NOTE: this is *translate-then-apply* semantics, NOT standard RFC 6902.
 // Zero store dependencies, no side effects beyond mutating the passed `tree`.
 
+import { matchRule, validateValue, type MvuSchema } from './mvu-schema';
+
 /* ============================== Types ============================== */
 
 export type MvuOp =
@@ -12,6 +14,18 @@ export type MvuOp =
   | { op: 'remove'; path: string }
   | { op: 'move'; from: string; path?: string; to?: string };
 
+/**
+ * 一条 op 应用失败的结构化记录。`reason` 是人类可读的说明（含期望值/范围），
+ * 既用于日志，也直接回灌给 LLM 让其自纠（见 useChatPipeline.runMvuSelfCorrect）。
+ */
+export interface MvuOpError {
+  op: string;
+  path: string;
+  value: unknown;
+  reason: string;
+  rawOp: unknown;
+}
+
 export interface ApplyOpts {
   /**
    * Return true when the op has been consumed externally (this engine skips it),
@@ -20,6 +34,10 @@ export interface ApplyOpts {
    */
   redirect?: (dotPath: string, op: string, value: unknown) => boolean;
   onError?: (msg: string) => void;
+  /** 结构化失败回调：在 onError(字符串日志) 之外，额外收集每条失败 op 的上下文。 */
+  onOpError?: (err: MvuOpError) => void;
+  /** 可选的轻量字段校验：命中受控路径时对值做 type/enum/range 判定，违约则拒绝该 op。 */
+  schema?: MvuSchema;
 }
 
 /* ============================== Extraction ============================== */
@@ -192,12 +210,30 @@ export function applyMvuPatch(
   ops: unknown[],
   opts?: ApplyOpts,
 ): void {
-  const onError =
+  const baseOnError =
     opts?.onError ?? ((msg: string) => console.warn('[mvu-jsonpatch] op 跳过:', msg));
+  const collect = opts?.onOpError;
   const redirect = opts?.redirect;
+  const schema = opts?.schema;
 
   for (const rawOp of ops) {
-    if (!isPlainOp(rawOp)) {
+    // 为本条 op 构造带上下文的错误回调：始终走原 onError(字符串日志)，
+    // 并把结构化失败上报给 onOpError（用于校验可见 + AI 自纠回灌）。
+    const isObj = isPlainOp(rawOp);
+    const ctxOp = isObj && typeof rawOp.op === 'string' ? rawOp.op : '?';
+    const ctxPath =
+      isObj && typeof rawOp.path === 'string'
+        ? ptrToPath(rawOp.path)
+        : isObj && typeof rawOp.from === 'string'
+          ? ptrToPath(rawOp.from)
+          : '';
+    const ctxValue = isObj ? rawOp.value : undefined;
+    const onError = (msg: string): void => {
+      baseOnError(msg);
+      collect?.({ op: ctxOp, path: ctxPath, value: ctxValue, reason: msg, rawOp });
+    };
+
+    if (!isObj) {
       onError(`invalid op (not an object): ${JSON.stringify(rawOp)}`);
       continue;
     }
@@ -232,10 +268,10 @@ export function applyMvuPatch(
 
     switch (opName) {
       case 'replace':
-        applyReplace(tree, dotPath, value, onError);
+        applyReplace(tree, dotPath, value, onError, schema);
         break;
       case 'delta':
-        applyDelta(tree, dotPath, value, onError);
+        applyDelta(tree, dotPath, value, onError, schema);
         break;
       case 'insert':
       case 'add':
@@ -250,11 +286,32 @@ export function applyMvuPatch(
   }
 }
 
+/**
+ * 与 applyMvuPatch 同语义，但把每条失败 op 收集进数组并返回，便于调用方
+ * （如 useVariableStore / 测试）拿到结构化失败清单。原地修改 `tree`。
+ */
+export function applyMvuPatchCollect(
+  tree: Record<string, unknown>,
+  ops: unknown[],
+  opts?: ApplyOpts,
+): MvuOpError[] {
+  const errors: MvuOpError[] = [];
+  applyMvuPatch(tree, ops, {
+    ...opts,
+    onOpError: (err) => {
+      errors.push(err);
+      opts?.onOpError?.(err);
+    },
+  });
+  return errors;
+}
+
 function applyReplace(
   tree: Record<string, unknown>,
   dotPath: string,
   value: unknown,
   onError: (m: string) => void,
+  schema?: MvuSchema,
 ): void {
   if (dotPath === '') {
     if (isContainer(value) && !Array.isArray(value)) {
@@ -267,6 +324,17 @@ function applyReplace(
   if (!hasPath(tree, dotPath)) {
     onError(`replace path does not exist: ${dotPath}`);
     return;
+  }
+  // 轻量 schema 校验：命中受控路径时拒绝越界/类型不符的新值（VWD 元组由 validateValue 取 [0]）。
+  if (schema) {
+    const rule = matchRule(schema, dotPath);
+    if (rule) {
+      const r = validateValue(rule, value);
+      if (!r.ok) {
+        onError(`schema ${r.reason} at ${dotPath}: 期望 ${r.expected}，收到 ${JSON.stringify(value)}`);
+        return;
+      }
+    }
   }
   const oldVal = getByPath(tree, dotPath);
   if (isVwdTuple(oldVal)) {
@@ -282,6 +350,7 @@ function applyDelta(
   dotPath: string,
   value: unknown,
   onError: (m: string) => void,
+  schema?: MvuSchema,
 ): void {
   if (!hasPath(tree, dotPath)) {
     onError(`delta path does not exist: ${dotPath}`);
@@ -293,19 +362,37 @@ function applyDelta(
     return;
   }
   const oldVal = getByPath(tree, dotPath);
+  // 计算结果并对结果做 schema 校验（如 HP delta 后跌破 min → 拒绝该 op）。
+  const rule = schema ? matchRule(schema, dotPath) : undefined;
   if (isVwdTuple(oldVal)) {
     if (typeof oldVal[0] !== 'number') {
       onError(`delta on non-number VWD value: ${dotPath}`);
       return;
     }
-    setByPath(tree, dotPath, [oldVal[0] + delta, oldVal[1]]);
+    const result = oldVal[0] + delta;
+    if (rule) {
+      const r = validateValue(rule, result);
+      if (!r.ok) {
+        onError(`schema ${r.reason} at ${dotPath}: 期望 ${r.expected}，delta 后得 ${result}`);
+        return;
+      }
+    }
+    setByPath(tree, dotPath, [result, oldVal[1]]);
     return;
   }
   if (typeof oldVal !== 'number') {
     onError(`delta on non-number value: ${dotPath}`);
     return;
   }
-  setByPath(tree, dotPath, oldVal + delta);
+  const result = oldVal + delta;
+  if (rule) {
+    const r = validateValue(rule, result);
+    if (!r.ok) {
+      onError(`schema ${r.reason} at ${dotPath}: 期望 ${r.expected}，delta 后得 ${result}`);
+      return;
+    }
+  }
+  setByPath(tree, dotPath, result);
 }
 
 function applyInsert(

@@ -88,10 +88,10 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-          <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedContent[0])}</p>
+          <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedContent[0])}</p>
         ) : (
           renderedContent.map((node, i) => typeof node === 'string'
-            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8 }}>{beautifyText(node)}</p>
+            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
             : <span key={i}>{node}</span>)
         )}
         </div>
