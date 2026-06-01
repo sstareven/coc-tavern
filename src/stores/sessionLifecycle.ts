@@ -4,6 +4,7 @@ import { useInventoryStore, normalizeItems } from './useInventoryStore';
 import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
+import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
@@ -46,6 +47,7 @@ export function clearAllGameState() {
   useNpcStore.getState().close();
   useMapStore.getState().clearAll();
   useMapStore.getState().close();
+  useDiceStore.getState().clearAll();
   useChoiceLockStore.getState().unlock();
   useDarkThreadStore.getState().clearAll();
   useVariableStore.getState().clearAll();
@@ -249,6 +251,9 @@ async function loadConversationInner(cid: string): Promise<void> {
     .sort((a, b) => a.index - b.index)
     .map(({ conversationId: _cid, index: _index, ...page }) => page);
   useBookStore.getState().setPages(pages);
+
+  // 检定历史：从各页 diceResults 重建（newest-first），使「检定记录」面板随存档持久、与页面一致。
+  useDiceStore.getState().setHistory(pages.flatMap((p) => p.diceResults ?? []).reverse());
 
   // 剧情摘要（小总结）：clearAllGameState 已清空全局 __auto_summaries 书，这里从本会话页面
   // 重建摘要条目——否则切档后旧会话的「剧情回顾」上下文永久丢失（摘要本是 page.summary 的派生投影）。
