@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
-import { ChoiceButton, InventoryChangesBar } from './RightPage';
+import { ChoiceButton } from './RightPage';
 import type { ChoiceItem } from '../../types';
 
 const SCROLL_CUE_THRESHOLD = 5; // ≥5 项才显示下隐暗示
@@ -18,12 +18,11 @@ export function ActionSheet() {
   const choices: ChoiceItem[] = page?.rightChoices ?? [];
   const rewriteChoices: ChoiceItem[] = page?.rewrite?.choices ?? [];
   const allChoices = [...choices, ...rewriteChoices];
-  const invChanges = page?.inventoryChanges ?? [];
 
   // 翻页后自动收起抽屉、复位滚动暗示
   useEffect(() => { setOpen(false); setScrolled(false); }, [pageIndex]);
 
-  if (!page || (allChoices.length === 0 && invChanges.length === 0)) return null;
+  if (!page || allChoices.length === 0) return null;
 
   const showCue = allChoices.length >= SCROLL_CUE_THRESHOLD && !scrolled;
 
@@ -90,7 +89,6 @@ export function ActionSheet() {
                 onScroll={(e) => { if (e.currentTarget.scrollTop > 4) setScrolled(true); }}
                 style={{ maxHeight: '42vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: showCue ? 28 : 0, WebkitOverflowScrolling: 'touch' }}
               >
-                <InventoryChangesBar inventoryChanges={invChanges} variant="dark" />
                 {allChoices.map((ch) => <ChoiceButton key={`${ch.num}-${ch.text}`} choice={ch} variant="dark" />)}
               </div>
 
