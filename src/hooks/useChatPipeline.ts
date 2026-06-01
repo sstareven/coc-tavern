@@ -653,34 +653,26 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           useVariableStore.getState().processResponse(hookProcessedContent);
         }
 
+        // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
+        // 日志与右下角同源——避免「日志报估算、右下角报真实」对不上。
+        const durationMs = Math.round(performance.now() - genStart);
+        const promptEst = estimateTokens(JSON.stringify(editedMessages));
+        const completionEst = estimateTokens(response.content);
+        const realUsage = lastUsage?.total_tokens != null;
+        const promptTok = realUsage ? lastUsage!.prompt_tokens : promptEst;
+        const completionTok = realUsage ? lastUsage!.completion_tokens : completionEst;
+        const totalTok = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
+        useGenStatsStore.getState().setStats({
+          totalTokens: totalTok,
+          promptTokens: promptTok,
+          completionTokens: completionTok,
+          durationMs,
+          estimated: !realUsage,
+        });
         pushLog(
           'info',
-          `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
+          `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok ?? '?'} / 输出 ${completionTok ?? '?'}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
-
-        // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
-        {
-          const durationMs = Math.round(performance.now() - genStart);
-          const promptEst = estimateTokens(JSON.stringify(editedMessages));
-          const completionEst = estimateTokens(response.content);
-          if (lastUsage?.total_tokens != null) {
-            useGenStatsStore.getState().setStats({
-              totalTokens: lastUsage.total_tokens,
-              promptTokens: lastUsage.prompt_tokens,
-              completionTokens: lastUsage.completion_tokens,
-              durationMs,
-              estimated: false,
-            });
-          } else {
-            useGenStatsStore.getState().setStats({
-              totalTokens: promptEst + completionEst,
-              promptTokens: promptEst,
-              completionTokens: completionEst,
-              durationMs,
-              estimated: true,
-            });
-          }
-        }
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
