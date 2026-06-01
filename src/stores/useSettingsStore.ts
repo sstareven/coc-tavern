@@ -32,6 +32,7 @@ interface SettingsState {
   mvuMaxTokens: number;
   mvuAvailableModels: string[];
   maxSummaryEntries: number;
+  npcMemoryKeep: number;
   contextPageDepth: number;
   globalCaseSensitive: boolean;
   globalMatchWholeWord: boolean;
@@ -76,6 +77,7 @@ interface SettingsStore extends SettingsState {
   setMvuMaxTokens: (n: number) => void;
   setMvuAvailableModels: (models: string[]) => void;
   setMaxSummaryEntries: (n: number) => void;
+  setNpcMemoryKeep: (n: number) => void;
   setContextPageDepth: (n: number) => void;
   setGlobalCaseSensitive: (v: boolean) => void;
   setGlobalMatchWholeWord: (v: boolean) => void;
@@ -120,6 +122,7 @@ const defaults: SettingsState = {
   mvuMaxTokens: 8096,
   mvuAvailableModels: [],
   maxSummaryEntries: 20,
+  npcMemoryKeep: 6,
   contextPageDepth: 3,
   globalCaseSensitive: false,
   globalMatchWholeWord: false,
@@ -168,6 +171,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
       setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
+      setNpcMemoryKeep: (n) => set({ npcMemoryKeep: Math.max(3, Math.min(12, Math.floor(n))) }),
       setContextPageDepth: (n) => set({ contextPageDepth: n }),
       setGlobalCaseSensitive: (v) => set({ globalCaseSensitive: v }),
       setGlobalMatchWholeWord: (v) => set({ globalMatchWholeWord: v }),
