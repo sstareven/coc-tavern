@@ -174,6 +174,8 @@ export interface Clue {
   /** 显著程度：major 为演化出的更关键线索，UI 高亮、注入加★ */
   tier?: 'normal' | 'major';
 }
+
+// ===== Map System（地点有向连线网络）=====
 export interface MapLocation {
   id: string;
   name: string;
