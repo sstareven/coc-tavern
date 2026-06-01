@@ -2,6 +2,7 @@ import { useChatStore } from './useChatStore';
 import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
 import { useInventoryStore, normalizeItems } from './useInventoryStore';
 import { useClueStore } from './useClueStore';
+import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
@@ -36,6 +37,7 @@ export function clearAllGameState() {
   useInventoryStore.getState().clearAll();
   useInventoryStore.getState().close();
   useClueStore.getState().clearAll();
+  useChoiceLockStore.getState().unlock();
   useDarkThreadStore.getState().clearAll();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});

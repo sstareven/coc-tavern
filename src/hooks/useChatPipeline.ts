@@ -5,6 +5,7 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore } from '../stores/useClueStore';
+import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
@@ -837,6 +838,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return ok ? '' : processedInput;
       } finally {
         loadingRef.current = false;
+        useChoiceLockStore.getState().unlock(); // 解锁选项（本次提交已结束：成功/失败/中止）
       }
     },
     [buildPromptMessages, handleSendFromPreview],

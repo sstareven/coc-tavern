@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
+import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
 import { itemNarrated } from '../../sillytavern/llm-response-parser';
@@ -570,16 +571,27 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   const dark = variant === 'dark';
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
+  // 选项锁：本回合已按下一个会推进/掷骰的选项后，全部选项置灰禁用，防止重复点击重掷
+  const locked = useChoiceLockStore((s) => s.locked);
   const check = parseCheckAction(ch.action);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-  const isHovered = hovered && isLatestPage;
+  const enabled = isLatestPage && !locked;
+  const isHovered = hovered && enabled;
 
   return (
     <button
-      onClick={() => { commitRewriteItemGain(ch); fillInputBar(buildChoiceInput(ch)); }}
-      disabled={!isLatestPage}
-      title={!isLatestPage ? '只有最新一页的选项可以选择' : undefined}
+      onClick={() => {
+        if (!enabled) return;
+        // 会推进/掷骰的选项（检定，或开了自动提交）按下即锁，避免连点重掷/二次提交
+        if (isCheck || useSettingsStore.getState().autoSubmitChoice) {
+          useChoiceLockStore.getState().lock();
+        }
+        commitRewriteItemGain(ch);
+        fillInputBar(buildChoiceInput(ch));
+      }}
+      disabled={!enabled}
+      title={!isLatestPage ? '只有最新一页的选项可以选择' : (locked ? '正在处理上一个选择…' : undefined)}
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
@@ -594,9 +606,9 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         : 'none',
       borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)')),
       color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
-      textAlign: 'left', cursor: isLatestPage ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
-      opacity: isLatestPage ? 1 : 0.45,
-      filter: isLatestPage ? 'none' : 'grayscale(0.6)',
+      textAlign: 'left', cursor: enabled ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
+      opacity: enabled ? 1 : 0.45,
+      filter: enabled ? 'none' : 'grayscale(0.6)',
     }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
