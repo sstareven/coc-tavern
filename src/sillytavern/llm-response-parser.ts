@@ -6,6 +6,7 @@ import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
 import type { NpcUpdate } from '../stores/useNpcStore';
+import type { MapUpdates } from '../stores/useMapStore';
 
 const VALID_ITEM_CATEGORIES = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
 
@@ -21,6 +22,7 @@ export interface ParsedLlmResult {
   darkThread?: DarkThreadData;
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
+  mapUpdates?: MapUpdates;
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -453,6 +455,28 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       else pushLog('debug', `[parseLlm] NPC: ${npcUpdates.map((n) => n.name).join(', ')}`, 'system');
     }
 
+    // ── 地图更新 ──
+    let mapUpdates: MapUpdates | undefined;
+    if (parsed.mapUpdates && typeof parsed.mapUpdates === 'object' && !Array.isArray(parsed.mapUpdates)) {
+      const m = parsed.mapUpdates as Record<string, unknown>;
+      const mu: MapUpdates = {};
+      if (typeof m.current === 'string' && m.current.trim()) mu.current = m.current.trim();
+      if (Array.isArray(m.newLocations)) {
+        mu.newLocations = (m.newLocations as Record<string, unknown>[])
+          .filter((l) => l && typeof l.name === 'string' && String(l.name).trim())
+          .map((l) => ({ name: String(l.name).trim(), description: typeof l.description === 'string' ? l.description : (typeof l['描述'] === 'string' ? String(l['描述']) : '') }));
+      }
+      if (Array.isArray(m.newEdges)) {
+        mu.newEdges = (m.newEdges as Record<string, unknown>[])
+          .filter((e) => e && typeof e.from === 'string' && typeof e.to === 'string')
+          .map((e) => ({ from: String(e.from).trim(), to: String(e.to).trim(), type: e.type === 'oneway' ? 'oneway' as const : 'bidirectional' as const, description: typeof e.description === 'string' ? e.description : undefined }));
+      }
+      if (mu.current || mu.newLocations?.length || mu.newEdges?.length) {
+        mapUpdates = mu;
+        pushLog('debug', `[parseLlm] 地图: 当前=${mu.current ?? '-'} 新地点=${mu.newLocations?.length ?? 0} 新连线=${mu.newEdges?.length ?? 0}`, 'system');
+      }
+    }
+
     let darkThread: DarkThreadData | undefined;
     if (parsed.darkThread && typeof parsed.darkThread === 'object') {
       const dt = parsed.darkThread as Record<string, unknown>;
@@ -485,6 +509,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       darkThread,
       clues,
       npcUpdates,
+      mapUpdates,
     };
 }
 

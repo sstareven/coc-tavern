@@ -7,6 +7,8 @@ import type {
   GameVariable,
   Clue,
   NpcProfile,
+  MapLocation,
+  MapEdge,
 } from '../types';
 import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
 
@@ -61,6 +63,12 @@ export type ClueRow = { conversationId: string; clueId: string } & Clue;
 // One NPC profile. Compound primary key [conversationId+npcId].
 export type NpcRow = { conversationId: string; npcId: string } & NpcProfile;
 
+// One map location node. Compound primary key [conversationId+locationId].
+export type MapLocationRow = { conversationId: string; locationId: string } & MapLocation;
+
+// One map edge. Compound primary key [conversationId+edgeId].
+export type MapEdgeRow = { conversationId: string; edgeId: string } & MapEdge;
+
 // One TavernHelper macro variable. Compound primary key [conversationId+name].
 export interface MacroVarRow {
   conversationId: string;
@@ -80,6 +88,8 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   macroVars: EntityTable<MacroVarRow>;
   clues: EntityTable<ClueRow>;
   npcProfiles: EntityTable<NpcRow>;
+  mapLocations: EntityTable<MapLocationRow>;
+  mapEdges: EntityTable<MapEdgeRow>;
 };
 
 db.version(1).stores({
@@ -117,6 +127,15 @@ export const V4_SCHEMA = {
 } as const;
 
 db.version(4).stores(V4_SCHEMA);
+
+/** v5: 新增地图地点/连线表（新表，无数据迁移）。 */
+export const V5_SCHEMA = {
+  ...V4_SCHEMA,
+  mapLocations: '[conversationId+locationId], conversationId',
+  mapEdges: '[conversationId+edgeId], conversationId',
+} as const;
+
+db.version(5).stores(V5_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

@@ -113,6 +113,25 @@ export interface Clue {
   acquiredAt: number;
 }
 
+// ===== Map System（地点有向连线网络）=====
+export interface MapLocation {
+  id: string;
+  name: string;
+  description: string;
+  /** 可选画布坐标（缺省时由前端自动布局） */
+  x?: number;
+  y?: number;
+}
+
+export interface MapEdge {
+  id: string;
+  fromId: string;
+  toId: string;
+  /** bidirectional: A<->B 自由通行；oneway: A-->B 单向不可逆 */
+  type: 'bidirectional' | 'oneway';
+  description?: string;
+}
+
 // ===== NPC System（在场/离场 NPC 角色卡）=====
 export interface NpcProfile {
   id: string;

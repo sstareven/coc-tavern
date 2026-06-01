@@ -7,6 +7,8 @@ import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
+import { MapOverlay } from '../Map/MapOverlay';
+import { useMapStore } from '../../stores/useMapStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
@@ -35,6 +37,7 @@ export function Storybook() {
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
   const npcOpen = useNpcStore((s) => s.isOpen);
+  const mapOpen = useMapStore((s) => s.isOpen);
   const deletePageStore = useBookStore((s) => s.deletePage);
   const isMobile = useIsMobile();
   const activeConvId = useChatStore((s) => s.activeId);
@@ -51,20 +54,22 @@ export function Storybook() {
         if (inventoryOpen) useInventoryStore.getState().close();
         if (charSheetOpen) useCharSheetStore.getState().close();
         if (npcOpen) useNpcStore.getState().close();
+        if (mapOpen) useMapStore.getState().close();
         if (showToc) { setShowToc(false); setSelectedToc(-1); }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [inventoryOpen, charSheetOpen, npcOpen, showToc]);
+  }, [inventoryOpen, charSheetOpen, npcOpen, mapOpen, showToc]);
 
   const page = pages[pageIndex];
   if (!page) return null;
 
-  const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'toc') => {
+  const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc') => {
     if (keep !== 'inventory') useInventoryStore.getState().close();
     if (keep !== 'charsheet') useCharSheetStore.getState().close();
     if (keep !== 'npc') useNpcStore.getState().close();
+    if (keep !== 'map') useMapStore.getState().close();
     if (keep !== 'toc' && showToc) { setShowToc(false); setSelectedToc(-1); }
   };
 
@@ -81,6 +86,10 @@ export function Storybook() {
       if (npcOpen) { useNpcStore.getState().close(); return; }
       closeOtherOverlays('npc');
       useNpcStore.getState().toggle();
+    } else if (tab === 'map') {
+      if (mapOpen) { useMapStore.getState().close(); return; }
+      closeOtherOverlays('map');
+      useMapStore.getState().toggle();
     } else if (tab === 'toc') {
       if (showToc) {
         if (selectedToc >= 0) useBookStore.getState().goToPage(selectedToc);
@@ -353,9 +362,14 @@ export function Storybook() {
             {npcOpen && <NpcOverlay />}
           </AnimatePresence>
 
+          {/* Map overlay */}
+          <AnimatePresence>
+            {mapOpen && <MapOverlay />}
+          </AnimatePresence>
+
           {/* Navigation arrows — hidden when an overlay is open */}
           <div style={{
-            opacity: showToc || inventoryOpen || charSheetOpen || npcOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen || npcOpen ? 'none' : 'auto',
+            opacity: showToc || inventoryOpen || charSheetOpen || npcOpen || mapOpen ? 0 : 1, pointerEvents: showToc || inventoryOpen || charSheetOpen || npcOpen || mapOpen ? 'none' : 'auto',
             transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             <PageNav
@@ -482,6 +496,43 @@ export function Storybook() {
           >
             <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
             {npcOpen ? '返回' : 'NPC'}
+          </button>
+
+          {/* Tab: 地图 → map overlay */}
+          <button
+            onClick={() => {
+              if (mapOpen) {
+                try { sfxPageFlip(); } catch { /* audio not available */ }
+                useMapStore.getState().close();
+                return;
+              }
+              useInventoryStore.getState().close();
+              useCharSheetStore.getState().close();
+              useNpcStore.getState().close();
+              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              useBookStore.getState().decorativeFlip('backward', 800);
+              useMapStore.getState().toggle();
+            }}
+            style={mapOpen ? tocTabActive : bookmarkTab}
+            onMouseEnter={(e) => {
+              if (!mapOpen) {
+                e.currentTarget.style.color = '#8b3a3a';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.paddingLeft = '18px';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!mapOpen) {
+                e.currentTarget.style.color = '#4a3020';
+                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
+                e.currentTarget.style.paddingLeft = '14px';
+              }
+            }}
+          >
+            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{mapOpen ? '◁' : '✛'}</span>
+            {mapOpen ? '返回' : '地图'}
           </button>
 
           {/* Tab 2: 目录 → table of contents overlay */}

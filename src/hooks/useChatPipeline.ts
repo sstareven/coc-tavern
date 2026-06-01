@@ -6,6 +6,7 @@ import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookSto
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
+import { useMapStore } from '../stores/useMapStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
@@ -759,6 +760,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates && result.npcUpdates.length > 0) {
           useNpcStore.getState().applyUpdates(result.npcUpdates);
           pushLog('debug', `[Pipeline] NPC 更新: ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+        }
+
+        // 地图更新（新地点/连线/当前位置）
+        if (result.mapUpdates) {
+          useMapStore.getState().applyUpdates(result.mapUpdates);
+          pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'}`, 'system');
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {

@@ -77,6 +77,12 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
 
+【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
+- current：调查员当前所在地点名（每当所在地点变化时给出）。
+- newLocations：本回合首次出现的新地点数组，每项含 name 与 description（一句话简述）。生成任何新地点时都必须在此登记。
+- newEdges：本回合新增的连线数组，每项含 from（起点名）、to（终点名）、type、可选 description。type 取值：bidirectional 表示 A 与 B 之间可自由往返（如一条走廊、一扇门）；oneway 表示从 A 到 B 单向、不可逆行（如从悬崖跳入湖泊、滑入坍塌的地洞）。
+移动规则（务必遵守）：调查员只能沿已存在的连线移动，或进入一个与当前地点相连的新生成地点（同时用 newLocations 登记该新地点、并用 newEdges 登记它与当前地点的连线）。不可瞬移到与当前地点无连线的地点；oneway 连线不可逆向通行。current 应与 sceneInfo.location 保持一致。若本回合地点与连线均无变化则省略 mapUpdates。
+
 重要：choices的text字段是玩家看到的行动描述，必须是纯粹的叙事文字（如"仔细搜查书房的每个角落"），禁止包含任何检定标记、方括号标注或技能名称前缀（如[检定:侦查]、[侦查]等）。检定信息只能出现在action字段中。`;
 
 /**

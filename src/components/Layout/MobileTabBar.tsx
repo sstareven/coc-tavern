@@ -1,5 +1,5 @@
 // src/components/Layout/MobileTabBar.tsx
-import { IconInventory, IconCharSheet, IconToc, IconDice, IconNpc } from './TabIcons';
+import { IconInventory, IconCharSheet, IconToc, IconDice, IconNpc, IconMap } from './TabIcons';
 
 export type MobileTab = 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc' | 'dice';
 
@@ -12,6 +12,7 @@ const TABS: Array<{ key: MobileTab; label: string; Icon: (p: { size?: number }) 
   { key: 'inventory', label: '物品', Icon: IconInventory },
   { key: 'charsheet', label: '角色', Icon: IconCharSheet },
   { key: 'npc', label: 'NPC', Icon: IconNpc },
+  { key: 'map', label: '地图', Icon: IconMap },
   { key: 'toc', label: '目录', Icon: IconToc },
   { key: 'dice', label: '骰子', Icon: IconDice },
 ];
