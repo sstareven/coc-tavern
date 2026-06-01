@@ -1,5 +1,4 @@
 import { useGenStatsStore } from '../../stores/useGenStatsStore';
-import { useBookStore } from '../../stores/useBookStore';
 
 export function TokenDisplay() {
   const totalTokens = useGenStatsStore((s) => s.totalTokens);
@@ -8,22 +7,19 @@ export function TokenDisplay() {
   const durationMs = useGenStatsStore((s) => s.durationMs);
   const estimated = useGenStatsStore((s) => s.estimated);
 
-  // 尚无本次生成数据（首次进入/读档）时，回退到按当前页字数的粗估
-  const pageIndex = useBookStore((s) => s.pageIndex);
-  const pages = useBookStore((s) => s.pages);
-
   let text: string;
-  let title: string | undefined;
+  let title: string;
   if (totalTokens != null) {
     const sec = durationMs != null ? (durationMs / 1000).toFixed(1) : '?';
-    text = `${estimated ? '~' : ''}${totalTokens.toLocaleString()} tok · ${sec}s`;
-    if (promptTokens != null && completionTokens != null) {
-      title = `本次生成${estimated ? '（估算）' : ''}：输入 ${promptTokens.toLocaleString()} · 输出 ${completionTokens.toLocaleString()} tokens`;
-    }
+    const tilde = estimated ? '~' : '';
+    text = (promptTokens != null && completionTokens != null)
+      ? `${tilde}↑${promptTokens.toLocaleString()} ↓${completionTokens.toLocaleString()} · ${sec}s`
+      : `${tilde}${totalTokens.toLocaleString()} tok · ${sec}s`;
+    title = `本次生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s`;
   } else {
-    const page = pages[pageIndex];
-    const len = page ? page.leftContent.length + page.rightContent.length : 0;
-    text = `~${Math.max(1, Math.floor(len / 2.5))} tokens`;
+    // 本会话尚未生成（首次进入/读档）——用占位，待首次生成后显示真实 ↑/↓/耗时
+    text = '↑— ↓— · —';
+    title = '本会话尚未生成，数值将在下一次生成后显示';
   }
 
   return (
@@ -38,7 +34,7 @@ export function TokenDisplay() {
         color: 'var(--ink-faded)',
         letterSpacing: 0.5,
         opacity: 0.5,
-        pointerEvents: title ? 'auto' : 'none',
+        pointerEvents: 'auto',
       }}
     >
       {text}
