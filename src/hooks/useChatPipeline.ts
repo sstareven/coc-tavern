@@ -48,6 +48,8 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
+import { type MvuOpError } from '../sillytavern/mvu-jsonpatch';
+import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -624,6 +626,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         let mvuUsage: TokenUsage | undefined;
+        let patchReport: { applied: number; failed: MvuOpError[] } | undefined;
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
           useStatusToastStore.getState().showProcessing('正在解析状态变量…');
           try {
@@ -638,7 +641,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             );
             mvuUsage = extracted.usage;
             const st = useVariableStore.getState();
-            st.processResponse(hookProcessedContent);
+            patchReport = st.processResponse(hookProcessedContent).patchReport;
             for (const [name, value] of Object.entries(extracted.variables)) {
               st.setVariable(name, value, 'llm');
             }
@@ -648,10 +651,50 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
               'system',
             );
-            useVariableStore.getState().processResponse(hookProcessedContent);
+            patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
           }
         } else {
-          useVariableStore.getState().processResponse(hookProcessedContent);
+          patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
+        }
+
+        // ── MVU 变量更新校验失败 → 可见 + (可选)失败回灌自纠 ──
+        // (A) 校验始终生效、零额外 LLM：把未通过的更新记入日志让其可见。
+        // (B) 自纠默认关闭；开启后受预算约束、走 mvu 桶（见 runMvuSelfCorrect 的 RPM 死线保障）。
+        if (patchReport && patchReport.failed.length > 0) {
+          pushLog(
+            'warn',
+            `[MVU校验] ${patchReport.failed.length} 项变量更新未通过校验：\n` +
+              patchReport.failed.map((f) => `· ${f.path || f.op}: ${f.reason}`).join('\n'),
+            'system',
+          );
+          if (settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
+            useStatusToastStore.getState().showProcessing('正在校正状态变量…');
+            await runMvuSelfCorrect(
+              editedMessages,
+              patchReport.failed,
+              settings.mvuSelfCorrectRetries,
+              {
+                // send 显式走 'mvu' RPM 桶 + 传中止信号 —— RPM 死线在此落实。
+                send: async (msgs) => {
+                  const r = await sendChatCompletion(
+                    applyPostProcessing(msgs, settings.promptPostProcessing),
+                    presetForApi,
+                    settings.apiBaseUrl,
+                    settings.apiKey,
+                    settings.apiModel,
+                    false,
+                    undefined,
+                    controller.signal,
+                    'mvu',
+                  );
+                  return r.content;
+                },
+                applyOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
+                log: (level, msg) => pushLog(level, msg, 'system'),
+                isAborted: () => controller.signal.aborted,
+              },
+            );
+          }
         }
 
         // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。

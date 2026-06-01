@@ -9,8 +9,9 @@ import {
   stripVariableMarkup,
   buildSubstitutionMap,
 } from '../sillytavern/variables';
-import { applyMvuPatch, extractJsonPatchBlocks } from '../sillytavern/mvu-jsonpatch';
-import { isCharsheetPath, applyCharsheetRedirect } from '../sillytavern/mvu-charsheet-redirect';
+import { applyMvuPatch, extractJsonPatchBlocks, type MvuOpError } from '../sillytavern/mvu-jsonpatch';
+import { isCharsheetPath, isNumericCharsheetTarget, applyCharsheetRedirect } from '../sillytavern/mvu-charsheet-redirect';
+import { COC_MVU_SCHEMA } from '../sillytavern/mvu-schema';
 import { flattenStatData } from '../sillytavern/mvu-flatten';
 
 interface VariableStore {
@@ -24,8 +25,15 @@ interface VariableStore {
   deleteVariable: (name: string) => void;
   toggleLock: (name: string) => void;
 
-  // Process LLM response — extract variables, return cleaned text
-  processResponse: (text: string) => { cleanedText: string; extracted: Record<string, string> };
+  // Process LLM response — extract variables, return cleaned text + 结构化变量更新失败清单
+  processResponse: (text: string) => {
+    cleanedText: string;
+    extracted: Record<string, string>;
+    patchReport: { applied: number; failed: MvuOpError[] };
+  };
+
+  // 在当前已提交的 statData 上叠加一批修正 op（用于失败回灌自纠），返回残余失败清单。
+  applyCorrectiveOps: (ops: unknown[]) => MvuOpError[];
 
   // Build the full substitution map (variables + statData + character sheet)
   buildFullSubstitutionMap: () => Record<string, string>;
@@ -38,6 +46,44 @@ interface VariableStore {
   exportVariables: () => string;
   replaceAll: (variables: Record<string, GameVariable>) => void;
   clearAll: () => void;
+}
+
+/**
+ * 把一批 MVU ops 应用到给定 statData 树（原地修改），处理 调查员.* 角色卡改道与轻量 schema 校验，
+ * 并把角色卡变更提交回 useCharSheetStore。返回结构化失败清单。
+ * processResponse（首次应用）与 applyCorrectiveOps（自纠叠加）共用此逻辑，避免两处分叉。
+ */
+function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): MvuOpError[] {
+  const errors: MvuOpError[] = [];
+  let sheet = useCharSheetStore.getState().sheet;
+  let sheetChanged = false;
+  applyMvuPatch(tree, ops, {
+    schema: COC_MVU_SCHEMA,
+    redirect: (dotPath, op, value) => {
+      if (!isCharsheetPath(dotPath)) return false;
+      const updated = applyCharsheetRedirect(sheet, dotPath, op, value);
+      if (updated) {
+        sheet = updated;
+        sheetChanged = true;
+      } else if (isNumericCharsheetTarget(dotPath) && (op === 'replace' || op === 'delta')) {
+        // 数值目标(HP/SAN/MP/幸运/技能)收到非数字值——真实失败，上报供自纠；
+        // 其余 调查员.* 子路径(身份字段等)的 null 是良性「不消费」，不报错。
+        errors.push({
+          op,
+          path: dotPath,
+          value,
+          reason: `角色卡数值字段 ${dotPath} 拒绝非数字值: ${JSON.stringify(value)}`,
+          rawOp: { op, path: dotPath, value },
+        });
+      }
+      // Always consume 调查员.* here so statData never stores a char-sheet leaf,
+      // even when the specific field wasn't writable (avoids parallel source of truth).
+      return true;
+    },
+    onOpError: (err) => errors.push(err),
+  });
+  if (sheetChanged) useCharSheetStore.getState().setSheet(sheet);
+  return errors;
 }
 
 export const useVariableStore = create<VariableStore>((set, get) => ({
@@ -90,25 +136,11 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     // ── MVU ZOD path: <UpdateVariable><JSONPatch> applied to the statData tree ──
     const ops = extractJsonPatchBlocks(text);
     let nextStatData = st.statData;
+    let failed: MvuOpError[] = [];
     if (ops.length > 0) {
       nextStatData = structuredClone(st.statData);
-      // redirect: ops targeting 调查员.* are applied to the character sheet, NOT statData.
-      let sheet = useCharSheetStore.getState().sheet;
-      let sheetChanged = false;
-      applyMvuPatch(nextStatData, ops, {
-        redirect: (dotPath, op, value) => {
-          if (!isCharsheetPath(dotPath)) return false;
-          const updated = applyCharsheetRedirect(sheet, dotPath, op, value);
-          if (updated) {
-            sheet = updated;
-            sheetChanged = true;
-          }
-          // Always consume 调查员.* here so statData never stores a char-sheet leaf,
-          // even when the specific field wasn't writable (avoids parallel source of truth).
-          return true;
-        },
-      });
-      if (sheetChanged) useCharSheetStore.getState().setSheet(sheet);
+      // redirect 调查员.* → 角色卡；schema 校验 + 结构化失败收集统一在 applyMvuOpsToTree 内处理。
+      failed = applyMvuOpsToTree(nextStatData, ops);
     }
 
     set({ variables: merged, statData: nextStatData });
@@ -116,7 +148,16 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     return {
       cleanedText: stripVariableMarkup(text),
       extracted: allExtracted,
+      patchReport: { applied: ops.length - failed.length, failed },
     };
+  },
+
+  applyCorrectiveOps: (ops) => {
+    if (!ops || ops.length === 0) return [];
+    const next = structuredClone(get().statData);
+    const failed = applyMvuOpsToTree(next, ops);
+    set({ statData: next });
+    return failed;
   },
 
   setStatData: (tree) => set({ statData: { ...tree } }),
