@@ -20,6 +20,7 @@ export function MapOverlay() {
 
   return (
     <motion.div
+      data-fixed-dark="on"
       initial="enter" animate="visible" exit="exit"
       variants={{ enter: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }}
       transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}

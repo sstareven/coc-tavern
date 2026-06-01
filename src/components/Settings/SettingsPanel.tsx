@@ -329,6 +329,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
+  const darkMode = useSettingsStore((s) => s.darkMode);
+  const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode);
   const tooltipDelay = useSettingsStore((s) => s.tooltipDelay);
   const setTooltipDelay = useSettingsStore((s) => s.setTooltipDelay);
   const musicVolume = useSettingsStore((s) => s.musicVolume);
@@ -339,6 +341,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
   const contextPageDepth = useSettingsStore((s) => s.contextPageDepth);
   const setContextPageDepth = useSettingsStore((s) => s.setContextPageDepth);
+  const npcMemoryKeep = useSettingsStore((s) => s.npcMemoryKeep);
+  const setNpcMemoryKeep = useSettingsStore((s) => s.setNpcMemoryKeep);
   const jsonRetryCount = useSettingsStore((s) => s.jsonRetryCount);
   const setJsonRetryCount = useSettingsStore((s) => s.setJsonRetryCount);
   const rpmLimit = useSettingsStore((s) => s.rpmLimit);
@@ -538,6 +542,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <Toggle on={soundEnabled} onChange={toggleSound} />
                 </div>
 
+                {/* Dark mode toggle —— 正文页/背包线索/人物名册 切换深墨羊皮纸黑夜配色 */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    黑夜模式
+                    <HelpIcon text={'将「正文页 / 背包线索 / 人物名册」的羊皮纸日间配色切换为深墨羊皮纸的黑夜配色。\n\n仅影响这三个内容面的视觉基调，其余界面不变。'} />
+                  </span>
+                  <Toggle on={darkMode} onChange={toggleDarkMode} onLabel="黑夜" offLabel="羊皮纸" />
+                </div>
+
                 {/* Music volume */}
                 <div style={rowStyle}>
                   <span style={labelStyle}>音乐音量</span>
@@ -597,6 +610,20 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       style={numInputStyle}
                     />
                     <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    NPC 记忆保留条数
+                    <HelpIcon text={'每个 NPC 的「互动记忆」在被 AI 折叠成「记忆梗概」后，保留的最近原始记忆条数。\n\n数值越小越紧凑、越省 token；越大保留越多近期逐字细节。\n\n更早的记忆会被浓缩进梗概，不会丢失语义。默认 6 条。'} />
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="range" min={3} max={12} step={1} value={npcMemoryKeep}
+                      onChange={(e) => setNpcMemoryKeep(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{npcMemoryKeep}</span>
                   </div>
                 </div>
 

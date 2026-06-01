@@ -80,6 +80,7 @@ export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
             return (
               <div
                 key={i}
+                className="cv-row"
                 onClick={() => onSelect(isSelected ? -1 : i)}
                 style={{
                   display: 'flex', gap: 10, alignItems: 'baseline', padding: isSelected ? '14px 10px' : '10px 10px', cursor: 'pointer',

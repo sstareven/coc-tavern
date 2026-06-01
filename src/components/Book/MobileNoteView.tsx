@@ -104,7 +104,7 @@ export function MobileNoteView() {
           }}
         >
           {/* 标题 + 骰子记录 */}
-          <div style={{ flexShrink: 0, marginBottom: 10, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8 }}>
+          <div style={{ flexShrink: 0, marginBottom: 10, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 3, margin: 0 }}>{page.leftHeader}</h3>
             {dice.slice(0, 2).map((d, i) => {
               const c = RESULT_COLORS[d.type] || RESULT_COLORS.failure;
@@ -138,9 +138,9 @@ export function MobileNoteView() {
               <>
                 {/* 抉择时刻 —— 左右页正文分割线（仅手机端） */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(107,90,58,0.4))' }} />
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(107,90,58,0.4))' }} />
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
                 {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
                   ? <p style={{ textIndent: '2em', marginBottom: 12 }}>{beautifyText(renderedRight[0])}</p>
@@ -151,7 +151,7 @@ export function MobileNoteView() {
             )}
           </div>
           {page.leftPage && (
-            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0 }}>{page.leftPage}</div>
+            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{page.leftPage}</div>
           )}
         </motion.div>
       </AnimatePresence>

@@ -53,6 +53,8 @@ import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
+import { useGenStatsStore } from '../stores/useGenStatsStore';
+import type { TokenUsage } from '../sillytavern/stream-parser';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -110,10 +112,10 @@ interface TokenContext {
  */
 async function sendWithJsonRetry<T>(opts: {
   maxRetries: number;
-  send: (corrective: boolean) => Promise<{ content: string }>;
+  send: (corrective: boolean) => Promise<{ content: string; usage?: TokenUsage }>;
   parse: (content: string) => T | null;
   logTag: string;
-}): Promise<{ result: T | null; attempts: number; lastContent: string }> {
+}): Promise<{ result: T | null; attempts: number; lastContent: string; lastUsage?: TokenUsage }> {
   const { maxRetries, send, parse, logTag } = opts;
   let response = await send(false);
   pushLog('debug', `[${logTag}] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
@@ -127,7 +129,7 @@ async function sendWithJsonRetry<T>(opts: {
     pushLog('debug', `[${logTag}] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
     result = parse(response.content);
   }
-  return { result, attempts: attempt, lastContent: response.content };
+  return { result, attempts: attempt, lastContent: response.content, lastUsage: response.usage };
 }
 
 // ── Hook ──
@@ -577,7 +579,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 此路径只走整页生成（parseLlmResponse），补写走 parseRewriteResponse，故无需排除补写。
         const skipInventoryNarrativeCheck = useBookStore.getState().pages.length <= 1;
 
-        const { result, attempts: attempt, lastContent } = await sendWithJsonRetry({
+        const genStart = performance.now();
+        const { result, attempts: attempt, lastContent, lastUsage } = await sendWithJsonRetry({
           maxRetries,
           logTag: 'API',
           send: (corrective) => sendChatCompletion(
@@ -622,30 +625,38 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
-          useStatusToastStore.getState().showProcessing('正在解析状态变量…');
-          try {
-            const extracted = await extractVariablesWithLLM(
-              hookProcessedContent,
-              mvuSettings.mvuApiBaseUrl,
-              mvuSettings.mvuApiKey,
-              mvuSettings.mvuApiModel,
-              mvuSettings.mvuTemperature,
-              mvuSettings.mvuRetryCount,
-              mvuSettings.mvuMaxTokens,
-            );
-            const st = useVariableStore.getState();
-            st.processResponse(hookProcessedContent);
-            for (const [name, value] of Object.entries(extracted.variables)) {
-              st.setVariable(name, value, 'llm');
+          // 独立通道：先同步应用显式 <var>/{{set:}} 标签（即时，供本页角色卡快照与正文用），
+          // 再把「LLM 推断提取」放到后台异步跑——不阻塞落页/翻页与下一回合解锁。
+          // 正文一解析出来即可进入下一页，状态变量页稍后由后台补齐（接受变量延迟）。
+          useVariableStore.getState().processResponse(hookProcessedContent);
+          const mvuConvId = useChatStore.getState().activeId;
+          void (async () => {
+            try {
+              const extracted = await extractVariablesWithLLM(
+                hookProcessedContent,
+                mvuSettings.mvuApiBaseUrl,
+                mvuSettings.mvuApiKey,
+                mvuSettings.mvuApiModel,
+                mvuSettings.mvuTemperature,
+                mvuSettings.mvuRetryCount,
+                mvuSettings.mvuMaxTokens,
+              );
+              // 会话已切走则丢弃，避免把上一档的变量灌进当前档（跨会话防线）。
+              if (useChatStore.getState().activeId !== mvuConvId) return;
+              const st = useVariableStore.getState();
+              for (const [name, value] of Object.entries(extracted.variables)) {
+                st.setVariable(name, value, 'llm');
+              }
+              if (mvuConvId) void saveConversation(mvuConvId);
+              pushLog('debug', '[MVU] 后台独立提取完成，状态变量已更新', 'system');
+            } catch (err) {
+              pushLog(
+                'warn',
+                `[MVU] 后台独立提取失败（正文不受影响，已即时回退本地正则）: ${err instanceof Error ? err.message : String(err)}`,
+                'system',
+              );
             }
-          } catch (err) {
-            pushLog(
-              'warn',
-              `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
-              'system',
-            );
-            useVariableStore.getState().processResponse(hookProcessedContent);
-          }
+          })();
         } else {
           useVariableStore.getState().processResponse(hookProcessedContent);
         }
@@ -654,6 +665,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           'info',
           `API响应成功 — ${response.content.length}字符, 总消耗~${estimateTokens(JSON.stringify(editedMessages)) + estimateTokens(regexProcessedContent)} tokens${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
+
+        // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
+        {
+          const durationMs = Math.round(performance.now() - genStart);
+          const promptEst = estimateTokens(JSON.stringify(editedMessages));
+          const completionEst = estimateTokens(response.content);
+          if (lastUsage?.total_tokens != null) {
+            useGenStatsStore.getState().setStats({
+              totalTokens: lastUsage.total_tokens,
+              promptTokens: lastUsage.prompt_tokens,
+              completionTokens: lastUsage.completion_tokens,
+              durationMs,
+              estimated: false,
+            });
+          } else {
+            useGenStatsStore.getState().setStats({
+              totalTokens: promptEst + completionEst,
+              promptTokens: promptEst,
+              completionTokens: completionEst,
+              durationMs,
+              estimated: true,
+            });
+          }
+        }
         useStatusToastStore.getState().markDone('档案已浮现');
         const newPage = result.page;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。

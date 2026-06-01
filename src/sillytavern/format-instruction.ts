@@ -19,7 +19,7 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 【物品叙事一致性·硬约束】物品的获取与消耗是故事的核心，绝不能凭空发生：任何inventoryChanges（add获得、remove失去/丢弃、update增减）都必须在同一回合的leftContent或rightContent叙事中有对应的、具体的描写——必须写清调查员是如何拿到、交出、丢弃、使用或消耗该物品的动作与情节（谁给的/在哪找到的/为何丢弃/如何用掉）。严禁出现"叙事里只字未提，却在inventoryChanges里凭空增减物品"的情况；反之，凡叙事中确实发生了物品的获得或失去，就必须如实记入inventoryChanges，不得遗漏。若本回合叙事中没有任何物品的得失，则不得输出inventoryChanges。
 
-【线索库·clues】当调查员通过观察、搜查、检定、对话等方式发现重要线索、证据或蛛丝马迹时，在clues数组中记录。每条线索含：name(线索名)、summary(一句话简述)、discoveryNarrative(发现细节——用2-4句话描述角色是如何、从何处发现这条线索的，以及从中察觉到了什么不寻常之处、推断出什么)、relatedTo(可选，关联的人/地/事关键词数组)。线索是"知识与推理"，与物品(inventoryChanges)分开记录；同一物证既可作为物品add，也可同时在clues里登记其揭示的信息。若本回合无新线索则省略clues字段。
+【线索库·clues】当调查员通过观察、搜查、检定、对话等方式发现重要线索、证据或蛛丝马迹时，在clues数组中记录。每条线索含：name(线索名)、summary(一句话简述)、discoveryNarrative(发现细节——用2-4句话描述角色是如何、从何处发现这条线索的，以及从中察觉到了什么不寻常之处、推断出什么)、relatedTo(可选，关联的人/地/事关键词数组)。线索是"知识与推理"，与物品(inventoryChanges)分开记录；同一物证既可作为物品add，也可同时在clues里登记其揭示的信息。当一条已有线索因剧情推进升华为更关键的新线索时，在新线索里加 evolvesFrom 字段引用旧线索名——系统会归档旧线索（隐藏但可回溯）、把新线索标为关键并上位；不要删改旧线索内容重写。若本回合无新线索则省略clues字段。
 
 重要物品约束：调查员只能使用当前物品栏中实际拥有的物品。如果玩家试图使用不在物品栏中的物品，应在叙事中自然地说明该物品不在手边或身上没有，并引导玩家采取其他行动。环境中的物品需要先通过add获取后才能使用。
 
@@ -83,7 +83,7 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。后日谈阶段省略darkThread字段。
 
-【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
 
 【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
 - current：调查员当前所在地点名（每当所在地点变化时给出）。

@@ -289,7 +289,7 @@ export function CharSheetOverlay() {
                 const half = Math.floor(skill.current / 2);
                 const fifth = Math.floor(skill.current / 5);
                 return (
-                  <div key={name} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(196,168,85,0.08)' }}>
+                  <div key={name} className="cv-row" style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(196,168,85,0.08)' }}>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                     <span style={{ width: 40, textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>{skill.base}</span>
                     <span style={{ width: 44, textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--gold)', fontWeight: 700 }}>{skill.current}</span>

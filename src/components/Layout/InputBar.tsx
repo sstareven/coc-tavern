@@ -23,6 +23,15 @@ export function InputBar() {
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
 
+  // ── Textarea 自增长：高度由 input state 驱动，提交/回填/补全后自动回缩 ──
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }, [input]);
+
   // ── Auto-submit listener ──
   useEffect(() => {
     const handler = () => { handleSubmitRef.current(); };
@@ -308,6 +317,7 @@ export function InputBar() {
             )}
 
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
@@ -318,11 +328,6 @@ export function InputBar() {
                   e.preventDefault();
                   handleSubmit();
                 }
-              }}
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = 'auto';
-                el.style.height = Math.min(el.scrollHeight, 200) + 'px';
               }}
               placeholder="输入行动或对话..."
               disabled={pipeline.loading}

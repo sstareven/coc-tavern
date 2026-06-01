@@ -5,6 +5,7 @@ import { stripFunctions } from '../db/stripFunctions';
 
 interface SettingsState {
   soundEnabled: boolean;
+  darkMode: boolean;
   tooltipDelay: number;
   musicVolume: number;
   autoSubmitChoice: boolean;
@@ -31,6 +32,7 @@ interface SettingsState {
   mvuMaxTokens: number;
   mvuAvailableModels: string[];
   maxSummaryEntries: number;
+  npcMemoryKeep: number;
   contextPageDepth: number;
   globalCaseSensitive: boolean;
   globalMatchWholeWord: boolean;
@@ -48,6 +50,8 @@ interface SettingsState {
 
 interface SettingsStore extends SettingsState {
   toggleSound: () => void;
+  toggleDarkMode: () => void;
+  setDarkMode: (v: boolean) => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
@@ -73,6 +77,7 @@ interface SettingsStore extends SettingsState {
   setMvuMaxTokens: (n: number) => void;
   setMvuAvailableModels: (models: string[]) => void;
   setMaxSummaryEntries: (n: number) => void;
+  setNpcMemoryKeep: (n: number) => void;
   setContextPageDepth: (n: number) => void;
   setGlobalCaseSensitive: (v: boolean) => void;
   setGlobalMatchWholeWord: (v: boolean) => void;
@@ -90,6 +95,7 @@ interface SettingsStore extends SettingsState {
 
 const defaults: SettingsState = {
   soundEnabled: true,
+  darkMode: false,
   tooltipDelay: 600,
   musicVolume: 40,
   autoSubmitChoice: false,
@@ -116,6 +122,7 @@ const defaults: SettingsState = {
   mvuMaxTokens: 8096,
   mvuAvailableModels: [],
   maxSummaryEntries: 20,
+  npcMemoryKeep: 6,
   contextPageDepth: 3,
   globalCaseSensitive: false,
   globalMatchWholeWord: false,
@@ -137,6 +144,8 @@ export const useSettingsStore = create<SettingsStore>()(
       ...defaults,
 
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+      toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+      setDarkMode: (v) => set({ darkMode: v }),
       setTooltipDelay: (d) => set({ tooltipDelay: d }),
       setMusicVolume: (v) => set({ musicVolume: v }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
@@ -162,6 +171,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
       setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
+      setNpcMemoryKeep: (n) => set({ npcMemoryKeep: Math.max(3, Math.min(12, Math.floor(n))) }),
       setContextPageDepth: (n) => set({ contextPageDepth: n }),
       setGlobalCaseSensitive: (v) => set({ globalCaseSensitive: v }),
       setGlobalMatchWholeWord: (v) => set({ globalMatchWholeWord: v }),

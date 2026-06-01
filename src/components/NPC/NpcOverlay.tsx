@@ -12,9 +12,9 @@ function FavBar({ value }: { value: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', flexShrink: 0 }}>好感</span>
-      <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(107,90,58,0.18)', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(var(--ink-faded-rgb),0.18)', overflow: 'hidden', position: 'relative' }}>
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: color, transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)' }} />
-        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(107,90,58,0.4)' }} />
+        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(var(--ink-faded-rgb),0.4)' }} />
       </div>
       <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color, flexShrink: 0, width: 30, textAlign: 'right' }}>{value > 0 ? '+' : ''}{value}</span>
     </div>
@@ -36,7 +36,7 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
   const skillStr = npc.skills ? Object.entries(npc.skills).map(([n, v]) => `${n}${v}`).join('、') : '';
   const charStr = npc.characteristics ? Object.entries(npc.characteristics).map(([k, v]) => `${k}${v}`).join(' ') : '';
   return (
-    <div style={{ border: '1px solid rgba(107,90,58,0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
+    <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>
@@ -48,7 +48,7 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
         <div style={{ marginTop: 7 }}><FavBar value={npc.favorability} /></div>
       </div>
       {open && (
-        <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed rgba(107,90,58,0.2)' }}>
+        <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
           {(charStr || npc.derived) && (
             <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', marginBottom: 4 }}>
               {charStr}{charStr && npc.derived ? ' · ' : ''}{npc.derived}
@@ -60,7 +60,21 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
           <Section title="人物经历" body={npc.experience} />
           {skillStr && <Section title="技能" body={skillStr} />}
           {npc.possessions.length > 0 && <Section title="随身物品" body={npc.possessions.join('、')} />}
-          {npc.memories.length > 0 && <Section title="互动记忆" body={npc.memories.join('\n')} />}
+          {(npc.memorySummary || npc.memories.length > 0) && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>互动记忆</div>
+              {npc.memorySummary && (
+                <div style={{ fontSize: 11.5, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 4, paddingBottom: 4, borderBottom: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
+                  梗概：{npc.memorySummary}
+                </div>
+              )}
+              {npc.memories.length > 0 && (
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                  {npc.memories.join('\n')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -70,7 +84,7 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
 function NpcColumn({ npcs, emptyText, header, sub }: { npcs: NpcProfile[]; emptyText: string; header: string; sub: string }) {
   return (
     <>
-      <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 10 }}>
+      <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 10 }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>{sub}</span>
       </div>

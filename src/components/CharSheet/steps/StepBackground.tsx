@@ -96,6 +96,7 @@ export function StepBackground({
           padding: '8px 12px', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 4,
           background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 11,
           fontFamily: 'var(--font-body)', flexShrink: 0,
+          whiteSpace: 'pre-line', lineHeight: 1.6,
         }}>
           {quickFillError}
         </div>

@@ -44,3 +44,38 @@ describe('useNpcStore.applyUpdates', () => {
     expect(ctx).not.toContain('离场乙');
   });
 });
+
+import { MEMORY_HARD_CAP } from './useNpcStore';
+
+describe('NPC 记忆折叠', () => {
+  beforeEach(() => { useNpcStore.getState().clearAll(); });
+
+  it('收到 memorySummary 后写入梗概并把记忆裁到 npcMemoryKeep（默认6）', () => {
+    const store = useNpcStore.getState();
+    // 先累积 9 条互动记忆
+    for (let i = 1; i <= 9; i++) store.applyUpdates([{ name: '老者', addMemory: `互动${i}` }]);
+    // 再给一次梗概
+    store.applyUpdates([{ name: '老者', memorySummary: '与调查员多次交谈，渐生信任。' }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.memorySummary).toBe('与调查员多次交谈，渐生信任。');
+    expect(p.memories.length).toBe(6);
+    expect(p.memories[5]).toBe('互动9'); // 保留最近的
+  });
+
+  it('仅追加记忆、无梗概时也绝不超过 MEMORY_HARD_CAP（兜底）', () => {
+    const store = useNpcStore.getState();
+    for (let i = 1; i <= 20; i++) store.applyUpdates([{ name: '怪客', addMemory: `m${i}` }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.memories.length).toBe(MEMORY_HARD_CAP);
+    expect(p.memories[p.memories.length - 1]).toBe('m20');
+  });
+
+  it('在场 NPC 注入：含记忆梗概，且记忆较多时附折叠提示', () => {
+    const store = useNpcStore.getState();
+    store.applyUpdates([{ name: '管家', identity: '宅邸管家', isPresent: true, memorySummary: '忠诚但隐瞒了地窖的事。' }]);
+    for (let i = 1; i <= 10; i++) store.applyUpdates([{ name: '管家', addMemory: `事件${i}` }]);
+    const inj = useNpcStore.getState().buildContextInjection();
+    expect(inj).toContain('记忆梗概：忠诚但隐瞒了地窖的事。');
+    expect(inj).toContain('memorySummary');
+  });
+});
