@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.1';
+const CURRENT_VERSION = 'v1.3.2';
 
 interface Release {
   version: string;
@@ -12,6 +12,17 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.2',
+    label: '生成统计每页化 · 输入与夜间细节',
+    items: [
+      '生成统计改为「每页记录」— 右下角显示的是当前页生成时的 token 消耗与耗时（翻回旧页看旧页的），不再是全局最近一次；序章等无记录的页不显示',
+      '统计纳入 MVU 与行动补写消耗 — 补写时数字以老虎机式翻滚动画向上累加到新值',
+      '自定义行动按 Enter 现在正确触发「行动补写」— 此前会误走「推进」，与右侧按钮显示不一致',
+      '移动端行动补写 — 过渡叙述移到卷轴底部「奇思妙想」分区，不再混入正文',
+      '黑夜模式文字提亮 — 暗色背景下正文/次级文字更接近白色、更清晰',
+    ],
+  },
   {
     version: 'v1.3.1',
     label: '微调',
