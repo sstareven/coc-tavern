@@ -75,6 +75,10 @@ export function Storybook() {
     if (keep !== 'toc' && showToc) { setShowToc(false); setSelectedToc(-1); }
   };
 
+  // 已有浮层打开时再切到另一个浮层：跳过书本装饰翻页（否则会多播一次"左页翻页"，体验割裂）。
+  const anyOverlayOpen = inventoryOpen || charSheetOpen || npcOpen || mapOpen || showToc;
+  const flipIfFromBook = () => { if (!anyOverlayOpen) useBookStore.getState().decorativeFlip('backward', 800); };
+
   const handleMobileTab = (tab: MobileTab) => {
     if (tab === 'inventory') {
       if (inventoryOpen) { useInventoryStore.getState().close(); return; }
@@ -428,7 +432,7 @@ export function Storybook() {
                 return;
               }
               closeOtherOverlays('inventory');
-              useBookStore.getState().decorativeFlip('backward', 800);
+              flipIfFromBook();
               useInventoryStore.getState().toggle();
             }}
             style={inventoryOpen ? tocTabActive : bookmarkTab}
@@ -462,7 +466,7 @@ export function Storybook() {
                 return;
               }
               closeOtherOverlays('charsheet');
-              useBookStore.getState().decorativeFlip('backward', 800);
+              flipIfFromBook();
               useCharSheetStore.getState().toggle();
             }}
             style={charSheetOpen ? tocTabActive : bookmarkTab}
@@ -496,7 +500,7 @@ export function Storybook() {
                 return;
               }
               closeOtherOverlays('npc');
-              useBookStore.getState().decorativeFlip('backward', 800);
+              flipIfFromBook();
               useNpcStore.getState().toggle();
             }}
             style={npcOpen ? tocTabActive : bookmarkTab}
@@ -530,7 +534,7 @@ export function Storybook() {
                 return;
               }
               closeOtherOverlays('map');
-              useBookStore.getState().decorativeFlip('backward', 800);
+              flipIfFromBook();
               useMapStore.getState().toggle();
             }}
             style={mapOpen ? tocTabActive : bookmarkTab}
@@ -566,7 +570,7 @@ export function Storybook() {
                 return;
               }
               closeOtherOverlays('toc');
-              useBookStore.getState().decorativeFlip('backward', 800);
+              flipIfFromBook();
               setShowToc(true);
             }}
             style={showToc ? tocTabActive : bookmarkTab}
