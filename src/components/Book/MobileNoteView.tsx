@@ -156,31 +156,19 @@ export function MobileNoteView() {
         </motion.div>
       </AnimatePresence>
 
-      {/* 半透明箭头兜底 */}
-      <NoteArrow side="left" onClick={goPrev} disabled={!canGoPrev} />
-      <NoteArrow side="right" onClick={goNext} disabled={!canGoNext} />
+      {/* 左上角翻页提示（小字，稍后淡隐）——靠左右滑动/拖动翻页 */}
+      <motion.div
+        initial={{ opacity: 0.75 }}
+        animate={{ opacity: 0.3 }}
+        transition={{ delay: 1.8, duration: 1.4, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          position: 'absolute', top: 0, left: 16, zIndex: 6, pointerEvents: 'none',
+          fontSize: 9.5, letterSpacing: 1.5, whiteSpace: 'nowrap',
+          color: 'rgba(196,168,85,0.7)', fontFamily: 'var(--font-ui)',
+        }}
+      >
+        ‹ 左右滑动翻页 ›
+      </motion.div>
     </div>
-  );
-}
-
-function NoteArrow({ side, onClick, disabled }: { side: 'left' | 'right'; onClick: () => void; disabled: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={side === 'left' ? '上一张' : '下一张'}
-      style={{
-        position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-        [side]: 4, width: 32, height: 32, borderRadius: '50%',
-        border: `1px solid ${disabled ? 'rgba(107,90,58,0.25)' : 'var(--gold)'}`,
-        background: disabled ? 'transparent' : 'rgba(26,20,14,0.35)',
-        color: disabled ? 'var(--ink-subtle)' : 'var(--gold)',
-        fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: disabled ? 0.3 : 0.75, cursor: disabled ? 'default' : 'pointer',
-        transition: 'opacity 0.35s cubic-bezier(0.4,0,0.2,1)', zIndex: 5,
-      } as React.CSSProperties}
-    >
-      {side === 'left' ? '‹' : '›'}
-    </button>
   );
 }
