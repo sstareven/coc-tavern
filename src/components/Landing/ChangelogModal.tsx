@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.0';
+const CURRENT_VERSION = 'v1.3.1';
 
 interface Release {
   version: string;
@@ -12,6 +12,15 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.1',
+    label: '微调',
+    items: [
+      '右下角生成信息 — 改为内联显示「↑输入 ↓输出 · 耗时」（输入/输出 token 直接可见，悬停看合计明细）',
+      '状态变量提取改回同步排队 — 撤销 v1.3.0 的「后台异步提取」，恢复为等变量解析完再翻页，行为更可预期、避免变量延迟造成的错位',
+      '顶部处理提示新增实时计时器 — 「正在窥探深渊…」等提示末尾实时走秒，知道这次等了多久',
+    ],
+  },
   {
     version: 'v1.3.0',
     label: '黑夜模式 · 记忆与线索演化 · 性能优化',

@@ -625,38 +625,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
         if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
-          // 独立通道：先同步应用显式 <var>/{{set:}} 标签（即时，供本页角色卡快照与正文用），
-          // 再把「LLM 推断提取」放到后台异步跑——不阻塞落页/翻页与下一回合解锁。
-          // 正文一解析出来即可进入下一页，状态变量页稍后由后台补齐（接受变量延迟）。
-          useVariableStore.getState().processResponse(hookProcessedContent);
-          const mvuConvId = useChatStore.getState().activeId;
-          void (async () => {
-            try {
-              const extracted = await extractVariablesWithLLM(
-                hookProcessedContent,
-                mvuSettings.mvuApiBaseUrl,
-                mvuSettings.mvuApiKey,
-                mvuSettings.mvuApiModel,
-                mvuSettings.mvuTemperature,
-                mvuSettings.mvuRetryCount,
-                mvuSettings.mvuMaxTokens,
-              );
-              // 会话已切走则丢弃，避免把上一档的变量灌进当前档（跨会话防线）。
-              if (useChatStore.getState().activeId !== mvuConvId) return;
-              const st = useVariableStore.getState();
-              for (const [name, value] of Object.entries(extracted.variables)) {
-                st.setVariable(name, value, 'llm');
-              }
-              if (mvuConvId) void saveConversation(mvuConvId);
-              pushLog('debug', '[MVU] 后台独立提取完成，状态变量已更新', 'system');
-            } catch (err) {
-              pushLog(
-                'warn',
-                `[MVU] 后台独立提取失败（正文不受影响，已即时回退本地正则）: ${err instanceof Error ? err.message : String(err)}`,
-                'system',
-              );
+          useStatusToastStore.getState().showProcessing('正在解析状态变量…');
+          try {
+            const extracted = await extractVariablesWithLLM(
+              hookProcessedContent,
+              mvuSettings.mvuApiBaseUrl,
+              mvuSettings.mvuApiKey,
+              mvuSettings.mvuApiModel,
+              mvuSettings.mvuTemperature,
+              mvuSettings.mvuRetryCount,
+              mvuSettings.mvuMaxTokens,
+            );
+            const st = useVariableStore.getState();
+            st.processResponse(hookProcessedContent);
+            for (const [name, value] of Object.entries(extracted.variables)) {
+              st.setVariable(name, value, 'llm');
             }
-          })();
+          } catch (err) {
+            pushLog(
+              'warn',
+              `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
+              'system',
+            );
+            useVariableStore.getState().processResponse(hookProcessedContent);
+          }
         } else {
           useVariableStore.getState().processResponse(hookProcessedContent);
         }

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStatusToastStore, type StatusKind } from '../../stores/useStatusToastStore';
 
@@ -22,6 +23,19 @@ export function StatusToast() {
   const toast = useStatusToastStore((s) => s.toast);
   const kind: StatusKind = toast?.kind ?? 'processing';
   const a = accent[kind];
+
+  // 处理/排队中的提示附带实时计时器：按 toast.id 重置，每 100ms 走表。
+  const isProcessing = toast?.kind === 'processing';
+  const activeId = isProcessing ? toast!.id : null;
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(0);
+  useEffect(() => {
+    if (activeId == null) return;
+    startRef.current = Date.now();
+    setElapsed(0);
+    const iv = setInterval(() => setElapsed((Date.now() - startRef.current) / 1000), 100);
+    return () => clearInterval(iv);
+  }, [activeId]);
 
   return (
     <div style={wrapStyle}>
@@ -83,6 +97,20 @@ export function StatusToast() {
               />
             )}
             <span>{toast.message}</span>
+            {isProcessing && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  opacity: 0.7,
+                  fontVariantNumeric: 'tabular-nums',
+                  minWidth: 38,
+                  textAlign: 'right',
+                }}
+              >
+                {elapsed.toFixed(1)}s
+              </span>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
