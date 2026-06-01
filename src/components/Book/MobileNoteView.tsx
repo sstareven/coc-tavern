@@ -118,15 +118,15 @@ export function MobileNoteView() {
                 </div>
               );
             })}
-          </div>
-          {/* 叙事卷轴 */}
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
-            {/* 小总结（剧情回顾） */}
+            {/* 小总结（剧情回顾）—— 与检定结果一起冻结在顶部 */}
             {page.summary && (
-              <p style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '0 0 12px', textIndent: '2em' }}>
+              <p style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
                 {page.summary}
               </p>
             )}
+          </div>
+          {/* 叙事卷轴 */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
             {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
             <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
             {rendered.length === 1 && typeof rendered[0] === 'string'
