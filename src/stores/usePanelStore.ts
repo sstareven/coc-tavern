@@ -11,6 +11,7 @@ export type Panel =
   | 'extManager'
   | 'diceHistory'
   | 'variable'
+  | 'multiplayer'
   | null;
 
 interface PanelStore {

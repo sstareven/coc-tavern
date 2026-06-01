@@ -15,6 +15,7 @@ import { ChatlistPanel } from './components/Settings/ChatlistPanel';
 import { ExtManager } from './components/Settings/ExtManager';
 import { RegexEditor } from './components/Settings/RegexEditor';
 import { VariablePanel } from './components/Settings/VariablePanel';
+import { MultiplayerPanel } from './components/Settings/MultiplayerPanel';
 import { DebugLog } from './components/Shared/DebugLog';
 import { DebugConsole } from './components/Shared/DebugConsole';
 import { ErrorModal } from './components/Shared/ErrorModal';
@@ -150,6 +151,9 @@ export function App() {
       )}
       {openPanel === 'variable' && (
         <VariablePanel visible={true} onClose={closeAll} />
+      )}
+      {openPanel === 'multiplayer' && (
+        <MultiplayerPanel onClose={closeAll} />
       )}
 
       <RegexEditor />

@@ -14,6 +14,7 @@ import { saveConversation } from '../stores/sessionLifecycle';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
+import { useOnlineStore } from '../stores/useOnlineStore';
 import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
@@ -781,6 +782,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           );
         } else {
           bookStore.appendPage(newPage);
+          // 联机房主：把这一回合的整页 + 状态广播给全员镜像（客户端 appendPage+setStatData+setSheet）。
+          {
+            const onlineHost = useOnlineStore.getState();
+            if (onlineHost.isConnected && onlineHost.isHost) {
+              onlineHost.sendRound({
+                page: newPage,
+                statData: useVariableStore.getState().statData,
+                sheet: useCharSheetStore.getState().sheet,
+              });
+            }
+          }
           pushLog('info', `新页面已生成 — ${newPage.leftHeader}`);
           pushLog(
             'debug',
@@ -903,6 +915,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!trimmed || loadingRef.current) return trimmed;
       // 防御性兜底：无活跃会话时绝不发起 LLM 调用——避免删活跃会话后残留态被注入(跨会话混档防线)。
       if (!useChatStore.getState().activeId) return trimmed;
+
+      // 联机客户端：不本地生成，把行动转为「提议」提交进房主的输入池。
+      const onlineNow = useOnlineStore.getState();
+      if (onlineNow.isConnected && !onlineNow.isHost) {
+        onlineNow.submitProposal(trimmed);
+        return '';
+      }
 
       // Tick sticky/cooldown counters and increment message count
       messageCountRef.current++;

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { usePanelStore } from '../../stores/usePanelStore';
+import { useOnlineStore } from '../../stores/useOnlineStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
@@ -13,6 +15,7 @@ export function InputBar() {
   const [input, setInput] = useState('');
   const [wandOpen, setWandOpen] = useState(false);
   const apiModel = useSettingsStore((s) => s.apiModel);
+  const isClientMirror = useOnlineStore((s) => s.isConnected && !s.isHost);
 
   const currentPage = useBookStore((s) => s.pages[s.pageIndex]);
   const currentChoices = currentPage
@@ -37,6 +40,18 @@ export function InputBar() {
     const handler = () => { handleSubmitRef.current(); };
     document.addEventListener('auto-submit-input', handler);
     return () => document.removeEventListener('auto-submit-input', handler);
+  }, []);
+
+  // ── 联机：房主「发送本轮」→ 用合并后的提议文本走正常生成（再由管线广播镜像） ──
+  const hostSendRef = useRef<(t: string) => void>(() => {});
+  hostSendRef.current = (t: string) => { void pipeline.submit(revealHiddenRolls(t)); };
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (text && text.trim()) hostSendRef.current(text);
+    };
+    document.addEventListener('mp-host-send', handler);
+    return () => document.removeEventListener('mp-host-send', handler);
   }, []);
 
   // ── Click outside to close wand menu ──
@@ -243,6 +258,16 @@ export function InputBar() {
                           setWandOpen(false);
                         }}
                       />
+                      <WandRow
+                        icon="🌐"
+                        label="联机"
+                        iconColor="#7b9fc1"
+                        divider
+                        onClick={() => {
+                          usePanelStore.getState().open('multiplayer');
+                          setWandOpen(false);
+                        }}
+                      />
                     </tbody>
                   </table>
                 </motion.div>
@@ -331,7 +356,7 @@ export function InputBar() {
                   else handleSubmit();
                 }
               }}
-              placeholder="输入行动或对话..."
+              placeholder={isClientMirror ? '联机客户端：输入将作为「本轮提议」提交给房主…' : '输入行动或对话...'}
               disabled={pipeline.loading}
               rows={1}
               style={{
