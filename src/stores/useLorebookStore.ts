@@ -63,58 +63,19 @@ const defaultBooks: Record<string, LoreBook> = {
         - 单次变化不超过 ±10
         - 每次使用后自然衰减 1~3
 
-    信用评级:
+    状态条件:
+      type: |-
+        Array<{ 名称: string; 严重度: 'minor'|'moderate'|'severe'|'critical'; 描述: string }>
+      check:
+        - 路径 /调查员/状态条件（数组）。受伤/中毒/疯狂等持续状态：用 insert 追加 {名称,严重度,描述}（同名自动覆盖），脱离该状态时用 remove 路径 /调查员/状态条件/<名称>
+        - 严重度仅用英文枚举 minor/moderate/severe/critical（其他写法会被规整为 moderate）
+        - 不要在此记录信用评级/物品/线索/NPC：信用评级是技能(调查员.技能.信用评级)；物品用 inventoryChanges 字段、线索用 clues 字段、NPC 用 npcUpdates 字段维护，切勿用 JSONPatch 重复记录
+
+    技能.\${技能名}:
       type: number
       check:
-        - 仅在重大财务变动（继承、破产、高额消费）时更新
-        - 一般不会频繁变化
-
-    状态:
-      type: |-
-        {
-          [状态标签: string]: {
-            名称: string;
-            严重程度: '轻微' | '中等' | '严重' | '致命';
-            持续回合: number;
-          }
-        }
-      check:
-        - 受伤时添加"受伤"状态，脱离危险后移除
-        - 疯狂时添加对应的恐惧症/狂躁症状态
-        - 中毒、疾病等异常状态随回合递减持续回合
-
-    物品栏:
-      type: |-
-        {
-          [物品名: string]: {
-            描述: string;
-            数量: number;
-            是否关键物品: boolean;
-          }
-        }
-      check:
-        - 拾取或购买时 insert 新物品
-        - 使用/丢弃时 remove 或 delta 数量
-        - 关键剧情物品标记"是否关键物品: true"
-        - 物品的每一次获取或消耗都必须先在叙事(leftContent/rightContent)中具体描写其经过——如何拿到、交出、丢弃或用掉，描述是核心，绝不能遗漏
-        - 严禁叙事未提及却凭空增减物品；叙事中确实发生的得失也必须如实记入，不得漏记
-
-    技能:
-      type: |-
-        {
-          [技能名: string]: {
-            基础值: number;
-            当前值: number;
-            成长标记: boolean;
-          }
-        }
-      check:
-        - 在检定中取得大成功（d100=01）时，标记该技能为可成长
-        - 任何成功使用过的技能，守秘人均可酌情标记为可成长
-        - 幕间成长阶段（每次冒险/章节结束后）：对每个标记的技能投 1D100
-        - 若结果 > 当前技能值 → 成长：技能 < 90% 时 +1D10；技能 ≥ 90% 时 +2D6（不超过 99%）
-        - 若结果 ≤ 当前技能值 → 不成长，清除标记（"已学到上限"）
-        - 克苏鲁神话技能：每次增长时，当前最大 SAN = 99 - 克苏鲁神话值
+        - 路径 /调查员/技能/<技能名>，值为该技能当前成功率(数字)。仅写当前值——技能成长由守秘人在叙事/幕间结算中口述，变量层只在确实变动时用 replace 写入新的当前值
+        - 克苏鲁神话技能每次增长后，须同步把 调查员.理智值.最大 设为 99 − 克苏鲁神话当前值
 
   世界:
     日期:
@@ -262,6 +223,12 @@ const defaultBooks: Record<string, LoreBook> = {
       check:
         - 进入战斗时设为 true，结束战斗时设为 false
 
+    回合数:
+      type: number
+      check:
+        - 进入战斗时设为 1；之后每推进一个战斗轮次用 delta +1
+        - 退出战斗（是否战斗中→false）时用 replace 归 0
+
     敌人:
       type: |-
         {
@@ -279,25 +246,18 @@ const defaultBooks: Record<string, LoreBook> = {
 
     mvu_initvar: e({ name: '[initvar]', keys: 'initvar', logic: 'AND_ANY', priority: 6, depth: 0, disabled: true,
       content: `---
+# 调查员.* 由角色卡(useCharSheetStore)管理，运行时种子见 createInitialStatData，不经 statData/JSONPatch 初始化；下方仅作字段参考。
 调查员:
   姓名: 未知
   年龄: 25
   性别: 男
   职业: 调查员
-  生命值:
-    当前: 10
-    最大: 10
-  理智值:
-    当前: 50
-    最大: 99
-  魔法值:
-    当前: 10
-    最大: 10
+  生命值: { 当前: 10, 最大: 10 }
+  理智值: { 当前: 50, 最大: 99 }
+  魔法值: { 当前: 10, 最大: 10 }
   幸运: 50
-  信用评级: 20
-  状态: {}
-  物品栏: {}
-  技能: {}
+  状态条件: []
+  技能: {}   # 信用评级作为技能存于此；物品走 inventoryChanges、线索走 clues、NPC 走 npcUpdates
 世界:
   日期: 1925-01-01
   时间: 清晨
