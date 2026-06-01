@@ -100,6 +100,7 @@ export function Storybook() {
       closeOtherOverlays('toc');
       setShowToc(true);
     } else if (tab === 'dice') {
+      closeOtherOverlays();
       usePanelStore.getState().open('diceHistory');
     }
   };
@@ -426,8 +427,7 @@ export function Storybook() {
                 useInventoryStore.getState().close();
                 return;
               }
-              useCharSheetStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              closeOtherOverlays('inventory');
               useBookStore.getState().decorativeFlip('backward', 800);
               useInventoryStore.getState().toggle();
             }}
@@ -461,8 +461,7 @@ export function Storybook() {
                 useCharSheetStore.getState().close();
                 return;
               }
-              useInventoryStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              closeOtherOverlays('charsheet');
               useBookStore.getState().decorativeFlip('backward', 800);
               useCharSheetStore.getState().toggle();
             }}
@@ -496,9 +495,7 @@ export function Storybook() {
                 useNpcStore.getState().close();
                 return;
               }
-              useInventoryStore.getState().close();
-              useCharSheetStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              closeOtherOverlays('npc');
               useBookStore.getState().decorativeFlip('backward', 800);
               useNpcStore.getState().toggle();
             }}
@@ -532,10 +529,7 @@ export function Storybook() {
                 useMapStore.getState().close();
                 return;
               }
-              useInventoryStore.getState().close();
-              useCharSheetStore.getState().close();
-              useNpcStore.getState().close();
-              if (showToc) { setShowToc(false); setSelectedToc(-1); }
+              closeOtherOverlays('map');
               useBookStore.getState().decorativeFlip('backward', 800);
               useMapStore.getState().toggle();
             }}
@@ -571,8 +565,7 @@ export function Storybook() {
                 setShowToc(false);
                 return;
               }
-              useInventoryStore.getState().close();
-              useCharSheetStore.getState().close();
+              closeOtherOverlays('toc');
               useBookStore.getState().decorativeFlip('backward', 800);
               setShowToc(true);
             }}
@@ -600,7 +593,7 @@ export function Storybook() {
 
           {/* Tab 3: 检定记录 → dice history */}
           <button
-            onClick={() => usePanelStore.getState().open('diceHistory')}
+            onClick={() => { closeOtherOverlays(); usePanelStore.getState().open('diceHistory'); }}
             style={bookmarkTab}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#8b3a3a';
