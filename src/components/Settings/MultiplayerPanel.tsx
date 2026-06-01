@@ -12,7 +12,7 @@ const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
 const input: React.CSSProperties = {
   background: 'rgba(0,0,0,0.3)', border: '1px solid var(--brass)', borderRadius: 4,
-  color: 'var(--ink)', padding: '7px 10px', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', flex: 1, minWidth: 0,
+  color: 'var(--text-light)', padding: '7px 10px', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', flex: 1, minWidth: 0,
 };
 const btn: React.CSSProperties = {
   background: 'rgba(196,168,85,0.12)', border: '1px solid var(--gold)', borderRadius: 4,
@@ -137,7 +137,7 @@ export function MultiplayerPanel({ onClose }: Props) {
               {rooms.map((r) => (
                 <div key={r.id} onClick={() => setSelectedRoom(r.id)}
                   style={{ border: `1px solid ${selectedRoom === r.id ? 'var(--gold)' : 'var(--brass)'}`, borderRadius: 4, padding: '8px 10px', cursor: 'pointer', background: selectedRoom === r.id ? 'rgba(196,168,85,0.1)' : 'transparent' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--ink)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-light)' }}>
                     <span>{r.name} {r.hasPassword ? '🔒' : ''}</span>
                     <span style={{ color: 'var(--ink-subtle)', fontSize: 12 }}>👥 {r.currentUsers ?? 0}/{r.maxUsers ?? '-'}</span>
                   </div>
@@ -157,7 +157,7 @@ export function MultiplayerPanel({ onClose }: Props) {
             <div style={sectionTitle}>成员（{players.length}）</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {players.map((u) => (
-                <span key={u.id} style={{ border: '1px solid var(--brass)', borderRadius: 999, padding: '3px 10px', fontSize: 12, color: u.isHost ? 'var(--gold)' : 'var(--ink)' }}>
+                <span key={u.id} style={{ border: '1px solid var(--brass)', borderRadius: 999, padding: '3px 10px', fontSize: 12, color: u.isHost ? 'var(--gold)' : 'var(--text-light)' }}>
                   {u.isHost ? '👑 ' : ''}{u.name}
                 </span>
               ))}
@@ -168,7 +168,7 @@ export function MultiplayerPanel({ onClose }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto', border: '1px solid var(--brass)', borderRadius: 4, padding: 8 }}>
               {poolList.length === 0 && <div style={{ fontSize: 12, color: 'var(--ink-subtle)', textAlign: 'center' }}>暂无提议</div>}
               {poolList.map((p) => (
-                <div key={p.userId} style={{ fontSize: 12, color: 'var(--ink)' }}>
+                <div key={p.userId} style={{ fontSize: 12, color: 'var(--text-light)' }}>
                   <span style={{ color: 'var(--gold)' }}>{p.userName}:</span> {p.content.slice(0, 80)}{p.content.length > 80 ? '…' : ''}
                 </div>
               ))}
