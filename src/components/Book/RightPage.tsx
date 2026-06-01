@@ -485,32 +485,20 @@ function commitRewriteItemGain(ch: ChoiceItem): void {
   pushLog('info', `[补写拾取] 已获得「${gain.name}」`, 'system');
 }
 
-export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light' }: {
+export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'light', interactive = true }: {
   inventoryChanges: InventoryChange[];
   fadeStyle?: React.CSSProperties;
   variant?: 'light' | 'dark';
+  interactive?: boolean;
 }) {
   if (!inventoryChanges || inventoryChanges.length === 0) return null;
   const dark = variant === 'dark';
-  return (
-    <button
-      type="button"
-      onClick={openBackpack}
-      title="点击打开背包"
-      style={{
-        display: 'block', width: '100%', textAlign: 'left',
-        marginBottom: 16, padding: '8px 10px',
-        border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
-        background: 'rgba(196,168,85,0.06)', cursor: 'pointer',
-        flexShrink: 0,
-        ...fadeStyle,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
-    >
+
+  const inner = (
+    <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>
+        {interactive && <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {inventoryChanges.map((c, i) => {
@@ -548,6 +536,33 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
           );
         })}
       </div>
+    </>
+  );
+
+  const baseStyle: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    marginBottom: 16, padding: '8px 10px',
+    border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
+    background: 'rgba(196,168,85,0.06)',
+    flexShrink: 0,
+    ...fadeStyle,
+  };
+
+  // 手机端等场景用非交互版（仅展示，不可点——防误触跳转背包）
+  if (!interactive) {
+    return <div style={baseStyle}>{inner}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={openBackpack}
+      title="点击打开背包"
+      style={{ ...baseStyle, cursor: 'pointer' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
+    >
+      {inner}
     </button>
   );
 }
