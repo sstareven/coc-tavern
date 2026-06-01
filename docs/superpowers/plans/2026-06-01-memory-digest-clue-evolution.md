@@ -335,11 +335,12 @@ describe('线索演化与注入', () => {
 
   it('active 线索超过上限时截断并标注', () => {
     const store = useClueStore.getState();
-    for (let i = 1; i <= 18; i++) store.addClues([{ name: `线索${i}`, summary: `s${i}` }]);
+    // 用等长零填充名（线索01..线索18）：彼此互不为子串，避免 findActiveByName 模糊匹配误并
+    for (let i = 1; i <= 18; i++) store.addClues([{ name: `线索${String(i).padStart(2, '0')}`, summary: `s${i}` }]);
     const inj = store.buildContextInjection();
     expect(inj).toContain('线索18：s18');
     expect(inj).toContain('更早线索见线索库');
-    expect(inj).not.toContain('线索1：s1');
+    expect(inj).not.toContain('线索01：s1');
   });
 
   it('缺 status 的老数据按 active 处理（迁移）', () => {
