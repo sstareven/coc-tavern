@@ -80,6 +80,17 @@ export interface BookPage {
   darkThread?: DarkThreadData;
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
+  /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
+  genStats?: PageGenStats;
+}
+
+/** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */
+export interface PageGenStats {
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  durationMs: number;
+  estimated: boolean;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====

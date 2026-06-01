@@ -326,7 +326,9 @@ export function InputBar() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSubmit();
+                  // Enter 跟随右侧按钮模式：自定义行动(rewrite)走补写，其余(命中选项/命令)走推进
+                  if (buttonMode === 'rewrite') handleRewrite();
+                  else handleSubmit();
                 }
               }}
               placeholder="输入行动或对话..."
