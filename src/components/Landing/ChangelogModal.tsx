@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.3';
+const CURRENT_VERSION = 'v1.3.4';
 
 interface Release {
   version: string;
@@ -12,6 +12,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.4',
+    label: '热修：专精技能检定目标值',
+    items: [
+      '修复带括号专精技能（如「科学(生物学)」「艺术与手艺(...)」）检定时目标值被错算成 1 的问题 — 原因是当选项叙事里恰好含「进行」二字时，技能名被解析串错误吞并；现在检定只读取选项的机制部分，技能名能正确识别',
+      '检定取值更稳健 — 全角括号「（）」自动归一为半角；角色卡里技能存成「裸名」或「专精名」时能互相命中，不再因 key 形态不一致回退成 1',
+    ],
+  },
   {
     version: 'v1.3.3',
     label: '变量校验自纠 · 正文换行修复',
