@@ -534,6 +534,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
           onDelete={handleDelete}
           onCopy={handleCopy}
           isNew={editingId === '__new__'}
+          readOnly={editingId !== '__new__' && isBuiltinEntry(bookId, editingId)}
           canDelete={!editingId || editingId === '__new__' || !isBuiltinEntry(bookId, editingId)}
         />
       )}
@@ -543,9 +544,9 @@ export function LorebookEditor({ bookId, onClose }: Props) {
 
 // ── Entry Detail Modal ──
 
-function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew, canDelete = true }: {
+function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew, canDelete = true, readOnly = false }: {
   form: LoreEntry; onChange: (f: LoreEntry) => void; onSave: () => void; onClose: () => void;
-  onDelete: () => void; onCopy: () => void; isNew: boolean; canDelete?: boolean;
+  onDelete: () => void; onCopy: () => void; isNew: boolean; canDelete?: boolean; readOnly?: boolean;
 }) {
   const cf = form.characterFilter ?? { isExclude: false, names: [], tags: [] };
   const setCF = (patch: Partial<typeof cf>) => onChange({ ...form, characterFilter: { ...cf, ...patch } });
@@ -567,6 +568,12 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {readOnly && (
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--gold)', background: 'rgba(196,168,85,0.08)', border: '1px solid rgba(196,168,85,0.25)', borderRadius: 4, padding: '8px 10px' }}>
+              内置条目随应用版本更新，内容不可编辑。启用 / 禁用请用列表中的 ON/OFF 开关；如需自定义，请点下方「复制」生成可编辑副本。
+            </div>
+          )}
+          <div style={readOnly ? { pointerEvents: 'none', opacity: 0.55, display: 'flex', flexDirection: 'column', gap: 10 } : { display: 'contents' }}>
           {/* Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontWeight: 'bold' }}>状态</span>
@@ -733,9 +740,10 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
               </div>
             </div>
           </details>
+          </div>
 
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            <button onClick={onSave} style={saveBtnStyle}>保存</button>
+            {!readOnly && <button onClick={onSave} style={saveBtnStyle}>保存</button>}
             {!isNew && canDelete && <button onClick={onDelete} style={{ ...saveBtnStyle, borderColor: 'rgba(139,58,58,0.4)', color: 'var(--blood)', background: 'rgba(139,58,58,0.06)' }}>删除</button>}
             {!isNew && <button onClick={onCopy} style={{ ...saveBtnStyle, borderColor: 'rgba(196,168,85,0.3)', color: 'var(--gold)', background: 'rgba(196,168,85,0.06)' }}>复制</button>}
             <div style={{ flex: 1 }} />

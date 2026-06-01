@@ -471,6 +471,13 @@ export const useLorebookStore = create<LorebookStore>()(
       books: { ...defaultBooks },
       updateEntry: (b, e, entry) => set((s) => {
         const books = { ...s.books };
+        if (isBuiltinEntry(b, e)) {
+          // 内置条目只读：内容随应用版本托管（rehydrate 强制同步），运行时仅接受启用/禁用变更，
+          // 其余字段始终采用系统默认，避免「编辑后刷新被覆盖」的不一致。需自定义请复制为新条目。
+          const def = defaultBooks[b].entries[e];
+          books[b] = { ...books[b], entries: { ...books[b].entries, [e]: { ...def, disabled: entry.disabled } } };
+          return { books };
+        }
         books[b] = { ...books[b], entries: { ...books[b].entries, [e]: entry } };
         return { books };
       }),
