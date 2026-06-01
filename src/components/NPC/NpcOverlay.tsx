@@ -60,7 +60,21 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
           <Section title="人物经历" body={npc.experience} />
           {skillStr && <Section title="技能" body={skillStr} />}
           {npc.possessions.length > 0 && <Section title="随身物品" body={npc.possessions.join('、')} />}
-          {npc.memories.length > 0 && <Section title="互动记忆" body={npc.memories.join('\n')} />}
+          {(npc.memorySummary || npc.memories.length > 0) && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>互动记忆</div>
+              {npc.memorySummary && (
+                <div style={{ fontSize: 11.5, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 4, paddingBottom: 4, borderBottom: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
+                  梗概：{npc.memorySummary}
+                </div>
+              )}
+              {npc.memories.length > 0 && (
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                  {npc.memories.join('\n')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
