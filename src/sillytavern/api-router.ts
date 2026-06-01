@@ -1,4 +1,4 @@
-import { parseStreamChunk } from './stream-parser';
+import { parseStreamChunk, type TokenUsage } from './stream-parser';
 import { rpmAcquire, type RpmKind } from './rpm-limiter';
 import type { ChatPreset } from '../types';
 
@@ -19,6 +19,7 @@ export interface ChatCompletionRequest {
 export interface ChatCompletionResponse {
   content: string;
   model?: string;
+  usage?: TokenUsage;
 }
 
 /**
@@ -91,6 +92,7 @@ export async function sendChatCompletion(
         ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
         max_tokens: preset.maxTokens,
         stream,
+        ...(stream ? { stream_options: { include_usage: true } } : {}),
       }),
       signal,
     });
@@ -121,6 +123,7 @@ export async function sendChatCompletion(
     let fullContent = '';
     let buffer = '';
     let streamDone = false;
+    let streamUsage: TokenUsage | undefined;
 
     while (!streamDone) {
       const { done, value } = await reader.read();
@@ -138,19 +141,20 @@ export async function sendChatCompletion(
             fullContent += token.content;
             if (onToken) onToken(token.content);
           }
+          if (token.usage) streamUsage = token.usage;
           if (token.done) { streamDone = true; break; }
         }
       }
     }
 
     console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
-    return { content: fullContent };
+    return { content: fullContent, usage: streamUsage };
   }
 
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
   console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
-  return { content, model: json.model };
+  return { content, model: json.model, usage: json.usage };
 }
 
 /**
