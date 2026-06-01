@@ -113,7 +113,7 @@ export function MultiplayerPanel({ onClose }: Props) {
           <input style={input} placeholder="中继服务器地址" value={s.serverUrl} onChange={(e) => s.setServerUrl(e.target.value)} disabled={s.isConnected} />
         </div>
         <div style={{ fontSize: 11, color: 'var(--ink-subtle)', marginBottom: 4 }}>
-          提示：复用公共中继时，故事正文与状态会经过第三方服务器转发，请勿用于敏感内容。
+          提示：先在电脑上跑 <code style={{ color: 'var(--gold)' }}>npm run relay</code> 启动自建中继，房主与玩家把地址填成 <code style={{ color: 'var(--gold)' }}>http://&lt;房主IP&gt;:8787</code>（同一局域网）。
         </div>
 
         {!s.isConnected ? (

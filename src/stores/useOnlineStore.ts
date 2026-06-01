@@ -27,7 +27,7 @@ import {
   type SnapshotPayload,
 } from '../online/protocol';
 
-const DEFAULT_SERVER = 'https://lzh.ayi11.com';
+const DEFAULT_SERVER = 'http://localhost:8787';
 
 type OnlineMode = 'disconnected' | 'host' | 'client';
 
