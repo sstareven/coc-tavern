@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.2';
+const CURRENT_VERSION = 'v1.3.3';
 
 interface Release {
   version: string;
@@ -12,6 +12,16 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.3',
+    label: '变量校验自纠 · 正文换行修复',
+    items: [
+      '状态变量更新校验 — 非法的变量更新（如生命值跌破 0、剧情阶段/暗线威胁等级填了不存在的值）会被拦下并记入调试日志，不再悄悄写进存档污染状态',
+      '新增「变量更新自纠」（设置 · MVU，默认关闭）— 开启后，校验未通过的变量更新会回灌给 AI 请求修正；严格走 MVU 的 RPM 限流通道、受「自纠重试预算」硬上限约束（默认 1 次/回合），绝不超出每分钟请求限制',
+      '自纠消耗的 token 已计入该页生成统计（右下角数字）',
+      '修复正文偶尔出现字面「\\n\\n」的问题 — AI 返回双重转义文本时残留的换行符号，现自动还原；正文段落改为按真实换行渲染（与生成中预览一致）',
+    ],
+  },
   {
     version: 'v1.3.2',
     label: '生成统计每页化 · 输入与夜间细节',
