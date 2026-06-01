@@ -149,6 +149,17 @@ export function MobileNoteView() {
                       : <span key={`r${i}`}>{node}</span>)}
               </>
             )}
+            {page.rewrite?.text && (
+              <>
+                {/* 行动补写过渡叙述 —— 移动端置于卷轴最底部，单独成段，不混入右页正文 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                </div>
+                <p style={{ textIndent: '2em', marginBottom: 12, fontStyle: 'italic', color: 'var(--ink-subtle)' }}>{beautifyText(page.rewrite.text)}</p>
+              </>
+            )}
           </div>
           {page.leftPage && (
             <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{page.leftPage}</div>
