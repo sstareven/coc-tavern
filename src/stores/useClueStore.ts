@@ -20,6 +20,17 @@ function findByName(clues: Clue[], name: string): number {
   return clues.findIndex((c) => c.name.includes(name) || name.includes(c.name));
 }
 
+/** 单次注入的 active 线索上限，超出只注入最近 N 条 */
+const CLUE_INJECT_CAP = 15;
+
+/** 仅在未归档线索中按名查找（精确优先，再宽松包含） */
+function findActiveByName(clues: Clue[], name: string): number {
+  const t = name.trim();
+  const exact = clues.findIndex((c) => c.status !== 'archived' && c.name === t);
+  if (exact >= 0) return exact;
+  return clues.findIndex((c) => c.status !== 'archived' && (c.name.includes(t) || t.includes(c.name)));
+}
+
 export const useClueStore = create<ClueStore>()((set, get) => ({
   clues: [],
 
@@ -28,7 +39,30 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
       const clues = [...s.clues];
       for (const input of inputs) {
         if (!input.name) continue;
-        const idx = findByName(clues, input.name);
+
+        // 演化：新线索声明 evolvesFrom 旧线索名 → 归档旧线索、上位新线索
+        if (input.evolvesFrom?.trim()) {
+          const newClue: Clue = {
+            id: crypto.randomUUID(),
+            name: input.name,
+            summary: input.summary ?? '',
+            discoveryNarrative: input.discoveryNarrative ?? '',
+            foundAtPage: input.foundAtPage,
+            relatedTo: input.relatedTo,
+            acquiredAt: Date.now(),
+            status: 'active',
+            tier: 'major',
+          };
+          const oldIdx = findActiveByName(clues, input.evolvesFrom);
+          if (oldIdx >= 0) {
+            clues[oldIdx] = { ...clues[oldIdx], status: 'archived', evolvedIntoId: newClue.id };
+            newClue.evolvedFrom = clues[oldIdx].id;
+          }
+          clues.push(newClue);
+          continue;
+        }
+
+        const idx = findActiveByName(clues, input.name);
         if (idx >= 0) {
           // 更新：补全/覆盖非空字段
           clues[idx] = {
@@ -51,6 +85,8 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             foundAtPage: input.foundAtPage,
             relatedTo: input.relatedTo,
             acquiredAt: Date.now(),
+            status: 'active',
+            tier: 'normal',
           });
         }
       }
@@ -67,9 +103,12 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
   }),
 
   buildContextInjection: () => {
-    const { clues } = get();
-    if (clues.length === 0) return '';
-    const lines = clues.map((c) => `- ${c.name}：${c.summary}`);
+    const active = get().clues.filter((c) => c.status !== 'archived');
+    if (active.length === 0) return '';
+    const truncated = active.length > CLUE_INJECT_CAP;
+    const list = truncated ? active.slice(-CLUE_INJECT_CAP) : active;
+    const lines = list.map((c) => `- ${c.tier === 'major' ? '★' : ''}${c.name}：${c.summary}`);
+    if (truncated) lines.push(`- （更早线索见线索库，共 ${active.length} 条）`);
     return `[已掌握线索]\n${lines.join('\n')}`;
   },
 
