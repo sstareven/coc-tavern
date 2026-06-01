@@ -89,6 +89,8 @@ export interface ClueInput {
   discoveryNarrative?: string;
   foundAtPage?: string;
   relatedTo?: string[];
+  /** 演化：本条新线索由哪条已有线索（按名）升华而来；给出则系统归档旧线索 */
+  evolvesFrom?: string;
 }
 
 export interface NpcUpdate {
@@ -105,6 +107,8 @@ export interface NpcUpdate {
   personality?: string;
   innerThoughts?: string;
   addMemory?: string;
+  /** 记忆梗概：AI 用 2-4 句浓缩此前关键互动；系统据此精简逐条旧记忆 */
+  memorySummary?: string;
   experience?: string;
   backstory?: string;
   possessions?: string[];
@@ -161,9 +165,15 @@ export interface Clue {
   /** 关联的人/地/事关键词 */
   relatedTo?: string[];
   acquiredAt: number;
+  /** 线索状态：active 显示并注入；archived 已演化、隐藏但保留可回溯。缺省视为 active */
+  status?: 'active' | 'archived';
+  /** 本线索由哪条线索演化而来（旧线索 id） */
+  evolvedFrom?: string;
+  /** 本线索（已归档）演化成了哪条新线索（新线索 id） */
+  evolvedIntoId?: string;
+  /** 显著程度：major 为演化出的更关键线索，UI 高亮、注入加★ */
+  tier?: 'normal' | 'major';
 }
-
-// ===== Map System（地点有向连线网络）=====
 export interface MapLocation {
   id: string;
   name: string;
@@ -209,6 +219,8 @@ export interface NpcProfile {
   innerThoughts: string;
   /** 与调查员互动的记忆（按时间累积） */
   memories: string[];
+  /** 滚动「记忆梗概」：由 AI 折叠旧互动而成，配合 memories 的最近若干条一起展示/注入 */
+  memorySummary?: string;
   /** 人物经历 */
   experience: string;
   /** 背景故事 */
