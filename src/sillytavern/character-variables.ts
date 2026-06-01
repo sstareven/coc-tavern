@@ -1,4 +1,30 @@
 import { useCharSheetStore } from '../stores/useCharSheetStore';
+import type { COC7Characteristic } from '../types';
+
+const CHAR_ZH: Record<COC7Characteristic, string> = {
+  STR: '力量', CON: '体质', POW: '意志', DEX: '敏捷', APP: '外貌', SIZ: '体型', INT: '智力', EDU: '教育',
+};
+
+/**
+ * 调查员能力概览（属性 + 擅长技能 + 性格 + 当前姿态/状态）——注入 prompt，
+ * 让 LLM 知道角色的强项与处境，从而生成贴合其能力与性格的行动选项。
+ */
+export function buildAbilityBrief(): string {
+  const sheet = useCharSheetStore.getState().sheet;
+  const order: COC7Characteristic[] = ['STR', 'CON', 'SIZ', 'DEX', 'APP', 'INT', 'POW', 'EDU'];
+  const attrs = order.map((k) => `${CHAR_ZH[k]}${sheet.characteristics[k]}`).join('、');
+  const topSkills = Object.entries(sheet.skills)
+    .filter(([, s]) => s.current >= 50)
+    .sort((a, b) => b[1].current - a[1].current)
+    .slice(0, 10)
+    .map(([name, s]) => `${name}${s.current}`);
+  const skillStr = topSkills.length ? topSkills.join('、') : '无特别突出的专长';
+  const parts = [`属性——${attrs}`, `擅长技能(技能值≥50)——${skillStr}`];
+  if (sheet.personality?.trim()) parts.push(`性格——${sheet.personality.trim()}`);
+  if (sheet.posture && sheet.posture !== '站立') parts.push(`当前姿态——${sheet.posture}`);
+  if (sheet.statusConditions.length) parts.push(`当前状态——${sheet.statusConditions.map((c) => c.name).join('、')}`);
+  return parts.join('；');
+}
 
 export function buildCharacterVariables(): Record<string, string> {
   const sheet = useCharSheetStore.getState().sheet;

@@ -14,7 +14,7 @@ import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useRegexStore } from '../stores/useRegexStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
-import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
@@ -44,11 +44,11 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
-import { buildCharacterVariables } from '../sillytavern/character-variables';
+import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 
@@ -427,6 +427,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
       if (!formatOverride && useBookStore.getState().pages.length <= 1) {
         baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
+      }
+      // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
+      if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
+        baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
