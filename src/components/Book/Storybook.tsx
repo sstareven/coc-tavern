@@ -68,6 +68,14 @@ export function Storybook() {
   if (!page) return null;
 
   const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc') => {
+    // 若本次切换会关掉某个正打开的浮层，播一次翻页音效（与「返回」一致，配合右页退场动画）。
+    const willClose =
+      (keep !== 'inventory' && inventoryOpen) ||
+      (keep !== 'charsheet' && charSheetOpen) ||
+      (keep !== 'npc' && npcOpen) ||
+      (keep !== 'map' && mapOpen) ||
+      (keep !== 'toc' && showToc);
+    if (willClose) { try { sfxPageFlip(); } catch { /* audio not available */ } }
     if (keep !== 'inventory') useInventoryStore.getState().close();
     if (keep !== 'charsheet') useCharSheetStore.getState().close();
     if (keep !== 'npc') useNpcStore.getState().close();
