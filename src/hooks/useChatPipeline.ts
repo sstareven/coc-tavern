@@ -808,6 +808,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         else cooldownStateRef.current.set(k, v - 1);
       }
       loadingRef.current = true;
+      useChoiceLockStore.getState().lock(); // 提交开始即锁灰选项，防止生成中连点重掷/二次推进
 
       try {
         pushLog('debug', `[提交] 原始输入: "${trimmed}"`, 'system');
