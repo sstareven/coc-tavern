@@ -342,6 +342,17 @@ describe('parseLlmResponse', () => {
       const r = parseLlmResponse(json);
       expect(r!.clues).toBeUndefined();
     });
+
+    it('解析 npcUpdates 与 mapUpdates', () => {
+      const json = '{"leftHeader":"图书馆","leftContent":"你走进图书馆。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"npcUpdates":[{"name":"霍尔姆斯","identity":"管理员","isPresent":true,"favorabilityDelta":5,"addMemory":"打招呼"}],"mapUpdates":{"current":"图书馆","newLocations":[{"name":"图书馆","description":"藏书浩繁"}],"newEdges":[{"from":"校门","to":"图书馆","type":"bidirectional"}]}}';
+      const r = parseLlmResponse(json);
+      expect(r!.npcUpdates).toHaveLength(1);
+      expect(r!.npcUpdates![0].name).toBe('霍尔姆斯');
+      expect(r!.npcUpdates![0].favorabilityDelta).toBe(5);
+      expect(r!.mapUpdates?.current).toBe('图书馆');
+      expect(r!.mapUpdates?.newLocations).toHaveLength(1);
+      expect(r!.mapUpdates?.newEdges?.[0].type).toBe('bidirectional');
+    });
   });
 });
 

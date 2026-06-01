@@ -65,6 +65,14 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
     "progress": 15,
     "threatLevel": "潜伏",
     "foreshadowing": "图书馆管理员提到近日有人在闭馆后偷偷进入特藏室，几本古籍的摆放位置似乎被动过"
+  },
+  "npcUpdates": [
+    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "他知道特藏室近来出过怪事，但怕惹祸上身不敢明说", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
+  ],
+  "mapUpdates": {
+    "current": "大学图书馆",
+    "newLocations": [{"name": "大学图书馆", "description": "密斯卡塔尼克大学的图书馆，藏书浩繁，特藏室戒备森严"}],
+    "newEdges": [{"from": "校门", "to": "大学图书馆", "type": "bidirectional"}]
   }
 }
 
