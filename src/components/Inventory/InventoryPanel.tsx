@@ -49,19 +49,25 @@ function ItemRow({ item }: { item: InventoryItem }) {
   );
 }
 
-function ClueRow({ clue }: { clue: Clue }) {
+function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; archived?: boolean; evolvedIntoName?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const major = clue.tier === 'major';
   return (
-    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)' }}>
+    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', opacity: archived ? 0.55 : 1 }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '8px 0', cursor: 'pointer', transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)' }}
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--gold)', display: 'inline-flex' }}><IconClue size={14} /></span>
+        <span style={{ flexShrink: 0, marginTop: 1, color: major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
+          {major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)', letterSpacing: 1 }}>{clue.name}</div>
+          <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)', letterSpacing: 1, fontWeight: major ? 700 : 400 }}>{clue.name}</div>
+          {evolvedIntoName && (
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', fontStyle: 'italic', marginTop: 1 }}>→ 已演化为 {evolvedIntoName}</div>
+          )}
           {clue.summary && (
             <div style={{ fontSize: 11, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap' }}>{clue.summary}</div>
           )}
@@ -92,6 +98,11 @@ export function InventoryOverlay() {
   const [side, setSide] = useState<Side>('left');
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.category === filter);
+
+  const [showArchived, setShowArchived] = useState(false);
+  const activeClues = clues.filter((c) => c.status !== 'archived');
+  const archivedClues = clues.filter((c) => c.status === 'archived');
+  const clueNameById = (id?: string) => (id ? clues.find((c) => c.id === id)?.name : undefined);
 
   return (
     <motion.div
@@ -167,17 +178,34 @@ export function InventoryOverlay() {
         </div>
 
         <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.06)' }}>
-          {clues.length === 0 ? (
+          {activeClues.length === 0 ? (
             <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               尚未发现任何线索……
             </div>
           ) : (
-            clues.map((clue) => <ClueRow key={clue.id} clue={clue} />)
+            activeClues.map((clue) => <ClueRow key={clue.id} clue={clue} />)
+          )}
+
+          {archivedClues.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div
+                onClick={() => setShowArchived((v) => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 0', fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 1, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}
+              >
+                <span style={{ transform: showArchived ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block' }}>▸</span>
+                已演化 · 历史线索 ({archivedClues.length})
+              </div>
+              <div style={{ overflow: 'hidden', maxHeight: showArchived ? 2000 : 0, opacity: showArchived ? 1 : 0, transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease' }}>
+                {archivedClues.map((clue) => (
+                  <ClueRow key={clue.id} clue={clue} archived evolvedIntoName={clueNameById(clue.evolvedIntoId)} />
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
         <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
-          线索 {clues.length} 条
+          线索 {activeClues.length} 条{archivedClues.length > 0 ? ` · 历史 ${archivedClues.length}` : ''}
         </div>
       </motion.div>
     </motion.div>
