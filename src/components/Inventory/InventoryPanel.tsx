@@ -4,6 +4,7 @@ import { useInventoryStore, CATEGORY_LABELS } from '../../stores/useInventorySto
 import { useClueStore } from '../../stores/useClueStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
+import { IconClue } from '../Layout/TabIcons';
 import type { InventoryItem, ItemCategory, Clue } from '../../types';
 
 type Filter = 'all' | ItemCategory;
@@ -58,7 +59,7 @@ function ClueRow({ clue }: { clue: Clue }) {
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(107,90,58,0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <span style={{ flexShrink: 0, marginTop: 2, fontSize: 11, color: 'var(--gold)' }}>🔍</span>
+        <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--gold)', display: 'inline-flex' }}><IconClue size={14} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)', letterSpacing: 1 }}>{clue.name}</div>
           {clue.summary && (

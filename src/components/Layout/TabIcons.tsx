@@ -32,3 +32,7 @@ export function IconNpc({ size = 18 }: IconProps) {
 export function IconMap({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z" /><path d="M9 4v14M15 6v14" /></svg>);
 }
+/** 线索：放大镜 */
+export function IconClue({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="10.5" cy="10.5" r="6" /><path d="M20 20l-5.3-5.3" /></svg>);
+}
