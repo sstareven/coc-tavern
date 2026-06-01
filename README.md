@@ -2,7 +2,7 @@
 
 > 一本会随你的抉择自我书写的克苏鲁「故事书」——无需 KP，独自踏入不可名状的深渊。
 
-React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.2.1 · 纯前端 SPA · 非商业许可
+React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.2.1 · 纯前端 SPA · AGPL-3.0
 
 **🎮 在线试玩：[coc-tavern.vercel.app](https://coc-tavern.vercel.app)** —— 由 Vercel 托管，打开即玩、无需本地架设（首次进入需在「设置」里填入你自己的 AI 接口；密钥只存在你的浏览器本地，不经过任何服务器）。
 
@@ -340,5 +340,5 @@ npm run test:watch # Vitest 监听模式
 
 ## 许可与致谢
 
-- **许可：** 本仓库采用自定义的[非商业使用许可证](LICENSE)（Non-Commercial License，Copyright © 2025 sstareven）——允许个人使用、学习、研究、修改、衍生与分发，但**禁止任何商业销售、商业订阅或直接营利用途**（需作者书面许可）；软件按「原样」提供，不附带任何担保。完整条款以仓库 `LICENSE` 文件中的英文为准。
+- **许可：** 本仓库采用 **[GNU AGPL-3.0](LICENSE)**（GNU Affero General Public License v3.0，Copyright © 2025 sstareven）开源。你可以自由使用、修改、分发本软件及其衍生作品，但衍生作品须同样以 AGPL-3.0 开源并保留版权与许可声明；**特别地，若你将本软件（或其修改版）作为网络服务对外提供，必须向用户公开你所运行版本的完整源代码**。软件按「原样」提供，不附带任何担保。完整条款以仓库 `LICENSE` 文件为准。
 - **致谢：** 本项目的世界书 / 变量引擎 / 正则脚本 / EJS 模板 / 斜杠命令等架构，灵感来自开源前端 **[SillyTavern](https://github.com/SillyTavern/SillyTavern)**（酒馆）。引擎层文件均以 kebab-case 命名并在 JSDoc 中标注来源（"inspired by SillyTavern's…"），感谢其社区的开创性工作。
