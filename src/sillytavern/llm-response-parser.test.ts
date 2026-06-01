@@ -323,23 +323,24 @@ describe('parseLlmResponse', () => {
       expect(r!.page.inventoryChanges).toHaveLength(2);
     });
 
-    it('equip/update 不强制点名（对已有物品的装备/数量变化）', () => {
-      const json = '{"leftHeader":"书房","leftContent":"你整理了一下行装。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"equip","name":"左轮手枪"},{"action":"update","name":"子弹","quantity":-2}]}';
+    it('update 不强制点名（对已有物品的数量变化）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你整理了一下行装。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"update","name":"火柴","quantity":-1},{"action":"update","name":"子弹","quantity":-2}]}';
       const r = parseLlmResponse(json);
       expect(r!.page.inventoryChanges).toHaveLength(2);
     });
 
-    it('透传 AI 显式标注的 equippable（misc 类可装备物品，如护身符）', () => {
-      const json = '{"leftHeader":"书房","leftContent":"你拾起一枚黄金护身符，戴在颈间。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"黄金护身符","category":"misc","equippable":true}]}';
+    it('解析独立线索库 clues（含 discoveryNarrative）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你在登记簿下发现一封密信。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"clues":[{"name":"密信","summary":"无署名的信件","discoveryNarrative":"边缘的褐色斑点像干涸的血。"}]}';
       const r = parseLlmResponse(json);
-      expect(r!.page.inventoryChanges).toHaveLength(1);
-      expect(r!.page.inventoryChanges![0].equippable).toBe(true);
+      expect(r!.clues).toHaveLength(1);
+      expect(r!.clues![0].name).toBe('密信');
+      expect(r!.clues![0].discoveryNarrative).toContain('血');
     });
 
-    it('未标注 equippable 时该字段保持 undefined（回退 category 默认）', () => {
-      const json = '{"leftHeader":"书房","leftContent":"你拾起一封泛黄的信件。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"inventoryChanges":[{"action":"add","name":"泛黄的信件","category":"clue"}]}';
+    it('无 clues 字段时 clues 为 undefined', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你拾起一封泛黄的信件。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}]}';
       const r = parseLlmResponse(json);
-      expect(r!.page.inventoryChanges![0].equippable).toBeUndefined();
+      expect(r!.clues).toBeUndefined();
     });
   });
 });

@@ -4,6 +4,7 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useClueStore } from '../stores/useClueStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
@@ -735,6 +736,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             foreshadowing: result.darkThread.foreshadowing,
           });
           pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}, 威胁等级=${result.darkThread.threatLevel}`, 'system');
+        }
+
+        // 独立线索库
+        if (result.clues && result.clues.length > 0) {
+          useClueStore.getState().addClues(result.clues.map((c) => ({ ...c, foundAtPage: newPage.leftPage })));
+          pushLog('debug', `[Pipeline] 线索更新: ${result.clues.map((c) => c.name).join(', ')}`, 'system');
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {

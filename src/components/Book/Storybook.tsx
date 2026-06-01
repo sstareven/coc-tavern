@@ -97,11 +97,11 @@ export function Storybook() {
     console.warn('[Storybook] 第' + pageIndex + '页右页使用默认值 — 可能JSON解析失败或字段缺失', page);
   }
 
-  // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入/装备的全部物品
+  // 删除会级联清除本页至最新页，确认弹窗中提示这些页加入的全部物品
   const affectedItems = pages
     .slice(pageIndex)
     .flatMap((p) => p.inventoryChanges ?? [])
-    .filter((c) => c.action === 'add' || c.action === 'equip' || (c.action === 'update' && (c.quantity ?? 0) > 0))
+    .filter((c) => c.action === 'add' || (c.action === 'update' && (c.quantity ?? 0) > 0))
     .map((c) => c.name)
     .filter((n): n is string => Boolean(n));
 
@@ -361,7 +361,7 @@ export function Storybook() {
           gap: 14,
           zIndex: 2,
         }}>
-          {/* Tab 0: 背包/装备 → inventory overlay */}
+          {/* Tab 0: 物品/线索 → inventory overlay */}
           <button
             onClick={() => {
               if (inventoryOpen) {
@@ -393,7 +393,7 @@ export function Storybook() {
             }}
           >
             <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{inventoryOpen ? '◁' : '◆'}</span>
-            {inventoryOpen ? '返回' : '背包/装备'}
+            {inventoryOpen ? '返回' : '物品/线索'}
           </button>
 
           {/* Tab 1: 调查员记录 → character sheet overlay */}

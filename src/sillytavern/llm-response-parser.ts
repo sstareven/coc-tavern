@@ -4,6 +4,7 @@ import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
+import type { ClueInput } from '../stores/useClueStore';
 
 const VALID_ITEM_CATEGORIES = new Set<ItemCategory>(['weapon', 'tool', 'consumable', 'clue', 'key_item', 'misc']);
 
@@ -17,6 +18,7 @@ export interface DarkThreadData {
 export interface ParsedLlmResult {
   page: BookPage;
   darkThread?: DarkThreadData;
+  clues?: ClueInput[];
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -376,12 +378,12 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
 
     const summary = typeof parsed.summary === 'string' ? parsed.summary : undefined;
 
-    const validActions = new Set<InventoryAction>(['add', 'remove', 'equip', 'unequip', 'update']);
+    const validActions = new Set<InventoryAction>(['add', 'remove', 'update']);
     const validCategories = VALID_ITEM_CATEGORIES;
     let inventoryChanges: InventoryChange[] | undefined;
     if (Array.isArray(parsed.inventoryChanges)) {
       // 物品叙事一致性硬执行：获取(add)/失去(remove)的物品名必须在本回合叙事中被提及，
-      // 否则丢弃该变化并告警。equip/unequip(对已有物品)与 update(纯数量增减)不强制点名，避免误删。
+      // 否则丢弃该变化并告警。update(纯数量增减)不强制点名，避免误删。
       const narrative = leftContent + '\n' + rightContent;
       const skipCheck = opts?.skipInventoryNarrativeCheck === true;
       inventoryChanges = (parsed.inventoryChanges as Record<string, unknown>[])
@@ -394,8 +396,6 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
           if (c.category && validCategories.has(String(c.category) as ItemCategory)) change.category = String(c.category) as ItemCategory;
           if (typeof c.quantity === 'number') change.quantity = c.quantity;
           if (typeof c.description === 'string') change.description = c.description;
-          if (typeof c.equipped === 'boolean') change.equipped = c.equipped;
-          if (typeof c.equippable === 'boolean') change.equippable = c.equippable;
           return change;
         })
         .filter((change) => {
@@ -410,6 +410,22 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       } else {
         inventoryChanges = undefined;
       }
+    }
+
+    // ── 独立线索库 ──
+    let clues: ClueInput[] | undefined;
+    if (Array.isArray(parsed.clues)) {
+      clues = (parsed.clues as Record<string, unknown>[])
+        .filter((c) => c && typeof c.name === 'string')
+        .map((c) => ({
+          name: String(c.name).trim(),
+          summary: typeof c.summary === 'string' ? c.summary : (typeof c['简述'] === 'string' ? String(c['简述']) : ''),
+          discoveryNarrative: typeof c.discoveryNarrative === 'string' ? c.discoveryNarrative : (typeof c['发现细节'] === 'string' ? String(c['发现细节']) : ''),
+          relatedTo: Array.isArray(c.relatedTo) ? (c.relatedTo as unknown[]).map(String) : undefined,
+        }))
+        .filter((c) => c.name);
+      if (clues.length === 0) clues = undefined;
+      else pushLog('debug', `[parseLlm] 线索: ${clues.map((c) => c.name).join(', ')}`, 'system');
     }
 
     let darkThread: DarkThreadData | undefined;
@@ -442,6 +458,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         inventoryChanges,
       },
       darkThread,
+      clues,
     };
 }
 

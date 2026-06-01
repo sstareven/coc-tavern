@@ -15,9 +15,11 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 关键词词条：凡是你在叙事中用{{}}标记的每一个关键词，都必须在keywords字段中提供简短解释（10-30字），不得遗漏——包括经典地名/术语等你认为「已知」的词也必须给出释义。keywords字段的键须与叙事中{{}}内的文字完全一致。这是硬性要求：标记了却没有对应释义的关键词将无法显示悬浮提示，破坏体验。
 
-物品栏管理：当调查员获得、失去、装备或消耗物品时，在inventoryChanges中记录变化。action可选值：add(获得新物品)/remove(失去或丢弃)/equip(装备到身上)/unequip(卸下装备)/update(数量变化)。category可选值：weapon(武器)/tool(工具)/consumable(消耗品)/clue(线索文件)/key_item(关键剧情物品)/misc(杂物)。add时必须提供category、description(15-40字的物品简介)和equippable(布尔值)。equippable表示该物品能否被装备或穿戴在身上：武器、手电筒、护身符、外套、怀表、绳索等可佩戴或随身手持之物为true；信件、纸张、笔记、照片、剪报、线索文件等纯信息类物品为false。update时quantity为增减值(如-1表示消耗一个)。若本回合无物品变化则省略inventoryChanges字段。
+物品栏管理：调查员的物品统一为「随身物品」（在身上携带或穿戴之物，不区分是否装备）。当调查员获得、失去或消耗物品时，在inventoryChanges中记录变化。action可选值：add(获得新物品)/remove(失去或丢弃)/update(数量变化)。category可选值：weapon(武器)/tool(工具)/consumable(消耗品)/key_item(关键剧情物品)/misc(杂物)。add时必须提供category与description(15-40字的物品简介)。update时quantity为增减值(如-1表示消耗一个)。若本回合无物品变化则省略inventoryChanges字段。注意：线索、信件、笔记等"信息类发现"不要放进inventoryChanges，改用下面的clues字段。
 
-【物品叙事一致性·硬约束】物品的获取与消耗是故事的核心，绝不能凭空发生：任何inventoryChanges（add获得、remove失去/丢弃、equip装备、unequip卸下、update增减）都必须在同一回合的leftContent或rightContent叙事中有对应的、具体的描写——必须写清调查员是如何拿到、交出、丢弃、使用或消耗该物品的动作与情节（谁给的/在哪找到的/为何丢弃/如何用掉）。严禁出现"叙事里只字未提，却在inventoryChanges里凭空增减物品"的情况；反之，凡叙事中确实发生了物品的获得或失去，就必须如实记入inventoryChanges，不得遗漏。若本回合叙事中没有任何物品的得失，则不得输出inventoryChanges。
+【物品叙事一致性·硬约束】物品的获取与消耗是故事的核心，绝不能凭空发生：任何inventoryChanges（add获得、remove失去/丢弃、update增减）都必须在同一回合的leftContent或rightContent叙事中有对应的、具体的描写——必须写清调查员是如何拿到、交出、丢弃、使用或消耗该物品的动作与情节（谁给的/在哪找到的/为何丢弃/如何用掉）。严禁出现"叙事里只字未提，却在inventoryChanges里凭空增减物品"的情况；反之，凡叙事中确实发生了物品的获得或失去，就必须如实记入inventoryChanges，不得遗漏。若本回合叙事中没有任何物品的得失，则不得输出inventoryChanges。
+
+【线索库·clues】当调查员通过观察、搜查、检定、对话等方式发现重要线索、证据或蛛丝马迹时，在clues数组中记录。每条线索含：name(线索名)、summary(一句话简述)、discoveryNarrative(发现细节——用2-4句话描述角色是如何、从何处发现这条线索的，以及从中察觉到了什么不寻常之处、推断出什么)、relatedTo(可选，关联的人/地/事关键词数组)。线索是"知识与推理"，与物品(inventoryChanges)分开记录；同一物证既可作为物品add，也可同时在clues里登记其揭示的信息。若本回合无新线索则省略clues字段。
 
 重要物品约束：调查员只能使用当前物品栏中实际拥有的物品。如果玩家试图使用不在物品栏中的物品，应在叙事中自然地说明该物品不在手边或身上没有，并引导玩家采取其他行动。环境中的物品需要先通过add获取后才能使用。
 
@@ -52,8 +54,11 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
   "keywords": {"大学图书馆": "密斯卡塔尼克大学附属图书馆，藏有大量珍稀古籍", "密信": "来源不明的信件，纸张边缘有可疑的褐色斑点"},
   "summary": "调查员在图书馆中发现了一封神秘信件和可疑的档案记录",
   "inventoryChanges": [
-    {"action": "add", "name": "密信", "category": "clue", "quantity": 1, "equippable": false, "description": "来源不明的信件，潦草字迹透露着急迫，边缘有褐色斑点"},
+    {"action": "add", "name": "煤油灯", "category": "tool", "quantity": 1, "description": "黄铜煤油灯，光线昏黄但足以照亮书架间的暗影"},
     {"action": "update", "name": "火柴", "quantity": -1}
+  ],
+  "clues": [
+    {"name": "密信", "summary": "来源不明的信件，边缘有褐色斑点", "discoveryNarrative": "你在登记簿下发现这封没有署名的信，纸张边缘的褐色斑点凑近闻有铁锈味——像是干涸的血。字迹潦草急促，末尾提到「子夜的地窖」，似乎写信人当时极度惊恐。", "relatedTo": ["大学图书馆", "地窖"]}
   ],
   "darkThread": {
     "development": "黑夜教团的一名信徒潜入了大学图书馆，在调查员离开后秘密抄录了《死灵之书》中的某段仪式",
@@ -76,4 +81,4 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
  * 序章首回合追加指令：玩家刚选定开场情境，需据角色背景与处境生成一套起始物品/装备。
  * 仅在序章后的第一次正式生成时注入（pages.length <= 1）。
  */
-export const PROLOGUE_STARTING_ITEMS_INSTRUCTION = '【起始装备】这是冒险的开端，调查员尚无任何随身物品。请依据调查员的职业背景与本次所选的开场情境，在inventoryChanges中用add生成3-6件贴合其身份与当前处境的起始物品或装备。每件都必须标注category、description与equippable。显然随身穿戴或手持之物（外套、怀表、随身武器、手电筒等可装备物）设为"equipped": true；信件、文件、纸张、笔记等不可装备的物品放入背包（不设equipped或设为false）。物品应符合1920年代背景与角色身份，避免与情境无关的现代或奇幻物品。';
+export const PROLOGUE_STARTING_ITEMS_INSTRUCTION = '【起始装备】这是冒险的开端，调查员尚无任何随身物品。请依据调查员的职业背景与本次所选的开场情境，在inventoryChanges中用add生成3-6件贴合其身份与当前处境的起始随身物品（在身上携带或穿戴之物）。每件都必须标注category与description。物品应符合1920年代背景与角色身份，避免与情境无关的现代或奇幻物品。';

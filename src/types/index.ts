@@ -84,14 +84,11 @@ export interface InventoryItem {
   category: ItemCategory;
   description: string;
   quantity: number;
-  equipped: boolean;
-  /** 能否被装备（武器/工具/可佩戴物为 true；信件/纸张/线索等为 false）。缺省时按 category 兜底推定。 */
-  equippable?: boolean;
   isKeyItem: boolean;
   acquiredAt: number;
 }
 
-export type InventoryAction = 'add' | 'remove' | 'equip' | 'unequip' | 'update';
+export type InventoryAction = 'add' | 'remove' | 'update';
 
 export interface InventoryChange {
   action: InventoryAction;
@@ -99,8 +96,21 @@ export interface InventoryChange {
   category?: ItemCategory;
   quantity?: number;
   description?: string;
-  equipped?: boolean;
-  equippable?: boolean;
+}
+
+// ===== Clue Library（独立线索库）=====
+export interface Clue {
+  id: string;
+  name: string;
+  /** 一句话简述 */
+  summary: string;
+  /** 发现细节 —— 多句描述角色从中发现了什么蛛丝马迹 */
+  discoveryNarrative: string;
+  /** 在第几页/回合发现 */
+  foundAtPage?: string;
+  /** 关联的人/地/事关键词 */
+  relatedTo?: string[];
+  acquiredAt: number;
 }
 
 export interface ChoiceItem {

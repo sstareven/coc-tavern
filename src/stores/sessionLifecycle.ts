@@ -1,6 +1,7 @@
 import { useChatStore } from './useChatStore';
 import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
 import { useInventoryStore, normalizeItems } from './useInventoryStore';
+import { useClueStore } from './useClueStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
@@ -19,6 +20,7 @@ import {
   type KeywordRow,
   type GameVarRow,
   type MacroVarRow,
+  type ClueRow,
 } from '../db/database';
 
 /** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */
@@ -33,6 +35,7 @@ export function clearAllGameState() {
   useCharSheetStore.getState().close();
   useInventoryStore.getState().clearAll();
   useInventoryStore.getState().close();
+  useClueStore.getState().clearAll();
   useDarkThreadStore.getState().clearAll();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});
@@ -97,6 +100,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const pages = useBookStore.getState().pages;
   const sheet = useCharSheetStore.getState().sheet;
   const items = useInventoryStore.getState().items;
+  const clues = useClueStore.getState().clues;
   const entries = useDarkThreadStore.getState().entries;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
@@ -105,6 +109,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   const pageRows: PageRow[] = pages.map((page, index) => ({ ...page, conversationId: cid, index }));
   const inventoryRows: InventoryRow[] = items.map((item) => ({ ...item, conversationId: cid, itemId: item.id }));
+  const clueRows: ClueRow[] = clues.map((clue) => ({ ...clue, conversationId: cid, clueId: clue.id }));
   const darkThreadRows: DarkThreadRow[] = entries.map((entry) => ({ ...entry, conversationId: cid, entryId: entry.id }));
   const keywordRows: KeywordRow[] = Object.entries(keywords).map(([word, meaning]) => ({ conversationId: cid, word, meaning }));
   const gameVarRows: GameVarRow[] = Object.entries(variables).map(([name, variable]) => ({ ...variable, conversationId: cid, name }));
@@ -136,7 +141,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -153,6 +158,9 @@ async function saveConversationInner(cid: string): Promise<void> {
 
       await db.inventory.where('conversationId').equals(cid).delete();
       if (inventoryRows.length > 0) await db.inventory.bulkPut(inventoryRows);
+
+      await db.clues.where('conversationId').equals(cid).delete();
+      if (clueRows.length > 0) await db.clues.bulkPut(clueRows);
 
       await db.darkThreads.where('conversationId').equals(cid).delete();
       if (darkThreadRows.length > 0) await db.darkThreads.bulkPut(darkThreadRows);
@@ -187,15 +195,16 @@ async function loadConversationInner(cid: string): Promise<void> {
   if (!cid) return;
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, darkThreadRows, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, darkThreadRows, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
           db.charsheets.get(cid),
           db.inventory.where('conversationId').equals(cid).toArray(),
+          db.clues.where('conversationId').equals(cid).toArray(),
           db.darkThreads.where('conversationId').equals(cid).toArray(),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
@@ -224,6 +233,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   // 物品栏（剥离关系键，normalizeItems 由 replaceAll 内部处理）
   const items = inventoryRows.map(({ conversationId: _cid, itemId: _itemId, ...item }) => item);
   useInventoryStore.getState().replaceAll(normalizeItems(items));
+
+  // 线索库（剥离关系键）
+  const clues = clueRows.map(({ conversationId: _cid, clueId: _clueId, ...clue }) => clue);
+  useClueStore.getState().replaceAll(clues);
 
   // 暗线
   const entries = darkThreadRows.map(({ conversationId: _cid, entryId: _entryId, ...entry }) => entry);
@@ -287,12 +300,13 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
       await db.charsheets.delete(cid);
       await db.inventory.where('conversationId').equals(cid).delete();
+      await db.clues.where('conversationId').equals(cid).delete();
       await db.darkThreads.where('conversationId').equals(cid).delete();
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();

@@ -74,8 +74,8 @@ describe('database v2 relational tables', () => {
 
   it('range-deletes child rows by conversationId', async () => {
     await db.inventory.bulkPut([
-      { conversationId: 'c1', itemId: 'i1', id: 'i1', name: 'Lantern', category: 'tool', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 0 },
-      { conversationId: 'c2', itemId: 'i2', id: 'i2', name: 'Knife', category: 'weapon', description: '', quantity: 1, equipped: false, isKeyItem: false, acquiredAt: 0 },
+      { conversationId: 'c1', itemId: 'i1', id: 'i1', name: 'Lantern', category: 'tool', description: '', quantity: 1, isKeyItem: false, acquiredAt: 0 },
+      { conversationId: 'c2', itemId: 'i2', id: 'i2', name: 'Knife', category: 'weapon', description: '', quantity: 1, isKeyItem: false, acquiredAt: 0 },
     ]);
     await db.inventory.where('conversationId').equals('c1').delete();
     expect(await db.inventory.where('conversationId').equals('c1').count()).toBe(0);

@@ -22,7 +22,7 @@ describe('filterAlreadyAcquiredAdds', () => {
   });
 
   it('never filters non-add actions even if name matches', () => {
-    const changes = [remove('黄铜钥匙'), { action: 'equip', name: '黄铜钥匙' } as InventoryChange];
+    const changes = [remove('黄铜钥匙'), { action: 'update', name: '黄铜钥匙', quantity: -1 } as InventoryChange];
     expect(filterAlreadyAcquiredAdds(changes, ['黄铜钥匙'])).toEqual(changes);
   });
 

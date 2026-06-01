@@ -503,16 +503,14 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {inventoryChanges.map((c, i) => {
           const cat = c.category ? ITEM_CAT_LABELS[c.category] : '';
-          const isGain = c.action === 'add' || c.action === 'equip'
+          const isGain = c.action === 'add'
             || (c.action === 'update' && (c.quantity ?? 0) > 0);
-          const isLoss = c.action === 'remove' || c.action === 'unequip'
+          const isLoss = c.action === 'remove'
             || (c.action === 'update' && (c.quantity ?? 0) < 0);
           const tone = isGain ? BONUS_COLORS.bonus : isLoss ? BONUS_COLORS.penalty : BONUS_COLORS.none;
           let prefix = '';
           if (c.action === 'add') prefix = '＋';
-          else if (c.action === 'equip') prefix = '装备 ';
           else if (c.action === 'remove') prefix = '－';
-          else if (c.action === 'unequip') prefix = '卸下 ';
           let qtyLabel = '';
           if (c.action === 'update' && typeof c.quantity === 'number') {
             const q = c.quantity;

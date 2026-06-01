@@ -99,7 +99,7 @@ function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
           为保持剧情连续，本页及其之后的所有页面将一并永久删除，且无法恢复。
           {affectedItems.length > 0 && (
             <>
-              <br />这些页加入/装备的物品也将一并移除：
+              <br />这些页加入的物品也将一并移除：
               <span style={{ color: 'var(--gold)' }}>{affectedItems.join('、')}</span>。
             </>
           )}

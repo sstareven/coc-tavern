@@ -5,6 +5,7 @@ import type {
   CharacterSheet,
   InventoryItem,
   GameVariable,
+  Clue,
 } from '../types';
 import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
 
@@ -53,6 +54,9 @@ export interface KeywordRow {
 // One MVU game variable. Compound primary key [conversationId+name].
 export type GameVarRow = { conversationId: string; name: string } & GameVariable;
 
+// One clue (independent clue library). Compound primary key [conversationId+clueId].
+export type ClueRow = { conversationId: string; clueId: string } & Clue;
+
 // One TavernHelper macro variable. Compound primary key [conversationId+name].
 export interface MacroVarRow {
   conversationId: string;
@@ -70,6 +74,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   keywords: EntityTable<KeywordRow>;
   gameVars: EntityTable<GameVarRow>;
   macroVars: EntityTable<MacroVarRow>;
+  clues: EntityTable<ClueRow>;
 };
 
 db.version(1).stores({
@@ -91,6 +96,14 @@ export const V2_SCHEMA = {
 } as const;
 
 db.version(2).stores(V2_SCHEMA).upgrade(upgradeV2);
+
+/** v3: 新增独立线索库表（新表，无数据迁移）。 */
+export const V3_SCHEMA = {
+  ...V2_SCHEMA,
+  clues: '[conversationId+clueId], conversationId',
+} as const;
+
+db.version(3).stores(V3_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
