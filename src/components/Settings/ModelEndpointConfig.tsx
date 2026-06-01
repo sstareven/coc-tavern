@@ -84,7 +84,7 @@ export function ModelEndpointConfig({
               fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
               opacity: connStatus === 'testing' ? 0.5 : 1,
             }}>
-            {connStatus === 'testing' ? '...' : '测试'}
+            {connStatus === 'testing' ? '...' : '连接'}
           </button>
           {connStatus === 'connected' && (
             <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
@@ -104,7 +104,7 @@ export function ModelEndpointConfig({
               options={availableModels.map((m) => ({ value: m, label: m }))} />
           ) : (
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>
-              {modelsLoading ? '加载中...' : '请先测试连接'}
+              {modelsLoading ? '加载中...' : '请先连接'}
             </div>
           )}
         </div>
