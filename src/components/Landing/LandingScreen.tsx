@@ -59,7 +59,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
             >设 置</button>
           </div>
           <p style={{ marginTop: 64, fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 3, opacity: 0.5 }}>
-            v1.3.3 · COC 7th Edition · <span onClick={() => document.dispatchEvent(new CustomEvent('show-changelog'))} style={{ cursor: 'pointer', borderBottom: '1px dotted var(--ink-subtle)' }}>更新日志</span>
+            v1.3.4 · COC 7th Edition · <span onClick={() => document.dispatchEvent(new CustomEvent('show-changelog'))} style={{ cursor: 'pointer', borderBottom: '1px dotted var(--ink-subtle)' }}>更新日志</span>
           </p>
         </div>
       </div>

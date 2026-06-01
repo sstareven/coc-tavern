@@ -44,7 +44,7 @@ export function resolvePlayerValue(
   rawName: string,
   sheet: CharacterSheet,
 ): { base: number; current: number } | null {
-  const trimmed = rawName.trim();
+  const trimmed = rawName.trim().replace(/（/g, '(').replace(/）/g, ')');
   const name = SKILL_ALIASES[trimmed] ?? trimmed;
   const charKey = CHAR_MAP[name];
   if (charKey) {
@@ -61,7 +61,18 @@ export function resolvePlayerValue(
     const san = sheet.secondary.san;
     return { base: san.max, current: san.current };
   }
-  const skill = sheet.skills[name];
+  let skill = sheet.skills[name];
+  // 专精技能容错：查询「科学(生物学)」但卡里只存了裸「科学」，或反之（裸名查到唯一同前缀专精）。
+  // 防止 key 形态不一致(专精↔裸名)时 miss → 退回 base 1。
+  if (!skill) {
+    const bare = name.replace(/\(.*\)$/, '');
+    if (bare !== name && sheet.skills[bare]) {
+      skill = sheet.skills[bare];
+    } else {
+      const hits = Object.keys(sheet.skills).filter((k) => k === bare || k.startsWith(bare + '('));
+      if (hits.length === 1) skill = sheet.skills[hits[0]];
+    }
+  }
   const def = ALL_SKILLS.find((s) => s.name === name);
   // 解析技能基础值：多数为固定数字，但躲闪(DEX/2)与语言(母语)(EDU) 为派生标记，
   // 必须从角色卡属性换算，否则 typeof!=='number' 会落到 base=1 导致目标值恒为 1

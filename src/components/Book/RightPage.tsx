@@ -176,7 +176,7 @@ function resolveTargetFromSheet(skillName: string, difficulty: string): number {
   return base;
 }
 
-function fillInputBar(text: string) {
+function fillInputBar(text: string, checkText: string = text) {
   // 仅允许在最新一页（最后一页）触发选项，防止在历史页面生成新页造成推进错乱
   const bs = useBookStore.getState();
   if (bs.pageIndex !== bs.pages.length - 1) return;
@@ -190,12 +190,12 @@ function fillInputBar(text: string) {
     window.HTMLTextAreaElement.prototype, 'value',
   )?.set;
 
-  const parsed = parseCheckAction(text);
+  const parsed = parseCheckAction(checkText);
 
   const page = useBookStore.getState().pageIndex + 1;
 
   // ── 理智检定 / 伤害骰（多面骰）──
-  const poly = parsePolyAction(text);
+  const poly = parsePolyAction(checkText);
   if (poly) {
     if (poly.kind === 'sanity') {
       const sanTarget = getSanValue();
@@ -584,7 +584,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       onClick={() => {
         if (!enabled) return;
         commitRewriteItemGain(ch);
-        fillInputBar(buildChoiceInput(ch));
+        fillInputBar(buildChoiceInput(ch), ch.action);
       }}
       disabled={!enabled}
       title={!isLatestPage ? '只有最新一页的选项可以选择' : (locked ? '正在处理上一个选择…' : undefined)}

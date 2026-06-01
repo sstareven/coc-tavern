@@ -155,3 +155,29 @@ describe('resolvePlayerValue', () => {
     expect(resolvePlayerValue('未知技能', mockSheet)).toEqual({ base: 1, current: 1 });
   });
 });
+
+// 专精技能容错（regression: 科学(生物学) 等带括号专精被算成目标值 1）
+describe('resolvePlayerValue — 专精技能名容错', () => {
+  const withSci = (skills: CharacterSheet['skills']): CharacterSheet => ({ ...mockSheet, skills });
+
+  it('精确命中带括号专精 key', () => {
+    expect(resolvePlayerValue('科学(生物学)', withSci({ '科学(生物学)': { base: 1, current: 60 } }))).toEqual({ base: 1, current: 60 });
+  });
+
+  it('全角括号查询归一到半角 key', () => {
+    expect(resolvePlayerValue('科学（生物学）', withSci({ '科学(生物学)': { base: 1, current: 60 } }))).toEqual({ base: 1, current: 60 });
+  });
+
+  it('查询带专精但卡里只存裸名 → 退裸名取值（regression: 曾返回 1）', () => {
+    expect(resolvePlayerValue('科学(生物学)', withSci({ '科学': { base: 1, current: 55 } }))).toEqual({ base: 1, current: 55 });
+  });
+
+  it('查询裸名但卡里是唯一同前缀专精 → 命中该专精', () => {
+    expect(resolvePlayerValue('科学', withSci({ '科学(生物学)': { base: 1, current: 60 } }))).toEqual({ base: 1, current: 60 });
+  });
+
+  it('同前缀多个专精 → 歧义不猜，落基础值', () => {
+    const r = resolvePlayerValue('科学', withSci({ '科学(生物学)': { base: 1, current: 60 }, '科学(化学)': { base: 1, current: 40 } }));
+    expect(r).toEqual({ base: 1, current: 1 });
+  });
+});
