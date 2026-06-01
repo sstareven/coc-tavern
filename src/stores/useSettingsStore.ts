@@ -5,6 +5,7 @@ import { stripFunctions } from '../db/stripFunctions';
 
 interface SettingsState {
   soundEnabled: boolean;
+  darkMode: boolean;
   tooltipDelay: number;
   musicVolume: number;
   autoSubmitChoice: boolean;
@@ -48,6 +49,8 @@ interface SettingsState {
 
 interface SettingsStore extends SettingsState {
   toggleSound: () => void;
+  toggleDarkMode: () => void;
+  setDarkMode: (v: boolean) => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
@@ -90,6 +93,7 @@ interface SettingsStore extends SettingsState {
 
 const defaults: SettingsState = {
   soundEnabled: true,
+  darkMode: false,
   tooltipDelay: 600,
   musicVolume: 40,
   autoSubmitChoice: false,
@@ -137,6 +141,8 @@ export const useSettingsStore = create<SettingsStore>()(
       ...defaults,
 
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
+      toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+      setDarkMode: (v) => set({ darkMode: v }),
       setTooltipDelay: (d) => set({ tooltipDelay: d }),
       setMusicVolume: (v) => set({ musicVolume: v }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),

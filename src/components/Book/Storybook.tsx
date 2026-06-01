@@ -14,6 +14,7 @@ import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
@@ -37,6 +38,7 @@ export function Storybook() {
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
+  const darkMode = useSettingsStore((s) => s.darkMode);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
   const npcOpen = useNpcStore((s) => s.isOpen);
@@ -192,9 +194,9 @@ export function Storybook() {
     fontFamily: '"PingFang SC", "DengXian", "Noto Serif SC", var(--font-ui), sans-serif',
     fontSize: 11,
     letterSpacing: 1.5,
-    color: '#4a3020',
+    color: 'var(--book-ink)',
     background: `
-      linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)
+      linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)
     `,
     borderTop: '1px solid rgba(139,100,60,0.2)',
     borderRight: '1px solid rgba(139,100,60,0.2)',
@@ -223,7 +225,9 @@ export function Storybook() {
   };
 
   return (
-    <div style={{
+    <div
+      data-night={darkMode ? 'on' : undefined}
+      style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -452,16 +456,16 @@ export function Storybook() {
             style={inventoryOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!inventoryOpen) {
-                e.currentTarget.style.color = '#8b3a3a';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.color = 'var(--blood)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
                 e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
                 e.currentTarget.style.paddingLeft = '18px';
               }
             }}
             onMouseLeave={(e) => {
               if (!inventoryOpen) {
-                e.currentTarget.style.color = '#4a3020';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.color = 'var(--book-ink)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
                 e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
                 e.currentTarget.style.paddingLeft = '14px';
               }
@@ -486,16 +490,16 @@ export function Storybook() {
             style={charSheetOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!charSheetOpen) {
-                e.currentTarget.style.color = '#8b3a3a';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.color = 'var(--blood)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
                 e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
                 e.currentTarget.style.paddingLeft = '18px';
               }
             }}
             onMouseLeave={(e) => {
               if (!charSheetOpen) {
-                e.currentTarget.style.color = '#4a3020';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.color = 'var(--book-ink)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
                 e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
                 e.currentTarget.style.paddingLeft = '14px';
               }
@@ -520,16 +524,16 @@ export function Storybook() {
             style={npcOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!npcOpen) {
-                e.currentTarget.style.color = '#8b3a3a';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.color = 'var(--blood)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
                 e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
                 e.currentTarget.style.paddingLeft = '18px';
               }
             }}
             onMouseLeave={(e) => {
               if (!npcOpen) {
-                e.currentTarget.style.color = '#4a3020';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.color = 'var(--book-ink)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
                 e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
                 e.currentTarget.style.paddingLeft = '14px';
               }
@@ -554,16 +558,16 @@ export function Storybook() {
             style={mapOpen ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!mapOpen) {
-                e.currentTarget.style.color = '#8b3a3a';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.color = 'var(--blood)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
                 e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
                 e.currentTarget.style.paddingLeft = '18px';
               }
             }}
             onMouseLeave={(e) => {
               if (!mapOpen) {
-                e.currentTarget.style.color = '#4a3020';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.color = 'var(--book-ink)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
                 e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
                 e.currentTarget.style.paddingLeft = '14px';
               }
@@ -590,16 +594,16 @@ export function Storybook() {
             style={showToc ? tocTabActive : bookmarkTab}
             onMouseEnter={(e) => {
               if (!showToc) {
-                e.currentTarget.style.color = '#8b3a3a';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+                e.currentTarget.style.color = 'var(--blood)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
                 e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
                 e.currentTarget.style.paddingLeft = '18px';
               }
             }}
             onMouseLeave={(e) => {
               if (!showToc) {
-                e.currentTarget.style.color = '#4a3020';
-                e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+                e.currentTarget.style.color = 'var(--book-ink)';
+                e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
                 e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
                 e.currentTarget.style.paddingLeft = '14px';
               }
@@ -614,14 +618,14 @@ export function Storybook() {
             onClick={() => { closeOtherOverlays(); usePanelStore.getState().open('diceHistory'); }}
             style={bookmarkTab}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#8b3a3a';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f8ecd0 0%, #edd8a8 50%, #f4e4c0 100%)';
+              e.currentTarget.style.color = 'var(--blood)';
+              e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-mid) 50%, var(--book-page-hi) 100%)';
               e.currentTarget.style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4)';
               e.currentTarget.style.paddingLeft = '18px';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#4a3020';
-              e.currentTarget.style.background = 'linear-gradient(175deg, #f2e0c0 0%, #e8d0a0 50%, #f0dab0 100%)';
+              e.currentTarget.style.color = 'var(--book-ink)';
+              e.currentTarget.style.background = 'linear-gradient(175deg, var(--book-page-hi) 0%, var(--book-page-edge) 50%, var(--book-page-mid) 100%)';
               e.currentTarget.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)';
               e.currentTarget.style.paddingLeft = '14px';
             }}

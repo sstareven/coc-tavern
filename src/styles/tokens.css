@@ -9,17 +9,57 @@
   --gold-bright: #e8c865;
   --brass: #3d2b13;
   --ink: #2a1f14;
+  --ink-deep: #1a1510;
   --ink-faded: #6b5a3a;
   --ink-subtle: #8b7858;
+  /* --ink-faded 的 RGB 分量，供 rgba(var(--ink-faded-rgb), α) 的分隔线/边框在黑夜模式随之翻转 */
+  --ink-faded-rgb: 107,90,58;
   --blood: #8b3a3a;
   --blood-bright: #cc3333;
   --success: #3a6b5a;
   --success-bright: #5aab7a;
   --text-light: #d4c4a0;
   --shadow-deep: rgba(0,0,0,0.6);
+  /* 书页色 token：归并 Storybook 书签等处的硬编码羊皮纸/墨色，使其随主题翻转 */
+  --book-page-hi: #f8ecd0;
+  --book-page-mid: #edd8a8;
+  --book-page-edge: #e8d0a0;
+  --book-ink: #4a3020;
+  /* 检定/物品变化徽标语义色（深字配浅底，黑夜模式仅提亮文字） */
+  --bonus-text: #2e5c1e;
+  --penalty-text: #8b2020;
+  --neutral-text: #5a4a2a;
+  --opposed-text: #5c2e8b;
   --font-display: 'Georgia', 'Noto Serif SC', serif;
   --font-body: 'Crimson Text', 'Noto Serif SC', serif;
   --font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * 黑夜模式（深墨羊皮纸）：仅作用于挂了 data-night="on" 的内容面子树
+ * （正文书页 / 背包线索 / 人物名册）。在子树内覆盖羊皮纸/墨色一族变量，
+ * 所有用 var() 的后代自动从「浅底深字」翻转为「深墨褐底+暖米金字」，
+ * 与外层 leather/abyss/void 深色 UI 同色系衔接，--gold 描边保持不变。
+ */
+[data-night="on"] {
+  --parchment: #241a10;
+  --parchment-deep: #1c140c;
+  --parchment-dark: #2c2014;
+  --ink: #ecd9b0;
+  --ink-deep: #f0e4cc;
+  --ink-faded: #b8a472;
+  --ink-subtle: #90805c;
+  --ink-faded-rgb: 184,164,114;
+  --blood: #b85454;
+  --text-light: #ece0c8;
+  --book-page-hi: #2c2014;
+  --book-page-mid: #241a10;
+  --book-page-edge: #1c140c;
+  --book-ink: #ecd9b0;
+  --bonus-text: #7ec46a;
+  --penalty-text: #e08a8a;
+  --neutral-text: #b8a472;
+  --opposed-text: #b98ad9;
 }

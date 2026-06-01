@@ -329,6 +329,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
+  const darkMode = useSettingsStore((s) => s.darkMode);
+  const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode);
   const tooltipDelay = useSettingsStore((s) => s.tooltipDelay);
   const setTooltipDelay = useSettingsStore((s) => s.setTooltipDelay);
   const musicVolume = useSettingsStore((s) => s.musicVolume);
@@ -536,6 +538,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>环境音效</span>
                   <Toggle on={soundEnabled} onChange={toggleSound} />
+                </div>
+
+                {/* Dark mode toggle —— 正文页/背包线索/人物名册 切换深墨羊皮纸黑夜配色 */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    黑夜模式
+                    <HelpIcon text={'将「正文页 / 背包线索 / 人物名册」的羊皮纸日间配色切换为深墨羊皮纸的黑夜配色。\n\n仅影响这三个内容面的视觉基调，其余界面不变。'} />
+                  </span>
+                  <Toggle on={darkMode} onChange={toggleDarkMode} onLabel="黑夜" offLabel="羊皮纸" />
                 </div>
 
                 {/* Music volume */}

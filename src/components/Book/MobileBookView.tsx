@@ -9,6 +9,7 @@ import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { MobileTabBar, type MobileTab } from '../Layout/MobileTabBar';
 import { StatusBar } from './StatusBar';
 import { MobileNoteView } from './MobileNoteView';
@@ -29,6 +30,7 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
   const npcOpen = useNpcStore((s) => s.isOpen);
   const mapOpen = useMapStore((s) => s.isOpen);
+  const darkMode = useSettingsStore((s) => s.darkMode);
 
   const active: MobileTab | null =
     inventoryOpen ? 'inventory' : charSheetOpen ? 'charsheet' : npcOpen ? 'npc' : mapOpen ? 'map' : showToc ? 'toc' : null;
@@ -44,7 +46,7 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
       </div>
 
       {/* 便条 + 覆盖层 的定位根 */}
-      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div data-night={darkMode ? 'on' : undefined} style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <MobileNoteView />
         {!anyOverlay && <ActionSheet />}
 

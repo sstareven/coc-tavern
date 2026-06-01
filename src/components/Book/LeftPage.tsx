@@ -56,7 +56,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
       fontSize: 15, lineHeight: 1.75, position: 'relative',
     }}>
-      <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, ...fadeStyle }}>
+      <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, ...fadeStyle }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
         {diceResults && diceResults.length > 0 && diceResults.slice(0, 2).map((d, i) => {
           const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
@@ -96,7 +96,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         )}
         </div>
       </div>
-      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
+      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
     </div>
   );
 }

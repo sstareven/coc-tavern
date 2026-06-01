@@ -371,7 +371,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
-      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <InventoryChangesBar inventoryChanges={inventoryChanges ?? []} fadeStyle={fadeStyle} />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
@@ -387,7 +387,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
             {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
           </div>
           {rewrite && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed rgba(107,90,58,0.3)' }}>
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.3)' }}>
               {rewrite.text && (
                 <motion.p
                   key={rewrite.text}
@@ -422,7 +422,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
         </div>
       </div>
       {pageNum && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(107,90,58,0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
       )}
     </div>
   );
@@ -433,10 +433,10 @@ const ITEM_CAT_LABELS: Record<string, string> = {
 };
 
 const BONUS_COLORS = {
-  bonus: { color: '#2e5c1e', bg: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.35)' },
-  penalty: { color: '#8b2020', bg: 'rgba(183,28,28,0.08)', border: '1px solid rgba(183,28,28,0.3)' },
-  none: { color: '#5a4a2a', bg: 'rgba(107,90,58,0.08)', border: '1px solid rgba(107,90,58,0.3)' },
-  opposed: { color: '#5c2e8b', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
+  bonus: { color: 'var(--bonus-text)', bg: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.35)' },
+  penalty: { color: 'var(--penalty-text)', bg: 'rgba(183,28,28,0.08)', border: '1px solid rgba(183,28,28,0.3)' },
+  none: { color: 'var(--neutral-text)', bg: 'rgba(var(--ink-faded-rgb),0.08)', border: '1px solid rgba(var(--ink-faded-rgb),0.3)' },
+  opposed: { color: 'var(--opposed-text)', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
 };
 
 function cleanChoiceText(text: string): string {
@@ -541,7 +541,7 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
   const baseStyle: React.CSSProperties = {
     display: 'block', width: '100%', textAlign: 'left',
     marginBottom: 16, padding: '8px 10px',
-    border: '1px solid rgba(107,90,58,0.2)', borderRadius: 4,
+    border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 4,
     background: 'rgba(196,168,85,0.06)',
     flexShrink: 0,
     ...fadeStyle,
@@ -559,7 +559,7 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
       title="点击打开背包"
       style={{ ...baseStyle, cursor: 'pointer' }}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.14)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(107,90,58,0.2)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; e.currentTarget.style.borderColor = 'rgba(var(--ink-faded-rgb),0.2)'; }}
     >
       {inner}
     </button>
@@ -591,7 +591,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
-      border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(107,90,58,0.2)',
+      border: isCheck ? '1px solid rgba(196,168,85,0.5)' : '1px solid rgba(var(--ink-faded-rgb),0.2)',
       borderRadius: isCheck ? 5 : 3,
       background: isHovered
         ? (isCheck ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.15)')
@@ -600,7 +600,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       boxShadow: isCheck
         ? (isHovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
         : 'none',
-      borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(107,90,58,0.2)')),
+      borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(var(--ink-faded-rgb),0.2)')),
       color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
       textAlign: 'left', cursor: enabled ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
       opacity: enabled ? 1 : 0.45,

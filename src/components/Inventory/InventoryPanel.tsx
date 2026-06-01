@@ -21,11 +21,11 @@ const FILTER_TABS: { key: Filter; label: string }[] = [
 function ItemRow({ item }: { item: InventoryItem }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div style={{ borderBottom: '1px solid rgba(107,90,58,0.1)' }}>
+    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)' }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)' }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(107,90,58,0.06)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
         <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'var(--font-body)', color: item.isKeyItem ? '#8b6914' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -52,11 +52,11 @@ function ItemRow({ item }: { item: InventoryItem }) {
 function ClueRow({ clue }: { clue: Clue }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div style={{ borderBottom: '1px solid rgba(107,90,58,0.1)' }}>
+    <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)' }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '8px 0', cursor: 'pointer', transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1)' }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(107,90,58,0.06)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
         <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--gold)', display: 'inline-flex' }}><IconClue size={14} /></span>
@@ -109,25 +109,25 @@ export function InventoryOverlay() {
         borderRadius: '3px 0 0 3px', boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
         padding: '28px 20px 20px 28px', overflow: 'hidden',
       }}>
-        <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 8 }}>
+        <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 8 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>随身物品</h3>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CARRIED ITEMS</span>
         </div>
 
         {/* Category filter */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, paddingBottom: 6, borderBottom: '1px solid rgba(107,90,58,0.1)', marginBottom: 2 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, paddingBottom: 6, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', marginBottom: 2 }}>
           {FILTER_TABS.map((tab) => {
             const active = filter === tab.key;
             const count = tab.key === 'all' ? items.length : items.filter((i) => i.category === tab.key).length;
             return (
               <button key={tab.key} onClick={() => setFilter(tab.key)} style={{
                 padding: '1px 6px', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
-                borderColor: active ? 'rgba(107,90,58,0.35)' : 'rgba(107,90,58,0.12)', borderRadius: 2,
-                background: active ? 'rgba(107,90,58,0.08)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-subtle)',
+                borderColor: active ? 'rgba(var(--ink-faded-rgb),0.35)' : 'rgba(var(--ink-faded-rgb),0.12)', borderRadius: 2,
+                background: active ? 'rgba(var(--ink-faded-rgb),0.08)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-subtle)',
                 cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
               }}
-                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(107,90,58,0.3)'; e.currentTarget.style.color = 'var(--ink)'; } }}
-                onMouseLeave={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(107,90,58,0.12)'; e.currentTarget.style.color = 'var(--ink-subtle)'; } }}
+                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(var(--ink-faded-rgb),0.3)'; e.currentTarget.style.color = 'var(--ink)'; } }}
+                onMouseLeave={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(var(--ink-faded-rgb),0.12)'; e.currentTarget.style.color = 'var(--ink-subtle)'; } }}
               >{tab.label}{count > 0 ? ` ${count}` : ''}</button>
             );
           })}
@@ -143,7 +143,7 @@ export function InventoryOverlay() {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(107,90,58,0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
+        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
           随身 {items.length} 件
         </div>
       </motion.div>
@@ -161,7 +161,7 @@ export function InventoryOverlay() {
           borderRadius: '0 3px 3px 0', boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)',
           padding: '28px 28px 20px 20px', transformOrigin: '0% 50%', backfaceVisibility: 'hidden', overflow: 'hidden',
         }}>
-        <div style={{ borderBottom: '1px solid rgba(107,90,58,0.25)', paddingBottom: 8, marginBottom: 8 }}>
+        <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 8 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>线索</h3>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CLUES</span>
         </div>
@@ -176,7 +176,7 @@ export function InventoryOverlay() {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(107,90,58,0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
+        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
           线索 {clues.length} 条
         </div>
       </motion.div>
