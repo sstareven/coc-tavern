@@ -2,7 +2,7 @@
 
 > 一本会随你的抉择自我书写的克苏鲁「故事书」——无需 KP，独自踏入不可名状的深渊。
 
-React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.2.0 · 纯前端 SPA · 非商业许可
+React 19 · TypeScript · Vite · Zustand 5 · Dexie 4 (IndexedDB) · v1.2.1 · 纯前端 SPA · 非商业许可
 
 **🎮 在线试玩：[coc-tavern.vercel.app](https://coc-tavern.vercel.app)** —— 由 Vercel 托管，打开即玩、无需本地架设（首次进入需在「设置」里填入你自己的 AI 接口；密钥只存在你的浏览器本地，不经过任何服务器）。
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.2.0';
+const CURRENT_VERSION = 'v1.2.1';
 
 interface Release {
   version: string;
@@ -12,6 +12,17 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.2.1',
+    label: '热修复',
+    items: [
+      '检定记录 — 现在会随存档保存并显示页码；读档后不再丢失，删除页面时检定记录也会一并回溯',
+      '人物创建 · 自定义职业 — 「随机分配」不再清空你已选的职业技能，只重新分配点数',
+      '人物创建 · 重置按钮 — 技能加点页新增「重置」，可随时清空重新分配',
+      '人物创建 · 信用评级 — 默认从该职业的最低基础值开始（不再错误地从 0 开始）',
+      '克苏鲁神话 — 不再出现在加点栏，玩家无法给它加点（但游戏过程中仍会通过遭遇神话而增长）',
+    ],
+  },
   {
     version: 'v1.2.0',
     label: '世界系统大更新',
