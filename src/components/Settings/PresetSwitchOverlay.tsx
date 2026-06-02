@@ -3,7 +3,7 @@ import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
-import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID } from '../../sillytavern/fusion-preset';
+import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_XY_NAME, buildFusionPreset } from '../../sillytavern/fusion-preset';
 import { FUSION_MENU, type FusionOption } from '../../sillytavern/fusion-menu';
 import type { ChatPreset, PromptItem } from '../../types';
 
@@ -93,7 +93,21 @@ export function PresetSwitchOverlay() {
   const selectInSub = (subOptIds: string[], id: string) => setEnabledByOrig(new Set(subOptIds), (oid) => oid === id);
 
   // 切换核心驱动模型 = 切到最适配该模型的预设（并在向斜阳版里开对应思维链、关其他思维链）。
-  const switchPreset = (targetPresetId: string, chain: string | null) => {
+  const switchPreset = async (targetPresetId: string, chain: string | null) => {
+    // 确保目标预设已在存储——seed 未跑/失败时现场按需种入，避免 resolveActivePreset 回退导致「无反应」。
+    let saved: Record<string, ChatPreset> = {};
+    try { saved = JSON.parse(kvGet(PRESET_KEY) || '{}') as Record<string, ChatPreset>; } catch { saved = {}; }
+    if (!saved[targetPresetId]) {
+      const file = targetPresetId === FUSION_DS_ID ? 'shuangren-ds.json' : 'shuangren-v6.json';
+      const name = targetPresetId === FUSION_DS_ID ? FUSION_DS_NAME : FUSION_XY_NAME;
+      try {
+        const resp = await fetch((import.meta.env.BASE_URL || '/') + 'presets/' + file);
+        if (resp.ok) {
+          const p = buildFusionPreset(await resp.text(), targetPresetId, name);
+          if (p) { saved[targetPresetId] = p; kvSet(PRESET_KEY, JSON.stringify(saved)); }
+        }
+      } catch { /* 拉取失败则尽力而为 */ }
+    }
     const cs = useChatStore.getState();
     if (cs.activeId) cs.setPreset(targetPresetId);
     kvSet(LAST_PRESET_KEY, targetPresetId);
@@ -173,7 +187,7 @@ export function PresetSwitchOverlay() {
                 {PRESET_BAR.map((m) => {
                   const on = m.chain ? (presetId === FUSION_XY_ID && isOn(m.chain)) : (presetId === FUSION_DS_ID);
                   return (
-                    <button key={m.label} onClick={() => switchPreset(m.presetId, m.chain)} aria-pressed={on}
+                    <button key={m.label} onClick={() => void switchPreset(m.presetId, m.chain)} aria-pressed={on}
                       style={{
                         fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
                         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
