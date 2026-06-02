@@ -4,7 +4,7 @@ import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS, ensureFormatInstructionMarker } from '../../constants/presets';
-import { FUSION_DS_ID } from '../../sillytavern/fusion-preset';
+import { FUSION_DS_ID, FUSION_XY_ID } from '../../sillytavern/fusion-preset';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
 import { kvGet, kvSet } from '../../db/kv';
@@ -15,6 +15,8 @@ interface Props {
 }
 
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
+// 双人成行两个融合预设受保护：不可删除（避免用户误删后无预设可用，需重装/重置才恢复）。
+const PROTECTED_PRESET_IDS = new Set([FUSION_DS_ID, FUSION_XY_ID]);
 
 function loadPresets(): Record<string, ChatPreset> {
   try {
@@ -205,7 +207,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); if (updated.regexScripts) useRegexStore.setState({ presetScripts: updated.regexScripts }); if (updated.tavernHelperScripts) useTavernHelperStore.getState().setPresetScripts(updated.tavernHelperScripts); }); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
-                  {!BUILTIN_PRESET_IDS.has(id) && (
+                  {!BUILTIN_PRESET_IDS.has(id) && !PROTECTED_PRESET_IDS.has(id) && (
                     <button onClick={(e) => { e.stopPropagation();
                       const updated = { ...presets }; delete updated[id];
                       setPresets(updated); savePresets(updated);
