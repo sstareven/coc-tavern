@@ -4,13 +4,15 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
-import { useClueStore } from '../stores/useClueStore';
+import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
+import { integrateClues } from '../sillytavern/clue-integrator';
+import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -46,7 +48,7 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, PROLOGUE_BAD_ENDING_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -433,13 +435,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride && useBookStore.getState().pages.length <= 1) {
         baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
       }
-      // 本局尚无坏结局且非后日谈 → 让本回合额外生成一个隐藏坏结局（暗线的终点）。
-      // 覆盖新开局（首回合）与旧档（下一次生成补生成）。补写场景(formatOverride)排除。
-      if (!formatOverride && !useDarkThreadStore.getState().badEnding) {
-        // 缺「剧情.阶段」(新档未初始化/极旧存档) 视为「调查期」→ 非后日谈 → 应补生成坏结局。
-        const stage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'] ?? '调查期';
-        if (stage !== '后日谈') baseFormat += '\n\n' + PROLOGUE_BAD_ENDING_INSTRUCTION;
-      }
+      // 坏结局【不再注入主回合格式】——曾导致模型在主 JSON 末尾挤掉 clues/npcUpdates/mapUpdates 的回归。
+      // 改为回合后用独立 LLM 调用 generateBadEnding 生成（见下方应用段），与主输出彻底解耦。
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
         baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
@@ -878,29 +875,84 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}/100 (${result.darkThread.threatLevel}) — ${result.darkThread.development}${result.darkThread.foreshadowing ? ` ｜伏笔: ${result.darkThread.foreshadowing}` : ''}`, 'system');
         }
 
-        // 坏结局（一次性，守秘人机密）：仅当本局尚未确定时采纳，避免后续回合覆盖。
-        // 日志完整记录内容——日志仅供排错，不对正常玩家展示，故不隐藏。
-        if (result.badEnding && !useDarkThreadStore.getState().badEnding) {
-          useDarkThreadStore.getState().setBadEnding({ description: result.badEnding, createdAt: Date.now() });
-          pushLog('info', `[Pipeline] 本局坏结局已生成（暗线终点）: ${result.badEnding}`, 'system');
+        // 坏结局（守秘人机密，暗线终点）：本局尚无 → 回合后用【独立 LLM 调用】据情境生成，
+        // 与主回合输出彻底解耦，绝不挤占主 JSON（修复其曾导致 clues/npc/map 被截断的回归）。
+        // fire-and-forget；含会话守卫；后日谈不生成；需 API 配置齐全。
+        if (!useDarkThreadStore.getState().badEnding && !isEpilogue) {
+          if (result.badEnding) {
+            // 兼容快路径：模型本回合恰好直出了 badEnding（一般不会，因已不再注入指令），直接采用、省一次调用。
+            useDarkThreadStore.getState().setBadEnding({ description: result.badEnding, createdAt: Date.now() });
+            pushLog('info', `[坏结局] 采用模型直出的坏结局（暗线终点）: ${result.badEnding}`, 'system');
+          } else if (settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+            const aidBE = useChatStore.getState().activeId;
+            const sheet = useCharSheetStore.getState().sheet;
+            const recent = useBookStore.getState().pages.slice(-3).map((p) => p.leftContent).filter(Boolean).join('\n');
+            const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n近期情节：\n${recent || newPage.leftContent}`;
+            void (async () => {
+              try {
+                const { description } = await generateBadEnding(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+                if (!description) return;
+                if (useDarkThreadStore.getState().badEnding) return; // 期间已生成
+                if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
+                useDarkThreadStore.getState().setBadEnding({ description, createdAt: Date.now() });
+                if (aidBE) await saveConversation(aidBE);
+                pushLog('info', `[坏结局] 本局坏结局已生成（暗线终点，守秘人机密）: ${description}`, 'system');
+              } catch (e) {
+                pushLog('warn', `[坏结局] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         // 独立线索库
         if (result.clues && result.clues.length > 0) {
           useClueStore.getState().addClues(result.clues.map((c) => ({ ...c, foundAtPage: newPage.leftPage })));
-          pushLog('debug', `[Pipeline] 线索更新: ${result.clues.map((c) => c.name).join(', ')}`, 'system');
+          pushLog('debug', `[Pipeline] 线索更新(${result.clues.length}): ${result.clues.map((c) => c.name).join(', ')}`, 'system');
+        } else {
+          pushLog('debug', '[Pipeline] 本回合无新线索(result.clues 为空)', 'system');
+        }
+
+        // 活跃线索超上限 → 推进过程中自动归并成 1-3 条总结（后台进行，不阻塞本回合渲染；
+        // 原线索归档、可在「历史线索」回溯）。仅在 API 配置齐全时尝试。
+        const activeClues = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+        if (activeClues.length > CLUE_ACTIVE_CAP && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+          const aidAtTrigger = useChatStore.getState().activeId;
+          void (async () => {
+            try {
+              const { clues: summaries } = await integrateClues(
+                activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
+                settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+              );
+              if (summaries.length === 0) return;
+              // 守卫：归并期间若切换了会话，放弃——避免把本会话的归并写进已切到的别的存档（污染）。
+              if (useChatStore.getState().activeId !== aidAtTrigger) {
+                pushLog('warn', '[线索整合] 自动归并取消：归并期间已切换会话', 'api');
+                return;
+              }
+              useClueStore.getState().consolidateClues(summaries, activeClues.map((c) => c.id));
+              if (aidAtTrigger) await saveConversation(aidAtTrigger);
+              useStatusToastStore.getState().markDone(`线索已自动归并为 ${summaries.length} 条总结（原线索可在线索页历史回溯）`);
+              pushLog('info', `[线索整合] 线索超过 ${CLUE_ACTIVE_CAP} 条，已自动归并 ${activeClues.length} → ${summaries.length} 条（原线索归档可回溯）`, 'api');
+            } catch (e) {
+              pushLog('warn', `[线索整合] 自动归并失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+            }
+          })();
         }
 
         // NPC 档案更新
         if (result.npcUpdates && result.npcUpdates.length > 0) {
           useNpcStore.getState().applyUpdates(result.npcUpdates);
-          pushLog('debug', `[Pipeline] NPC 更新: ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+          pushLog('debug', `[Pipeline] NPC 更新(${result.npcUpdates.length}): ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+        } else {
+          pushLog('debug', '[Pipeline] 本回合无 NPC 更新(result.npcUpdates 为空)', 'system');
         }
 
         // 地图更新（新地点/连线/当前位置）
         if (result.mapUpdates) {
           useMapStore.getState().applyUpdates(result.mapUpdates);
-          pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'}`, 'system');
+          pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'} 新地点=${result.mapUpdates.newLocations?.length ?? 0} 新连线=${result.mapUpdates.newEdges?.length ?? 0}`, 'system');
+        } else {
+          pushLog('debug', '[Pipeline] 本回合无地图更新(result.mapUpdates 为空)', 'system');
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {

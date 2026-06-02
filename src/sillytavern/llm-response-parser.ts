@@ -528,6 +528,14 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       : undefined;
     if (badEnding) pushLog('info', `[parseLlm] 坏结局生成: ${badEnding}`, 'system');
 
+    // 诊断：一眼看清模型本回合到底输出了哪些字段、解析出多少——排查「线索/NPC/地图没进页面」的关键证据。
+    // 若 parsed 顶层键含 clues/npcUpdates/mapUpdates 但下方计数为 0 → 解析问题；若顶层键就没有 → 模型未输出（生成问题）。
+    pushLog(
+      'debug',
+      `[parseLlm] 字段统计 — clues:${clues?.length ?? 0} npcUpdates:${npcUpdates?.length ?? 0} mapUpdates:${mapUpdates ? '有' : '无'} inventory:${inventoryChanges?.length ?? 0} darkThread:${darkThread ? '有' : '无'} badEnding:${badEnding ? '有' : '无'} ｜ parsed顶层键:[${Object.keys(parsed).join(',')}]`,
+      'system',
+    );
+
     return {
       page: {
         id: crypto.randomUUID(),

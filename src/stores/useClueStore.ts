@@ -3,11 +3,17 @@ import type { Clue, ClueInput } from '../types';
 
 export type { ClueInput };
 
+/** 活跃线索软上限：超过则在推进过程中自动归并成 1-3 条总结（原线索归档可回溯）。 */
+export const CLUE_ACTIVE_CAP = 10;
+
 interface ClueStore {
   clues: Clue[];
 
   /** 应用 LLM 给出的一组线索：同名则更新（补全发现细节），否则新增。 */
   addClues: (inputs: ClueInput[]) => void;
+  /** 归并：把指定（默认全部）active 线索归档（可回溯），用 1-3 条合成总结取代为新的 active。
+   *  archiveIds 给出时只归档这些 id——避免归并 LLM 往返期间新发现的线索被一并误档。 */
+  consolidateClues: (summaries: ClueInput[], archiveIds?: string[]) => void;
   removeClue: (name: string) => void;
   buildContextInjection: () => string;
   clearAll: () => void;
@@ -108,6 +114,34 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
       return { clues };
     });
   },
+
+  consolidateClues: (summaries, archiveIds) => set((s) => {
+    // 1. 归档 active 线索（保留可回溯，显示在「历史线索」区）。
+    //    给了 archiveIds 则只归档这些 id——防止归并 LLM 往返期间新加入的线索被误档而「消失」。
+    const idSet = archiveIds ? new Set(archiveIds) : null;
+    const clues = s.clues.map((c) =>
+      (c.status !== 'archived' && (!idSet || idSet.has(c.id))) ? { ...c, status: 'archived' as const } : c
+    );
+    // 2. 加入 1-3 条合成总结作为新的 active（major + synthesized）
+    for (const input of summaries) {
+      const name = input.name?.trim();
+      if (!name) continue;
+      clues.push({
+        id: crypto.randomUUID(),
+        name,
+        summary: input.summary ?? '',
+        discoveryNarrative: input.discoveryNarrative ?? '',
+        foundAtPage: input.foundAtPage,
+        relatedTo: input.relatedTo,
+        tags: input.tags?.length ? input.tags : undefined,
+        synthesized: true,
+        acquiredAt: Date.now(),
+        status: 'active',
+        tier: 'major',
+      });
+    }
+    return { clues };
+  }),
 
   removeClue: (name) => set((s) => {
     const idx = findByName(s.clues, name);

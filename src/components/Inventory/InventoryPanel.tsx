@@ -152,13 +152,16 @@ export function InventoryOverlay() {
         s.apiBaseUrl, s.apiKey, s.apiModel,
       );
       if (synthesized.length === 0) {
-        pushLog('warn', '[线索整合] 未产出新的推理线索（模型无可归纳的关联或解析为空，详见上方日志）', 'api');
-        useStatusToastStore.getState().markDone('暂未发现可归纳的新关联');
+        pushLog('warn', '[线索整合] 未产出新的总结线索（模型无可归纳的关联或解析为空，详见上方日志）', 'api');
+        useStatusToastStore.getState().markDone('暂未发现可归纳的线索');
       } else {
-        useClueStore.getState().addClues(synthesized);
+        const before = activeClues.length;
+        // 归并：原 active 线索归档（可回溯），活跃区收敛为这 1-3 条总结
+        useClueStore.getState().consolidateClues(synthesized, activeClues.map((c) => c.id));
+        setTagFilter(new Set()); // 清空标签筛选，避免新总结因旧筛选被隐藏
         await persistActiveGameState(); // 手动操作：立即落库，避免未经回合 auto-save 即丢失
-        pushLog('info', `[线索整合] 已入库 ${synthesized.length} 条推理线索：${synthesized.map((c) => c.name).join('、')}`, 'api');
-        useStatusToastStore.getState().markDone(`整合出 ${synthesized.length} 条推理线索`);
+        pushLog('info', `[线索整合] 已归并 ${before} 条 → ${synthesized.length} 条总结线索（原线索已归档可回溯）：${synthesized.map((c) => c.name).join('、')}`, 'api');
+        useStatusToastStore.getState().markDone(`已归并为 ${synthesized.length} 条总结线索`);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

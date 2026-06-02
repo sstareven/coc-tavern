@@ -86,4 +86,39 @@ describe('线索演化与注入', () => {
     expect(active).toHaveLength(1);
     expect(active[0].tier).toBe('major');
   });
+
+  it('consolidateClues 归并：原 active 线索全部归档可回溯，活跃区只剩 1-3 条合成总结', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: 'A', summary: 'a' }, { name: 'B', summary: 'b' }, { name: 'C', summary: 'c' }]);
+    store.consolidateClues([{ name: '总结：核心指向', summary: '三条都指向献祭', tags: ['推理'] }]);
+    const all = useClueStore.getState().clues;
+    const active = all.filter((c) => c.status !== 'archived');
+    const archived = all.filter((c) => c.status === 'archived');
+    expect(active).toHaveLength(1);
+    expect(active[0].name).toBe('总结：核心指向');
+    expect(active[0].synthesized).toBe(true);
+    expect(active[0].tier).toBe('major');
+    expect(active[0].tags).toContain('推理');
+    expect(archived.map((c) => c.name).sort()).toEqual(['A', 'B', 'C']); // 原线索归档保留可回溯
+  });
+
+  it('consolidateClues 连续归并：上轮总结也会被归档，由更新的总结取代', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: 'A', summary: 'a' }, { name: 'B', summary: 'b' }]);
+    store.consolidateClues([{ name: '总结一', summary: 's1', tags: ['推理'] }]);
+    store.consolidateClues([{ name: '总结二', summary: 's2', tags: ['推理'] }]);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active).toHaveLength(1);
+    expect(active[0].name).toBe('总结二');
+  });
+
+  it('consolidateClues 带 archiveIds 时只归档指定 id（往返期间新线索不被误档）', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: 'A', summary: 'a' }, { name: 'B', summary: 'b' }]);
+    const snapshotIds = useClueStore.getState().clues.map((c) => c.id);
+    store.addClues([{ name: 'C', summary: 'c' }]); // 模拟归并往返期间新发现
+    store.consolidateClues([{ name: '总结', summary: 's', tags: ['推理'] }], snapshotIds);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active.map((c) => c.name).sort()).toEqual(['C', '总结']); // C 未被误档
+  });
 });
