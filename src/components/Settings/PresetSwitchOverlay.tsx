@@ -245,13 +245,13 @@ export function PresetSwitchOverlay() {
             <div style={{ margin: '2px 0 10px', padding: '10px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 6, background: 'rgba(196,168,85,0.04)' }}>
               <div style={{ fontSize: 10, color: '#b5aa86', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ fontSize: 11.5 }}>
-                  <span style={{ color: '#cdbf95' }}>驱动模型</span> <span style={{ color: 'var(--gold-bright)' }}>{modelLabel}</span>
+                <div style={{ fontSize: 12.5 }}>
+                  <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>驱动模型</span> <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{modelLabel}</span>
                 </div>
                 {effectSummary.map((s) => (
-                  <div key={s.label} style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                    <span style={{ color: '#cdbf95' }}>{s.label}</span>{' '}
-                    <span style={{ color: 'var(--gold-bright)' }}>{s.value}</span>
+                  <div key={s.label} style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                    <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{s.label}</span>{' '}
+                    <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{s.value}</span>
                     {s.effect && <span style={{ color: '#b5aa86', fontSize: 10, marginLeft: 6 }}>· {s.effect}</span>}
                   </div>
                 ))}
