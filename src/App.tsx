@@ -22,6 +22,7 @@ import { StatusToast } from './components/Shared/StatusToast';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
+import { seedFusionPreset } from './db/seed-fusion-preset';
 import { migrateFromLocalStorage } from './db/migrations';
 import { db, V2_UPGRADE_FAILED } from './db/database';
 import { loadConversation } from './stores/sessionLifecycle';
@@ -36,6 +37,8 @@ export function App() {
     initBuiltinCommands();
     (async () => {
       await initKvCache();
+      // 幂等种入「双人成行融合预设」并设为默认（只写预设存储，不碰会话/存档表）。
+      await seedFusionPreset();
       // 一次性 localStorage → Dexie 迁移（幂等）。Dexie v2 .upgrade() 在 db 打开时自动运行。
       await migrateFromLocalStorage();
       // 触碰 db 确保 v2 升级已执行；若升级失败标志已写入则告警（降级路径尽力而为）。
