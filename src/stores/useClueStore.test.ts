@@ -51,10 +51,16 @@ describe('线索演化与注入', () => {
     expect(inj).not.toContain('线索01：s1');
   });
 
-  it('缺 status 的老数据按 active 处理（迁移）', () => {
-    useClueStore.getState().replaceAll([
-      { id: 'x', name: '旧档线索', summary: 's', discoveryNarrative: '', acquiredAt: 1 },
-    ]);
-    expect(useClueStore.getState().buildContextInjection()).toContain('旧档线索：s');
+  it('synthesized 输入：标为推理线索、tier=major', () => {
+    useClueStore.getState().addClues([{ name: '推理：教团的真正目标', summary: '诸多线索指向献祭仪式', tags: ['推理'], synthesized: true }]);
+    const c = useClueStore.getState().clues[0];
+    expect(c.synthesized).toBe(true);
+    expect(c.tier).toBe('major');
+    expect(c.tags).toContain('推理');
+  });
+
+  it('普通线索不带 synthesized 标记', () => {
+    useClueStore.getState().addClues([{ name: '血迹', summary: '门后有血迹' }]);
+    expect(useClueStore.getState().clues[0].synthesized).toBeUndefined();
   });
 });

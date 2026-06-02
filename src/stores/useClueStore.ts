@@ -90,9 +90,11 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             foundAtPage: input.foundAtPage,
             relatedTo: input.relatedTo,
             tags: input.tags?.length ? input.tags : undefined,
+            synthesized: input.synthesized || undefined,
             acquiredAt: Date.now(),
             status: 'active',
-            tier: 'normal',
+            // 整合产出的推理线索上位为 major，与发现线索区分
+            tier: input.synthesized ? 'major' : 'normal',
           });
         }
       }

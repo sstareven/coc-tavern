@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInventoryStore, CATEGORY_LABELS } from '../../stores/useInventoryStore';
 import { useClueStore } from '../../stores/useClueStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useStatusToastStore } from '../../stores/useStatusToastStore';
+import { integrateClues } from '../../sillytavern/clue-integrator';
+import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { IconClue } from '../Layout/TabIcons';
@@ -61,8 +65,8 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <span style={{ flexShrink: 0, marginTop: 1, color: major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
-          {major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
+        <span style={{ flexShrink: 0, marginTop: 1, color: clue.synthesized ? 'var(--gold-bright)' : major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
+          {clue.synthesized ? <span style={{ fontSize: 13 }}>✦</span> : major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)', letterSpacing: 1, fontWeight: major ? 700 : 400 }}>{clue.name}</div>
@@ -125,6 +129,36 @@ export function InventoryOverlay() {
     if (next.has(t)) next.delete(t); else next.add(t);
     return next;
   });
+
+  // 线索整合：让独立 LLM 把已知线索归纳成更指向幕后真相的「推理线索」（仅基于已知线索）。
+  const [integrating, setIntegrating] = useState(false);
+  const handleIntegrate = async () => {
+    if (integrating || activeClues.length < 2) return;
+    const s = useSettingsStore.getState();
+    if (!s.apiKey?.trim()) {
+      useStatusToastStore.getState().showError('未配置 API Key，无法整合线索');
+      return;
+    }
+    setIntegrating(true);
+    useStatusToastStore.getState().showProcessing('正在整合线索，归纳暗藏的关联…');
+    try {
+      const { clues: synthesized } = await integrateClues(
+        activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
+        s.apiBaseUrl, s.apiKey, s.apiModel,
+      );
+      if (synthesized.length === 0) {
+        useStatusToastStore.getState().markDone('暂未发现可归纳的新关联');
+      } else {
+        useClueStore.getState().addClues(synthesized);
+        await persistActiveGameState(); // 手动操作：立即落库，避免未经回合 auto-save 即丢失
+        useStatusToastStore.getState().markDone(`整合出 ${synthesized.length} 条推理线索`);
+      }
+    } catch (e) {
+      useStatusToastStore.getState().showError(`线索整合失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setIntegrating(false);
+    }
+  };
 
   return (
     <motion.div
@@ -250,8 +284,29 @@ export function InventoryOverlay() {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
-          线索 {activeClues.length} 条{archivedClues.length > 0 ? ` · 历史 ${archivedClues.length}` : ''}
+        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
+            线索 {activeClues.length} 条{archivedClues.length > 0 ? ` · 历史 ${archivedClues.length}` : ''}
+          </span>
+          <button
+            onClick={handleIntegrate}
+            disabled={integrating || activeClues.length < 2}
+            title={activeClues.length < 2 ? '至少需要 2 条线索才能整合' : '让 AI 归纳已知线索，得出更指向真相的推理'}
+            style={{
+              flexShrink: 0, padding: '3px 12px', fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 1,
+              border: '1px solid rgba(196,168,85,0.45)', borderRadius: 3,
+              background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
+              cursor: integrating || activeClues.length < 2 ? 'not-allowed' : 'pointer',
+              opacity: integrating || activeClues.length < 2 ? 0.5 : 1,
+              transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+            }}
+            onMouseEnter={(e) => { if (!(integrating || activeClues.length < 2)) { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.transform = 'scale(1.04)'; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { if (!(integrating || activeClues.length < 2)) e.currentTarget.style.transform = 'scale(0.97)'; }}
+            onMouseUp={(e) => { if (!(integrating || activeClues.length < 2)) e.currentTarget.style.transform = 'scale(1.04)'; }}
+          >
+            {integrating ? '整合中…' : '✦ 整合线索'}
+          </button>
         </div>
       </motion.div>
     </motion.div>

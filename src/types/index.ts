@@ -106,6 +106,8 @@ export interface ClueInput {
   relatedTo?: string[];
   /** 受控分类标签（已按 CLUE_TAGS 白名单过滤） */
   tags?: string[];
+  /** 由「线索整合」归纳而来的推理线索（非现场发现），UI 区分高亮 */
+  synthesized?: boolean;
   /** 演化：本条新线索由哪条已有线索（按名）升华而来；给出则系统归档旧线索 */
   evolvesFrom?: string;
 }
@@ -183,6 +185,8 @@ export interface Clue {
   relatedTo?: string[];
   /** 受控分类标签（CLUE_TAGS 子集），供 UI 多选筛选 */
   tags?: string[];
+  /** 由「线索整合」归纳而来的推理线索（玩家主动让 LLM 汇总），UI 区分高亮 */
+  synthesized?: boolean;
   acquiredAt: number;
   /** 线索状态：active 显示并注入；archived 已演化、隐藏但保留可回溯。缺省视为 active */
   status?: 'active' | 'archived';
