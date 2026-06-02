@@ -1,5 +1,5 @@
 import type { CharacterSheet, COC7Characteristic } from '../../types';
-import { ALL_SKILLS, SKILL_ALIASES } from '../../sillytavern/coc-data';
+import { ALL_SKILLS, normalizeSkillKey } from '../../sillytavern/coc-data';
 
 const CHAR_MAP: Record<string, COC7Characteristic> = {
   '力量': 'STR', '体质': 'CON', '意志': 'POW', '敏捷': 'DEX',
@@ -25,8 +25,7 @@ export function resolvePlayerValue(
   rawName: string,
   sheet: CharacterSheet,
 ): { base: number; current: number } | null {
-  const trimmed = rawName.trim().replace(/（/g, '(').replace(/）/g, ')');
-  const name = SKILL_ALIASES[trimmed] ?? trimmed;
+  const name = normalizeSkillKey(rawName);
   const charKey = CHAR_MAP[name];
   if (charKey) {
     const val = sheet.characteristics[charKey];
@@ -76,8 +75,7 @@ export function resolvePlayerValue(
  * 注意：入参应已用 normalizeSkillName 归一过英文属性码。
  */
 export function isKnownCheckTarget(rawName: string, sheet: CharacterSheet): boolean {
-  const trimmed = rawName.trim().replace(/（/g, '(').replace(/）/g, ')');
-  const name = SKILL_ALIASES[trimmed] ?? trimmed;
+  const name = normalizeSkillKey(rawName);
   if (CHAR_MAP[name]) return true;
   if (name === '幸运' || name === '幸运值' || name === 'LUCK' || name === 'Luck') return true;
   if (name === '理智' || name === '理智值' || name === '理智检定' || name === 'SAN' || name === 'san') return true;

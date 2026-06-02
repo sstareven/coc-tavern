@@ -128,7 +128,11 @@ export function applyCharsheetRedirect(
     const name = dotPath.slice('调查员.状态条件.'.length);
     if (!name) return null;
     if (op === 'remove') {
-      // 容忍 JSONPatch 通用模板的数组下标删法 /调查员/状态条件/0；下标越界则回退按名删。
+      // 优先按名删（状态名通常是描述性中文，含恰为纯数字的名）；仅当无此名、且 name 是合法数组下标时，
+      // 才容忍 JSONPatch 通用模板的下标删法 /调查员/状态条件/0。
+      if (sheet.statusConditions.some((c) => c.name === name)) {
+        return { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) };
+      }
       if (/^\d+$/.test(name)) {
         const idx = Number(name);
         if (idx >= 0 && idx < sheet.statusConditions.length) {

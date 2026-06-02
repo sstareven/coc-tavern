@@ -386,8 +386,9 @@ function applyDelta(
     }
     const result = oldVal[0] + delta;
     if (rule) {
-      if (rule.kind === 'number') {
-        // delta 越界饱和到边界（不整条丢弃）——合规增量推进逼近上下限时不被静默吞。
+      if (rule.kind === 'number' && rule.min !== undefined && rule.max !== undefined) {
+        // 双界字段(进度0-100/态度±100)：越界饱和到边界，不整条丢弃合规增量推进。
+        // 单边界字段(如回合数 min:0)不在此列——越界即逻辑错误，应走下面的 reject+自纠。
         setByPath(tree, dotPath, [clampToNumberRule(rule, result), oldVal[1]]);
         return;
       }
@@ -406,8 +407,9 @@ function applyDelta(
   }
   const result = oldVal + delta;
   if (rule) {
-    if (rule.kind === 'number') {
-      // delta 越界饱和到边界（不整条丢弃）——合规增量推进逼近上下限时不被静默吞。
+    if (rule.kind === 'number' && rule.min !== undefined && rule.max !== undefined) {
+      // 双界字段(进度0-100/态度±100)：越界饱和到边界，不整条丢弃合规增量推进。
+      // 单边界字段(如回合数 min:0)不在此列——越界即逻辑错误，应走下面的 reject+自纠。
       setByPath(tree, dotPath, clampToNumberRule(rule, result));
       return;
     }

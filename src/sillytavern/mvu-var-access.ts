@@ -1,6 +1,7 @@
 import { useVariableStore } from '../stores/useVariableStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { isCharsheetPath, applyCharsheetRedirect } from './mvu-charsheet-redirect';
+import { normalizeSkillKey } from './coc-data';
 
 /**
  * Shared getvar/setvar resolution for EJS templates and TH scripts, so the two
@@ -67,6 +68,12 @@ export function readVar(name: string, fallback = ''): string {
     if (isCharsheetPath(name) || name.startsWith('char')) {
       const map = st.buildFullSubstitutionMap();
       if (name in map) return map[name];
+      // 技能别名/全角括号归一：map 里只存规范键，读 调查员.技能.闪避/手枪/快速交谈 等别名时归一后再查，
+      // 与写入侧 canonicalSkillKey 对齐，避免「写得进、这条读路径读不到」的不对称。
+      if (name.startsWith('调查员.技能.')) {
+        const canon = '调查员.技能.' + normalizeSkillKey(name.slice('调查员.技能.'.length));
+        if (canon !== name && canon in map) return map[canon];
+      }
     }
     return fallback;
   } catch {
