@@ -1,7 +1,7 @@
 import type { ChatPreset, PromptItem } from '../types';
 import { importPresetFromST } from './format-converter';
 import { COC_KP_PRESET } from '../constants/presets';
-import { FUSION_DEFAULT_ENABLED, FUSION_DISABLE_IDS, FUSION_SAMPLERS } from './fusion-config';
+import { FUSION_SAMPLERS } from './fusion-config';
 
 /** 两个融合预设：DS专用版(DeepSeek)与向斜阳版(多模型)。悬浮窗模型栏在二者间切换；默认 DeepSeek。 */
 export const FUSION_DS_ID = 'shuangren-ds';
@@ -11,13 +11,19 @@ export const FUSION_XY_NAME = '双人成行 · 向斜阳（多模型）';
 /** 兼容旧引用：默认主预设 = DeepSeek 专用版。 */
 export const FUSION_PRESET_ID = FUSION_DS_ID;
 
-/** importPresetFromST 给非 marker 条目加 'pi_'/'lib_' 前缀；还原回双人成行原 identifier 以查默认开关表。 */
+/** importPresetFromST 给非 marker 条目加 'pi_'/'lib_' 前缀。 */
 function originalId(id: string): string {
   return id.replace(/^(pi_|lib_)/, '');
 }
+void originalId;
 
 /** buildFusionPreset 强制注入的 COC 机制条目 id —— 注入前先剔除同 id，避免与双人成行潜在重名冲突。 */
 const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistoryInstructions']);
+
+// 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
+// ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
+const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
+const NSFW_NAME = /🔞|🐬|🥵|色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
 
 /**
  * 把「双人成行 V6.1」SillyTavern 预设融合为本项目的 COC 守秘人预设。
@@ -41,11 +47,11 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
   const tuned: PromptItem[] = base.promptItems
     .filter((p) => !INJECTED_IDS.has(p.id)) // 剔除可能与注入项重名的条目，下面统一注入
     .map((p) => {
-      const orig = originalId(p.id);
-      let enabled = p.enabled;
+      let enabled = p.enabled; // 以作者原始组合为基础
       if (p.id.startsWith('lib_')) enabled = false; // 不在 prompt_order 的缓存项
-      else if (orig in FUSION_DEFAULT_ENABLED) enabled = FUSION_DEFAULT_ENABLED[orig];
-      if (FUSION_DISABLE_IDS.includes(orig)) enabled = false; // 模型专属（Gemini/Claude/GLM）
+      if (p.id === 'main' || /使用指南/.test(p.name)) enabled = false; // 双人成行人设/说明 → COC 守秘人优先
+      if (KILL_NAME.test(p.name)) enabled = false; // 美化结构/前端生成,与 COC JSON 冲突
+      if (NSFW_NAME.test(p.name)) enabled = false; // NSFW
       return { ...p, enabled };
     });
 

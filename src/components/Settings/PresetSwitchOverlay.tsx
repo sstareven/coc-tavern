@@ -18,7 +18,7 @@ void FUSION_PRESET_ID;
 const CHAIN_GEMINI = '95e1424e-be23-4ebd-b987-11963d2db848';
 const CHAIN_CLAUDE = '5fa21984-48ec-4810-92ec-4ae9d153ae0b';
 const CHAIN_GLM = '197ddde7-e5ff-4128-a61d-6aa8ed2cdc80';
-const CHAIN_IDS = [CHAIN_GEMINI, CHAIN_CLAUDE, CHAIN_GLM]; // 向斜阳版各家思维链（完整 identifier）
+const CHAIN_IDS = [CHAIN_GEMINI, CHAIN_CLAUDE, CHAIN_GLM];
 const PRESET_BAR: { label: string; presetId: string; chain: string | null }[] = [
   { label: 'DeepSeek🐳', presetId: FUSION_DS_ID, chain: null },
   { label: '哈基米', presetId: FUSION_XY_ID, chain: CHAIN_GEMINI },
@@ -36,13 +36,13 @@ function saveCollapsed(s: Set<string>): void { kvSet(COLLAPSE_KEY, JSON.stringif
 function resolveActivePreset(): { id: string; preset: ChatPreset } | null {
   const cs = useChatStore.getState();
   const sessionPid = cs.sessions.find((s) => s.id === cs.activeId)?.presetId;
-  const id = sessionPid || kvGet(LAST_PRESET_KEY) || FUSION_PRESET_ID;
+  const id = sessionPid || kvGet(LAST_PRESET_KEY) || FUSION_DS_ID;
   let saved: Record<string, ChatPreset> = {};
   try { saved = JSON.parse(kvGet(PRESET_KEY) || '{}') as Record<string, ChatPreset>; } catch { saved = {}; }
   const builtin = DEFAULT_PRESETS[id];
-  const preset = saved[id] ? { ...(builtin || {}), ...saved[id] } as ChatPreset : (builtin || saved[FUSION_PRESET_ID]);
+  const preset = saved[id] ? { ...(builtin || {}), ...saved[id] } as ChatPreset : (builtin || saved[FUSION_DS_ID]);
   if (!preset) return null;
-  return { id: saved[id] ? id : (builtin ? id : FUSION_PRESET_ID), preset };
+  return { id: saved[id] ? id : (builtin ? id : FUSION_DS_ID), preset };
 }
 
 function persistEnabled(id: string, items: PromptItem[]): void {
@@ -73,7 +73,7 @@ export function PresetSwitchOverlay() {
     setItems(r.preset.promptItems || []);
     setSearch('');
     const remembered = loadCollapsed();
-    setCollapsed(remembered ?? new Set(FUSION_MENU.map((g) => g.title))); // 默认全折叠
+    setCollapsed(remembered ?? new Set(FUSION_MENU.map((g) => g.title)));
   }, [open]);
 
   const itemByOrig = useMemo(() => {
@@ -82,8 +82,13 @@ export function PresetSwitchOverlay() {
     return m;
   }, [items]);
 
-  const isOn = (id: string) => { const it = itemByOrig.get(id); return !!it && it.enabled !== false; };
-  const exists = (id: string) => itemByOrig.has(id);
+  const isDS = presetId === FUSION_DS_ID;
+  // 选项在当前预设里的真实 id（DS/向斜阳版 id 不同）。
+  const optId = (o: FusionOption) => (isDS ? o.ds : o.xy);
+  const isOnId = (id: string | undefined) => !!id && itemByOrig.get(id)?.enabled !== false;
+  const existsId = (id: string | undefined) => !!id && itemByOrig.has(id);
+  const isOn = (o: FusionOption) => isOnId(optId(o));
+  const exists = (o: FusionOption) => existsId(optId(o));
 
   const setEnabledByOrig = (origIds: Set<string>, decide: (oid: string) => boolean) => {
     setItems((prev) => {
@@ -92,12 +97,15 @@ export function PresetSwitchOverlay() {
       return next;
     });
   };
-  const toggleOpt = (id: string) => setEnabledByOrig(new Set([id]), () => !isOn(id));
-  const selectInSub = (subOptIds: string[], id: string) => setEnabledByOrig(new Set(subOptIds), (oid) => oid === id);
+  const toggleOpt = (o: FusionOption) => { const id = optId(o); if (id) setEnabledByOrig(new Set([id]), () => !isOn(o)); };
+  const selectInSub = (subOpts: FusionOption[], o: FusionOption) => {
+    const sel = optId(o);
+    const ids = subOpts.map(optId).filter(Boolean) as string[];
+    if (sel) setEnabledByOrig(new Set(ids), (oid) => oid === sel);
+  };
 
-  // 切换核心驱动模型 = 切到最适配该模型的预设（并在向斜阳版里开对应思维链、关其他思维链）。
+  // 切换核心驱动模型 = 切到最适配该模型的预设（按需补种，向斜阳版里开对应思维链）。
   const switchPreset = async (targetPresetId: string, chain: string | null) => {
-    // 确保目标预设已在存储——seed 未跑/失败时现场按需种入，避免 resolveActivePreset 回退导致「无反应」。
     let saved: Record<string, ChatPreset> = {};
     try { saved = JSON.parse(kvGet(PRESET_KEY) || '{}') as Record<string, ChatPreset>; } catch { saved = {}; }
     if (!saved[targetPresetId]) {
@@ -105,11 +113,8 @@ export function PresetSwitchOverlay() {
       const name = targetPresetId === FUSION_DS_ID ? FUSION_DS_NAME : FUSION_XY_NAME;
       try {
         const resp = await fetch((import.meta.env.BASE_URL || '/') + 'presets/' + file);
-        if (resp.ok) {
-          const p = buildFusionPreset(await resp.text(), targetPresetId, name);
-          if (p) { saved[targetPresetId] = p; kvSet(PRESET_KEY, JSON.stringify(saved)); }
-        }
-      } catch { /* 拉取失败则尽力而为 */ }
+        if (resp.ok) { const p = buildFusionPreset(await resp.text(), targetPresetId, name); if (p) { saved[targetPresetId] = p; kvSet(PRESET_KEY, JSON.stringify(saved)); } }
+      } catch { /* 尽力而为 */ }
     }
     const cs = useChatStore.getState();
     if (cs.activeId) cs.setPreset(targetPresetId);
@@ -130,20 +135,17 @@ export function PresetSwitchOverlay() {
   if (!open) return null;
 
   const q = search.trim().toLowerCase();
-  const match = (o: FusionOption) => exists(o.id) && (!q || o.name.toLowerCase().includes(q));
-
-  // 非模型组，按搜索过滤后保留有内容的子块/组。
+  const matchSearch = (o: FusionOption) => exists(o) && (!q || o.name.toLowerCase().includes(q));
   const visibleGroups = FUSION_MENU
-    .filter((g) => !g.isModel)
-    .map((g) => ({ g, subs: g.subs.map((s) => ({ s, opts: s.options.filter(match) })).filter((x) => x.opts.length > 0) }))
+    .map((g) => ({ g, subs: g.subs.map((s) => ({ s, opts: s.options.filter(matchSearch) })).filter((x) => x.opts.length > 0) }))
     .filter((x) => x.subs.length > 0);
 
   const allOpts = FUSION_MENU.flatMap((g) => g.subs).flatMap((s) => s.options);
-  const totalOn = allOpts.filter((o) => isOn(o.id)).length;
-  const totalExist = allOpts.filter((o) => exists(o.id)).length;
+  const totalOn = allOpts.filter((o) => isOn(o)).length;
+  const totalExist = allOpts.filter((o) => exists(o)).length;
 
-  const pill = (opt: FusionOption, onClick: () => void, on: boolean) => (
-    <button key={opt.id} onClick={onClick} aria-pressed={on} title={opt.name}
+  const pill = (o: FusionOption, onClick: () => void, on: boolean) => (
+    <button key={o.name} onClick={onClick} aria-pressed={on} title={o.name}
       style={{
         fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
         maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -154,7 +156,7 @@ export function PresetSwitchOverlay() {
       }}
       onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
       onMouseLeave={(ev) => { ev.currentTarget.style.filter = 'brightness(1)'; }}
-    >{opt.name}</button>
+    >{o.name}</button>
   );
 
   return (
@@ -169,7 +171,6 @@ export function PresetSwitchOverlay() {
         border: '1px solid var(--gold)', borderRadius: 8,
         boxShadow: '0 18px 60px rgba(0,0,0,0.6)', fontFamily: 'var(--font-ui)',
       }}>
-        {/* 头部 */}
         <div style={{ padding: '16px 18px 10px', borderBottom: '1px solid rgba(196,168,85,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div>
@@ -182,13 +183,12 @@ export function PresetSwitchOverlay() {
             }}>✕</button>
           </div>
 
-          {/* 核心驱动模型栏：切到最适配该模型的预设 */}
           {!q && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 10.5, color: 'var(--ink-subtle)', marginBottom: 5 }}>核心驱动模型 · 切到该模型最适配的预设</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {PRESET_BAR.map((m) => {
-                  const on = m.chain ? (presetId === FUSION_XY_ID && isOn(m.chain)) : (presetId === FUSION_DS_ID);
+                  const on = m.chain ? (presetId === FUSION_XY_ID && isOnId(m.chain)) : (presetId === FUSION_DS_ID);
                   return (
                     <button key={m.label} onClick={() => void switchPreset(m.presetId, m.chain)} aria-pressed={on}
                       style={{
@@ -216,14 +216,13 @@ export function PresetSwitchOverlay() {
           />
         </div>
 
-        {/* 菜单 */}
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {visibleGroups.length === 0 && (
             <div style={{ color: 'var(--ink-subtle)', fontSize: 12, textAlign: 'center', padding: 24 }}>无匹配项</div>
           )}
           {visibleGroups.map(({ g, subs }) => {
             const isCollapsed = !q && collapsed.has(g.title);
-            const onCount = subs.flatMap((x) => x.opts).filter((o) => isOn(o.id)).length;
+            const onCount = subs.flatMap((x) => x.opts).filter((o) => isOn(o)).length;
             const total = subs.flatMap((x) => x.opts).length;
             return (
               <div key={g.title} style={{ marginBottom: 6 }}>
@@ -252,7 +251,7 @@ export function PresetSwitchOverlay() {
                           </div>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {opts.map((o) => pill(o, s.single ? () => selectInSub(s.options.map((x) => x.id), o.id) : () => toggleOpt(o.id), isOn(o.id)))}
+                          {opts.map((o) => pill(o, s.single ? () => selectInSub(s.options, o) : () => toggleOpt(o), isOn(o)))}
                         </div>
                       </div>
                     ))}
