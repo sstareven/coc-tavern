@@ -175,7 +175,7 @@ export function PresetSwitchOverlay() {
         maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
         background: on ? 'rgba(196,168,85,0.28)' : 'rgba(0,0,0,0.22)',
-        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+        color: on ? 'var(--gold)' : '#e0d6b8',
         fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
       }}
       onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
@@ -219,7 +219,7 @@ export function PresetSwitchOverlay() {
                         fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
                         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
                         background: on ? 'rgba(196,168,85,0.3)' : 'rgba(0,0,0,0.22)',
-                        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+                        color: on ? 'var(--gold)' : '#e0d6b8',
                         fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
                       }}
                       onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
@@ -288,7 +288,7 @@ export function PresetSwitchOverlay() {
                     {subs.map(({ s, opts }, si) => (
                       <div key={si} style={{ marginBottom: 8 }}>
                         {s.title && (
-                          <div style={{ fontSize: 10.5, color: 'var(--brass)', margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
+                          <div style={{ fontSize: 11, color: 'var(--gold-bright)', fontWeight: 600, margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
                             {s.title}{s.single && <span style={{ fontSize: 9, marginLeft: 5 }}>（单选）</span>}
                           </div>
                         )}
