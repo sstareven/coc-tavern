@@ -61,9 +61,11 @@ export function PresetSwitchOverlay() {
     if (!r) { setItems([]); setPresetName('（无可用预设）'); return; }
     setPresetId(r.id);
     setPresetName(r.preset.name);
-    setItems([...(r.preset.promptItems || [])].sort((a, b) => (a.order ?? 100) - (b.order ?? 100)));
+    const sorted = [...(r.preset.promptItems || [])].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+    setItems(sorted);
     setSearch('');
-    setCollapsed(new Set());
+    // 默认折叠所有分组，便于概览（点组标题展开）。
+    setCollapsed(new Set(sorted.filter((p) => SEP_RE.test(p.name) && !(p.content || '').trim()).map((p) => p.id)));
   }, [open]);
 
   const toggle = (itemId: string) => {
@@ -238,7 +240,9 @@ export function PresetSwitchOverlay() {
                     </span>
                   </div>
                 )}
-                {!isCollapsed && g.items.map((p) => {
+                {!isCollapsed && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 12 }}>
+                  {g.items.map((p) => {
                   const on = p.enabled !== false;
                   const isMarker = p.kind === 'marker';
                   return (
@@ -284,6 +288,8 @@ export function PresetSwitchOverlay() {
                     </div>
                   );
                 })}
+                  </div>
+                )}
               </div>
             );
           })}
