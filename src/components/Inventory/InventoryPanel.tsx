@@ -139,6 +139,10 @@ export function InventoryOverlay() {
       useStatusToastStore.getState().showError('未配置 API Key，无法整合线索');
       return;
     }
+    if (!s.apiBaseUrl?.trim() || !s.apiModel?.trim()) {
+      useStatusToastStore.getState().showError('未配置 API 地址或模型，无法整合线索');
+      return;
+    }
     setIntegrating(true);
     useStatusToastStore.getState().showProcessing('正在整合线索，归纳暗藏的关联…');
     try {

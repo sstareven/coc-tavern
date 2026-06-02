@@ -246,9 +246,11 @@ async function loadConversationInner(cid: string): Promise<void> {
   if (!cid) return;
 
   // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏——【必须在任何 DB 读取之前】：
-  // 若读取事务抛错（DB 损坏/迁移不全），clearAllGameState 仍已执行，不会残留上一会话内存态
-  // 而 activeId 已切到新会话 → 否则下次保存会把旧会话数据写进新档（污染）。
+  // 若读取事务抛错（DB 损坏/迁移不全），clearAllGameState 仍已执行，不会残留上一会话内存态。
+  // 同步把 activeId 切到目标会话，使「已清空内存 ↔ activeId」形成原子步：即便随后的读事务抛错，
+  // 内存(空)与 activeId(=cid) 仍一致，不会出现「activeId 指向旧会话、内存却已清空」的撕裂。
   clearAllGameState();
+  useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
   const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
@@ -362,7 +364,7 @@ async function loadConversationInner(cid: string): Promise<void> {
   useTavernHelperStore.getState().setMacroVars(macroVars);
 
   // 同步内存会话的 pages/pageCount，供 getActivePages 与会话列表使用。
-  useChatStore.getState().setActive(cid);
+  // （activeId 已在函数开头清空内存后同步设置，此处只需同步 pages。）
   useChatStore.getState().savePages(pages);
 }
 
