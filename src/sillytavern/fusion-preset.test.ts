@@ -12,13 +12,13 @@ const stFixture = JSON.stringify({
   prompts: [
     { identifier: 'main', name: '✅双人成行（Atri&Deach）', role: 'system', content: '双人成行人设颂歌……' },
     { identifier: 'worldInfoBefore', name: '🔵角色定义之前', role: 'system', content: '' },
-    { identifier: '57cadf85-d3b2-4268-aaf6-d8b248e886c8', name: '✨Gemini✨', role: 'system', content: 'gemini 专属设定' },
+    { identifier: '4ea7f2d4-a8de-4134-a905-574fa89b1645', name: '🎨Claude🎨', role: 'system', content: 'claude 专属设定' },
     { identifier: '0f4098fb-b5aa-4960-94ac-91d458e57024', name: '🔪大清洗', role: 'system', content: '变量清空' },
   ],
   prompt_order: [{ character_id: 100001, order: [
     { identifier: 'main', enabled: true },
     { identifier: 'worldInfoBefore', enabled: true },
-    { identifier: '57cadf85-d3b2-4268-aaf6-d8b248e886c8', enabled: true },
+    { identifier: '4ea7f2d4-a8de-4134-a905-574fa89b1645', enabled: true },
     { identifier: '0f4098fb-b5aa-4960-94ac-91d458e57024', enabled: true },
   ] }],
 });
@@ -59,9 +59,9 @@ describe('buildFusionPreset — 双人成行融合', () => {
     expect(main.enabled).toBe(false);
   });
 
-  it('模型专属条目（Gemini，在 disableIds）强制关闭', () => {
-    const gem = preset.promptItems.find((p) => p.id.includes('57cadf85'))!;
-    expect(gem.enabled).toBe(false);
+  it('模型组条目按作者默认（Claude 作者默认关）保持关闭', () => {
+    const claude = preset.promptItems.find((p) => p.id.includes('4ea7f2d4'))!;
+    expect(claude.enabled).toBe(false);
   });
 
   it('兼容增强条目（🔪大清洗）按分类默认开启', () => {
@@ -97,8 +97,8 @@ describe('融合预设经 assemblePrompt — COC 机制契约端到端', () => {
   it('双人成行 main 人设（默认关）不出现在组装结果中', () => {
     expect(joined).not.toContain('双人成行人设颂歌');
   });
-  it('模型专属 Gemini 条目（默认关）不出现', () => {
-    expect(joined).not.toContain('gemini 专属设定');
+  it('模型组条目 Claude（作者默认关）不出现', () => {
+    expect(joined).not.toContain('claude 专属设定');
   });
   it('兼容增强（大清洗，默认开）出现', () => {
     const clean = joined;
