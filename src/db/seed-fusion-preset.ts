@@ -3,7 +3,7 @@ import { buildFusionPreset, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_X
 import type { ChatPreset } from '../types';
 
 const SEED_FLAG = 'coc_fusion_seeded';
-const SEED_VERSION = 'v6.1-dual4'; // bump：默认开 Atri&Deach 主人设 + 思考功能id错位修正
+const SEED_VERSION = 'v6.1-dual5'; // bump：marker role 保真(main=user/nsfw=assistant) 重种生效
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
 

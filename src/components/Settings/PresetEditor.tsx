@@ -539,11 +539,11 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                       : isMarker ? 'rgba(0,0,0,0.08)' : 'rgba(196,168,85,0.03)',
                     opacity: enabled ? (dragId === item.id ? 0.6 : 1) : 0.4 }}>
                   <span style={{ fontSize: 8, color: isMarker ? 'var(--gold)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>
-                    {isMarker ? 'System' : 'Prompt'}
+                    {isMarker ? '标记' : '提示词'}
                   </span>
                   <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     {item.name || '(未命名)'}
-                    {!isMarker && <span style={{ fontSize: 8, color: 'var(--ink-faded)', marginLeft: 4 }}>[{item.role}]</span>}
+                    <span style={{ fontSize: 8, color: item.role === 'assistant' ? 'var(--success)' : item.role === 'user' ? 'var(--brass)' : 'var(--ink-faded)', marginLeft: 4 }}>[{item.role === 'user' ? '用户' : item.role === 'assistant' ? 'AI' : '系统'}]</span>
                   </span>
                   {!isMarker && (
                     <button onClick={() => { set('promptItems', allItems.filter((_: PromptItem, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>

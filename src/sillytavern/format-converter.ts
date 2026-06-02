@@ -326,7 +326,7 @@ export function importPresetFromST(json: string, fileName?: string): ImportedPre
         const markerName = (promptData && promptData.name) || label;
         const markerContent = (promptData && promptData.content) || '';
         promptItems.push({
-          id, name: markerName, role: 'system', trigger: [] as string[],
+          id, name: markerName, role: (promptData?.role as 'system' | 'user' | 'assistant') || 'system', trigger: [] as string[],
           position: 'relative' as const, depth: 0, order: promptItems.length,
           content: markerContent, enabled, kind: 'marker' as const,
           readOnly: id === 'dialogueExamples' || id === 'chatHistory',
