@@ -243,19 +243,19 @@ export function PresetSwitchOverlay() {
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {!q && (
             <div style={{ margin: '2px 0 10px', padding: '10px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 6, background: 'rgba(196,168,85,0.04)' }}>
-              <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
+              <div style={{ fontSize: 10, color: '#b5aa86', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <div style={{ fontSize: 11.5 }}>
-                  <span style={{ color: 'var(--brass)' }}>驱动模型</span> <span style={{ color: 'var(--gold)' }}>{modelLabel}</span>
+                  <span style={{ color: '#cdbf95' }}>驱动模型</span> <span style={{ color: 'var(--gold-bright)' }}>{modelLabel}</span>
                 </div>
                 {effectSummary.map((s) => (
                   <div key={s.label} style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                    <span style={{ color: 'var(--brass)' }}>{s.label}</span>{' '}
-                    <span style={{ color: 'var(--gold)' }}>{s.value}</span>
-                    {s.effect && <span style={{ color: 'var(--ink-subtle)', fontSize: 9.5, marginLeft: 6 }}>· {s.effect}</span>}
+                    <span style={{ color: '#cdbf95' }}>{s.label}</span>{' '}
+                    <span style={{ color: 'var(--gold-bright)' }}>{s.value}</span>
+                    {s.effect && <span style={{ color: '#b5aa86', fontSize: 10, marginLeft: 6 }}>· {s.effect}</span>}
                   </div>
                 ))}
-                {effectSummary.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>暂未开启任何功能泡泡</div>}
+                {effectSummary.length === 0 && <div style={{ fontSize: 11, color: '#b5aa86' }}>暂未开启任何功能泡泡</div>}
               </div>
             </div>
           )}
