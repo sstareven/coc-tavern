@@ -1,133 +1,163 @@
-// AUTO-GENERATED 双人成行友好菜单。每选项含 xy/ds 两版真实 identifier(按 name 在两版各查),
-// 悬浮窗按当前预设选用对应 id;已删前端美化/禁词/模型组(模型由顶部预设栏切换)。
-export interface FusionOption { name: string; xy?: string; ds?: string; }
-export interface FusionSub { title?: string; single: boolean; options: FusionOption[]; }
+// AUTO-GENERATED 双人成行友好菜单。每选项含 xy/ds 两版真实 identifier(按 name 在两版各查)。
+// desc/label/effect/hint 文案均提炼自预设作者《使用指南》(点铅笔→ 条目)。
+// label/effect 供「当前效果预览」按子块归纳；exclusive 组整组单选；已删前端美化/禁词/模型组。
+export interface FusionOption { name: string; xy?: string; ds?: string; hint?: string; }
+export interface FusionSub { title?: string; single: boolean; label?: string; effect?: string; options: FusionOption[]; }
 // exclusive=true: 整组跨子块单选（如文风库——底层共用一个 setvar 变量，只能有一个生效）；
 // 点未选项→仅开它并关掉全组其它；点已选项→清空（全组关闭）。未设则各子块按自身 single 处理。
 export interface FusionGroup { title: string; desc: string; exclusive?: boolean; subs: FusionSub[]; }
 export const FUSION_MENU: FusionGroup[] = [
   {
     "title": "人称与话语权调度",
-    "desc": "控制叙述视角和用户发言比例。人称视角决定故事观察视角，User选项调整用户台词量和AI对用户输入的处理方式。",
+    "desc": "调节叙述视角与用户话语权：选一种人称决定故事用谁的眼睛看，再按需调整 user 台词量、AI 对你输入的处理及对白比例。",
     "subs": [
       {
+        "title": "叙述视角",
         "single": true,
+        "label": "叙述视角",
+        "effect": "决定正文以谁的眼睛叙述；只能选一种，群像/非user视角会弱化或无视你。",
         "options": [
           {
             "name": "第一人称",
             "xy": "a98f7a28-bfe8-4b4b-ae9f-a74c5cc2a8b3",
-            "ds": "a98f7a28-bfe8-4b4b-ae9f-a74c5cc2a8b3"
+            "ds": "a98f7a28-bfe8-4b4b-ae9f-a74c5cc2a8b3",
+            "hint": "以「我」为主语，聚焦主观所见所感，代入感强"
           },
           {
             "name": "第二人称",
             "xy": "f48dd664-dd7f-4f9f-85ec-24579a2dc06e",
-            "ds": "f48dd664-dd7f-4f9f-85ec-24579a2dc06e"
+            "ds": "f48dd664-dd7f-4f9f-85ec-24579a2dc06e",
+            "hint": "以「你」为主语描述，亲密又略带疏离的代入"
           },
           {
             "name": "第三人称",
             "xy": "d7fe66fd-5bee-4f48-9a7a-186bb532f8ce",
-            "ds": "d7fe66fd-5bee-4f48-9a7a-186bb532f8ce"
+            "ds": "d7fe66fd-5bee-4f48-9a7a-186bb532f8ce",
+            "hint": "所有角色含user都用第三人称，多用名字指代"
           },
           {
             "name": "非user视角",
             "xy": "c45fcd94-0748-4c10-bc54-08d3f2c1fa6c",
-            "ds": "c45fcd94-0748-4c10-bc54-08d3f2c1fa6c"
+            "ds": "c45fcd94-0748-4c10-bc54-08d3f2c1fa6c",
+            "hint": "叙述去除user，世界不再围绕你转"
           },
           {
             "name": "char第三人称",
             "xy": "3b73f84e-9dbe-43f2-9b6c-8ce95ed0099c",
-            "ds": "3b73f84e-9dbe-43f2-9b6c-8ce95ed0099c"
+            "ds": "3b73f84e-9dbe-43f2-9b6c-8ce95ed0099c",
+            "hint": "锁char主观感知，称你为「你」、char为他/她"
           },
           {
             "name": "群像视角",
             "xy": "2ebc5bad-34f4-48e0-a62f-608288be9ec8",
-            "ds": "2ebc5bad-34f4-48e0-a62f-608288be9ec8"
+            "ds": "2ebc5bad-34f4-48e0-a62f-608288be9ec8",
+            "hint": "AI完全无视笑脸，只支配角色卡里的人物"
           }
-        ],
-        "title": "叙述视角"
+        ]
       },
       {
+        "title": "User发言量",
         "single": false,
+        "label": "User发言量",
+        "effect": "调你在正文里说多少话；均可不开，user全是话与防抢话冲突、嘴替与防复述冲突。",
         "options": [
           {
             "name": "user全是话",
             "xy": "fbce1f0d-3432-43a3-ae3b-de0c330d2d16",
-            "ds": "d14126d1-9450-436b-a3f9-5a1e3e2297ac"
+            "ds": "d14126d1-9450-436b-a3f9-5a1e3e2297ac",
+            "hint": "大幅增加user台词量 ⚠️与防抢话冲突"
           },
           {
             "name": "user不说话",
             "xy": "4eaa05f8-14d8-484c-846c-208b69e52ad2",
-            "ds": "cc8e2640-d8c5-4a54-922a-7879d2bba6f3"
+            "ds": "cc8e2640-d8c5-4a54-922a-7879d2bba6f3",
+            "hint": "user无台词，只用动作眼神暗示，不替你决策"
           },
           {
             "name": "user的嘴替",
             "xy": "16f12b6d-236f-4289-85be-eb0fbb4008f2",
-            "ds": "5b634397-6b05-4a14-aeec-a381b1a1e95b"
+            "ds": "5b634397-6b05-4a14-aeec-a381b1a1e95b",
+            "hint": "优化你的输入不照搬原话 ⚠️与防复述冲突"
           }
-        ],
-        "title": "User发言量"
+        ]
       },
       {
+        "title": "对白处理",
         "single": false,
+        "label": "对白处理",
+        "effect": "提升正文对话占比；均可不开，可让对白成为推动剧情的主力。",
         "options": [
           {
             "name": "增加对白",
-            "xy": "809aa33c-54a3-46e5-97fd-db5f3b1e2d65"
+            "xy": "809aa33c-54a3-46e5-97fd-db5f3b1e2d65",
+            "hint": "以语言为主，对白量不低于正文40%"
           },
           {
             "name": "增加NPC对白",
             "xy": "7463f7c8-6f41-486c-94ea-11baaea78173",
-            "ds": "0cc22069-a025-4de4-aa0c-7f88800a4256"
+            "ds": "0cc22069-a025-4de4-aa0c-7f88800a4256",
+            "hint": "以非user角色间对话为主，你少参与"
           },
           {
             "name": "User去中心化",
-            "xy": "bda99b2d-dffb-4e0f-9e6d-a7b5abc24f6f"
+            "xy": "bda99b2d-dffb-4e0f-9e6d-a7b5abc24f6f",
+            "hint": "角色不刻意讨好你，各自保持立场人设"
           }
-        ],
-        "title": "对白处理"
+        ]
       },
       {
+        "title": "User基准性格",
         "single": true,
+        "label": "User基准性格",
+        "effect": "设定笑脸user的默认人格基准；只能选一种，会自动让位于你的补充设定。",
         "options": [
           {
             "name": "USERROLE默认",
-            "xy": "b3b0250d-78df-4901-b5cc-af62c3a0ce0f"
+            "xy": "b3b0250d-78df-4901-b5cc-af62c3a0ce0f",
+            "hint": "沿用角色卡默认的user_role设定"
           },
           {
             "name": "自定义人格",
-            "xy": "fbafb78f-e095-474f-a3f7-dfc253608dff"
+            "xy": "fbafb78f-e095-474f-a3f7-dfc253608dff",
+            "hint": "默认设为善良中庸，不强势不混乱"
           }
-        ],
-        "title": "User基准性格"
+        ]
       }
     ]
   },
   {
     "title": "情感基调",
-    "desc": "决定故事的整体情感走向。基调会显著影响剧情发展（如即使开启虐文，治愈向基调也会化解虐意）。每次仅可开启一个基调，或不开。",
+    "desc": "决定故事整体情感走向。基调会显著影响剧情发展，例如即使勾选虐文，治愈向基调也会让虐文变甜。基调只能开一个，也可不开，理论上与文风不冲突。",
     "subs": [
       {
         "single": true,
+        "label": "情感基调",
+        "effect": "为正文定下整体情绪走向，强力扭转剧情；只能选一个，与文风不冲突。",
         "options": [
           {
             "name": "基调为空",
-            "xy": "c8b215ef-c7c5-484f-9cfe-ffd747d86410"
+            "xy": "c8b215ef-c7c5-484f-9cfe-ffd747d86410",
+            "hint": "不设定基调，跳过该问题。"
           },
           {
             "name": "治愈",
-            "xy": "fd134cc1-c391-4a14-9419-2facf220cbd5"
+            "xy": "fd134cc1-c391-4a14-9419-2facf220cbd5",
+            "hint": "温暖接纳，故事从波动回归安定。"
           },
           {
             "name": "伤感",
-            "xy": "63d32a0f-e881-4ec1-9c5d-ee4e506dd75d"
+            "xy": "63d32a0f-e881-4ec1-9c5d-ee4e506dd75d",
+            "hint": "忧郁宿命，沉溺情绪、延展遗憾。"
           },
           {
             "name": "积极",
-            "xy": "b061c539-3c15-4130-be66-881c95d034d2"
+            "xy": "b061c539-3c15-4130-be66-881c95d034d2",
+            "hint": "积极上扬，消解阴霾走向和解。"
           },
           {
             "name": "消极",
-            "xy": "ae90e752-d3ea-469c-9723-fa406abe88ca"
+            "xy": "ae90e752-d3ea-469c-9723-fa406abe88ca",
+            "hint": "消极下沉，放大裂痕滑向颓丧。"
           }
         ]
       }
@@ -135,227 +165,275 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "特色文风滤镜库",
-    "desc": "正文叙述风格，全库单选：选一个会自动关掉其它文风；再次点击当前文风即可清空（回到模型自由发挥）。默认为洛夫克拉夫特文风。",
+    "desc": "正文叙述风格库，全库单选：选一个会自动关掉其它文风，再次点击当前项即可清空、回到模型自由发挥。不开也可，多个文风同开时只有最下面的生效。",
     "exclusive": true,
     "subs": [
       {
-        "single": true,
         "title": "克苏鲁向（默认）",
+        "single": true,
+        "label": "克苏鲁向（默认）",
+        "effect": "正文套用洛夫克拉夫特式宇宙恐怖：冷静考据笔调、不可名状的暗示（默认文风）。",
         "options": [
           {
             "name": "洛夫克拉夫特",
             "xy": "lovecraft-style",
-            "ds": "lovecraft-style"
+            "ds": "lovecraft-style",
+            "hint": "古典克苏鲁式神秘恐怖叙事（默认文风）"
           }
         ]
       },
       {
+        "title": "轻松温馨向",
         "single": true,
+        "label": "轻松温馨向",
+        "effect": "正文转为日系轻松、对白丰富、氛围温软甜美的笔触。",
         "options": [
           {
             "name": "N-轻小说",
             "xy": "7f5a80d3-8b2a-443d-9bea-b25b5a4bf15e",
-            "ds": "7f5a80d3-8b2a-443d-9bea-b25b5a4bf15e"
+            "ds": "7f5a80d3-8b2a-443d-9bea-b25b5a4bf15e",
+            "hint": "日系轻小说，对话与叙述相辅相成，口语鲜活"
           },
           {
             "name": "成人童话",
             "xy": "9a279ba3-84ce-41dd-93e4-ecfc3e12aab7",
-            "ds": "9a279ba3-84ce-41dd-93e4-ecfc3e12aab7"
+            "ds": "9a279ba3-84ce-41dd-93e4-ecfc3e12aab7",
+            "hint": "意象与情感驱动，清冷孤寂带宇宙慈爱"
           },
           {
             "name": "日系ASMR",
             "xy": "ecfff904-9736-4c35-a4db-a5b024d26ace",
-            "ds": "ecfff904-9736-4c35-a4db-a5b024d26ace"
+            "ds": "ecfff904-9736-4c35-a4db-a5b024d26ace",
+            "hint": "可爱与淫荡融合，高对话比的感官色情轻小说"
           },
           {
             "name": "烤面包机",
             "xy": "542eb285-7582-47f4-a0ca-aa3781f88ddd",
-            "ds": "542eb285-7582-47f4-a0ca-aa3781f88ddd"
+            "ds": "542eb285-7582-47f4-a0ca-aa3781f88ddd",
+            "hint": "电波系，于平凡荒诞中提炼温暖笑点"
           },
           {
             "name": "流转心跳叙事",
             "xy": "c8e99048-132d-4cdd-a77d-0e0eb30ef093",
-            "ds": "c8e99048-132d-4cdd-a77d-0e0eb30ef093"
+            "ds": "c8e99048-132d-4cdd-a77d-0e0eb30ef093",
+            "hint": "轻松静谧微甜，按情绪交替控制段落长短"
           }
-        ],
-        "title": "轻松温馨向"
+        ]
       },
       {
+        "title": "情绪表达向",
         "single": true,
+        "label": "情绪表达向",
+        "effect": "正文偏氛围与质感，靠画面、留白与情绪渲染推进。",
         "options": [
           {
             "name": "旧录像带质感",
-            "xy": "28906fc6-9b8b-484c-a5d1-7c41a1f5a7d6"
+            "xy": "28906fc6-9b8b-484c-a5d1-7c41a1f5a7d6",
+            "hint": "模仿VHS模糊重影、电磁干扰的失真观感"
           },
           {
             "name": "冷冽与梦核",
             "xy": "34ead477-4c68-49e1-a2ee-004d823e9482",
-            "ds": "34ead477-4c68-49e1-a2ee-004d823e9482"
+            "ds": "34ead477-4c68-49e1-a2ee-004d823e9482",
+            "hint": "胶片颗粒柔焦、怀旧蓝调、强调使用痕迹"
           },
           {
             "name": "白描文风",
             "xy": "fb97d0f8-db42-4561-a18a-fb03827099fd",
-            "ds": "fb97d0f8-db42-4561-a18a-fb03827099fd"
+            "ds": "fb97d0f8-db42-4561-a18a-fb03827099fd",
+            "hint": "以日常动作自然推进，冲突藏于细微变化"
           }
-        ],
-        "title": "情绪表达向"
+        ]
       },
       {
+        "title": "神秘高压向",
         "single": true,
+        "label": "神秘高压向",
+        "effect": "正文营造压迫、解构与神秘张力，氛围冷硬残酷。",
         "options": [
           {
             "name": "显性高压",
             "xy": "8daa005a-79c7-4e45-8b93-d0d1ca65afca",
-            "ds": "8daa005a-79c7-4e45-8b93-d0d1ca65afca"
+            "ds": "8daa005a-79c7-4e45-8b93-d0d1ca65afca",
+            "hint": "人格解构与生理叙事，剥离浪漫直视支配"
           },
           {
             "name": "魔幻现实",
             "xy": "17939e9f-38b7-4f84-92be-5d2d66fd3760",
-            "ds": "17939e9f-38b7-4f84-92be-5d2d66fd3760"
+            "ds": "17939e9f-38b7-4f84-92be-5d2d66fd3760",
+            "hint": "原始生命力，在荒诞泥泞中展现人性高光"
           },
           {
             "name": "深渊童谣",
-            "xy": "b665f40e-f8e7-4f41-a081-9612f9a1558c"
+            "xy": "b665f40e-f8e7-4f41-a081-9612f9a1558c",
+            "hint": "银河铁道式极寒与宇宙尺度的童谣感"
           },
           {
             "name": "后311",
             "xy": "276458a7-26ed-4bab-bfd9-ef767834a2bc",
-            "ds": "276458a7-26ed-4bab-bfd9-ef767834a2bc"
+            "ds": "276458a7-26ed-4bab-bfd9-ef767834a2bc",
+            "hint": "日式实存青年反叛，感觉与冲动驱动"
           }
-        ],
-        "title": "神秘高压向"
+        ]
       },
       {
+        "title": "小说故事向",
         "single": true,
+        "label": "小说故事向",
+        "effect": "正文转为成熟长篇小说笔法，情节与世界观导向。",
         "options": [
           {
             "name": "写实西幻",
             "xy": "2224b8e7-d998-4359-933c-db0f066385c9",
-            "ds": "2224b8e7-d998-4359-933c-db0f066385c9"
+            "ds": "2224b8e7-d998-4359-933c-db0f066385c9",
+            "hint": "史诗权谋，宏大残酷世界中的群像博弈"
           },
           {
             "name": "散文小说",
             "xy": "f859b478-7dc2-4f8d-9cc6-1ef520bfe6b3",
-            "ds": "f859b478-7dc2-4f8d-9cc6-1ef520bfe6b3"
+            "ds": "f859b478-7dc2-4f8d-9cc6-1ef520bfe6b3",
+            "hint": "故事/情节导向，删繁就简、镜头着眼故事"
           },
           {
             "name": "西方魔幻",
             "xy": "9c79c34c-1c00-4948-b4a5-bc9ffe154702",
-            "ds": "9c79c34c-1c00-4948-b4a5-bc9ffe154702"
+            "ds": "9c79c34c-1c00-4948-b4a5-bc9ffe154702",
+            "hint": "中世纪西幻史诗，魔法骑士与权力斗争"
           },
           {
             "name": "辰东网文",
             "xy": "1ba3a44c-e9a2-461b-ba70-f60e0857025e",
-            "ds": "1ba3a44c-e9a2-461b-ba70-f60e0857025e"
+            "ds": "1ba3a44c-e9a2-461b-ba70-f60e0857025e",
+            "hint": "太古玄幻，宏大宇宙洪荒、独断万古之感"
           }
-        ],
-        "title": "小说故事向"
+        ]
       },
       {
+        "title": "古风",
         "single": true,
+        "label": "古风",
+        "effect": "正文转为半文半白或文言笔调，古典韵味浓厚。",
         "options": [
           {
             "name": "四字为锋",
             "xy": "67d1b236-d330-4344-b29f-fe6df921f01f",
-            "ds": "67d1b236-d330-4344-b29f-fe6df921f01f"
+            "ds": "67d1b236-d330-4344-b29f-fe6df921f01f",
+            "hint": "半文半白，四字短句为鼓点、留白截断"
           },
           {
             "name": "红楼一梦",
             "xy": "57b73db3-c1de-4422-9ebd-47b0258de3a3",
-            "ds": "57b73db3-c1de-4422-9ebd-47b0258de3a3"
+            "ds": "57b73db3-c1de-4422-9ebd-47b0258de3a3",
+            "hint": "仿《红楼梦》文言为核心的叙述语言"
           }
-        ],
-        "title": "古风"
+        ]
       },
       {
+        "title": "NSFW向",
         "single": true,
+        "label": "NSFW向",
+        "effect": "正文转为直白详尽的色情笔法，强化性描写。",
         "options": [
           {
             "name": "N-黄文(纯爱)",
             "xy": "a1b83532-9cbc-41e0-9272-4756c4cad77b",
-            "ds": "a1b83532-9cbc-41e0-9272-4756c4cad77b"
+            "ds": "a1b83532-9cbc-41e0-9272-4756c4cad77b",
+            "hint": "纯爱向H小说，直白通俗、叙述与对白并重"
           },
           {
             "name": "黄文",
             "xy": "8582178b-4087-4f18-92c3-bb63621312aa",
-            "ds": "8582178b-4087-4f18-92c3-bb63621312aa"
+            "ds": "8582178b-4087-4f18-92c3-bb63621312aa",
+            "hint": "详写语言动作与触感，直白不隐晦勾起性欲"
           },
           {
             "name": "反差色情",
             "xy": "113e2f9d-f3c3-4270-8cea-db39bf5f9f39",
-            "ds": "113e2f9d-f3c3-4270-8cea-db39bf5f9f39"
+            "ds": "113e2f9d-f3c3-4270-8cea-db39bf5f9f39",
+            "hint": "长段落沉浸压迫，反差感高张力叙事"
           },
           {
             "name": "反差(男孩)",
             "xy": "29e6ead5-2f72-46e8-a109-eea6ef5d7d97",
-            "ds": "29e6ead5-2f72-46e8-a109-eea6ef5d7d97"
+            "ds": "29e6ead5-2f72-46e8-a109-eea6ef5d7d97",
+            "hint": "湿热汗咸触感的少年堕落向反差色情"
           }
-        ],
-        "title": "NSFW向"
+        ]
       },
       {
+        "title": "自定义文风",
         "single": true,
+        "label": "自定义文风",
+        "effect": "留空槽位，自行填入想要的文风文本（保留标签）。",
         "options": [
           {
             "name": "自定义文风1",
-            "xy": "66c757f5-bedc-4400-81f1-5889b2bf74a6"
+            "xy": "66c757f5-bedc-4400-81f1-5889b2bf74a6",
+            "hint": "空白槽位，自行改写为想要的文风，保留标签"
           },
           {
             "name": "自定义文风2",
             "xy": "1b0c5882-73f4-4f2d-866c-d99341369ebe",
-            "ds": "1b0c5882-73f4-4f2d-866c-d99341369ebe"
+            "ds": "1b0c5882-73f4-4f2d-866c-d99341369ebe",
+            "hint": "空白槽位，自行改写为想要的文风，保留标签"
           }
-        ],
-        "title": "自定义文风"
+        ]
       }
     ]
   },
   {
     "title": "思考功能",
-    "desc": "按需开启思考强化。推荐开启0-4个，不建议多开。每个模型有对应的思维链配置。",
+    "desc": "思考链强化模块，按需勾选让AI在出文前先做对应专项思考。推荐开0-4个，不建议多开，仅向斜阳版提供这些细分项。",
     "subs": [
       {
         "single": false,
+        "label": "思考链强化项",
+        "effect": "出文前先做对应专项思考，每项强化一个写作维度；推荐开0-4个，多开会拖慢且互相稀释。",
         "options": [
           {
             "name": "反抢话",
-            "xy": "9a5fe514-2b7c-46f0-a730-c7903ba6c821"
+            "xy": "9a5fe514-2b7c-46f0-a730-c7903ba6c821",
+            "hint": "出文前确认不替user说话、不替你做决定"
           },
           {
             "name": "推剧情",
-            "xy": "64a122a7-f10f-48d6-b4da-65a90b4a7103"
+            "xy": "64a122a7-f10f-48d6-b4da-65a90b4a7103",
+            "hint": "先规划新事件，避免剧情停滞空转"
           },
           {
             "name": "NPC引入",
-            "xy": "90892916-902a-495e-a24d-3a5816d725e5"
+            "xy": "90892916-902a-495e-a24d-3a5816d725e5",
+            "hint": "适时合理引入NPC打破僵局"
           },
           {
             "name": "生动化",
-            "xy": "60d89cd3-b49f-4990-befa-6b1f477fd2c8"
-          },
-          {
-            "name": "反极端",
-            "xy": "76a49a05-1443-412d-9f6b-0add04a3c3bc"
+            "xy": "60d89cd3-b49f-4990-befa-6b1f477fd2c8",
+            "hint": "先梳理角色性格与说话风格再写"
           },
           {
             "name": "Char主动",
-            "xy": "dee8df23-4bb9-4fc9-8dac-17f5ddca28c8"
+            "xy": "76a49a05-1443-412d-9f6b-0add04a3c3bc",
+            "hint": "让char强势主动介入、创造与你互动的机会"
           },
           {
             "name": "世界书增强",
-            "xy": "dee8df23-4bb9-4fc9-8dac-17f5ddca28c8"
+            "xy": "dee8df23-4bb9-4fc9-8dac-17f5ddca28c8",
+            "hint": "出文前从世界书Lore提取≥3条相关设定核对"
           },
           {
             "name": "防重复",
-            "xy": "4b892b37-3cbc-4d36-af69-b07d0db9c8bd"
+            "xy": "4b892b37-3cbc-4d36-af69-b07d0db9c8bd",
+            "hint": "先查重，避开已用结构与台词换新写法"
           },
           {
             "name": "性爱事件判断",
-            "xy": "318fd753-3b3d-4e95-b07d-94a548d27463"
+            "xy": "318fd753-3b3d-4e95-b07d-94a548d27463",
+            "hint": "判断是否为性爱事件及其走向与收尾"
           },
           {
             "name": "色情要求",
-            "xy": "a01febbd-dfc3-4dc0-890a-7ce95d1e3ded"
+            "xy": "a01febbd-dfc3-4dc0-890a-7ce95d1e3ded",
+            "hint": "在世界观内合理铺陈色情，避免突兀"
           }
         ]
       }
@@ -363,34 +441,41 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "常规功能",
-    "desc": "基础功能开关。包括上帝模式(写小说)、思维链自定义、User角色定义等。锋芒未露用于优化正文，请勿关闭。",
+    "desc": "基础叙事开关：上帝模式让你当导演写小说、笑脸才是主角；自定义思维链可塞入角色卡专属CoT；还能指定扮演世界书角色、开双语对白、设定输出字数。",
     "subs": [
       {
         "single": false,
+        "label": "常规叙事开关",
+        "effect": "按需叠加：改变主角归属、思维链、扮演对象、对白语言与字数；各项可单独开关。",
         "options": [
           {
             "name": "上帝模式",
             "xy": "7ed8345a-26dc-4550-9e3b-a7c4e4d00d07",
-            "ds": "ca2cc946-3832-418d-a866-4d3995fe2ad6"
+            "ds": "ca2cc946-3832-418d-a866-4d3995fe2ad6",
+            "hint": "你变导演决定剧情，笑脸user才是真主角"
           },
           {
             "name": "自定义思维链",
             "xy": "d02403c9-07df-47fa-b06c-c1ac5743fea3",
-            "ds": "d02403c9-07df-47fa-b06c-c1ac5743fea3"
+            "ds": "d02403c9-07df-47fa-b06c-c1ac5743fea3",
+            "hint": "把角色卡专属CoT塞进来，勿删steavr变量"
           },
           {
             "name": "User角色定义",
-            "xy": "d0e01450-ed02-4606-872d-21fdc9cba355"
+            "xy": "d0e01450-ed02-4606-872d-21fdc9cba355",
+            "hint": "填角色名即可扮演世界书中角色，笑脸留空"
           },
           {
             "name": "双语对白",
             "xy": "a04824ba-ba43-4291-a61b-fa50550b27c9",
-            "ds": "a04824ba-ba43-4291-a61b-fa50550b27c9"
+            "ds": "a04824ba-ba43-4291-a61b-fa50550b27c9",
+            "hint": "角色对话改用双语，可改引号设定语种"
           },
           {
             "name": "字数设定",
             "xy": "4b3a89f3-09fb-4586-a5e3-bc2f90f2de97",
-            "ds": "4b3a89f3-09fb-4586-a5e3-bc2f90f2de97"
+            "ds": "4b3a89f3-09fb-4586-a5e3-bc2f90f2de97",
+            "hint": "设定单次输出的最小/最大字数区间"
           }
         ]
       }
@@ -398,50 +483,60 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "正文优化",
-    "desc": "优化正文表现。按需开启，不建议多开。避免开启与其他选项冲突的项（如'无对话'与其他项冲突）。",
+    "desc": "优化正文表现的补丁集。按需开启，不建议多开（抗绝望不建议开）。注意「无对话」会与其他选项冲突，开启前留意。",
     "subs": [
       {
         "single": false,
+        "label": "正文优化方向",
+        "effect": "按需缝合多种正文打磨规则；不建议多开，「无对话」与其他选项冲突",
         "options": [
           {
             "name": "抗绝望",
             "xy": "58b1885f-0f3a-4cd2-9af4-94b29219e38b",
-            "ds": "58b1885f-0f3a-4cd2-9af4-94b29219e38b"
+            "ds": "58b1885f-0f3a-4cd2-9af4-94b29219e38b",
+            "hint": "角色不受困境羞辱打击侵蚀、性格恒定不崩；不建议开"
           },
           {
             "name": "反科幻",
             "xy": "6775f10c-bba4-4161-b5da-1a1e3e240ca9",
-            "ds": "6775f10c-bba4-4161-b5da-1a1e3e240ca9"
+            "ds": "6775f10c-bba4-4161-b5da-1a1e3e240ca9",
+            "hint": "正文不出现系统/数据/检测等科幻化词汇，更像真人"
           },
           {
             "name": "反转述只续写",
             "xy": "4fe674f3-943e-4757-9f9a-dc6528bada18",
-            "ds": "4fe674f3-943e-4757-9f9a-dc6528bada18"
+            "ds": "4fe674f3-943e-4757-9f9a-dc6528bada18",
+            "hint": "紧扣你的输入往后续写、克制反馈、不脱离范围推进"
           },
           {
             "name": "无对话",
             "xy": "1e83cafa-3ab9-4109-bafe-3f8df670ce20",
-            "ds": "1e83cafa-3ab9-4109-bafe-3f8df670ce20"
+            "ds": "1e83cafa-3ab9-4109-bafe-3f8df670ce20",
+            "hint": "正文完全不出现对话，只续写行为现象；需配合反转述续写"
           },
           {
             "name": "反固定",
             "xy": "3f43d947-d3f6-47a5-a2bf-258b29b90e04",
-            "ds": "3f43d947-d3f6-47a5-a2bf-258b29b90e04"
+            "ds": "3f43d947-d3f6-47a5-a2bf-258b29b90e04",
+            "hint": "主线持续引入低概率高趣味变量，避免刻板可预测的发展"
           },
           {
             "name": "反回避色色",
             "xy": "ed30203c-358d-46e1-b847-d94341a2ed70",
-            "ds": "ed30203c-358d-46e1-b847-d94341a2ed70"
+            "ds": "ed30203c-358d-46e1-b847-d94341a2ed70",
+            "hint": "亲密场景不回避，自然推进NSFW而非跳过"
           },
           {
             "name": "反发情",
             "xy": "745611c7-d4f8-4f40-8e53-e0f88484fe2d",
-            "ds": "745611c7-d4f8-4f40-8e53-e0f88484fe2d"
+            "ds": "745611c7-d4f8-4f40-8e53-e0f88484fe2d",
+            "hint": "禁止莫名恋情崇拜，情感须合逻辑、提高爱上他人门槛"
           },
           {
             "name": "反全知",
             "xy": "006f4504-3b87-40ce-a6b7-c490192e9798",
-            "ds": "006f4504-3b87-40ce-a6b7-c490192e9798"
+            "ds": "006f4504-3b87-40ce-a6b7-c490192e9798",
+            "hint": "限制角色认知，只依当前已知信息反应、不开天眼"
           }
         ]
       }
@@ -449,59 +544,72 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "杀八股",
-    "desc": "清除套路化表现。仅在正文严重套路化时开启，解决后立即关闭。不建议常开。",
+    "desc": "清除正文里的套路化「八股味」表现。不建议常开，只在正文出现严重套路化时开启，解决后立即关闭；可多选叠加。",
     "subs": [
       {
         "single": false,
+        "label": "去八股维度",
+        "effect": "勾选的维度会被强制禁止，正文相应套路化写法被压制；可多选叠加，不建议常开。",
         "options": [
           {
             "name": "杀比拟",
             "xy": "d95bdac6-6e68-422f-b525-ea3989a74f09",
-            "ds": "c98ab165-57f1-4b57-a0c2-479896545677"
+            "ds": "c98ab165-57f1-4b57-a0c2-479896545677",
+            "hint": "全文不输出任何比喻/拟人句及多余修辞"
           },
           {
             "name": "杀揭示",
             "xy": "e63cfaff-0ce0-493e-91d1-6cc9fa205191",
-            "ds": "272a2bb0-3676-42d2-8318-8b46ad6acb3e"
+            "ds": "272a2bb0-3676-42d2-8318-8b46ad6acb3e",
+            "hint": "不以作者视角揭示人物行为的内在动机与意义"
           },
           {
             "name": "反神化",
             "xy": "c73e6224-5063-4275-a107-0181691e4030",
-            "ds": "f3f3752a-7810-47ee-8eb9-1e0cc94419a4"
+            "ds": "f3f3752a-7810-47ee-8eb9-1e0cc94419a4",
+            "hint": "禁止把user或角色神化无敌，能力须合世界观"
           },
           {
             "name": "杀说明",
             "xy": "d60f4718-f053-44c2-bf0d-fece187ef1ff",
-            "ds": "48075cc7-0aef-4b81-961c-a1897607b544"
+            "ds": "48075cc7-0aef-4b81-961c-a1897607b544",
+            "hint": "拒绝说明性文字，不突兀解释角色行为性格"
           },
           {
             "name": "杀声述",
             "xy": "42d19d3b-5bc3-4757-a269-f638434173d6",
-            "ds": "4312a0a6-0cb4-4bff-9bd4-e7071c6e2146"
+            "ds": "4312a0a6-0cb4-4bff-9bd4-e7071c6e2146",
+            "hint": "不阐述角色声音，直接写出台词"
           },
           {
             "name": "白描",
-            "xy": "ded39ef4-dbca-4d54-8eb0-d992603b44b1"
+            "xy": "ded39ef4-dbca-4d54-8eb0-d992603b44b1",
+            "hint": "不使用任何形容词与副词，纯白描"
           },
           {
             "name": "杀超雄",
-            "xy": "c295de2a-8f08-4add-b2c7-3046c2875c47"
+            "xy": "c295de2a-8f08-4add-b2c7-3046c2875c47",
+            "hint": "检查角色情绪是否机械冷淡/超雄、反应是否合理"
           },
           {
             "name": "杀转折词",
-            "xy": "d8ce5239-8a5f-4165-be4a-6cd66370ac4a"
+            "xy": "d8ce5239-8a5f-4165-be4a-6cd66370ac4a",
+            "hint": "避免「不是…而是…」式转折词，正文不用破折号"
           },
           {
             "name": "微观与宏观",
-            "xy": "e2553a13-f789-4097-953d-052e61c35636"
+            "xy": "e2553a13-f789-4097-953d-052e61c35636",
+            "hint": "禁用一丝/不易察觉等极端微观与失控宏观词"
           },
           {
             "name": "情绪化通感",
-            "xy": "2ea831e6-4b97-40f0-a5ad-307ee8cbcbe7"
+            "xy": "2ea831e6-4b97-40f0-a5ad-307ee8cbcbe7",
+            "hint": "禁止把情绪直接转成躯体反应或自然隐喻"
           },
           {
             "name": "占有与支配",
-            "xy": "f458bf04-6951-4810-9136-0a05dca5ff93"
+            "xy": "f458bf04-6951-4810-9136-0a05dca5ff93",
+            "hint": "禁止权力支配/臣服与禁忌氛围相关词汇"
           }
         ]
       }
@@ -509,38 +617,46 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "补丁与扩展",
-    "desc": "模块化扩展功能。哈基米抑制器提升人物正向性但增加媚user倾向；克-详略得当优化输出逻辑；IF剧情线撰写番外；打破第四面墙插入彩蛋。",
+    "desc": "模块化扩展补丁，可任意组合开关。修正人物刻板化、控制详略、写番外、插入彩蛋吐槽、增强同人创作的查证。均为按需开启，平时无需全开。",
     "subs": [
       {
         "single": false,
+        "label": "补丁与扩展模块",
+        "effect": "按需叠加的修正与彩蛋模块，可多选；平时一般不开，按场景启用。",
         "options": [
           {
             "name": "哈基米抑制器",
-            "xy": "ac7f7576-c7ef-4a76-84c8-12a697ffdf0b"
+            "xy": "ac7f7576-c7ef-4a76-84c8-12a697ffdf0b",
+            "hint": "让人物更正向，但会增加媚user倾向"
           },
           {
             "name": "克-详略得当",
-            "xy": "3b7099d0-f243-4352-bbef-481eed70952d"
+            "xy": "3b7099d0-f243-4352-bbef-481eed70952d",
+            "hint": "详略得当、感官自然；Claude需常开勿关"
           },
           {
             "name": "IF剧情线",
             "xy": "58316ba1-d644-4a87-b945-6d62c429097f",
-            "ds": "02cc6162-c441-46ed-8c85-b33bcd27b99c"
+            "ds": "02cc6162-c441-46ed-8c85-b33bcd27b99c",
+            "hint": "停主线写番外，记录标记为IF且不OOC"
           },
           {
             "name": "打破第四面墙",
             "xy": "f66ec5e5-fa3a-4ff4-ac58-e649d4cf6a5f",
-            "ds": "f66ec5e5-fa3a-4ff4-ac58-e649d4cf6a5f"
+            "ds": "f66ec5e5-fa3a-4ff4-ac58-e649d4cf6a5f",
+            "hint": "正文插入AI官方吐槽彩蛋"
           },
           {
             "name": "色情吐槽",
             "xy": "2cab1557-5b97-4362-a359-8a59bf8e7bee",
-            "ds": "2cab1557-5b97-4362-a359-8a59bf8e7bee"
+            "ds": "2cab1557-5b97-4362-a359-8a59bf8e7bee",
+            "hint": "NSFW时插入上帝视角戏谑点评彩蛋"
           },
           {
             "name": "同人增强",
             "xy": "bd189e76-0e40-436a-b22d-64a2c3b50644",
-            "ds": "bd189e76-0e40-436a-b22d-64a2c3b50644"
+            "ds": "bd189e76-0e40-436a-b22d-64a2c3b50644",
+            "hint": "涉及虚构作品时按需查证，对Gemini更有用"
           }
         ]
       }
@@ -548,39 +664,47 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "附加选项",
-    "desc": "可选的辅助功能。防打断在正文末留钩子；防复述/扩写加强复述处理用户输入；心理透视增加角色内心描写；色情自缝合辅助NSFW表现。",
+    "desc": "可选的输入处理与辅助开关，均可不开：防打断在结尾留钩子引你接话；防复述/扩写类决定AI如何处理你的输入；心理透视加内心戏；色情自缝合辅助NSFW。",
     "subs": [
       {
         "single": false,
+        "label": "输入处理与辅助",
+        "effect": "决定AI怎样接你的话、是否复述输入、加不加内心戏；防复述与「user的嘴替」冲突",
         "options": [
           {
             "name": "防打断",
             "xy": "1659f4d5-3430-4484-a60e-8bc531e84205",
-            "ds": "f981ad73-1807-49e3-bcf3-b25ed9e974c3"
+            "ds": "f981ad73-1807-49e3-bcf3-b25ed9e974c3",
+            "hint": "正文结尾留钩子，引导你接话续写"
           },
           {
             "name": "防复述",
             "xy": "fe46236a-427d-4a08-8e2a-6f6405f1d524",
-            "ds": "305d5e97-8cfd-4dd4-aac8-073c9b4ca41b"
+            "ds": "305d5e97-8cfd-4dd4-aac8-073c9b4ca41b",
+            "hint": "紧接你输入往后写，不重复你的原话；与嘴替冲突"
           },
           {
             "name": "扩写后推进",
             "xy": "4350c77d-8c88-41c9-a1e2-407368da0790",
-            "ds": "59be6230-5cdd-46de-aba0-15b9a0d8f395"
+            "ds": "59be6230-5cdd-46de-aba0-15b9a0d8f395",
+            "hint": "先扩写你的输入再推动剧情；与「不说话」略冲突"
           },
           {
             "name": "扩写/加强复述",
             "xy": "a0bc9bd6-db57-4938-b2de-22d6c95968ea",
-            "ds": "a0b3d80b-ee08-4afb-886b-0630766cb698"
+            "ds": "a0b3d80b-ee08-4afb-886b-0630766cb698",
+            "hint": "对你的输入做深度润色和加强复述"
           },
           {
             "name": "心理透视",
             "xy": "05bbbbb5-fb72-4501-a87e-c7ad22b8c1e6",
-            "ds": "05bbbbb5-fb72-4501-a87e-c7ad22b8c1e6"
+            "ds": "05bbbbb5-fb72-4501-a87e-c7ad22b8c1e6",
+            "hint": "增加角色的内心活动描写"
           },
           {
             "name": "色情自缝合",
-            "xy": "enhanceDefinitions"
+            "xy": "enhanceDefinitions",
+            "hint": "辅助NSFW描写（仅向斜阳版含此项）"
           }
         ]
       }
@@ -588,39 +712,48 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "深度优化",
-    "desc": "高级写作优化。字数加强、写作优化、草稿模式、加强破限等。按需开启，需根据具体剧情调整。",
+    "desc": "高级写作优化套件：可叠加字数加强、写作优化、草稿模拟、叙事/深度提升与抗空回/抗截断破限。均可不开，觉得剧情需要更高思想深度或遇到输出问题时再按需开启。",
     "subs": [
       {
         "single": false,
+        "label": "深度写作与破限",
+        "effect": "可叠加：正文更扣字数、更有深度，并附草稿模拟与抗截断破限",
         "options": [
           {
             "name": "字数加强",
             "xy": "57a02cda-987c-4c4d-ac84-745e3b2b2dbd",
-            "ds": "ea02e1bb-e126-4a3f-9f0d-7bbaadf5bf55"
+            "ds": "ea02e1bb-e126-4a3f-9f0d-7bbaadf5bf55",
+            "hint": "强制核对累计字数，未达标禁止收尾"
           },
           {
             "name": "写作优化",
-            "xy": "47e69b3c-16d3-48ab-84da-521f31a821b7"
+            "xy": "47e69b3c-16d3-48ab-84da-521f31a821b7",
+            "hint": "整体优化正文写作质量"
           },
           {
             "name": "草稿",
-            "xy": "804a29f4-42dc-43d5-a851-976dae5a083b"
+            "xy": "804a29f4-42dc-43d5-a851-976dae5a083b",
+            "hint": "每段前以注释形式先打草稿再优化输出"
           },
           {
             "name": "叙事",
-            "xy": "78e53f98-9381-4cda-ad41-bded49fbe202"
+            "xy": "78e53f98-9381-4cda-ad41-bded49fbe202",
+            "hint": "自检剧情合理性与角色行为，修补逻辑跳跃"
           },
           {
             "name": "深度",
-            "xy": "95124048-99c8-4476-aa14-b46f588c1542"
+            "xy": "95124048-99c8-4476-aa14-b46f588c1542",
+            "hint": "用悖论张力、时空透视等手法写出思想深度"
           },
           {
             "name": "抗空回",
-            "xy": "05e64fba-02de-4c2e-b00a-bb51ee99b03f"
+            "xy": "05e64fba-02de-4c2e-b00a-bb51ee99b03f",
+            "hint": "破限：防止AI空回不出正文"
           },
           {
             "name": "抗截断",
-            "xy": "5c05fb6b-10a3-454f-bd3f-f4c727304466"
+            "xy": "5c05fb6b-10a3-454f-bd3f-f4c727304466",
+            "hint": "破限：结尾附高数题防中途截断"
           }
         ]
       }
@@ -628,19 +761,23 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "NPC与对白增强",
-    "desc": "增加故事中的NPC活跃度和对白比例，提升互动感。",
+    "desc": "提升正文里的对话比例，让人物多开口。可选普通增加对白（含User在内的整体对话量上升），或专门让NPC之间多说话、推动剧情。两者按需开启，均可不开。",
     "subs": [
       {
         "single": false,
+        "label": "对白增强",
+        "effect": "开启后正文对话占比明显上升，可整体增话或专攻NPC间对话推动剧情。",
         "options": [
           {
             "name": "增加对白",
-            "xy": "809aa33c-54a3-46e5-97fd-db5f3b1e2d65"
+            "xy": "809aa33c-54a3-46e5-97fd-db5f3b1e2d65",
+            "hint": "如名，提升正文整体对话比例，对白不低于四成"
           },
           {
             "name": "增加NPC对白",
             "xy": "7463f7c8-6f41-486c-94ea-11baaea78173",
-            "ds": "0cc22069-a025-4de4-aa0c-7f88800a4256"
+            "ds": "0cc22069-a025-4de4-aa0c-7f88800a4256",
+            "hint": "以NPC间对话为主推进剧情，User尽量不主导对话"
           }
         ]
       }

@@ -55,9 +55,9 @@ describe('buildFusionPreset — 双人成行融合', () => {
     expect(ord('postHistoryInstructions')).toBeGreaterThan(Math.max(...others));
   });
 
-  it('双人成行 main 人设默认关闭（COC 守秘人优先）', () => {
+  it('双人成行 main 人设默认开启（核心人设 Atri&Deach 与 COC 守秘人共存）', () => {
     const main = preset.promptItems.find((p) => p.id === 'main')!;
-    expect(main.enabled).toBe(false);
+    expect(main.enabled).toBe(true);
   });
 
   it('模型条目保留作者原始启用（不强制关，模型由预设栏切换控制）', () => {
@@ -95,8 +95,8 @@ describe('融合预设经 assemblePrompt — COC 机制契约端到端', () => {
   it('JSON 双页提醒（postHistory）被注入', () => {
     expect(joined).toContain('leftContent');
   });
-  it('双人成行 main 人设（默认关）不出现在组装结果中', () => {
-    expect(joined).not.toContain('双人成行人设颂歌');
+  it('双人成行 main 人设（默认开）出现在组装结果中', () => {
+    expect(joined).toContain('双人成行人设颂歌');
   });
   it('模型条目 Claude（作者原始启用）出现在组装结果中', () => {
     expect(joined).toContain('claude 专属设定');

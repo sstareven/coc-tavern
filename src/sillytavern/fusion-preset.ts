@@ -54,11 +54,12 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
     .map((p) => {
       let enabled = p.enabled; // 以作者原始组合为基础
       if (p.id.startsWith('lib_')) enabled = false; // 不在 prompt_order 的缓存项
-      if (p.id === 'main' || /使用指南/.test(p.name)) enabled = false; // 双人成行人设/说明 → COC 守秘人优先
+      if (/使用指南/.test(p.name)) enabled = false; // 使用指南仅作说明,不参与生成
       if (KILL_NAME.test(p.name)) enabled = false; // 美化结构/前端生成,与 COC JSON 冲突
       if (NSFW_NAME.test(p.name)) enabled = false; // NSFW
       // 文风全库单选：凡设文风变量的条目，默认仅洛夫克拉夫特开、其余关（与悬浮窗 exclusive 行为一致）。
       if (STYLE_VAR_RE.test(p.content || '')) enabled = originalId(p.id) === LOVECRAFT_ID;
+      if (p.id === 'main') enabled = true; // 双人成行核心人设(Atri&Deach)默认开启（与 COC 守秘人共存）
       return { ...p, enabled };
     });
 

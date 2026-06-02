@@ -5,8 +5,9 @@ import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_XY_NAME, buildFusionPreset } from '../../sillytavern/fusion-preset';
 import { FUSION_MENU, type FusionOption, type FusionGroup } from '../../sillytavern/fusion-menu';
-import { EFFECT_DIMS, OVERALL_HINT } from '../../sillytavern/fusion-effect';
 import type { ChatPreset, PromptItem } from '../../types';
+
+const PREVIEW_HINT = '以下把当前开启的泡泡实时归纳成「最终会输出什么样」的人话，让你一眼看懂这套开关组合的效果。';
 
 const PRESET_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
@@ -153,22 +154,22 @@ export function PresetSwitchOverlay() {
   const totalOn = allOpts.filter((o) => isOn(o)).length;
   const totalExist = allOpts.filter((o) => exists(o)).length;
 
-  // 当前效果预览：把已开启的泡泡按维度归纳（单选显示选中项，多选显示计数+列举）。
+  // 当前效果预览：按「子块」逐项归纳已开启的泡泡（单选显示选中项，多选显示计数+列举）。
+  // 子块级而非整组级——否则同组多子块（如人称组的「叙述视角」+「User发言量」）只会显示第一项。
   const modelLabel = isDS ? 'DeepSeek🐳' : (PRESET_BAR.find((m) => m.chain && isOnId(m.chain))?.label ?? '向斜阳');
-  const effectSummary = FUSION_MENU.map((g) => {
-    const dim = EFFECT_DIMS.find((d) => d.groupTitle === g.title);
-    const onOpts = g.subs.flatMap((s) => s.options).filter((o) => exists(o) && isOn(o));
-    if (!onOpts.length) return null;
-    const mode = dim?.mode ?? 'multi';
-    const value = mode === 'single'
-      ? onOpts[0].name
-      : `${onOpts.length}项 · ${onOpts.slice(0, 3).map((o) => o.name).join('、')}${onOpts.length > 3 ? '…' : ''}`;
-    return { label: dim?.label ?? g.title, value, effect: dim?.effect ?? '', priority: dim?.priority ?? 99 };
-  }).filter((x): x is { label: string; value: string; effect: string; priority: number } => x !== null)
-    .sort((a, b) => a.priority - b.priority);
+  const effectSummary = FUSION_MENU.flatMap((g) =>
+    g.subs.map((s) => {
+      const onOpts = s.options.filter((o) => exists(o) && isOn(o));
+      if (!onOpts.length) return null;
+      const value = s.single
+        ? onOpts[0].name
+        : `${onOpts.length}项 · ${onOpts.slice(0, 3).map((o) => o.name).join('、')}${onOpts.length > 3 ? '…' : ''}`;
+      return { label: s.label ?? s.title ?? g.title, value, effect: s.effect ?? '' };
+    }),
+  ).filter((x): x is { label: string; value: string; effect: string } => x !== null);
 
   const pill = (o: FusionOption, onClick: () => void, on: boolean) => (
-    <button key={o.name} onClick={onClick} aria-pressed={on} title={o.name}
+    <button key={o.name} onClick={onClick} aria-pressed={on} title={o.hint ?? o.name}
       style={{
         fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
         maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -242,7 +243,7 @@ export function PresetSwitchOverlay() {
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {!q && (
             <div style={{ margin: '2px 0 10px', padding: '10px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 6, background: 'rgba(196,168,85,0.04)' }}>
-              <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 7, lineHeight: 1.5 }}>{OVERALL_HINT}</div>
+              <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <div style={{ fontSize: 11.5 }}>
                   <span style={{ color: 'var(--brass)' }}>驱动模型</span> <span style={{ color: 'var(--gold)' }}>{modelLabel}</span>
