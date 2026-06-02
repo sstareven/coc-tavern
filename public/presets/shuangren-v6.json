@@ -1087,6 +1087,19 @@
             "forbid_overrides": false
         },
         {
+            "identifier": "lovecraft-style",
+            "name": "洛夫克拉夫特文风",
+            "enabled": false,
+            "injection_position": 0,
+            "injection_depth": 4,
+            "injection_order": 100,
+            "role": "system",
+            "content": "{{setvar::base_writing::\n<writing_style>\n文风: 洛夫克拉夫特式宇宙恐怖\n核心: 以学者考据般冷静、克制的笔调，叙述超越人类理解的古老恐怖。恐怖源于「未知」与「人类在浩瀚宇宙面前的渺小」，而非血腥或廉价惊吓。\n语感与句式:\n- 以长句为主，破折号与分号层叠、从句缠绕，构建缓慢而沉重、近乎窒息的压迫节奏；偶尔以一记短句制造骤然的恐惧冲击。\n- 用词典雅，略带古旧的考据气息，仿佛 1920 年代新英格兰学者的笔记、书信或档案。\n氛围营造:\n- 通过环境、光影、气味与声音的「不对劲」来暗示恐怖，绝不正面完整展示神话存在——始终保留模糊与残缺，让想象自行滋长蔓延。\n- 自然与建筑常被异化、拟人：山峦「太过对称而显得不自然」，屋舍「古老、肮脏而破败」。\n- 调动多重感官：潮湿的泥土与旧纸张的霉味、远处钟楼的回声、裹挟着阴冷的秋风。\n- 善用「不可名状」「无法描述」「超越人类理解」之类措辞，暗示认知之外的存在。\n基调: 缓慢累积的不安、宿命般的渺小感，以及理智在真相面前逐渐崩解的过程。\n禁令:\n- 严禁任何现代网络用语与轻浮语气（如 开挂/躺平/内卷/逆天/666/nb/yyds/哈哈哈/2333/(笑) 等），始终维持 1920 年代的时代质感。\n- 不把神话生物降格为普通怪物，不过度解释超自然现象，不让恐怖变得可控或可预测——未知本身即是核心恐怖。\n</writing_style>\n}}",
+            "system_prompt": false,
+            "marker": false,
+            "forbid_overrides": false
+        },
+        {
             "identifier": "f859b478-7dc2-4f8d-9cc6-1ef520bfe6b3",
             "name": "散文小说（测试 使用者多反馈）",
             "enabled": false,
@@ -3479,6 +3492,10 @@
                 {
                     "identifier": "2224b8e7-d998-4359-933c-db0f066385c9",
                     "enabled": false
+                },
+                {
+                    "identifier": "lovecraft-style",
+                    "enabled": true
                 },
                 {
                     "identifier": "f859b478-7dc2-4f8d-9cc6-1ef520bfe6b3",

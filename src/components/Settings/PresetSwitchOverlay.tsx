@@ -4,7 +4,7 @@ import { useChatStore } from '../../stores/useChatStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_XY_NAME, buildFusionPreset } from '../../sillytavern/fusion-preset';
-import { FUSION_MENU, type FusionOption } from '../../sillytavern/fusion-menu';
+import { FUSION_MENU, type FusionOption, type FusionGroup } from '../../sillytavern/fusion-menu';
 import { EFFECT_DIMS, OVERALL_HINT } from '../../sillytavern/fusion-effect';
 import type { ChatPreset, PromptItem } from '../../types';
 
@@ -103,6 +103,14 @@ export function PresetSwitchOverlay() {
     const sel = optId(o);
     const ids = subOpts.map(optId).filter(Boolean) as string[];
     if (sel) setEnabledByOrig(new Set(ids), (oid) => oid === sel);
+  };
+  // 整组跨子块单选（文风库）：点未选项→仅开它、关掉全组其它；点已选项→清空全组。
+  const selectExclusiveInGroup = (group: FusionGroup, o: FusionOption) => {
+    const sel = optId(o);
+    if (!sel) return;
+    const ids = group.subs.flatMap((s) => s.options).map(optId).filter(Boolean) as string[];
+    const turningOff = isOn(o);
+    setEnabledByOrig(new Set(ids), (oid) => !turningOff && oid === sel);
   };
 
   // 切换核心驱动模型 = 切到最适配该模型的预设（按需补种，向斜阳版里开对应思维链）。
@@ -284,7 +292,13 @@ export function PresetSwitchOverlay() {
                           </div>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {opts.map((o) => pill(o, s.single ? () => selectInSub(s.options, o) : () => toggleOpt(o), isOn(o)))}
+                          {opts.map((o) => pill(
+                            o,
+                            g.exclusive ? () => selectExclusiveInGroup(g, o)
+                              : s.single ? () => selectInSub(s.options, o)
+                              : () => toggleOpt(o),
+                            isOn(o),
+                          ))}
                         </div>
                       </div>
                     ))}

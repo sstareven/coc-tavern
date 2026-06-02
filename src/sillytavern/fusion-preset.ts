@@ -15,7 +15,6 @@ export const FUSION_PRESET_ID = FUSION_DS_ID;
 function originalId(id: string): string {
   return id.replace(/^(pi_|lib_)/, '');
 }
-void originalId;
 
 /** buildFusionPreset 强制注入的 COC 机制条目 id —— 注入前先剔除同 id，避免与双人成行潜在重名冲突。 */
 const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistoryInstructions']);
@@ -24,6 +23,12 @@ const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistory
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
 const NSFW_NAME = /🔞|🐬|🥵|色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
+
+// 我们新增的洛夫克拉夫特文风条目 id（DS/向斜阳两版同 id）；默认文风即它。
+export const LOVECRAFT_ID = 'lovecraft-style';
+// 文风类条目特征：通过 setvar/addvar 设文风变量（DS 版=文风/文风召回，向斜阳版=base_writing/base_style）。
+// 文风全库单选，默认只开洛夫克拉夫特、其余一律关。
+const STYLE_VAR_RE = /\{\{(?:set|add)var::(?:文风|文风召回|base_writing|base_style)::/;
 
 /**
  * 把「双人成行 V6.1」SillyTavern 预设融合为本项目的 COC 守秘人预设。
@@ -52,6 +57,8 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
       if (p.id === 'main' || /使用指南/.test(p.name)) enabled = false; // 双人成行人设/说明 → COC 守秘人优先
       if (KILL_NAME.test(p.name)) enabled = false; // 美化结构/前端生成,与 COC JSON 冲突
       if (NSFW_NAME.test(p.name)) enabled = false; // NSFW
+      // 文风全库单选：凡设文风变量的条目，默认仅洛夫克拉夫特开、其余关（与悬浮窗 exclusive 行为一致）。
+      if (STYLE_VAR_RE.test(p.content || '')) enabled = originalId(p.id) === LOVECRAFT_ID;
       return { ...p, enabled };
     });
 

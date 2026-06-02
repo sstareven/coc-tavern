@@ -3,7 +3,7 @@ import { buildFusionPreset, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_X
 import type { ChatPreset } from '../types';
 
 const SEED_FLAG = 'coc_fusion_seeded';
-const SEED_VERSION = 'v6.1-dual2'; // bump：name-based enabled + 双 id 菜单
+const SEED_VERSION = 'v6.1-dual3'; // bump：新增洛夫克拉夫特文风(默认开)+文风全库单选
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
 

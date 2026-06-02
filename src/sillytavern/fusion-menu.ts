@@ -2,7 +2,9 @@
 // 悬浮窗按当前预设选用对应 id;已删前端美化/禁词/模型组(模型由顶部预设栏切换)。
 export interface FusionOption { name: string; xy?: string; ds?: string; }
 export interface FusionSub { title?: string; single: boolean; options: FusionOption[]; }
-export interface FusionGroup { title: string; desc: string; subs: FusionSub[]; }
+// exclusive=true: 整组跨子块单选（如文风库——底层共用一个 setvar 变量，只能有一个生效）；
+// 点未选项→仅开它并关掉全组其它；点已选项→清空（全组关闭）。未设则各子块按自身 single 处理。
+export interface FusionGroup { title: string; desc: string; exclusive?: boolean; subs: FusionSub[]; }
 export const FUSION_MENU: FusionGroup[] = [
   {
     "title": "人称与话语权调度",
@@ -133,8 +135,20 @@ export const FUSION_MENU: FusionGroup[] = [
   },
   {
     "title": "特色文风滤镜库",
-    "desc": "预设文风分类库，支持多种风格搭配。文风已分类整理，若多开则仅最下方生效。可选择改setvar为addvar实现多开（不建议）。",
+    "desc": "正文叙述风格，全库单选：选一个会自动关掉其它文风；再次点击当前文风即可清空（回到模型自由发挥）。默认为洛夫克拉夫特文风。",
+    "exclusive": true,
     "subs": [
+      {
+        "single": true,
+        "title": "克苏鲁向（默认）",
+        "options": [
+          {
+            "name": "洛夫克拉夫特",
+            "xy": "lovecraft-style",
+            "ds": "lovecraft-style"
+          }
+        ]
+      },
       {
         "single": true,
         "options": [
