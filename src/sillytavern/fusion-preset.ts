@@ -27,26 +27,23 @@ const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistory
  * COC 要求每回合实质推进剧情，故强制开启，让推进由这套双人成行原生 cot 接管，
  * COC format-instruction 不再重复硬约束（避免双份推进指令）。
  */
-const PLOT_PUSH_IDS = new Set([
-  'b0a383ee-47a9-4d24-bcf3-57446b07600d', // DS 版 推剧情
-  '64a122a7-f10f-48d6-b4da-65a90b4a7103', // 向斜阳版 cot_plot_push
-]);
+// 双人成行原生「🚒// COT //推剧情」条目（DS/向斜阳两版 name 相同、id 不同），作者默认关，
+// 其 cot 思考主体始终 getvar 推进变量、关着就渲染为空。COC 每回合须实质推进，故强制开。
+const PLOT_PUSH_NAMES = new Set(['🚒// COT //推剧情']);
 
 // 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
 const NSFW_NAME = /🔞|🐬|🥵|色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
 
-// 我们新增的洛夫克拉夫特文风条目 id（DS/向斜阳两版同 id）；默认文风即它。
-export const LOVECRAFT_ID = 'lovecraft-style';
-// 文风库（菜单里 exclusive 组）的所有选项 id（两版）。文风全库单选：仅这些条目参与
-// 「默认只开洛夫克拉夫特、其余关」的逻辑。
-// 不能用 content 正则识别——大清洗等条目会 setvar 清空文风变量从而被误判，导致被错误关闭。
-const STYLE_IDS = new Set<string>(
+// 洛夫克拉夫特文风条目 name；默认文风即它。
+export const LOVECRAFT_NAME = '洛夫克拉夫特文风';
+// 文风库（菜单 exclusive 组）所有选项的 name。文风全库单选：仅这些条目参与
+// 「默认只开洛夫克拉夫特、其余关」。按 name 匹配（两版 name 相同）。
+const STYLE_NAMES = new Set<string>(
   (FUSION_MENU.find((g) => g.exclusive)?.subs ?? [])
     .flatMap((s) => s.options)
-    .flatMap((o) => [o.xy, o.ds])
-    .filter((x): x is string => !!x),
+    .map((o) => o.name),
 );
 
 /**
@@ -55,7 +52,7 @@ const STYLE_IDS = new Set<string>(
  * - 解析双人成行全部条目（importPresetFromST）。
  * - 条目开关以 ST JSON 自带的 prompt_order.enabled 为基础，再叠加规则：lib_ 缓存条目关、
  *   使用指南关、KILL_NAME 美化结构/前端关、NSFW 关、文风库整组单选（仅洛夫克拉夫特开）、
- *   main 主人设强制开、推剧情 cot（PLOT_PUSH_IDS）强制开。
+ *   main 主人设强制开、推剧情 cot（PLOT_PUSH_NAMES）强制开。
  * - 强制注入并置顶 COC 机制命脉：守秘人主指令（order 最前）、formatInstruction marker、
  *   JSON 双页提醒 postHistoryInstructions（order 最后）——保证无论双人成行多复杂，COC 的
  *   结构化输出契约始终注入。
@@ -78,9 +75,9 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
       if (KILL_NAME.test(p.name)) enabled = false; // 美化结构/前端生成,与 COC JSON 冲突
       if (NSFW_NAME.test(p.name)) enabled = false; // NSFW
       // 文风全库单选：仅文风库（exclusive 组）的条目参与，默认仅洛夫克拉夫特开、其余关。
-      if (STYLE_IDS.has(originalId(p.id))) enabled = originalId(p.id) === LOVECRAFT_ID;
+      if (STYLE_NAMES.has(p.name)) enabled = p.name === LOVECRAFT_NAME;
       if (p.id === 'main') enabled = true; // 双人成行核心人设(Atri&Deach)默认开启（与 COC 守秘人共存）
-      if (PLOT_PUSH_IDS.has(originalId(p.id))) enabled = true; // 强制开启双人成行原生剧情推进 cot（作者默认关）
+      if (PLOT_PUSH_NAMES.has(p.name)) enabled = true; // 强制开启双人成行原生剧情推进 cot（作者默认关）
       return { ...p, enabled };
     });
 
