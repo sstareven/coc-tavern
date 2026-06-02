@@ -62,6 +62,17 @@ export function PresetSwitchOverlay() {
     });
   };
 
+  // 一键调整：整组全开/全关（组内有任一关则全开，否则全关）。
+  const toggleGroup = (groupItems: PromptItem[]) => {
+    const ids = new Set(groupItems.map((p) => p.id));
+    const allOn = groupItems.every((p) => p.enabled !== false);
+    setItems((prev) => {
+      const next = prev.map((p) => (ids.has(p.id) ? { ...p, enabled: !allOn } : p));
+      persistEnabled(presetId, next);
+      return next;
+    });
+  };
+
   // 分组：分隔符条目作为组标题，其后条目归入该组。搜索时平铺、不分组。
   const groups = useMemo(() => {
     const q = search.trim();
@@ -102,7 +113,7 @@ export function PresetSwitchOverlay() {
         <div style={{ padding: '16px 18px 10px', borderBottom: '1px solid rgba(196,168,85,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div>
-              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 2 }}>功能开关</div>
+              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 2 }}>双人成行</div>
               <div style={{ color: 'var(--ink-subtle)', fontSize: 10.5, marginTop: 3 }}>
                 {presetName} · 已开 {enabledCount}/{items.length}
               </div>
@@ -142,8 +153,21 @@ export function PresetSwitchOverlay() {
                       background: 'rgba(196,168,85,0.06)', borderRadius: 4, userSelect: 'none',
                     }}
                   >
-                    <span>{g.title}</span>
-                    <span style={{ fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 9.5, color: 'var(--ink-subtle)' }}>{g.items.filter((p) => p.enabled !== false).length}/{g.items.length}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleGroup(g.items); }}
+                        style={{
+                          fontSize: 10, padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
+                          border: '1px solid var(--brass)', background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
+                          fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)',
+                        }}
+                        onMouseEnter={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.2)'; ev.currentTarget.style.borderColor = 'var(--gold)'; }}
+                        onMouseLeave={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.08)'; ev.currentTarget.style.borderColor = 'var(--brass)'; }}
+                      >{g.items.every((p) => p.enabled !== false) ? '全关' : '全开'}</button>
+                      <span style={{ fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>
+                    </span>
                   </div>
                 )}
                 {!isCollapsed && g.items.map((p) => {
