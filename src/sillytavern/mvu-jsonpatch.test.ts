@@ -3,9 +3,29 @@ import {
   extractJsonPatchBlocks,
   applyMvuPatch,
   applyMvuPatchCollect,
+  hasUpdateVariableMarker,
   type MvuOp,
   type ApplyOpts,
 } from './mvu-jsonpatch';
+
+/* ============================== hasUpdateVariableMarker ============================== */
+
+describe('hasUpdateVariableMarker（静默截断嗅探）', () => {
+  it('完整补丁块 → true', () => {
+    expect(hasUpdateVariableMarker('正文\n<UpdateVariable><JSONPatch>[]</JSONPatch></UpdateVariable>')).toBe(true);
+  });
+  it('被截断、只剩开标签（无闭合）→ 仍 true（正是要告警的场景）', () => {
+    expect(hasUpdateVariableMarker('正文\n<UpdateVariable><JSONPatch>[{"op":"replace"')).toBe(true);
+    // 截断态下 extractJsonPatchBlocks 抽不出 op，调用方据 marker=true && op=0 告警
+    expect(extractJsonPatchBlocks('正文\n<UpdateVariable><JSONPatch>[{"op":"replace"')).toEqual([]);
+  });
+  it('大小写不敏感', () => {
+    expect(hasUpdateVariableMarker('<updatevariable>')).toBe(true);
+  });
+  it('本就无状态变化（无开标签）→ false（不误告警）', () => {
+    expect(hasUpdateVariableMarker('只有纯叙事，本回合无变量变化')).toBe(false);
+  });
+});
 
 /* ============================== extractJsonPatchBlocks ============================== */
 

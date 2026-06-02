@@ -78,40 +78,41 @@ export function PresetSwitchOverlay() {
     setCollapsed(remembered ?? new Set(FUSION_MENU.map((g) => g.title)));
   }, [open]);
 
+  // 按 origId 索引：仅供模型栏「核心驱动模型」切链(CHAIN_IDS)判断使用。
   const itemByOrig = useMemo(() => {
     const m = new Map<string, PromptItem>();
     for (const it of items) m.set(origId(it.id), it);
     return m;
   }, [items]);
+  // 按条目名索引：功能选项一律 by-name 匹配预设条目（两版 name 相同、id 不同，故按 name 接线）。
+  const itemByName = useMemo(() => {
+    const m = new Map<string, PromptItem>();
+    for (const it of items) m.set(it.name, it);
+    return m;
+  }, [items]);
 
   const isDS = presetId === FUSION_DS_ID;
-  // 选项在当前预设里的真实 id（DS/向斜阳版 id 不同）。
-  const optId = (o: FusionOption) => (isDS ? o.ds : o.xy);
+  // 模型栏切链(CHAIN_IDS)按 id 判断；功能选项一律 by-name。
   const isOnId = (id: string | undefined) => !!id && itemByOrig.get(id)?.enabled !== false;
-  const existsId = (id: string | undefined) => !!id && itemByOrig.has(id);
-  const isOn = (o: FusionOption) => isOnId(optId(o));
-  const exists = (o: FusionOption) => existsId(optId(o));
+  const isOn = (o: FusionOption) => itemByName.get(o.name)?.enabled !== false;
+  const exists = (o: FusionOption) => itemByName.has(o.name);
 
-  const setEnabledByOrig = (origIds: Set<string>, decide: (oid: string) => boolean) => {
+  const setEnabledByName = (names: Set<string>, decide: (name: string) => boolean) => {
     setItems((prev) => {
-      const next = prev.map((it) => (origIds.has(origId(it.id)) ? { ...it, enabled: decide(origId(it.id)) } : it));
+      const next = prev.map((it) => (names.has(it.name) ? { ...it, enabled: decide(it.name) } : it));
       persistEnabled(presetId, next);
       return next;
     });
   };
-  const toggleOpt = (o: FusionOption) => { const id = optId(o); if (id) setEnabledByOrig(new Set([id]), () => !isOn(o)); };
+  const toggleOpt = (o: FusionOption) => { setEnabledByName(new Set([o.name]), () => !isOn(o)); };
   const selectInSub = (subOpts: FusionOption[], o: FusionOption) => {
-    const sel = optId(o);
-    const ids = subOpts.map(optId).filter(Boolean) as string[];
-    if (sel) setEnabledByOrig(new Set(ids), (oid) => oid === sel);
+    setEnabledByName(new Set(subOpts.map((x) => x.name)), (name) => name === o.name);
   };
   // 整组跨子块单选（文风库）：点未选项→仅开它、关掉全组其它；点已选项→清空全组。
   const selectExclusiveInGroup = (group: FusionGroup, o: FusionOption) => {
-    const sel = optId(o);
-    if (!sel) return;
-    const ids = group.subs.flatMap((s) => s.options).map(optId).filter(Boolean) as string[];
+    const names = group.subs.flatMap((s) => s.options).map((x) => x.name);
     const turningOff = isOn(o);
-    setEnabledByOrig(new Set(ids), (oid) => !turningOff && oid === sel);
+    setEnabledByName(new Set(names), (name) => !turningOff && name === o.name);
   };
 
   // 切换核心驱动模型 = 切到最适配该模型的预设（按需补种，向斜阳版里开对应思维链）。
@@ -145,7 +146,7 @@ export function PresetSwitchOverlay() {
   if (!open) return null;
 
   const q = search.trim().toLowerCase();
-  const matchSearch = (o: FusionOption) => exists(o) && (!q || o.name.toLowerCase().includes(q));
+  const matchSearch = (o: FusionOption) => exists(o) && (!q || (o.displayName ?? o.name).toLowerCase().includes(q));
   const visibleGroups = FUSION_MENU
     .map((g) => ({ g, subs: g.subs.map((s) => ({ s, opts: s.options.filter(matchSearch) })).filter((x) => x.opts.length > 0) }))
     .filter((x) => x.subs.length > 0);
@@ -162,25 +163,25 @@ export function PresetSwitchOverlay() {
       const onOpts = s.options.filter((o) => exists(o) && isOn(o));
       if (!onOpts.length) return null;
       const value = s.single
-        ? onOpts[0].name
-        : `${onOpts.length}项 · ${onOpts.slice(0, 3).map((o) => o.name).join('、')}${onOpts.length > 3 ? '…' : ''}`;
+        ? (onOpts[0].displayName ?? onOpts[0].name)
+        : `${onOpts.length}项 · ${onOpts.slice(0, 3).map((o) => o.displayName ?? o.name).join('、')}${onOpts.length > 3 ? '…' : ''}`;
       return { label: s.label ?? s.title ?? g.title, value, effect: s.effect ?? '' };
     }),
   ).filter((x): x is { label: string; value: string; effect: string } => x !== null);
 
   const pill = (o: FusionOption, onClick: () => void, on: boolean) => (
-    <button key={o.name} onClick={onClick} aria-pressed={on} title={o.hint ?? o.name}
+    <button key={o.name} onClick={onClick} aria-pressed={on} title={o.hint ?? o.displayName ?? o.name}
       style={{
         fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
         maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
         background: on ? 'rgba(196,168,85,0.28)' : 'rgba(0,0,0,0.22)',
-        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+        color: on ? 'var(--gold)' : '#e0d6b8',
         fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
       }}
       onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
       onMouseLeave={(ev) => { ev.currentTarget.style.filter = 'brightness(1)'; }}
-    >{o.name}</button>
+    >{o.displayName ?? o.name}</button>
   );
 
   return (
@@ -219,7 +220,7 @@ export function PresetSwitchOverlay() {
                         fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
                         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
                         background: on ? 'rgba(196,168,85,0.3)' : 'rgba(0,0,0,0.22)',
-                        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+                        color: on ? 'var(--gold)' : '#e0d6b8',
                         fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
                       }}
                       onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
@@ -243,19 +244,19 @@ export function PresetSwitchOverlay() {
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {!q && (
             <div style={{ margin: '2px 0 10px', padding: '10px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 6, background: 'rgba(196,168,85,0.04)' }}>
-              <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
+              <div style={{ fontSize: 10, color: '#b5aa86', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ fontSize: 11.5 }}>
-                  <span style={{ color: 'var(--brass)' }}>驱动模型</span> <span style={{ color: 'var(--gold)' }}>{modelLabel}</span>
+                <div style={{ fontSize: 12.5 }}>
+                  <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>驱动模型</span> <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{modelLabel}</span>
                 </div>
                 {effectSummary.map((s) => (
-                  <div key={s.label} style={{ fontSize: 11.5, lineHeight: 1.5 }}>
-                    <span style={{ color: 'var(--brass)' }}>{s.label}</span>{' '}
-                    <span style={{ color: 'var(--gold)' }}>{s.value}</span>
-                    {s.effect && <span style={{ color: 'var(--ink-subtle)', fontSize: 9.5, marginLeft: 6 }}>· {s.effect}</span>}
+                  <div key={s.label} style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                    <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{s.label}</span>{' '}
+                    <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{s.value}</span>
+                    {s.effect && <span style={{ color: '#b5aa86', fontSize: 10, marginLeft: 6 }}>· {s.effect}</span>}
                   </div>
                 ))}
-                {effectSummary.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>暂未开启任何功能泡泡</div>}
+                {effectSummary.length === 0 && <div style={{ fontSize: 11, color: '#b5aa86' }}>暂未开启任何功能泡泡</div>}
               </div>
             </div>
           )}
@@ -288,7 +289,7 @@ export function PresetSwitchOverlay() {
                     {subs.map(({ s, opts }, si) => (
                       <div key={si} style={{ marginBottom: 8 }}>
                         {s.title && (
-                          <div style={{ fontSize: 10.5, color: 'var(--brass)', margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
+                          <div style={{ fontSize: 11, color: 'var(--gold-bright)', fontWeight: 600, margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
                             {s.title}{s.single && <span style={{ fontSize: 9, marginLeft: 5 }}>（单选）</span>}
                           </div>
                         )}

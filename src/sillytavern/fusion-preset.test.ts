@@ -15,12 +15,16 @@ const stFixture = JSON.stringify({
     { identifier: 'worldInfoBefore', name: '🔵角色定义之前', role: 'system', content: '' },
     { identifier: '4ea7f2d4-a8de-4134-a905-574fa89b1645', name: '🎨Claude🎨', role: 'system', content: 'claude 专属设定' },
     { identifier: '0f4098fb-b5aa-4960-94ac-91d458e57024', name: '🔪大清洗', role: 'system', content: '变量清空' },
+    { identifier: 'scenario', name: '⚫角色情景', role: 'system', content: '角色当前所处情景设定' },
+    { identifier: 'nsfw-seam', name: '✅色情要求自缝合', role: 'system', content: 'NSFW 缝合' },
   ],
   prompt_order: [{ character_id: 100001, order: [
     { identifier: 'main', enabled: true },
     { identifier: 'worldInfoBefore', enabled: true },
     { identifier: '4ea7f2d4-a8de-4134-a905-574fa89b1645', enabled: true },
     { identifier: '0f4098fb-b5aa-4960-94ac-91d458e57024', enabled: true },
+    { identifier: 'scenario', enabled: true },
+    { identifier: 'nsfw-seam', enabled: true },
   ] }],
 });
 
@@ -68,6 +72,16 @@ describe('buildFusionPreset — 双人成行融合', () => {
   it('兼容增强条目（🔪大清洗）按分类默认开启', () => {
     const clean = preset.promptItems.find((p) => p.id.includes('0f4098fb'))!;
     expect(clean.enabled).toBe(true);
+  });
+
+  it('NSFW 误杀修复：⚫角色情景 保留启用（「色情」是「角色」+「情景」的巧合子串，不应被 NSFW_NAME 命中）', () => {
+    const scenario = preset.promptItems.find((p) => p.id === 'scenario')!;
+    expect(scenario.enabled).toBe(true);
+  });
+
+  it('真 NSFW 条目（✅色情要求自缝合）仍被关闭', () => {
+    const nsfw = preset.promptItems.find((p) => p.name === '✅色情要求自缝合')!;
+    expect(nsfw.enabled).toBe(false);
   });
 
   it('套用 DeepSeek 采样参数', () => {

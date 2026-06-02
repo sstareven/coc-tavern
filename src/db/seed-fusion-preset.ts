@@ -3,7 +3,7 @@ import { buildFusionPreset, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_X
 import type { ChatPreset } from '../types';
 
 const SEED_FLAG = 'coc_fusion_seeded';
-const SEED_VERSION = 'v6.1-dual5'; // bump：marker role 保真(main=user/nsfw=assistant) 重种生效
+const SEED_VERSION = 'v6.1-dual7'; // bump：按官方全量重建悬浮窗菜单 + by-name 接线，重种刷新默认开关
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
 

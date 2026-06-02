@@ -12,40 +12,48 @@ export const FUSION_XY_NAME = '双人成行 · 向斜阳（多模型）';
 /** 兼容旧引用：默认主预设 = DeepSeek 专用版。 */
 export const FUSION_PRESET_ID = FUSION_DS_ID;
 
-/** importPresetFromST 给非 marker 条目加 'pi_'/'lib_' 前缀。 */
-function originalId(id: string): string {
-  return id.replace(/^(pi_|lib_)/, '');
-}
-
 /** buildFusionPreset 强制注入的 COC 机制条目 id —— 注入前先剔除同 id，避免与双人成行潜在重名冲突。 */
 const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistoryInstructions']);
+
+/**
+ * 双人成行原生「🚒// COT //推剧情」条目 id（DS 版 / 向斜阳版各一）。
+ * 二者都在作者预设里默认关闭，但其 cot 思考主体（思考模式）始终 getvar 推进变量
+ * （DS=推剧情 / XY=cot_plot_push），关着就渲染为空、剧情推进框架从不生效。
+ * COC 要求每回合实质推进剧情，故强制开启，让推进由这套双人成行原生 cot 接管，
+ * COC format-instruction 不再重复硬约束（避免双份推进指令）。
+ */
+// 双人成行原生「🚒// COT //推剧情」条目（DS/向斜阳两版 name 相同、id 不同），作者默认关，
+// 其 cot 思考主体始终 getvar 推进变量、关着就渲染为空。COC 每回合须实质推进，故强制开。
+const PLOT_PUSH_NAMES = new Set(['🚒// COT //推剧情']);
 
 // 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
-const NSFW_NAME = /🔞|🐬|🥵|色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
+// 注意「色情」用负向后顾 (?<!角)：真 NSFW 条目（✅色情要求自缝合 / 反差色情 / 色情吐槽 等）照杀，
+// 但放过正当剧情设定条目「⚫角色情景」——其名中的「色情」是「角色」+「情景」相邻的巧合子串，
+// 误杀会让角色情景（角色描述/性格同组的设定）整组失效。
+const NSFW_NAME = /🔞|🐬|🥵|(?<!角)色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
 
-// 我们新增的洛夫克拉夫特文风条目 id（DS/向斜阳两版同 id）；默认文风即它。
-export const LOVECRAFT_ID = 'lovecraft-style';
-// 文风库（菜单里 exclusive 组）的所有选项 id（两版）。文风全库单选：仅这些条目参与
-// 「默认只开洛夫克拉夫特、其余关」的逻辑。
-// 不能用 content 正则识别——大清洗等条目会 setvar 清空文风变量从而被误判，导致被错误关闭。
-const STYLE_IDS = new Set<string>(
+// 洛夫克拉夫特文风条目 name；默认文风即它。
+export const LOVECRAFT_NAME = '洛夫克拉夫特文风';
+// 文风库（菜单 exclusive 组）所有选项的 name。文风全库单选：仅这些条目参与
+// 「默认只开洛夫克拉夫特、其余关」。按 name 匹配（两版 name 相同）。
+const STYLE_NAMES = new Set<string>(
   (FUSION_MENU.find((g) => g.exclusive)?.subs ?? [])
     .flatMap((s) => s.options)
-    .flatMap((o) => [o.xy, o.ds])
-    .filter((x): x is string => !!x),
+    .map((o) => o.name),
 );
 
 /**
  * 把「双人成行 V6.1」SillyTavern 预设融合为本项目的 COC 守秘人预设。
  *
  * - 解析双人成行全部条目（importPresetFromST）。
- * - 应用 workflow 分类得到的默认 enabled 映射；模型专属条目（FUSION_DISABLE_IDS）强制关；
- *   prompt_order 之外的 library 缓存条目（lib_ 前缀）默认关。
+ * - 条目开关以 ST JSON 自带的 prompt_order.enabled 为基础，再叠加规则：lib_ 缓存条目关、
+ *   使用指南关、KILL_NAME 美化结构/前端关、NSFW 关、文风库整组单选（仅洛夫克拉夫特开）、
+ *   main 主人设强制开、推剧情 cot（PLOT_PUSH_NAMES）强制开。
  * - 强制注入并置顶 COC 机制命脉：守秘人主指令（order 最前）、formatInstruction marker、
  *   JSON 双页提醒 postHistoryInstructions（order 最后）——保证无论双人成行多复杂，COC 的
- *   结构化输出契约始终注入、双人成行 main 人设默认关（COC 守秘人优先）。
+ *   结构化输出契约始终注入。
  * - 套用 DeepSeek 友好采样参数。
  *
  * 失败（JSON 非法）返回 null。
@@ -54,6 +62,11 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
   const imported = importPresetFromST(stJson, presetName);
   if (!imported) return null;
   const base = imported.preset;
+  // 刻意丢弃 imported.regexScripts —— 双人成行自带 21 条 AI 输出(placement 2)正则是为它自己的
+  // 「流光/选项栏/播放器」HTML 前端形态服务的，其中「去变量更新」会直接删除 <UpdateVariable> 块。
+  // 若把它们装进 useRegexStore.presetScripts 跑在 COC 的 JSON 输出上，轻则毁掉双页结构、
+  // 重则吞掉 MVU 补丁块导致变量更新整体失效。COC 用自己的 formatInstruction/postHistory 输出契约，
+  // 不需要也不能要这些脚本。切勿「恢复」它们。
 
   // 1) 应用默认 enabled：分类表优先；模型专属强制关；library 缓存默认关。
   const tuned: PromptItem[] = base.promptItems
@@ -65,8 +78,9 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
       if (KILL_NAME.test(p.name)) enabled = false; // 美化结构/前端生成,与 COC JSON 冲突
       if (NSFW_NAME.test(p.name)) enabled = false; // NSFW
       // 文风全库单选：仅文风库（exclusive 组）的条目参与，默认仅洛夫克拉夫特开、其余关。
-      if (STYLE_IDS.has(originalId(p.id))) enabled = originalId(p.id) === LOVECRAFT_ID;
+      if (STYLE_NAMES.has(p.name)) enabled = p.name === LOVECRAFT_NAME;
       if (p.id === 'main') enabled = true; // 双人成行核心人设(Atri&Deach)默认开启（与 COC 守秘人共存）
+      if (PLOT_PUSH_NAMES.has(p.name)) enabled = true; // 强制开启双人成行原生剧情推进 cot（作者默认关）
       return { ...p, enabled };
     });
 
