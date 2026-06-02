@@ -329,6 +329,50 @@ describe('开新游戏的跨存档隔离（clues/npc/map/darkThread 不泄漏进
   });
 });
 
+describe('坏结局(badEnding)持久化 + 跨会话隔离', () => {
+  beforeEach(async () => {
+    await clearDb();
+    await db.darkEndings.clear();
+    useDarkThreadStore.getState().clearAll();
+    useChatStore.setState({ sessions: [], activeId: null });
+  });
+
+  it('badEnding save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useDarkThreadStore.getState().setBadEnding({ description: '调查员被献祭给犹格·索托斯', createdAt: 123 });
+    await saveConversation(a);
+
+    useDarkThreadStore.getState().clearAll();
+    expect(useDarkThreadStore.getState().badEnding).toBeNull();
+
+    await loadConversation(a);
+    expect(useDarkThreadStore.getState().badEnding?.description).toContain('犹格');
+  });
+
+  it('切到无坏结局的会话 → badEnding 重置为 null(不残留上一会话)', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useDarkThreadStore.getState().setBadEnding({ description: 'A的坏结局', createdAt: 1 });
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(useDarkThreadStore.getState().badEnding).toBeNull();
+  });
+
+  it('删除会话时一并清除其 darkEndings 行', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useDarkThreadStore.getState().setBadEnding({ description: '待删坏结局', createdAt: 1 });
+    await saveConversation(a);
+    expect(await db.darkEndings.get(a)).toBeDefined();
+
+    await deleteConversation(a);
+    expect(await db.darkEndings.get(a)).toBeUndefined();
+  });
+});
+
 describe('MVU statData 持久化 + 跨会话隔离', () => {
   beforeEach(async () => { await clearDb(); });
 

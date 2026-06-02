@@ -28,6 +28,7 @@ import {
   type NpcRow,
   type MapLocationRow,
   type MapEdgeRow,
+  type DarkEndingRow,
 } from '../db/database';
 
 /** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */
@@ -133,6 +134,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const npcs = Object.values(useNpcStore.getState().profiles);
   const mapState = useMapStore.getState();
   const entries = useDarkThreadStore.getState().entries;
+  const badEnding = useDarkThreadStore.getState().badEnding;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
   const statData = useVariableStore.getState().statData;
@@ -175,7 +177,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -207,6 +209,13 @@ async function saveConversationInner(cid: string): Promise<void> {
 
       await db.darkThreads.where('conversationId').equals(cid).delete();
       if (darkThreadRows.length > 0) await db.darkThreads.bulkPut(darkThreadRows);
+
+      // 坏结局（单行/会话）：有则 put，无则删除任何残留行（与 charsheets 同范式）。
+      if (badEnding) {
+        await db.darkEndings.put({ conversationId: cid, ending: badEnding });
+      } else {
+        await db.darkEndings.delete(cid);
+      }
 
       await db.keywords.where('conversationId').equals(cid).delete();
       if (keywordRows.length > 0) await db.keywords.bulkPut(keywordRows);
@@ -243,10 +252,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   clearAllGameState();
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -257,6 +266,7 @@ async function loadConversationInner(cid: string): Promise<void> {
           db.mapLocations.where('conversationId').equals(cid).toArray(),
           db.mapEdges.where('conversationId').equals(cid).toArray(),
           db.darkThreads.where('conversationId').equals(cid).toArray(),
+          db.darkEndings.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
           db.macroVars.where('conversationId').equals(cid).toArray(),
@@ -304,6 +314,8 @@ async function loadConversationInner(cid: string): Promise<void> {
   // 暗线
   const entries = darkThreadRows.map(({ conversationId: _cid, entryId: _entryId, ...entry }) => entry);
   useDarkThreadStore.getState().replaceAll(entries);
+  // 坏结局（单行/会话）：无行则为 null（clearAllGameState 已置 null，此处显式恢复以覆盖切档）。
+  useDarkThreadStore.getState().setBadEnding(darkEndingRow?.ending ?? null);
 
   // 关键词
   const keywords: Record<string, string> = {};
@@ -369,7 +381,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -380,6 +392,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.mapLocations.where('conversationId').equals(cid).delete();
       await db.mapEdges.where('conversationId').equals(cid).delete();
       await db.darkThreads.where('conversationId').equals(cid).delete();
+      await db.darkEndings.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();
       await db.macroVars.where('conversationId').equals(cid).delete();

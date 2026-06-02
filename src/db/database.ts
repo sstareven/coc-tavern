@@ -10,7 +10,7 @@ import type {
   MapLocation,
   MapEdge,
 } from '../types';
-import type { DarkThreadEntry } from '../stores/useDarkThreadStore';
+import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
 // ===== KV (legacy single-table blob store; v1, unchanged in v2) =====
 interface KVRecord {
@@ -76,6 +76,12 @@ export interface MacroVarRow {
   value: string;
 }
 
+// 本局坏结局，一行/会话。主键 conversationId（与 charsheets 同范式的单行表）。
+export interface DarkEndingRow {
+  conversationId: string;
+  ending: BadEnding;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -90,6 +96,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   npcProfiles: EntityTable<NpcRow>;
   mapLocations: EntityTable<MapLocationRow>;
   mapEdges: EntityTable<MapEdgeRow>;
+  darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -136,6 +143,14 @@ export const V5_SCHEMA = {
 } as const;
 
 db.version(5).stores(V5_SCHEMA);
+
+/** v6: 新增「坏结局」单行表（一行/会话，无数据迁移）。 */
+export const V6_SCHEMA = {
+  ...V5_SCHEMA,
+  darkEndings: '&conversationId',
+} as const;
+
+db.version(6).stores(V6_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

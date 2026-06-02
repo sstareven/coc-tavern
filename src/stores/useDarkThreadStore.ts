@@ -9,9 +9,18 @@ export interface DarkThreadEntry {
   foreshadowing: string;
 }
 
+/** 本局注定的「坏结局」。开局由 LLM 据情境生成、对玩家完全隐藏；暗线逐步逼近此结局。 */
+export interface BadEnding {
+  description: string;
+  createdAt: number;
+}
+
 interface DarkThreadStore {
   entries: DarkThreadEntry[];
+  /** 单例：本局坏结局（守秘人机密）。null 表示尚未生成。 */
+  badEnding: BadEnding | null;
   addEntry: (entry: Omit<DarkThreadEntry, 'id' | 'timestamp'>) => void;
+  setBadEnding: (ending: BadEnding | null) => void;
   buildContextInjection: () => string;
   clearAll: () => void;
   replaceAll: (entries: DarkThreadEntry[]) => void;
@@ -19,6 +28,7 @@ interface DarkThreadStore {
 
 export const useDarkThreadStore = create<DarkThreadStore>()((set, get) => ({
   entries: [],
+  badEnding: null,
 
   addEntry: (entry) =>
     set((s) => {
@@ -28,6 +38,8 @@ export const useDarkThreadStore = create<DarkThreadStore>()((set, get) => ({
       ];
       return { entries: updated.length > 50 ? updated.slice(-50) : updated };
     }),
+
+  setBadEnding: (ending) => set({ badEnding: ending }),
 
   buildContextInjection: () => {
     const { entries } = get();
@@ -45,6 +57,6 @@ export const useDarkThreadStore = create<DarkThreadStore>()((set, get) => ({
     return lines.join('\n');
   },
 
-  clearAll: () => set({ entries: [] }),
+  clearAll: () => set({ entries: [], badEnding: null }),
   replaceAll: (entries: DarkThreadEntry[]) => set({ entries }),
 }));
