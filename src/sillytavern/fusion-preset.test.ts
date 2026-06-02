@@ -3,6 +3,7 @@ import { buildFusionPreset, FUSION_PRESET_ID } from './fusion-preset';
 import { COC_KP_PRESET } from '../constants/presets';
 import { FUSION_SAMPLERS } from './fusion-config';
 import { assemblePrompt } from './prompt-assembler';
+import { resolveAllMacrosBatch, type MacroContext } from './unified-macro-engine';
 
 // 最小双人成行式 ST 预设：含 main(marker) + worldInfoBefore(marker) + 一个模型专属条目(Gemini,在 disableIds)
 // + 一个默认开启的功能条目(🔪大清洗)。
@@ -100,6 +101,21 @@ describe('融合预设经 assemblePrompt — COC 机制契约端到端', () => {
     expect(joined).not.toContain('gemini 专属设定');
   });
   it('兼容增强（大清洗，默认开）出现', () => {
-    expect(joined).toContain('变量清空');
+    const clean = joined;
+    expect(clean).toContain('变量清空');
+  });
+});
+
+describe('Phase A: promptItems 宏跨条目作用域（双人成行 setvar/getvar 真正生效）', () => {
+  it('同一 batch 内前部 setvar 设值、后部 getvar 能读到（按序共享作用域）', () => {
+    const ctx: MacroContext = { macroVars: {}, charVars: {}, gameVars: {}, charName: '', userName: '', modelName: 'deepseek' };
+    // 模拟：双人成行的"文风/人称"开关条目(order靠前)先 setvar，核心条目(order靠后)再 getvar 组装。
+    const r = resolveAllMacrosBatch([
+      '{{setvar::文风::轻小说}}',
+      '{{setvar::人称::第二人称}}',
+      '文风={{getvar::文风}} 人称={{getvar::人称}}',
+    ], ctx);
+    expect(r[2].text).toContain('轻小说');
+    expect(r[2].text).toContain('第二人称');
   });
 });
