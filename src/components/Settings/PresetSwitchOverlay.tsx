@@ -64,8 +64,8 @@ export function PresetSwitchOverlay() {
     const sorted = [...(r.preset.promptItems || [])].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
     setItems(sorted);
     setSearch('');
-    // 默认折叠所有分组，便于概览（点组标题展开）。
-    setCollapsed(new Set(sorted.filter((p) => SEP_RE.test(p.name) && !(p.content || '').trim()).map((p) => p.id)));
+    // 胶囊云布局紧凑，默认展开所有分组（与参考排版一致）；可点组标题折叠。
+    setCollapsed(new Set());
   }, [open]);
 
   const toggle = (itemId: string) => {
@@ -241,53 +241,31 @@ export function PresetSwitchOverlay() {
                   </div>
                 )}
                 {!isCollapsed && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 12 }}>
-                  {g.items.map((p) => {
-                  const on = p.enabled !== false;
-                  const isMarker = p.kind === 'marker';
-                  return (
-                    <div key={p.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                      padding: '7px 8px', borderRadius: 4,
-                      borderBottom: '1px solid rgba(196,168,85,0.06)',
-                    }}>
-                      <span style={{
-                        fontSize: 12, color: isMarker ? 'var(--ink-subtle)' : 'var(--parchment)',
-                        fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                      }}>
-                        {p.name}
-                        {isMarker && <span style={{ fontSize: 9, color: 'var(--brass)', marginLeft: 6 }}>结构项</span>}
-                      </span>
-                      {g.single ? (
-                        // 单选组：radio（点一个开、关同组其他）
-                        <button onClick={() => selectOne(groupIds, p.id)} aria-pressed={on}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 2px 4px' }}>
+                    {g.items.map((p) => {
+                      const on = p.enabled !== false;
+                      const click = g.single ? () => selectOne(groupIds, p.id) : () => toggle(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={click}
+                          aria-pressed={on}
+                          title={p.name}
                           style={{
-                            flexShrink: 0, width: 18, height: 18, borderRadius: '50%', cursor: 'pointer',
-                            border: '2px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
-                            background: 'transparent', position: 'relative', transition: 'var(--transition-smooth)',
+                            fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
+                            maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
+                            background: on ? 'rgba(196,168,85,0.28)' : 'rgba(0,0,0,0.22)',
+                            color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+                            fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
                           }}
+                          onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
+                          onMouseLeave={(ev) => { ev.currentTarget.style.filter = 'brightness(1)'; }}
                         >
-                          {on && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: 'var(--gold)' }} />}
+                          {p.name}
                         </button>
-                      ) : (
-                        // 多选：拨动开关
-                        <button onClick={() => toggle(p.id)} aria-pressed={on}
-                          style={{
-                            flexShrink: 0, width: 42, height: 22, borderRadius: 11, cursor: 'pointer',
-                            border: '1px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
-                            background: on ? 'rgba(196,168,85,0.35)' : 'rgba(0,0,0,0.3)',
-                            position: 'relative', transition: 'var(--transition-smooth)',
-                          }}
-                        >
-                          <span style={{
-                            position: 'absolute', top: 2, left: on ? 22 : 2, width: 16, height: 16, borderRadius: '50%',
-                            background: on ? 'var(--gold)' : 'var(--ink-subtle)', transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
-                          }} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
                   </div>
                 )}
               </div>
