@@ -4,16 +4,14 @@ import { useChatStore } from '../../stores/useChatStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID } from '../../sillytavern/fusion-preset';
-import { FUSION_MENU } from '../../sillytavern/fusion-menu';
+import { FUSION_MENU, type FusionOption } from '../../sillytavern/fusion-menu';
 import type { ChatPreset, PromptItem } from '../../types';
 
 const PRESET_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
-const COLLAPSE_KEY = 'coc_fusion_collapsed'; // 折叠/展开记忆（按组标题）
+const COLLAPSE_KEY = 'coc_fusion_collapsed';
 
-/** importPresetFromST 给自定义条目加 pi_/lib_ 前缀；还原回双人成行原 identifier。 */
 const origId = (id: string) => id.replace(/^(pi_|lib_)/, '');
-
 const MODEL_GROUP = FUSION_MENU.find((g) => g.isModel);
 
 function loadCollapsed(): Set<string> | null {
@@ -23,7 +21,6 @@ function loadCollapsed(): Set<string> | null {
 }
 function saveCollapsed(s: Set<string>): void { kvSet(COLLAPSE_KEY, JSON.stringify([...s])); }
 
-/** 当前会话正在使用的预设（与 useChatPipeline 取预设逻辑一致）。 */
 function resolveActivePreset(): { id: string; preset: ChatPreset } | null {
   const cs = useChatStore.getState();
   const sessionPid = cs.sessions.find((s) => s.id === cs.activeId)?.presetId;
@@ -63,22 +60,19 @@ export function PresetSwitchOverlay() {
     setPresetName(r.preset.name);
     setItems(r.preset.promptItems || []);
     setSearch('');
-    // 默认全部折叠；若有持久化记忆则恢复。
     const remembered = loadCollapsed();
-    setCollapsed(remembered ?? new Set(FUSION_MENU.map((g) => g.title)));
+    setCollapsed(remembered ?? new Set(FUSION_MENU.map((g) => g.title))); // 默认全折叠
   }, [open]);
 
-  // 双人成行原 identifier → 当前预设条目（提供 enabled 状态）。
   const itemByOrig = useMemo(() => {
     const m = new Map<string, PromptItem>();
     for (const it of items) m.set(origId(it.id), it);
     return m;
   }, [items]);
 
-  const isOn = (optId: string) => { const it = itemByOrig.get(optId); return !!it && it.enabled !== false; };
-  const exists = (optId: string) => itemByOrig.has(optId);
+  const isOn = (id: string) => { const it = itemByOrig.get(id); return !!it && it.enabled !== false; };
+  const exists = (id: string) => itemByOrig.has(id);
 
-  // 按 双人成行原 id 集合批量设置 enabled。
   const setEnabledByOrig = (origIds: Set<string>, decide: (oid: string) => boolean) => {
     setItems((prev) => {
       const next = prev.map((it) => (origIds.has(origId(it.id)) ? { ...it, enabled: decide(origId(it.id)) } : it));
@@ -86,33 +80,30 @@ export function PresetSwitchOverlay() {
       return next;
     });
   };
-  const toggleOpt = (optId: string) => setEnabledByOrig(new Set([optId]), () => !isOn(optId));
-  const selectInGroup = (optIds: string[], optId: string) => setEnabledByOrig(new Set(optIds), (oid) => oid === optId);
-  const toggleGroupAll = (optIds: string[]) => {
-    const present = optIds.filter(exists);
-    const allOn = present.every(isOn);
-    setEnabledByOrig(new Set(present), () => !allOn);
-  };
+  const toggleOpt = (id: string) => setEnabledByOrig(new Set([id]), () => !isOn(id));
+  const selectInSub = (subOptIds: string[], id: string) => setEnabledByOrig(new Set(subOptIds), (oid) => oid === id);
 
-  // 顶部模型栏（模型组的存在选项）。
   const modelOptions = useMemo(
-    () => (MODEL_GROUP?.options ?? []).filter((o) => exists(o.id)),
+    () => (MODEL_GROUP?.subs[0]?.options ?? []).filter((o) => exists(o.id)),
     [items],
   );
 
   if (!open) return null;
 
   const q = search.trim().toLowerCase();
-  // 非模型组（模型组提到顶部），按搜索过滤选项。
+  const match = (o: FusionOption) => exists(o.id) && (!q || o.name.toLowerCase().includes(q));
+
+  // 非模型组，按搜索过滤后保留有内容的子块/组。
   const visibleGroups = FUSION_MENU
     .filter((g) => !g.isModel)
-    .map((g) => ({ g, opts: g.options.filter((o) => exists(o.id) && (!q || o.name.toLowerCase().includes(q))) }))
-    .filter((x) => x.opts.length > 0);
+    .map((g) => ({ g, subs: g.subs.map((s) => ({ s, opts: s.options.filter(match) })).filter((x) => x.opts.length > 0) }))
+    .filter((x) => x.subs.length > 0);
 
-  const totalOn = FUSION_MENU.flatMap((g) => g.options).filter((o) => isOn(o.id)).length;
-  const totalExist = FUSION_MENU.flatMap((g) => g.options).filter((o) => exists(o.id)).length;
+  const allOpts = FUSION_MENU.flatMap((g) => g.subs).flatMap((s) => s.options);
+  const totalOn = allOpts.filter((o) => isOn(o.id)).length;
+  const totalExist = allOpts.filter((o) => exists(o.id)).length;
 
-  const pill = (opt: { id: string; name: string }, onClick: () => void, on: boolean) => (
+  const pill = (opt: FusionOption, onClick: () => void, on: boolean) => (
     <button key={opt.id} onClick={onClick} aria-pressed={on} title={opt.name}
       style={{
         fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
@@ -152,12 +143,12 @@ export function PresetSwitchOverlay() {
             }}>✕</button>
           </div>
 
-          {/* 模型栏（单选） */}
+          {/* 核心驱动模型栏（单选） */}
           {MODEL_GROUP && modelOptions.length > 0 && !q && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-              <span style={{ fontSize: 10.5, color: 'var(--ink-subtle)', flexShrink: 0 }}>模型</span>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10.5, color: 'var(--ink-subtle)', marginBottom: 5 }}>{MODEL_GROUP.title}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {modelOptions.map((o) => pill(o, () => selectInGroup(MODEL_GROUP.options.map((x) => x.id), o.id), isOn(o.id)))}
+                {modelOptions.map((o) => pill(o, () => selectInSub(MODEL_GROUP.subs[0].options.map((x) => x.id), o.id), isOn(o.id)))}
               </div>
             </div>
           )}
@@ -171,15 +162,15 @@ export function PresetSwitchOverlay() {
           />
         </div>
 
-        {/* 菜单（双人成行固定结构） */}
+        {/* 菜单 */}
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {visibleGroups.length === 0 && (
             <div style={{ color: 'var(--ink-subtle)', fontSize: 12, textAlign: 'center', padding: 24 }}>无匹配项</div>
           )}
-          {visibleGroups.map(({ g, opts }) => {
-            const ids = g.options.map((o) => o.id);
+          {visibleGroups.map(({ g, subs }) => {
             const isCollapsed = !q && collapsed.has(g.title);
-            const onCount = opts.filter((o) => isOn(o.id)).length;
+            const onCount = subs.flatMap((x) => x.opts).filter((o) => isOn(o.id)).length;
+            const total = subs.flatMap((x) => x.opts).length;
             return (
               <div key={g.title} style={{ marginBottom: 6 }}>
                 <div
@@ -190,31 +181,26 @@ export function PresetSwitchOverlay() {
                     background: 'rgba(196,168,85,0.06)', borderRadius: 4, userSelect: 'none',
                   }}
                 >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.title}{g.single && <span style={{ fontSize: 9, color: 'var(--brass)', marginLeft: 6 }}>单选</span>}
-                  </span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <span style={{ fontSize: 9.5, color: 'var(--ink-subtle)' }}>{onCount}/{opts.length}</span>
-                    {!g.single && (
-                      <button onClick={(e) => { e.stopPropagation(); toggleGroupAll(ids); }}
-                        style={{
-                          fontSize: 10, padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
-                          border: '1px solid var(--brass)', background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
-                          fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)',
-                        }}
-                        onMouseEnter={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}
-                        onMouseLeave={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.08)'; }}
-                      >{opts.every((o) => isOn(o.id)) ? '全关' : '全开'}</button>
-                    )}
+                    <span style={{ fontSize: 9.5, color: 'var(--ink-subtle)' }}>{onCount}/{total}</span>
                     {!q && <span style={{ fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>}
                   </span>
                 </div>
                 {!isCollapsed && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 2px 4px' }}>
-                    {opts.map((o) => pill(
-                      o,
-                      g.single ? () => selectInGroup(ids, o.id) : () => toggleOpt(o.id),
-                      isOn(o.id),
+                  <div style={{ padding: '2px 4px 4px' }}>
+                    {g.desc && <div style={{ fontSize: 10, color: 'var(--ink-subtle)', lineHeight: 1.6, margin: '4px 2px 8px', fontFamily: 'var(--font-body)' }}>{g.desc}</div>}
+                    {subs.map(({ s, opts }, si) => (
+                      <div key={si} style={{ marginBottom: 8 }}>
+                        {s.title && (
+                          <div style={{ fontSize: 10.5, color: 'var(--brass)', margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
+                            {s.title}{s.single && <span style={{ fontSize: 9, marginLeft: 5 }}>（单选）</span>}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {opts.map((o) => pill(o, s.single ? () => selectInSub(s.options.map((x) => x.id), o.id) : () => toggleOpt(o.id), isOn(o.id)))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -224,7 +210,7 @@ export function PresetSwitchOverlay() {
         </div>
 
         <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(196,168,85,0.12)', color: 'var(--ink-subtle)', fontSize: 10, fontFamily: 'var(--font-body)' }}>
-          开关即时生效并保存，下一回合起作用。模型/单选组互斥。
+          开关即时生效并保存，下一回合起作用。单选项互斥。
         </div>
       </div>
     </div>
