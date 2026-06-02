@@ -127,6 +127,21 @@ describe('applyCharsheetRedirect — 技能写入键归一(别名/专精)', () =
     expect(next?.skills['格斗(斗殴)'].current).toBe(55);
     expect(next?.skills['格斗']).toBeUndefined();
   });
+  it('裸名唯一前缀命中已有专精(非别名表路径)：写「枪械」落到唯一的「枪械(手枪)」', () => {
+    const base = { ...sheet(), skills: { '枪械(手枪)': { base: 20, current: 40 } } } as CharacterSheet;
+    const next = applyCharsheetRedirect(base, '调查员.技能.枪械', 'delta', 5);
+    expect(next?.skills['枪械(手枪)'].current).toBe(45);
+    expect(next?.skills['枪械']).toBeUndefined();
+  });
+  it('裸名前缀歧义(多个同前缀专精)：回落规范名、建裸键(记录当前 hits>1 行为)', () => {
+    const base = { ...sheet(), skills: {
+      '枪械(手枪)': { base: 20, current: 40 },
+      '枪械(步枪/霰弹枪)': { base: 25, current: 30 },
+    } } as CharacterSheet;
+    const next = applyCharsheetRedirect(base, '调查员.技能.枪械', 'replace', 50);
+    expect(next?.skills['枪械']).toEqual({ base: 0, current: 50 });
+    expect(next?.skills['枪械(手枪)'].current).toBe(40); // 既有专精不受影响
+  });
 });
 
 describe('applyCharsheetRedirect — 幸运钳制 0~99', () => {
@@ -138,13 +153,28 @@ describe('applyCharsheetRedirect — 幸运钳制 0~99', () => {
   });
 });
 
-describe('applyCharsheetRedirect — 状态条件下标 remove 容错', () => {
-  it('数组下标 remove /调查员/状态条件/0 删除第一条', () => {
-    const base = { ...sheet(), posture: '站立', statusConditions: [
+describe('applyCharsheetRedirect — 状态条件 remove 容错', () => {
+  function withConds(): CharacterSheet {
+    return { ...sheet(), posture: '站立', statusConditions: [
       { name: '中毒', severity: 'minor' as const, description: 'x' },
       { name: '骨折', severity: 'moderate' as const, description: 'y' },
     ] } as CharacterSheet;
-    const next = applyCharsheetRedirect(base, '调查员.状态条件.0', 'remove', undefined);
+  }
+  it('数组下标 remove /调查员/状态条件/0 删除第一条', () => {
+    const next = applyCharsheetRedirect(withConds(), '调查员.状态条件.0', 'remove', undefined);
+    expect(next?.statusConditions).toEqual([{ name: '骨折', severity: 'moderate', description: 'y' }]);
+  });
+  it('越界下标 remove 不误删（数组 2 条，删下标 9 → 仍 2 条）', () => {
+    const next = applyCharsheetRedirect(withConds(), '调查员.状态条件.9', 'remove', undefined);
+    expect(next?.statusConditions).toHaveLength(2);
+  });
+  it('状态名恰为纯数字时按名优先删(而非当下标)', () => {
+    const base = { ...sheet(), posture: '站立', statusConditions: [
+      { name: '1', severity: 'minor' as const, description: '诅咒计数' },
+      { name: '骨折', severity: 'moderate' as const, description: 'y' },
+    ] } as CharacterSheet;
+    const next = applyCharsheetRedirect(base, '调查员.状态条件.1', 'remove', undefined);
+    // 按名删名为'1'的条件，保留骨折（若误当下标 1 会错删骨折）
     expect(next?.statusConditions).toEqual([{ name: '骨折', severity: 'moderate', description: 'y' }]);
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.5.2';
+export const CURRENT_VERSION = 'v1.5.3';
 
 interface Release {
   version: string;
@@ -12,6 +12,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.5.3',
+    label: '状态与变量更新稳健性 · 天气氛围修正',
+    items: [
+      '状态与变量更新更稳健 — 一批后台修复：删除某个状态（中毒/骨折等）更可靠、不会误删到别的；用别名或简称（如「闪避」「手枪」）记录技能时，读取与显示都能和角色卡正确对上；暗线进度 / NPC 态度等数值推进到上下限时平滑封顶、不再丢更新，而回合数这类计数器算错时仍会提示 AI 自我纠正',
+      '天气氛围更准 — 修复环境氛围描写在更多天气写法（大雨、大雾、风雪等同义词）下都能正确触发，且不再对「雨雾」这类复合天气重复堆叠提示；并提示 AI 切换天气时同步更新剧情状态，避免氛围停留在旧天气',
+    ],
+  },
   {
     version: 'v1.5.2',
     label: '检定更克制 · 状态栏技能名修复 · 变量系统稳健性',
