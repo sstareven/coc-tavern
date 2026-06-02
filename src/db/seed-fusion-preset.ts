@@ -33,6 +33,9 @@ export async function seedFusionPreset(): Promise<void> {
     if (dsJson) { const p = buildFusionPreset(dsJson, FUSION_DS_ID, FUSION_DS_NAME); if (p) presets[FUSION_DS_ID] = p; }
     if (xyJson) { const p = buildFusionPreset(xyJson, FUSION_XY_ID, FUSION_XY_NAME); if (p) presets[FUSION_XY_ID] = p; }
 
+    // 清理早期单预设架构(FUSION_PRESET_ID='shuangren')遗留的死预设，避免列表里多出一个无用项。
+    delete presets['shuangren'];
+
     kvSet(PRESET_STORAGE_KEY, JSON.stringify(presets));
     kvSet(LAST_PRESET_KEY, FUSION_DS_ID); // 默认 DeepSeek 专用版
     kvSet(SEED_FLAG, SEED_VERSION);

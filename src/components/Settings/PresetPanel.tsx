@@ -4,6 +4,7 @@ import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS, ensureFormatInstructionMarker } from '../../constants/presets';
+import { FUSION_DS_ID } from '../../sillytavern/fusion-preset';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
 import { kvGet, kvSet } from '../../db/kv';
@@ -64,7 +65,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   });
   const [selectedId, setSelectedId] = useState<string>(() => {
     if (sessionPresetId) return sessionPresetId;
-    return kvGet('coc_last_preset') || 'p2';
+    return kvGet('coc_last_preset') || FUSION_DS_ID;
   });
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -167,7 +168,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Object.entries(presets).map(([id, preset]) => {
+          {Object.entries(presets).filter(([id]) => !BUILTIN_PRESET_IDS.has(id)).map(([id, preset]) => {
             const isActive = selectedId === id;
             return (
               <div key={id} style={{
@@ -209,8 +210,8 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                       const updated = { ...presets }; delete updated[id];
                       setPresets(updated); savePresets(updated);
                       if (selectedId === id) {
-                        setSelectedId('p2');
-                        kvSet('coc_last_preset', 'p2');
+                        setSelectedId(FUSION_DS_ID);
+                        kvSet('coc_last_preset', FUSION_DS_ID);
                         useRegexStore.setState({ presetScripts: [] });
                         useTavernHelperStore.getState().setPresetScripts([]);
                       }
