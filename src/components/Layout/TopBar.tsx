@@ -54,6 +54,7 @@ export function TopBar({ onReturnToMenu }: Props) {
                 <FullMenuItem label="设 置" onClick={() => { setMenuOpen(false); openPanel('settings'); }} />
                 <FullMenuItem label="世 界 书" onClick={() => { setMenuOpen(false); openPanel('worldbook'); }} />
                 <FullMenuItem label="预 设" onClick={() => { setMenuOpen(false); openPanel('preset'); }} />
+                <FullMenuItem label="功 能" onClick={() => { setMenuOpen(false); openPanel('presetSwitch'); }} />
                 <FullMenuItem label="对 话" onClick={() => { setMenuOpen(false); openPanel('chatlist'); }} />
                 <FullMenuItem label="返回主菜单" onClick={() => { setMenuOpen(false); onReturnToMenu(); }} />
               </div>
@@ -68,6 +69,7 @@ export function TopBar({ onReturnToMenu }: Props) {
           <NavButton label="设 置" onClick={() => openPanel('settings')} />
           <NavButton label="世 界 书" onClick={() => openPanel('worldbook')} />
           <NavButton label="预 设" onClick={() => openPanel('preset')} />
+          <NavButton label="功 能" onClick={() => openPanel('presetSwitch')} />
           <NavButton label="对 话" onClick={() => openPanel('chatlist')} />
           <NavButton label="菜 单" onClick={onReturnToMenu} />
         </nav>

@@ -10,6 +10,7 @@ import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { WorldbookPanel } from './components/Settings/WorldbookPanel';
 import { LorebookEditor } from './components/Settings/LorebookEditor';
 import { PresetPanel } from './components/Settings/PresetPanel';
+import { PresetSwitchOverlay } from './components/Settings/PresetSwitchOverlay';
 import { PresetEditor } from './components/Settings/PresetEditor';
 import { ChatlistPanel } from './components/Settings/ChatlistPanel';
 import { ExtManager } from './components/Settings/ExtManager';
@@ -140,6 +141,7 @@ export function App() {
 
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
       <DicePanel />
+      <PresetSwitchOverlay />
 
       {openPanel === 'settings' && (
         <SettingsPanel visible={true} onClose={closeAll} onReturnToMenu={returnToMenu} />
