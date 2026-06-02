@@ -3,9 +3,13 @@ import { importPresetFromST } from './format-converter';
 import { COC_KP_PRESET } from '../constants/presets';
 import { FUSION_DEFAULT_ENABLED, FUSION_DISABLE_IDS, FUSION_SAMPLERS } from './fusion-config';
 
-/** 融合预设的固定 id 与名称。设为默认主预设（取代旧 COC 守秘人的默认地位；旧 p2 仍保留可用，不破坏老存档引用）。 */
-export const FUSION_PRESET_ID = 'shuangren';
-export const FUSION_PRESET_NAME = '双人成行 · COC守秘人（DeepSeek）';
+/** 两个融合预设：DS专用版(DeepSeek)与向斜阳版(多模型)。悬浮窗模型栏在二者间切换；默认 DeepSeek。 */
+export const FUSION_DS_ID = 'shuangren-ds';
+export const FUSION_XY_ID = 'shuangren-xy';
+export const FUSION_DS_NAME = '双人成行 · DS专用（DeepSeek）';
+export const FUSION_XY_NAME = '双人成行 · 向斜阳（多模型）';
+/** 兼容旧引用：默认主预设 = DeepSeek 专用版。 */
+export const FUSION_PRESET_ID = FUSION_DS_ID;
 
 /** importPresetFromST 给非 marker 条目加 'pi_'/'lib_' 前缀；还原回双人成行原 identifier 以查默认开关表。 */
 function originalId(id: string): string {
@@ -28,8 +32,8 @@ const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistory
  *
  * 失败（JSON 非法）返回 null。
  */
-export function buildFusionPreset(stJson: string): ChatPreset | null {
-  const imported = importPresetFromST(stJson, FUSION_PRESET_NAME);
+export function buildFusionPreset(stJson: string, presetId: string, presetName: string): ChatPreset | null {
+  const imported = importPresetFromST(stJson, presetName);
   if (!imported) return null;
   const base = imported.preset;
 
@@ -68,8 +72,8 @@ export function buildFusionPreset(stJson: string): ChatPreset | null {
   // 3) DeepSeek 采样参数 + 固定身份。
   return {
     ...base,
-    id: FUSION_PRESET_ID,
-    name: FUSION_PRESET_NAME,
+    id: presetId,
+    name: presetName,
     temperature: FUSION_SAMPLERS.temperature,
     topP: FUSION_SAMPLERS.topP,
     topK: FUSION_SAMPLERS.topK,

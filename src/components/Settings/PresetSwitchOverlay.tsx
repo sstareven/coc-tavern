@@ -3,7 +3,7 @@ import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
-import { FUSION_PRESET_ID } from '../../sillytavern/fusion-preset';
+import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID } from '../../sillytavern/fusion-preset';
 import { FUSION_MENU, type FusionOption } from '../../sillytavern/fusion-menu';
 import type { ChatPreset, PromptItem } from '../../types';
 
@@ -12,7 +12,16 @@ const LAST_PRESET_KEY = 'coc_last_preset';
 const COLLAPSE_KEY = 'coc_fusion_collapsed';
 
 const origId = (id: string) => id.replace(/^(pi_|lib_)/, '');
-const MODEL_GROUP = FUSION_MENU.find((g) => g.isModel);
+void FUSION_PRESET_ID;
+
+// 核心驱动模型栏：切换最适配该模型的预设（DeepSeek→DS专用版；哈基米/克/GLM→向斜阳版并开对应思维链）。
+const CHAIN_IDS = ['95e1424e', '197ddde7', '5fa21984']; // Gemini / GLM / Claude 思维链（向斜阳版）
+const PRESET_BAR: { label: string; presetId: string; chain: string | null }[] = [
+  { label: 'DeepSeek🐳', presetId: FUSION_DS_ID, chain: null },
+  { label: '哈基米', presetId: FUSION_XY_ID, chain: '95e1424e' },
+  { label: '克(Claude)', presetId: FUSION_XY_ID, chain: '5fa21984' },
+  { label: 'GLM', presetId: FUSION_XY_ID, chain: '197ddde7' },
+];
 
 function loadCollapsed(): Set<string> | null {
   const raw = kvGet(COLLAPSE_KEY);
@@ -83,10 +92,23 @@ export function PresetSwitchOverlay() {
   const toggleOpt = (id: string) => setEnabledByOrig(new Set([id]), () => !isOn(id));
   const selectInSub = (subOptIds: string[], id: string) => setEnabledByOrig(new Set(subOptIds), (oid) => oid === id);
 
-  const modelOptions = useMemo(
-    () => (MODEL_GROUP?.subs[0]?.options ?? []).filter((o) => exists(o.id)),
-    [items],
-  );
+  // 切换核心驱动模型 = 切到最适配该模型的预设（并在向斜阳版里开对应思维链、关其他思维链）。
+  const switchPreset = (targetPresetId: string, chain: string | null) => {
+    const cs = useChatStore.getState();
+    if (cs.activeId) cs.setPreset(targetPresetId);
+    kvSet(LAST_PRESET_KEY, targetPresetId);
+    const r = resolveActivePreset();
+    if (!r) return;
+    setPresetId(r.id);
+    setPresetName(r.preset.name);
+    let next = r.preset.promptItems || [];
+    if (chain) {
+      next = next.map((it) => (CHAIN_IDS.includes(origId(it.id)) ? { ...it, enabled: origId(it.id) === chain } : it));
+      persistEnabled(r.id, next);
+    }
+    setItems(next);
+    setCollapsed(loadCollapsed() ?? new Set(FUSION_MENU.map((g) => g.title)));
+  };
 
   if (!open) return null;
 
@@ -143,12 +165,27 @@ export function PresetSwitchOverlay() {
             }}>✕</button>
           </div>
 
-          {/* 核心驱动模型栏（单选） */}
-          {MODEL_GROUP && modelOptions.length > 0 && !q && (
+          {/* 核心驱动模型栏：切到最适配该模型的预设 */}
+          {!q && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 10.5, color: 'var(--ink-subtle)', marginBottom: 5 }}>{MODEL_GROUP.title}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--ink-subtle)', marginBottom: 5 }}>核心驱动模型 · 切到该模型最适配的预设</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {modelOptions.map((o) => pill(o, () => selectInSub(MODEL_GROUP.subs[0].options.map((x) => x.id), o.id), isOn(o.id)))}
+                {PRESET_BAR.map((m) => {
+                  const on = m.chain ? (presetId === FUSION_XY_ID && isOn(m.chain)) : (presetId === FUSION_DS_ID);
+                  return (
+                    <button key={m.label} onClick={() => switchPreset(m.presetId, m.chain)} aria-pressed={on}
+                      style={{
+                        fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
+                        border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
+                        background: on ? 'rgba(196,168,85,0.3)' : 'rgba(0,0,0,0.22)',
+                        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+                        fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)',
+                      }}
+                      onMouseEnter={(ev) => { ev.currentTarget.style.filter = 'brightness(1.25)'; }}
+                      onMouseLeave={(ev) => { ev.currentTarget.style.filter = 'brightness(1)'; }}
+                    >{m.label}</button>
+                  );
+                })}
               </div>
             </div>
           )}

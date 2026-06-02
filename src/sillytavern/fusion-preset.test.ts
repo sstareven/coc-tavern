@@ -25,7 +25,7 @@ const stFixture = JSON.stringify({
 });
 
 describe('buildFusionPreset — 双人成行融合', () => {
-  const preset = buildFusionPreset(stFixture)!;
+  const preset = buildFusionPreset(stFixture, FUSION_PRESET_ID, '双人成行测试')!;
 
   it('成功构建并使用固定 id/名称', () => {
     expect(preset).toBeTruthy();
@@ -77,12 +77,12 @@ describe('buildFusionPreset — 双人成行融合', () => {
   });
 
   it('非法 JSON 返回 null', () => {
-    expect(buildFusionPreset('not json')).toBeNull();
+    expect(buildFusionPreset('not json', 'x', 'y')).toBeNull();
   });
 });
 
 describe('融合预设经 assemblePrompt — COC 机制契约端到端', () => {
-  const preset = buildFusionPreset(stFixture)!;
+  const preset = buildFusionPreset(stFixture, FUSION_PRESET_ID, '双人成行测试')!;
   const msgs = assemblePrompt('测试输入', [], preset, [], {}, 'FORMAT_MARKER_TEXT', { before: '', after: '' });
   const joined = msgs.map((m) => m.content).join('\n---\n');
 
