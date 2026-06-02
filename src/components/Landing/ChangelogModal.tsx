@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.7';
+const CURRENT_VERSION = 'v1.3.8';
 
 interface Release {
   version: string;
@@ -12,6 +12,15 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.8',
+    label: '背景补写升级 · 预设技能修复',
+    items: [
+      '「背景补写」升级为一段话智能整理 — 背景故事页新增草稿框：用一段话随意写下调查员的身世、性格、在意的人或物、心结，点「背景补写」，AI 会自动理解、拆解、归类并分配到下方各栏，留空的栏也会结合职业与属性帮你补全；不必再逐栏填写、也不用纠结哪句该放哪格（原「快速填充」与「逐格扩写」已合并为这一个按钮，草稿与各栏皆空时即从零生成）',
+      '整理前可选覆盖方式 — 若你已手填了部分栏位，点按钮会先询问「覆盖整理 / 仅填空格」，保护你已写好的内容不被改动',
+      '修复载入人物创建预设后技能消失 — 此前载入旧预设时，已选的职业/兴趣技能会被「切换职业清空」逻辑误清空；现已修复，老预设的技能正常恢复（你之前保存的预设数据本就完好，无需重存）',
+    ],
+  },
   {
     version: 'v1.3.7',
     label: '背景补写 · 去八股 · COC 规则修正',

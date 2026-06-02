@@ -19,11 +19,15 @@ interface Props {
   onSetInjuries: (v: string) => void;
   phobias: string;
   onSetPhobias: (v: string) => void;
-  quickFilling: boolean;
-  quickFillError: string;
-  onQuickFill: () => void;
-  enriching: boolean;
-  onEnrich: () => void;
+  backstoryDraft: string;
+  onSetBackstoryDraft: (v: string) => void;
+  bgFilling: boolean;
+  backstoryError: string;
+  onBackstoryFill: () => void;
+  bgConfirm: boolean;
+  onConfirmOverwrite: () => void;
+  onConfirmFillEmpty: () => void;
+  onConfirmCancel: () => void;
   openField: string | null;
   onSetOpenField: (v: string | null) => void;
 }
@@ -44,11 +48,14 @@ export function StepBackground({
   traits, onSetTraits,
   injuries, onSetInjuries,
   phobias, onSetPhobias,
-  quickFilling,
-  quickFillError,
-  onQuickFill,
-  enriching,
-  onEnrich,
+  backstoryDraft, onSetBackstoryDraft,
+  bgFilling,
+  backstoryError,
+  onBackstoryFill,
+  bgConfirm,
+  onConfirmOverwrite,
+  onConfirmFillEmpty,
+  onConfirmCancel,
   openField, onSetOpenField,
 }: Props) {
   const accordionRef = useRef<HTMLDivElement>(null);
@@ -78,38 +85,60 @@ export function StepBackground({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
       <div style={sectionTitle}>背景故事 BACKGROUND</div>
 
-      {/* Quick Fill */}
+      {/* AI 背景补写：草稿框 + 工具栏（提示在左、按钮在右） */}
       <div style={{
         padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4,
-        background: 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 10,
+        background: 'rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: 8,
         flexShrink: 0,
       }}>
-        <button onClick={onQuickFill} disabled={quickFilling || enriching} className="sk-btn"
-          style={{
-            ...btnBase, fontSize: 11, padding: '6px 16px',
-            opacity: (quickFilling || enriching) ? 0.5 : 1, cursor: quickFilling ? 'wait' : (enriching ? 'not-allowed' : 'pointer'),
+        <textarea
+          value={backstoryDraft}
+          onChange={(e) => onSetBackstoryDraft(e.target.value)}
+          disabled={bgFilling}
+          className="bg-input"
+          rows={3}
+          style={{ ...inputStyle, resize: 'vertical', textAlign: 'left', minHeight: 60, lineHeight: 1.6 }}
+          placeholder={'用一段话随意描述你的调查员——身世、性格、在意的人或物、心结、伤痛……\n点「背景补写」，AI 会自动理解并整理分配到下方各栏，空着的栏也会帮你补全。'}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+            写一段话或先手填几栏均可；全部留空则按职业与属性为你生成完整背景。
+          </span>
+          <button onClick={onBackstoryFill} disabled={bgFilling} className="sk-btn"
+            style={{
+              ...btnBase, fontSize: 11, padding: '6px 16px', whiteSpace: 'nowrap', flexShrink: 0,
+              opacity: bgFilling ? 0.5 : 1, cursor: bgFilling ? 'wait' : 'pointer',
+            }}>
+            {bgFilling ? '整理中...' : '✦ 背景补写'}
+          </button>
+        </div>
+
+        {/* 已有手填内容时的覆盖确认 */}
+        {bgConfirm && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            paddingTop: 8, borderTop: '1px solid rgba(196,168,85,0.15)',
           }}>
-          {quickFilling ? '生成中...' : '\u2728 快速填充'}
-        </button>
-        <button onClick={onEnrich} disabled={quickFilling || enriching} className="sk-btn"
-          style={{
-            ...btnBase, fontSize: 11, padding: '6px 16px',
-            opacity: (quickFilling || enriching) ? 0.5 : 1, cursor: enriching ? 'wait' : (quickFilling ? 'not-allowed' : 'pointer'),
-          }}>
-          {enriching ? '补写中...' : '✦ 背景补写'}
-        </button>
-        <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)' }}>
-          快速填充：从零生成全部背景；背景补写：对已填写的内容进行 AI 详细扩写
-        </span>
+            <span style={{ fontSize: 10.5, color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+              检测到已填写的背景，AI 整理如何处理？
+            </span>
+            <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button onClick={onConfirmOverwrite} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>覆盖整理</button>
+              <button onClick={onConfirmFillEmpty} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>仅填空格</button>
+              <button onClick={onConfirmCancel} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px', opacity: 0.7 }}>取消</button>
+            </span>
+          </div>
+        )}
       </div>
-      {quickFillError && (
+
+      {backstoryError && (
         <div style={{
           padding: '8px 12px', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 4,
           background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 11,
           fontFamily: 'var(--font-body)', flexShrink: 0,
           whiteSpace: 'pre-line', lineHeight: 1.6,
         }}>
-          {quickFillError}
+          {backstoryError}
         </div>
       )}
 
@@ -164,7 +193,7 @@ export function StepBackground({
                   {hasContent ? (
                     <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                   ) : null}
-                  <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'\u25bc'}</span>
+                  <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'▼'}</span>
                 </span>
               </div>
             );

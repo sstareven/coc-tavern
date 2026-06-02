@@ -301,9 +301,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [traits, setTraits] = useState('');
   const [injuries, setInjuries] = useState('');
   const [phobias, setPhobias] = useState('');
-  const [quickFilling, setQuickFilling] = useState(false);
-  const [quickFillError, setQuickFillError] = useState('');
-  const [enriching, setEnriching] = useState(false);
+  const [bgFilling, setBgFilling] = useState(false);
+  const [backstoryError, setBackstoryError] = useState('');
+  const [backstoryDraft, setBackstoryDraft] = useState('');
+  const [bgConfirm, setBgConfirm] = useState(false);
 
   /* ---- Presets ---- */
   const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
@@ -548,244 +549,30 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     prevOccRef.current = occupation;
   }, [occupation]);
 
-  /* ---- Quick Fill ---- */
-  const quickFill = async () => {
+  /* ---- 背景补写（AI 整理：草稿 + 已填字段 + 角色档案 → 8 个背景字段） ---- */
+  // 8 个背景字段统一定义（顺序即输出顺序），供构造原文与解析回填复用。
+  const bgFieldDefs: { key: string; zh: string; value: string; setter: (v: string) => void }[] = [
+    { key: 'description',          zh: '个人描述', value: description,          setter: setDescription },
+    { key: 'beliefs',              zh: '思想信念', value: beliefs,              setter: setBeliefs },
+    { key: 'significantPeople',    zh: '重要之人', value: significantPeople,    setter: setSignificantPeople },
+    { key: 'meaningfulLocations',  zh: '重要场所', value: meaningfulLocations,  setter: setMeaningfulLocations },
+    { key: 'treasuredPossessions', zh: '珍贵之物', value: treasuredPossessions, setter: setTreasuredPossessions },
+    { key: 'traits',               zh: '特质',     value: traits,               setter: setTraits },
+    { key: 'injuries',             zh: '伤疤',     value: injuries,             setter: setInjuries },
+    { key: 'phobias',              zh: '恐惧症',   value: phobias,              setter: setPhobias },
+  ];
+
+  // 核心：构造统一 prompt（草稿 + 已填字段原文 + 角色档案），让 AI 产出全部 8 格。
+  // mode 决定写回范围：overwrite=写回全部；fillEmpty=只写原本为空的字段（保护手填内容）。
+  const runBackstoryFill = async (mode: 'overwrite' | 'fillEmpty') => {
+    setBgConfirm(false);
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) {
-      setQuickFillError('请先在设置中配置API密钥后再使用快速填充功能。');
+      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
       return;
     }
-    setQuickFillError('');
-    setQuickFilling(true);
-    try {
-      const occText = occupation === '__custom__' ? customOccupation : occupation;
-      const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
-
-      const charLines: string[] = [];
-      for (const { key, zh } of CHAR_ORDER) {
-        const v = charValues[key] ?? 50;
-        const bars: string[] = [];
-        if (v >= 80) bars.push('卓越');
-        else if (v >= 70) bars.push('优秀');
-        else if (v >= 60) bars.push('良好');
-        else if (v >= 40) bars.push('中等');
-        else bars.push('较低');
-        charLines.push(`${zh} ${v}（${bars.join('')}）`);
-      }
-
-      const occSkillLines: string[] = [];
-      for (const s of occSkills) {
-        const sk = ALL_SKILLS.find((x) => x.name === s);
-        const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
-        const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
-        const total = Math.min(99, base + pts);
-        const desc = SKILL_DESC[s] || '';
-        const tag = (occPoints[s] ?? 0) > 0 ? `[职业专精 +${occPoints[s]}]` : `[兴趣 +${interestPoints[s] ?? 0}]`;
-        occSkillLines.push(`- ${s}：${total}%（基础${base} ${tag}）— ${desc}`);
-      }
-
-      const intOnly = interestSkills.filter((s) => !occSkills.includes(s));
-      const intSkillLines: string[] = [];
-      for (const s of intOnly) {
-        const sk = ALL_SKILLS.find((x) => x.name === s);
-        const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
-        const pts = interestPoints[s] ?? 0;
-        if (pts <= 0) continue;
-        const desc = SKILL_DESC[s] || '';
-        intSkillLines.push(`- ${s}：${Math.min(99, base + pts)}%（基础${base} +兴趣${pts}）— ${desc}`);
-      }
-
-      let occContext = '';
-      if (occObj) {
-        occContext = `推荐职业技能：${occObj.skills.join('、')}。信用评级范围：${occObj.crMin}%-${occObj.crMax}%。`;
-      }
-
-      const prompt = [
-        `你是1920年代美国克苏鲁召唤（Call of Cthulhu 7th）TRPG 调查员背景故事生成器。`,
-        `请根据以下角色数据，结合其职业特征、技能专精、出生地和居住地，为每个字段生成贴切的背景文本。`,
-        ``,
-        `## 角色身份`,
-        `- 姓名：${name || '未知'}`,
-        `- 职业：${occText || '调查员'}（1920年代美国，请理解该职业的典型形象、社会地位和生活方式）`,
-        `- 年龄：${age}岁`,
-        `- 性别：${sex}`,
-        `${birthplace ? `- 出生地：${birthplace}` : ''}`,
-        `${residence ? `- 居住地：${residence}` : ''}`,
-        `${occContext ? `- ${occContext}` : ''}`,
-        ``,
-        `## 属性（数值越高越突出）`,
-        ...charLines.map((l) => `- ${l}`),
-        `${creditRating > 0 ? `- 信用评级：${creditRating}%（反映社会地位和经济水平）` : ''}`,
-        ``,
-        `## 职业技能（投入点数越高=该角色在这方面越精专/经验越丰富）`,
-        ...(occSkillLines.length > 0 ? occSkillLines : ['（无职业技能投入）']),
-        ...(intSkillLines.length > 0 ? ['', `## 兴趣技能`, ...intSkillLines] : []),
-        ``,
-        `## 生成要求`,
-        `每个字段的内容必须与角色的职业、技能、属性和生活背景紧密相关：`,
-        `- 外貌描述应体现职业特征（如：水手经日晒的皮肤、教授学者的气质、工人的粗壮的双手）`,
-        `- 思想信念应与职业世界观一致（如：科学家相信理性、神职人员虔诚、记者追求真相）`,
-        `- 重要之人应与职业/生活相关（如：教授的导师、记者的线人、医生的病人）`,
-        `- 重要场所应是角色职业/生活中常去之处`,
-        `- 珍贵之物应与其职业或人生经历相关`,
-        `- 特质应反映技能专精指向的性格（如：擅心理学→敏锐、擅格斗→好斗、擅话术→圆滑）`,
-        `- 伤疤应与职业风险或经历匹配（如无合理伤疤则留空）`,
-        `- 恐惧症应与角色经历或职业环境相关（如无合理恐惧则留空）`,
-        ``,
-        `## 输出格式`,
-        `严格按以下 ### 标题分段输出，每个字段用 ### 标记，标题后换行写中文内容。留空的字段写"无"。`,
-        ``,
-        `### 个人描述`,
-        `（1-3句外貌与气质描述）`,
-        ``,
-        `### 思想信念`,
-        `（1-3句）`,
-        ``,
-        `### 重要之人`,
-        `（1句）`,
-        ``,
-        `### 重要场所`,
-        `（1句）`,
-        ``,
-        `### 珍贵之物`,
-        `（1句）`,
-        ``,
-        `### 特质`,
-        `（关键词，逗号分隔）`,
-        ``,
-        `### 伤疤`,
-        `（无则填"无"）`,
-        ``,
-        `### 恐惧症`,
-        `（无则填"无"）`,
-      ].join('\n');
-
-      const response = await sendChatCompletion(
-        [{ role: 'user', content: prompt }],
-        { ...DEFAULT_INPUT_PRESET, temperature: 0.75, maxTokens: 1200 },
-        settings.apiBaseUrl, settings.apiKey, settings.apiModel,
-      );
-
-      const rawText = response.content || '';
-
-      const MARKER_MAP: Record<string, string> = {
-        '个人描述': 'description', '思想信念': 'beliefs',
-        '重要之人': 'significantPeople', '重要场所': 'meaningfulLocations',
-        '珍贵之物': 'treasuredPossessions', '特质': 'traits',
-        '伤疤': 'injuries', '恐惧症': 'phobias',
-      };
-
-      const sectionRe = /###\s*([^\n]+)\s*\n([\s\S]*?)(?=\n###\s|\n*$)/g;
-      const extracted: Record<string, string> = {};
-      let m: RegExpExecArray | null;
-      while ((m = sectionRe.exec(rawText)) !== null) {
-        const title = m[1].trim();
-        const content = m[2].replace(/[\r\n]+$/, '').trim();
-        const fieldKey = MARKER_MAP[title] ?? Object.entries(MARKER_MAP).find(([k]) => title.includes(k))?.[1];
-        if (fieldKey && content && content !== '无') {
-          extracted[fieldKey] = content;
-        }
-      }
-
-      if (Object.keys(extracted).length === 0) {
-        let jsonStr = rawText;
-        const cbMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (cbMatch) jsonStr = cbMatch[1].trim();
-        const braceStart = jsonStr.indexOf('{');
-        const braceEnd = jsonStr.lastIndexOf('}');
-        if (braceStart >= 0 && braceEnd > braceStart) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
-        jsonStr = jsonStr.replace(/\n/g, ' ').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/[，、]/g, ',').replace(/[：]/g, ':');
-
-        const FIELD_MAP: [string, string[]][] = [
-          ['description', ['描述', '个人描述', '外貌']],
-          ['beliefs', ['信念', '思想信念', '思想', '价值观', '信仰']],
-          ['significantPeople', ['重要之人', '重要的人', '关系人物']],
-          ['meaningfulLocations', ['重要场所', '有意义的场所', '场所']],
-          ['treasuredPossessions', ['珍贵之物', '珍贵的物品', '物品']],
-          ['traits', ['特质', '性格', '性格特质', '个性']],
-          ['injuries', ['伤口', '伤痕', '伤疤', '旧伤']],
-          ['phobias', ['恐惧症', '狂躁症', '恐惧', '畏惧']],
-        ];
-
-        function escapeRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-        try {
-          const obj = JSON.parse(jsonStr);
-          for (const [en, aliases] of FIELD_MAP) {
-            if (obj[en] != null) extracted[en] = String(obj[en]);
-            else for (const cn of aliases) { if (obj[cn] != null) { extracted[en] = String(obj[cn]); break; } }
-          }
-        } catch {
-          for (const [en, aliases] of FIELD_MAP) {
-            const allKeys = [en, ...aliases];
-            for (const key of allKeys) {
-              const re = new RegExp(`"${escapeRe(key)}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*[,}\\]]|$)`, 'i');
-              const rm = jsonStr.match(re);
-              if (rm) { extracted[en] = rm[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'); break; }
-            }
-          }
-        }
-      }
-
-      const s = (v: string | undefined) => (v != null ? String(v) : '');
-      const d = s(extracted.description);
-      const b = s(extracted.beliefs);
-      const sp = s(extracted.significantPeople);
-      const ml = s(extracted.meaningfulLocations);
-      const tp = s(extracted.treasuredPossessions);
-      const t = s(extracted.traits);
-      const i = s(extracted.injuries);
-      const ph = s(extracted.phobias);
-
-      const filled: string[] = [];
-      if (d) { setDescription(d); filled.push('description'); }
-      if (b) { setBeliefs(b); filled.push('beliefs'); }
-      if (sp) { setSignificantPeople(sp); filled.push('significantPeople'); }
-      if (ml) { setMeaningfulLocations(ml); filled.push('meaningfulLocations'); }
-      if (tp) { setTreasuredPossessions(tp); filled.push('treasuredPossessions'); }
-      if (t) { setTraits(t); filled.push('traits'); }
-      if (i) { setInjuries(i); filled.push('injuries'); }
-      if (ph) { setPhobias(ph); filled.push('phobias'); }
-
-      if (filled.length === 0) {
-        setQuickFillError('AI 返回的内容无法解析。请重试或手动填写。');
-      } else {
-        setQuickFillError('');
-      }
-    } catch (err: unknown) {
-      setQuickFillError(`生成失败: ${err instanceof Error ? err.message : '未知错误'}`);
-    } finally {
-      setQuickFilling(false);
-    }
-  };
-
-  /* ---- Enrich Backstory (背景补写：仅对已填字段忠实扩写) ---- */
-  const enrichBackstory = async () => {
-    const settings = useSettingsStore.getState();
-    if (!settings.apiKey) {
-      setQuickFillError('请先在设置中配置API密钥后再使用背景补写功能。');
-      return;
-    }
-
-    const FIELD_DEFS: { key: string; setter: (v: string) => void; value: string; zh: string }[] = [
-      { key: 'description',          setter: setDescription,          value: description,          zh: '个人描述' },
-      { key: 'beliefs',              setter: setBeliefs,              value: beliefs,              zh: '思想信念' },
-      { key: 'significantPeople',    setter: setSignificantPeople,    value: significantPeople,    zh: '重要之人' },
-      { key: 'meaningfulLocations',  setter: setMeaningfulLocations,  value: meaningfulLocations,  zh: '重要场所' },
-      { key: 'treasuredPossessions', setter: setTreasuredPossessions, value: treasuredPossessions, zh: '珍贵之物' },
-      { key: 'traits',               setter: setTraits,               value: traits,               zh: '特质' },
-      { key: 'injuries',             setter: setInjuries,             value: injuries,             zh: '伤疤' },
-      { key: 'phobias',              setter: setPhobias,              value: phobias,              zh: '恐惧症' },
-    ];
-    const filledFields = FIELD_DEFS.filter((f) => f.value.trim() !== '');
-
-    if (filledFields.length === 0) {
-      setQuickFillError('请先填写至少一个背景字段，再使用补写。');
-      return;
-    }
-
-    setQuickFillError('');
-    setEnriching(true);
+    setBackstoryError('');
+    setBgFilling(true);
     try {
       const occText = occupation === '__custom__' ? customOccupation : occupation;
       const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
@@ -801,20 +588,31 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         charLines.push(`${zh} ${v}（${tier}）`);
       }
 
+      const occSkillLines: string[] = [];
+      for (const s of occSkills) {
+        const sk = ALL_SKILLS.find((x) => x.name === s);
+        const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
+        const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
+        const desc = SKILL_DESC[s] || '';
+        occSkillLines.push(`- ${s}：${Math.min(99, base + pts)}%${desc ? ` — ${desc}` : ''}`);
+      }
+
       let occContext = '';
       if (occObj) {
         occContext = `推荐职业技能：${occObj.skills.join('、')}。信用评级范围：${occObj.crMin}%-${occObj.crMax}%。`;
       }
 
-      const originalBlocks = filledFields.map(
-        (f) => [`### ${f.zh}`, `【玩家原文】${f.value.trim()}`].join('\n'),
-      ).join('\n\n');
+      const draft = backstoryDraft.trim();
+      const filledBlocks = bgFieldDefs
+        .filter((f) => f.value.trim() !== '')
+        .map((f) => `### ${f.zh}\n${f.value.trim()}`)
+        .join('\n\n');
 
       const prompt = [
-        `你是1920年代美国克苏鲁的呼唤（Call of Cthulhu 7th）TRPG 调查员背景故事润色师。`,
-        `玩家已手动填写了部分背景字段。你的唯一任务是【忠实保留玩家原意】，对这些已填字段进行细节扩写，使之更生动、更有画面感。你不是创作者，而是润色者。`,
+        `你是1920年代美国《克苏鲁的呼唤》（Call of Cthulhu 7th）TRPG 调查员背景整理师。`,
+        `你的任务：把玩家提供的零散素材，整理、归类、补全为 8 个规范的背景字段。你既是归类者，也是润色者，但绝不是篡改者。`,
         ``,
-        `## 角色身份（仅供你理解语境，不要凭空新增设定）`,
+        `## 角色档案（供你理解语境，勿与已知信息矛盾）`,
         `- 姓名：${name || '未知'}`,
         `- 职业：${occText || '调查员'}（1920年代美国）`,
         `- 年龄：${age}岁`,
@@ -826,37 +624,38 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         `## 属性（数值越高越突出）`,
         ...charLines.map((l) => `- ${l}`),
         `${creditRating > 0 ? `- 信用评级：${creditRating}%` : ''}`,
+        ...(occSkillLines.length > 0 ? ['', `## 技能专精（数值越高越擅长）`, ...occSkillLines] : []),
         ``,
-        `## 玩家已填写的字段原文（你只能处理下面列出的字段）`,
-        originalBlocks,
+        draft
+          ? `## 玩家草稿（一段自由描述，可能混杂多个字段的信息，需你正确拆解归类）\n${draft}`
+          : `## 玩家草稿\n（玩家未提供草稿）`,
         ``,
-        `## 扩写规则（务必逐条严格遵守）`,
-        `1. 【忠实原意】完整保留玩家原文中的每一个核心事实、人名、地名、关系、情绪与时间。绝不改写、替换或删除原文已表达的任何要点。`,
-        `2. 【只补不改】仅在原文基础上补充感官细节、动机、情境或时代氛围，把每个字段扩写成 3-5 句连贯中文。原文已写的内容必须原样体现在扩写结果里。`,
-        `3. 【禁止矛盾与杜撰】不得添加与原文相互矛盾的设定；不得虚构原文未暗示的重大新事实（如未提及的新人物、新事件、新创伤）。细节补充须是对原文的合理延展。`,
-        `4. 【结合背景】扩写可自然贴合上面给出的职业与 1920 年代美国语境，但这只是润色佐料，不得喧宾夺主或改变原意。`,
-        `5. 【不碰空字段】只输出下方列出的字段，绝对不要为玩家留空（未在上面出现）的字段生成任何内容。`,
-        `6. 【特质字段】若「特质」原文是逗号分隔的关键词列表，请保留这些关键词，可在其后补一句简短说明，但不要删掉任何关键词。`,
+        filledBlocks
+          ? `## 玩家已手填的字段原文（必须忠实保留其核心事实）\n${filledBlocks}`
+          : `## 玩家已手填的字段原文\n（无）`,
+        ``,
+        `## 整理规则（务必逐条严格遵守）`,
+        `1. 【忠实保留】草稿与已填原文中的每一个核心事实、人名、地名、关系、情绪、时间都必须完整体现，绝不改写、替换或删除。`,
+        `2. 【正确归类】把草稿里散落的信息分配到最贴切的字段（如「戴圆框眼镜」归个人描述，「怕黑」归恐惧症，「父亲的银怀表」归珍贵之物）。`,
+        `3. 【补全空缺】草稿和已填都未覆盖的字段，结合上面的职业/属性/技能/年代合理补全，使 8 个字段都不为空；补全须自然贴合，不得虚构与已知矛盾的重大新事实。`,
+        `4. 【适度扩写】每个字段写成 2-4 句连贯中文，富有画面感。`,
+        `5. 【特质字段】用逗号分隔的关键词列表（如「缄默、固执、好奇心强」），可在其后补一句简短说明。`,
+        `6. 【完整输出】必须输出下列全部 8 个字段，缺一不可。`,
         ``,
         `## 输出格式`,
-        `严格按 ### 标题分段输出，每段标题后换行写扩写后的中文内容，不要回带「【玩家原文】」前缀。只输出以下字段：`,
-        ...filledFields.map((f) => `### ${f.zh}`),
+        `严格按 ### 标题分段，标题后换行写该字段中文内容，不要带任何前缀标记：`,
+        ...bgFieldDefs.map((f) => `### ${f.zh}`),
       ].join('\n');
 
       const response = await sendChatCompletion(
         [{ role: 'user', content: prompt }],
-        { ...DEFAULT_INPUT_PRESET, temperature: 0.75, maxTokens: 1200 },
+        { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 1600 },
         settings.apiBaseUrl, settings.apiKey, settings.apiModel,
       );
 
       const rawText = response.content || '';
-
-      const MARKER_MAP: Record<string, string> = {
-        '个人描述': 'description', '思想信念': 'beliefs',
-        '重要之人': 'significantPeople', '重要场所': 'meaningfulLocations',
-        '珍贵之物': 'treasuredPossessions', '特质': 'traits',
-        '伤疤': 'injuries', '恐惧症': 'phobias',
-      };
+      const byZh: Record<string, string> = {};
+      for (const f of bgFieldDefs) byZh[f.zh] = f.key;
 
       const sectionRe = /###\s*([^\n]+)\s*\n([\s\S]*?)(?=\n###\s|\n*$)/g;
       const extracted: Record<string, string> = {};
@@ -864,31 +663,43 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       while ((m = sectionRe.exec(rawText)) !== null) {
         const title = m[1].trim();
         const content = m[2].replace(/[\r\n]+$/, '').trim();
-        const cleaned = content.replace(/^【玩家原文】\s*/, '').trim();
-        const fieldKey = MARKER_MAP[title] ?? Object.entries(MARKER_MAP).find(([k]) => title.includes(k))?.[1];
-        if (fieldKey && cleaned && cleaned !== '无') {
-          extracted[fieldKey] = cleaned;
-        }
+        const fieldKey = byZh[title] ?? Object.entries(byZh).find(([zh]) => title.includes(zh))?.[1];
+        if (fieldKey && content && content !== '无') extracted[fieldKey] = content;
       }
 
       const applied: string[] = [];
-      for (const f of filledFields) {
+      for (const f of bgFieldDefs) {
         const next = extracted[f.key];
-        if (next) {
-          f.setter(next);
-          applied.push(f.key);
-        }
+        if (!next) continue;
+        if (mode === 'fillEmpty' && f.value.trim() !== '') continue; // 仅填空格：跳过已填
+        f.setter(next);
+        applied.push(f.key);
       }
 
       if (applied.length === 0) {
-        setQuickFillError('AI 返回的内容无法解析，背景未改动。请重试。');
+        setBackstoryError('AI 返回的内容无法解析，背景未改动。请重试。');
       } else {
-        setQuickFillError('');
+        setBackstoryError('');
       }
     } catch (err: unknown) {
-      setQuickFillError(`补写失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      setBackstoryError(`背景补写失败: ${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
-      setEnriching(false);
+      setBgFilling(false);
+    }
+  };
+
+  // 点「背景补写」入口：无 apiKey 报错；若已有手填字段→弹确认条让用户选覆盖/仅填空格；否则直接整理。
+  const handleBackstoryFill = () => {
+    if (!useSettingsStore.getState().apiKey) {
+      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
+      return;
+    }
+    setBackstoryError('');
+    const hasFilled = bgFieldDefs.some((f) => f.value.trim() !== '');
+    if (hasFilled) {
+      setBgConfirm(true); // 有已填内容：让用户决定覆盖还是仅填空格
+    } else {
+      void runBackstoryFill('overwrite'); // 全空：直接整理/生成，无覆盖风险
     }
   };
 
@@ -982,11 +793,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             traits={traits} onSetTraits={setTraits}
             injuries={injuries} onSetInjuries={setInjuries}
             phobias={phobias} onSetPhobias={setPhobias}
-            quickFilling={quickFilling}
-            quickFillError={quickFillError}
-            onQuickFill={quickFill}
-            enriching={enriching}
-            onEnrich={enrichBackstory}
+            backstoryDraft={backstoryDraft}
+            onSetBackstoryDraft={setBackstoryDraft}
+            bgFilling={bgFilling}
+            backstoryError={backstoryError}
+            onBackstoryFill={handleBackstoryFill}
+            bgConfirm={bgConfirm}
+            onConfirmOverwrite={() => runBackstoryFill('overwrite')}
+            onConfirmFillEmpty={() => runBackstoryFill('fillEmpty')}
+            onConfirmCancel={() => setBgConfirm(false)}
             openField={openField}
             onSetOpenField={setOpenField}
           />
