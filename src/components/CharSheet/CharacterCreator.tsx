@@ -308,6 +308,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   /* ---- Presets ---- */
   const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
   const [showPresetLoad, setShowPresetLoad] = useState(false);
+  // 记录上一次的职业，供「切换职业清空技能」effect 与 loadPreset 协同：
+  // loadPreset 设置职业的同时会把它同步为最新值，使 effect 不把刚载入的技能误判为「换职业」而清空。
+  const prevOccRef = useRef(occupation);
 
   const saveCurrentPreset = useCallback(() => {
     const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias };
@@ -319,6 +322,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setCustomOccupation(d.customOccupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
     setCharValues(d.charValues||DEFAULT_CHARS); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]); setInterestPoints(d.interestPoints||{});
     setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setPhobias(d.phobias||'');
+    // 关键：把 prevOcc 同步为载入的职业，否则下面监听 occupation 的 effect 会判定「换了职业」，
+    // 把刚 setOccSkills/setInterestSkills 填入的技能立即清空（表现为载入预设后技能全空）。
+    prevOccRef.current = d.occupation||'';
     setPoolMode(false); setShowPresetLoad(false);
   }, [DEFAULT_CHARS]);
 
@@ -531,7 +537,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   const nextStep = () => { if (canGoNext() && step < STEPS.length - 1) setStep(step + 1); };
   const prevStep = () => { if (step > 0) setStep(step - 1); };
-  const prevOccRef = useRef(occupation);
   useEffect(() => {
     if (occupation !== prevOccRef.current) {
       // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)，自定义职业为 0。
