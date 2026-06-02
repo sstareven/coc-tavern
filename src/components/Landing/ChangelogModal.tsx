@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.5.0';
+export const CURRENT_VERSION = 'v1.5.1';
 
 interface Release {
   version: string;
@@ -12,6 +12,15 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.5.1',
+    label: '双人成行悬浮窗全量重建 · 剧情推进思维链修复 · 变量更新稳健性',
+    items: [
+      '双人成行悬浮窗按官方《使用指南》全量重建 — 功能菜单的分组、命名与介绍文案全部对齐预设作者的官方规整版本，每个功能的开关改为「按名字」接线，更稳、不再因内部 id 变动而失联；「当前效果预览」区的标签与数值加粗放大、展示字体更清晰，黑底下的泡泡文字与子分类名一并提亮，更易读',
+      '修复剧情「思考链 / 每回合推进」 — 补全「思考功能(COT)」组在 DeepSeek 默认预设下的条目身份，整组不再被误隐藏；启用双人成行原生的「剧情推进」思维链，确保每回合都由它实质推动故事前进，并精简掉与之重复的推进指令',
+      '变量更新更稳健 — 修复一个会把正当剧情设定条目「角色情景」误判为成人内容而关闭的过滤瑕疵；当 AI 回复因思考过长被截断、导致末尾的变量更新块丢失时，现在会在日志里明确告警，便于发现而非无声丢失',
+    ],
+  },
   {
     version: 'v1.5.0',
     label: '集成「双人成行」叙事预设 · 文风 / 思考链 / 预设管理大更新',
