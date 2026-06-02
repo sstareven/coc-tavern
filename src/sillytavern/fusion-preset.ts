@@ -53,11 +53,12 @@ const STYLE_IDS = new Set<string>(
  * 把「双人成行 V6.1」SillyTavern 预设融合为本项目的 COC 守秘人预设。
  *
  * - 解析双人成行全部条目（importPresetFromST）。
- * - 应用 workflow 分类得到的默认 enabled 映射；模型专属条目（FUSION_DISABLE_IDS）强制关；
- *   prompt_order 之外的 library 缓存条目（lib_ 前缀）默认关。
+ * - 条目开关以 ST JSON 自带的 prompt_order.enabled 为基础，再叠加规则：lib_ 缓存条目关、
+ *   使用指南关、KILL_NAME 美化结构/前端关、NSFW 关、文风库整组单选（仅洛夫克拉夫特开）、
+ *   main 主人设强制开、推剧情 cot（PLOT_PUSH_IDS）强制开。
  * - 强制注入并置顶 COC 机制命脉：守秘人主指令（order 最前）、formatInstruction marker、
  *   JSON 双页提醒 postHistoryInstructions（order 最后）——保证无论双人成行多复杂，COC 的
- *   结构化输出契约始终注入、双人成行 main 人设默认关（COC 守秘人优先）。
+ *   结构化输出契约始终注入。
  * - 套用 DeepSeek 友好采样参数。
  *
  * 失败（JSON 非法）返回 null。
