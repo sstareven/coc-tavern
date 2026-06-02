@@ -86,6 +86,21 @@ export function extractJsonPatchBlocks(text: string): unknown[] {
   return result;
 }
 
+/**
+ * 嗅探「LLM 想输出 MVU 补丁块、但没能产出任何可用 op」的静默失败。
+ *
+ * 典型成因：响应在末尾的 <UpdateVariable>…</UpdateVariable> 处被 max_tokens 截断
+ * （补丁块按 format-instruction 约定写在整个 JSON 之后、是回复的最末尾），
+ * 导致 BLOCK_RE 因缺闭合标签整体不匹配、extractJsonPatchBlocks 返回 []。
+ * 由于「本回合本就无状态变化」也会得到 0 op，二者不能只看 op 数区分——
+ * 故以「出现了 <UpdateVariable 开标签」为判据：开了头却抽不出 op，即疑似截断/畸形。
+ *
+ * @returns true 表示文本里出现了 UpdateVariable 开标签（调用方据此在 op 数为 0 时告警）。
+ */
+export function hasUpdateVariableMarker(text: string): boolean {
+  return /<UpdateVariable\b/i.test(text);
+}
+
 /* ============================== Path helpers ============================== */
 
 /** Split a dot-path into segments. Empty path → []. */

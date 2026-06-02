@@ -48,7 +48,7 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
-import { type MvuOpError } from '../sillytavern/mvu-jsonpatch';
+import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
@@ -676,6 +676,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         } else {
           patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
+        }
+
+        // ── MVU 补丁块静默失败嗅探 ──
+        // LLM 输出了 <UpdateVariable> 开标签、却一条 op 都没抽出来（applied+failed===0），
+        // 多半是回复在末尾补丁块处被 max_tokens 截断（双人成行 COT 思考较长时尤甚），
+        // 或补丁块结构畸形。这种情况下变量更新会无声丢失——显式告警让其可见、便于排障。
+        if (
+          patchReport &&
+          patchReport.applied === 0 &&
+          patchReport.failed.length === 0 &&
+          hasUpdateVariableMarker(hookProcessedContent)
+        ) {
+          pushLog(
+            'warn',
+            '[MVU] 检测到 <UpdateVariable> 开标签但未解析出任何变量补丁——疑似回复被截断（max_tokens 不足）或补丁块结构畸形，本回合变量更新可能丢失。',
+            'system',
+          );
         }
 
         // ── MVU 变量更新校验失败 → 可见 + (可选)失败回灌自纠 ──

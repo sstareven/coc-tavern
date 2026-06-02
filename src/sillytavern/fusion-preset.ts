@@ -29,7 +29,10 @@ const PLOT_PUSH_NAMES = new Set(['🚒// COT //推剧情']);
 // 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
-const NSFW_NAME = /🔞|🐬|🥵|色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
+// 注意「色情」用负向后顾 (?<!角)：真 NSFW 条目（✅色情要求自缝合 / 反差色情 / 色情吐槽 等）照杀，
+// 但放过正当剧情设定条目「⚫角色情景」——其名中的「色情」是「角色」+「情景」相邻的巧合子串，
+// 误杀会让角色情景（角色描述/性格同组的设定）整组失效。
+const NSFW_NAME = /🔞|🐬|🥵|(?<!角)色情|官能凝视|H特化|腿部特化|足部特化|性器特化|臀部特化|胸部特化|脸部特化|反差特化|启用特化|语气符号/;
 
 // 洛夫克拉夫特文风条目 name；默认文风即它。
 export const LOVECRAFT_NAME = '洛夫克拉夫特文风';
@@ -59,6 +62,11 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
   const imported = importPresetFromST(stJson, presetName);
   if (!imported) return null;
   const base = imported.preset;
+  // 刻意丢弃 imported.regexScripts —— 双人成行自带 21 条 AI 输出(placement 2)正则是为它自己的
+  // 「流光/选项栏/播放器」HTML 前端形态服务的，其中「去变量更新」会直接删除 <UpdateVariable> 块。
+  // 若把它们装进 useRegexStore.presetScripts 跑在 COC 的 JSON 输出上，轻则毁掉双页结构、
+  // 重则吞掉 MVU 补丁块导致变量更新整体失效。COC 用自己的 formatInstruction/postHistory 输出契约，
+  // 不需要也不能要这些脚本。切勿「恢复」它们。
 
   // 1) 应用默认 enabled：分类表优先；模型专属强制关；library 缓存默认关。
   const tuned: PromptItem[] = base.promptItems
