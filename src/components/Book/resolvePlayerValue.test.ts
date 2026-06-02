@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePlayerValue } from './resolvePlayerValue';
+import { resolvePlayerValue, isKnownCheckTarget } from './resolvePlayerValue';
 import type { CharacterSheet } from '../../types';
 
 const mockSheet: CharacterSheet = {
@@ -179,5 +179,40 @@ describe('resolvePlayerValue — 专精技能名容错', () => {
   it('同前缀多个专精 → 歧义不猜，落基础值', () => {
     const r = resolvePlayerValue('科学', withSci({ '科学(生物学)': { base: 1, current: 60 }, '科学(化学)': { base: 1, current: 40 } }));
     expect(r).toEqual({ base: 1, current: 1 });
+  });
+});
+
+describe('isKnownCheckTarget — 拦截非技能检定目标（如「魔法值消耗」）', () => {
+  it('属性名 → true', () => {
+    expect(isKnownCheckTarget('力量', mockSheet)).toBe(true);
+  });
+  it('副属性（幸运/理智）→ true', () => {
+    expect(isKnownCheckTarget('幸运', mockSheet)).toBe(true);
+    expect(isKnownCheckTarget('理智', mockSheet)).toBe(true);
+  });
+  it('角色卡已有技能 → true', () => {
+    expect(isKnownCheckTarget('图书馆使用', mockSheet)).toBe(true);
+  });
+  it('标准技能表中的技能（即便角色卡未列）→ true', () => {
+    expect(isKnownCheckTarget('侦查', mockSheet)).toBe(true);
+    expect(isKnownCheckTarget('话术', mockSheet)).toBe(true);
+  });
+  it('别名 → true', () => {
+    expect(isKnownCheckTarget('侦察', mockSheet)).toBe(true);
+    expect(isKnownCheckTarget('图书馆', mockSheet)).toBe(true);
+  });
+  it('信用评级及其别名 → true（核心副技能，即便角色卡缺该技能也放行）', () => {
+    expect(isKnownCheckTarget('信用评级', mockSheet)).toBe(true);
+    expect(isKnownCheckTarget('信用', mockSheet)).toBe(true);
+  });
+  it('专精技能（角色卡裸名）→ true', () => {
+    const sheet = { ...mockSheet, skills: { ...mockSheet.skills, '科学': { base: 1, current: 55 } } };
+    expect(isKnownCheckTarget('科学(生物学)', sheet)).toBe(true);
+  });
+  it('「魔法值消耗」等非技能词 → false（核心：不应被当技能检定）', () => {
+    expect(isKnownCheckTarget('魔法值消耗', mockSheet)).toBe(false);
+    expect(isKnownCheckTarget('魔法值', mockSheet)).toBe(false);
+    expect(isKnownCheckTarget('魔法消耗', mockSheet)).toBe(false);
+    expect(isKnownCheckTarget('随便编的检定', mockSheet)).toBe(false);
   });
 });

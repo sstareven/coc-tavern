@@ -14,7 +14,7 @@ import { pushLog } from '../../stores/useLogStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
-import { resolvePlayerValue, normalizeSkillName } from './resolvePlayerValue';
+import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
 import type { ChoiceItem, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
 
 interface Props {
@@ -39,10 +39,13 @@ interface CheckInfo {
 }
 
 function parseCheckAction(text: string): CheckInfo | null {
+  // 技能名校验所需的角色卡：把「魔法值消耗」这类非技能词挡在检定之外（详见 isKnownCheckTarget）。
+  const sheet = useCharSheetStore.getState().sheet;
   // Format: 对抗检定 "进行力量对抗(对手目标值:45)" or legacy "进行力量对抗(玩家目标值:60, 对手目标值:45)"
   const mo = text.match(/进行(.+?)对抗\s*\((?:玩家目标值\s*[:：]\s*\d+[,，]\s*)?对手目标值\s*[:：]\s*(\d+)\)/);
   if (mo) {
     const skillName = normalizeSkillName(mo[1]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
     const pv = getPlayerSkillValue(skillName);
     const playerTarget = pv?.current ?? 50;
     return { skillName, target: playerTarget, opponentTarget: parseInt(mo[2]), difficulty: '普通', bonus: 'none', opposed: true };
@@ -50,25 +53,31 @@ function parseCheckAction(text: string): CheckInfo | null {
   // Format 1: "进行XX检定(目标值:NN, 奖励骰/惩罚骰)" — legacy with explicit target
   const m1 = text.match(/进行(.+?)检定\s*\(目标值\s*[:：]\s*(\d+)([^)]*)\)/);
   if (m1) {
+    const skillName = normalizeSkillName(m1[1]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
     const rest = m1[3] || '';
     let bonus: BonusType = 'none';
     if (/奖励骰/.test(rest)) bonus = 'bonus';
     else if (/惩罚骰/.test(rest)) bonus = 'penalty';
-    return { skillName: normalizeSkillName(m1[1]), target: parseInt(m1[2]), difficulty: '普通', bonus, opposed: false, opponentTarget: 0 };
+    return { skillName, target: parseInt(m1[2]), difficulty: '普通', bonus, opposed: false, opponentTarget: 0 };
   }
   // Format 2: "进行XX检定(普通/困难/极难, 奖励骰/惩罚骰)" — difficulty-based, target from char sheet
   const m2 = text.match(/进行(.+?)检定\s*\((普通|困难|极难)([^)]*)\)/);
   if (m2) {
+    const skillName = normalizeSkillName(m2[1]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
     const rest = m2[3] || '';
     let bonus: BonusType = 'none';
     if (/奖励骰/.test(rest)) bonus = 'bonus';
     else if (/惩罚骰/.test(rest)) bonus = 'penalty';
-    return { skillName: normalizeSkillName(m2[1]), target: 0, difficulty: m2[2], bonus, opposed: false, opponentTarget: 0 };
+    return { skillName, target: 0, difficulty: m2[2], bonus, opposed: false, opponentTarget: 0 };
   }
   // Format 3: "[检定:XX 难度]"
   const m3 = text.match(/\[检定\s*[:：]\s*(.+?)\s+(普通|困难|极难)\s*\]/);
   if (m3) {
-    return { skillName: normalizeSkillName(m3[1]), target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
+    const skillName = normalizeSkillName(m3[1]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
+    return { skillName, target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
 }

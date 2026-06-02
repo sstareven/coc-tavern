@@ -84,3 +84,28 @@ export function resolvePlayerValue(
   if (skill) return { base: skill.base ?? base, current: skill.current };
   return { base, current: base };
 }
+
+/**
+ * 判断一个检定技能名是否能解析到「已知的检定目标」：属性、副属性(幸运/理智)、
+ * 角色卡技能(含专精容错)、标准技能表 ALL_SKILLS 或别名之一。
+ *
+ * 用途：在解析选项里的检定标记时把「魔法值消耗」「魔法值」这类并非技能的词挡掉——
+ * 它们不应被当作技能检定掷骰（resolvePlayerValue 对未知名会 fallback 到目标值 1，
+ * 与基础 1% 的合法技能无法区分，故无法用目标值判断；这里用「是否找得到」来判定）。
+ * 注意：入参应已用 normalizeSkillName 归一过英文属性码。
+ */
+export function isKnownCheckTarget(rawName: string, sheet: CharacterSheet): boolean {
+  const trimmed = rawName.trim().replace(/（/g, '(').replace(/）/g, ')');
+  const name = SKILL_ALIASES[trimmed] ?? trimmed;
+  if (CHAR_MAP[name]) return true;
+  if (name === '幸运' || name === '幸运值' || name === 'LUCK' || name === 'Luck') return true;
+  if (name === '理智' || name === '理智值' || name === '理智检定' || name === 'SAN' || name === 'san') return true;
+  // 信用评级是 COC 核心副技能但未列入 ALL_SKILLS；角色卡通常含该技能，但 defaultSheet/旧卡可能缺，显式放行避免误伤其检定。
+  if (name === '信用评级') return true;
+  if (sheet.skills[name]) return true;
+  const bare = name.replace(/\(.*\)$/, '');
+  if (bare !== name && sheet.skills[bare]) return true;
+  if (Object.keys(sheet.skills).some((k) => k === bare || k.startsWith(bare + '('))) return true;
+  if (ALL_SKILLS.some((s) => s.name === name || s.name === bare)) return true;
+  return false;
+}

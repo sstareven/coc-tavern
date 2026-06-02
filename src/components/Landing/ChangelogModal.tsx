@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.8';
+const CURRENT_VERSION = 'v1.3.9';
 
 interface Release {
   version: string;
@@ -12,6 +12,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.9',
+    label: '魔法值不再被误当成检定',
+    items: [
+      '修复「魔法值消耗」被错误当成技能检定的问题 — 此前 AI 偶尔会把「消耗魔法值」写成一个需要掷骰的检定选项，点下去会以目标值 1 掷骰、几乎必然失败，很不合理；现在系统会识别并拦截这类并不存在的伪检定，让它回归为普通行动（魔法值的增减交由后台正确处理），同时也已指导 AI 不再这样生成。只要技能名不是真实存在的 COC 技能或属性，就不会再被当作检定掷骰',
+    ],
+  },
   {
     version: 'v1.3.8',
     label: '背景补写升级 · 预设技能修复',
