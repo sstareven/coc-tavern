@@ -496,7 +496,7 @@ describe('applyMvuPatchCollect — 结构化失败收集', () => {
   });
 });
 
-describe('schema 校验 — 越界/枚举拒绝', () => {
+describe('schema 校验 — replace 越界拒绝 / delta 越界饱和 / 枚举拒绝', () => {
   const schema = {
     rules: {
       '世界.时间.小时': { kind: 'number' as const, min: 0, max: 23 },
@@ -517,11 +517,18 @@ describe('schema 校验 — 越界/枚举拒绝', () => {
     expect(errors[0].reason).toContain('range');
   });
 
-  it('delta 后跌破 min 被拒绝（HP -100）', () => {
+  it('delta 越界饱和到边界（HP -100 → 夹到 min 0，不再整条丢弃）', () => {
     const tree: Record<string, unknown> = { hp: 10 };
     const errors = applyMvuPatchCollect(tree, [{ op: 'delta', path: '/hp', value: -100 }], { schema });
-    expect(tree.hp).toBe(10);
-    expect(errors[0].reason).toContain('range');
+    expect(tree.hp).toBe(0);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('delta 越界饱和到上界（有 max 时夹到 max）', () => {
+    const tree: Record<string, unknown> = { 世界: { 时间: { 小时: 20 } } };
+    const errors = applyMvuPatchCollect(tree, [{ op: 'delta', path: '/世界/时间/小时', value: 10 }], { schema });
+    expect((tree as any).世界.时间.小时).toBe(23);
+    expect(errors).toHaveLength(0);
   });
 
   it('枚举非法值被拒绝', () => {

@@ -1,8 +1,26 @@
 import type { CharacterSheet, StatusCondition } from '../types';
+import { normalizeSkillKey } from './coc-data';
 
 /** Whether a dot-path belongs to the character-sheet namespace (调查员.*). */
 export function isCharsheetPath(dotPath: string): boolean {
   return dotPath === '调查员' || dotPath.startsWith('调查员.');
+}
+
+/**
+ * 把 LLM 写入用的技能名归一到角色卡「读取时」会查的同一个键，避免写入键与掷骰/显示键不一致
+ * 而在 sheet.skills 里造出永不被读的「孤儿技能」（如写 手枪/闪避，读时归一为 枪械(手枪)/躲闪）。
+ *  1. 别名 + 全角括号归一（normalizeSkillKey）。
+ *  2. 若归一后键已存在则用之；否则按裸名↔专精做唯一前缀匹配（对齐 resolvePlayerValue 的读取容错）。
+ *  3. 仍无命中＝全新技能，用归一后的规范名作键。
+ */
+function canonicalSkillKey(raw: string, sheet: CharacterSheet): string {
+  const aliased = normalizeSkillKey(raw);
+  if (sheet.skills[aliased]) return aliased;
+  const bare = aliased.replace(/\(.*\)$/, '');
+  if (bare !== aliased && sheet.skills[bare]) return bare;
+  const hits = Object.keys(sheet.skills).filter((k) => k === bare || k.startsWith(bare + '('));
+  if (hits.length === 1) return hits[0];
+  return aliased;
 }
 
 /**
@@ -110,6 +128,15 @@ export function applyCharsheetRedirect(
     const name = dotPath.slice('调查员.状态条件.'.length);
     if (!name) return null;
     if (op === 'remove') {
+      // 容忍 JSONPatch 通用模板的数组下标删法 /调查员/状态条件/0；下标越界则回退按名删。
+      if (/^\d+$/.test(name)) {
+        const idx = Number(name);
+        if (idx >= 0 && idx < sheet.statusConditions.length) {
+          const next = sheet.statusConditions.slice();
+          next.splice(idx, 1);
+          return { ...sheet, statusConditions: next };
+        }
+      }
       return { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) };
     }
     if (op === 'replace' || op === 'insert') {
@@ -129,7 +156,9 @@ export function applyCharsheetRedirect(
     const delta = toNumber(value);
     if (delta === null) return null;
     if (sec === 'luck') {
-      const next = op === 'delta' ? sheet.secondary.luck + delta : delta;
+      const raw = op === 'delta' ? sheet.secondary.luck + delta : delta;
+      // 幸运恒夹在 0~99（update_rules 明示 range:0~99）——避免越界值写入后污染检定/显示。
+      const next = Math.max(0, Math.min(99, raw));
       return { ...sheet, secondary: { ...sheet.secondary, luck: next } };
     }
     const cur = sheet.secondary[sec.stat][sec.field];
@@ -145,10 +174,12 @@ export function applyCharsheetRedirect(
 
   // ── Skills (调查员.技能.XXX → skills.XXX.current) ──
   if (dotPath.startsWith('调查员.技能.')) {
-    const skillName = dotPath.slice('调查员.技能.'.length);
-    if (!skillName) return null;
+    const rawName = dotPath.slice('调查员.技能.'.length);
+    if (!rawName) return null;
     const n = toNumber(value);
     if (n === null) return null;
+    // 写入键归一到读取侧同一规范键，防止别名/简称造出孤儿技能。
+    const skillName = canonicalSkillKey(rawName, sheet);
     const existing = sheet.skills[skillName];
     const nextCurrent = op === 'delta' ? (existing?.current ?? 0) + n : n;
     return {
