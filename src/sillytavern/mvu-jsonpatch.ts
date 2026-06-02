@@ -3,7 +3,7 @@
 // NOTE: this is *translate-then-apply* semantics, NOT standard RFC 6902.
 // Zero store dependencies, no side effects beyond mutating the passed `tree`.
 
-import { matchRule, validateValue, type MvuSchema } from './mvu-schema';
+import { matchRule, validateValue, clampToNumberRule, type MvuSchema } from './mvu-schema';
 
 /* ============================== Types ============================== */
 
@@ -386,6 +386,11 @@ function applyDelta(
     }
     const result = oldVal[0] + delta;
     if (rule) {
+      if (rule.kind === 'number') {
+        // delta 越界饱和到边界（不整条丢弃）——合规增量推进逼近上下限时不被静默吞。
+        setByPath(tree, dotPath, [clampToNumberRule(rule, result), oldVal[1]]);
+        return;
+      }
       const r = validateValue(rule, result);
       if (!r.ok) {
         onError(`schema ${r.reason} at ${dotPath}: 期望 ${r.expected}，delta 后得 ${result}`);
@@ -401,6 +406,11 @@ function applyDelta(
   }
   const result = oldVal + delta;
   if (rule) {
+    if (rule.kind === 'number') {
+      // delta 越界饱和到边界（不整条丢弃）——合规增量推进逼近上下限时不被静默吞。
+      setByPath(tree, dotPath, clampToNumberRule(rule, result));
+      return;
+    }
     const r = validateValue(rule, result);
     if (!r.ok) {
       onError(`schema ${r.reason} at ${dotPath}: 期望 ${r.expected}，delta 后得 ${result}`);

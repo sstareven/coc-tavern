@@ -163,3 +163,16 @@ function rangeText(rule: { kind: 'number'; min?: number; max?: number }): string
   const hi = rule.max !== undefined ? String(rule.max) : '';
   return `${lo}..${hi}`;
 }
+
+/**
+ * 把数值夹进 number 规则的 [min,max]；非 number 规则或无界则原样返回。
+ * 供引擎在 delta 越界时「饱和到边界」而非整条丢弃——避免合规的增量推进（如暗线进度逼近 100、
+ * NPC 态度逼近 ±100）被静默吞掉、需靠自纠兜回。
+ */
+export function clampToNumberRule(rule: MvuFieldRule, n: number): number {
+  if (rule.kind !== 'number') return n;
+  let r = n;
+  if (rule.min !== undefined && r < rule.min) r = rule.min;
+  if (rule.max !== undefined && r > rule.max) r = rule.max;
+  return r;
+}
