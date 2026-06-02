@@ -94,12 +94,20 @@ export interface PageGenStats {
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
+/** 线索受控分类标签词表：LLM 只能从此集合给线索打标签，UI 据此做多选筛选。 */
+export const CLUE_TAGS = ['人物', '地点', '物证', '事件', '组织', '超自然', '推理'] as const;
+export type ClueTag = (typeof CLUE_TAGS)[number];
+
 export interface ClueInput {
   name: string;
   summary?: string;
   discoveryNarrative?: string;
   foundAtPage?: string;
   relatedTo?: string[];
+  /** 受控分类标签（已按 CLUE_TAGS 白名单过滤） */
+  tags?: string[];
+  /** 由「线索整合」归纳而来的推理线索（非现场发现），UI 区分高亮 */
+  synthesized?: boolean;
   /** 演化：本条新线索由哪条已有线索（按名）升华而来；给出则系统归档旧线索 */
   evolvesFrom?: string;
 }
@@ -175,6 +183,10 @@ export interface Clue {
   foundAtPage?: string;
   /** 关联的人/地/事关键词 */
   relatedTo?: string[];
+  /** 受控分类标签（CLUE_TAGS 子集），供 UI 多选筛选 */
+  tags?: string[];
+  /** 由「线索整合」归纳而来的推理线索（玩家主动让 LLM 汇总），UI 区分高亮 */
+  synthesized?: boolean;
   acquiredAt: number;
   /** 线索状态：active 显示并注入；archived 已演化、隐藏但保留可回溯。缺省视为 active */
   status?: 'active' | 'archived';

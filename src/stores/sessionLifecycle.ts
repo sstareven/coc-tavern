@@ -84,6 +84,22 @@ export function cleanupOrphanGameState() {
   }
 }
 
+/**
+ * 开新会话的【权威入口】：清空所有按会话隔离的内存态 → 创建新会话（createSession 内部自动设为活跃）。
+ *
+ * 隔离不变量集中在此一处，杜绝调用方逐个手动清空时漏掉某个 store——历史上 CharacterCreator 漏清了
+ * clues/npc/map、ChatlistPanel 什么都没清，导致「正玩存档A时开新游戏B，B 继承了 A 的线索/名册/地图」
+ * 的跨档泄漏（两档物理上存了同一份被污染数据，切档看似没切）。
+ *
+ * 注：上一会话的数据已由每回合 auto-save（persistActiveGameState）持久化到关系表，此处【刻意不再快照
+ * 上一会话】——若先 enqueue 保存旧会话、再同步 clearAllGameState，被入队的保存会在 clear 之后才执行、
+ * 读到已清空的内存 → 反而把旧存档清空。故只清不存，与既有 new-game 语义一致。
+ */
+export function startNewConversation(name: string): string {
+  clearAllGameState();
+  return useChatStore.getState().createSession(name);
+}
+
 // ===== Dexie v2 relational persistence =====
 
 // P1-2: 单一全局序列化链。所有公共 DB 写操作（save/load/delete/switch）经 enqueue() 串行，
@@ -117,6 +133,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const npcs = Object.values(useNpcStore.getState().profiles);
   const mapState = useMapStore.getState();
   const entries = useDarkThreadStore.getState().entries;
+  const badEnding = useDarkThreadStore.getState().badEnding;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
   const statData = useVariableStore.getState().statData;
@@ -159,7 +176,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -192,6 +209,13 @@ async function saveConversationInner(cid: string): Promise<void> {
       await db.darkThreads.where('conversationId').equals(cid).delete();
       if (darkThreadRows.length > 0) await db.darkThreads.bulkPut(darkThreadRows);
 
+      // 坏结局（单行/会话）：有则 put，无则删除任何残留行（与 charsheets 同范式）。
+      if (badEnding) {
+        await db.darkEndings.put({ conversationId: cid, ending: badEnding });
+      } else {
+        await db.darkEndings.delete(cid);
+      }
+
       await db.keywords.where('conversationId').equals(cid).delete();
       if (keywordRows.length > 0) await db.keywords.bulkPut(keywordRows);
 
@@ -221,11 +245,18 @@ export function saveConversation(cid: string): Promise<void> {
 async function loadConversationInner(cid: string): Promise<void> {
   if (!cid) return;
 
+  // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏——【必须在任何 DB 读取之前】：
+  // 若读取事务抛错（DB 损坏/迁移不全），clearAllGameState 仍已执行，不会残留上一会话内存态。
+  // 同步把 activeId 切到目标会话，使「已清空内存 ↔ activeId」形成原子步：即便随后的读事务抛错，
+  // 内存(空)与 activeId(=cid) 仍一致，不会出现「activeId 指向旧会话、内存却已清空」的撕裂。
+  clearAllGameState();
+  useChatStore.getState().setActive(cid);
+
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -236,14 +267,12 @@ async function loadConversationInner(cid: string): Promise<void> {
           db.mapLocations.where('conversationId').equals(cid).toArray(),
           db.mapEdges.where('conversationId').equals(cid).toArray(),
           db.darkThreads.where('conversationId').equals(cid).toArray(),
+          db.darkEndings.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
           db.macroVars.where('conversationId').equals(cid).toArray(),
         ]),
     );
-
-  // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏。
-  clearAllGameState();
 
   // 书本页面（按 index 排序还原顺序，剥离关系键）
   const pages = pageRows
@@ -286,6 +315,8 @@ async function loadConversationInner(cid: string): Promise<void> {
   // 暗线
   const entries = darkThreadRows.map(({ conversationId: _cid, entryId: _entryId, ...entry }) => entry);
   useDarkThreadStore.getState().replaceAll(entries);
+  // 坏结局（单行/会话）：无行则为 null（clearAllGameState 已置 null，此处显式恢复以覆盖切档）。
+  useDarkThreadStore.getState().setBadEnding(darkEndingRow?.ending ?? null);
 
   // 关键词
   const keywords: Record<string, string> = {};
@@ -333,7 +364,7 @@ async function loadConversationInner(cid: string): Promise<void> {
   useTavernHelperStore.getState().setMacroVars(macroVars);
 
   // 同步内存会话的 pages/pageCount，供 getActivePages 与会话列表使用。
-  useChatStore.getState().setActive(cid);
+  // （activeId 已在函数开头清空内存后同步设置，此处只需同步 pages。）
   useChatStore.getState().savePages(pages);
 }
 
@@ -351,7 +382,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -362,6 +393,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.mapLocations.where('conversationId').equals(cid).delete();
       await db.mapEdges.where('conversationId').equals(cid).delete();
       await db.darkThreads.where('conversationId').equals(cid).delete();
+      await db.darkEndings.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();
       await db.macroVars.where('conversationId').equals(cid).delete();

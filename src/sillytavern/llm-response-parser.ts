@@ -4,6 +4,7 @@ import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
+import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
 import type { NpcUpdate } from '../stores/useNpcStore';
 import type { MapUpdates } from '../stores/useMapStore';
@@ -20,6 +21,8 @@ export interface DarkThreadData {
 export interface ParsedLlmResult {
   page: BookPage;
   darkThread?: DarkThreadData;
+  /** 开局一次性生成的「坏结局」描述（守秘人机密，玩家不可见） */
+  badEnding?: string;
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
@@ -437,16 +440,24 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     // ── 独立线索库 ──
+    const CLUE_TAG_SET = new Set<string>(CLUE_TAGS);
     let clues: ClueInput[] | undefined;
     if (Array.isArray(parsed.clues)) {
       clues = (parsed.clues as Record<string, unknown>[])
         .filter((c) => c && typeof c.name === 'string')
-        .map((c) => ({
-          name: String(c.name).trim(),
-          summary: typeof c.summary === 'string' ? c.summary : (typeof c['简述'] === 'string' ? String(c['简述']) : ''),
-          discoveryNarrative: typeof c.discoveryNarrative === 'string' ? c.discoveryNarrative : (typeof c['发现细节'] === 'string' ? String(c['发现细节']) : ''),
-          relatedTo: Array.isArray(c.relatedTo) ? (c.relatedTo as unknown[]).map(String) : undefined,
-        }))
+        .map((c) => {
+          // 受控分类标签：仅保留落在 CLUE_TAGS 白名单内者；去重；全不合法则省略。
+          const tags = Array.isArray(c.tags)
+            ? [...new Set((c.tags as unknown[]).map(String).filter((t) => CLUE_TAG_SET.has(t)))]
+            : undefined;
+          return {
+            name: String(c.name).trim(),
+            summary: typeof c.summary === 'string' ? c.summary : (typeof c['简述'] === 'string' ? String(c['简述']) : ''),
+            discoveryNarrative: typeof c.discoveryNarrative === 'string' ? c.discoveryNarrative : (typeof c['发现细节'] === 'string' ? String(c['发现细节']) : ''),
+            relatedTo: Array.isArray(c.relatedTo) ? (c.relatedTo as unknown[]).map(String) : undefined,
+            tags: tags && tags.length > 0 ? tags : undefined,
+          };
+        })
         .filter((c) => c.name);
       if (clues.length === 0) clues = undefined;
       else pushLog('debug', `[parseLlm] 线索: ${clues.map((c) => c.name).join(', ')}`, 'system');
@@ -511,6 +522,12 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       }
     }
 
+    // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。
+    const badEnding = typeof parsed.badEnding === 'string' && parsed.badEnding.trim()
+      ? parsed.badEnding.trim()
+      : undefined;
+    if (badEnding) pushLog('debug', '[parseLlm] 坏结局已生成（隐藏，仅守秘人）', 'system');
+
     return {
       page: {
         id: crypto.randomUUID(),
@@ -527,6 +544,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         inventoryChanges,
       },
       darkThread,
+      badEnding,
       clues,
       npcUpdates,
       mapUpdates,

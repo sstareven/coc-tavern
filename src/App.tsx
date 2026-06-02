@@ -26,7 +26,7 @@ import { initKvCache } from './db/kv';
 import { seedFusionPreset } from './db/seed-fusion-preset';
 import { migrateFromLocalStorage } from './db/migrations';
 import { db, V2_UPGRADE_FAILED } from './db/database';
-import { loadConversation } from './stores/sessionLifecycle';
+import { loadConversation, persistActiveGameState } from './stores/sessionLifecycle';
 import { useChatStore } from './stores/useChatStore';
 import { useBookStore } from './stores/useBookStore';
 
@@ -94,7 +94,10 @@ export function App() {
   const openLorebookEditor = usePanelStore((s) => s.openLorebookEditor);
   const openPresetEditor = usePanelStore((s) => s.openPresetEditor);
 
-  const returnToMenu = useCallback(() => setScreen('landing'), []);
+  // 退出到主菜单前，先把活跃会话的最新内存态落库——否则玩家在 UI 里产生的、尚未触发每回合
+  // auto-save 的改动会在随后「开新游戏」的 clearAllGameState 中丢失（saveConversation 经 enqueue
+  // 串行化，会读取此刻的内存态；返回菜单到开新游戏间隔以秒计，远长于落库耗时，无竞态）。
+  const returnToMenu = useCallback(() => { void persistActiveGameState(); setScreen('landing'); }, []);
 
   // Esc key to close all panels
   useEffect(() => {

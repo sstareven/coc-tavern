@@ -46,7 +46,7 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, PROLOGUE_BAD_ENDING_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -433,6 +433,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride && useBookStore.getState().pages.length <= 1) {
         baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
       }
+      // 本局尚无坏结局且非后日谈 → 让本回合额外生成一个隐藏坏结局（暗线的终点）。
+      // 覆盖新开局（首回合）与旧档（下一次生成补生成）。补写场景(formatOverride)排除。
+      if (!formatOverride && !useDarkThreadStore.getState().badEnding) {
+        // 缺「剧情.阶段」(新档未初始化/极旧存档) 视为「调查期」→ 非后日谈 → 应补生成坏结局。
+        const stage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'] ?? '调查期';
+        if (stage !== '后日谈') baseFormat += '\n\n' + PROLOGUE_BAD_ENDING_INSTRUCTION;
+      }
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
         baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
@@ -794,7 +801,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           validationErrors.push(`正文内容过短（${newPage.leftContent.length}字），可能生成不完整`);
         }
         // 剧情.阶段 改读 buildFullSubstitutionMap(statData JSON Patch 真值优先,老存档 flat 兜底)
-        const currentStage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'];
+        const currentStage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'] ?? '调查期';
         const isEpilogue = currentStage === '后日谈';
         const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
         if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
@@ -869,6 +876,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             foreshadowing: result.darkThread.foreshadowing,
           });
           pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}, 威胁等级=${result.darkThread.threatLevel}`, 'system');
+        }
+
+        // 坏结局（一次性，守秘人机密）：仅当本局尚未确定时采纳，避免后续回合覆盖。
+        if (result.badEnding && !useDarkThreadStore.getState().badEnding) {
+          useDarkThreadStore.getState().setBadEnding({ description: result.badEnding, createdAt: Date.now() });
+          pushLog('debug', '[Pipeline] 坏结局已生成（隐藏，仅守秘人）', 'system');
         }
 
         // 独立线索库

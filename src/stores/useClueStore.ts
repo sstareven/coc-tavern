@@ -49,6 +49,7 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             discoveryNarrative: input.discoveryNarrative ?? '',
             foundAtPage: input.foundAtPage,
             relatedTo: input.relatedTo,
+            tags: input.tags?.length ? input.tags : undefined,
             acquiredAt: Date.now(),
             status: 'active',
             tier: 'major',
@@ -75,6 +76,10 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
               : clues[idx].discoveryNarrative,
             foundAtPage: clues[idx].foundAtPage ?? input.foundAtPage,
             relatedTo: input.relatedTo?.length ? input.relatedTo : clues[idx].relatedTo,
+            // 标签并集去重（保留旧标签、并入新标签）
+            tags: input.tags?.length
+              ? [...new Set([...(clues[idx].tags ?? []), ...input.tags])]
+              : clues[idx].tags,
           };
         } else {
           clues.push({
@@ -84,9 +89,12 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             discoveryNarrative: input.discoveryNarrative ?? '',
             foundAtPage: input.foundAtPage,
             relatedTo: input.relatedTo,
+            tags: input.tags?.length ? input.tags : undefined,
+            synthesized: input.synthesized || undefined,
             acquiredAt: Date.now(),
             status: 'active',
-            tier: 'normal',
+            // 整合产出的推理线索上位为 major，与发现线索区分
+            tier: input.synthesized ? 'major' : 'normal',
           });
         }
       }
