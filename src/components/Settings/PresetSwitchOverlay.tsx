@@ -9,7 +9,18 @@ import type { ChatPreset, PromptItem } from '../../types';
 
 const PRESET_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
+const COLLAPSE_KEY = 'coc_fusion_collapsed'; // 折叠/展开记忆（按组标题）
 const SEP_RE = /^[\s]*[🔽⬇️⤵️▼]/u; // 分组分隔符前缀
+
+/** 读取持久化的折叠记忆（折叠组标题集）；无记忆返回 null（首次默认全折叠）。 */
+function loadCollapsed(): Set<string> | null {
+  const raw = kvGet(COLLAPSE_KEY);
+  if (!raw) return null;
+  try { return new Set(JSON.parse(raw) as string[]); } catch { return null; }
+}
+function saveCollapsed(s: Set<string>): void {
+  kvSet(COLLAPSE_KEY, JSON.stringify([...s]));
+}
 
 /** importPresetFromST 给自定义条目加 pi_/lib_ 前缀；还原回双人成行原 identifier 以匹配 fusion-groups。 */
 const origId = (id: string) => id.replace(/^(pi_|lib_)/, '');
@@ -64,8 +75,10 @@ export function PresetSwitchOverlay() {
     const sorted = [...(r.preset.promptItems || [])].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
     setItems(sorted);
     setSearch('');
-    // 胶囊云布局紧凑，默认展开所有分组（与参考排版一致）；可点组标题折叠。
-    setCollapsed(new Set());
+    // 默认全部折叠；若有持久化的折叠/展开记忆则恢复。
+    const sepTitles = sorted.filter((p) => SEP_RE.test(p.name) && !(p.content || '').trim()).map((p) => p.name);
+    const remembered = loadCollapsed();
+    setCollapsed(remembered ?? new Set(sepTitles));
   }, [open]);
 
   const toggle = (itemId: string) => {
@@ -206,13 +219,13 @@ export function PresetSwitchOverlay() {
             <div style={{ color: 'var(--ink-subtle)', fontSize: 12, textAlign: 'center', padding: 24 }}>没有可切换的功能条目</div>
           )}
           {groups.map((g) => {
-            const isCollapsed = collapsed.has(g.key);
+            const isCollapsed = collapsed.has(g.title);
             const groupIds = new Set(g.items.map((p) => p.id));
             return (
               <div key={g.key} style={{ marginBottom: 6 }}>
                 {g.sep && (
                   <div
-                    onClick={() => setCollapsed((prev) => { const n = new Set(prev); n.has(g.key) ? n.delete(g.key) : n.add(g.key); return n; })}
+                    onClick={() => setCollapsed((prev) => { const n = new Set(prev); n.has(g.title) ? n.delete(g.title) : n.add(g.title); saveCollapsed(n); return n; })}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
                       padding: '7px 8px', marginTop: 8, color: 'var(--gold)', fontSize: 12, letterSpacing: 1,
