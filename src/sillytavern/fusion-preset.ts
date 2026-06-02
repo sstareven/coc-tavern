@@ -20,6 +20,18 @@ function originalId(id: string): string {
 /** buildFusionPreset 强制注入的 COC 机制条目 id —— 注入前先剔除同 id，避免与双人成行潜在重名冲突。 */
 const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistoryInstructions']);
 
+/**
+ * 双人成行原生「🚒// COT //推剧情」条目 id（DS 版 / 向斜阳版各一）。
+ * 二者都在作者预设里默认关闭，但其 cot 思考主体（思考模式）始终 getvar 推进变量
+ * （DS=推剧情 / XY=cot_plot_push），关着就渲染为空、剧情推进框架从不生效。
+ * COC 要求每回合实质推进剧情，故强制开启，让推进由这套双人成行原生 cot 接管，
+ * COC format-instruction 不再重复硬约束（避免双份推进指令）。
+ */
+const PLOT_PUSH_IDS = new Set([
+  'b0a383ee-47a9-4d24-bcf3-57446b07600d', // DS 版 推剧情
+  '64a122a7-f10f-48d6-b4da-65a90b4a7103', // 向斜阳版 cot_plot_push
+]);
+
 // 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
@@ -67,6 +79,7 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
       // 文风全库单选：仅文风库（exclusive 组）的条目参与，默认仅洛夫克拉夫特开、其余关。
       if (STYLE_IDS.has(originalId(p.id))) enabled = originalId(p.id) === LOVECRAFT_ID;
       if (p.id === 'main') enabled = true; // 双人成行核心人设(Atri&Deach)默认开启（与 COC 守秘人共存）
+      if (PLOT_PUSH_IDS.has(originalId(p.id))) enabled = true; // 强制开启双人成行原生剧情推进 cot（作者默认关）
       return { ...p, enabled };
     });
 
