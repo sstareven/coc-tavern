@@ -303,6 +303,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [phobias, setPhobias] = useState('');
   const [quickFilling, setQuickFilling] = useState(false);
   const [quickFillError, setQuickFillError] = useState('');
+  const [enriching, setEnriching] = useState(false);
 
   /* ---- Presets ---- */
   const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
@@ -753,6 +754,139 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     }
   };
 
+  /* ---- Enrich Backstory (背景补写：仅对已填字段忠实扩写) ---- */
+  const enrichBackstory = async () => {
+    const settings = useSettingsStore.getState();
+    if (!settings.apiKey) {
+      setQuickFillError('请先在设置中配置API密钥后再使用背景补写功能。');
+      return;
+    }
+
+    const FIELD_DEFS: { key: string; setter: (v: string) => void; value: string; zh: string }[] = [
+      { key: 'description',          setter: setDescription,          value: description,          zh: '个人描述' },
+      { key: 'beliefs',              setter: setBeliefs,              value: beliefs,              zh: '思想信念' },
+      { key: 'significantPeople',    setter: setSignificantPeople,    value: significantPeople,    zh: '重要之人' },
+      { key: 'meaningfulLocations',  setter: setMeaningfulLocations,  value: meaningfulLocations,  zh: '重要场所' },
+      { key: 'treasuredPossessions', setter: setTreasuredPossessions, value: treasuredPossessions, zh: '珍贵之物' },
+      { key: 'traits',               setter: setTraits,               value: traits,               zh: '特质' },
+      { key: 'injuries',             setter: setInjuries,             value: injuries,             zh: '伤疤' },
+      { key: 'phobias',              setter: setPhobias,              value: phobias,              zh: '恐惧症' },
+    ];
+    const filledFields = FIELD_DEFS.filter((f) => f.value.trim() !== '');
+
+    if (filledFields.length === 0) {
+      setQuickFillError('请先填写至少一个背景字段，再使用补写。');
+      return;
+    }
+
+    setQuickFillError('');
+    setEnriching(true);
+    try {
+      const occText = occupation === '__custom__' ? customOccupation : occupation;
+      const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
+
+      const charLines: string[] = [];
+      for (const { key, zh } of CHAR_ORDER) {
+        const v = charValues[key] ?? 50;
+        let tier = '较低';
+        if (v >= 80) tier = '卓越';
+        else if (v >= 70) tier = '优秀';
+        else if (v >= 60) tier = '良好';
+        else if (v >= 40) tier = '中等';
+        charLines.push(`${zh} ${v}（${tier}）`);
+      }
+
+      let occContext = '';
+      if (occObj) {
+        occContext = `推荐职业技能：${occObj.skills.join('、')}。信用评级范围：${occObj.crMin}%-${occObj.crMax}%。`;
+      }
+
+      const originalBlocks = filledFields.map(
+        (f) => [`### ${f.zh}`, `【玩家原文】${f.value.trim()}`].join('\n'),
+      ).join('\n\n');
+
+      const prompt = [
+        `你是1920年代美国克苏鲁的呼唤（Call of Cthulhu 7th）TRPG 调查员背景故事润色师。`,
+        `玩家已手动填写了部分背景字段。你的唯一任务是【忠实保留玩家原意】，对这些已填字段进行细节扩写，使之更生动、更有画面感。你不是创作者，而是润色者。`,
+        ``,
+        `## 角色身份（仅供你理解语境，不要凭空新增设定）`,
+        `- 姓名：${name || '未知'}`,
+        `- 职业：${occText || '调查员'}（1920年代美国）`,
+        `- 年龄：${age}岁`,
+        `- 性别：${sex}`,
+        `${birthplace ? `- 出生地：${birthplace}` : ''}`,
+        `${residence ? `- 居住地：${residence}` : ''}`,
+        `${occContext ? `- ${occContext}` : ''}`,
+        ``,
+        `## 属性（数值越高越突出）`,
+        ...charLines.map((l) => `- ${l}`),
+        `${creditRating > 0 ? `- 信用评级：${creditRating}%` : ''}`,
+        ``,
+        `## 玩家已填写的字段原文（你只能处理下面列出的字段）`,
+        originalBlocks,
+        ``,
+        `## 扩写规则（务必逐条严格遵守）`,
+        `1. 【忠实原意】完整保留玩家原文中的每一个核心事实、人名、地名、关系、情绪与时间。绝不改写、替换或删除原文已表达的任何要点。`,
+        `2. 【只补不改】仅在原文基础上补充感官细节、动机、情境或时代氛围，把每个字段扩写成 3-5 句连贯中文。原文已写的内容必须原样体现在扩写结果里。`,
+        `3. 【禁止矛盾与杜撰】不得添加与原文相互矛盾的设定；不得虚构原文未暗示的重大新事实（如未提及的新人物、新事件、新创伤）。细节补充须是对原文的合理延展。`,
+        `4. 【结合背景】扩写可自然贴合上面给出的职业与 1920 年代美国语境，但这只是润色佐料，不得喧宾夺主或改变原意。`,
+        `5. 【不碰空字段】只输出下方列出的字段，绝对不要为玩家留空（未在上面出现）的字段生成任何内容。`,
+        `6. 【特质字段】若「特质」原文是逗号分隔的关键词列表，请保留这些关键词，可在其后补一句简短说明，但不要删掉任何关键词。`,
+        ``,
+        `## 输出格式`,
+        `严格按 ### 标题分段输出，每段标题后换行写扩写后的中文内容，不要回带「【玩家原文】」前缀。只输出以下字段：`,
+        ...filledFields.map((f) => `### ${f.zh}`),
+      ].join('\n');
+
+      const response = await sendChatCompletion(
+        [{ role: 'user', content: prompt }],
+        { ...DEFAULT_INPUT_PRESET, temperature: 0.75, maxTokens: 1200 },
+        settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+      );
+
+      const rawText = response.content || '';
+
+      const MARKER_MAP: Record<string, string> = {
+        '个人描述': 'description', '思想信念': 'beliefs',
+        '重要之人': 'significantPeople', '重要场所': 'meaningfulLocations',
+        '珍贵之物': 'treasuredPossessions', '特质': 'traits',
+        '伤疤': 'injuries', '恐惧症': 'phobias',
+      };
+
+      const sectionRe = /###\s*([^\n]+)\s*\n([\s\S]*?)(?=\n###\s|\n*$)/g;
+      const extracted: Record<string, string> = {};
+      let m: RegExpExecArray | null;
+      while ((m = sectionRe.exec(rawText)) !== null) {
+        const title = m[1].trim();
+        const content = m[2].replace(/[\r\n]+$/, '').trim();
+        const cleaned = content.replace(/^【玩家原文】\s*/, '').trim();
+        const fieldKey = MARKER_MAP[title] ?? Object.entries(MARKER_MAP).find(([k]) => title.includes(k))?.[1];
+        if (fieldKey && cleaned && cleaned !== '无') {
+          extracted[fieldKey] = cleaned;
+        }
+      }
+
+      const applied: string[] = [];
+      for (const f of filledFields) {
+        const next = extracted[f.key];
+        if (next) {
+          f.setter(next);
+          applied.push(f.key);
+        }
+      }
+
+      if (applied.length === 0) {
+        setQuickFillError('AI 返回的内容无法解析，背景未改动。请重试。');
+      } else {
+        setQuickFillError('');
+      }
+    } catch (err: unknown) {
+      setQuickFillError(`补写失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   /* ---- Render step content ---- */
   const renderStepContent = () => {
     switch (step) {
@@ -846,6 +980,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             quickFilling={quickFilling}
             quickFillError={quickFillError}
             onQuickFill={quickFill}
+            enriching={enriching}
+            onEnrich={enrichBackstory}
             openField={openField}
             onSetOpenField={setOpenField}
           />

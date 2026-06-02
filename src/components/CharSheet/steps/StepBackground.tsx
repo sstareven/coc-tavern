@@ -22,6 +22,8 @@ interface Props {
   quickFilling: boolean;
   quickFillError: string;
   onQuickFill: () => void;
+  enriching: boolean;
+  onEnrich: () => void;
   openField: string | null;
   onSetOpenField: (v: string | null) => void;
 }
@@ -45,6 +47,8 @@ export function StepBackground({
   quickFilling,
   quickFillError,
   onQuickFill,
+  enriching,
+  onEnrich,
   openField, onSetOpenField,
 }: Props) {
   const accordionRef = useRef<HTMLDivElement>(null);
@@ -80,15 +84,22 @@ export function StepBackground({
         background: 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 10,
         flexShrink: 0,
       }}>
-        <button onClick={onQuickFill} disabled={quickFilling} className="sk-btn"
+        <button onClick={onQuickFill} disabled={quickFilling || enriching} className="sk-btn"
           style={{
             ...btnBase, fontSize: 11, padding: '6px 16px',
-            opacity: quickFilling ? 0.5 : 1, cursor: quickFilling ? 'wait' : 'pointer',
+            opacity: (quickFilling || enriching) ? 0.5 : 1, cursor: quickFilling ? 'wait' : (enriching ? 'not-allowed' : 'pointer'),
           }}>
           {quickFilling ? '生成中...' : '\u2728 快速填充'}
         </button>
+        <button onClick={onEnrich} disabled={quickFilling || enriching} className="sk-btn"
+          style={{
+            ...btnBase, fontSize: 11, padding: '6px 16px',
+            opacity: (quickFilling || enriching) ? 0.5 : 1, cursor: enriching ? 'wait' : (quickFilling ? 'not-allowed' : 'pointer'),
+          }}>
+          {enriching ? '补写中...' : '✦ 背景补写'}
+        </button>
         <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)' }}>
-          由 AI 根据身份和属性自动生成背景故事
+          快速填充：从零生成全部背景；背景补写：对已填写的内容进行 AI 详细扩写
         </span>
       </div>
       {quickFillError && (

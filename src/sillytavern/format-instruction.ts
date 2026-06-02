@@ -5,7 +5,7 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 每个补丁是一个对象，op 可选：replace(替换为新值) / delta(数值增减) / insert(新增数组成员或对象字段) / remove(删除)。path 用斜杠分隔的嵌套路径。示例：
 - 生命值变为8：{"op":"replace","path":"/调查员/生命值/当前","value":"8"}
 - 理智扣5点：{"op":"delta","path":"/调查员/理智值/当前","value":-5}
-- 新增线索：{"op":"insert","path":"/剧情/线索","value":{"名称":"神秘信件","内容":"……"}}
+- 新增关键事件：{"op":"insert","path":"/剧情/关键事件/事件1","value":{"名称":"图书馆夜访","发生时间":"深夜","影响":"……"}}
 - 时间推进：{"op":"replace","path":"/世界/时间","value":"深夜"}
 严禁把补丁块写进 JSON 字符串值的内部（会破坏 JSON 结构）；补丁块必须放在整个 JSON 之后单独输出。调查员的属性(生命值/理智值/魔法值等)、世界状态、战斗状态都用此方式更新。
 
@@ -67,7 +67,7 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
     "foreshadowing": "图书馆管理员提到近日有人在闭馆后偷偷进入特藏室，几本古籍的摆放位置似乎被动过"
   },
   "npcUpdates": [
-    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "他知道特藏室近来出过怪事，但怕惹祸上身不敢明说", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
+    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
   ],
   "mapUpdates": {
     "current": "大学图书馆",
@@ -83,7 +83,7 @@ export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。后日谈阶段省略darkThread字段。
 
-【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(内心想法，KP视角、玩家不可直接得知)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
 
 【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
 - current：调查员当前所在地点名（每当所在地点变化时给出）。

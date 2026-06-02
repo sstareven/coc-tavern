@@ -100,3 +100,17 @@ describe('applyCharsheetRedirect — 姿态 / 状态条件', () => {
     expect(next?.statusConditions).toEqual([{ name: '极度口渴', severity: 'moderate', description: '需尽快补水' }]);
   });
 });
+
+describe('applyCharsheetRedirect — MVU 规则对齐(信用评级作技能 / 物品不落角色卡)', () => {
+  it('调查员.技能.信用评级 → skills.信用评级.current(信用评级作为技能存储)', () => {
+    const next = applyCharsheetRedirect(sheet(), '调查员.技能.信用评级', 'replace', 65);
+    expect(next?.skills.信用评级.current).toBe(65);
+  });
+  it('调查员.物品栏 不落角色卡(返回 null；物品走 inventoryChanges 专用通路)', () => {
+    expect(applyCharsheetRedirect(sheet(), '调查员.物品栏', 'insert', { 手电筒: {} })).toBeNull();
+    expect(applyCharsheetRedirect(sheet(), '调查员.物品栏.手电筒', 'replace', {})).toBeNull();
+  });
+  it('调查员.信用评级 顶层路径不落角色卡(应改用 调查员.技能.信用评级)', () => {
+    expect(applyCharsheetRedirect(sheet(), '调查员.信用评级', 'replace', 65)).toBeNull();
+  });
+});

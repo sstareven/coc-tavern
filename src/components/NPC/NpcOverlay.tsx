@@ -55,7 +55,7 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
             </div>
           )}
           <Section title="性格" body={npc.personality} />
-          <Section title="内心想法（KP视角）" body={npc.innerThoughts} />
+          <Section title="动机/秘密（KP视角）" body={npc.innerThoughts} />
           <Section title="背景故事" body={npc.backstory} />
           <Section title="人物经历" body={npc.experience} />
           {skillStr && <Section title="技能" body={skillStr} />}
