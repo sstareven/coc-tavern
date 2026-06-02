@@ -21,6 +21,8 @@ export interface DarkThreadData {
 export interface ParsedLlmResult {
   page: BookPage;
   darkThread?: DarkThreadData;
+  /** 开局一次性生成的「坏结局」描述（守秘人机密，玩家不可见） */
+  badEnding?: string;
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
@@ -520,6 +522,12 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       }
     }
 
+    // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。
+    const badEnding = typeof parsed.badEnding === 'string' && parsed.badEnding.trim()
+      ? parsed.badEnding.trim()
+      : undefined;
+    if (badEnding) pushLog('debug', '[parseLlm] 坏结局已生成（隐藏，仅守秘人）', 'system');
+
     return {
       page: {
         id: crypto.randomUUID(),
@@ -536,6 +544,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         inventoryChanges,
       },
       darkThread,
+      badEnding,
       clues,
       npcUpdates,
       mapUpdates,

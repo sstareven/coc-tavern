@@ -42,17 +42,21 @@ export const useDarkThreadStore = create<DarkThreadStore>()((set, get) => ({
   setBadEnding: (ending) => set({ badEnding: ending }),
 
   buildContextInjection: () => {
-    const { entries } = get();
-    if (entries.length === 0) return '';
-    const recent = entries.slice(-5);
-    const latest = recent[recent.length - 1];
-    const lines = [
-      '[暗线档案 — 仅限守秘人参考，绝对不可向调查员透露以下内容]',
-      `当前进度: ${latest.progress}/100 (${latest.threatLevel})`,
-      '最近发展:',
-    ];
-    for (const e of recent) {
-      if (e.details) lines.push(`- ${e.details}`);
+    const { entries, badEnding } = get();
+    if (entries.length === 0 && !badEnding) return '';
+    const lines = ['[暗线档案 — 仅限守秘人参考，绝对不可向调查员透露以下内容]'];
+    if (badEnding) {
+      lines.push(`本局注定的坏结局（暗线的终点，守秘人最高机密，绝不可向调查员泄露或写进叙事正文）：${badEnding.description}`);
+      lines.push('暗线应每回合朝这一结局推进，progress 越高越接近；75+爆发时该结局趋于不可逆地降临。');
+    }
+    if (entries.length > 0) {
+      const recent = entries.slice(-5);
+      const latest = recent[recent.length - 1];
+      lines.push(`当前进度: ${latest.progress}/100 (${latest.threatLevel})`);
+      lines.push('最近发展:');
+      for (const e of recent) {
+        if (e.details) lines.push(`- ${e.details}`);
+      }
     }
     return lines.join('\n');
   },
