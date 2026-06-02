@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.3.9';
+export const CURRENT_VERSION = 'v1.4.0';
 
 interface Release {
   version: string;
@@ -12,6 +12,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.4.0',
+    label: '每回合都要有剧情推进 · 开局提醒配置 API',
+    items: [
+      '每一回合都必须真正推进剧情，告别「水文」— 强化了叙事规则：每回合都要让故事向前走一步（揭示新线索、发生新事件、NPC 采取行动、处境或状态改变、冲突升级、给出上一步行动的明确后果），不再只是把当前场景重复描述一遍、渲染一通气氛就结束；氛围与心理描写只作烘托、不能替代推进，即便你选择等待/观察，世界（时间、暗线、NPC）也会自行推进',
+      '未配置 API 时友好拦截开局 — 还没在「设置」里填好 AI 接口就点「开始游戏」，会弹窗提醒并提供「去设置」直达按钮，不再出现开局后 AI 毫无反应、却不知问题出在哪的困惑',
+    ],
+  },
   {
     version: 'v1.3.9',
     label: '魔法值不再被误当成检定',
