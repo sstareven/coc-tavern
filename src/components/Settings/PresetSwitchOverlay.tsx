@@ -15,12 +15,15 @@ const origId = (id: string) => id.replace(/^(pi_|lib_)/, '');
 void FUSION_PRESET_ID;
 
 // 核心驱动模型栏：切换最适配该模型的预设（DeepSeek→DS专用版；哈基米/克/GLM→向斜阳版并开对应思维链）。
-const CHAIN_IDS = ['95e1424e', '197ddde7', '5fa21984']; // Gemini / GLM / Claude 思维链（向斜阳版）
+const CHAIN_GEMINI = '95e1424e-be23-4ebd-b987-11963d2db848';
+const CHAIN_CLAUDE = '5fa21984-48ec-4810-92ec-4ae9d153ae0b';
+const CHAIN_GLM = '197ddde7-e5ff-4128-a61d-6aa8ed2cdc80';
+const CHAIN_IDS = [CHAIN_GEMINI, CHAIN_CLAUDE, CHAIN_GLM]; // 向斜阳版各家思维链（完整 identifier）
 const PRESET_BAR: { label: string; presetId: string; chain: string | null }[] = [
   { label: 'DeepSeek🐳', presetId: FUSION_DS_ID, chain: null },
-  { label: '哈基米', presetId: FUSION_XY_ID, chain: '95e1424e' },
-  { label: '克(Claude)', presetId: FUSION_XY_ID, chain: '5fa21984' },
-  { label: 'GLM', presetId: FUSION_XY_ID, chain: '197ddde7' },
+  { label: '哈基米', presetId: FUSION_XY_ID, chain: CHAIN_GEMINI },
+  { label: '克(Claude)', presetId: FUSION_XY_ID, chain: CHAIN_CLAUDE },
+  { label: 'GLM', presetId: FUSION_XY_ID, chain: CHAIN_GLM },
 ];
 
 function loadCollapsed(): Set<string> | null {
