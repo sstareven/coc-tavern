@@ -12,11 +12,6 @@ export const FUSION_XY_NAME = '双人成行 · 向斜阳（多模型）';
 /** 兼容旧引用：默认主预设 = DeepSeek 专用版。 */
 export const FUSION_PRESET_ID = FUSION_DS_ID;
 
-/** importPresetFromST 给非 marker 条目加 'pi_'/'lib_' 前缀。 */
-function originalId(id: string): string {
-  return id.replace(/^(pi_|lib_)/, '');
-}
-
 /** buildFusionPreset 强制注入的 COC 机制条目 id —— 注入前先剔除同 id，避免与双人成行潜在重名冲突。 */
 const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistoryInstructions']);
 
