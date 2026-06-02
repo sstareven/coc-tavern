@@ -26,6 +26,7 @@ import { migrateFromLocalStorage } from './db/migrations';
 import { db, V2_UPGRADE_FAILED } from './db/database';
 import { loadConversation } from './stores/sessionLifecycle';
 import { useChatStore } from './stores/useChatStore';
+import { useBookStore } from './stores/useBookStore';
 
 export function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
@@ -66,6 +67,19 @@ export function App() {
     document.addEventListener('debug-enter-game', toGame);
     document.addEventListener('debug-return-menu', toMenu);
     return () => { document.removeEventListener('debug-enter-game', toGame); document.removeEventListener('debug-return-menu', toMenu); };
+  }, []);
+
+  // 切回前台时补齐被后台 rAF 暂停而卡住的翻页：浏览器在后台标签页暂停 requestAnimationFrame，
+  // 翻页动画无法走到完成帧，导致 pageIndex 不前进、画面停在上一页、isFlipping 卡死，须点击才恢复。
+  // 监听 visibilitychange，在重新可见且仍处于翻页中时强制结算，立即提交到目标页。
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && useBookStore.getState().isFlipping) {
+        useBookStore.getState().settleFlip();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   const openPanel = usePanelStore((s) => s.openPanel);

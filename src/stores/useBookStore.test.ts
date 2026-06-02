@@ -123,3 +123,62 @@ describe('useBookStore.setPageRewrite', () => {
     expect(useBookStore.getState().pages).toBe(before); // 越界为 no-op，引用不变
   });
 });
+
+// ============================================================
+// settleFlip — 切回前台补齐被后台 rAF 暂停而卡住的翻页
+// ============================================================
+describe('useBookStore.settleFlip — 后台翻页卡页修复', () => {
+  const twoPages = [
+    { id: 'a', leftHeader: '场景一', leftContent: 'x', leftPage: '— 3 —', rightPage: '— 4 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+    { id: 'b', leftHeader: '场景二', leftContent: 'y', leftPage: '— 5 —', rightPage: '— 6 —', rightHeader: '行动', rightContent: '', rightChoices: [] },
+  ];
+
+  it('自动翻页进行中调 settleFlip → 立即提交到下一页并复位 isFlipping', () => {
+    useBookStore.getState().setPages(twoPages);
+    useBookStore.setState({ pageIndex: 0, isFlipping: false, flipProgress: 0 });
+
+    useBookStore.getState().autoFlipForward();
+    // 发起后：标记为翻页中，但动画未完成（rAF 异步），尚未真正翻页
+    expect(useBookStore.getState().isFlipping).toBe(true);
+    expect(useBookStore.getState().pageIndex).toBe(0);
+
+    // 模拟切回前台的强制结算
+    useBookStore.getState().settleFlip();
+    expect(useBookStore.getState().pageIndex).toBe(1);
+    expect(useBookStore.getState().isFlipping).toBe(false);
+    expect(useBookStore.getState().flipProgress).toBe(0);
+  });
+
+  it('手动向后翻页进行中调 settleFlip → 提交到上一页', () => {
+    useBookStore.getState().setPages(twoPages);
+    useBookStore.setState({ pageIndex: 1, isFlipping: false, flipProgress: 0 });
+
+    useBookStore.getState().manualFlip('backward');
+    expect(useBookStore.getState().isFlipping).toBe(true);
+
+    useBookStore.getState().settleFlip();
+    expect(useBookStore.getState().pageIndex).toBe(0);
+    expect(useBookStore.getState().isFlipping).toBe(false);
+  });
+
+  it('装饰翻页进行中调 settleFlip → 触发 onComplete 并复位（不改变页码）', () => {
+    useBookStore.getState().setPages(twoPages);
+    useBookStore.setState({ pageIndex: 1, isFlipping: false, flipProgress: 0 });
+    let done = false;
+
+    useBookStore.getState().decorativeFlip('backward', 800, () => { done = true; });
+    expect(useBookStore.getState().isFlipping).toBe(true);
+
+    useBookStore.getState().settleFlip();
+    expect(done).toBe(true);
+    expect(useBookStore.getState().isFlipping).toBe(false);
+    expect(useBookStore.getState().pageIndex).toBe(1); // 装饰翻页不改页码
+  });
+
+  it('未在翻页时 settleFlip 为安全 no-op', () => {
+    useBookStore.getState().setPages(twoPages);
+    useBookStore.setState({ pageIndex: 0, isFlipping: false, flipProgress: 0 });
+    expect(() => useBookStore.getState().settleFlip()).not.toThrow();
+    expect(useBookStore.getState().pageIndex).toBe(0);
+  });
+});
