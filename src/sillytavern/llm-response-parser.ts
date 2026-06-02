@@ -202,7 +202,12 @@ export interface JsonCoercion {
  * 尾随逗号、零宽/控制字符，最多 3 次重试（含游离英文直引号转义）。失败时 parsed=null。
  */
 export function coerceJsonObject(raw: string): JsonCoercion {
-  let jsonStr = raw.trim();
+  // 先剥离思考块（COC 思考链 <thinking>/<think> 与双人成行 Subtext_think 注释），再提取 JSON——
+  // 下方用 indexOf('{') 定位 JSON 起点，思考块若残留可能误导起点或破坏解析。
+  let jsonStr = raw
+    .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '')
+    .replace(/<!--\s*begin_of_Subtext_think[\s\S]*?end_of_Subtext_think\s*-->/gi, '')
+    .trim();
 
   const cbMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (cbMatch) jsonStr = cbMatch[1].trim();

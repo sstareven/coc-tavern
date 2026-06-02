@@ -1,5 +1,7 @@
-// AUTO-GENERATED 双人成行(向斜阳版)融合配置。默认 enabled 精修：尊重作者原始组合，
-// 关掉与 COC JSON 双页冲突的输出结构/NSFW；思考链保留(活人感),思考块由正则隐藏。
+// AUTO-GENERATED 双人成行(向斜阳版)融合配置。
+// 默认 enabled：尊重作者内容增强组合(文风/杀八股/人格/情感/思考链保留=活人感);
+// 强制关掉「美化结构/前端生成/输出格式」类(Core/输出格式/锋芒/前端/卡片/小剧场等)——
+// 这些与 COC JSON 双页冲突,正文一律由 COC format-instruction 强制为纯 JSON。
 export const FUSION_DEFAULT_ENABLED: Record<string, boolean> = {
   "a1104c91-961f-47fd-921e-2bff0b713fea": false,
   "main": false,
@@ -176,7 +178,7 @@ export const FUSION_DEFAULT_ENABLED: Record<string, boolean> = {
   "809aa33c-54a3-46e5-97fd-db5f3b1e2d65": false,
   "7463f7c8-6f41-486c-94ea-11baaea78173": false,
   "e2e07700-71c4-4037-94f7-593d42718a0e": true,
-  "c08a2ad5-5198-4532-aba7-0f48e7735ffd": true,
+  "c08a2ad5-5198-4532-aba7-0f48e7735ffd": false,
   "b1f24a1e-d7da-4e63-b030-ca4b673821a6": false,
   "6b4b5d2f-5a7e-48f1-a16f-5dd4aad617c7": false,
   "16c8e083-fbd3-4115-8e44-a89115d7b9e5": false,
@@ -228,14 +230,13 @@ export const FUSION_DEFAULT_ENABLED: Record<string, boolean> = {
   "b94ad337-fe74-4542-8108-7334d81fb6c1": false,
   "d8c2fc69-0317-4cd8-93b9-ee7f8b4da008": false,
   "43224568-7552-48e9-aaaa-f9d995e6b117": false,
-  "d9306d7a-82f4-44e6-919d-b933a9418b27": true,
+  "d9306d7a-82f4-44e6-919d-b933a9418b27": false,
   "7649eb11-9dee-46c8-b48b-eae0affb7dbc": true,
   "a2296ca7-7f97-43bc-8a80-a93f27b3fcca": false,
   "074648cf-a7c1-4732-a37f-39005c733877": true,
   "b5a19454-6d51-445a-876b-df9071e41566": false
 };
 
-// 模型组改由悬浮窗单选控制，不再强制关闭(留空)。
 export const FUSION_DISABLE_IDS: string[] = [];
 
 export const FUSION_SAMPLERS = { temperature: 0.95, topP: 0.92, topK: 60, frequencyPenalty: 0, presencePenalty: 0, maxTokens: 18000 } as const;

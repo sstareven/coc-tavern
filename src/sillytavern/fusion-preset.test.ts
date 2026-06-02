@@ -4,6 +4,7 @@ import { COC_KP_PRESET } from '../constants/presets';
 import { FUSION_SAMPLERS } from './fusion-config';
 import { assemblePrompt } from './prompt-assembler';
 import { resolveAllMacrosBatch, type MacroContext } from './unified-macro-engine';
+import { coerceJsonObject } from './llm-response-parser';
 
 // 最小双人成行式 ST 预设：含 main(marker) + worldInfoBefore(marker) + 一个模型专属条目(Gemini,在 disableIds)
 // + 一个默认开启的功能条目(🔪大清洗)。
@@ -117,5 +118,14 @@ describe('Phase A: promptItems 宏跨条目作用域（双人成行 setvar/getva
     ], ctx);
     expect(r[2].text).toContain('轻小说');
     expect(r[2].text).toContain('第二人称');
+  });
+});
+
+describe('思考链与 JSON 共存：剥离思考块后仍能提取纯 JSON', () => {
+  it('coerceJsonObject 剥离含花括号的 <thinking> 块后，正确提取 JSON 双页', () => {
+    const raw = '<thinking>推演：本回合要推进 {剧情}，角色基于认知一致反应，需做侦查检定</thinking>\n{"leftHeader":"洞穴","leftContent":"潮湿的石壁","choices":[]}';
+    const { parsed } = coerceJsonObject(raw);
+    expect(parsed).toBeTruthy();
+    expect((parsed as Record<string, unknown>).leftContent).toBe('潮湿的石壁');
   });
 });

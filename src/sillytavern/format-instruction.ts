@@ -1,4 +1,6 @@
-export const FORMAT_INSTRUCTION = `你必须严格以JSON格式回复。
+export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出 JSON。
+
+【先思考后输出·活人感】正式输出前，先在 <thinking></thinking> 标签内用要点简短推演本回合：①剧情如何自然推进（避免停滞、避免复述上文）；②如何规避套路与脸谱化，让角色基于当前认知与处境做出一致反应；③是否需要检定、检定是否合理；④玩家上一步行动的具体后果与氛围。<thinking> 块仅供你推演、会被系统隐藏不展示给玩家。思考结束后，必须【只】输出下面规定的 JSON 对象——绝不要输出任何小说化正文、HTML、分段注释或美化排版，所有正文一律写进 JSON 的 leftContent / rightContent 字段。
 
 【变量更新·JSON Patch】当游戏状态发生变化时，在回复的【最末尾】、JSON 对象之外，输出一个变量补丁块：
 <UpdateVariable><JSONPatch>[ 补丁1, 补丁2, ... ]</JSONPatch></UpdateVariable>
