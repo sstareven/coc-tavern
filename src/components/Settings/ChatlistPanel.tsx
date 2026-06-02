@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
-import { switchConversation, deleteConversation, clearAllGameState } from '../../stores/sessionLifecycle';
+import { switchConversation, deleteConversation, clearAllGameState, startNewConversation } from '../../stores/sessionLifecycle';
 import { closeBtnStyle } from '../../styles/panelStyles';
 
 interface Props {
@@ -9,7 +9,6 @@ interface Props {
 
 export function ChatlistPanel({ onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
-  const createSession = useChatStore((s) => s.createSession);
   const deleteSession = useChatStore((s) => s.deleteSession);
   const activeId = useChatStore((s) => s.activeId);
 
@@ -17,7 +16,8 @@ export function ChatlistPanel({ onClose }: Props) {
 
   const handleCreate = () => {
     const name = newName.trim() || `对话 ${sessions.length + 1}`;
-    createSession(name);
+    // 经权威入口创建：先清空所有按会话隔离的内存态再建会话，杜绝旧局状态泄漏进新会话。
+    startNewConversation(name);
     setNewName('');
   };
 

@@ -84,6 +84,22 @@ export function cleanupOrphanGameState() {
   }
 }
 
+/**
+ * 开新会话的【权威入口】：清空所有按会话隔离的内存态 → 创建新会话（createSession 内部自动设为活跃）。
+ *
+ * 隔离不变量集中在此一处，杜绝调用方逐个手动清空时漏掉某个 store——历史上 CharacterCreator 漏清了
+ * clues/npc/map、ChatlistPanel 什么都没清，导致「正玩存档A时开新游戏B，B 继承了 A 的线索/名册/地图」
+ * 的跨档泄漏（两档物理上存了同一份被污染数据，切档看似没切）。
+ *
+ * 注：上一会话的数据已由每回合 auto-save（persistActiveGameState）持久化到关系表，此处【刻意不再快照
+ * 上一会话】——若先 enqueue 保存旧会话、再同步 clearAllGameState，被入队的保存会在 clear 之后才执行、
+ * 读到已清空的内存 → 反而把旧存档清空。故只清不存，与既有 new-game 语义一致。
+ */
+export function startNewConversation(name: string): string {
+  clearAllGameState();
+  return useChatStore.getState().createSession(name);
+}
+
 // ===== Dexie v2 relational persistence =====
 
 // P1-2: 单一全局序列化链。所有公共 DB 写操作（save/load/delete/switch）经 enqueue() 串行，
@@ -221,6 +237,11 @@ export function saveConversation(cid: string): Promise<void> {
 async function loadConversationInner(cid: string): Promise<void> {
   if (!cid) return;
 
+  // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏——【必须在任何 DB 读取之前】：
+  // 若读取事务抛错（DB 损坏/迁移不全），clearAllGameState 仍已执行，不会残留上一会话内存态
+  // 而 activeId 已切到新会话 → 否则下次保存会把旧会话数据写进新档（污染）。
+  clearAllGameState();
+
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
   const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
@@ -241,9 +262,6 @@ async function loadConversationInner(cid: string): Promise<void> {
           db.macroVars.where('conversationId').equals(cid).toArray(),
         ]),
     );
-
-  // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏。
-  clearAllGameState();
 
   // 书本页面（按 index 排序还原顺序，剥离关系键）
   const pages = pageRows
