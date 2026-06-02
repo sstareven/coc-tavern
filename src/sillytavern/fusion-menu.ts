@@ -393,16 +393,19 @@ export const FUSION_MENU: FusionGroup[] = [
           {
             "name": "反抢话",
             "xy": "9a5fe514-2b7c-46f0-a730-c7903ba6c821",
+            "ds": "0747d824-8278-4fe0-927d-3f71936684bf",
             "hint": "出文前确认不替user说话、不替你做决定"
           },
           {
             "name": "推剧情",
             "xy": "64a122a7-f10f-48d6-b4da-65a90b4a7103",
+            "ds": "b0a383ee-47a9-4d24-bcf3-57446b07600d",
             "hint": "先规划新事件，避免剧情停滞空转"
           },
           {
             "name": "NPC引入",
             "xy": "90892916-902a-495e-a24d-3a5816d725e5",
+            "ds": "c87b7d1c-1b5e-4927-b0af-6415bdd7f8cf",
             "hint": "适时合理引入NPC打破僵局"
           },
           {
@@ -413,26 +416,31 @@ export const FUSION_MENU: FusionGroup[] = [
           {
             "name": "Char主动",
             "xy": "76a49a05-1443-412d-9f6b-0add04a3c3bc",
+            "ds": "04fe4161-2894-476c-b2ec-3d7cfc7a8e1d",
             "hint": "让char强势主动介入、创造与你互动的机会"
           },
           {
             "name": "世界书增强",
             "xy": "dee8df23-4bb9-4fc9-8dac-17f5ddca28c8",
+            "ds": "58744e8c-d36d-4d09-a44d-1cf0dac949bd",
             "hint": "出文前从世界书Lore提取≥3条相关设定核对"
           },
           {
             "name": "防重复",
             "xy": "4b892b37-3cbc-4d36-af69-b07d0db9c8bd",
+            "ds": "5747bcf1-4215-4c78-bbe4-8faed28ba40f",
             "hint": "先查重，避开已用结构与台词换新写法"
           },
           {
             "name": "性爱事件判断",
             "xy": "318fd753-3b3d-4e95-b07d-94a548d27463",
+            "ds": "d4331c13-8f72-4de7-91b3-6ceadf2120eb",
             "hint": "判断是否为性爱事件及其走向与收尾"
           },
           {
             "name": "色情要求",
             "xy": "a01febbd-dfc3-4dc0-890a-7ce95d1e3ded",
+            "ds": "d6ca5b6c-0354-4a34-909e-4a03e53e56c7",
             "hint": "在世界观内合理铺陈色情，避免突兀"
           }
         ]
