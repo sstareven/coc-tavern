@@ -3,11 +3,17 @@ import type { Clue, ClueInput } from '../types';
 
 export type { ClueInput };
 
+/** 活跃线索软上限：超过则在推进过程中自动归并成 1-3 条总结（原线索归档可回溯）。 */
+export const CLUE_ACTIVE_CAP = 10;
+
 interface ClueStore {
   clues: Clue[];
 
   /** 应用 LLM 给出的一组线索：同名则更新（补全发现细节），否则新增。 */
   addClues: (inputs: ClueInput[]) => void;
+  /** 归并：把指定（默认全部）active 线索归档（可回溯），用 1-3 条合成总结取代为新的 active。
+   *  archiveIds 给出时只归档这些 id——避免归并 LLM 往返期间新发现的线索被一并误档。 */
+  consolidateClues: (summaries: ClueInput[], archiveIds?: string[]) => void;
   removeClue: (name: string) => void;
   buildContextInjection: () => string;
   clearAll: () => void;
@@ -63,7 +69,11 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
           continue;
         }
 
-        const idx = findActiveByName(clues, input.name);
+        // 合成「推理线索」走精确名匹配：避免被既有线索的宽松包含匹配吞并
+        // （如「推理：教团的真正目标」含子串「教团」会误判为更新而看不到新增）。
+        const idx = input.synthesized
+          ? clues.findIndex((c) => c.status !== 'archived' && c.name === input.name.trim())
+          : findActiveByName(clues, input.name);
         if (idx >= 0) {
           // 更新：补全/覆盖非空字段
           clues[idx] = {
@@ -80,6 +90,9 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             tags: input.tags?.length
               ? [...new Set([...(clues[idx].tags ?? []), ...input.tags])]
               : clues[idx].tags,
+            // 合成线索保持/上位为 major 并带 synthesized 标记
+            synthesized: input.synthesized || clues[idx].synthesized,
+            tier: input.synthesized ? 'major' : clues[idx].tier,
           };
         } else {
           clues.push({
@@ -101,6 +114,34 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
       return { clues };
     });
   },
+
+  consolidateClues: (summaries, archiveIds) => set((s) => {
+    // 1. 归档 active 线索（保留可回溯，显示在「历史线索」区）。
+    //    给了 archiveIds 则只归档这些 id——防止归并 LLM 往返期间新加入的线索被误档而「消失」。
+    const idSet = archiveIds ? new Set(archiveIds) : null;
+    const clues = s.clues.map((c) =>
+      (c.status !== 'archived' && (!idSet || idSet.has(c.id))) ? { ...c, status: 'archived' as const } : c
+    );
+    // 2. 加入 1-3 条合成总结作为新的 active（major + synthesized）
+    for (const input of summaries) {
+      const name = input.name?.trim();
+      if (!name) continue;
+      clues.push({
+        id: crypto.randomUUID(),
+        name,
+        summary: input.summary ?? '',
+        discoveryNarrative: input.discoveryNarrative ?? '',
+        foundAtPage: input.foundAtPage,
+        relatedTo: input.relatedTo,
+        tags: input.tags?.length ? input.tags : undefined,
+        synthesized: true,
+        acquiredAt: Date.now(),
+        status: 'active',
+        tier: 'major',
+      });
+    }
+    return { clues };
+  }),
 
   removeClue: (name) => set((s) => {
     const idx = findByName(s.clues, name);

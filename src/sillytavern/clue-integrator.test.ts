@@ -37,6 +37,21 @@ describe('integrateClues', () => {
     expect(r.clues).toHaveLength(0);
   });
 
+  it('兼容模型直接返回顶层数组', async () => {
+    mockFetchOnce('[{"name":"推理：X","summary":"s","tags":["人物"]}]');
+    const r = await integrateClues([{ name: 'a' }, { name: 'b' }], 'u', 'k', 'm');
+    expect(r.clues).toHaveLength(1);
+    expect(r.clues[0].synthesized).toBe(true);
+    expect(r.clues[0].tags).toContain('推理');
+  });
+
+  it('兼容 {clues:[...]} 键名包裹', async () => {
+    mockFetchOnce('{"clues":[{"name":"推理：Y","summary":"s"}]}');
+    const r = await integrateClues([{ name: 'a' }], 'u', 'k', 'm');
+    expect(r.clues).toHaveLength(1);
+    expect(r.clues[0].name).toBe('推理：Y');
+  });
+
   it('API 非 2xx 抛错', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: false, status: 500 } as unknown as Response);
     await expect(integrateClues([{ name: 'a' }], 'u', 'k', 'm')).rejects.toThrow();

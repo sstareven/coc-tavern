@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.6.0';
+export const CURRENT_VERSION = 'v1.6.1';
 
 interface Release {
   version: string;
@@ -12,6 +12,15 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.6.1',
+    label: '修复地图/人物/线索"消失" · 线索整合改为归纳收敛 · 日志增强',
+    items: [
+      '修复严重问题：地图、人物名册、线索"进不了页面" — 上一版的"坏结局"功能会在每回合的生成里多塞一项内容，把排在输出末尾的地图、人物、线索挤掉，导致它们的页面空着、像没生成。现已把坏结局生成彻底独立出来、不再干扰正常剧情生成，三者恢复正常',
+      '线索整合改为"归纳收敛" — 之前是往线索堆里再加几条（还可能因重名被悄悄并掉、看着没反应）；现在「✦ 整合线索」会把一堆零碎线索归纳、提炼成只有 1-3 条更清晰、更指向真相的总结线索，原线索自动归档、可在线索页底部「历史线索」回溯。线索超过 10 条时，还会在推进过程中自动归并，避免越攒越多、越看越乱',
+      '日志增强，方便排查问题 — 坏结局与暗线的具体内容现在会写进日志（日志仅供排错使用）；「复制」日志后会自动清空所选、方便接着复制下一批；新增「导出」按钮，可把日志保存为 txt 文件',
+    ],
+  },
   {
     version: 'v1.6.0',
     label: '线索标签筛选 · 线索整合 · 注定的坏结局 · 严重串档修复',
