@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.9';
+export const CURRENT_VERSION = 'v1.3.9';
 
 interface Release {
   version: string;
