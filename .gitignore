@@ -33,3 +33,7 @@ test-results/
 .omo/
 
 .superpowers/
+
+# CodeGraph 本地索引库（机器本地、随 codegraph init 重建，不入库；
+# .mcp.json 与 .claude/settings.json 是项目级接线，照常提交）
+.codegraph/
