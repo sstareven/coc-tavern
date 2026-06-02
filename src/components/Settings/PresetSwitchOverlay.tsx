@@ -4,11 +4,23 @@ import { useChatStore } from '../../stores/useChatStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID } from '../../sillytavern/fusion-preset';
+import { FUSION_GROUPS } from '../../sillytavern/fusion-groups';
 import type { ChatPreset, PromptItem } from '../../types';
 
 const PRESET_KEY = 'coc_presets_v1';
 const LAST_PRESET_KEY = 'coc_last_preset';
 const SEP_RE = /^[\s]*[🔽⬇️⤵️▼]/u; // 分组分隔符前缀
+
+/** importPresetFromST 给自定义条目加 pi_/lib_ 前缀；还原回双人成行原 identifier 以匹配 fusion-groups。 */
+const origId = (id: string) => id.replace(/^(pi_|lib_)/, '');
+
+// 模型组（顶部模型栏）与单选组（radio）的元数据。
+const MODEL_GROUP = FUSION_GROUPS.find((g) => g.isModelGroup);
+const MODEL_MEMBERS = MODEL_GROUP?.members ?? [];
+const MODEL_MEMBER_IDS = new Set(MODEL_MEMBERS.map((m) => m.id));
+const SINGLE_SELECT_TITLES = new Set(FUSION_GROUPS.filter((g) => g.isSingleSelect).map((g) => g.title));
+// 顶部模型 label 美化。
+const MODEL_LABEL: Record<string, string> = { Gemini: '哈基米', 'DeepSeek鲸鱼': 'DeepSeek🐳', Claude: 'Claude' };
 
 /** 解析当前会话正在使用的预设（与 useChatPipeline 取预设逻辑一致）。 */
 function resolveActivePreset(): { id: string; preset: ChatPreset } | null {
@@ -23,7 +35,7 @@ function resolveActivePreset(): { id: string; preset: ChatPreset } | null {
   return { id: saved[id] ? id : (builtin ? id : FUSION_PRESET_ID), preset };
 }
 
-/** 把开关状态写回预设存储（内置预设首次改动会落盘为副本）。不触碰任何会话/存档表。 */
+/** 把开关状态写回预设存储。不触碰任何会话/存档表。 */
 function persistEnabled(id: string, items: PromptItem[]): void {
   let saved: Record<string, ChatPreset> = {};
   try { saved = JSON.parse(kvGet(PRESET_KEY) || '{}') as Record<string, ChatPreset>; } catch { saved = {}; }
@@ -62,7 +74,7 @@ export function PresetSwitchOverlay() {
     });
   };
 
-  // 一键调整：整组全开/全关（组内有任一关则全开，否则全关）。
+  // 整组全开/全关（多选组）。
   const toggleGroup = (groupItems: PromptItem[]) => {
     const ids = new Set(groupItems.map((p) => p.id));
     const allOn = groupItems.every((p) => p.enabled !== false);
@@ -73,24 +85,51 @@ export function PresetSwitchOverlay() {
     });
   };
 
-  // 分组：分隔符条目作为组标题，其后条目归入该组。搜索时平铺、不分组。
+  // 单选：开 selectId，关同组其他（用于 radio 单选组与模型栏）。
+  const selectOne = (groupItemIds: Set<string>, selectId: string) => {
+    setItems((prev) => {
+      const next = prev.map((p) => (groupItemIds.has(p.id) ? { ...p, enabled: p.id === selectId } : p));
+      persistEnabled(presetId, next);
+      return next;
+    });
+  };
+
+  // 模型栏：在所有 model-member 条目里单选一个。
+  const selectModel = (memberOrig: string) => {
+    setItems((prev) => {
+      const next = prev.map((p) => (MODEL_MEMBER_IDS.has(origId(p.id)) ? { ...p, enabled: origId(p.id) === memberOrig } : p));
+      persistEnabled(presetId, next);
+      return next;
+    });
+  };
+
+  // 当前模型栏的条目（按 fusion 模型组成员顺序）。
+  const modelBar = useMemo(() => MODEL_MEMBERS.map((m) => {
+    const it = items.find((p) => origId(p.id) === m.id);
+    return it ? { item: it, label: MODEL_LABEL[m.label] ?? m.label, orig: m.id } : null;
+  }).filter(Boolean) as { item: PromptItem; label: string; orig: string }[], [items]);
+
+  // 分组：分隔符条目作为组标题。搜索时平铺。模型组在列表里跳过（已提到顶部模型栏）。
   const groups = useMemo(() => {
     const q = search.trim();
-    const filtered = q ? items.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())) : items;
-    if (q) return [{ title: '', key: '__flat__', sep: null as PromptItem | null, items: filtered }];
-    const out: { title: string; key: string; sep: PromptItem | null; items: PromptItem[] }[] = [];
-    let cur = { title: '未分组', key: '__top__', sep: null as PromptItem | null, items: [] as PromptItem[] };
+    if (q) {
+      const filtered = items.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+      return [{ title: '', key: '__flat__', sep: null as PromptItem | null, single: false, items: filtered }];
+    }
+    const out: { title: string; key: string; sep: PromptItem | null; single: boolean; items: PromptItem[] }[] = [];
+    let cur = { title: '未分组', key: '__top__', sep: null as PromptItem | null, single: false, items: [] as PromptItem[] };
     out.push(cur);
     for (const p of items) {
       const isSep = SEP_RE.test(p.name) && !(p.content || '').trim();
       if (isSep) {
-        cur = { title: p.name, key: p.id, sep: p, items: [] };
+        cur = { title: p.name, key: p.id, sep: p, single: SINGLE_SELECT_TITLES.has(p.name), items: [] };
         out.push(cur);
       } else {
         cur.items.push(p);
       }
     }
-    return out.filter((g) => g.items.length > 0);
+    // 跳过模型组（顶部已展示）与空组。
+    return out.filter((g) => g.items.length > 0 && g.title !== MODEL_GROUP?.title);
   }, [items, search]);
 
   if (!open) return null;
@@ -123,6 +162,30 @@ export function PresetSwitchOverlay() {
               borderRadius: 4, width: 30, height: 30, fontSize: 15, cursor: 'pointer', lineHeight: 1,
             }}>✕</button>
           </div>
+
+          {/* 模型栏（单选） */}
+          {modelBar.length > 0 && !search.trim() && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <span style={{ fontSize: 10.5, color: 'var(--ink-subtle)', flexShrink: 0 }}>模型</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {modelBar.map(({ item, label, orig }) => {
+                  const on = item.enabled !== false;
+                  return (
+                    <button key={item.id} onClick={() => selectModel(orig)}
+                      style={{
+                        fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
+                        border: '1px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
+                        background: on ? 'rgba(196,168,85,0.28)' : 'rgba(0,0,0,0.25)',
+                        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
+                        fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)',
+                      }}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -142,6 +205,7 @@ export function PresetSwitchOverlay() {
           )}
           {groups.map((g) => {
             const isCollapsed = collapsed.has(g.key);
+            const groupIds = new Set(g.items.map((p) => p.id));
             return (
               <div key={g.key} style={{ marginBottom: 6 }}>
                 {g.sep && (
@@ -153,19 +217,23 @@ export function PresetSwitchOverlay() {
                       background: 'rgba(196,168,85,0.06)', borderRadius: 4, userSelect: 'none',
                     }}
                   >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {g.title}{g.single && <span style={{ fontSize: 9, color: 'var(--brass)', marginLeft: 6 }}>单选</span>}
+                    </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                       <span style={{ fontSize: 9.5, color: 'var(--ink-subtle)' }}>{g.items.filter((p) => p.enabled !== false).length}/{g.items.length}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleGroup(g.items); }}
-                        style={{
-                          fontSize: 10, padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
-                          border: '1px solid var(--brass)', background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
-                          fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)',
-                        }}
-                        onMouseEnter={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.2)'; ev.currentTarget.style.borderColor = 'var(--gold)'; }}
-                        onMouseLeave={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.08)'; ev.currentTarget.style.borderColor = 'var(--brass)'; }}
-                      >{g.items.every((p) => p.enabled !== false) ? '全关' : '全开'}</button>
+                      {!g.single && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleGroup(g.items); }}
+                          style={{
+                            fontSize: 10, padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
+                            border: '1px solid var(--brass)', background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
+                            fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)',
+                          }}
+                          onMouseEnter={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.2)'; ev.currentTarget.style.borderColor = 'var(--gold)'; }}
+                          onMouseLeave={(ev) => { ev.currentTarget.style.background = 'rgba(196,168,85,0.08)'; ev.currentTarget.style.borderColor = 'var(--brass)'; }}
+                        >{g.items.every((p) => p.enabled !== false) ? '全关' : '全开'}</button>
+                      )}
                       <span style={{ fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>
                     </span>
                   </div>
@@ -186,21 +254,33 @@ export function PresetSwitchOverlay() {
                         {p.name}
                         {isMarker && <span style={{ fontSize: 9, color: 'var(--brass)', marginLeft: 6 }}>结构项</span>}
                       </span>
-                      <button
-                        onClick={() => toggle(p.id)}
-                        aria-pressed={on}
-                        style={{
-                          flexShrink: 0, width: 42, height: 22, borderRadius: 11, cursor: 'pointer',
-                          border: '1px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
-                          background: on ? 'rgba(196,168,85,0.35)' : 'rgba(0,0,0,0.3)',
-                          position: 'relative', transition: 'var(--transition-smooth)',
-                        }}
-                      >
-                        <span style={{
-                          position: 'absolute', top: 2, left: on ? 22 : 2, width: 16, height: 16, borderRadius: '50%',
-                          background: on ? 'var(--gold)' : 'var(--ink-subtle)', transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
-                        }} />
-                      </button>
+                      {g.single ? (
+                        // 单选组：radio（点一个开、关同组其他）
+                        <button onClick={() => selectOne(groupIds, p.id)} aria-pressed={on}
+                          style={{
+                            flexShrink: 0, width: 18, height: 18, borderRadius: '50%', cursor: 'pointer',
+                            border: '2px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
+                            background: 'transparent', position: 'relative', transition: 'var(--transition-smooth)',
+                          }}
+                        >
+                          {on && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: 'var(--gold)' }} />}
+                        </button>
+                      ) : (
+                        // 多选：拨动开关
+                        <button onClick={() => toggle(p.id)} aria-pressed={on}
+                          style={{
+                            flexShrink: 0, width: 42, height: 22, borderRadius: 11, cursor: 'pointer',
+                            border: '1px solid ' + (on ? 'var(--gold)' : 'var(--brass)'),
+                            background: on ? 'rgba(196,168,85,0.35)' : 'rgba(0,0,0,0.3)',
+                            position: 'relative', transition: 'var(--transition-smooth)',
+                          }}
+                        >
+                          <span style={{
+                            position: 'absolute', top: 2, left: on ? 22 : 2, width: 16, height: 16, borderRadius: '50%',
+                            background: on ? 'var(--gold)' : 'var(--ink-subtle)', transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                          }} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -210,7 +290,7 @@ export function PresetSwitchOverlay() {
         </div>
 
         <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(196,168,85,0.12)', color: 'var(--ink-subtle)', fontSize: 10, fontFamily: 'var(--font-body)' }}>
-          开关即时生效并保存，下一回合起作用。结构项请谨慎关闭。
+          开关即时生效并保存，下一回合起作用。模型/单选组互斥，结构项请谨慎关闭。
         </div>
       </div>
     </div>
