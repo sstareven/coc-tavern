@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { pushLog } from '../stores/useLogStore';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../types';
 import type { TokenUsage } from './stream-parser';
@@ -64,6 +65,7 @@ export async function integrateClues(
     .join('\n');
 
   const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
+  pushLog('info', `[线索整合] 开始：输入 ${clues.length} 条线索，模型=${model}`, 'api');
   await rpmAcquire('main');
   const response = await fetch(url, {
     method: 'POST',
@@ -83,16 +85,31 @@ export async function integrateClues(
     }),
   });
 
-  if (!response.ok) throw new Error(`线索整合 API 错误 ${response.status}`);
+  if (!response.ok) {
+    pushLog('error', `[线索整合] API 返回错误 ${response.status}`, 'api');
+    throw new Error(`线索整合 API 错误 ${response.status}`);
+  }
 
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
   const usage: TokenUsage | undefined = json.usage;
+  pushLog('debug', `[线索整合] 原始响应(${content.length}字${usage?.total_tokens ? `, ${usage.total_tokens} tokens` : ''}): ${content.slice(0, 500)}`, 'api');
 
-  const { parsed } = coerceJsonObject(content);
-  const insights = parsed && Array.isArray((parsed as Record<string, unknown>).insights)
-    ? ((parsed as Record<string, unknown>).insights as Record<string, unknown>[])
-    : [];
+  // 健壮解析：兼容 {"insights":[...]} / {"clues":[...]} / 顶层数组 [...]。
+  const { parsed, error } = coerceJsonObject(content);
+  const pObj = parsed as Record<string, unknown> | null;
+  let insights: Record<string, unknown>[] = [];
+  if (pObj && Array.isArray(pObj.insights)) insights = pObj.insights as Record<string, unknown>[];
+  else if (pObj && Array.isArray(pObj.clues)) insights = pObj.clues as Record<string, unknown>[];
+  else {
+    const m = content.match(/\[[\s\S]*\]/);
+    if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) insights = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }
+  }
+  pushLog(
+    insights.length === 0 ? 'warn' : 'debug',
+    `[线索整合] 解析: parsed=${parsed ? 'ok' : 'null'}${error ? ` 错误=${error}` : ''}, 候选 ${insights.length} 条`,
+    'api',
+  );
 
   const tagSet = new Set<string>(CLUE_TAGS);
   const out: ClueInput[] = insights
@@ -112,5 +129,6 @@ export async function integrateClues(
       };
     });
 
+  pushLog('info', `[线索整合] 产出 ${out.length} 条推理线索${out.length ? '：' + out.map((c) => c.name).join('、') : '（无）'}`, 'api');
   return { clues: out, usage };
 }

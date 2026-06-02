@@ -875,13 +875,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             details: result.darkThread.development,
             foreshadowing: result.darkThread.foreshadowing,
           });
-          pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}, 威胁等级=${result.darkThread.threatLevel}`, 'system');
+          pushLog('debug', `[Pipeline] 暗线更新: 进度${result.darkThread.progress}/100 (${result.darkThread.threatLevel}) — ${result.darkThread.development}${result.darkThread.foreshadowing ? ` ｜伏笔: ${result.darkThread.foreshadowing}` : ''}`, 'system');
         }
 
         // 坏结局（一次性，守秘人机密）：仅当本局尚未确定时采纳，避免后续回合覆盖。
+        // 日志完整记录内容——日志仅供排错，不对正常玩家展示，故不隐藏。
         if (result.badEnding && !useDarkThreadStore.getState().badEnding) {
           useDarkThreadStore.getState().setBadEnding({ description: result.badEnding, createdAt: Date.now() });
-          pushLog('debug', '[Pipeline] 坏结局已生成（隐藏，仅守秘人）', 'system');
+          pushLog('info', `[Pipeline] 本局坏结局已生成（暗线终点）: ${result.badEnding}`, 'system');
         }
 
         // 独立线索库

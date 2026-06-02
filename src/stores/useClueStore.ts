@@ -63,7 +63,11 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
           continue;
         }
 
-        const idx = findActiveByName(clues, input.name);
+        // 合成「推理线索」走精确名匹配：避免被既有线索的宽松包含匹配吞并
+        // （如「推理：教团的真正目标」含子串「教团」会误判为更新而看不到新增）。
+        const idx = input.synthesized
+          ? clues.findIndex((c) => c.status !== 'archived' && c.name === input.name.trim())
+          : findActiveByName(clues, input.name);
         if (idx >= 0) {
           // 更新：补全/覆盖非空字段
           clues[idx] = {
@@ -80,6 +84,9 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
             tags: input.tags?.length
               ? [...new Set([...(clues[idx].tags ?? []), ...input.tags])]
               : clues[idx].tags,
+            // 合成线索保持/上位为 major 并带 synthesized 标记
+            synthesized: input.synthesized || clues[idx].synthesized,
+            tier: input.synthesized ? 'major' : clues[idx].tier,
           };
         } else {
           clues.push({

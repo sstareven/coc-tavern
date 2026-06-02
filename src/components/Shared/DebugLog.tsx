@@ -45,7 +45,22 @@ export function DebugLog() {
       .filter((e) => selected.has(e.id))
       .map((e) => `[${e.time}] [${levelLabels[e.level]}] [${categoryLabels[e.category]}] ${e.message}`)
       .join('\n');
-    navigator.clipboard.writeText(text).catch(() => {});
+    // 复制成功后清空选中（计数归 0），方便接着框选/复制下一批。
+    navigator.clipboard.writeText(text).then(() => setSelected(new Set())).catch(() => {});
+  };
+
+  const exportLogs = () => {
+    const text = filtered
+      .map((e) => `[${e.time}] [${levelLabels[e.level]}] [${categoryLabels[e.category]}] ${e.message}`)
+      .join('\n');
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `coc-logs-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -72,6 +87,7 @@ export function DebugLog() {
                 style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }} />
               <button onClick={selectAll} style={headerBtn}>{selected.size === filtered.length && filtered.length > 0 ? '取消' : '全选'}</button>
               <button onClick={copySelected} disabled={selected.size === 0} style={{ ...headerBtn, opacity: selected.size === 0 ? 0.4 : 1 }}>复制({selected.size})</button>
+              <button onClick={exportLogs} disabled={filtered.length === 0} style={{ ...headerBtn, opacity: filtered.length === 0 ? 0.4 : 1 }} title="把当前筛选的日志导出为 txt 文件">导出</button>
               <button onClick={clear} style={headerBtn}>清空</button>
               <button onClick={toggle} style={headerBtn}>关闭</button>
             </div>

@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
 import { integrateClues } from '../../sillytavern/clue-integrator';
 import { persistActiveGameState } from '../../stores/sessionLifecycle';
+import { pushLog } from '../../stores/useLogStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { IconClue } from '../Layout/TabIcons';
@@ -151,14 +152,18 @@ export function InventoryOverlay() {
         s.apiBaseUrl, s.apiKey, s.apiModel,
       );
       if (synthesized.length === 0) {
+        pushLog('warn', '[线索整合] 未产出新的推理线索（模型无可归纳的关联或解析为空，详见上方日志）', 'api');
         useStatusToastStore.getState().markDone('暂未发现可归纳的新关联');
       } else {
         useClueStore.getState().addClues(synthesized);
         await persistActiveGameState(); // 手动操作：立即落库，避免未经回合 auto-save 即丢失
+        pushLog('info', `[线索整合] 已入库 ${synthesized.length} 条推理线索：${synthesized.map((c) => c.name).join('、')}`, 'api');
         useStatusToastStore.getState().markDone(`整合出 ${synthesized.length} 条推理线索`);
       }
     } catch (e) {
-      useStatusToastStore.getState().showError(`线索整合失败：${e instanceof Error ? e.message : String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      pushLog('error', `[线索整合] 失败：${msg}`, 'api');
+      useStatusToastStore.getState().showError(`线索整合失败：${msg}`);
     } finally {
       setIntegrating(false);
     }

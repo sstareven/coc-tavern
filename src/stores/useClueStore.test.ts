@@ -63,4 +63,27 @@ describe('线索演化与注入', () => {
     useClueStore.getState().addClues([{ name: '血迹', summary: '门后有血迹' }]);
     expect(useClueStore.getState().clues[0].synthesized).toBeUndefined();
   });
+
+  it('synthesized 线索不被既有线索的宽松包含匹配吞并（新增而非合并）', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: '教团', summary: '城里有个教团' }]); // 普通线索
+    // 「推理：教团的真正目标」.includes('教团') 会让宽松匹配误判为更新 → 旧 bug 看不到新增
+    store.addClues([{ name: '推理：教团的真正目标', summary: '诸多线索指向献祭', synthesized: true, tags: ['推理'] }]);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active).toHaveLength(2); // 两条独立线索，未被合并
+    const syn = active.find((c) => c.name === '推理：教团的真正目标')!;
+    expect(syn).toBeDefined();
+    expect(syn.synthesized).toBe(true);
+    expect(syn.tier).toBe('major');
+    expect(active.find((c) => c.name === '教团')!.synthesized).toBeUndefined(); // 原线索未被污染
+  });
+
+  it('同名 synthesized 线索再次整合时按精确名合并（不重复堆叠）', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: '推理：真凶', summary: 'v1', synthesized: true, tags: ['推理'] }]);
+    store.addClues([{ name: '推理：真凶', summary: 'v2', discoveryNarrative: '补充', synthesized: true, tags: ['推理'] }]);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active).toHaveLength(1);
+    expect(active[0].tier).toBe('major');
+  });
 });

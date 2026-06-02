@@ -518,15 +518,15 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         foreshadowing: String(dt.foreshadowing ?? ''),
       };
       if (darkThread.development) {
-        pushLog('debug', `[parseLlm] 暗线: 进度${darkThread.progress} 威胁=${darkThread.threatLevel}`, 'system');
+        pushLog('debug', `[parseLlm] 暗线: 进度${darkThread.progress} 威胁=${darkThread.threatLevel} — ${darkThread.development}`, 'system');
       }
     }
 
-    // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。
+    // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。日志完整记录内容（仅供排错）。
     const badEnding = typeof parsed.badEnding === 'string' && parsed.badEnding.trim()
       ? parsed.badEnding.trim()
       : undefined;
-    if (badEnding) pushLog('debug', '[parseLlm] 坏结局已生成（隐藏，仅守秘人）', 'system');
+    if (badEnding) pushLog('info', `[parseLlm] 坏结局生成: ${badEnding}`, 'system');
 
     return {
       page: {
