@@ -373,6 +373,18 @@ describe('parseLlmResponse', () => {
       expect(r!.clues).toBeUndefined();
     });
 
+    it('解析线索 tags（受控集合白名单过滤集合外标签）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你发现一封密信。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"clues":[{"name":"密信","summary":"无署名的信件","tags":["物证","地点","乱七八糟"]}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.clues![0].tags).toEqual(['物证', '地点']); // 集合外「乱七八糟」被剔除
+    });
+
+    it('线索全为集合外标签时 tags 省略（undefined）', () => {
+      const json = '{"leftHeader":"书房","leftContent":"你发现一封密信。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"clues":[{"name":"密信","summary":"s","tags":["不存在的分类"]}]}';
+      const r = parseLlmResponse(json);
+      expect(r!.clues![0].tags).toBeUndefined();
+    });
+
     it('解析 npcUpdates 与 mapUpdates', () => {
       const json = '{"leftHeader":"图书馆","leftContent":"你走进图书馆。","rightHeader":"行动","rightContent":"接下来？","choices":[{"num":"I","text":"离开","action":"离开"}],"npcUpdates":[{"name":"霍尔姆斯","identity":"管理员","isPresent":true,"favorabilityDelta":5,"addMemory":"打招呼"}],"mapUpdates":{"current":"图书馆","newLocations":[{"name":"图书馆","description":"藏书浩繁"}],"newEdges":[{"from":"校门","to":"图书馆","type":"bidirectional"}]}}';
       const r = parseLlmResponse(json);

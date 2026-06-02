@@ -6,6 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { IconClue } from '../Layout/TabIcons';
 import type { InventoryItem, ItemCategory, Clue } from '../../types';
+import { CLUE_TAGS } from '../../types';
 
 type Filter = 'all' | ItemCategory;
 
@@ -71,6 +72,13 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
           {clue.summary && (
             <div style={{ fontSize: 11, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap' }}>{clue.summary}</div>
           )}
+          {clue.tags && clue.tags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {clue.tags.map((t) => (
+                <span key={t} style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', padding: '0 5px', borderRadius: 7, border: '1px solid rgba(var(--ink-faded-rgb),0.25)', letterSpacing: 0.5 }}>{t}</span>
+              ))}
+            </div>
+          )}
         </div>
         <span style={{ width: 12, flexShrink: 0, fontSize: 10, color: 'var(--ink-faded)', textAlign: 'center', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block', marginTop: 2 }}>▸</span>
       </div>
@@ -103,6 +111,20 @@ export function InventoryOverlay() {
   const activeClues = clues.filter((c) => c.status !== 'archived');
   const archivedClues = clues.filter((c) => c.status === 'archived');
   const clueNameById = (id?: string) => (id ? clues.find((c) => c.id === id)?.name : undefined);
+
+  // 标签筛选：空集合 = 全部；否则命中任一选中标签即显示（OR）。仅渲染当前线索中实际出现的类别。
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  const tagCounts = new Map<string, number>();
+  for (const c of activeClues) for (const t of c.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+  const availableTags = CLUE_TAGS.filter((t) => tagCounts.has(t));
+  const filteredClues = tagFilter.size === 0
+    ? activeClues
+    : activeClues.filter((c) => (c.tags ?? []).some((t) => tagFilter.has(t)));
+  const toggleTag = (t: string) => setTagFilter((prev) => {
+    const next = new Set(prev);
+    if (next.has(t)) next.delete(t); else next.add(t);
+    return next;
+  });
 
   return (
     <motion.div
@@ -177,13 +199,37 @@ export function InventoryOverlay() {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CLUES</span>
         </div>
 
+        {/* Tag filter — 多选，OR 命中；「全部」清空选择。仅在存在已打标签的线索时显示。 */}
+        {availableTags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, paddingBottom: 6, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', marginBottom: 4 }}>
+            {[{ key: 'all', label: '全部', count: activeClues.length }, ...availableTags.map((t) => ({ key: t, label: t, count: tagCounts.get(t) ?? 0 }))].map((tab) => {
+              const active = tab.key === 'all' ? tagFilter.size === 0 : tagFilter.has(tab.key);
+              return (
+                <button key={tab.key} onClick={() => { if (tab.key === 'all') setTagFilter(new Set()); else toggleTag(tab.key); }} style={{
+                  padding: '1px 6px', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
+                  borderColor: active ? 'rgba(var(--ink-faded-rgb),0.35)' : 'rgba(var(--ink-faded-rgb),0.12)', borderRadius: 2,
+                  background: active ? 'rgba(var(--ink-faded-rgb),0.08)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-subtle)',
+                  cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+                }}
+                  onMouseEnter={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(var(--ink-faded-rgb),0.3)'; e.currentTarget.style.color = 'var(--ink)'; } }}
+                  onMouseLeave={(e) => { if (!active) { e.currentTarget.style.borderColor = 'rgba(var(--ink-faded-rgb),0.12)'; e.currentTarget.style.color = 'var(--ink-subtle)'; } }}
+                >{tab.label}{tab.count > 0 ? ` ${tab.count}` : ''}</button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.06)' }}>
           {activeClues.length === 0 ? (
             <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               尚未发现任何线索……
             </div>
+          ) : filteredClues.length === 0 ? (
+            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+              该分类下无线索
+            </div>
           ) : (
-            activeClues.map((clue) => <ClueRow key={clue.id} clue={clue} />)
+            filteredClues.map((clue) => <ClueRow key={clue.id} clue={clue} />)
           )}
 
           {archivedClues.length > 0 && (
