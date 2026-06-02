@@ -311,3 +311,4 @@ npm run test:watch # Vitest 监听模式
 
 - **许可：** 本仓库采用 **[GNU AGPL-3.0](LICENSE)**（GNU Affero General Public License v3.0，Copyright © 2025 sstareven）开源。你可以自由使用、修改、分发本软件及其衍生作品，但衍生作品须同样以 AGPL-3.0 开源并保留版权与许可声明；**特别地，若你将本软件（或其修改版）作为网络服务对外提供，必须向用户公开你所运行版本的完整源代码**。软件按「原样」提供，不附带任何担保。完整条款以仓库 `LICENSE` 文件为准。
 - **致谢：** 本项目的世界书 / 变量引擎 / 正则脚本 / EJS 模板 / 斜杠命令等架构，灵感来自开源前端 **[SillyTavern](https://github.com/SillyTavern/SillyTavern)**（酒馆）。引擎层文件均以 kebab-case 命名并在 JSDoc 中标注来源（"inspired by SillyTavern's…"），感谢其社区的开创性工作。
+- **特别鸣谢「双人成行」预设：** 内置的「双人成行」AI 叙事预设（DeepSeek 专用版 / 向斜阳多模型版）改编自社区优秀的同名 SillyTavern 预设，其精巧的文风分类、思维链与功能开关设计是本项目叙事体验的重要基石。本项目仅将其融合适配到 COC 守秘人场景，所有原始创意与功能介绍（《使用指南》）归功于原作者，在此致以诚挚谢意。

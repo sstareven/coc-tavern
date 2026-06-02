@@ -93,6 +93,8 @@ interface BookStore {
   replacePage: (index: number, page: BookPage) => void;
   /** Animated flip to the freshly appended page */
   autoFlipForward: () => void;
+  manualFlip: (dir: 'forward' | 'backward') => void;
+  settleFlip: () => void;
   /** Visual-only flip animation (no page change), calls onComplete when done */
   decorativeFlip: (direction: 'forward' | 'backward', duration: number, onComplete?: () => void) => void;
   /** Trim old pages to stay within limit (0 = no limit) */
@@ -109,6 +111,9 @@ interface BookStore {
 }
 
 let flipRaf = 0;
+// 当前进行中翻页的「终态结算」闭包：rAF 自然跑完、或被 settleFlip 强制结算时执行（且仅执行一次）。
+// 把状态提交（翻页/复位/onComplete）从 rAF 完成帧解耦，使后台标签页 rAF 被暂停后仍能由 settleFlip 补齐。
+let flipComplete: (() => void) | null = null;
 
 export const useBookStore = create<BookStore>((set, get) => ({
   pages: defaultPages,
@@ -180,19 +185,63 @@ export const useBookStore = create<BookStore>((set, get) => ({
     set({ isFlipping: true, flipProgress: 0, flipDirection: 'forward' });
     const start = performance.now();
 
+    // 终态结算：提交翻页并复位。挂到 flipComplete，使 settleFlip（切回前台）也能补齐。
+    const finish = () => {
+      flipRaf = 0;
+      flipComplete = null;
+      set({ flipProgress: 1 });
+      get().nextPage();
+      set({ isFlipping: false, flipProgress: 0 });
+    };
+    flipComplete = finish;
+
     const tick = (now: number) => {
-      const elapsed = now - start;
-      const raw = Math.min(1, elapsed / FLIP_DURATION);
+      const raw = Math.min(1, (now - start) / FLIP_DURATION);
       set({ flipProgress: raw });
-      if (raw < 1) {
-        flipRaf = requestAnimationFrame(tick);
-      } else {
-        set({ flipProgress: 1 });
-        get().nextPage();
-        set({ isFlipping: false, flipProgress: 0 });
-      }
+      if (raw < 1) flipRaf = requestAnimationFrame(tick);
+      else finish();
     };
     flipRaf = requestAnimationFrame(tick);
+  },
+
+  manualFlip: (dir) => {
+    const { isFlipping, pages, pageIndex } = get();
+    if (isFlipping) return;
+    if (dir === 'forward' && pageIndex >= pages.length - 1) return;
+    if (dir === 'backward' && pageIndex <= 0) return;
+    if (flipRaf) cancelAnimationFrame(flipRaf);
+
+    try { sfxPageFlip(); } catch { /* audio not available */ }
+
+    set({ isFlipping: true, flipProgress: 0, flipDirection: dir });
+    const start = performance.now();
+
+    const finish = () => {
+      flipRaf = 0;
+      flipComplete = null;
+      set({ flipProgress: 1 });
+      if (dir === 'forward') get().nextPage(); else get().prevPage();
+      set({ isFlipping: false, flipProgress: 0 });
+    };
+    flipComplete = finish;
+
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - start) / FLIP_DURATION);
+      set({ flipProgress: raw });
+      if (raw < 1) flipRaf = requestAnimationFrame(tick);
+      else finish();
+    };
+    flipRaf = requestAnimationFrame(tick);
+  },
+
+  // 切回前台等场景下，强制结算被后台 rAF 暂停而卡住的翻页——直接执行登记的终态，不再等动画帧。
+  settleFlip: () => {
+    if (!get().isFlipping) return;
+    if (flipRaf) { cancelAnimationFrame(flipRaf); flipRaf = 0; }
+    const f = flipComplete;
+    flipComplete = null;
+    if (f) f();
+    else set({ isFlipping: false, flipProgress: 0 });
   },
 
   decorativeFlip: (direction, duration, onComplete) => {
@@ -201,15 +250,18 @@ export const useBookStore = create<BookStore>((set, get) => ({
     try { sfxPageFlip(); } catch { /* audio not available */ }
     set({ isFlipping: true, flipProgress: 0, flipDirection: direction });
     const start = performance.now();
+    const finish = () => {
+      flipRaf = 0;
+      flipComplete = null;
+      set({ isFlipping: false, flipProgress: 0 });
+      onComplete?.();
+    };
+    flipComplete = finish;
     const tick = (now: number) => {
       const raw = Math.min(1, (now - start) / duration);
       set({ flipProgress: raw });
-      if (raw < 1) {
-        flipRaf = requestAnimationFrame(tick);
-      } else {
-        set({ isFlipping: false, flipProgress: 0 });
-        onComplete?.();
-      }
+      if (raw < 1) flipRaf = requestAnimationFrame(tick);
+      else finish();
     };
     flipRaf = requestAnimationFrame(tick);
   },

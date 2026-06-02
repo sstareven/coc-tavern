@@ -4,6 +4,7 @@ import { useRegexStore } from '../../stores/useRegexStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { exportPresetToST, importPresetFromST } from '../../sillytavern/format-converter';
 import { DEFAULT_PRESETS, BUILTIN_PRESET_IDS, ensureFormatInstructionMarker } from '../../constants/presets';
+import { FUSION_DS_ID, FUSION_XY_ID } from '../../sillytavern/fusion-preset';
 import type { ChatPreset } from '../../types';
 import { closeBtnStyle } from '../../styles/panelStyles';
 import { kvGet, kvSet } from '../../db/kv';
@@ -14,6 +15,8 @@ interface Props {
 }
 
 const PRESET_STORAGE_KEY = 'coc_presets_v1';
+// 双人成行两个融合预设受保护：不可删除（避免用户误删后无预设可用，需重装/重置才恢复）。
+const PROTECTED_PRESET_IDS = new Set([FUSION_DS_ID, FUSION_XY_ID]);
 
 function loadPresets(): Record<string, ChatPreset> {
   try {
@@ -64,7 +67,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   });
   const [selectedId, setSelectedId] = useState<string>(() => {
     if (sessionPresetId) return sessionPresetId;
-    return kvGet('coc_last_preset') || 'p2';
+    return kvGet('coc_last_preset') || FUSION_DS_ID;
   });
   const setPreset = useChatStore((s) => s.setPreset);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -72,7 +75,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
   const [renameValue, setRenameValue] = useState('');
 
   const handleRename = (id: string) => {
-    if (!renameValue.trim() || BUILTIN_PRESET_IDS.has(id)) { setRenamingId(null); return; }
+    if (!renameValue.trim() || BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) { setRenamingId(null); return; }
     const updated = { ...presets };
     if (updated[id]) {
       updated[id] = { ...updated[id], name: renameValue.trim() };
@@ -167,7 +170,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Object.entries(presets).map(([id, preset]) => {
+          {Object.entries(presets).filter(([id]) => !BUILTIN_PRESET_IDS.has(id)).map(([id, preset]) => {
             const isActive = selectedId === id;
             return (
               <div key={id} style={{
@@ -189,9 +192,9 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                       <button onClick={() => setRenamingId(null)} style={{ ...actionBtnStyle, color: 'var(--ink-subtle)', padding: '2px 8px', fontSize: 11 }}>✕</button>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: BUILTIN_PRESET_IDS.has(id) ? 'default' : 'pointer' }}
-                      onClick={(e) => { if (BUILTIN_PRESET_IDS.has(id)) return; e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
-                      title="点击重命名">
+                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: (BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) ? 'default' : 'pointer' }}
+                      onClick={(e) => { if (BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) return; e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
+                      title={(BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) ? undefined : '点击重命名'}>
                       {preset.name}
                       {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
                     </span>
@@ -204,13 +207,13 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); onEditPreset(preset, (updated) => { const next = { ...presets, [updated.id]: updated }; setPresets(next); savePresets(next); if (activeSessionId) setPreset(updated.id); if (updated.regexScripts) useRegexStore.setState({ presetScripts: updated.regexScripts }); if (updated.tavernHelperScripts) useTavernHelperStore.getState().setPresetScripts(updated.tavernHelperScripts); }); }} style={actionBtnStyle}>编辑</button>
                   <button onClick={(e) => { e.stopPropagation(); handleExport(id); }} style={actionBtnStyle} title="ST格式导出">导出</button>
-                  {!BUILTIN_PRESET_IDS.has(id) && (
+                  {!BUILTIN_PRESET_IDS.has(id) && !PROTECTED_PRESET_IDS.has(id) && (
                     <button onClick={(e) => { e.stopPropagation();
                       const updated = { ...presets }; delete updated[id];
                       setPresets(updated); savePresets(updated);
                       if (selectedId === id) {
-                        setSelectedId('p2');
-                        kvSet('coc_last_preset', 'p2');
+                        setSelectedId(FUSION_DS_ID);
+                        kvSet('coc_last_preset', FUSION_DS_ID);
                         useRegexStore.setState({ presetScripts: [] });
                         useTavernHelperStore.getState().setPresetScripts([]);
                       }

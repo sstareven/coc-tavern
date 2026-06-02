@@ -6,6 +6,7 @@ export type Panel =
   | 'worldbook'
   | 'lorebookEditor'
   | 'preset'
+  | 'presetSwitch'
   | 'presetEditor'
   | 'chatlist'
   | 'extManager'

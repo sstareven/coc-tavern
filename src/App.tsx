@@ -10,6 +10,7 @@ import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { WorldbookPanel } from './components/Settings/WorldbookPanel';
 import { LorebookEditor } from './components/Settings/LorebookEditor';
 import { PresetPanel } from './components/Settings/PresetPanel';
+import { PresetSwitchOverlay } from './components/Settings/PresetSwitchOverlay';
 import { PresetEditor } from './components/Settings/PresetEditor';
 import { ChatlistPanel } from './components/Settings/ChatlistPanel';
 import { ExtManager } from './components/Settings/ExtManager';
@@ -22,10 +23,12 @@ import { StatusToast } from './components/Shared/StatusToast';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
+import { seedFusionPreset } from './db/seed-fusion-preset';
 import { migrateFromLocalStorage } from './db/migrations';
 import { db, V2_UPGRADE_FAILED } from './db/database';
 import { loadConversation } from './stores/sessionLifecycle';
 import { useChatStore } from './stores/useChatStore';
+import { useBookStore } from './stores/useBookStore';
 
 export function App() {
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
@@ -35,6 +38,8 @@ export function App() {
     initBuiltinCommands();
     (async () => {
       await initKvCache();
+      // 幂等种入「双人成行融合预设」并设为默认（只写预设存储，不碰会话/存档表）。
+      await seedFusionPreset();
       // 一次性 localStorage → Dexie 迁移（幂等）。Dexie v2 .upgrade() 在 db 打开时自动运行。
       await migrateFromLocalStorage();
       // 触碰 db 确保 v2 升级已执行；若升级失败标志已写入则告警（降级路径尽力而为）。
@@ -66,6 +71,19 @@ export function App() {
     document.addEventListener('debug-enter-game', toGame);
     document.addEventListener('debug-return-menu', toMenu);
     return () => { document.removeEventListener('debug-enter-game', toGame); document.removeEventListener('debug-return-menu', toMenu); };
+  }, []);
+
+  // 切回前台时补齐被后台 rAF 暂停而卡住的翻页：浏览器在后台标签页暂停 requestAnimationFrame，
+  // 翻页动画无法走到完成帧，导致 pageIndex 不前进、画面停在上一页、isFlipping 卡死，须点击才恢复。
+  // 监听 visibilitychange，在重新可见且仍处于翻页中时强制结算，立即提交到目标页。
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && useBookStore.getState().isFlipping) {
+        useBookStore.getState().settleFlip();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   const openPanel = usePanelStore((s) => s.openPanel);
@@ -123,6 +141,7 @@ export function App() {
 
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
       <DicePanel />
+      <PresetSwitchOverlay />
 
       {openPanel === 'settings' && (
         <SettingsPanel visible={true} onClose={closeAll} onReturnToMenu={returnToMenu} />

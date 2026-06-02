@@ -457,7 +457,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         lastMessage: '',
       };
 
+      // 双人成行等大预设的功能开关依赖 {{setvar}}/{{getvar}} 宏跨条目协作：必须把 enabled
+      // 且有静态 content 的 promptItems 按 order 一并纳入同一个宏批处理（共享变量作用域），
+      // 让前部条目 setvar 设值、后部核心条目 getvar 取值组装。否则这些宏只会以字面文本注入、功能失效。
+      const sortedItems = [...processedPreset.promptItems].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+      const macroItemPositions: number[] = []; // sortedItems 中需跑宏的下标
+      const itemTexts: string[] = [];
+      sortedItems.forEach((it, idx) => {
+        if (it.enabled !== false && it.content && it.content.trim()) {
+          macroItemPositions.push(idx);
+          itemTexts.push(it.content);
+        }
+      });
+
       const allTexts = [
+        ...itemTexts, // 条目在前：setvar 先于后续 getvar 执行（promptItems 已按 order 排序）
         processedPreset.systemPrompt,
         ...processedLore.map((e) => e.content),
         macroProcessedInput,
@@ -465,12 +479,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       ];
       const macroResults = resolveAllMacrosBatch(allTexts, macroCtx);
 
-      processedPreset.systemPrompt = macroResults[0].text;
+      // 写回宏处理后的 promptItems content
+      const newItems = sortedItems.map((it) => ({ ...it }));
+      macroItemPositions.forEach((pos, k) => { newItems[pos].content = macroResults[k].text; });
+      processedPreset.promptItems = newItems;
+
+      const base = itemTexts.length;
+      processedPreset.systemPrompt = macroResults[base].text;
       for (let i = 0; i < processedLore.length; i++) {
-        processedLore[i].content = macroResults[i + 1].text;
+        processedLore[i].content = macroResults[base + 1 + i].text;
       }
-      macroProcessedInput = macroResults[processedLore.length + 1].text;
-      const resolvedFormat = macroResults[processedLore.length + 2].text;
+      macroProcessedInput = macroResults[base + 1 + processedLore.length].text;
+      const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
 
       // Persist macro var mutations back to store
       const mutationStore = useTavernHelperStore.getState();
