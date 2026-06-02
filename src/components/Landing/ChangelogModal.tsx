@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-const CURRENT_VERSION = 'v1.3.6';
+const CURRENT_VERSION = 'v1.3.7';
 
 interface Release {
   version: string;
@@ -12,6 +12,17 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.7',
+    label: '背景补写 · 去八股 · COC 规则修正',
+    items: [
+      '新功能「背景补写」— 人物创建的背景故事页新增此按钮：对你已经填好的字段做 AI 详细扩写，忠实保留原意、只补充细节与时代氛围，不改写、不杜撰、也不碰你留空的字段（区别于「快速填充」的从零生成）',
+      '修正 COC 7 版规则 — 理智检定方向（掷骰≤智力才意识到恐怖、陷入临时疯狂）、先攻改为按敏捷数值排序（持火器+50）、大失败阈值按技能值区分（技能≥50 仅 100 为大失败）',
+      '减少 AI 套话与八股 — 清理世界书和预设里诱导「微表情 / 内心独白 / 极端绝望情绪」的指令，NPC 的心思改由言行间接体现，让叙事更克制、更少机械化重复',
+      '状态变量更新更可靠 — 调查员的物品 / 状态 / 技能等更新与角色卡真值源对齐，不再出现「AI 写了却悄悄丢失」的情况；物品走物品栏、线索走线索库、NPC 走 NPC 系统，不再多头记录',
+      '世界书整理 — 内置世界书条目改为只读（内容随版本更新，避免你编辑后被覆盖）；神话设定类条目调整注入位置；收敛条目间的连锁触发，减少提前剧透与 token 浪费',
+    ],
+  },
   {
     version: 'v1.3.6',
     label: '选项不再出现 {{}} 花括号',
