@@ -110,7 +110,7 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       const fav = p.favorability > 30 ? '友好' : p.favorability < -30 ? '敌对' : '中立';
       const parts = [`- ${p.name}（${p.identity || '身份不明'}，对调查员好感度${p.favorability}/${fav}）`];
       if (p.personality) parts.push(`  性格：${p.personality}`);
-      if (p.innerThoughts) parts.push(`  内心想法(KP视角)：${p.innerThoughts}`);
+      if (p.innerThoughts) parts.push(`  动机/秘密(KP视角)：${p.innerThoughts}`);
       if (p.memorySummary) parts.push(`  记忆梗概：${p.memorySummary}`);
       if (p.memories.length) parts.push(`  近期互动：${p.memories.slice(-3).join('；')}`);
       // 仅当原始记忆既达到折叠阈值、又确实超出保留窗口时才提示——避免 keep 调高(>阈值)时每回合反复催促折叠
