@@ -66,7 +66,7 @@ export const useLocationElementStore = create<LocationElementStore>()((set, get)
   getByLocation: (locationName) => {
     const t = locationName.trim();
     const all = get().elements;
-    const exact = all.filter((e) => e.locationName === t);
+    const exact = all.filter((e) => e.locationName.trim() === t);
     if (exact.length > 0) return exact;
     // 宽松包含兜底（双向 includes，与地图地点名称匹配语义一致）
     return all.filter((e) => e.locationName.includes(t) || t.includes(e.locationName));

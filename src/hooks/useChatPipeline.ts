@@ -1021,9 +1021,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 const { elements } = await extractLocationElements(locName, existingNames, narrative, leBase, leKey, leModel);
                 if (elements.length === 0 || useChatStore.getState().activeId !== aidLE) return;
                 useLocationElementStore.getState().applyExtracted(elements);
-                const pg = useBookStore.getState().pages[ledPageIdx];
-                const merged = [...(pg?.locationElements ?? []), ...elements];
-                useBookStore.getState().setPageLocationElements(ledPageIdx, merged);
+                // 页锚定写回：直接覆写本页 locationElements（与 setPageInventoryChanges 一致；
+                // 每页每回合仅一次抽取，regenerate 时应替换而非堆叠）。
+                useBookStore.getState().setPageLocationElements(ledPageIdx, elements);
                 useChatStore.getState().savePages(useBookStore.getState().pages);
                 if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
                 pushLog('info', `[地点元素] 「${locName}」抽取 ${elements.length} 个新元素：${elements.map((e) => e.name).join('、')}`, 'system');
