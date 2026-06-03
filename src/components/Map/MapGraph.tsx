@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { MapLocation, MapEdge } from '../../types';
 
 const NODE_R = 22;          // 节点圆半径
@@ -107,8 +108,47 @@ export function MapGraph({ locations, edges, currentId, selectedId, onSelect }: 
 }) {
   const { pos, W, H } = computeLayout(locations, edges, currentId);
 
+  // 抓取拖动平移（touchscreen 式 grab-pan）：鼠标按住地图任意处拖动，画布跟手平移，
+  // 取代「只能拖滚动条」。仅对鼠标生效——触屏交给浏览器原生 overflow 平移，避免冲突。
+  // 拖动时按 -delta 改 scrollLeft/Top：内容跟随指针（拖右→看到左侧内容，与滚动条相反）。
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ active: false, x: 0, y: 0, moved: false });
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return; // 触屏/笔走原生滚动；仅鼠标左键抓取
+    drag.current = { active: true, x: e.clientX, y: e.clientY, moved: false };
+    e.currentTarget.style.cursor = 'grabbing';
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d.active || !scrollRef.current) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return; // 阈值：小抖动不算拖动，保留点击选中节点
+    d.moved = true;
+    scrollRef.current.scrollLeft -= dx;
+    scrollRef.current.scrollTop -= dy;
+    d.x = e.clientX; d.y = e.clientY;
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    e.currentTarget.style.cursor = 'grab';
+  };
+  // 拖动过的这一下产生的 click 不应选中节点——捕获阶段吞掉它（纯点击 moved=false 不受影响）。
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (drag.current.moved) { e.stopPropagation(); drag.current.moved = false; }
+  };
+
   return (
-    <div style={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto' }} className="inv-scroll">
+    <div ref={scrollRef}
+      style={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', cursor: 'grab' }}
+      className="inv-scroll"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      onClickCapture={onClickCapture}
+    >
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
         style={{ display: 'block', margin: 'auto', minWidth: W, minHeight: H }}>
         <defs>
