@@ -8,6 +8,7 @@ import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
+import { LOCATION_ELEMENT_CAP } from '../stores/useLocationElementStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
@@ -16,6 +17,7 @@ import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
+import { integrateLocationElements } from '../sillytavern/location-element-integrator';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -1025,6 +1027,22 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 useChatStore.getState().savePages(useBookStore.getState().pages);
                 if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
                 pushLog('info', `[地点元素] 「${locName}」抽取 ${elements.length} 个新元素：${elements.map((e) => e.name).join('、')}`, 'system');
+
+                // 超上限归纳收敛：该地点元素 > LOCATION_ELEMENT_CAP 时，后台独立 LLM 把碎元素归并成 ≤5（store 级替换 + 持久化）。
+                // 不写回页面——consolidation 跨全地点，与「每页 historical locationElements」语义不同；删页重放走原始元素、下回合再重整。
+                const curList = useLocationElementStore.getState().getByLocation(locName);
+                if (curList.length > LOCATION_ELEMENT_CAP) {
+                  const { elements: mergedEls } = await integrateLocationElements(
+                    locName,
+                    curList.map((e) => ({ name: e.name, category: e.category, description: e.description })),
+                    leBase, leKey, leModel,
+                  );
+                  if (mergedEls.length > 0 && useChatStore.getState().activeId === aidLE) {
+                    useLocationElementStore.getState().consolidateLocation(locName, mergedEls);
+                    if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
+                    pushLog('info', `[地点元素整合] 「${locName}」元素超过 ${LOCATION_ELEMENT_CAP} 个，已归纳收敛为 ${mergedEls.length} 个`, 'system');
+                  }
+                }
               } catch (e) {
                 pushLog('warn', `[地点元素] 抽取失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }

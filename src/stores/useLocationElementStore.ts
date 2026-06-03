@@ -3,6 +3,9 @@ import type { LocationElement, LocationElementInput } from '../types';
 
 export type { LocationElementInput };
 
+/** 每个地点的元素数量上限：超过此数则在抽取后台触发「归纳收敛」（类比线索整合 CLUE_ACTIVE_CAP）。 */
+export const LOCATION_ELEMENT_CAP = 5;
+
 interface LocationElementStore {
   elements: LocationElement[];
 
@@ -12,6 +15,8 @@ interface LocationElementStore {
   getByLocation: (locationName: string) => LocationElement[];
   /** 把当前地点的已知元素拼成注入文本，供主生成参考保持一致；该地点无元素则返回 ''。 */
   buildContextInjection: (currentLocationName: string) => string;
+  /** 用归纳结果替换某地点的全部元素（删该地点旧元素 + 落地 merged 为新元素），供超上限后整合收敛。 */
+  consolidateLocation: (locationName: string, merged: LocationElementInput[]) => void;
   replaceAll: (list: LocationElement[]) => void;
   clearAll: () => void;
 }
@@ -76,4 +81,23 @@ export const useLocationElementStore = create<LocationElementStore>()((set, get)
 
   replaceAll: (list) => set({ elements: list }),
   clearAll: () => set({ elements: [] }),
+
+  consolidateLocation: (locationName, merged) => {
+    set((s) => {
+      const loc = locationName.trim();
+      // 删除该地点旧元素（精确名匹配，与触发整合时的 getByLocation 精确集对应），再落地归纳结果。
+      const kept = s.elements.filter((e) => e.locationName.trim() !== loc);
+      const fresh: LocationElement[] = merged
+        .filter((m) => m.name?.trim())
+        .map((m) => ({
+          id: crypto.randomUUID(),
+          locationName: m.locationName?.trim() || loc,
+          name: m.name.trim(),
+          category: m.category,
+          description: m.description ?? '',
+          createdAt: Date.now(),
+        }));
+      return { elements: [...kept, ...fresh] };
+    });
+  },
 }));

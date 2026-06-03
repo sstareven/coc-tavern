@@ -84,4 +84,23 @@ describe('地点元素 store', () => {
     store.clearAll();
     expect(useLocationElementStore.getState().elements).toHaveLength(0);
   });
+
+  it('consolidateLocation 用归纳结果替换该地点元素、保留其它地点', () => {
+    const store = useLocationElementStore.getState();
+    store.applyExtracted([
+      { locationName: '书房', name: '壁炉', category: '陈设', description: 'a' },
+      { locationName: '书房', name: '书架', category: '陈设', description: 'b' },
+      { locationName: '书房', name: '地毯', category: '陈设', description: 'c' },
+      { locationName: '地窖', name: '木桶', category: '容器', description: 'd' },
+    ]);
+    store.consolidateLocation('书房', [
+      { locationName: '书房', name: '陈旧家具群', category: '陈设', description: '壁炉、书架与地毯，皆蒙尘' },
+    ]);
+    const all = useLocationElementStore.getState();
+    expect(all.getByLocation('书房')).toHaveLength(1);
+    expect(all.getByLocation('书房')[0].name).toBe('陈旧家具群');
+    // 其它地点不受影响
+    expect(all.getByLocation('地窖')).toHaveLength(1);
+    expect(all.getByLocation('地窖')[0].name).toBe('木桶');
+  });
 });
