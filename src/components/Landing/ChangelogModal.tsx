@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.6.2';
+export const CURRENT_VERSION = 'v1.7.0';
 
 interface Release {
   version: string;
@@ -12,6 +12,16 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.7.0',
+    label: '新增「地点元素」· 修复对抗检定胜负叙述',
+    items: [
+      '新增玩法「地点元素」— 每到一处，AI 会自动留意并记录这个地点里值得注意的环境之物（陈设 / 机关 / 痕迹 / 通道 / 容器 / 异常等），归入该地点名下。之后只要你身处此地，这些已知元素会被提醒给 AI，让它对同一处场景的描写前后一致、不再自相矛盾',
+      '地图页新增地点元素展示 — 在地图页点击任一地点，右页底部即列出该地点已记录的元素（带类型标签与简介，可滚动浏览）；默认显示你当前所在地点的元素',
+      '地点元素自动归纳 — 同一地点积累超过 5 个元素时，会在后台自动把零碎、同类的元素归纳合并成更概括的几条，避免越攒越杂（不打断游戏，稍后自动更新）',
+      '修复对抗检定「明明赢了却被写成输」— 此前在对抗检定中，即便系统最终判定调查员“胜利”，正文偶尔会因为你个人那一掷是“失败”而把剧情写成调查员落败。现已明确：对抗的最终胜负以系统裁定为准，正文会据此如实叙述输赢',
+    ],
+  },
   {
     version: 'v1.6.2',
     label: '修复开局不发起始物品',
