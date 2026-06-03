@@ -1477,6 +1477,32 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return;
       }
 
+      // 行动补写·战斗发起：玩家明确发起攻击/搏斗 → 据当前场景建场进入即时战斗面板，跳过候选选项生成；
+      // 脱战后由 InputBar 订阅 status='resolving' 走主管线翻页叙述。仅当未在战斗中且检测出可战目标才进战，否则回落正常补写。
+      if (shouldDetectCombat(trimmed) && !useCombatStore.getState().encounter) {
+        const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+        const cdBase = (useMvuApiCB ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+        const cdKey = (useMvuApiCB ? settings.mvuApiKey : settings.apiKey) ?? '';
+        const cdModel = (useMvuApiCB ? settings.mvuApiModel : settings.apiModel) ?? '';
+        if (cdBase.trim() && cdKey.trim() && cdModel.trim()) {
+          useStatusToastStore.getState().updateProcessing('正在进入战斗…');
+          const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n');
+          const ctx = `${recent}\n玩家主动发起：${trimmed}`;
+          const enc = await detectAndBuildEncounter(ctx, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, cdBase, cdKey, cdModel, controller.signal);
+          if (enc && !useCombatStore.getState().encounter) {
+            enc.log = [...enc.log, { kind: 'narrative', text: trimmed }];
+            useCombatStore.getState().start(enc);
+            const aidCB = useChatStore.getState().activeId;
+            if (aidCB) await saveConversation(aidCB);
+            pushLog('info', `[战斗] 玩家发起即时战斗：${enc.combatants.filter((c) => c.faction === 'enemy').map((c) => c.name).join('、')}`, 'system');
+            useStatusToastStore.getState().markDone('战斗开始');
+            return; // 进战，跳过补写；脱战后翻页叙述
+          }
+          if (controller.signal.aborted) return;
+          useStatusToastStore.getState().updateProcessing('正在推演可能的行动…'); // 无可战目标 → 回落补写
+        }
+      }
+
       const bookStore = useBookStore.getState();
       const idx = bookStore.pageIndex;
       const hasPrev = !!bookStore.pages[idx]?.rewrite;
