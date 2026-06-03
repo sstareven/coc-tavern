@@ -12,6 +12,7 @@ import type {
   LocationElement,
   KeyPillar,
   PlotAnchors,
+  Encounter,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
@@ -101,6 +102,12 @@ export interface PlotAnchorRow {
   anchors: PlotAnchors;
 }
 
+// 进行中战斗（一行/会话；脱战后删行、内容固化进 BookPage.combatLog）。
+export interface CombatRow {
+  conversationId: string;
+  encounter: Encounter;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -119,6 +126,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
   keyClues: EntityTable<KeyClueRow, 'conversationId'>;
   plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
+  combat: EntityTable<CombatRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -197,6 +205,14 @@ export const V9_SCHEMA = {
 } as const;
 
 db.version(9).stores(V9_SCHEMA);
+
+/** v10: 新增「进行中战斗」单行表（无数据迁移）。 */
+export const V10_SCHEMA = {
+  ...V9_SCHEMA,
+  combat: '&conversationId',
+} as const;
+
+db.version(10).stores(V10_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
