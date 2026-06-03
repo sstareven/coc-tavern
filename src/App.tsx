@@ -29,8 +29,10 @@ import { db, V2_UPGRADE_FAILED } from './db/database';
 import { loadConversation, persistActiveGameState } from './stores/sessionLifecycle';
 import { useChatStore } from './stores/useChatStore';
 import { useBookStore } from './stores/useBookStore';
+import { useUiScale } from './hooks/useUiScale';
 
 export function App() {
+  useUiScale(); // 桌面端界面缩放：把设置中的 uiScale 应用到根元素 zoom
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
   const [ready, setReady] = useState(false);
 
