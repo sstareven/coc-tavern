@@ -9,6 +9,7 @@ import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useKeyClueStore } from '../stores/useKeyClueStore';
+import { useAnchorStore } from '../stores/useAnchorStore';
 import { LOCATION_ELEMENT_CAP } from '../stores/useLocationElementStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
@@ -17,6 +18,7 @@ import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { generateDarkThread } from '../sillytavern/dark-thread-generator';
+import { generateAnchors } from '../sillytavern/anchor-generator';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
@@ -291,6 +293,28 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } as LoreEntry);
       }
 
+      // 剧情骨架与进程（开局锚点+硬约束+已发生事件时间线+软引导+开放式胜利判定）。
+      // 像暗线一样常驻注入，补写 lite 模式由 selectLoreForRewrite 丢弃。事件时间线取最近 N 页 page.summary 现算。
+      const anchorBucket: LoreEntry[] = [];
+      const recentSummaries = useBookStore.getState().pages
+        .slice(-12)
+        .map((p) => p.summary)
+        .filter((s): s is string => !!s && s.trim().length > 0);
+      const anchorCtx = useAnchorStore.getState().buildContextInjection(recentSummaries);
+      if (anchorCtx) {
+        anchorBucket.push({
+          name: '剧情骨架与进程', keys: '', content: anchorCtx,
+          logic: 'AND_ANY', priority: 2, disabled: false,
+          constant: true, position: 0, depth: 0, probability: 100,
+          secondaryKeys: '', scanDepth: 0, caseSensitive: 0, matchWholeWord: 0,
+          groupScoring: 0, automationId: '', inclusionGroup: '', prioritizeInclusion: false,
+          groupWeight: 100, sticky: 0, cooldown: 0, delay: 0,
+          preventRecursion: false, delayUntilRecursion: false, excludeRecursion: false,
+          ignoreReplyLimit: false,
+          _source: 'global',
+        } as LoreEntry);
+      }
+
       // Keyword dictionary context (混合策略：最近 3 页 page.keywords 常驻 + 老词按当前文本匹配)。
       // scanText 用 matchCtx(上下文+输入)，让最近叙事提到的老关键词也被回灌。轻量补写模式由 selectLoreForRewrite 丢弃。
       const keywordBucket: LoreEntry[] = [];
@@ -363,6 +387,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         summary: matchedSummary,
         constant: constantBucket,
         darkThread: darkThreadBucket,
+        anchor: anchorBucket,
         keyword: keywordBucket,
         statSnapshot: statSnapshotBucket,
         generateInjects: generateInjectBucket,
@@ -1023,6 +1048,39 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               pushLog('warn', `[坏结局/支柱] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
             }
           })();
+        }
+
+        // 剧情锚点（守秘人机密，剧情蓝图）：本局尚无锚点、且坏结局+支柱已就绪 → 用【独立 LLM 调用】据情境生成。
+        // 与主输出彻底解耦（绝不挤占主 JSON）；fire-and-forget + 会话守卫；后日谈不生成；需 API 齐全。
+        // 首回合坏结局/支柱也在异步生成、可能尚未落地，则本回合跳过、下回合补生成。
+        {
+          const dtNow = useDarkThreadStore.getState().badEnding;
+          const kcNow = useKeyClueStore.getState().pillars;
+          if (useAnchorStore.getState().anchors.nodes.length === 0 && dtNow && kcNow.length > 0 && !isEpilogue
+              && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+            const aidAN = useChatStore.getState().activeId;
+            const prologue = useBookStore.getState().pages[0];
+            const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
+            void (async () => {
+              try {
+                const anchors = await generateAnchors(
+                  opening,
+                  dtNow.description,
+                  kcNow.map((p) => ({ title: p.title, secret: p.secret })),
+                  settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+                  controller.signal,
+                );
+                if (!anchors || useChatStore.getState().activeId !== aidAN) return; // 失败或切档 → 放弃
+                if (useAnchorStore.getState().anchors.nodes.length > 0) return; // 期间已生成 → 不覆盖
+                useAnchorStore.getState().setAnchors(anchors);
+                if (aidAN) await saveConversation(aidAN);
+                pushLog('info', `[剧情锚点] 本局剧情蓝图已生成（守秘人机密）：${anchors.nodes.map((n) => n.title).join(' → ')}`, 'system');
+              } catch (e) {
+                if (controller.signal.aborted) return;
+                pushLog('warn', `[剧情锚点] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         // 独立线索库
