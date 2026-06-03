@@ -2,6 +2,7 @@ import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
 import { nextTurnOrder } from './combat-engine';
+import { matchWeaponTemplate } from './coc-weapons';
 import type {
   CharacterSheet, InventoryItem, Combatant, CombatWeapon, CombatBystander, Encounter, CombatFaction,
 } from '../types';
@@ -26,38 +27,33 @@ function skill(sheet: CharacterSheet, keys: string[], fallback: number): number 
   return fallback;
 }
 
-/** 把随身物品里的武器粗映射成 CombatWeapon（MVP 启发式：按名称关键词分火器/近战）。 */
-export function mapInventoryToWeapons(items: InventoryItem[], fightingSkill: number, firearmSkill: number): CombatWeapon[] {
+/** 把随身物品里的武器映射成 CombatWeapon：先按 COC7e 武器表(matchWeaponTemplate)取准确伤害+治理技能(命中按角色卡该技能值)，无匹配再回落粗略启发式。 */
+export function mapInventoryToWeapons(items: InventoryItem[], sheet: CharacterSheet): CombatWeapon[] {
   const out: CombatWeapon[] = [];
   for (const it of items) {
     if (it.category !== 'weapon') continue;
-    const n = it.name;
-    const isGun = /枪|左轮|手铳|步铳|霰弹|来福/.test(n);
+    const tpl = matchWeaponTemplate(it.name);
+    if (tpl) {
+      out.push({
+        name: it.name,
+        skill: skill(sheet, tpl.skillKeys, tpl.ranged ? 20 : 25),
+        damage: tpl.damage,
+        impaling: tpl.impaling,
+        ranged: tpl.ranged,
+        baseRange: tpl.baseRange,
+        attacksPerRound: tpl.attacksPerRound,
+        loadedAmmo: tpl.ranged ? tpl.magazine : undefined,
+        magazine: tpl.ranged ? tpl.magazine : undefined,
+        ammoItemName: tpl.ranged ? '子弹' : undefined,
+      });
+      continue;
+    }
+    // 无表匹配：粗略启发式兜底。
+    const isGun = /枪|铳/.test(it.name);
     if (isGun) {
-      const isShotgun = /霰弹/.test(n);
-      const isRifle = /步枪|来福|步铳/.test(n);
-      out.push({
-        name: n,
-        skill: firearmSkill,
-        damage: isShotgun ? '4D6' : isRifle ? '2D6+4' : '1D10',
-        impaling: true,
-        ranged: true,
-        baseRange: isShotgun ? 10 : isRifle ? 90 : 15,
-        attacksPerRound: 1,
-        loadedAmmo: isShotgun ? 2 : isRifle ? 5 : 6,
-        magazine: isShotgun ? 2 : isRifle ? 5 : 6,
-        ammoItemName: '子弹',
-      });
+      out.push({ name: it.name, skill: skill(sheet, ['枪械(手枪)', '射击'], 20), damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, loadedAmmo: 6, magazine: 6, ammoItemName: '子弹' });
     } else {
-      const blade = /刀|剑|匕首|斧|矛|刺/.test(n);
-      out.push({
-        name: n,
-        skill: fightingSkill,
-        damage: blade ? '1D6' : '1D6',
-        impaling: blade,
-        ranged: false,
-        attacksPerRound: 1,
-      });
+      out.push({ name: it.name, skill: skill(sheet, ['格斗(斗殴)', '格斗'], 25), damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 });
     }
   }
   return out;
@@ -80,7 +76,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     damageBonus: sheet.secondary.db || '0',
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: 0,
-    weapons: [unarmed, ...mapInventoryToWeapons(items, fighting, firearm)],
+    weapons: [unarmed, ...mapInventoryToWeapons(items, sheet)],
     flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
     roundDefenses: 0,
   };

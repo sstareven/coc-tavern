@@ -21,15 +21,16 @@ describe('shouldDetectCombat', () => {
 });
 
 describe('mapInventoryToWeapons', () => {
-  it('火器名→ranged，刀类→近战贯穿，非武器忽略', () => {
-    const ws = mapInventoryToWeapons([item('左轮手枪', 'weapon'), item('猎刀', 'weapon'), item('怀表', 'misc')], 50, 45);
+  it('按 COC7e 武器表给准确伤害/射程，命中=角色卡治理技能；非武器忽略', () => {
+    const ws = mapInventoryToWeapons([item('左轮手枪', 'weapon'), item('猎刀', 'weapon'), item('怀表', 'misc')], defaultSheet);
     expect(ws).toHaveLength(2);
     const gun = ws.find((w) => w.ranged)!;
-    expect(gun.skill).toBe(45);
-    expect(gun.loadedAmmo).toBeGreaterThan(0);
+    expect(gun.damage).toBe('1D10');           // 左轮 → 1D10
+    expect(gun.loadedAmmo).toBe(6);
+    expect(typeof gun.skill).toBe('number');   // 命中取角色卡 枪械(手枪)
     const knife = ws.find((w) => !w.ranged)!;
+    expect(knife.damage).toBe('1D4');          // 猎刀 → 1D4 贯穿
     expect(knife.impaling).toBe(true);
-    expect(knife.skill).toBe(50);
   });
 });
 

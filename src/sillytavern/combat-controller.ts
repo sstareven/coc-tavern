@@ -75,7 +75,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       return log(enc, `${attacker.name} 射击 大失败 — ${weapon.name} 卡壳！`);
     }
     if (!r.hit) return log(enc, `${attacker.name} 射击 ${LEVEL_CN[r.level]} — 未命中 ${target.name}`);
-    const dmg = rollDamage(weapon, attacker.damageBonus ?? '0', isImpaleLevel(r.level), rng).total;
+    const dmg = rollDamage(weapon, '0', isImpaleLevel(r.level), rng).total; // 火器不加 DB(COC7e)
     const dr = applyDamage(target, dmg);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
     return log(enc, `${attacker.name} 射击 ${LEVEL_CN[r.level]}${isImpaleLevel(r.level) ? '·贯穿' : ''} — ${target.name} 受 ${dr.dealt} 伤(${dr.combatant.hp}/${target.maxHp})`);
