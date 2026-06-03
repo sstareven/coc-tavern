@@ -1,4 +1,4 @@
-import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, DiceRecord } from '../types';
+import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, DiceRecord, DiceResultType } from '../types';
 import {
   type Rng, type SuccessLevel,
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
@@ -7,6 +7,16 @@ import {
 } from './combat-engine';
 
 const defaultRng: Rng = Math.random;
+
+/** 成功等级 → 检定记录用的 DiceResultType（使战斗检定能进主「检定记录」面板且配色正确）。 */
+const LEVEL_TO_DICE_TYPE: Record<SuccessLevel, DiceResultType> = {
+  critical: 'crit-success', extreme: 'extreme-success', hard: 'hard-success',
+  success: 'success', fail: 'failure', fumble: 'crit-failure',
+};
+/** d100=roll 对 skill 的检定记录 type（用于非对抗的临时检定如速度/排障）。 */
+function diceTypeFor(roll: number, skill: number): DiceResultType {
+  return LEVEL_TO_DICE_TYPE[successLevel(roll, skill)];
+}
 
 // ── 不可变更新辅助 ──
 function patchCombatant(enc: Encounter, id: string, patch: Partial<Combatant>): Encounter {
@@ -69,7 +79,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     }
     const r = resolveRanged(weapon.skill, 'normal', rng);
     enc = patchCombatant(enc, attackerId, { weapons: attacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
-    enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(r.roll.finalRoll), target: String(weapon.skill), type: 'normal', purpose: '攻击命中-火器' });
+    enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(r.roll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
     if (r.jam) {
       enc = patchCombatant(enc, attackerId, { flags: { ...attacker.flags, weaponJammed: true } });
       return log(enc, `${attacker.name} 射击 大失败 — ${weapon.name} 卡壳！`);
@@ -88,8 +98,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const bonus = outnumberBonusDice(target); // 守方本轮已防御→攻方得奖励骰
   const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
-  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: 'normal', purpose: '攻击命中-近战' });
-  enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: 'normal', purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
+  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
+  enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
 
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
@@ -123,7 +133,7 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
       const r = d100WithDice(0, 0, rng);
       const lvl = successLevel(r.finalRoll, ai.con);
       escaped = lvl !== 'fail' && lvl !== 'fumble';
-      enc = rec(enc, { skill: `${ai.name}·速度检定`, roll: String(r.finalRoll), target: String(ai.con), type: 'normal', purpose: '速度检定' });
+      enc = rec(enc, { skill: `${ai.name}·速度检定`, roll: String(r.finalRoll), target: String(ai.con), type: diceTypeFor(r.finalRoll, ai.con), purpose: '速度检定' });
     }
     if (escaped) {
       enc = patchCombatant(enc, aiId, { flags: { ...ai.flags, fled: true } });
@@ -183,7 +193,7 @@ export function playerClearJam(enc0: Encounter, weaponIdx: number, rng: Rng = de
   const weapon = player.weapons[weaponIdx];
   const r = d100WithDice(0, 0, rng);
   const ok = successLevel(r.finalRoll, weapon?.skill ?? 30) !== 'fail' && successLevel(r.finalRoll, weapon?.skill ?? 30) !== 'fumble';
-  let enc = rec(enc0, { skill: `${player.name}·排除故障`, roll: String(r.finalRoll), target: String(weapon?.skill ?? 30), type: 'normal', purpose: '排除故障' });
+  let enc = rec(enc0, { skill: `${player.name}·排除故障`, roll: String(r.finalRoll), target: String(weapon?.skill ?? 30), type: diceTypeFor(r.finalRoll, weapon?.skill ?? 30), purpose: '排除故障' });
   if (ok) enc = patchCombatant(enc, player.id, { flags: { ...player.flags, weaponJammed: false } });
   enc = log(enc, ok ? `${player.name} 排除了卡壳` : `${player.name} 未能排除卡壳`, 'narrative');
   const end = checkEndReason(enc);
@@ -197,7 +207,7 @@ export function playerCallForHelp(enc0: Encounter, bystanderId: string, rng: Rng
   if (!by) return enc0;
   const roll = Math.floor(rng() * 100) + 1;
   let enc = { ...enc0, bystanders: enc0.bystanders.filter((b) => b.id !== bystanderId) };
-  enc = rec(enc, { skill: `呼救·${by.name}`, roll: String(roll), target: String(by.joinChance), type: 'normal', purpose: '呼救' });
+  enc = rec(enc, { skill: `呼救·${by.name}`, roll: String(roll), target: String(by.joinChance), type: roll <= by.joinChance ? 'success' : 'failure', purpose: '呼救' });
   if (roll <= by.joinChance && by.combatant) {
     const ally: Combatant = { ...by.combatant, faction: 'ally', controlledBy: 'ai' };
     const combatants = [...enc.combatants, ally];
@@ -217,7 +227,7 @@ export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
   if (!player) return enc0;
   const r = d100WithDice(0, 0, rng);
   const ok = successLevel(r.finalRoll, player.con) !== 'fail' && successLevel(r.finalRoll, player.con) !== 'fumble';
-  let enc = rec(enc0, { skill: `${player.name}·速度检定`, roll: String(r.finalRoll), target: String(player.con), type: 'normal', purpose: '速度检定' });
+  let enc = rec(enc0, { skill: `${player.name}·速度检定`, roll: String(r.finalRoll), target: String(player.con), type: diceTypeFor(r.finalRoll, player.con), purpose: '速度检定' });
   if (ok) {
     enc = log(enc, `${player.name} 成功脱离了战斗`, 'narrative');
     return { ...enc, status: 'resolving', endReason: 'flee' };

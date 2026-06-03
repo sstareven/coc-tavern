@@ -167,11 +167,13 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                   </td>
                 </tr>
               ) : (
-                history.map((rec: DiceRecord) => {
-                  const colors = rowColor[rec.type];
+                history.map((rec: DiceRecord, i: number) => {
+                  // 防御：未知/缺失 type(如历史脏数据)不得让整面板崩成空白——回落中性配色与原文标签。
+                  const colors = rowColor[rec.type] ?? { bg: 'transparent', border: 'var(--ink-faded)' };
+                  const label = rec.kind === 'poly' ? `${rec.roll} 点` : (resultLabel[rec.type] ?? String(rec.type ?? '—'));
                   return (
                     <tr
-                      key={rec.time}
+                      key={`${rec.time}-${i}`}
                       style={{
                         borderBottom: '1px solid rgba(255,255,255,0.03)',
                         background: colors.bg,
@@ -218,7 +220,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                           letterSpacing: 1,
                         }}
                       >
-                        {rec.kind === 'poly' ? `${rec.roll} 点` : resultLabel[rec.type]}
+                        {rec.kind === 'poly' ? `${rec.roll} 点` : label}
                       </td>
                       <td
                         style={{
