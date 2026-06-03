@@ -48,6 +48,11 @@ export interface CombatWeapon {
   ranged: boolean;         // true=射击(非对抗,按距离难度)
   baseRange?: number;      // 基础射程(码/英尺)，ranged 用
   attacksPerRound: number; // 每轮攻击次数(默认1)
+  // —— 枪械专用 ——
+  loadedAmmo?: number;     // 当前已装弹数(枪膛/弹匣内)
+  magazine?: number;       // 弹匣容量(满装)
+  ammoItemName?: string;   // 备用弹药对应的随身物品名(玩家从 useInventoryStore 查/扣；NPC 用 reserveAmmo)
+  reserveAmmo?: number;    // NPC 备弹数(NPC 不走库存，用此；玩家忽略此字段、走库存)
 }
 
 export interface Combatant {
@@ -65,8 +70,8 @@ export interface Combatant {
   hp: number; maxHp: number;
   armor: number;
   weapons: CombatWeapon[];
-  ammo?: number;           // 当前弹药(枪械)
-  flags: { majorWound: boolean; dying: boolean; unconscious: boolean; dead: boolean; prone: boolean };
+  ammo?: number;           // (兼容保留;实际弹药走 CombatWeapon.loadedAmmo + 库存/reserveAmmo)
+  flags: { majorWound: boolean; dying: boolean; unconscious: boolean; dead: boolean; prone: boolean; weaponJammed: boolean };
   tendency?: { attack: number; flee: number };  // AI 倾向阈值 1-100(LLM/MVU 给)；player 可无
   roundDefenses: number;   // 本轮已闪避/反击次数(寡不敌众结算)
 }
@@ -75,12 +80,22 @@ export type CombatEndReason = 'victory' | 'defeat' | 'disengage' | 'flee' | 'ene
 
 export interface CombatLogEntry { kind: 'narrative' | 'roll'; text: string; }
 
+/** 在场但未参战的旁观者(供「呼救」拉人)。 */
+export interface CombatBystander {
+  id: string;
+  name: string;
+  friendly: boolean;       // 仅 friendly 可被呼救拉入；非友善不可
+  joinChance: number;      // 1-100：呼救时 d100 ≤ 此值则加入为 ally，否则逃离
+  combatant?: Combatant;   // 加入后用的 statblock(检测建场时由 LLM/MVU 一并给出)
+}
+
 export interface Encounter {
   active: boolean;
   round: number;
   turnOrder: string[];      // combatant id，按派生 DEX 序，每轮重排
   currentIdx: number;
   combatants: Combatant[];
+  bystanders: CombatBystander[];  // 可被「呼救」拉入的在场人物
   playerTargetId: string | null;
   log: CombatLogEntry[];
   diceRecords: DiceRecord[];  // 战斗检定(DiceRecord 扩 context/purpose)
@@ -99,8 +114,11 @@ export interface Encounter {
 - `successLevel(roll, skill)` → 大成功/极难/困难/普通/失败/大失败。
 - `resolveMelee(attacker, defender, defense:'dodge'|'fightback')` → 对抗：成功等级高者胜，平手判定按 PDF（反击平手攻方胜、闪避平手守方胜）。
 - `resolveRanged(attacker, target, distanceTier)` → 非对抗，难度按距离档（基础/2倍困难/4倍极难）。
+- **射击大失败 → 枪械卡壳**：置 `flags.weaponJammed=true`，该枪不可再射，需花一回合「排除故障」(机械维修或射击检定成功) 解除（用户要求：故障在大失败时触发）。
 - `rollDamage(weapon, db, impale)` → 伤害（贯穿：伤害骰+DB 取满 + 贯穿武器追加一骰）。
 - `applyDamage(combatant, dmg)` → 扣 HP - armor、判轻/重伤(≥半 maxHp → majorWound+CON 检定避昏迷)、>maxHp 即死、归零分轻/重伤态、濒死。
+- `strSizToBuildDB(str, siz)` → **硬编码 COC7e 标准映射表**(STR+SIZ 分档 → Build/DB；2-64:-2/-2 … 85-124:0/+0 … 125-164:1/+1D4 … 165-204:2/+1D6 …)，免抽 ch3 p27。
+- 弹药：`consumeAmmo(weapon)` 射击后 loadedAmmo-1（=0 时不可再射，需换弹）；`reload(weapon, source)` 从**库存(玩家:按 `ammoItemName` 查/扣 useInventoryStore)** 或 **reserveAmmo(NPC)** 补到 magazine，无备弹则换弹不可用。
 - `outnumberBonus(defender)` → 据 `roundDefenses` 给后续近战攻击的奖励骰数。
 - `nextTurnOrder(combatants)` → 按 DEX(射击+50 可后置 phase2)排序。
 - `decideAiAction(combatant, encounter, rng)` → AI 回合：d100 vs tendency → 'attack'(选目标:玩家方最近/最弱) | 'flee'；被攻击防御选择：默认反击，倾向逃则闪避。
@@ -111,8 +129,8 @@ export interface Encounter {
 
 `detectAndBuildEncounter(narrative, sceneNpcs, sheet, baseUrl, key, model, signal)` → `Encounter | null`：
 - 调用前廉价启发式预筛（`shouldDetectCombat`：叙事含 攻击/扑/拔枪/咬/冲突 等暴力线索才调，省 token；仿 `shouldUseLlmExtraction`）。
-- 独立 LLM 调用（优先 MVU 独立 API，否则主 API；`rpmAcquire('mvu')`；`coerceJsonObject`；max_tokens≥20000；retries）。prompt 要求：判断本回合是否进入战斗；若是，列出全部参战者（敌方 + 在场友方 NPC），给每个 statblock（DEX/HP/格斗/闪避/射击/Build/DB/MOV/武器/护甲/弹药）+ tendency(attack/flee 1-100)。调查员自身 statblock 从角色卡/MVU 读，不由此生成。
-- 输出 `{ inCombat: bool, combatants: [...] }`；inCombat 为真且至少一个 enemy → 组装 Encounter（补 id、player combatant 从角色卡构造、按 DEX 排 turnOrder）。
+- 独立 LLM 调用（优先 MVU 独立 API，否则主 API；`rpmAcquire('mvu')`；`coerceJsonObject`；max_tokens≥20000；retries）。prompt 要求：判断本回合是否进入战斗；若是，列出全部参战者（敌方 + 在场已参战友方 NPC），给每个 statblock（DEX/HP/格斗/闪避/射击/Build/DB/MOV/武器/护甲/弹药）+ tendency(attack/flee 1-100)；并列出**在场但未参战的旁观者 `bystanders`**（friendly + joinChance + 其 statblock，供「呼救」拉人）。调查员自身 statblock 从角色卡/MVU 读，不由此生成。
+- 输出 `{ inCombat, combatants:[...], bystanders:[...] }`；inCombat 为真且至少一个 enemy → 组装 Encounter（补 id、player combatant 从角色卡构造、按 DEX 排 turnOrder）。
 - 接线：useChatPipeline 主回合落页后 fire-and-forget（会话守卫），仿坏结局块；进战 → `useCombatStore.start(encounter)` + saveConversation。
 
 ## 7. 面板 UI（`src/components/Combat/CombatPanel.tsx`，布局 A）
@@ -121,7 +139,15 @@ export interface Encounter {
 - **顶**：轮次/当前回合者 + 敌人卡列表（HP 条、状态标志、友/敌分色、**点卡切换 `playerTargetId`**）。
 - **中**：战斗日志（滚动累计 `encounter.log`）；末尾「检定记录（N 条）」可展开（读 `encounter.diceRecords`，记页码+用途）。
 - **状态条**：玩家 HP/SAN/MP/弹药 常显。
-- **底**：动作按钮（射击/近战/瞄准/找掩体/逃跑），仅玩家回合可点。
+- **底**：动作按钮，仅玩家回合可点。动作集与置灰规则：
+  - `射击`：仅当装备枪械且 `loadedAmmo>0` 且未卡壳；否则置灰。
+  - `近战`：徒手或近战武器，常驻可用。
+  - `瞄准`：花一回合，下次射击+1 奖励骰。
+  - `找掩体`：闪避检定，成功给射手惩罚骰。
+  - `换弹`：仅当装备枪械且 `loadedAmmo<magazine` 且**有备弹**（玩家:库存按 `ammoItemName` 有货；NPC:reserveAmmo>0）；否则**置灰不可选**。
+  - `排除故障`：仅当 `flags.weaponJammed`（卡壳）时出现。
+  - `呼救`：仅当 `encounter.bystanders` 含 `friendly` 旁观者时可用；否则置灰。点击 → 选一友善旁观者 → d100 ≤ `joinChance` 则其 `combatant` 加入为 ally、重排 turnOrder；失败则该旁观者逃离(移出 bystanders)。
+  - `逃跑`：触发脱战逃跑流程(§9，一次速度检定)。
 - 演出复用 `dice-roll-animate`/`DiceAnimation`/`PolyRollAnimation`/粒子/音效（但战斗内**不触发主 submit**，需「仅演出不提交」通道——事件 detail 加 `noSubmit` 或战斗专用事件）。
 
 **按键音效反馈**（用户明确要求）：动作按钮按下播 `sfxClickPrimary()`、次要操作(切目标/展开记录)播 `sfxClick()`/`sfxClickSoft()`，均受 `useSettingsStore.soundEnabled` 门控；攻防结算复用 `sfxSuccess/sfxFailure/sfxCritSuccess/sfxCritFailure`。所有按钮遵循 [[feedback_button_interaction]]（hover 增亮放大 + active 按压）与 [[feedback_animation_bezier]]（`var(--transition-smooth)`）；图标用 TabIcons 铜版线描、禁 emoji（[[no-emoji-use-ui-icons]]）。音效模块现成：`src/audio/sfx.ts` 的 `sfxClick/sfxClickPrimary/sfxClickSoft`。
@@ -143,8 +169,8 @@ export interface Encounter {
 
 ## 10. MVP 范围 / 不做
 
-**做**：轮制+DEX 序、多敌+友方、选目标、近战对抗(闪避/反击)、射击(距离难度)、伤害+护甲+贯穿、轻/重伤/濒死/HP 归零、寡不敌众奖励骰、AI 倾向 roll、6 脱战条件、逃跑折叠速度检定、面板+音效+检定记录、会话隔离+半成品保留。
-**Phase 2（不做）**：完整第七章追逐（地点/行动点/险境/载具战）、战技(缴械/擒抱/击晕)、全自动弹幕、武器故障、毒素/环境伤害表 III、部位命中、精确移动格距、射击+50DEX 次序、怪物目击 SAN 结算（先沿用现有 SAN 机制）。
+**做**：轮制+DEX 序、多敌+友方、选目标、近战对抗(闪避/反击)、射击(距离难度)、伤害+护甲+贯穿、轻/重伤/濒死/HP 归零、寡不敌众奖励骰、AI 倾向 roll、6 脱战条件、逃跑折叠速度检定、面板+音效+检定记录、会话隔离+半成品保留；**弹药系统**(已装弹数 + 玩家库存备弹/NPC reserveAmmo + 换弹)、**武器卡壳**(射击大失败触发 + 排除故障)、**呼救**(在场友善旁观者 d100 加入/失败逃离)、**开局生成枪械时配发对应子弹**(改 `starting-items-generator`)。
+**Phase 2（不做）**：完整第七章追逐（地点/行动点/险境/载具战）、战技(缴械/擒抱/击晕)、全自动弹幕、每武器专属故障值(MVP 统一用大失败触发)、毒素/环境伤害表 III、部位命中、精确移动格距、射击+50DEX 次序、怪物目击 SAN 结算（先沿用现有 SAN 机制）。
 
 ## 11. 持久化与会话隔离
 
@@ -170,6 +196,7 @@ export interface Encounter {
 | `src/components/Book/Storybook.tsx` | 右页条件渲染 CombatPanel + 删页重放 combatLog（大文件，主控亲自） | 改 |
 | `src/hooks/useChatPipeline.ts` | 检测建场触发块 + 脱战生成（大文件，主控亲自） | 改 |
 | `src/components/Dice/DiceHistory.tsx` | 战斗检定标签/分组 | 改 |
+| `src/sillytavern/starting-items-generator.ts` | 生成枪械时配发对应子弹(prompt + 后处理) | 改 |
 
 ## 13. 风险
 
