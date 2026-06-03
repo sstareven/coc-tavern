@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock, InventoryChange } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 
@@ -107,6 +107,8 @@ interface BookStore {
   addPageGenStats: (index: number, delta: { totalTokens: number; promptTokens?: number; completionTokens?: number; estimated: boolean }) => void;
   /** 记录某页经行动补写已直接入库的物品名（用于阻止后续正文重复计数）。 */
   setPageAcquiredItems: (index: number, names: string[]) => void;
+  /** 按 index 覆写某页的 inventoryChanges（供起始物品 fire-and-forget 异步生成后页锚定写回；删页重放据此恢复）。 */
+  setPageInventoryChanges: (index: number, changes: InventoryChange[]) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -328,6 +330,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const prev = pages[index].acquiredItems ?? [];
     const merged = Array.from(new Set([...prev, ...names]));
     pages[index] = { ...pages[index], acquiredItems: merged };
+    return { pages };
+  }),
+  setPageInventoryChanges: (index, changes) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], inventoryChanges: changes };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {

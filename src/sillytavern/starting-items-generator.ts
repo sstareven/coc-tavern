@@ -44,70 +44,86 @@ export async function generateStartingItems(
   apiKey: string,
   model: string,
   temperature = 0.8,
-  maxTokens = 1024,
+  maxTokens = 20000, // 思考型模型(deepseek-v4-pro)把预算耗在 reasoning 上，给足余量防 JSON 截断（用户要求 max_tokens≥20000）
+  retries = 3,       // API 层重试：仅对「截断/空响应」重试（coerceJsonObject 内部重试只是清洗同一份脏文本，救不了真截断）
 ): Promise<GenerateStartingItemsResult> {
   const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   pushLog('info', `[起始物品] 开始生成，模型=${model}`, 'api');
-  await rpmAcquire('main');
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      ...appIdHeaders(),
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: STARTING_ITEMS_PROMPT },
-        { role: 'user', content: `本局调查员背景与开场情境：\n${context}` },
-      ],
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  });
 
-  if (!response.ok) {
-    pushLog('error', `[起始物品] API 返回错误 ${response.status}`, 'api');
-    throw new Error(`起始物品生成 API 错误 ${response.status}`);
-  }
-
-  const json = await response.json();
-  const content: string = json.choices?.[0]?.message?.content ?? '';
-  const usage: TokenUsage | undefined = json.usage;
-
-  // 健壮解析：兼容 {"items":[...]} / {"inventoryChanges":[...]} / 顶层数组 [...]。
-  const { parsed, error } = coerceJsonObject(content);
-  const pObj = parsed as Record<string, unknown> | null;
-  let raw: Record<string, unknown>[] = [];
-  if (pObj && Array.isArray(pObj.items)) raw = pObj.items as Record<string, unknown>[];
-  else if (pObj && Array.isArray(pObj.inventoryChanges)) raw = pObj.inventoryChanges as Record<string, unknown>[];
-  else {
-    const m = content.match(/\[[\s\S]*\]/);
-    if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) raw = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }
-  }
-
-  const changes: InventoryChange[] = raw
-    .filter((x) => x && typeof x.name === 'string' && String(x.name).trim())
-    .map((x) => {
-      const cat = typeof x.category === 'string' && VALID_CATEGORIES.has(x.category as ItemCategory)
-        ? (x.category as ItemCategory)
-        : 'misc';
-      const qty = typeof x.quantity === 'number' && x.quantity > 0 ? x.quantity : 1;
-      return {
-        action: 'add' as const,
-        name: String(x.name).trim(),
-        category: cat,
-        quantity: qty,
-        description: typeof x.description === 'string' ? x.description : '',
-      };
+  let lastError = '';
+  for (let attempt = 0; attempt < retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 500)); // 截断/空响应退避后重试
+    await rpmAcquire('main');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        ...appIdHeaders(),
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: STARTING_ITEMS_PROMPT },
+          { role: 'user', content: `本局调查员背景与开场情境：\n${context}` },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+      }),
     });
 
-  pushLog(
-    changes.length === 0 ? 'warn' : 'info',
-    `[起始物品] 解析: parsed=${parsed ? 'ok' : 'null'}${error ? ` 错误=${error}` : ''}，产出 ${changes.length} 件${changes.length ? '：' + changes.map((c) => c.name).join('、') : '（无）'}`,
-    'api',
-  );
+    if (!response.ok) {
+      pushLog('error', `[起始物品] API 返回错误 ${response.status}`, 'api');
+      throw new Error(`起始物品生成 API 错误 ${response.status}`);
+    }
 
-  return { changes, usage };
+    const json = await response.json();
+    const content: string = json.choices?.[0]?.message?.content ?? '';
+    const usage: TokenUsage | undefined = json.usage;
+
+    // 健壮解析：兼容 {"items":[...]} / {"inventoryChanges":[...]} / 顶层数组 [...]。
+    const { parsed, error } = coerceJsonObject(content);
+    const pObj = parsed as Record<string, unknown> | null;
+    let raw: Record<string, unknown>[] = [];
+    if (pObj && Array.isArray(pObj.items)) raw = pObj.items as Record<string, unknown>[];
+    else if (pObj && Array.isArray(pObj.inventoryChanges)) raw = pObj.inventoryChanges as Record<string, unknown>[];
+    else {
+      const m = content.match(/\[[\s\S]*\]/);
+      if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) raw = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }
+    }
+
+    const changes: InventoryChange[] = raw
+      .filter((x) => x && typeof x.name === 'string' && String(x.name).trim())
+      .map((x) => {
+        const cat = typeof x.category === 'string' && VALID_CATEGORIES.has(x.category as ItemCategory)
+          ? (x.category as ItemCategory)
+          : 'misc';
+        const qty = typeof x.quantity === 'number' && x.quantity > 0 ? x.quantity : 1;
+        return {
+          action: 'add' as const,
+          name: String(x.name).trim(),
+          category: cat,
+          quantity: qty,
+          description: typeof x.description === 'string' ? x.description : '',
+        };
+      });
+
+    if (changes.length > 0) {
+      pushLog('info', `[起始物品] 第 ${attempt + 1}/${retries} 次成功，产出 ${changes.length} 件：${changes.map((c) => c.name).join('、')}`, 'api');
+      return { changes, usage };
+    }
+
+    // 失败分流：JSON 根本没解析出来(parsed=null：空/截断/畸形) → 重试；JSON 解析成功但无可用物品 → 重试无益，放弃。
+    const retryable = !content.trim() || parsed === null;
+    lastError = error || '解析为空';
+    pushLog(
+      attempt + 1 < retries && retryable ? 'warn' : 'error',
+      `[起始物品] 解析: parsed=${parsed ? 'ok' : 'null'} 错误=${lastError}（第 ${attempt + 1}/${retries} 次，${retryable ? '空/截断/畸形，将重试' : '已解析但无物品，停止重试'}），产出 0 件`,
+      'api',
+    );
+    if (!retryable) return { changes: [], usage };
+  }
+
+  pushLog('error', `[起始物品] ${retries} 次重试后仍失败（${lastError}），本局无起始装备`, 'api');
+  return { changes: [] };
 }

@@ -45,6 +45,15 @@ describe('generateStartingItems', () => {
     expect(r.changes).toHaveLength(0);
   });
 
+  it('空/截断响应触发重试，下一次成功', async () => {
+    mockFetchOnce('');                          // 第 1 次：空响应 → Unexpected end of JSON input → 重试
+    mockFetchOnce('{"items":[{"name":"钢笔",');  // 第 2 次：截断 JSON → 仍重试
+    mockFetchOnce(JSON.stringify({ items: [{ name: '黄铜钢笔', category: 'tool', description: '一支旧钢笔' }] }));
+    const r = await generateStartingItems('x', 'u', 'k', 'm'); // retries 默认 3
+    expect(r.changes).toHaveLength(1);
+    expect(r.changes[0].name).toBe('黄铜钢笔');
+  });
+
   it('API 非 2xx 抛错', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: false, status: 500 } as unknown as Response);
     await expect(generateStartingItems('x', 'u', 'k', 'm')).rejects.toThrow();
