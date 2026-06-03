@@ -16,6 +16,7 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
+import { generateDarkThread } from '../sillytavern/dark-thread-generator';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
@@ -790,42 +791,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         };
 
-        // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
-        // 日志与右下角同源——避免「日志报估算、右下角报真实」对不上。
-        const durationMs = Math.round(performance.now() - genStart);
-        const promptEst = estimateTokens(JSON.stringify(editedMessages));
-        const completionEst = estimateTokens(response.content);
-        const realUsage = lastUsage?.total_tokens != null;
-        const mainPrompt = realUsage ? (lastUsage!.prompt_tokens ?? 0) : promptEst;
-        const mainCompletion = realUsage ? (lastUsage!.completion_tokens ?? 0) : completionEst;
-        const mainTotal = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
-        // 并入 MVU（独立变量通道）那次提取的真实用量——它与主生成同属本回合。
-        // 同时并入失败回灌自纠（mvu 桶）那几次往返的用量，统一进本页 genStats。
-        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0);
-        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0);
-        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0);
-        // 本页生成记录：随页面持久化、翻回该页即显示该页当时的用量与耗时。
-        const pageGenStats = {
-          totalTokens: totalTok,
-          promptTokens: promptTok,
-          completionTokens: completionTok,
-          durationMs,
-          estimated: !realUsage,
-        };
-        pushLog(
-          'info',
-          `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok} / 输出 ${completionTok}${mvuUsage ? ' · 含MVU' : ''}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
-        );
-        // 注意：「档案已浮现」(markDone) 延后到变量结算完成后才报（见下方），否则顶部实时计时器会在 MVU 结算阶段空转不停。
         const newPage = result.page;
-        newPage.genStats = pageGenStats;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
         if (result.clues) newPage.clues = result.clues;
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
-        // 角色卡快照（此时 processResponse 已应用本回合的 HP/SAN/MP/姿态/状态 JSON Patch）
-        newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);
@@ -848,13 +819,54 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const currentStage = useVariableStore.getState().buildFullSubstitutionMap()['剧情.阶段'] ?? '调查期';
         const isEpilogue = currentStage === '后日谈';
         const hasPriorDarkThread = useDarkThreadStore.getState().entries.length > 0;
-        if (hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development)) {
-          validationErrors.push('暗线剧情未生成 — LLM未返回darkThread字段');
-        }
+        // 暗线缺失：剧情本应推进暗线（已有历史暗线、非后日谈）却 LLM 未返回 darkThread。
+        // 不再弹错误框打断玩家，改为下方页面提交后【定向补生成】（走 mvu RPM 桶、撞限额排队、重试）。
+        const darkThreadMissing = hasPriorDarkThread && !isEpilogue && (!result.darkThread || !result.darkThread.development);
         if (validationErrors.length > 0) {
           pushLog('error', `[Validation] 生成异常:\n${validationErrors.join('\n')}`, 'system');
           useErrorModalStore.getState().showError('生成异常', validationErrors.join('\n'));
         }
+
+        // ── 先结算【慢】MVU 变量，再提交/翻页 ──
+        // 把独立 API 隐含变量提取 + 失败回灌自纠放到页面提交【之前】await：保证玩家翻到该页时，
+        // 右页 HP/SAN/MP/状态栏已是结算后的终值，不会在读到一半时跳变。
+        // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
+        // 防护（关键）：MVU 结算失败【绝不】吞掉本回合书页——仅告警续行、用本地正则值提交；
+        // 唯独玩家中止（abort）才放弃整轮（与「等 MVU 再翻页」一致，取消=放弃本回合）。
+        try {
+          await settleVariables();
+        } catch (settleErr) {
+          if (controller.signal.aborted) throw settleErr;
+          pushLog('warn', `[MVU] 变量结算失败，已用本地正则值提交本页：${settleErr instanceof Error ? settleErr.message : String(settleErr)}`, 'system');
+        }
+        if (controller.signal.aborted) return false;
+
+        // 生成统计：耗时含全程（genStart→变量结算完成），token 并入 MVU 提取/自纠用量——一次算对，
+        // 右下角与顶部实时计时器同源（修复「右下角耗时只含主生成、对不上实际等待」）。
+        const durationMs = Math.round(performance.now() - genStart);
+        const promptEst = estimateTokens(JSON.stringify(editedMessages));
+        const completionEst = estimateTokens(response.content);
+        const realUsage = lastUsage?.total_tokens != null;
+        const mainPrompt = realUsage ? (lastUsage!.prompt_tokens ?? 0) : promptEst;
+        const mainCompletion = realUsage ? (lastUsage!.completion_tokens ?? 0) : completionEst;
+        const mainTotal = realUsage ? lastUsage!.total_tokens! : promptEst + completionEst;
+        const promptTok = mainPrompt + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0);
+        const completionTok = mainCompletion + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0);
+        const totalTok = mainTotal + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0);
+        const pageGenStats = {
+          totalTokens: totalTok,
+          promptTokens: promptTok,
+          completionTokens: completionTok,
+          durationMs,
+          estimated: !realUsage,
+        };
+        pushLog(
+          'info',
+          `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok} / 输出 ${completionTok}${mvuUsage ? ' · 含MVU' : ''}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
+        );
+        newPage.genStats = pageGenStats;
+        // 角色卡快照（此刻 statData 已含独立 API 隐含提取 + 自纠后的终值）
+        newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
 
         const bookStore = useBookStore.getState();
         // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。
@@ -884,6 +896,34 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        // 暗线定向补生成：剧情本应推进暗线、但主 JSON 遗漏 darkThread 时（darkThreadMissing），
+        // 不弹框打断、改为【fire-and-forget 独立调用】补出本回合暗线。走 'mvu' RPM 桶——撞上限自动排队
+        // （rpmAcquire 排队不报错），内部重试若干次；穷尽失败才记日志。全程会话守卫，绝不阻塞翻页。
+        if (darkThreadMissing && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+          const aidDT = useChatStore.getState().activeId;
+          const dtPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+          const latest = useDarkThreadStore.getState().entries.slice(-1)[0];
+          const badEnding = useDarkThreadStore.getState().badEnding;
+          const progressLine = latest ? `当前暗线进度: ${latest.progress}/100（${latest.threatLevel}）` : '当前暗线进度: 0/100（潜伏）';
+          const secretLine = badEnding ? `本局注定坏结局（守秘人机密，绝不泄露玩家）: ${badEnding.description}` : '';
+          const dtCtx = [`近期叙事:\n${newPage.leftContent}`, progressLine, secretLine].filter(Boolean).join('\n');
+          void (async () => {
+            try {
+              const dt = await generateDarkThread(dtCtx, settings.apiBaseUrl, settings.apiKey, settings.apiModel, controller.signal);
+              if (!dt || useChatStore.getState().activeId !== aidDT) return; // 穷尽失败或切档 → 放弃
+              // addEntry 入参字段名是 details（映射 development）——与正常路径 :947-952 一致。
+              useDarkThreadStore.getState().addEntry({ progress: dt.progress, threatLevel: dt.threatLevel, details: dt.development, foreshadowing: dt.foreshadowing });
+              useBookStore.getState().setPageDarkThread(dtPageIdx, { development: dt.development, progress: dt.progress, threatLevel: dt.threatLevel, foreshadowing: dt.foreshadowing });
+              useChatStore.getState().savePages(useBookStore.getState().pages);
+              if (aidDT) await saveConversation(aidDT);
+              pushLog('info', `[暗线] 主生成遗漏，已定向补生成: 进度${dt.progress}/100（${dt.threatLevel}）— ${dt.development}`, 'system');
+            } catch (e) {
+              if (controller.signal.aborted) return;
+              pushLog('warn', `[暗线] 定向补生成失败（已穷尽重试）: ${e instanceof Error ? e.message : String(e)}`, 'api');
+            }
+          })();
+        }
 
         // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。
         // 背包是「页锚定」派生态：异步拿到物品后须 (a) setPageInventoryChanges 写回该首页（删页重放据此恢复）、
@@ -1189,26 +1229,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         chatStore.savePages(useBookStore.getState().pages);
         if (chatStore.activeId) void saveConversation(chatStore.activeId);
 
-        // ⬆ 至此书页 + 物品 + NPC + 地图已提交并可见。⬇ 现在才结算【慢】的 MVU 变量（独立 API 隐含提取 / 失败自纠）。
-        // 把这步放到可见提交之后：下面的 await 会让出事件循环，React 先把新页与背包渲染出来，再跑 MVU 往返——
-        // 修复「开启 MVU 独立 API 时，物品/结构化字段要等 MVU 返回后才出现（看似漏掉、过会儿又有）」的时序 bug。
-        // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
-        await settleVariables();
-        // 回填本页 token 统计（并入 MVU 提取 / 自纠用量）+ 重算耗时为【全程】(genStart→变量结算完成)，
-        // 与顶部实时计时器同源——修复「右下角耗时只含主生成、对不上实际等待」。
-        if (mvuUsage || selfCorrectUsage) {
-          const settledPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
-          useBookStore.getState().setPageGenStats(settledPageIdx, {
-            ...pageGenStats,
-            durationMs: Math.round(performance.now() - genStart),
-            promptTokens: pageGenStats.promptTokens + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0),
-            completionTokens: pageGenStats.completionTokens + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0),
-            totalTokens: pageGenStats.totalTokens + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0),
-          });
-          chatStore.savePages(useBookStore.getState().pages);
-          if (chatStore.activeId) void saveConversation(chatStore.activeId);
-        }
         // 变量结算完成：此刻才报「档案已浮现」关闭顶部 processing 提示并【停止实时计时器】（无论是否走了 MVU）。
+        // 注：MVU 慢变量结算已在页面提交【之前】完成（见上方 await settleVariables()），此处仅收尾报完成。
         useStatusToastStore.getState().markDone('档案已浮现');
 
         // 生成成功结束：发出「叮」提醒（即便玩家已切到后台标签页也能听见——Web Audio 不受后台节流影响）。

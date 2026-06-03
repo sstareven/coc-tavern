@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 
@@ -113,6 +113,8 @@ interface BookStore {
   setPageLocationElements: (index: number, elements: LocationElementInput[]) => void;
   /** 按 index 覆写某页的 genStats（供 MVU 变量结算延后到页面提交之后时，回填本页 token 用量统计）。 */
   setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
+  /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
+  setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -352,6 +354,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], genStats };
+    return { pages };
+  }),
+  setPageDarkThread: (index, darkThread) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], darkThread };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {
