@@ -1,5 +1,9 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MapLocation, MapEdge } from '../../types';
+
+const MIN_ZOOM = 0.4;   // 缩放下限阈值
+const MAX_ZOOM = 3;     // 缩放上限阈值
+const ZOOM_STEP = 1.12; // 每格滑轮缩放系数
 
 const NODE_R = 22;          // 节点圆半径
 const COL_GAP = 150;        // 列间距（左→右）
@@ -114,6 +118,33 @@ export function MapGraph({ locations, edges, currentId, selectedId, onSelect }: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, x: 0, y: 0, moved: false });
 
+  // 滑轮缩放：以光标为锚点缩放，限定在 [MIN_ZOOM, MAX_ZOOM] 阈值内。用非被动原生监听以 preventDefault 阻止页面滚动。
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const prev = zoomRef.current;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
+      if (next === prev) return;
+      const rect = el.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left, offsetY = e.clientY - rect.top;
+      // 锚定光标下的内容点：缩放前后该点在视口位置不变
+      const cx = (el.scrollLeft + offsetX) / prev, cy = (el.scrollTop + offsetY) / prev;
+      zoomRef.current = next;
+      setZoom(next);
+      requestAnimationFrame(() => {
+        el.scrollLeft = cx * next - offsetX;
+        el.scrollTop = cy * next - offsetY;
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== 'mouse' || e.button !== 0) return; // 触屏/笔走原生滚动；仅鼠标左键抓取
     drag.current = { active: true, x: e.clientX, y: e.clientY, moved: false };
@@ -149,8 +180,8 @@ export function MapGraph({ locations, edges, currentId, selectedId, onSelect }: 
       onPointerLeave={endDrag}
       onClickCapture={onClickCapture}
     >
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
-        style={{ display: 'block', margin: 'auto', minWidth: W, minHeight: H }}>
+      <svg width={W * zoom} height={H * zoom} viewBox={`0 0 ${W} ${H}`}
+        style={{ display: 'block', margin: 'auto', minWidth: W * zoom, minHeight: H * zoom }}>
         <defs>
           <marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="rgba(196,168,85,0.85)" />
