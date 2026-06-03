@@ -216,6 +216,23 @@ export interface KeyPillar {
   uncoveredByClue?: string;
 }
 
+/** 剧情锚点：开局生成的一个「必达节点」（默认推进路线上的里程碑）。 */
+export interface AnchorNode {
+  id: string;
+  title: string;        // 简短节点名，如「抵达极地死城」
+  description: string;  // 1-2 句：该节点剧情应发生什么
+}
+
+/** 本局剧情蓝图：开局一次生成、整局固定（单行/会话）。 */
+export interface PlotAnchors {
+  /** 3-6 个有序必达节点（默认推进路线）。 */
+  nodes: AnchorNode[];
+  /** 3-5 条全局硬约束（地理/因果保证）。 */
+  constraints: string[];
+  /** 威胁达成坏结局所依赖之物（= 玩家可逻辑性瓦解的关键靶子）。 */
+  threatDependencies: string[];
+}
+
 // ===== Map System（地点有向连线网络）=====
 export interface MapLocation {
   id: string;

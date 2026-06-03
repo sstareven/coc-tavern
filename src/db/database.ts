@@ -11,6 +11,7 @@ import type {
   MapEdge,
   LocationElement,
   KeyPillar,
+  PlotAnchors,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
@@ -94,6 +95,12 @@ export interface KeyClueRow {
   saveWorldMode: boolean;
 }
 
+// 本局剧情蓝图（骨架+约束+威胁依赖），一行/会话（守秘人机密，开局生成）。
+export interface PlotAnchorRow {
+  conversationId: string;
+  anchors: PlotAnchors;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -111,6 +118,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   locationElements: EntityTable<LocationElementRow>;
   darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
   keyClues: EntityTable<KeyClueRow, 'conversationId'>;
+  plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -181,6 +189,14 @@ export const V8_SCHEMA = {
 } as const;
 
 db.version(8).stores(V8_SCHEMA);
+
+/** v9: 新增「剧情锚点」单行表（一行/会话，无数据迁移）。 */
+export const V9_SCHEMA = {
+  ...V8_SCHEMA,
+  plotAnchors: '&conversationId',
+} as const;
+
+db.version(9).stores(V9_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
