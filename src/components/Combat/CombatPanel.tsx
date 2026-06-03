@@ -72,16 +72,16 @@ export function CombatPanel() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
-      padding: '24px 24px 16px', boxSizing: 'border-box',
+      padding: '24px 0 16px', boxSizing: 'border-box',
       background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopRightRadius: 4, borderBottomRightRadius: 4,
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
     }}>
-      {/* 头：标题 / 轮次 / 回合者 —— 书页式标题栏 */}
+      {/* 头：标题 / 轮次 / 回合者 —— 书页式标题栏（分隔线跨满整页宽） */}
       <div style={{
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
         fontFamily: 'var(--font-display)', letterSpacing: 2, flexShrink: 0,
-        borderBottom: `1px solid ${FAINT}`, paddingBottom: 10, marginBottom: 12,
+        borderBottom: `1px solid ${FAINT}`, padding: '0 24px 10px', marginBottom: 12,
       }}>
         <span style={{ fontSize: 17, color: 'var(--ink)' }}>战斗 · 第 {enc.round} 轮</span>
         <span style={{ fontSize: 12, letterSpacing: 1, color: resolving ? 'var(--gold)' : isPlayerTurn ? 'var(--success)' : 'var(--ink-subtle)' }}>
@@ -90,7 +90,7 @@ export function CombatPanel() {
       </div>
 
       {/* 敌人 / 友方 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, paddingBottom: 10, borderBottom: `1px solid ${FAINTER}` }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, padding: '0 24px 10px', borderBottom: `1px solid ${FAINTER}` }}>
         {enemies.map((e) => (
           <CombatantRow key={e.id} c={e} hostile target={enc.playerTargetId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
         ))}
@@ -98,7 +98,7 @@ export function CombatPanel() {
       </div>
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
-      <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 4px 10px 0', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
+      <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.map((l, i) => (
           <div key={i} style={{ color: l.kind === 'narrative' ? 'var(--ink-subtle)' : 'var(--ink)', fontStyle: l.kind === 'narrative' ? 'italic' : 'normal', marginBottom: 2 }}>
             {l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`}
@@ -109,7 +109,7 @@ export function CombatPanel() {
 
       {/* 玩家状态条 */}
       {player && (
-        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, paddingTop: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, padding: '8px 24px 0', flexWrap: 'wrap', flexShrink: 0 }}>
           <span>HP <b style={{ color: 'var(--blood)' }}>{player.hp}/{player.maxHp}</b></span>
           <span>SAN <b style={{ color: 'var(--ink)' }}>{sheet.secondary.san.current}</b></span>
           <span>MP <b style={{ color: 'var(--ink)' }}>{sheet.secondary.mp.current}</b></span>
@@ -119,7 +119,7 @@ export function CombatPanel() {
       )}
 
       {/* 动作按钮 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, borderTop: `1px solid ${FAINTER}`, paddingTop: 10, marginTop: 8, flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
         {rangedIdx >= 0 && <ActionBtn label="射击" primary disabled={!canShoot} onClick={() => act(true, doShoot)} />}
         <ActionBtn label="近战" primary disabled={!isPlayerTurn} onClick={() => act(true, doMelee)} />
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
