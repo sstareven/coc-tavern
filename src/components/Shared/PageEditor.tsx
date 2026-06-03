@@ -96,9 +96,12 @@ export function PageEditor({ onClose }: Props) {
               fontSize: 16,
               cursor: 'pointer',
               fontFamily: 'var(--font-ui)',
+              transition: 'var(--transition-smooth)',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             ✕
           </button>

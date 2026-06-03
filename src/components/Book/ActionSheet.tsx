@@ -76,11 +76,22 @@ export function ActionSheet() {
           >
             {/* grip */}
             <div onClick={() => setOpen(false)}
-              style={{ width: 36, height: 4, background: 'var(--ink-subtle)', borderRadius: 3, margin: '0 auto 8px', cursor: 'pointer' }} />
+              style={{ width: 36, height: 4, background: 'var(--ink-subtle)', borderRadius: 3, margin: '0 auto 8px', cursor: 'pointer', transition: 'var(--transition-smooth)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.4)'; e.currentTarget.style.transform = 'scaleX(1.15)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.transform = 'scaleX(1)'; }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'scaleX(1.15) scaleY(0.8)'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'scaleX(1.15)'; }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7,
               fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, color: 'var(--gold)' }}>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 3 }}>选择行动</span>
-              <span style={{ color: 'var(--ink-subtle)', cursor: 'pointer' }} onClick={() => setOpen(false)}>收起 ▼</span>
+              <span
+                style={{ color: 'var(--ink-subtle)', cursor: 'pointer', transition: 'var(--transition-smooth)', display: 'inline-block' }}
+                onClick={() => setOpen(false)}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >收起 ▼</span>
             </div>
 
             <div style={{ position: 'relative' }}>
