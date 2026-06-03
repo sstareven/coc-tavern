@@ -41,6 +41,8 @@ interface Props {
 export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
+  // 人物创建面板不随「界面缩放」放大（太大）——反向 zoom 抵消根元素 zoom。
+  const uiScale = useSettingsStore((s) => s.uiScale);
   const [step, setStep] = useState(0);
 
   /* ---- Step 1: Identity ---- */
@@ -866,6 +868,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
       <div style={{
         position: 'fixed',
         zIndex: 850,
+        zoom: uiScale === 1 ? undefined : 1 / uiScale,
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
