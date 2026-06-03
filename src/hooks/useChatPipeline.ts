@@ -20,6 +20,7 @@ import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
+import { reconcileMap } from '../sillytavern/map-reconciler';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -1096,6 +1097,55 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 pushLog('warn', `[地点元素] 抽取失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
             })();
+          }
+        }
+
+        // 地图自检（拓扑校对）：仅在本回合地图有新增（新地点或新连线）时触发——用独立 LLM 校对当前
+        // 地图拓扑，纠正三类错误：①「描述说通往B却没连B」的缺失边；②端点错挂的边；③同地异名的重复节点。
+        // 后台 fire-and-forget + 会话守卫，不阻塞翻页；API 选取与地点元素抽取一致（优先 MVU 独立 API，否则主 API）。
+        {
+          const mapChangedThisTurn = !!(result.mapUpdates && (
+            (result.mapUpdates.newLocations?.length ?? 0) > 0 ||
+            (result.mapUpdates.newEdges?.length ?? 0) > 0
+          ));
+          if (mapChangedThisTurn && useMapStore.getState().locations.length >= 2) {
+            const useMvuApi = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+            const rcBase = (useMvuApi ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+            const rcKey = (useMvuApi ? settings.mvuApiKey : settings.apiKey) ?? '';
+            const rcModel = (useMvuApi ? settings.mvuApiModel : settings.apiModel) ?? '';
+            if (rcBase.trim() && rcKey.trim() && rcModel.trim()) {
+              const aidRC = useChatStore.getState().activeId;
+              const ms0 = useMapStore.getState();
+              void (async () => {
+                try {
+                  const rc = await reconcileMap(ms0.locations, ms0.edges, rcBase, rcKey, rcModel);
+                  if (useChatStore.getState().activeId !== aidRC) return; // 校对期间切了会话，放弃
+                  const map = useMapStore.getState();
+                  // 1) 先并重复地点（让后续增删边走 canonical 名），元素跟着改挂到 canonical。
+                  for (const m of rc.merges) {
+                    map.mergeLocations(m.canonical, m.aliases);
+                    for (const a of m.aliases) useLocationElementStore.getState().renameLocation(a, m.canonical);
+                  }
+                  // 2) 删错挂边。
+                  if (rc.removeEdges.length > 0) map.removeEdgesByName(rc.removeEdges);
+                  // 3) 补缺失边（复用 applyUpdates 的按名建边 + 去重；名字已校验为现有地点，不会凭空建点）。
+                  if (rc.addEdges.length > 0) {
+                    map.applyUpdates({ newEdges: rc.addEdges.map((e) => ({ from: e.from, to: e.to, type: e.type, description: e.description })) });
+                  }
+                  const touched = rc.merges.length + rc.removeEdges.length + rc.addEdges.length;
+                  if (touched > 0) {
+                    const parts: string[] = [];
+                    if (rc.merges.length) parts.push(`并 ${rc.merges.length} 组重复地点`);
+                    if (rc.removeEdges.length) parts.push(`删 ${rc.removeEdges.length} 条错挂边`);
+                    if (rc.addEdges.length) parts.push(`补 ${rc.addEdges.length} 条缺失边`);
+                    pushLog('info', `[地图自检] 已纠正：${parts.join('，')}`, 'system');
+                    if (aidRC && useChatStore.getState().activeId === aidRC) await saveConversation(aidRC);
+                  }
+                } catch (e) {
+                  pushLog('warn', `[地图自检] 失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+                }
+              })();
+            }
           }
         }
 
