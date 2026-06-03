@@ -28,15 +28,17 @@ describe('clampUiScale', () => {
 });
 
 describe('applyUiScale', () => {
-  it('scale!==1 设 zoom 为字符串倍率', () => {
+  it('scale!==1 设 zoom 与 --ui-scale 为字符串倍率', () => {
     const { el, calls } = fakeEl();
     applyUiScale(1.3, el);
     expect(calls).toContainEqual(['set', 'zoom', '1.3']);
+    expect(calls).toContainEqual(['set', '--ui-scale', '1.3']);
   });
-  it('scale===1 移除 zoom（恢复默认）', () => {
+  it('scale===1 移除 zoom 与 --ui-scale（恢复默认）', () => {
     const { el, calls } = fakeEl();
     applyUiScale(1, el);
     expect(calls).toContainEqual(['remove', 'zoom']);
+    expect(calls).toContainEqual(['remove', '--ui-scale']);
   });
   it('el 为 null 时安全无操作', () => {
     expect(() => applyUiScale(1.5, null)).not.toThrow();
