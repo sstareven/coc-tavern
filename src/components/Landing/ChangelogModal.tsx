@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.7.0';
+export const CURRENT_VERSION = 'v1.7.1';
 
 interface Release {
   version: string;
@@ -12,6 +12,16 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.7.1',
+    label: '界面缩放 · 按钮动效与音效 · 音效音量',
+    items: [
+      '新增「界面缩放」（桌面端）— 设置里可把整个界面连同字体一起放大：标准 / 大 / 特大 / 超大四档，方便大屏电脑或近视的玩家看得舒服。放大后书本、书皮与状态栏依然保持在屏幕中央',
+      '按钮动效补齐 — 全项目检查并为缺少动效的按钮补上统一的悬停增亮与按压反馈（贝塞尔平滑过渡），点起来更有活力；既有的交互效果原样保留',
+      '新增按钮音效 — 为按钮加入柔和的木质点击音（「推进剧情」等主要动作的音更饱满些），可在设置的「环境音效」开关里关闭',
+      '新增「音效音量」滑块 — 设置里可单独调节所有音效（按钮点击 / 掷骰 / 翻页）的音量，拉到 0 即静音',
+    ],
+  },
   {
     version: 'v1.7.0',
     label: '新增「地点元素」· 修复对抗检定胜负叙述',
