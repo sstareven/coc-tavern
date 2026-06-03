@@ -84,7 +84,9 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
           </h3>
           <button onClick={onClose} style={closeBtn}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >✕</button>
         </div>
 
@@ -168,7 +170,13 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
                 padding: '5px 16px', border: '1px solid var(--brass)', borderRadius: 3,
                 background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
                 fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
-              }}>
+                transition: 'var(--transition-smooth)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.35)'; e.currentTarget.style.filter = 'brightness(1.12)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
               计数
             </button>
           </div>
@@ -182,4 +190,5 @@ const closeBtn: React.CSSProperties = {
   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
   border: '1px solid transparent', borderRadius: 3, background: 'transparent',
   color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+  transition: 'var(--transition-smooth)',
 };

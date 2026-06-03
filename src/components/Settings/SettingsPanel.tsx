@@ -335,7 +335,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setTooltipDelay = useSettingsStore((s) => s.setTooltipDelay);
   const musicVolume = useSettingsStore((s) => s.musicVolume);
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
+  const sfxVolume = useSettingsStore((s) => s.sfxVolume);
+  const setSfxVolume = useSettingsStore((s) => s.setSfxVolume);
   const autoSubmitChoice = useSettingsStore((s) => s.autoSubmitChoice);
+  const uiScale = useSettingsStore((s) => s.uiScale);
+  const setUiScale = useSettingsStore((s) => s.setUiScale);
   const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
   const maxSummaryEntries = useSettingsStore((s) => s.maxSummaryEntries);
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
@@ -563,7 +567,18 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setMusicVolume(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{musicVolume}%</span>
+                  </div>
+                </div>
+
+                {/* SFX volume */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>音效音量</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="range" min={0} max={100} value={sfxVolume}
+                      onChange={(e) => setSfxVolume(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{sfxVolume}%</span>
                   </div>
                 </div>
 
@@ -584,6 +599,47 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <span style={labelStyle}>选项自动推进</span>
                   <Toggle on={autoSubmitChoice} onChange={() => setAutoSubmitChoice(!autoSubmitChoice)} />
                 </div>
+
+                {/* 界面缩放（整体放大，含字体）—— 仅桌面端显示 */}
+                {!isMobile && (
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>界面缩放</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[
+                        { v: 1, name: '标准' },
+                        { v: 1.15, name: '大' },
+                        { v: 1.3, name: '特大' },
+                        { v: 1.5, name: '超大' },
+                      ].map(({ v, name }) => {
+                        const active = uiScale === v;
+                        return (
+                          <button
+                            key={v}
+                            onClick={() => setUiScale(v)}
+                            title={`${name} ${Math.round(v * 100)}%`}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 4,
+                              border: active ? '1px solid var(--gold)' : '1px solid var(--brass)',
+                              background: active ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
+                              color: active ? 'var(--gold)' : 'var(--ink-subtle)',
+                              fontFamily: 'var(--font-ui)',
+                              fontSize: 10,
+                              letterSpacing: 1,
+                              cursor: 'pointer',
+                              transition: 'var(--transition-smooth)',
+                            }}
+                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
+                          >
+                            {name}
+                            <span style={{ marginLeft: 4, fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.8 }}>{Math.round(v * 100)}%</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <CategoryBar label="上下文" />
                 {/* Max summary entries */}

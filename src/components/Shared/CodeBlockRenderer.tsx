@@ -163,12 +163,20 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
         border: '1px solid var(--brass)', borderRadius: 3, margin: '8px 0',
         background: 'rgba(0,0,0,0.15)', overflow: 'hidden',
       }}>
-        <div onClick={() => setExpanded(true)} style={{
-          padding: '6px 12px', cursor: 'pointer',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: 'rgba(58,107,90,0.15)', borderLeft: '3px solid var(--success)',
-          fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
-        }}>
+        <div
+          onClick={() => setExpanded(true)}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(58,107,90,0.28)'; e.currentTarget.style.filter = 'brightness(1.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(58,107,90,0.15)'; e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          style={{
+            padding: '6px 12px', cursor: 'pointer',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: 'rgba(58,107,90,0.15)', borderLeft: '3px solid var(--success)',
+            fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
+            transition: 'var(--transition-smooth)',
+          }}
+        >
           <span>📄 HTML 渲染块</span>
           <span style={{ fontSize: 9 }}>点击展开</span>
         </div>
@@ -187,10 +195,18 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
         fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
       }}>
         <span>📄 HTML 渲染块</span>
-        <button onClick={() => setExpanded(false)} style={{
-          background: 'transparent', border: 'none', color: 'var(--ink-subtle)',
-          cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)',
-        }}>收起</button>
+        <button
+          onClick={() => setExpanded(false)}
+          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.12)'; e.currentTarget.style.color = 'var(--text-light)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--ink-subtle)',
+            cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)',
+            transition: 'var(--transition-smooth)',
+          }}
+        >收起</button>
       </div>
       <iframe
         ref={iframeRef}
@@ -213,12 +229,20 @@ function CodeBlock({ code, lang, collapsed }: { code: string; lang: string; coll
       border: '1px solid var(--brass)', borderRadius: 3, margin: '8px 0',
       background: 'rgba(0,0,0,0.2)', overflow: 'hidden',
     }}>
-      <div onClick={() => setExpanded(!expanded)} style={{
-        padding: '4px 12px', cursor: 'pointer',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
-        background: 'rgba(196,168,85,0.08)',
-      }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; e.currentTarget.style.transform = 'scale(1)'; }}
+        onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        style={{
+          padding: '4px 12px', cursor: 'pointer',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
+          background: 'rgba(196,168,85,0.08)',
+          transition: 'var(--transition-smooth)',
+        }}
+      >
         <span>{'```' + lang}</span>
         <span style={{ fontSize: 9 }}>{expanded ? '收起' : '展开'}</span>
       </div>

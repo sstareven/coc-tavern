@@ -377,6 +377,7 @@ export function InputBar() {
               onClick={handleSubmit}
               disabled={pipeline.loading || buttonMode !== 'advance'}
               title="推进剧情"
+              data-sfx="primary"
               style={dualBtnStyle(buttonMode === 'advance', pipeline.loading)}
               onMouseEnter={(e) => {
                 if (buttonMode === 'advance' && !pipeline.loading) {

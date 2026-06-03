@@ -3,11 +3,25 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 
+/** 界面缩放合法档位：标准/大/特大/超大。控件与 clamp 共用。 */
+export const UI_SCALE_LEVELS = [1, 1.15, 1.3, 1.5] as const;
+
+/** 把任意输入吸附到最近的合法缩放档位；非法/非有限值回落 1。 */
+export function clampUiScale(v: number): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 1;
+  return UI_SCALE_LEVELS.reduce(
+    (best, lvl) => (Math.abs(lvl - v) < Math.abs(best - v) ? lvl : best),
+    UI_SCALE_LEVELS[0] as number,
+  );
+}
+
 interface SettingsState {
   soundEnabled: boolean;
   darkMode: boolean;
   tooltipDelay: number;
   musicVolume: number;
+  /** 音效音量 0-100（按钮点击/骰子/翻页等所有合成音的主增益）。 */
+  sfxVolume: number;
   autoSubmitChoice: boolean;
   apiBaseUrl: string;
   apiModel: string;
@@ -49,6 +63,8 @@ interface SettingsState {
   // MVU 失败回灌自纠：默认关闭；开启后最多额外 N 次 mvu 桶往返让 AI 修正非法变量更新。
   mvuSelfCorrectEnabled: boolean;
   mvuSelfCorrectRetries: number;
+  /** 界面整体缩放倍率（桌面端，合法档位见 UI_SCALE_LEVELS）。默认 1=100%。 */
+  uiScale: number;
 }
 
 interface SettingsStore extends SettingsState {
@@ -57,6 +73,7 @@ interface SettingsStore extends SettingsState {
   setDarkMode: (v: boolean) => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
+  setSfxVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
@@ -96,6 +113,7 @@ interface SettingsStore extends SettingsState {
   setRewriteRpmLimit: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
+  setUiScale: (v: number) => void;
 }
 
 const defaults: SettingsState = {
@@ -103,6 +121,7 @@ const defaults: SettingsState = {
   darkMode: false,
   tooltipDelay: 600,
   musicVolume: 40,
+  sfxVolume: 100,
   autoSubmitChoice: false,
   apiBaseUrl: 'https://api.deepseek.com',
   apiModel: 'deepseek-v4-pro',
@@ -143,6 +162,7 @@ const defaults: SettingsState = {
   rewriteRpmLimit: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
+  uiScale: 1,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -155,6 +175,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setDarkMode: (v) => set({ darkMode: v }),
       setTooltipDelay: (d) => set({ tooltipDelay: d }),
       setMusicVolume: (v) => set({ musicVolume: v }),
+      setSfxVolume: (v) => set({ sfxVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
       setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
       setApiModel: (model) => set({ apiModel: model }),
@@ -194,6 +215,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
+      setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
     }),
     {
       name: 'coc_settings_v2',

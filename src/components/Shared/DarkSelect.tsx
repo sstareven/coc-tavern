@@ -97,7 +97,14 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
 
   return (
     <div ref={ref} style={{ ...style }}>
-      <div onClick={toggle} style={{ ...selectTriggerStyle, position: 'relative' }}>
+      <div
+        onClick={toggle}
+        style={{ ...selectTriggerStyle, position: 'relative', transition: 'var(--transition-smooth)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = (selectTriggerStyle.background as string) ?? ''; e.currentTarget.style.borderColor = (selectTriggerStyle.borderColor as string) ?? ''; e.currentTarget.style.transform = 'scale(1)'; }}
+        onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)'; }}
+        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+      >
         <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
           {selected ? selected.label : '选择…'}
         </span>

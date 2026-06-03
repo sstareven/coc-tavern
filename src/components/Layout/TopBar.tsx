@@ -34,7 +34,12 @@ export function TopBar({ onReturnToMenu }: Props) {
             onClick={() => setMenuOpen(true)}
             aria-label="菜单"
             style={{ background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-              borderRadius: 4, padding: '6px 12px', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}
+              borderRadius: 4, padding: '6px 12px', fontSize: 16, cursor: 'pointer', lineHeight: 1,
+              transition: 'var(--transition-smooth)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >☰</button>
           {menuOpen && createPortal(
             <div style={{
@@ -47,7 +52,12 @@ export function TopBar({ onReturnToMenu }: Props) {
                 <span style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 18, letterSpacing: 4 }}>菜 单</span>
                 <button onClick={() => setMenuOpen(false)} aria-label="关闭"
                   style={{ background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-                    borderRadius: 4, width: 36, height: 36, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+                    borderRadius: 4, width: 36, height: 36, fontSize: 18, cursor: 'pointer', lineHeight: 1,
+                    transition: 'var(--transition-smooth)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+                  onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >✕</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

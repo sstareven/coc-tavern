@@ -31,6 +31,10 @@ export function MobilePageToggle({ left, right, side, onSide }: {
             }}
             onTouchStart={(e) => { if (!active) e.currentTarget.style.background = '#2a2113'; }}
             onTouchEnd={(e) => { if (!active) e.currentTarget.style.background = '#1f1810'; }}
+            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = '#2a2113'; }}
+            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = '#1f1810'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             {s === 'left' ? left : right}
           </button>

@@ -85,11 +85,36 @@ export function DebugLog() {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input value={filter.search} onChange={(e) => setFilter({ search: e.target.value })} placeholder="搜索..." onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
                 style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }} />
-              <button onClick={selectAll} style={headerBtn}>{selected.size === filtered.length && filtered.length > 0 ? '取消' : '全选'}</button>
-              <button onClick={copySelected} disabled={selected.size === 0} style={{ ...headerBtn, opacity: selected.size === 0 ? 0.4 : 1 }}>复制({selected.size})</button>
-              <button onClick={exportLogs} disabled={filtered.length === 0} style={{ ...headerBtn, opacity: filtered.length === 0 ? 0.4 : 1 }} title="把当前筛选的日志导出为 txt 文件">导出</button>
-              <button onClick={clear} style={headerBtn}>清空</button>
-              <button onClick={toggle} style={headerBtn}>关闭</button>
+              <button onClick={selectAll} style={headerBtn}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >{selected.size === filtered.length && filtered.length > 0 ? '取消' : '全选'}</button>
+              <button onClick={copySelected} disabled={selected.size === 0} style={{ ...headerBtn, opacity: selected.size === 0 ? 0.4 : 1 }}
+                onMouseEnter={(e) => { if (selected.size === 0) return; e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { if (selected.size === 0) return; e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >复制({selected.size})</button>
+              <button onClick={exportLogs} disabled={filtered.length === 0} style={{ ...headerBtn, opacity: filtered.length === 0 ? 0.4 : 1 }} title="把当前筛选的日志导出为 txt 文件"
+                onMouseEnter={(e) => { if (filtered.length === 0) return; e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { if (filtered.length === 0) return; e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >导出</button>
+              <button onClick={clear} style={headerBtn}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >清空</button>
+              <button onClick={toggle} style={headerBtn}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >关闭</button>
             </div>
           </div>
 
@@ -122,4 +147,4 @@ export function DebugLog() {
 }
 
 const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', cursor: 'pointer' };
-const headerBtn: React.CSSProperties = { padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer' };
+const headerBtn: React.CSSProperties = { padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', transition: 'var(--transition-smooth)' };
