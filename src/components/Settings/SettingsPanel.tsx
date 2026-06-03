@@ -335,6 +335,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setTooltipDelay = useSettingsStore((s) => s.setTooltipDelay);
   const musicVolume = useSettingsStore((s) => s.musicVolume);
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
+  const sfxVolume = useSettingsStore((s) => s.sfxVolume);
+  const setSfxVolume = useSettingsStore((s) => s.setSfxVolume);
   const autoSubmitChoice = useSettingsStore((s) => s.autoSubmitChoice);
   const uiScale = useSettingsStore((s) => s.uiScale);
   const setUiScale = useSettingsStore((s) => s.setUiScale);
@@ -565,7 +567,18 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setMusicVolume(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{musicVolume}%</span>
+                  </div>
+                </div>
+
+                {/* SFX volume */}
+                <div style={rowStyle}>
+                  <span style={labelStyle}>音效音量</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="range" min={0} max={100} value={sfxVolume}
+                      onChange={(e) => setSfxVolume(Number(e.target.value))}
+                      style={{ width: 100, accentColor: 'var(--gold)' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{sfxVolume}%</span>
                   </div>
                 </div>
 

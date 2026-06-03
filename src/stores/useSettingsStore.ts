@@ -20,6 +20,8 @@ interface SettingsState {
   darkMode: boolean;
   tooltipDelay: number;
   musicVolume: number;
+  /** 音效音量 0-100（按钮点击/骰子/翻页等所有合成音的主增益）。 */
+  sfxVolume: number;
   autoSubmitChoice: boolean;
   apiBaseUrl: string;
   apiModel: string;
@@ -71,6 +73,7 @@ interface SettingsStore extends SettingsState {
   setDarkMode: (v: boolean) => void;
   setTooltipDelay: (d: number) => void;
   setMusicVolume: (v: number) => void;
+  setSfxVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
@@ -118,6 +121,7 @@ const defaults: SettingsState = {
   darkMode: false,
   tooltipDelay: 600,
   musicVolume: 40,
+  sfxVolume: 100,
   autoSubmitChoice: false,
   apiBaseUrl: 'https://api.deepseek.com',
   apiModel: 'deepseek-v4-pro',
@@ -171,6 +175,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setDarkMode: (v) => set({ darkMode: v }),
       setTooltipDelay: (d) => set({ tooltipDelay: d }),
       setMusicVolume: (v) => set({ musicVolume: v }),
+      setSfxVolume: (v) => set({ sfxVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
       setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
       setApiModel: (model) => set({ apiModel: model }),
