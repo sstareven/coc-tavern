@@ -719,7 +719,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
         const settleVariables = async () => {
           if (useIndependentMvu) {
-            useStatusToastStore.getState().showProcessing('正在解析状态变量…');
+            useStatusToastStore.getState().updateProcessing('正在解析状态变量…');
             try {
               const extracted = await extractVariablesWithLLM(
                 hookProcessedContent,
@@ -744,9 +744,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             }
           }
           if (patchReport.failed.length > 0 && settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
-            useStatusToastStore.getState().showProcessing('正在校正状态变量…');
+            useStatusToastStore.getState().updateProcessing('正在校正状态变量…');
+            // 自纠瘦上下文：不再重发整份主 prompt(editedMessages，最大上下文冗余)，只给本回合叙事 + 当前状态快照。
+            const rawStat = useVariableStore.getState().statData;
+            const visibleStat: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(rawStat)) {
+              if (!k.startsWith('_') && !k.startsWith('$')) visibleStat[k] = v;
+            }
+            const statSnapshotYaml = Object.keys(visibleStat).length > 0 ? formatStatDataYaml(visibleStat) : '';
             const sc = await runMvuSelfCorrect(
-              editedMessages,
               patchReport.failed,
               settings.mvuSelfCorrectRetries,
               {
@@ -769,6 +775,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 log: (level, msg) => pushLog(level, msg, 'system'),
                 isAborted: () => controller.signal.aborted,
               },
+              { narrative: hookProcessedContent, statSnapshotYaml },
             );
             if (sc.usage.total_tokens > 0 || sc.usage.prompt_tokens > 0 || sc.usage.completion_tokens > 0) {
               selfCorrectUsage = sc.usage;
@@ -802,7 +809,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           'info',
           `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok} / 输出 ${completionTok}${mvuUsage ? ' · 含MVU' : ''}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
-        useStatusToastStore.getState().markDone('档案已浮现');
+        // 注意：「档案已浮现」(markDone) 延后到变量结算完成后才报（见下方），否则顶部实时计时器会在 MVU 结算阶段空转不停。
         const newPage = result.page;
         newPage.genStats = pageGenStats;
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
@@ -1180,11 +1187,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 修复「开启 MVU 独立 API 时，物品/结构化字段要等 MVU 返回后才出现（看似漏掉、过会儿又有）」的时序 bug。
         // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
         await settleVariables();
-        // 回填本页 token 统计（并入 MVU 提取 / 自纠用量），与右下角/日志同源。
+        // 回填本页 token 统计（并入 MVU 提取 / 自纠用量）+ 重算耗时为【全程】(genStart→变量结算完成)，
+        // 与顶部实时计时器同源——修复「右下角耗时只含主生成、对不上实际等待」。
         if (mvuUsage || selfCorrectUsage) {
           const settledPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
           useBookStore.getState().setPageGenStats(settledPageIdx, {
             ...pageGenStats,
+            durationMs: Math.round(performance.now() - genStart),
             promptTokens: pageGenStats.promptTokens + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0),
             completionTokens: pageGenStats.completionTokens + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0),
             totalTokens: pageGenStats.totalTokens + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0),
@@ -1192,6 +1201,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           chatStore.savePages(useBookStore.getState().pages);
           if (chatStore.activeId) void saveConversation(chatStore.activeId);
         }
+        // 变量结算完成：此刻才报「档案已浮现」关闭顶部 processing 提示并【停止实时计时器】（无论是否走了 MVU）。
+        useStatusToastStore.getState().markDone('档案已浮现');
 
         // 生成成功结束：发出「叮」提醒（即便玩家已切到后台标签页也能听见——Web Audio 不受后台节流影响）。
         // 受全局 soundEnabled 门控；仅主生成成功路径触发，中止/报错走 false 分支不会误响。
