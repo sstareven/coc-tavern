@@ -12,7 +12,10 @@ import {
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import type { Combatant } from '../../types';
 
-/** 即时战斗面板（布局 A：敌顶 · 日志中 · 玩家状态条 · 动作底）。右页在战斗中由 Storybook 条件渲染此组件。 */
+const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
+const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
+
+/** 即时战斗面板（贴合右页书页·羊皮纸风。布局A：敌顶 · 日志中 · 玩家状态条 · 动作底）。 */
 export function CombatPanel() {
   const encounter = useCombatStore((s) => s.encounter);
   const setEncounter = useCombatStore((s) => s.setEncounter);
@@ -67,17 +70,27 @@ export function CombatPanel() {
   const hasFriendly = enc.bystanders.some((b) => b.friendly);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: '#1a140e', color: '#e0d6b8', fontFamily: 'var(--font-ui)' }}>
-      {/* 头：轮次 / 回合者 / 状态 */}
-      <div style={{ padding: '8px 12px', color: 'var(--gold)', fontSize: 12, borderBottom: '1px solid #3a2e1c', display: 'flex', justifyContent: 'space-between' }}>
-        <span>⚔ 战斗 · 第 {enc.round} 轮</span>
-        <span style={{ color: resolving ? 'var(--gold-bright)' : isPlayerTurn ? 'var(--success-bright)' : 'var(--ink-subtle)' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
+      padding: '24px 24px 16px', boxSizing: 'border-box',
+      background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
+      borderTopRightRadius: 4, borderBottomRightRadius: 4,
+      color: 'var(--ink)', fontFamily: 'var(--font-body)',
+    }}>
+      {/* 头：标题 / 轮次 / 回合者 —— 书页式标题栏 */}
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
+        fontFamily: 'var(--font-display)', letterSpacing: 2, flexShrink: 0,
+        borderBottom: `1px solid ${FAINT}`, paddingBottom: 10, marginBottom: 12,
+      }}>
+        <span style={{ fontSize: 17, color: 'var(--ink)' }}>战斗 · 第 {enc.round} 轮</span>
+        <span style={{ fontSize: 12, letterSpacing: 1, color: resolving ? 'var(--gold)' : isPlayerTurn ? 'var(--success)' : 'var(--ink-subtle)' }}>
           {resolving ? '结算中…' : isPlayerTurn ? '你的回合' : '对方行动'}
         </span>
       </div>
 
       {/* 敌人 / 友方 */}
-      <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid #3a2e1c' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, paddingBottom: 10, borderBottom: `1px solid ${FAINTER}` }}>
         {enemies.map((e) => (
           <CombatantRow key={e.id} c={e} hostile target={enc.playerTargetId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
         ))}
@@ -85,9 +98,9 @@ export function CombatPanel() {
       </div>
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
-      <div ref={logRef} className="inv-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 12px', fontSize: 12, lineHeight: 1.7 }}>
+      <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 4px 10px 0', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.map((l, i) => (
-          <div key={i} style={{ color: l.kind === 'narrative' ? '#8a7a55' : '#cdbf95' }}>
+          <div key={i} style={{ color: l.kind === 'narrative' ? 'var(--ink-subtle)' : 'var(--ink)', fontStyle: l.kind === 'narrative' ? 'italic' : 'normal', marginBottom: 2 }}>
             {l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`}
           </div>
         ))}
@@ -96,19 +109,19 @@ export function CombatPanel() {
 
       {/* 玩家状态条 */}
       {player && (
-        <div style={{ padding: '6px 12px', display: 'flex', gap: 12, fontSize: 11, color: '#b5aa86', borderTop: '1px solid #3a2e1c', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, paddingTop: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <span>HP <b style={{ color: 'var(--blood)' }}>{player.hp}/{player.maxHp}</b></span>
-          <span>SAN <b style={{ color: 'var(--gold)' }}>{sheet.secondary.san.current}</b></span>
-          <span>MP <b>{sheet.secondary.mp.current}</b></span>
-          {rangedWeapon && <span>弹药 <b>{rangedWeapon.loadedAmmo ?? 0}/{rangedWeapon.magazine ?? 0}</b>（备 {reserve}）</span>}
+          <span>SAN <b style={{ color: 'var(--ink)' }}>{sheet.secondary.san.current}</b></span>
+          <span>MP <b style={{ color: 'var(--ink)' }}>{sheet.secondary.mp.current}</b></span>
+          {rangedWeapon && <span>弹药 <b style={{ color: 'var(--ink)' }}>{rangedWeapon.loadedAmmo ?? 0}/{rangedWeapon.magazine ?? 0}</b>（备 {reserve}）</span>}
           {jammed && <span style={{ color: 'var(--blood)' }}>卡壳</span>}
         </div>
       )}
 
       {/* 动作按钮 */}
-      <div style={{ padding: '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 6, borderTop: '1px solid #3a2e1c' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, borderTop: `1px solid ${FAINTER}`, paddingTop: 10, marginTop: 8, flexShrink: 0 }}>
         {rangedIdx >= 0 && <ActionBtn label="射击" primary disabled={!canShoot} onClick={() => act(true, doShoot)} />}
-        <ActionBtn label="近战" disabled={!isPlayerTurn} onClick={() => act(true, doMelee)} />
+        <ActionBtn label="近战" primary disabled={!isPlayerTurn} onClick={() => act(true, doMelee)} />
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!isPlayerTurn} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
@@ -119,39 +132,42 @@ export function CombatPanel() {
 }
 
 function CombatantRow({ c, hostile, target, onClick }: { c: Combatant; hostile: boolean; target: boolean; onClick?: () => void }) {
-  const down = c.flags.dead || c.flags.unconscious;
+  const fled = c.flags.fled;
+  const down = c.flags.dead || c.flags.unconscious || fled;
+  const stateLabel = fled ? '（脱离）' : (c.flags.dead || c.flags.unconscious) ? '（倒下）' : c.flags.dying ? '·濒死' : c.flags.majorWound ? '·重伤' : '';
   const pct = Math.max(0, Math.round((c.hp / c.maxHp) * 100));
   return (
     <div onClick={down ? undefined : onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', borderRadius: 4,
-        outline: target ? '1px solid var(--blood)' : 'none',
-        opacity: down ? 0.4 : 1, cursor: onClick && !down ? 'pointer' : 'default',
-        transition: 'var(--transition-smooth)',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4,
+        border: target ? '1px solid var(--blood)' : '1px solid rgba(var(--ink-faded-rgb),0.18)',
+        background: target ? 'rgba(176,58,46,0.06)' : 'rgba(0,0,0,0.02)',
+        opacity: down ? 0.45 : 1, cursor: onClick && !down ? 'pointer' : 'default',
+        transition: 'var(--transition-smooth)', fontFamily: 'var(--font-ui)',
       }}>
-      <span style={{ flex: 1, fontSize: 12, color: hostile ? '#e0d6b8' : 'var(--success-bright)' }}>
-        {c.name}{target ? ' ▸目标' : ''}{down ? '（倒下）' : ''}{c.flags.dying ? '·濒死' : c.flags.majorWound ? '·重伤' : ''}
+      <span style={{ flex: 1, fontSize: 13, color: hostile ? 'var(--ink)' : 'var(--success)' }}>
+        {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}
       </span>
-      <div style={{ width: 70, height: 7, background: '#3a1414', borderRadius: 4 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: hostile ? 'var(--blood)' : 'var(--success)', borderRadius: 4, transition: 'var(--transition-smooth)' }} />
+      <div style={{ width: 72, height: 7, background: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: hostile ? 'var(--blood)' : 'var(--success)', transition: 'var(--transition-smooth)' }} />
       </div>
-      <span style={{ fontSize: 10, color: '#b5aa86', minWidth: 36, textAlign: 'right' }}>{c.hp}/{c.maxHp}</span>
+      <span style={{ fontSize: 11, color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{c.hp}/{c.maxHp}</span>
     </div>
   );
 }
 
 function ActionBtn({ label, primary, disabled, onClick }: { label: string; primary?: boolean; disabled?: boolean; onClick: () => void }) {
-  const color = disabled ? 'var(--ink-faded)' : primary ? 'var(--gold)' : '#e0d6b8';
-  const border = disabled ? 'rgba(196,168,85,0.12)' : primary ? 'var(--gold)' : 'rgba(196,168,85,0.3)';
+  const color = disabled ? 'var(--ink-faded)' : primary ? 'var(--gold)' : 'var(--ink)';
+  const border = disabled ? 'rgba(var(--ink-faded-rgb),0.2)' : primary ? 'var(--brass)' : 'rgba(var(--ink-faded-rgb),0.4)';
   return (
     <button onClick={disabled ? undefined : onClick} disabled={disabled}
       style={{
-        fontSize: 11, padding: '5px 12px', borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer',
-        border: '1px solid ' + border, background: 'transparent', color,
-        fontFamily: 'var(--font-body)', transition: 'var(--transition-smooth)', transform: 'scale(1)',
+        fontSize: 12, padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
+        border: '1px solid ' + border, background: disabled ? 'transparent' : 'rgba(196,168,85,0.08)', color,
+        fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)', transform: 'scale(1)',
       }}
-      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.05)'; } }}
-      onMouseLeave={(e) => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; e.currentTarget.style.transform = 'scale(1.05)'; } }}
+      onMouseLeave={(e) => { if (!disabled) { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; } e.currentTarget.style.transform = 'scale(1)'; }}
       onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(0.94)'; }}
       onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(1.05)'; }}
     >{label}</button>
@@ -162,14 +178,14 @@ function DiceRecordsExpander({ records }: { records: { skill: string; roll: stri
   const [open, setOpen] = useState(false);
   if (records.length === 0) return null;
   return (
-    <div style={{ marginTop: 6 }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ color: '#8a7a55', fontSize: 11, cursor: 'pointer', userSelect: 'none' }}>
+    <div style={{ marginTop: 8, fontFamily: 'var(--font-ui)' }}>
+      <div onClick={() => setOpen((o) => !o)} style={{ color: 'var(--ink-subtle)', fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
         {open ? '▾' : '▸'} 检定记录（{records.length} 条）
       </div>
       {open && (
-        <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: '1px solid #3a2e1c' }}>
+        <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${FAINTER}` }}>
           {records.map((r, i) => (
-            <div key={i} style={{ fontSize: 10.5, color: '#b5aa86', lineHeight: 1.6 }}>
+            <div key={i} style={{ fontSize: 11, color: 'var(--ink-faded)', lineHeight: 1.7 }}>
               {r.purpose ? `[${r.purpose}] ` : ''}{r.skill} d100={r.roll}/{r.target}
             </div>
           ))}
