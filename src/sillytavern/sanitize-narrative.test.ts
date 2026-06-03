@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stripCjkGluedEnglish } from './sanitize-narrative';
+import { stripCjkGluedEnglish, collapseRepeatedPunctuation, sanitizeNarrative } from './sanitize-narrative';
 
 describe('stripCjkGluedEnglish', () => {
   it('剥除中文紧贴的英文释义（含无空格连写与空格分词）', () => {
@@ -24,5 +24,23 @@ describe('stripCjkGluedEnglish', () => {
   it('空串/无中文安全', () => {
     expect(stripCjkGluedEnglish('')).toBe('');
     expect(stripCjkGluedEnglish('hello world')).toBe('hello world');
+  });
+});
+
+describe('collapseRepeatedPunctuation', () => {
+  it('折叠连续相同标点为一个', () => {
+    expect(collapseRepeatedPunctuation('好的。。')).toBe('好的。');
+    expect(collapseRepeatedPunctuation('等等，，，再想想')).toBe('等等，再想想');
+    expect(collapseRepeatedPunctuation('什么！！！')).toBe('什么！');
+  });
+  it('保留省略号与不同标点组合', () => {
+    expect(collapseRepeatedPunctuation('沉默……')).toBe('沉默……');      // 省略号不动
+    expect(collapseRepeatedPunctuation('真的吗？！')).toBe('真的吗？！');  // 不同标点保留
+  });
+});
+
+describe('sanitizeNarrative（组合）', () => {
+  it('同时剥中英黏连 + 折叠重复标点', () => {
+    expect(sanitizeNarrative('你走到借书台circulation desk前。。')).toBe('你走到借书台前。');
   });
 });

@@ -20,7 +20,7 @@ import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { generateDarkThread } from '../sillytavern/dark-thread-generator';
 import { generateAnchors } from '../sillytavern/anchor-generator';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
-import { stripCjkGluedEnglish } from '../sillytavern/sanitize-narrative';
+import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
@@ -820,10 +820,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         };
 
         const newPage = result.page;
-        // 正文语言纯净：剥除「中文紧贴英文」黏连(如「借书台circulation desk」)，防其污染上下文(摘要/历史回灌)。
-        newPage.leftContent = stripCjkGluedEnglish(newPage.leftContent);
-        newPage.rightContent = stripCjkGluedEnglish(newPage.rightContent);
-        if (newPage.summary) newPage.summary = stripCjkGluedEnglish(newPage.summary);
+        // 正文/选项净化：剥「中文紧贴英文」黏连(如「借书台circulation desk」) + 折叠连续重复标点(「。。」→「。」)，防污染上下文。
+        newPage.leftContent = sanitizeNarrative(newPage.leftContent);
+        newPage.rightContent = sanitizeNarrative(newPage.rightContent);
+        if (newPage.summary) newPage.summary = sanitizeNarrative(newPage.summary);
+        if (newPage.rightChoices) {
+          newPage.rightChoices = newPage.rightChoices.map((c) => ({
+            ...c,
+            text: sanitizeNarrative(c.text),
+            action: c.action ? sanitizeNarrative(c.action) : c.action,
+          }));
+        }
         // 把本回合的线索/NPC/地图/暗线更新随页面持久化，供删页时从剩余页面重建派生状态。
         if (result.clues) newPage.clues = result.clues;
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;

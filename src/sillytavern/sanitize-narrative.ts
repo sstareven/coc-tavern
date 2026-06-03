@@ -14,3 +14,19 @@ export function stripCjkGluedEnglish(text: string): string {
   if (!text) return text;
   return text.replace(/([一-鿿])[A-Za-z]{2,}(?:[ \t]+[A-Za-z]+)*/g, '$1');
 }
+
+/**
+ * 折叠【连续重复的同一个中文标点】为一个（如「。。」→「。」「，，」→「，」「！！！」→「！」），
+ * 防止 LLM 误打出重复标点污染显示与上下文。
+ * 仅作用于句末/分隔标点 。！？，、；：——【不】触碰省略号「…」(「……」是合法的中文省略号)，
+ * 也不折叠不同标点的组合(如「！？」保留)。
+ */
+export function collapseRepeatedPunctuation(text: string): string {
+  if (!text) return text;
+  return text.replace(/([。！？，、；：])\1+/g, '$1');
+}
+
+/** 正文/选项统一净化：剥中英黏连 + 折叠重复标点。 */
+export function sanitizeNarrative(text: string): string {
+  return collapseRepeatedPunctuation(stripCjkGluedEnglish(text));
+}
