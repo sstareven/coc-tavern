@@ -23,6 +23,24 @@ export function CombatPanel() {
   const logRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; });
 
+  // 骰子动画：每当战斗检定记录新增，为【玩家】那条主检定派发 dice-roll-animate(inputText:''→只演出不提交)，
+  // 让玩家清楚看见每次投掷。其余(敌方/对抗)靠日志明细 + 检定记录展开呈现。
+  const lastDiceCount = useRef(0);
+  useEffect(() => {
+    const recs = encounter?.diceRecords ?? [];
+    if (recs.length > lastDiceCount.current) {
+      const pname = encounter?.combatants.find((c) => c.faction === 'player')?.name;
+      const fresh = recs.slice(lastDiceCount.current);
+      const r = (pname ? fresh.find((x) => x.skill.startsWith(pname)) : undefined) ?? fresh[0];
+      if (r) {
+        document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+          detail: { skillName: r.purpose ?? r.skill, target: Number(r.target) || 0, roll: Number(r.roll) || 0, resultType: r.type, inputText: '' },
+        }));
+      }
+    }
+    lastDiceCount.current = recs.length;
+  }, [encounter?.diceRecords, encounter?.combatants]);
+
   if (!encounter) return null;
   const enc = encounter;
   const player = enc.combatants.find((c) => c.faction === 'player');
@@ -99,9 +117,7 @@ export function CombatPanel() {
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
       <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.map((l, i) => (
-          <div key={i} style={{ color: l.kind === 'narrative' ? 'var(--ink-subtle)' : 'var(--ink)', fontStyle: l.kind === 'narrative' ? 'italic' : 'normal', marginBottom: 2 }}>
-            {l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`}
-          </div>
+          <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'} />
         ))}
         <DiceRecordsExpander records={enc.diceRecords} />
       </div>
@@ -129,6 +145,20 @@ export function CombatPanel() {
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
         <ActionBtn label="逃跑" disabled={!isPlayerTurn} onClick={() => act(false, doFlee)} />
       </div>
+    </div>
+  );
+}
+
+function TypewriterLine({ text, narrative }: { text: string; narrative: boolean }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let i = 0;
+    const id = setInterval(() => { i += 2; setN(i); if (i >= text.length) clearInterval(id); }, 20);
+    return () => clearInterval(id);
+  }, [text]);
+  return (
+    <div style={{ color: narrative ? 'var(--ink-subtle)' : 'var(--ink)', fontStyle: narrative ? 'italic' : 'normal', marginBottom: 2 }}>
+      {text.slice(0, n)}
     </div>
   );
 }
