@@ -84,6 +84,8 @@ export interface BookPage {
   sheetSnapshot?: CharacterSheet;
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
+  /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
+  combatLog?: CombatLog;
 }
 
 /** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */
@@ -349,6 +351,10 @@ export interface DiceRecord {
   page?: number;
   /** 检定种类：普通 d100 检定 / 多面骰（伤害·理智损失）。缺省视为 check。 */
   kind?: 'check' | 'poly';
+  /** 战斗检定标记：来自即时战斗面板的检定（与剧情检定区分/筛选）。 */
+  context?: 'combat';
+  /** 检定用途（战斗用）：攻击命中/伤害骰/闪避/反击/体质对抗/速度检定等。 */
+  purpose?: string;
 }
 
 // ===== Lorebooks =====
@@ -634,4 +640,86 @@ export interface THOptimizeSettings {
   optimizeMessageLoad: boolean;
   forceWorldbookSettings: boolean;
   maximizePresetContext: boolean;
+}
+
+// ===== Combat System =====
+export type CombatFaction = 'player' | 'ally' | 'enemy';
+
+export interface CombatWeapon {
+  name: string;
+  skill: number;
+  damage: string;          // 伤害骰式，如 "1D10"、"1D8+1D4"、"1D3"
+  impaling: boolean;
+  ranged: boolean;
+  baseRange?: number;
+  attacksPerRound: number;
+  loadedAmmo?: number;     // 枪械当前已装弹
+  magazine?: number;       // 弹匣容量
+  ammoItemName?: string;   // 玩家备弹对应的随身物品名
+  reserveAmmo?: number;    // NPC 备弹(NPC 不走库存)
+}
+
+export interface CombatantFlags {
+  majorWound: boolean;
+  dying: boolean;
+  unconscious: boolean;
+  dead: boolean;
+  prone: boolean;
+  weaponJammed: boolean;
+}
+
+export interface Combatant {
+  id: string;
+  name: string;
+  faction: CombatFaction;
+  controlledBy: 'player' | 'ai';
+  dex: number;
+  str: number;
+  siz: number;
+  con: number;
+  mov: number;
+  fighting: number;
+  dodge: number;
+  firearm?: number;
+  hp: number;
+  maxHp: number;
+  armor: number;
+  weapons: CombatWeapon[];
+  flags: CombatantFlags;
+  tendency?: { attack: number; flee: number };
+  roundDefenses: number;
+}
+
+export type CombatEndReason = 'victory' | 'defeat' | 'disengage' | 'flee' | 'enemy_retreat' | 'surrender';
+
+export interface CombatLogEntry {
+  kind: 'narrative' | 'roll';
+  text: string;
+}
+
+export interface CombatBystander {
+  id: string;
+  name: string;
+  friendly: boolean;
+  joinChance: number;
+  combatant?: Combatant;
+}
+
+export interface Encounter {
+  active: boolean;
+  round: number;
+  turnOrder: string[];
+  currentIdx: number;
+  combatants: Combatant[];
+  bystanders: CombatBystander[];
+  playerTargetId: string | null;
+  log: CombatLogEntry[];
+  diceRecords: DiceRecord[];
+  status: 'active' | 'resolving' | 'ended';
+  endReason?: CombatEndReason;
+}
+
+export interface CombatLog {
+  entries: CombatLogEntry[];
+  endReason: CombatEndReason;
 }
