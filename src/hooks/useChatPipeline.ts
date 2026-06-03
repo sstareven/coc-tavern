@@ -19,6 +19,8 @@ import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { generateDarkThread } from '../sillytavern/dark-thread-generator';
 import { generateAnchors } from '../sillytavern/anchor-generator';
+import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
+import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
@@ -1078,6 +1080,38 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               } catch (e) {
                 if (controller.signal.aborted) return;
                 pushLog('warn', `[剧情锚点] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
+        }
+
+        // 战斗检测建场：未在战斗中 && 叙事含暴力线索 && 本回合非战斗结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进战。
+        // 进战 → useCombatStore.start(encounter)，右页由 Storybook 条件渲染成战斗面板。fire-and-forget + 会话守卫。
+        if (
+          !useCombatStore.getState().encounter &&
+          shouldDetectCombat(newPage.leftContent) &&
+          !isEpilogue &&
+          !lastInputRef.current.includes('即时战斗结束') // 防战斗结算页再次触发进战
+        ) {
+          const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+          const cdBase = (useMvuApiCB ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+          const cdKey = (useMvuApiCB ? settings.mvuApiKey : settings.apiKey) ?? '';
+          const cdModel = (useMvuApiCB ? settings.mvuApiModel : settings.apiModel) ?? '';
+          if (cdBase.trim() && cdKey.trim() && cdModel.trim()) {
+            const aidCB = useChatStore.getState().activeId;
+            const sheetCB = useCharSheetStore.getState().sheet;
+            const invCB = useInventoryStore.getState().items;
+            const narrativeCB = newPage.leftContent;
+            void (async () => {
+              try {
+                const enc = await detectAndBuildEncounter(narrativeCB, sheetCB, invCB, cdBase, cdKey, cdModel, controller.signal);
+                if (!enc || useChatStore.getState().activeId !== aidCB || useCombatStore.getState().encounter) return;
+                useCombatStore.getState().start(enc);
+                if (aidCB) await saveConversation(aidCB);
+                pushLog('info', `[战斗] 进入即时战斗：${enc.combatants.filter((c) => c.faction === 'enemy').map((c) => c.name).join('、')}`, 'system');
+              } catch (e) {
+                if (controller.signal.aborted) return;
+                pushLog('warn', `[战斗] 检测失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
             })();
           }

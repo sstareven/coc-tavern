@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 
@@ -115,6 +115,8 @@ interface BookStore {
   setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
   /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
   setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
+  /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
+  setPageCombatLog: (index: number, combatLog: CombatLog) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -360,6 +362,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], darkThread };
+    return { pages };
+  }),
+  setPageCombatLog: (index, combatLog) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], combatLog };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {

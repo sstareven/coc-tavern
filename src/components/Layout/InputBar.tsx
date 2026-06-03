@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
+import { useCombatStore } from '../../stores/useCombatStore';
+import { useChatStore } from '../../stores/useChatStore';
+import { saveConversation } from '../../stores/sessionLifecycle';
 import { useMapStore } from '../../stores/useMapStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
@@ -39,6 +42,41 @@ export function InputBar() {
     const handler = () => { handleSubmitRef.current(); };
     document.addEventListener('auto-submit-input', handler);
     return () => document.removeEventListener('auto-submit-input', handler);
+  }, []);
+
+  // ── 脱战结算：战斗 status 转 'resolving' 时，把战斗日志交主管线生成右页(承接战斗结果+后续选项)，
+  // 完成后把日志固化进新页 combatLog 并 clearCombat（右页自动回正常叙事页）。一次性触发(resolvingRef 守卫)。──
+  const resolvingRef = useRef(false);
+  const pipelineRef = useRef(pipeline);
+  useEffect(() => { pipelineRef.current = pipeline; });
+  useEffect(() => {
+    return useCombatStore.subscribe((s) => {
+      const enc = s.encounter;
+      if (!enc) { resolvingRef.current = false; return; }
+      if (enc.status !== 'resolving' || resolvingRef.current) return;
+      resolvingRef.current = true;
+      const reason = enc.endReason ?? 'disengage';
+      const outcomeText: Record<string, string> = {
+        victory: '调查员获胜', defeat: '调查员落败/倒下', flee: '调查员逃离战斗',
+        enemy_retreat: '敌人撤退', disengage: '脱离了近战', surrender: '一方投降',
+      };
+      const summary = enc.log.map((l) => l.text).join('\n');
+      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${summary}`;
+      void (async () => {
+        try {
+          await pipelineRef.current.submit(input);
+        } finally {
+          const pages = useBookStore.getState().pages;
+          if (pages.length > 0) {
+            useBookStore.getState().setPageCombatLog(pages.length - 1, { entries: enc.log, endReason: reason });
+            useChatStore.getState().savePages(useBookStore.getState().pages);
+          }
+          useCombatStore.getState().clearCombat();
+          const id = useChatStore.getState().activeId;
+          if (id) void saveConversation(id);
+        }
+      })();
+    });
   }, []);
 
   // ── Click outside to close wand menu ──

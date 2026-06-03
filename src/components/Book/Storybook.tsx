@@ -14,6 +14,7 @@ import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { useKeyClueStore } from '../../stores/useKeyClueStore';
+import { useCombatStore } from '../../stores/useCombatStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -21,6 +22,7 @@ import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
+import { CombatPanel } from '../Combat/CombatPanel';
 import { TocOverlay } from './TocOverlay';
 import { PageNav } from './PageNav';
 import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
@@ -39,6 +41,7 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
+  const inCombat = useCombatStore((s) => !!s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
@@ -383,6 +386,11 @@ export function Storybook() {
                     <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
                   </FadingPage>
                 )}
+              </div>
+            ) : inCombat ? (
+              /* 战斗中：右页变即时战斗面板（不翻页；脱战后 clearCombat 自动回正常右页） */
+              <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                <CombatPanel />
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
