@@ -41,7 +41,7 @@
 - 变量抽取三分支（LLM 辅助 / LLM 失败回退 / 门控关闭直走 `processResponse`）最终都汇于 useVariableStore 回写。
 - 运行时常驻注入（暗线/关键词字典/statData 快照）是 `buildPromptMessages` 内合成的"伪 LoreEntry"，非真实世界书条目；lite/rewrite 模式经 `selectLoreForRewrite` 丢弃其中大部分。
 - 中止检测用 `controller.signal.aborted` 而非 `err.name==='AbortError'`——非流式中止在 api-router 被重包为普通 Error，仅流式中止冒泡 AbortError。
-- 开场首回合（pages.length≤1）在两处改变行为：format 块追加 PROLOGUE_STARTING_ITEMS_INSTRUCTION，且 `skipInventoryNarrativeCheck=true` 放宽解析校验。
+- 开场首回合（pages.length≤1，`skipInventoryNarrativeCheck=true` 标识之）：起始装备【不再内联进 format 块】（曾被「无变化则省略 inventoryChanges」压过而整体丢失），改为解析成功后用独立 LLM 调用 `generateStartingItems` 据职业+情境生成 3-6 件、并入首页 `inventoryChanges`（与坏结局 `generateBadEnding` 同源解耦）；同步生成因背包是「页锚定」态须随首页持久化。`skipInventoryNarrativeCheck=true` 仍保留以放宽解析校验、兼容模型偶发直出物品。
 - `savePages` 被调用两次（写页后 + `saveConversation` 前），刻意为之非 bug。
 - 物品重复计数防护：`filterAlreadyAcquiredAdds` 须在 `applyChanges` 前对源页 `acquiredItems` 去重，否则 `applyChanges` 按名合并会翻倍。
 

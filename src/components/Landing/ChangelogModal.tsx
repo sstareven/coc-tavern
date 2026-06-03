@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.6.1';
+export const CURRENT_VERSION = 'v1.6.2';
 
 interface Release {
   version: string;
@@ -12,6 +12,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.6.2',
+    label: '修复开局不发起始物品',
+    items: [
+      '修复「序章开局后物品栏空空如也」— 此前为调查员配备起始随身物品的指令被夹在主生成的格式要求里，常被模型当成「本回合无物品变化」整体跳过，导致开局没有任何随身物品。现已把起始装备改为开局后由 AI 独立生成一套贴合职业与开场情境的 3-6 件随身物品，并自动补进物品栏',
+      '起始物品生成更稳、且不再卡顿翻页 — 生成在后台进行，开局首页可立即翻阅，物品稍后自动补齐；并加大了生成预算、失败自动重试，避免因模型「想太久」把内容截断而漏发。⚠️ 仅对【新开的局】生效；此前已开始、物品栏为空的旧局不会追补',
+    ],
+  },
   {
     version: 'v1.6.1',
     label: '修复地图/人物/线索"消失" · 线索整合改为归纳收敛 · 日志增强',

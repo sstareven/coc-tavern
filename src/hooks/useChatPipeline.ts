@@ -13,6 +13,7 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
+import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -48,7 +49,7 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -429,12 +430,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ...e,
         content: renderTemplate(e.content, tmplOpts),
       }));
-      // 序章首回合（尚无生成页，pages.length<=1）：追加起始装备指令，让 AI 按职业+情境生成起始物品。
-      // 行动补写走 formatOverride，故 !formatOverride 可自然排除补写场景。
+      // 序章首回合的「起始装备」【不再注入主回合格式】——曾内联追加 PROLOGUE_STARTING_ITEMS_INSTRUCTION，
+      // 但被 FORMAT_INSTRUCTION 主体「无物品变化则省略 inventoryChanges」压过，模型把开场判为「无变化」整体丢弃
+      // （日志现象：parsed 顶层键缺 inventoryChanges/clues）。改为解析成功后用独立 LLM 调用 generateStartingItems
+      // 生成、并入首页 inventoryChanges（见下方应用段），与坏结局同源解耦（inline-llm-fields-truncate-trailing）。
       let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
-      if (!formatOverride && useBookStore.getState().pages.length <= 1) {
-        baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
-      }
       // 坏结局【不再注入主回合格式】——曾导致模型在主 JSON 末尾挤掉 clues/npcUpdates/mapUpdates 的回归。
       // 改为回合后用独立 LLM 调用 generateBadEnding 生成（见下方应用段），与主输出彻底解耦。
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
@@ -837,6 +837,37 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。
+        // 背包是「页锚定」派生态：异步拿到物品后须 (a) setPageInventoryChanges 写回该首页（删页重放据此恢复）、
+        // (b) applyChanges 入背包（主回合 applyChanges 早已跑完，这里必须自行入库）、(c) 重新持久化。全程 activeId 守卫防串档。
+        // 按【捕获的插入 index】定位该页（appendPage 不赋 id，不能用 findIndex(id)）：append 取 pages 末位、replace 取被替换位；
+        // setPageInventoryChanges 自带越界守卫，期间该页若被删则静默放弃。skipInventoryNarrativeCheck 即 pages.length<=1 序章首回合标志。
+        if (
+          skipInventoryNarrativeCheck &&
+          (!newPage.inventoryChanges || newPage.inventoryChanges.length === 0) &&
+          settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()
+        ) {
+          const aidSI = useChatStore.getState().activeId;
+          const siPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+          const sheet = useCharSheetStore.getState().sheet;
+          const prologue = useBookStore.getState().pages[0];
+          const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
+          const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
+          void (async () => {
+            try {
+              const { changes } = await generateStartingItems(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              if (changes.length === 0 || useChatStore.getState().activeId !== aidSI) return;
+              useBookStore.getState().setPageInventoryChanges(siPageIdx, changes);
+              useInventoryStore.getState().applyChanges(changes);
+              if (useChatStore.getState().activeId === aidSI) useChatStore.getState().savePages(useBookStore.getState().pages);
+              if (aidSI && useChatStore.getState().activeId === aidSI) await saveConversation(aidSI);
+              pushLog('info', `[起始物品] 已为序章配备 ${changes.length} 件起始随身物品：${changes.map((c) => c.name).join('、')}`, 'system');
+            } catch (e) {
+              pushLog('warn', `[起始物品] 生成失败（本局无起始装备）：${e instanceof Error ? e.message : String(e)}`, 'api');
+            }
+          })();
+        }
 
         // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
         // 此前点选项时只 stash 不记录，故未提交/提交失败的掷骰不会污染检定记录面板。
