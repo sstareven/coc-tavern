@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
 export const CURRENT_VERSION = 'v1.7.1';
@@ -270,6 +271,8 @@ const RELEASES: Release[] = [
 
 export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
+  // 唯一例外：更新日志不随「界面缩放」放大——施加反向 zoom 抵消根元素 zoom（嵌套相乘 S×(1/S)=1）。
+  const uiScale = useSettingsStore((s) => s.uiScale);
 
   useEffect(() => {
     const seen = kvGet(CHANGELOG_KEY);
@@ -294,6 +297,7 @@ export function ChangelogModal() {
       position: 'fixed', inset: 0, zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+      zoom: uiScale === 1 ? undefined : 1 / uiScale,
     }}>
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
