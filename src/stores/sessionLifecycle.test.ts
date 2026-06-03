@@ -10,7 +10,8 @@ import { useMapStore } from './useMapStore';
 import { useLocationElementStore } from './useLocationElementStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeyClueStore } from './useKeyClueStore';
-import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation } from './sessionLifecycle';
+import { useAnchorStore } from './useAnchorStore';
+import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation, switchConversation } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
 import { db } from '../db/database';
 import type { BookPage, CharacterSheet } from '../types';
@@ -266,11 +267,13 @@ describe('开新游戏的跨存档隔离（clues/npc/map/darkThread 不泄漏进
     await Promise.all([
       db.clues.clear(), db.npcProfiles.clear(),
       db.mapLocations.clear(), db.mapEdges.clear(),
+      db.plotAnchors.clear(),
     ]);
     useClueStore.getState().clearAll();
     useNpcStore.getState().clearAll();
     useMapStore.getState().clearAll();
     useDarkThreadStore.getState().clearAll();
+    useAnchorStore.getState().clearAll();
     useChatStore.setState({ sessions: [], activeId: null });
   });
 
@@ -306,6 +309,25 @@ describe('开新游戏的跨存档隔离（clues/npc/map/darkThread 不泄漏进
     // A 的数据不丢：切走前已由 saveConversation(a) 落库
     expect((await db.clues.where('conversationId').equals(a).toArray()).length).toBeGreaterThan(0);
     expect((await db.npcProfiles.where('conversationId').equals(a).toArray()).length).toBeGreaterThan(0);
+  });
+
+  it('正玩存档A时开新游戏B：B不继承A的剧情锚点；切回A可恢复', async () => {
+    const a = startNewConversation('A');
+    useChatStore.getState().setActive(a);
+    useAnchorStore.getState().setAnchors({
+      nodes: [{ id: 'n1', title: '抵达极地', description: '到达死城' }],
+      constraints: ['威胁在极地爆发'],
+      threatDependencies: ['船只补给'],
+    });
+    await saveConversation(a);
+
+    const b = startNewConversation('B');
+    expect(useAnchorStore.getState().anchors.nodes).toHaveLength(0); // B 不继承
+    expect(await db.plotAnchors.get(b)).toBeUndefined();
+
+    await switchConversation(a); // 切回 A 恢复
+    expect(useAnchorStore.getState().anchors.nodes).toHaveLength(1);
+    expect(useAnchorStore.getState().anchors.constraints).toContain('威胁在极地爆发');
   });
   // 切档时若 loadConversation 的只读事务抛错（DB 损坏/迁移不全等），clearAllGameState 必须仍已执行——
   // 否则上一会话(A)的 clues/npc/map 残留内存、而 activeId 已切到 B → 下次保存把 A 数据写进 B = 污染。
