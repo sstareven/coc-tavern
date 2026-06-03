@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stripCjkGluedEnglish, collapseRepeatedPunctuation, sanitizeNarrative } from './sanitize-narrative';
+import { stripCjkGluedEnglish, collapseRepeatedPunctuation, sanitizeNarrative, normalizeKeywordBraces } from './sanitize-narrative';
 
 describe('stripCjkGluedEnglish', () => {
   it('剥除中文紧贴的英文释义（含无空格连写与空格分词）', () => {
@@ -36,6 +36,19 @@ describe('collapseRepeatedPunctuation', () => {
   it('保留省略号与不同标点组合', () => {
     expect(collapseRepeatedPunctuation('沉默……')).toBe('沉默……');      // 省略号不动
     expect(collapseRepeatedPunctuation('真的吗？！')).toBe('真的吗？！');  // 不同标点保留
+  });
+});
+
+describe('normalizeKeywordBraces', () => {
+  it('修复嵌套+引号黏连畸形花括号', () => {
+    expect(normalizeKeywordBraces('你来到{{「{{南极}}」}}的边缘')).toBe('你来到{{南极}}的边缘');
+    expect(normalizeKeywordBraces('{{{{死灵之书}}}}')).toBe('{{死灵之书}}');
+    expect(normalizeKeywordBraces('{{「阿卡姆」}}')).toBe('{{阿卡姆}}');
+  });
+  it('保留合法写法', () => {
+    expect(normalizeKeywordBraces('走进{{阿卡姆}}的街道')).toBe('走进{{阿卡姆}}的街道');
+    expect(normalizeKeywordBraces('「{{南极}}」很冷')).toBe('「{{南极}}」很冷');
+    expect(normalizeKeywordBraces('他说「危险」')).toBe('他说「危险」');
   });
 });
 

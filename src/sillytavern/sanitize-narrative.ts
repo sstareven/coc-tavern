@@ -26,7 +26,23 @@ export function collapseRepeatedPunctuation(text: string): string {
   return text.replace(/([。！？，、；：])\1+/g, '$1');
 }
 
-/** 正文/选项统一净化：剥中英黏连 + 折叠重复标点。 */
+/**
+ * 归一化关键词高亮花括号 `{{...}}`，修复 LLM 产出的嵌套/引号黏连畸形（如 `{{「{{南极}}」}}`、孤儿 `」}}`）。
+ * 关键词高亮约定是单层 `{{词}}`；本函数：
+ *  - 去掉与花括号【内侧黏连】的中文引号外壳：`{{「`→`{{`、`」}}`→`}}`（保留 `「{{词}}」` 这种引号在外的合法写法）。
+ *  - 折叠连续/嵌套花括号：多个 `{{` 折为一个、多个 `}}` 折为一个。
+ * 例：`{{「{{南极}}」}}` → `{{南极}}`。
+ */
+export function normalizeKeywordBraces(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\{\{\s*[「『]/g, '{{')
+    .replace(/[」』]\s*\}\}/g, '}}')
+    .replace(/\{\{(?:\s*\{\{)+/g, '{{')
+    .replace(/(?:\}\}\s*)+\}\}/g, '}}');
+}
+
+/** 正文/选项统一净化：剥中英黏连 + 折叠重复标点 + 归一化关键词花括号。 */
 export function sanitizeNarrative(text: string): string {
-  return collapseRepeatedPunctuation(stripCjkGluedEnglish(text));
+  return normalizeKeywordBraces(collapseRepeatedPunctuation(stripCjkGluedEnglish(text)));
 }
