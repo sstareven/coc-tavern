@@ -15,7 +15,8 @@ function patchCombatant(enc: Encounter, id: string, patch: Partial<Combatant>): 
 function byId(enc: Encounter, id: string | null): Combatant | undefined {
   return enc.combatants.find((c) => c.id === id);
 }
-function alive(c: Combatant): boolean { return !c.flags.dead && !c.flags.unconscious; }
+function alive(c: Combatant): boolean { return !c.flags.dead && !c.flags.unconscious && !c.flags.fled; }
+function hostileTo(a: Combatant, b: Combatant): boolean { return (a.faction === 'enemy') !== (b.faction === 'enemy'); }
 
 function log(enc: Encounter, text: string, kind: CombatLogEntry['kind'] = 'roll'): Encounter {
   return { ...enc, log: [...enc.log, { kind, text }] };
@@ -34,7 +35,10 @@ export function checkEndReason(enc: Encounter): CombatEndReason | null {
   const player = enc.combatants.find((c) => c.faction === 'player');
   const friendlies = enc.combatants.filter((c) => c.faction !== 'enemy');
   if (player && (player.flags.dead || player.flags.dying || player.flags.unconscious)) return 'defeat';
-  if (enemies.length > 0 && enemies.every((e) => !alive(e))) return 'victory';
+  if (enemies.length > 0 && enemies.every((e) => !alive(e))) {
+    // 全部敌人离场：全被击毙→victory；含逃走/撤退者→enemy_retreat。
+    return enemies.every((e) => e.flags.dead) ? 'victory' : 'enemy_retreat';
+  }
   if (friendlies.every((f) => !alive(f))) return 'defeat';
   return null;
 }
@@ -111,9 +115,21 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
   if (!ai || !alive(ai) || ai.controlledBy !== 'ai') return enc;
   const action = decideAiAction(ai, enc, rng);
   if (action.type === 'flee') {
-    // 逃跑：标记离场(置 dead 以移出战斗，叙事为撤离)
-    enc = patchCombatant(enc, aiId, { flags: { ...ai.flags, dead: true } });
-    return log(enc, `${ai.name} 脱离了战斗`, 'narrative');
+    // 逃跑需 MOV/速度结算：比所有敌对存活者都快 → 直接脱离；否则掷 CON 速度检定，成功才逃脱、失败被拦下(留在场继续)。
+    const opponents = enc.combatants.filter((c) => hostileTo(ai, c) && alive(c));
+    const maxOppMov = opponents.reduce((m, c) => Math.max(m, c.mov), 0);
+    let escaped = ai.mov > maxOppMov;
+    if (!escaped) {
+      const r = d100WithDice(0, 0, rng);
+      const lvl = successLevel(r.finalRoll, ai.con);
+      escaped = lvl !== 'fail' && lvl !== 'fumble';
+      enc = rec(enc, { skill: `${ai.name}·速度检定`, roll: String(r.finalRoll), target: String(ai.con), type: 'normal', purpose: '速度检定' });
+    }
+    if (escaped) {
+      enc = patchCombatant(enc, aiId, { flags: { ...ai.flags, fled: true } });
+      return log(enc, `${ai.name} 成功脱离了战斗`, 'narrative');
+    }
+    return log(enc, `${ai.name} 想要逃跑，却被拦了下来`, 'narrative');
   }
   return performAttack(enc, aiId, action.targetId, 0, rng);
 }

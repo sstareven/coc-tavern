@@ -199,7 +199,7 @@ export function outnumberBonusDice(defender: Combatant): number {
 /** 行动顺序：DEX 降序（同 DEX 时格斗高者先，再按 id 稳定）。 */
 export function nextTurnOrder(combatants: Combatant[]): string[] {
   return [...combatants]
-    .filter((c) => !c.flags.dead && !c.flags.unconscious)
+    .filter((c) => !c.flags.dead && !c.flags.unconscious && !c.flags.fled)
     .sort((a, b) => (b.dex - a.dex) || (b.fighting - a.fighting) || (a.id < b.id ? -1 : 1))
     .map((c) => c.id);
 }
@@ -212,7 +212,7 @@ export type AiAction =
  *  d100 ≤ fleeChance→逃；否则攻击敌对阵营存活目标(HP 最低优先)。无敌可打→撤。 */
 export function decideAiAction(self: Combatant, enc: Encounter, rng: Rng = defaultRng): AiAction {
   const hostile = self.faction === 'enemy' ? ['player', 'ally'] : ['enemy'];
-  const targets = enc.combatants.filter((c) => hostile.includes(c.faction) && !c.flags.dead && !c.flags.unconscious);
+  const targets = enc.combatants.filter((c) => hostile.includes(c.faction) && !c.flags.dead && !c.flags.unconscious && !c.flags.fled);
   if (targets.length === 0) return { type: 'flee' };
   const attack = self.tendency?.attack ?? 0;
   const flee = self.tendency?.flee ?? 0;

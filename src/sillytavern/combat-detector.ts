@@ -77,10 +77,11 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     controlledBy: 'player',
     dex: c.DEX, str: c.STR, siz: c.SIZ, con: c.CON, mov: sheet.secondary.mov,
     fighting, dodge, firearm,
+    damageBonus: sheet.secondary.db || '0',
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: 0,
     weapons: [unarmed, ...mapInventoryToWeapons(items, fighting, firearm)],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
     roundDefenses: 0,
   };
 }
@@ -119,10 +120,11 @@ function normalizeCombatant(raw: Record<string, unknown>, faction: CombatFaction
     dex: num(raw.dex, 50), str: num(raw.str, 50), siz: num(raw.siz, 50), con: num(raw.con, 50),
     mov: num(raw.mov, 8),
     fighting, dodge: num(raw.dodge, 25), firearm,
+    damageBonus: str(raw.db, '0'),
     hp: maxHp, maxHp,
     armor: num(raw.armor, 0),
     weapons,
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
     tendency: { attack: num((raw.tendency as Record<string, unknown> | undefined)?.attack, 70), flee: num((raw.tendency as Record<string, unknown> | undefined)?.flee, 20) },
     roundDefenses: 0,
   };

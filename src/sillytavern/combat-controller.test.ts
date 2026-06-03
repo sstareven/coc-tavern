@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -11,7 +11,7 @@ function mkC(over: Partial<Combatant>): Combatant {
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 25, damageBonus: '0',
     hp: 10, maxHp: 10, armor: 0,
     weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
     roundDefenses: 0,
     ...over,
   } as Combatant;
@@ -60,6 +60,25 @@ describe('playerFlee', () => {
     const out = playerFlee(enc, seqRng([0.0, 0.1])); // d100=10 ≤60 成功
     expect(out.status).toBe('resolving');
     expect(out.endReason).toBe('flee');
+  });
+});
+
+describe('runAiTurn 逃跑（MOV/速度结算）', () => {
+  it('MOV 不占优 → 速度检定成功则 fled(非 dead)', () => {
+    const enemy = mkC({ id: 'e', faction: 'enemy', mov: 5, con: 50, tendency: { attack: 10, flee: 90 } });
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', mov: 10 });
+    const enc = mkEnc([enemy, player], 'p');
+    // decideAiAction roll=1≤fleeChance(90)→逃；MOV 5≤10→CON 速度检定 d100=10≤50 成功→fled
+    const out = runAiTurn(enc, 'e', seqRng([0.0, 0.0, 0.1]));
+    const e2 = out.combatants.find((c) => c.id === 'e')!;
+    expect(e2.flags.fled).toBe(true);
+    expect(e2.flags.dead).toBe(false);
+  });
+  it('MOV 占优 → 直接脱离(不掷检定)', () => {
+    const enemy = mkC({ id: 'e', faction: 'enemy', mov: 12, tendency: { attack: 0, flee: 100 } });
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', mov: 7 });
+    const out = runAiTurn(mkEnc([enemy, player], 'p'), 'e', seqRng([0.0]));
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.fled).toBe(true);
   });
 });
 

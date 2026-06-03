@@ -666,6 +666,8 @@ export interface CombatantFlags {
   dead: boolean;
   prone: boolean;
   weaponJammed: boolean;
+  /** 已逃离/脱离战斗（区别于倒下/死亡——显示「脱离」而非「倒下」）。 */
+  fled: boolean;
 }
 
 export interface Combatant {
