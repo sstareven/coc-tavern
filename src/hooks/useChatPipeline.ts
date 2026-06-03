@@ -450,6 +450,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
         baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
       }
+      // 注入「当前随身物品」清单：让 LLM 知道调查员实际持有什么，生成行动选项时不再凭空让玩家使用未拥有的物品
+      // （如背包没相机却给「使用相机」选项——根因是物品清单此前只进世界书匹配 contextText、从不进消息体）。
+      // 空背包也注入「空」提示——此时任何「使用某物」选项都更应避免。物品使用约束规则见 FORMAT_INSTRUCTION 重要物品约束段。
+      if (!formatOverride) {
+        const invSummary = useInventoryStore.getState().buildInventorySummary();
+        baseFormat += '\n\n' + (invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
+      }
       // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
       if (!formatOverride) {
         const npcCtx = useNpcStore.getState().buildContextInjection();
