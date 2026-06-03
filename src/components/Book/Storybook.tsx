@@ -13,6 +13,7 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
+import { useKeyClueStore } from '../../stores/useKeyClueStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -157,6 +158,7 @@ export function Storybook() {
     useMapStore.getState().clearAll();
     useLocationElementStore.getState().clearAll();
     useDarkThreadStore.getState().clearAll();
+    useKeyClueStore.getState().clearAll();
 
     for (const p of remaining) {
       if (p.inventoryChanges?.length) useInventoryStore.getState().applyChanges(p.inventoryChanges);

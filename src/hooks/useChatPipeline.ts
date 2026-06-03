@@ -8,6 +8,7 @@ import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
+import { useKeyClueStore } from '../stores/useKeyClueStore';
 import { LOCATION_ELEMENT_CAP } from '../stores/useLocationElementStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
@@ -15,6 +16,7 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
+import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
@@ -53,7 +55,7 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -270,7 +272,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       // Dark thread context (bypasses keyword matching)
       const darkThreadBucket: LoreEntry[] = [];
-      const darkCtx = useDarkThreadStore.getState().buildContextInjection();
+      const saveWorldMode = useKeyClueStore.getState().saveWorldMode;
+      const darkCtx = useDarkThreadStore.getState().buildContextInjection(saveWorldMode);
       if (darkCtx) {
         darkThreadBucket.push({
           name: '暗线状态', keys: '', content: darkCtx,
@@ -458,6 +461,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const locElemCtx = useLocationElementStore.getState().buildContextInjection(curLocName);
           if (locElemCtx) baseFormat += '\n\n' + locElemCtx;
         }
+      }
+      // 拯救世界系统注入。
+      if (!formatOverride) {
+        // 真相支柱进度（守秘人机密引导，引导剧情逐步让玩家逼近未揭示支柱；绝不泄露原文给玩家）。
+        const pillarCtx = useKeyClueStore.getState().buildContextInjection();
+        if (pillarCtx) baseFormat += '\n\n' + pillarCtx;
+        // 拯救世界模式：集齐 3 关键线索后进入与暗线赛跑的终局。
+        if (saveWorldMode) baseFormat += '\n\n' + SAVE_WORLD_INSTRUCTION;
+        // 序章首幕：结合本局谜题向调查员点明核心目标（纯叙事，无截断风险）。
+        if (useBookStore.getState().pages.length <= 1) baseFormat += '\n\n' + PROLOGUE_GOAL_INSTRUCTION;
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
@@ -922,30 +935,33 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 坏结局（守秘人机密，暗线终点）：本局尚无 → 回合后用【独立 LLM 调用】据情境生成，
         // 与主回合输出彻底解耦，绝不挤占主 JSON（修复其曾导致 clues/npc/map 被截断的回归）。
         // fire-and-forget；含会话守卫；后日谈不生成；需 API 配置齐全。
-        if (!useDarkThreadStore.getState().badEnding && !isEpilogue) {
-          if (result.badEnding) {
-            // 兼容快路径：模型本回合恰好直出了 badEnding（一般不会，因已不再注入指令），直接采用、省一次调用。
-            useDarkThreadStore.getState().setBadEnding({ description: result.badEnding, createdAt: Date.now() });
-            pushLog('info', `[坏结局] 采用模型直出的坏结局（暗线终点）: ${result.badEnding}`, 'system');
-          } else if (settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
-            const aidBE = useChatStore.getState().activeId;
-            const sheet = useCharSheetStore.getState().sheet;
-            const recent = useBookStore.getState().pages.slice(-3).map((p) => p.leftContent).filter(Boolean).join('\n');
-            const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n近期情节：\n${recent || newPage.leftContent}`;
-            void (async () => {
-              try {
-                const { description } = await generateBadEnding(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
-                if (!description) return;
-                if (useDarkThreadStore.getState().badEnding) return; // 期间已生成
-                if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
+        if ((!useDarkThreadStore.getState().badEnding || useKeyClueStore.getState().pillars.length === 0) && !isEpilogue
+            && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+          const aidBE = useChatStore.getState().activeId;
+          const sheet = useCharSheetStore.getState().sheet;
+          const recent = useBookStore.getState().pages.slice(-3).map((p) => p.leftContent).filter(Boolean).join('\n');
+          const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n近期情节：\n${recent || newPage.leftContent}`;
+          void (async () => {
+            try {
+              // 一次产出：坏结局（灾厄终点）+ 3 真相支柱（破局所需，守秘人机密）。
+              const { description, pillars } = await generateBadEnding(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
+              let changed = false;
+              if (description && !useDarkThreadStore.getState().badEnding) {
                 useDarkThreadStore.getState().setBadEnding({ description, createdAt: Date.now() });
-                if (aidBE) await saveConversation(aidBE);
+                changed = true;
                 pushLog('info', `[坏结局] 本局坏结局已生成（暗线终点，守秘人机密）: ${description}`, 'system');
-              } catch (e) {
-                pushLog('warn', `[坏结局] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
-            })();
-          }
+              if (pillars.length > 0 && useKeyClueStore.getState().pillars.length === 0) {
+                useKeyClueStore.getState().setPillars(pillars.map((p) => ({ id: crypto.randomUUID(), title: p.title, secret: p.secret, uncovered: false })));
+                changed = true;
+                pushLog('info', `[关键线索] 本局 3 真相支柱已生成（守秘人机密）: ${pillars.map((p) => p.title).join(' / ')}`, 'system');
+              }
+              if (changed && aidBE) await saveConversation(aidBE);
+            } catch (e) {
+              pushLog('warn', `[坏结局/支柱] 生成失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+            }
+          })();
         }
 
         // 独立线索库
@@ -954,6 +970,38 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('debug', `[Pipeline] 线索更新(${result.clues.length}): ${result.clues.map((c) => c.name).join(', ')}`, 'system');
         } else {
           pushLog('debug', '[Pipeline] 本回合无新线索(result.clues 为空)', 'system');
+        }
+
+        // 关键线索评估：本回合有新线索 && 尚有未揭示真相支柱 && 未进入拯救模式 && API → 解耦判定哪些线索揭示了哪个支柱。
+        // 命中即标记支柱已揭示 + 给线索打关键标记；揭满 3 个 → markPillarUncovered 内部置 saveWorldMode。fire-and-forget + 会话守卫。
+        {
+          const kc = useKeyClueStore.getState();
+          const unsolved = kc.pillars.filter((p) => !p.uncovered);
+          if (result.clues && result.clues.length > 0 && unsolved.length > 0 && !kc.saveWorldMode
+              && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+            const aidKC = useChatStore.getState().activeId;
+            const newClues = result.clues.map((c) => ({ name: c.name, summary: c.summary ?? '', discoveryNarrative: c.discoveryNarrative }));
+            const pillarsForEval = unsolved.map((p) => ({ id: p.id, title: p.title, secret: p.secret }));
+            void (async () => {
+              try {
+                const { matches } = await evaluateKeyClues(pillarsForEval, newClues, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+                if (matches.length === 0 || useChatStore.getState().activeId !== aidKC) return;
+                const wasSaveWorld = useKeyClueStore.getState().saveWorldMode;
+                for (const m of matches) {
+                  useKeyClueStore.getState().markPillarUncovered(m.pillarId, m.clueName);
+                  useClueStore.getState().markClueKey(m.clueName, m.pillarId);
+                }
+                const kcAfter = useKeyClueStore.getState();
+                pushLog('info', `[关键线索] 本回合揭示 ${matches.length} 个真相支柱（已揭示 ${kcAfter.uncoveredCount()}/3）`, 'system');
+                if (!wasSaveWorld && kcAfter.saveWorldMode) {
+                  pushLog('info', '[拯救世界] 已集齐 3 条关键线索——开启拯救世界模式，与暗线灾厄赛跑！', 'system');
+                }
+                if (aidKC) await saveConversation(aidKC);
+              } catch (e) {
+                pushLog('warn', `[关键线索] 评估失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         // 活跃线索超上限 → 推进过程中自动归并成 1-3 条总结（后台进行，不阻塞本回合渲染；

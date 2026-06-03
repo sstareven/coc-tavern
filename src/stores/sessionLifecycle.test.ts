@@ -9,6 +9,7 @@ import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
 import { useLocationElementStore } from './useLocationElementStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
+import { useKeyClueStore } from './useKeyClueStore';
 import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
 import { db } from '../db/database';
@@ -457,5 +458,80 @@ describe('地点元素(locationElements)持久化 + 跨会话隔离', () => {
 
     await deleteConversation(a);
     expect(await db.locationElements.where('conversationId').equals(a).toArray()).toHaveLength(0);
+  });
+});
+
+describe('拯救世界·关键线索(keyClues)持久化 + 跨会话隔离', () => {
+  beforeEach(async () => {
+    await clearDb();
+    await db.keyClues.clear();
+    useKeyClueStore.getState().clearAll();
+    useChatStore.setState({ sessions: [], activeId: null });
+  });
+
+  function seedPillars() {
+    useKeyClueStore.getState().setPillars([
+      { id: 'p1', title: '凶手身份', secret: '镇长', uncovered: true, uncoveredByClue: '密信' },
+      { id: 'p2', title: '手段', secret: '仪式', uncovered: false },
+      { id: 'p3', title: '弱点', secret: '金徽', uncovered: false },
+    ]);
+  }
+
+  it('真相支柱 + 揭示状态 save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+
+    useKeyClueStore.getState().clearAll();
+    expect(useKeyClueStore.getState().pillars).toHaveLength(0);
+
+    await loadConversation(a);
+    const kc = useKeyClueStore.getState();
+    expect(kc.pillars).toHaveLength(3);
+    expect(kc.uncoveredCount()).toBe(1);
+    expect(kc.pillars[0]).toMatchObject({ id: 'p1', uncovered: true, uncoveredByClue: '密信' });
+  });
+
+  it('saveWorldMode save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useKeyClueStore.getState().setPillars([
+      { id: 'p1', title: 't1', secret: 's1', uncovered: false },
+      { id: 'p2', title: 't2', secret: 's2', uncovered: false },
+      { id: 'p3', title: 't3', secret: 's3', uncovered: false },
+    ]);
+    useKeyClueStore.getState().markPillarUncovered('p1', 'c1');
+    useKeyClueStore.getState().markPillarUncovered('p2', 'c2');
+    useKeyClueStore.getState().markPillarUncovered('p3', 'c3'); // 第 3 个 → 触发 saveWorldMode
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(true);
+    await saveConversation(a);
+
+    useKeyClueStore.getState().clearAll();
+    await loadConversation(a);
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(true);
+  });
+
+  it('切到无支柱的会话 → 重置为空(不残留上一会话)', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(useKeyClueStore.getState().pillars).toHaveLength(0);
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(false);
+  });
+
+  it('删除会话时一并清除其 keyClues 行', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+    expect(await db.keyClues.get(a)).toBeDefined();
+
+    await deleteConversation(a);
+    expect(await db.keyClues.get(a)).toBeUndefined();
   });
 });

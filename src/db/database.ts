@@ -10,6 +10,7 @@ import type {
   MapLocation,
   MapEdge,
   LocationElement,
+  KeyPillar,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
@@ -86,6 +87,13 @@ export interface DarkEndingRow {
   ending: BadEnding;
 }
 
+// 拯救世界系统：本局真相支柱 + 拯救模式，一行/会话（守秘人机密）。
+export interface KeyClueRow {
+  conversationId: string;
+  pillars: KeyPillar[];
+  saveWorldMode: boolean;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -102,6 +110,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   mapEdges: EntityTable<MapEdgeRow>;
   locationElements: EntityTable<LocationElementRow>;
   darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
+  keyClues: EntityTable<KeyClueRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -164,6 +173,14 @@ export const V7_SCHEMA = {
 } as const;
 
 db.version(7).stores(V7_SCHEMA);
+
+/** v8: 新增「拯救世界」关键线索/真相支柱单行表（一行/会话，无数据迁移）。 */
+export const V8_SCHEMA = {
+  ...V7_SCHEMA,
+  keyClues: '&conversationId',
+} as const;
+
+db.version(8).stores(V8_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

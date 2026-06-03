@@ -198,6 +198,22 @@ export interface Clue {
   evolvedIntoId?: string;
   /** 显著程度：major 为演化出的更关键线索，UI 高亮、注入加★ */
   tier?: 'normal' | 'major';
+  /** 关键线索标记：本线索揭示的「真相支柱」id（拯救世界系统）。非空即为关键线索。 */
+  keyPillarId?: string;
+}
+
+// ===== 拯救世界系统（关键线索 / 真相支柱）=====
+/** 真相支柱：开局生成的守秘人机密，揭示全部 3 个即开启拯救世界模式。 */
+export interface KeyPillar {
+  id: string;
+  /** 简短标题（守秘人视角，如「凶手身份」）。 */
+  title: string;
+  /** 该支柱的机密真相内容（绝不向玩家泄露原文）。 */
+  secret: string;
+  /** 是否已被某线索揭示。 */
+  uncovered: boolean;
+  /** 揭示它的线索名（展示/回溯用）。 */
+  uncoveredByClue?: string;
 }
 
 // ===== Map System（地点有向连线网络）=====
