@@ -38,6 +38,7 @@ import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewr
 import { buildKeywordInjection } from '../sillytavern/keyword-injection';
 import { formatStatDataYaml } from '../sillytavern/mvu-format';
 import { filterAlreadyAcquiredAdds } from '../sillytavern/item-acquisition';
+import { sfxDing } from '../audio/sfx';
 import { processSlashCommands, getCommands } from '../sillytavern/slash-commands';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { resolveAllMacrosBatch, type MacroContext } from '../sillytavern/unified-macro-engine';
@@ -1118,6 +1119,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Reads live in-memory stores, so no snapshot object needed here.
         chatStore.savePages(useBookStore.getState().pages);
         if (chatStore.activeId) void saveConversation(chatStore.activeId);
+        // 生成成功结束：发出「叮」提醒（即便玩家已切到后台标签页也能听见——Web Audio 不受后台节流影响）。
+        // 受全局 soundEnabled 门控；仅主生成成功路径触发，中止/报错走 false 分支不会误响。
+        if (useSettingsStore.getState().soundEnabled) {
+          try { sfxDing(); } catch { /* audio 不可用时静默 */ }
+        }
         return true;
       } catch (err) {
         // 用户主动取消/重新生成/卸载触发的中止不是失败，静默返回。
