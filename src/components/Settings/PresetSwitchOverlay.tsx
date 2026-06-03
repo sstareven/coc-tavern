@@ -29,14 +29,6 @@ const PRESET_BAR: { label: string; presetId: string; chain: string | null }[] = 
   { label: 'GLM', presetId: FUSION_XY_ID, chain: CHAIN_GLM },
 ];
 
-// 「推荐」按钮一键勾选的功能项（按 option.name 匹配，两版预设通用，所有模型相同）。
-// 增量勾选——只把这些设为开启、绝不重置玩家其它开关（解决「切版本被迫重选/重置」痛点）。
-// 想扩充推荐集，只需在此追加 option.name（取自 fusion-menu 的 name 原文，含 emoji）。
-const RECOMMENDED_OPTION_NAMES = [
-  '🗺️真实世界',        // 推演规则 · 真实世界
-  '📊事实增强@pigment', // 角色质感塑造(RSD) · 事实增强
-];
-
 function loadCollapsed(): Set<string> | null {
   const raw = kvGet(COLLAPSE_KEY);
   if (!raw) return null;
@@ -126,10 +118,6 @@ export function PresetSwitchOverlay() {
     setEnabledByName(new Set(names), (name) => !turningOff && name === o.name);
   };
 
-  // 「推荐」：一键把 RECOMMENDED_OPTION_NAMES 增量勾上（仅开启这些、不动其它开关），即时保存。
-  // 与「选模型」是两类行为——不切预设/不切思维链、不重置玩家已有勾选；故按钮用绿色文本区分于金色模型栏。
-  const applyRecommended = () => setEnabledByName(new Set(RECOMMENDED_OPTION_NAMES), () => true);
-
   // 切换核心驱动模型 = 切到最适配该模型的预设（按需补种，向斜阳版里开对应思维链）。
   const switchPreset = async (targetPresetId: string, chain: string | null) => {
     let saved: Record<string, ChatPreset> = {};
@@ -218,23 +206,10 @@ export function PresetSwitchOverlay() {
               <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 2 }}>双人成行</div>
               <div style={{ color: 'var(--ink-subtle)', fontSize: 10.5, marginTop: 3 }}>{presetName} · 已开 {totalOn}/{totalExist}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={applyRecommended} title="一键勾选推荐选项（真实世界 · 事实增强），仅增量开启、不影响你的其它开关"
-                style={{
-                  background: 'transparent', border: '1px solid var(--success)', color: 'var(--success)',
-                  borderRadius: 4, padding: '6px 13px', fontSize: 12, cursor: 'pointer', letterSpacing: 2,
-                  fontFamily: 'var(--font-body)', lineHeight: 1, transition: 'var(--transition-smooth)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(90,171,122,0.16)'; e.currentTarget.style.color = 'var(--success-bright)'; e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--success)'; e.currentTarget.style.borderColor = 'var(--success)'; e.currentTarget.style.transform = 'scale(1)'; }}
-                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
-                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-              >推荐</button>
-              <button onClick={closeAll} aria-label="关闭" style={{
-                background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-                borderRadius: 4, width: 30, height: 30, fontSize: 15, cursor: 'pointer', lineHeight: 1,
-              }}>✕</button>
-            </div>
+            <button onClick={closeAll} aria-label="关闭" style={{
+              background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
+              borderRadius: 4, width: 30, height: 30, fontSize: 15, cursor: 'pointer', lineHeight: 1,
+            }}>✕</button>
           </div>
 
           {!q && (
