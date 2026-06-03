@@ -1,10 +1,11 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
-import { nextTurnOrder } from './combat-engine';
+import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
+import { parseNpcDerived } from './npc-derived';
 import type {
-  CharacterSheet, InventoryItem, Combatant, CombatWeapon, CombatBystander, Encounter, CombatFaction,
+  CharacterSheet, InventoryItem, Combatant, CombatWeapon, CombatBystander, Encounter, CombatFaction, NpcProfile,
 } from '../types';
 
 /** 触发战斗检测的廉价启发式：叙事含暴力/冲突线索才值得调 LLM（省 token，宁漏检不误检）。 */
@@ -84,6 +85,70 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
 
 const num = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d: string): string => (typeof v === 'string' && v.trim() ? v.trim() : d);
+
+/** 把 NPC 随身物品名（string[]）映射成 CombatWeapon：仅纳入 COC7e 武器表能识别的（非武器忽略），命中由 resolveSkill 从 NPC 技能取。 */
+export function mapNamesToWeapons(names: string[], resolveSkill: (keys: string[], fallback: number) => number): CombatWeapon[] {
+  const out: CombatWeapon[] = [];
+  for (const name of names) {
+    const tpl = matchWeaponTemplate(name);
+    if (!tpl) continue; // possessions 含大量非武器，仅识别武器表内条目
+    out.push({
+      name,
+      skill: resolveSkill(tpl.skillKeys, tpl.ranged ? 20 : 25),
+      damage: tpl.damage,
+      impaling: tpl.impaling,
+      ranged: tpl.ranged,
+      baseRange: tpl.baseRange,
+      attacksPerRound: tpl.attacksPerRound,
+      loadedAmmo: tpl.ranged ? tpl.magazine : undefined,
+      magazine: tpl.ranged ? tpl.magazine : undefined,
+      ammoItemName: tpl.ranged ? '子弹' : undefined,
+    });
+  }
+  return out;
+}
+
+const FIREARM_KEYS = ['枪械(手枪)', '枪械(步枪/霰弹枪)', '枪械', '射击'];
+
+/**
+ * 据名册 NPC 构建【敌方】Combatant（玩家主动攻击/战技时建场用，AI 操控）。
+ * 属性缺 50，技能按别名兜底（fighting 40 / dodge 25），HP/DB/MOV 走 parseNpcDerived（解析不到再推算），
+ * 武器由 possessions 经武器表映射 + 恒在的徒手。倾向据 favorability：≤-30 好斗，否则中性。
+ */
+export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
+  const ch = npc.characteristics ?? {};
+  const derived = parseNpcDerived(npc);
+  const resolve = (keys: string[], fallback: number): number => {
+    for (const k of keys) {
+      const v = npc.skills?.[k];
+      if (typeof v === 'number') return v;
+    }
+    return fallback;
+  };
+  const STR = num(ch.STR, 50), SIZ = num(ch.SIZ, 50), CON = num(ch.CON, 50), DEX = num(ch.DEX, 50);
+  const fighting = resolve(['格斗(斗殴)', '格斗', '斗殴', '近战'], 40);
+  const dodge = resolve(['躲闪', '闪避'], 25);
+  const firearm = FIREARM_KEYS.some((k) => typeof npc.skills?.[k] === 'number') ? resolve(FIREARM_KEYS, 40) : undefined;
+  const hp = derived.hp && derived.hp > 0 ? derived.hp : Math.max(1, Math.floor((CON + SIZ) / 10));
+  const db = derived.db ?? buildAndDamageBonus(STR, SIZ).db;
+  const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
+  const aggressive = npc.favorability <= -30;
+  return {
+    id: `npc-${npc.id}`,
+    name: npc.name || 'NPC',
+    faction: 'enemy',
+    controlledBy: 'ai',
+    dex: DEX, str: STR, siz: SIZ, con: CON, mov: derived.mov ?? 8,
+    fighting, dodge, firearm,
+    damageBonus: db,
+    hp, maxHp: hp,
+    armor: 0,
+    weapons: [unarmed, ...mapNamesToWeapons(npc.possessions ?? [], resolve)],
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    tendency: aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 },
+    roundDefenses: 0,
+  };
+}
 
 function normalizeWeapon(raw: Record<string, unknown>, defaultSkill: number): CombatWeapon {
   const ranged = raw.ranged === true;

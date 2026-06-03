@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performManeuver, playerManeuver } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -90,5 +90,51 @@ describe('advanceTurn', () => {
     expect(wrapped.round).toBe(2);
     expect(wrapped.currentIdx).toBe(0);
     expect(wrapped.combatants.every((c) => c.roundDefenses === 0)).toBe(true);
+  });
+});
+
+describe('performManeuver（COC7e 6.3 战技）', () => {
+  it('目标体格大攻方≥3 → 战技无效，不施加效果', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50 }); // build 0
+    const target = mkC({ id: 'e', faction: 'enemy', str: 150, siz: 150 });                          // 300 → build 4
+    const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'grapple', seqRng([0.5]));
+    const e2 = out.combatants.find((c) => c.id === 'e')!;
+    expect(e2.flags.prone).toBe(false);
+    expect(out.log.some((l) => l.text.includes('无效'))).toBe(true);
+  });
+
+  it('擒抱攻方胜 → 目标 prone，不致伤', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50, fighting: 80 });
+    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 30, hp: 12, maxHp: 12 });
+    // 攻 d100=10(极难成功) 守 d100=95(失败) → 攻方胜
+    const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'grapple', seqRng([0.0, 0.1, 0.5, 0.9]));
+    const e2 = out.combatants.find((c) => c.id === 'e')!;
+    expect(e2.flags.prone).toBe(true);
+    expect(e2.hp).toBe(12);
+  });
+
+  it('缴械攻方胜 → 目标 weaponJammed', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50, fighting: 80 });
+    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 30 });
+    const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'disarm', seqRng([0.0, 0.1, 0.5, 0.9]));
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.weaponJammed).toBe(true);
+  });
+
+  it('守方反击胜 → 攻方受伤', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50, fighting: 30, hp: 10, maxHp: 10 });
+    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 80, dodge: 5 }); // fighting≥dodge→反击
+    // 攻 d100=90(失败) 守 d100=10(极难成功) → 守方反击胜
+    const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'grapple', seqRng([0.0, 0.9, 0.0, 0.1]));
+    expect(out.combatants.find((c) => c.id === 'p')!.hp).toBeLessThan(10);
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.prone).toBe(false);
+  });
+});
+
+describe('playerManeuver', () => {
+  it('玩家击晕命中 → 目标 prone（回合推进后该效果仍在）', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dex: 90, str: 50, siz: 50, fighting: 90 });
+    const enemy = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 20, hp: 12, maxHp: 12, tendency: { attack: 0, flee: 0 } });
+    const out = playerManeuver(mkEnc([player, enemy], 'e'), 'knockout', seqRng([0.0, 0.1, 0.5, 0.9, 0.5, 0.5]));
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.prone).toBe(true);
   });
 });

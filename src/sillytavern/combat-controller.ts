@@ -1,9 +1,9 @@
-import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, DiceRecord, DiceResultType } from '../types';
+import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, DiceRecord, DiceResultType, ManeuverKind } from '../types';
 import {
   type Rng, type SuccessLevel,
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
-  consumeAmmo, canReload, canFire, d100WithDice,
+  consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
 } from './combat-engine';
 
 const defaultRng: Rng = Math.random;
@@ -175,6 +175,69 @@ export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defa
   const player = enc0.combatants.find((c) => c.faction === 'player');
   if (!player || !enc0.playerTargetId) return enc0;
   const enc = performAttack(enc0, player.id, enc0.playerTargetId, weaponIdx, rng);
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
+const MANEUVER_CN: Record<ManeuverKind, string> = { disarm: '缴械', grapple: '擒抱', shove: '推倒', knockout: '击晕' };
+const buildOf = (c: Combatant): number => buildAndDamageBonus(c.str, c.siz).build;
+
+/**
+ * 一次战技结算（COC7e 6.3）：①体格比较（目标比攻方大≥3→无效，否则差额转攻方惩罚骰，上限2）
+ * ②格斗 vs 闪避/反击 对抗 ③攻方胜施加 prone/weaponJammed 代理效果（不致伤），守方反击胜→攻方受伤。
+ */
+export function performManeuver(enc0: Encounter, attackerId: string, targetId: string, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
+  let enc = enc0;
+  const attacker = byId(enc, attackerId);
+  const target = byId(enc, targetId);
+  if (!attacker || !target || !alive(attacker) || !alive(target)) return enc;
+  const cn = MANEUVER_CN[kind];
+
+  // ① 体格比较：diff = 目标 build − 攻方 build
+  const diff = buildOf(target) - buildOf(attacker);
+  if (diff >= 3) return log(enc, `${attacker.name} 试图${cn} ${target.name}，但目标体格过于庞大，战技无效`);
+  const penaltyDice = Math.max(0, Math.min(2, diff)); // 目标更大→攻方惩罚骰
+
+  // ② 对抗：守方默认反击(格斗≥闪避且不逃)否则闪避
+  const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
+  const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
+  const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
+  const bonus = outnumberBonusDice(target);
+  const op = resolveOpposed(attacker.fighting, target.fighting, defenderValue, 0, defense, rng, bonus, penaltyDice);
+  enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
+  enc = rec(enc, { skill: `${attacker.name}·${cn}`, roll: String(op.attackerRoll.finalRoll), target: String(attacker.fighting), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: `战技-${cn}` });
+  enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
+  const atkLine = `${attacker.name} ${cn} d100=${op.attackerRoll.finalRoll}/${attacker.fighting}（${LEVEL_CN[op.attackerLevel]}）`;
+  const defLine = `${target.name} ${defense === 'dodge' ? '闪避' : '反击'} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
+
+  // ③ 效果
+  if (op.winner === 'attacker') {
+    const flags = { ...target.flags };
+    let effect: string;
+    if (kind === 'disarm') { flags.weaponJammed = true; effect = '武器被打落，暂不可用'; }
+    else if (kind === 'knockout') { flags.prone = true; effect = '被击晕，瘫倒在地'; }
+    else { flags.prone = true; effect = kind === 'grapple' ? '被擒抱压制在地' : '被推倒在地'; }
+    enc = patchCombatant(enc, targetId, { flags, roundDefenses: target.roundDefenses + 1 });
+    return log(enc, `${atkLine} 胜过 ${defLine} → ${target.name} ${effect}`);
+  }
+  if (op.winner === 'defender' && defense === 'fightback') {
+    const cw = target.weapons[0] ?? { name: '徒手', skill: target.fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
+    const dmg = rollDamage(cw, target.damageBonus ?? '0', false, rng).total; // 反击不贯穿
+    const hpBefore = attacker.hp;
+    const dr = applyDamage(attacker, dmg);
+    enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
+    return log(enc, `${defLine} 反击得手，压过 ${atkLine} → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
+  }
+  if (op.winner === 'defender') return log(enc, `${atkLine} 被 ${defLine} 化解`);
+  return log(enc, `${atkLine} 与 ${defLine} 均未得手`);
+}
+
+/** 玩家发起战技：对锁定目标 performManeuver，结算脱战，否则推进 AI 回合。 */
+export function playerManeuver(enc0: Encounter, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc0.playerTargetId) return enc0;
+  const enc = performManeuver(enc0, player.id, enc0.playerTargetId, kind, rng);
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);

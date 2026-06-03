@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { useDiceStore } from '../../stores/useDiceStore';
@@ -354,6 +354,18 @@ function fillInputBar(text: string, checkText: string = text) {
   }
 }
 
+/** 单次绑定 `npc-action` 监听：名册互动的 check 动作经此走与点选项完全相同的【掷骰→提交】管线。
+ *  fillInputBar 自带「仅最新页」守卫，模块级单例避免翻页多实例重复提交。 */
+let npcActionBound = false;
+function bindNpcActionListener() {
+  if (npcActionBound || typeof document === 'undefined') return;
+  npcActionBound = true;
+  document.addEventListener('npc-action', (e) => {
+    const d = (e as CustomEvent).detail as { text?: string; checkText?: string } | undefined;
+    if (d?.text) fillInputBar(d.text, d.checkText ?? d.text);
+  });
+}
+
 /** 翻页一下并打开背包浮层。 */
 function openBackpack() {
   const inv = useInventoryStore.getState();
@@ -367,6 +379,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
+  useEffect(() => { bindNpcActionListener(); }, []);
   const fadeStyle = {
     opacity: isFlipping ? 0 : 1,
     transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',

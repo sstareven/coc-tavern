@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
@@ -7,13 +8,21 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
-  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee,
+  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
-import type { Combatant } from '../../types';
+import type { Combatant, ManeuverKind } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
+
+/** 战技目录（COC7e 6.3）：体格对抗，攻方胜施加倒地/缴械效果，不直接致伤。 */
+const MANEUVERS: { kind: ManeuverKind; label: string; title: string }[] = [
+  { kind: 'grapple', label: '擒抱', title: '体格对抗·格斗 vs 闪避/反击 → 压制目标(倒地)' },
+  { kind: 'disarm', label: '缴械', title: '体格对抗 → 打落目标武器(暂不可用)' },
+  { kind: 'shove', label: '推倒', title: '体格对抗 → 将目标推倒在地' },
+  { kind: 'knockout', label: '击晕', title: '体格对抗 → 将目标击晕瘫倒' },
+];
 
 /** 即时战斗面板（贴合右页书页·羊皮纸风。布局A：敌顶 · 日志中 · 玩家状态条 · 动作底）。 */
 export function CombatPanel() {
@@ -80,6 +89,8 @@ export function CombatPanel() {
   const doFlee = () => { if (isPlayerTurn) setEncounter(playerFlee(enc)); };
   // 用某件【特定武器】发起攻击（按随身武器逐个出按钮）。
   const attackWith = (idx: number) => { if (isPlayerTurn) setEncounter(playerAttack(enc, idx)); };
+  // 战技（COC7e 6.3）：体格对抗，攻方胜施加 prone/缴械效果。
+  const doManeuver = (kind: ManeuverKind) => { if (isPlayerTurn) setEncounter(playerManeuver(enc, kind)); };
   const weaponUsable = (w: { ranged: boolean; loadedAmmo?: number }) => isPlayerTurn && (!w.ranged || ((w.loadedAmmo ?? 0) > 0 && !player?.flags.weaponJammed));
 
   const canReloadNow = isPlayerTurn && rangedIdx >= 0 && !!rangedWeapon && canReload(rangedWeapon, reserve);
@@ -133,13 +144,23 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* 动作按钮：按随身武器逐个出攻击按钮（点哪个用哪个武器打）+ 换弹/排障/呼救/逃跑 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
-        {player?.weapons.map((w, i) => (
-          <ActionBtn key={i} label={w.name} primary disabled={!weaponUsable(w)}
-            title={`${w.ranged ? '射击' : '近战'} · 伤害 ${w.damage}${w.ranged ? `（弹 ${w.loadedAmmo ?? 0}/${w.magazine ?? 0}）` : ''} · 命中 ${w.skill}`}
-            onClick={() => act(true, () => attackWith(i))} />
-        ))}
+      {/* 动作按钮：攻击▴ 向上展开武器菜单（徒手/各随身武器）· 战技▴ 展开缴械/擒抱/推倒/击晕 · 换弹/排障/呼救/逃跑 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'flex-end', borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
+        <ExpandUpMenu
+          label="攻击" primary
+          disabled={!player?.weapons.some((w) => weaponUsable(w))}
+          options={(player?.weapons ?? []).map((w, i) => ({
+            label: w.name,
+            disabled: !weaponUsable(w),
+            title: `${w.ranged ? '射击' : '近战'} · 伤害 ${w.damage}${w.ranged ? `（弹 ${w.loadedAmmo ?? 0}/${w.magazine ?? 0}）` : ''} · 命中 ${w.skill}`,
+            onClick: () => act(true, () => attackWith(i)),
+          }))}
+        />
+        <ExpandUpMenu
+          label="战技"
+          disabled={!isPlayerTurn}
+          options={MANEUVERS.map((m) => ({ label: m.label, title: m.title, onClick: () => act(true, () => doManeuver(m.kind)) }))}
+        />
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!isPlayerTurn} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
@@ -203,6 +224,41 @@ function ActionBtn({ label, primary, disabled, title, onClick }: { label: string
       onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(0.94)'; }}
       onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(1.05)'; }}
     >{label}</button>
+  );
+}
+
+/** 向上展开的动作菜单：按钮点击在其【上方】浮出选项列（攻击=武器列表 / 战技=战技列表）。点选项即执行并收起。 */
+function ExpandUpMenu({ label, primary, disabled, options }: {
+  label: string; primary?: boolean; disabled?: boolean;
+  options: { label: string; title?: string; disabled?: boolean; onClick: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <ActionBtn label={`${label} ${open ? '▾' : '▴'}`} primary={primary} disabled={disabled} onClick={() => setOpen((o) => !o)} />
+      <AnimatePresence>
+        {open && !disabled && (
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+            <motion.div
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+              style={{
+                position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, zIndex: 41,
+                display: 'flex', flexDirection: 'column', gap: 5, padding: 6, minWidth: 132,
+                background: 'var(--parchment)', border: '1px solid var(--brass)', borderRadius: 5,
+                boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+              }}
+            >
+              {options.map((o, i) => (
+                <ActionBtn key={i} label={o.label} title={o.title} disabled={o.disabled}
+                  onClick={() => { o.onClick(); setOpen(false); }} />
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

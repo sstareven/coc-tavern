@@ -683,6 +683,8 @@ export interface Combatant {
   fighting: number;
   dodge: number;
   firearm?: number;
+  /** 伤害加值骰式（如 '1d4' / '0' / '-1'）；近战伤害结算时叠加。 */
+  damageBonus?: string;
   hp: number;
   maxHp: number;
   armor: number;
@@ -693,6 +695,9 @@ export interface Combatant {
 }
 
 export type CombatEndReason = 'victory' | 'defeat' | 'disengage' | 'flee' | 'enemy_retreat' | 'surrender';
+
+/** 战技种类（COC7e 6.3 战技）：缴械/擒抱/推倒/击晕。 */
+export type ManeuverKind = 'disarm' | 'grapple' | 'shove' | 'knockout';
 
 export interface CombatLogEntry {
   kind: 'narrative' | 'roll';
