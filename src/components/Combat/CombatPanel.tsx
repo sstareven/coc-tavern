@@ -33,7 +33,6 @@ export function CombatPanel() {
   const resolving = enc.status === 'resolving';
 
   const rangedIdx = player ? player.weapons.findIndex((w) => w.ranged) : -1;
-  const meleeIdx = player ? player.weapons.findIndex((w) => !w.ranged) : -1;
   const rangedWeapon = rangedIdx >= 0 ? player!.weapons[rangedIdx] : undefined;
   const reserve = rangedWeapon?.ammoItemName
     ? (useInventoryStore.getState().findItem(rangedWeapon.ammoItemName)?.quantity ?? 0)
@@ -47,8 +46,6 @@ export function CombatPanel() {
   };
 
   const setTarget = (id: string) => setEncounter({ ...enc, playerTargetId: id });
-  const doShoot = () => { if (isPlayerTurn && rangedIdx >= 0) setEncounter(playerAttack(enc, rangedIdx)); };
-  const doMelee = () => { if (isPlayerTurn) setEncounter(playerAttack(enc, meleeIdx >= 0 ? meleeIdx : 0)); };
   const doReload = () => {
     if (!isPlayerTurn || rangedIdx < 0) return;
     const { encounter: next, consumed } = playerReload(enc, rangedIdx, reserve);
@@ -63,15 +60,17 @@ export function CombatPanel() {
     if (isPlayerTurn && friendly) setEncounter(playerCallForHelp(enc, friendly.id));
   };
   const doFlee = () => { if (isPlayerTurn) setEncounter(playerFlee(enc)); };
+  // 用某件【特定武器】发起攻击（按随身武器逐个出按钮）。
+  const attackWith = (idx: number) => { if (isPlayerTurn) setEncounter(playerAttack(enc, idx)); };
+  const weaponUsable = (w: { ranged: boolean; loadedAmmo?: number }) => isPlayerTurn && (!w.ranged || ((w.loadedAmmo ?? 0) > 0 && !player?.flags.weaponJammed));
 
-  const canShoot = isPlayerTurn && rangedIdx >= 0 && (rangedWeapon?.loadedAmmo ?? 0) > 0 && !player?.flags.weaponJammed;
   const canReloadNow = isPlayerTurn && rangedIdx >= 0 && !!rangedWeapon && canReload(rangedWeapon, reserve);
   const jammed = !!player?.flags.weaponJammed;
   const hasFriendly = enc.bystanders.some((b) => b.friendly);
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
+      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
       padding: '24px 0 16px', boxSizing: 'border-box',
       background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopRightRadius: 4, borderBottomRightRadius: 4,
@@ -118,10 +117,13 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* 动作按钮 */}
+      {/* 动作按钮：按随身武器逐个出攻击按钮（点哪个用哪个武器打）+ 换弹/排障/呼救/逃跑 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
-        {rangedIdx >= 0 && <ActionBtn label="射击" primary disabled={!canShoot} onClick={() => act(true, doShoot)} />}
-        <ActionBtn label="近战" primary disabled={!isPlayerTurn} onClick={() => act(true, doMelee)} />
+        {player?.weapons.map((w, i) => (
+          <ActionBtn key={i} label={w.name} primary disabled={!weaponUsable(w)}
+            title={`${w.ranged ? '射击' : '近战'} · 伤害 ${w.damage}${w.ranged ? `（弹 ${w.loadedAmmo ?? 0}/${w.magazine ?? 0}）` : ''} · 命中 ${w.skill}`}
+            onClick={() => act(true, () => attackWith(i))} />
+        ))}
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!isPlayerTurn} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
@@ -156,11 +158,11 @@ function CombatantRow({ c, hostile, target, onClick }: { c: Combatant; hostile: 
   );
 }
 
-function ActionBtn({ label, primary, disabled, onClick }: { label: string; primary?: boolean; disabled?: boolean; onClick: () => void }) {
+function ActionBtn({ label, primary, disabled, title, onClick }: { label: string; primary?: boolean; disabled?: boolean; title?: string; onClick: () => void }) {
   const color = disabled ? 'var(--ink-faded)' : primary ? 'var(--gold)' : 'var(--ink)';
   const border = disabled ? 'rgba(var(--ink-faded-rgb),0.2)' : primary ? 'var(--brass)' : 'rgba(var(--ink-faded-rgb),0.4)';
   return (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled}
+    <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title}
       style={{
         fontSize: 12, padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
         border: '1px solid ' + border, background: disabled ? 'transparent' : 'rgba(196,168,85,0.08)', color,

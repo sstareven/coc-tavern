@@ -388,10 +388,8 @@ export function Storybook() {
                 )}
               </div>
             ) : inCombat ? (
-              /* 战斗中：右页变即时战斗面板（不翻页；脱战后 clearCombat 自动回正常右页） */
-              <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-                <CombatPanel />
-              </div>
+              /* 战斗中：右页变即时战斗面板（CombatPanel 自带 flex:1 填满右页；脱战后 clearCombat 自动回正常右页） */
+              <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
