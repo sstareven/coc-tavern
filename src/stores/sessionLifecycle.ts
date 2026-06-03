@@ -4,6 +4,7 @@ import { useInventoryStore, normalizeItems } from './useInventoryStore';
 import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
+import { useLocationElementStore } from './useLocationElementStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
@@ -28,6 +29,7 @@ import {
   type NpcRow,
   type MapLocationRow,
   type MapEdgeRow,
+  type LocationElementRow,
 } from '../db/database';
 
 /** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */
@@ -47,6 +49,7 @@ export function clearAllGameState() {
   useNpcStore.getState().close();
   useMapStore.getState().clearAll();
   useMapStore.getState().close();
+  useLocationElementStore.getState().clearAll();
   useDiceStore.getState().clearAll();
   useChoiceLockStore.getState().unlock();
   useDarkThreadStore.getState().clearAll();
@@ -132,6 +135,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const clues = useClueStore.getState().clues;
   const npcs = Object.values(useNpcStore.getState().profiles);
   const mapState = useMapStore.getState();
+  const locationElements = useLocationElementStore.getState().elements;
   const entries = useDarkThreadStore.getState().entries;
   const badEnding = useDarkThreadStore.getState().badEnding;
   const keywords = useKeywordStore.getState().keywords;
@@ -145,6 +149,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const npcRows: NpcRow[] = npcs.map((npc) => ({ ...npc, conversationId: cid, npcId: npc.id }));
   const mapLocationRows: MapLocationRow[] = mapState.locations.map((l) => ({ ...l, conversationId: cid, locationId: l.id }));
   const mapEdgeRows: MapEdgeRow[] = mapState.edges.map((e) => ({ ...e, conversationId: cid, edgeId: e.id }));
+  const locationElementRows: LocationElementRow[] = locationElements.map((el) => ({ ...el, conversationId: cid, elementId: el.id }));
   const darkThreadRows: DarkThreadRow[] = entries.map((entry) => ({ ...entry, conversationId: cid, entryId: entry.id }));
   const keywordRows: KeywordRow[] = Object.entries(keywords).map(([word, meaning]) => ({ conversationId: cid, word, meaning }));
   const gameVarRows: GameVarRow[] = Object.entries(variables).map(([name, variable]) => ({ ...variable, conversationId: cid, name }));
@@ -176,7 +181,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -205,6 +210,9 @@ async function saveConversationInner(cid: string): Promise<void> {
 
       await db.mapEdges.where('conversationId').equals(cid).delete();
       if (mapEdgeRows.length > 0) await db.mapEdges.bulkPut(mapEdgeRows);
+
+      await db.locationElements.where('conversationId').equals(cid).delete();
+      if (locationElementRows.length > 0) await db.locationElements.bulkPut(locationElementRows);
 
       await db.darkThreads.where('conversationId').equals(cid).delete();
       if (darkThreadRows.length > 0) await db.darkThreads.bulkPut(darkThreadRows);
@@ -253,10 +261,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -266,6 +274,7 @@ async function loadConversationInner(cid: string): Promise<void> {
           db.npcProfiles.where('conversationId').equals(cid).toArray(),
           db.mapLocations.where('conversationId').equals(cid).toArray(),
           db.mapEdges.where('conversationId').equals(cid).toArray(),
+          db.locationElements.where('conversationId').equals(cid).toArray(),
           db.darkThreads.where('conversationId').equals(cid).toArray(),
           db.darkEndings.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
@@ -311,6 +320,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   const mapLocations = mapLocationRows.map(({ conversationId: _cid, locationId: _lid, ...loc }) => loc);
   const mapEdges = mapEdgeRows.map(({ conversationId: _cid, edgeId: _eid, ...edge }) => edge);
   useMapStore.getState().replaceAll({ locations: mapLocations, edges: mapEdges });
+
+  // 地点元素（剥离关系键）
+  const locationElements = locationElementRows.map(({ conversationId: _cid, elementId: _eid, ...el }) => el);
+  useLocationElementStore.getState().replaceAll(locationElements);
 
   // 暗线
   const entries = darkThreadRows.map(({ conversationId: _cid, entryId: _entryId, ...entry }) => entry);
@@ -382,7 +395,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -392,6 +405,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.npcProfiles.where('conversationId').equals(cid).delete();
       await db.mapLocations.where('conversationId').equals(cid).delete();
       await db.mapEdges.where('conversationId').equals(cid).delete();
+      await db.locationElements.where('conversationId').equals(cid).delete();
       await db.darkThreads.where('conversationId').equals(cid).delete();
       await db.darkEndings.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();

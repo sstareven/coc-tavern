@@ -77,6 +77,8 @@ export interface BookPage {
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
+  /** 本页独立抽取的地点元素（页锚定，随页持久化，供删页重放重建）。 */
+  locationElements?: LocationElementInput[];
   darkThread?: DarkThreadData;
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
@@ -215,6 +217,29 @@ export interface MapEdge {
   /** bidirectional: A<->B 自由通行；oneway: A-->B 单向不可逆 */
   type: 'bidirectional' | 'oneway';
   description?: string;
+}
+
+// ===== Location Elements（地点元素：挂在地点下的环境特征/陈设/可注意之物，与线索正交）=====
+/** 地点元素受控分类：LLM 只能从此集合选 category，非法值回落「其他」。 */
+export const LOCATION_ELEMENT_CATEGORIES = ['陈设', '机关', '痕迹', '通道', '容器', '异常', '其他'] as const;
+export type LocationElementCategory = (typeof LOCATION_ELEMENT_CATEGORIES)[number];
+
+export interface LocationElement {
+  id: string;
+  /** 父子关联键：用地点【名称】而非 id——删页重放会给地点重分配随机 id，按 id 必成孤儿；名称稳定且地图本就用名称匹配。 */
+  locationName: string;
+  name: string;
+  category: LocationElementCategory;
+  description: string;
+  createdAt: number;
+}
+
+/** 抽取/页锚定用的轻量输入（无 id/createdAt，store 落地时补全）。 */
+export interface LocationElementInput {
+  locationName: string;
+  name: string;
+  category: LocationElementCategory;
+  description: string;
 }
 
 // ===== NPC System（在场/离场 NPC 角色卡）=====

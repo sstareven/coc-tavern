@@ -9,6 +9,7 @@ import type {
   NpcProfile,
   MapLocation,
   MapEdge,
+  LocationElement,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
@@ -69,6 +70,9 @@ export type MapLocationRow = { conversationId: string; locationId: string } & Ma
 // One map edge. Compound primary key [conversationId+edgeId].
 export type MapEdgeRow = { conversationId: string; edgeId: string } & MapEdge;
 
+// One location element. Compound primary key [conversationId+elementId].
+export type LocationElementRow = { conversationId: string; elementId: string } & LocationElement;
+
 // One TavernHelper macro variable. Compound primary key [conversationId+name].
 export interface MacroVarRow {
   conversationId: string;
@@ -96,6 +100,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   npcProfiles: EntityTable<NpcRow>;
   mapLocations: EntityTable<MapLocationRow>;
   mapEdges: EntityTable<MapEdgeRow>;
+  locationElements: EntityTable<LocationElementRow>;
   darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
 };
 
@@ -151,6 +156,14 @@ export const V6_SCHEMA = {
 } as const;
 
 db.version(6).stores(V6_SCHEMA);
+
+/** v7: 新增「地点元素」表（新表，无数据迁移）。 */
+export const V7_SCHEMA = {
+  ...V6_SCHEMA,
+  locationElements: '[conversationId+elementId], conversationId',
+} as const;
+
+db.version(7).stores(V7_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
