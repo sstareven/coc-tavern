@@ -13,6 +13,7 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
+import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -48,7 +49,7 @@ import { estimateTokens } from '../sillytavern/token-counter';
 import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
-import { FORMAT_INSTRUCTION, PROLOGUE_STARTING_ITEMS_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
+import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE } from '../sillytavern/format-instruction';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -429,12 +430,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ...e,
         content: renderTemplate(e.content, tmplOpts),
       }));
-      // 序章首回合（尚无生成页，pages.length<=1）：追加起始装备指令，让 AI 按职业+情境生成起始物品。
-      // 行动补写走 formatOverride，故 !formatOverride 可自然排除补写场景。
+      // 序章首回合的「起始装备」【不再注入主回合格式】——曾内联追加 PROLOGUE_STARTING_ITEMS_INSTRUCTION，
+      // 但被 FORMAT_INSTRUCTION 主体「无物品变化则省略 inventoryChanges」压过，模型把开场判为「无变化」整体丢弃
+      // （日志现象：parsed 顶层键缺 inventoryChanges/clues）。改为解析成功后用独立 LLM 调用 generateStartingItems
+      // 生成、并入首页 inventoryChanges（见下方应用段），与坏结局同源解耦（inline-llm-fields-truncate-trailing）。
       let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
-      if (!formatOverride && useBookStore.getState().pages.length <= 1) {
-        baseFormat += '\n\n' + PROLOGUE_STARTING_ITEMS_INSTRUCTION;
-      }
       // 坏结局【不再注入主回合格式】——曾导致模型在主 JSON 末尾挤掉 clues/npcUpdates/mapUpdates 的回归。
       // 改为回合后用独立 LLM 调用 generateBadEnding 生成（见下方应用段），与主输出彻底解耦。
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
@@ -779,6 +779,32 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.darkThread) newPage.darkThread = result.darkThread;
         // 角色卡快照（此时 processResponse 已应用本回合的 HP/SAN/MP/姿态/状态 JSON Patch）
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
+
+        // 序章首回合「起始装备」：用【独立 LLM 调用】据职业+开场情境生成 3-6 件随身物品，并入本首页的
+        // inventoryChanges。解耦自主回合输出（曾内联进 FORMAT_INSTRUCTION 被「无变化则省略」压过而整体丢失）。
+        // 同步生成而非 fire-and-forget：背包是「页锚定」派生态，须随首页持久化，否则删页重放(Storybook)会抹掉、
+        // 且再生闸(pages<=1)不复现 → 起始物品永久消失。skipInventoryNarrativeCheck 即「pages.length<=1」序章首回合标志。
+        // 仅当模型本回合未自行给出物品(快路径不命中)且 API 配置齐全时调用；失败仅告警、不阻断本回合。
+        if (
+          skipInventoryNarrativeCheck &&
+          (!newPage.inventoryChanges || newPage.inventoryChanges.length === 0) &&
+          settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()
+        ) {
+          const aidSI = useChatStore.getState().activeId;
+          const sheet = useCharSheetStore.getState().sheet;
+          const prologue = useBookStore.getState().pages[0];
+          const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
+          const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
+          try {
+            const { changes } = await generateStartingItems(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+            if (changes.length > 0 && !controller.signal.aborted && useChatStore.getState().activeId === aidSI) {
+              newPage.inventoryChanges = changes;
+              pushLog('info', `[起始物品] 已为序章配备 ${changes.length} 件起始随身物品：${changes.map((c) => c.name).join('、')}`, 'system');
+            }
+          } catch (e) {
+            pushLog('warn', `[起始物品] 生成失败（本局无起始装备）：${e instanceof Error ? e.message : String(e)}`, 'api');
+          }
+        }
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);
