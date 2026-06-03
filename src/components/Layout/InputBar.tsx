@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
+import { useMapStore } from '../../stores/useMapStore';
+import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
@@ -240,6 +242,16 @@ export function InputBar() {
                         divider
                         onClick={() => {
                           pipeline.toggleDebugLog();
+                          setWandOpen(false);
+                        }}
+                      />
+                      <WandRow
+                        icon="⤓"
+                        label="导出地图数据"
+                        iconColor="#7b9fc1"
+                        divider
+                        onClick={() => {
+                          exportMapData();
                           setWandOpen(false);
                         }}
                       />
@@ -527,3 +539,75 @@ const wandBtnStyle: React.CSSProperties = {
   transition: 'var(--transition-smooth)',
   flexShrink: 0,
 };
+
+/**
+ * 导出当前会话的地图数据为 JSON 并触发下载（排查用调试工具）。
+ * 含 locations/edges/locationElements 原始快照，外加 diagnostics：
+ * - isolatedLocations：无任何 edge 引用的孤立节点（对应「孤立无连线地点」异常）
+ * - emptyDescriptionLocations：description 为空的节点（对应「校门(无描述)」异常）
+ * - danglingEdges：端点指向不存在 location 的悬空边
+ * - currentLocationDangling：currentLocationId 指向不存在 location
+ * 下载五步法对齐 DebugLog.exportLogs / VariablePanel.handleExport。
+ */
+function exportMapData() {
+  const { locations, edges, currentLocationId } = useMapStore.getState();
+  const elements = useLocationElementStore.getState().elements;
+
+  const ids = new Set(locations.map((l) => l.id));
+  const referenced = new Set<string>();
+  for (const e of edges) {
+    referenced.add(e.fromId);
+    referenced.add(e.toId);
+  }
+
+  const isolatedLocations = locations
+    .filter((l) => !referenced.has(l.id))
+    .map((l) => ({ id: l.id, name: l.name }));
+  const emptyDescriptionLocations = locations
+    .filter((l) => !l.description || !l.description.trim())
+    .map((l) => ({ id: l.id, name: l.name }));
+  const danglingEdges = edges
+    .filter((e) => !ids.has(e.fromId) || !ids.has(e.toId))
+    .map((e) => ({
+      id: e.id,
+      fromId: e.fromId,
+      toId: e.toId,
+      type: e.type,
+      missingEnd: !ids.has(e.fromId) && !ids.has(e.toId) ? 'both' : !ids.has(e.fromId) ? 'from' : 'to',
+    }));
+  const currentLocationDangling =
+    currentLocationId !== null && !ids.has(currentLocationId)
+      ? { currentLocationId, exists: false }
+      : null;
+
+  const payload = {
+    exportedAt: Date.now(),
+    currentLocationId,
+    locations,
+    edges,
+    locationElements: elements,
+    diagnostics: {
+      summary: {
+        locationCount: locations.length,
+        edgeCount: edges.length,
+        elementCount: elements.length,
+        isolatedCount: isolatedLocations.length,
+        emptyDescCount: emptyDescriptionLocations.length,
+        danglingCount: danglingEdges.length,
+        currentValid: currentLocationDangling === null,
+      },
+      isolatedLocations,
+      emptyDescriptionLocations,
+      danglingEdges,
+      currentLocationDangling,
+    },
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `coc-map-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
