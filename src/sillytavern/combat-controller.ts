@@ -1,0 +1,211 @@
+import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, DiceRecord } from '../types';
+import {
+  type Rng, type SuccessLevel,
+  successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
+  isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
+  consumeAmmo, canReload, canFire, d100WithDice,
+} from './combat-engine';
+
+const defaultRng: Rng = Math.random;
+
+// ── 不可变更新辅助 ──
+function patchCombatant(enc: Encounter, id: string, patch: Partial<Combatant>): Encounter {
+  return { ...enc, combatants: enc.combatants.map((c) => (c.id === id ? { ...c, ...patch } : c)) };
+}
+function byId(enc: Encounter, id: string | null): Combatant | undefined {
+  return enc.combatants.find((c) => c.id === id);
+}
+function alive(c: Combatant): boolean { return !c.flags.dead && !c.flags.unconscious; }
+
+function log(enc: Encounter, text: string, kind: CombatLogEntry['kind'] = 'roll'): Encounter {
+  return { ...enc, log: [...enc.log, { kind, text }] };
+}
+function rec(enc: Encounter, r: Omit<DiceRecord, 'time'>): Encounter {
+  return { ...enc, diceRecords: [...enc.diceRecords, { ...r, time: 0, context: 'combat' }] };
+}
+
+const LEVEL_CN: Record<SuccessLevel, string> = {
+  critical: '大成功', extreme: '极难成功', hard: '困难成功', success: '成功', fail: '失败', fumble: '大失败',
+};
+
+/** 判定脱战原因；null=继续。 */
+export function checkEndReason(enc: Encounter): CombatEndReason | null {
+  const enemies = enc.combatants.filter((c) => c.faction === 'enemy');
+  const player = enc.combatants.find((c) => c.faction === 'player');
+  const friendlies = enc.combatants.filter((c) => c.faction !== 'enemy');
+  if (player && (player.flags.dead || player.flags.dying || player.flags.unconscious)) return 'defeat';
+  if (enemies.length > 0 && enemies.every((e) => !alive(e))) return 'victory';
+  if (friendlies.every((f) => !alive(f))) return 'defeat';
+  return null;
+}
+
+/** 推进到下一个行动者；轮内全员走完→新一轮（重排 turnOrder、清 roundDefenses）。 */
+export function advanceTurn(enc: Encounter): Encounter {
+  const next = enc.currentIdx + 1;
+  if (next >= enc.turnOrder.length) {    // 新一轮：重排（排除死亡/昏迷）、清防御计数
+    const cleared = enc.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
+    const order = nextTurnOrder(cleared);
+    return { ...enc, combatants: cleared, turnOrder: order, currentIdx: 0, round: enc.round + 1 };
+  }
+  return { ...enc, currentIdx: next };
+}
+
+/** 一次攻击结算（attacker 用 weaponIdx 攻击 targetId）。处理近战对抗/射击/伤害/贯穿/卡壳/弹药/寡不敌众。 */
+export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+  let enc = enc0;
+  const attacker = byId(enc, attackerId);
+  const target = byId(enc, targetId);
+  if (!attacker || !target || !alive(attacker) || !alive(target)) return enc;
+  const weapon = attacker.weapons[weaponIdx] ?? attacker.weapons[0];
+  if (!weapon) return enc;
+
+  if (weapon.ranged) {
+    if (!canFire(weapon) || attacker.flags.weaponJammed) {
+      return log(enc, `${attacker.name} 的 ${weapon.name} 无法击发`, 'narrative');
+    }
+    const r = resolveRanged(weapon.skill, 'normal', rng);
+    enc = patchCombatant(enc, attackerId, { weapons: attacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
+    enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(r.roll.finalRoll), target: String(weapon.skill), type: 'normal', purpose: '攻击命中-火器' });
+    if (r.jam) {
+      enc = patchCombatant(enc, attackerId, { flags: { ...attacker.flags, weaponJammed: true } });
+      return log(enc, `${attacker.name} 射击 大失败 — ${weapon.name} 卡壳！`);
+    }
+    if (!r.hit) return log(enc, `${attacker.name} 射击 ${LEVEL_CN[r.level]} — 未命中 ${target.name}`);
+    const dmg = rollDamage(weapon, attacker.damageBonus ?? '0', isImpaleLevel(r.level), rng).total;
+    const dr = applyDamage(target, dmg);
+    enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
+    return log(enc, `${attacker.name} 射击 ${LEVEL_CN[r.level]}${isImpaleLevel(r.level) ? '·贯穿' : ''} — ${target.name} 受 ${dr.dealt} 伤(${dr.combatant.hp}/${target.maxHp})`);
+  }
+
+  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避
+  const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
+  const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
+  const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
+  const bonus = outnumberBonusDice(target); // 守方本轮已防御→攻方得奖励骰
+  const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0);
+  enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
+  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: 'normal', purpose: '攻击命中-近战' });
+  enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: 'normal', purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
+
+  if (op.winner === 'attacker') {
+    const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
+    const dmg = rollDamage(weapon, attacker.damageBonus ?? '0', impale, rng).total;
+    const dr = applyDamage(target, dmg);
+    enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags, roundDefenses: target.roundDefenses + 1 });
+    return log(enc, `${attacker.name} 近战 ${LEVEL_CN[op.attackerLevel]}${impale ? '·贯穿' : ''} 胜过 ${target.name} — 受 ${dr.dealt} 伤(${dr.combatant.hp}/${target.maxHp})`);
+  }
+  if (op.winner === 'defender' && defense === 'fightback') {
+    const dmg = rollDamage(target.weapons[0] ?? weapon, target.damageBonus ?? '0', false, rng).total; // 反击不贯穿
+    const dr = applyDamage(attacker, dmg);
+    enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
+    return log(enc, `${target.name} 反击得手 — ${attacker.name} 受 ${dr.dealt} 伤(${dr.combatant.hp}/${attacker.maxHp})`);
+  }
+  if (op.winner === 'defender') return log(enc, `${target.name} 闪开了 ${attacker.name} 的攻击`);
+  return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
+}
+
+/** 单个 AI 行动者的回合：按倾向决策攻击/逃跑。 */
+export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng): Encounter {
+  let enc = enc0;
+  const ai = byId(enc, aiId);
+  if (!ai || !alive(ai) || ai.controlledBy !== 'ai') return enc;
+  const action = decideAiAction(ai, enc, rng);
+  if (action.type === 'flee') {
+    // 逃跑：标记离场(置 dead 以移出战斗，叙事为撤离)
+    enc = patchCombatant(enc, aiId, { flags: { ...ai.flags, dead: true } });
+    return log(enc, `${ai.name} 脱离了战斗`, 'narrative');
+  }
+  return performAttack(enc, aiId, action.targetId, 0, rng);
+}
+
+/** 从当前位置推进，依次跑完所有 AI 回合，直到轮到玩家或战斗结束。返回 {enc, ended}。 */
+export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng): Encounter {
+  let enc = enc0;
+  let guard = 0;
+  while (guard++ < 200) {
+    if (checkEndReason(enc)) { return { ...enc, status: 'resolving', endReason: checkEndReason(enc)! }; }
+    enc = advanceTurn(enc);
+    const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
+    if (!cur || !alive(cur)) continue;          // 跳过已倒下者
+    if (cur.controlledBy === 'player') return enc; // 轮到玩家，停
+    enc = runAiTurn(enc, cur.id, rng);             // AI 行动
+  }
+  return enc;
+}
+
+// ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
+
+export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc0.playerTargetId) return enc0;
+  const enc = performAttack(enc0, player.id, enc0.playerTargetId, weaponIdx, rng);
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
+/** 换弹：玩家武器从库存(reserveAvailable)补满；返回 {enc, consumed} consumed=实际消耗备弹数(玩家据此扣库存)。 */
+export function playerReload(enc0: Encounter, weaponIdx: number, reserveAvailable: number, rng: Rng = defaultRng): { encounter: Encounter; consumed: number } {
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  const weapon = player?.weapons[weaponIdx];
+  if (!player || !weapon || !canReload(weapon, reserveAvailable)) return { encounter: enc0, consumed: 0 };
+  const need = (weapon.magazine ?? 0) - (weapon.loadedAmmo ?? 0);
+  const consumed = Math.min(need, reserveAvailable);
+  let enc = patchCombatant(enc0, player.id, {
+    weapons: player.weapons.map((w, i) => (i === weaponIdx ? { ...w, loadedAmmo: (w.loadedAmmo ?? 0) + consumed } : w)),
+  });
+  enc = log(enc, `${player.name} 装填了 ${consumed} 发`, 'narrative');
+  const end = checkEndReason(enc);
+  if (end) return { encounter: { ...enc, status: 'resolving', endReason: end }, consumed };
+  return { encounter: advanceUntilPlayerOrEnd(enc, rng), consumed };
+}
+
+/** 排除卡壳：机械维修/射击检定成功则清除卡壳。 */
+export function playerClearJam(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  if (!player) return enc0;
+  const weapon = player.weapons[weaponIdx];
+  const r = d100WithDice(0, 0, rng);
+  const ok = successLevel(r.finalRoll, weapon?.skill ?? 30) !== 'fail' && successLevel(r.finalRoll, weapon?.skill ?? 30) !== 'fumble';
+  let enc = rec(enc0, { skill: `${player.name}·排除故障`, roll: String(r.finalRoll), target: String(weapon?.skill ?? 30), type: 'normal', purpose: '排除故障' });
+  if (ok) enc = patchCombatant(enc, player.id, { flags: { ...player.flags, weaponJammed: false } });
+  enc = log(enc, ok ? `${player.name} 排除了卡壳` : `${player.name} 未能排除卡壳`, 'narrative');
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
+/** 呼救：对某友善旁观者掷 d100 ≤ joinChance 则加入为 ally，否则逃离(移出 bystanders)。 */
+export function playerCallForHelp(enc0: Encounter, bystanderId: string, rng: Rng = defaultRng): Encounter {
+  const by = enc0.bystanders.find((b) => b.id === bystanderId && b.friendly);
+  if (!by) return enc0;
+  const roll = Math.floor(rng() * 100) + 1;
+  let enc = { ...enc0, bystanders: enc0.bystanders.filter((b) => b.id !== bystanderId) };
+  enc = rec(enc, { skill: `呼救·${by.name}`, roll: String(roll), target: String(by.joinChance), type: 'normal', purpose: '呼救' });
+  if (roll <= by.joinChance && by.combatant) {
+    const ally: Combatant = { ...by.combatant, faction: 'ally', controlledBy: 'ai' };
+    const combatants = [...enc.combatants, ally];
+    enc = { ...enc, combatants, turnOrder: nextTurnOrder(combatants) };
+    enc = log(enc, `${by.name} 响应呼救，加入战斗！`, 'narrative');
+  } else {
+    enc = log(enc, `${by.name} 没有出手，转身逃离`, 'narrative');
+  }
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
+/** 逃跑：一次速度检定(CON)，成功→脱战(flee)，失败→仍被困继续(AI 行动)。 */
+export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  if (!player) return enc0;
+  const r = d100WithDice(0, 0, rng);
+  const ok = successLevel(r.finalRoll, player.con) !== 'fail' && successLevel(r.finalRoll, player.con) !== 'fumble';
+  let enc = rec(enc0, { skill: `${player.name}·速度检定`, roll: String(r.finalRoll), target: String(player.con), type: 'normal', purpose: '速度检定' });
+  if (ok) {
+    enc = log(enc, `${player.name} 成功脱离了战斗`, 'narrative');
+    return { ...enc, status: 'resolving', endReason: 'flee' };
+  }
+  enc = log(enc, `${player.name} 逃跑失败，仍被缠住`, 'narrative');
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
