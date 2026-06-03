@@ -7,6 +7,7 @@ import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from './useLorebookStore';
 import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
+import { useLocationElementStore } from './useLocationElementStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
@@ -407,5 +408,54 @@ describe('MVU statData 持久化 + 跨会话隔离', () => {
     await saveConversation(c);
     const rows = await db.gameVars.where('conversationId').equals(c).toArray();
     expect(rows.some((r) => r.name === '__statData__')).toBe(false);
+  });
+});
+
+describe('地点元素(locationElements)持久化 + 跨会话隔离', () => {
+  beforeEach(async () => {
+    await clearDb();
+    await db.locationElements.clear();
+    useLocationElementStore.getState().clearAll();
+    useChatStore.setState({ sessions: [], activeId: null });
+  });
+
+  it('地点元素 save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useLocationElementStore.getState().applyExtracted([
+      { locationName: '档案室', name: '橡木长桌', category: '陈设', description: '榉木长桌，搁着熄灭的煤油灯' },
+      { locationName: '档案室', name: '暗格', category: '机关', description: '书架后疑似有暗格' },
+    ]);
+    await saveConversation(a);
+
+    useLocationElementStore.getState().clearAll();
+    expect(useLocationElementStore.getState().elements).toHaveLength(0);
+
+    await loadConversation(a);
+    const els = useLocationElementStore.getState().getByLocation('档案室');
+    expect(els).toHaveLength(2);
+    expect(els.map((e) => e.name).sort()).toEqual(['暗格', '橡木长桌']);
+  });
+
+  it('切到无地点元素的会话 → 重置为空(不残留上一会话)', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useLocationElementStore.getState().applyExtracted([{ locationName: '门厅', name: '吊灯', category: '陈设', description: '蒙尘的水晶吊灯' }]);
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(useLocationElementStore.getState().elements).toHaveLength(0);
+  });
+
+  it('删除会话时一并清除其 locationElements 行', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useLocationElementStore.getState().applyExtracted([{ locationName: '地窖', name: '石棺', category: '容器', description: '布满苔藓的石棺' }]);
+    await saveConversation(a);
+    expect(await db.locationElements.where('conversationId').equals(a).toArray()).not.toHaveLength(0);
+
+    await deleteConversation(a);
+    expect(await db.locationElements.where('conversationId').equals(a).toArray()).toHaveLength(0);
   });
 });

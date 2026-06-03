@@ -7,6 +7,7 @@ import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
+import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
@@ -14,6 +15,7 @@ import { saveConversation } from '../stores/sessionLifecycle';
 import { integrateClues } from '../sillytavern/clue-integrator';
 import { generateBadEnding } from '../sillytavern/bad-ending-generator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
+import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useVariableStore } from '../stores/useVariableStore';
@@ -445,6 +447,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       if (!formatOverride) {
         const npcCtx = useNpcStore.getState().buildContextInjection();
         if (npcCtx) baseFormat += '\n\n' + npcCtx;
+      }
+      // 注入当前地点已知的「地点元素」，让 LLM 与既有环境特征保持一致、不凭空矛盾。
+      if (!formatOverride) {
+        const ms = useMapStore.getState();
+        const curLocName = ms.locations.find((l) => l.id === ms.currentLocationId)?.name ?? '';
+        if (curLocName) {
+          const locElemCtx = useLocationElementStore.getState().buildContextInjection(curLocName);
+          if (locElemCtx) baseFormat += '\n\n' + locElemCtx;
+        }
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
 
@@ -984,6 +995,41 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'} 新地点=${result.mapUpdates.newLocations?.length ?? 0} 新连线=${result.mapUpdates.newEdges?.length ?? 0}`, 'system');
         } else {
           pushLog('debug', '[Pipeline] 本回合无地图更新(result.mapUpdates 为空)', 'system');
+        }
+
+        // 地点元素抽取：对【当前地点】用独立 LLM 调用从本回合叙事抽取新环境元素，与主输出解耦、不阻塞翻页。
+        // 优先走 MVU 独立 API（mvuUseIndependentApi && mvuApiKey），否则回退主 API。fire-and-forget + 会话守卫；
+        // 页锚定写回该页 locationElements（删页重放可恢复）+ applyExtracted 入 store + 持久化。
+        // 本段处于主生成路径（行动补写走独立的 rewriteAction，不经此），故无需 formatOverride 守卫。
+        {
+          const ms = useMapStore.getState();
+          const curLoc = ms.locations.find((l) => l.id === ms.currentLocationId);
+          const useMvuApi = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+          const leBase = (useMvuApi ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+          const leKey = (useMvuApi ? settings.mvuApiKey : settings.apiKey) ?? '';
+          const leModel = (useMvuApi ? settings.mvuApiModel : settings.apiModel) ?? '';
+          if (curLoc?.name && leBase.trim() && leKey.trim() && leModel.trim()) {
+            const aidLE = useChatStore.getState().activeId;
+            const ledPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+            const locName = curLoc.name;
+            const existingNames = useLocationElementStore.getState().getByLocation(locName).map((e) => e.name);
+            const narrative = `${newPage.leftContent}\n${newPage.rightContent}`;
+            void (async () => {
+              try {
+                const { elements } = await extractLocationElements(locName, existingNames, narrative, leBase, leKey, leModel);
+                if (elements.length === 0 || useChatStore.getState().activeId !== aidLE) return;
+                useLocationElementStore.getState().applyExtracted(elements);
+                const pg = useBookStore.getState().pages[ledPageIdx];
+                const merged = [...(pg?.locationElements ?? []), ...elements];
+                useBookStore.getState().setPageLocationElements(ledPageIdx, merged);
+                useChatStore.getState().savePages(useBookStore.getState().pages);
+                if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
+                pushLog('info', `[地点元素] 「${locName}」抽取 ${elements.length} 个新元素：${elements.map((e) => e.name).join('、')}`, 'system');
+              } catch (e) {
+                pushLog('warn', `[地点元素] 抽取失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         if (newPage.inventoryChanges && newPage.inventoryChanges.length > 0) {

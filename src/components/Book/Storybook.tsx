@@ -12,6 +12,7 @@ import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
+import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -154,6 +155,7 @@ export function Storybook() {
     useClueStore.getState().clearAll();
     useNpcStore.getState().clearAll();
     useMapStore.getState().clearAll();
+    useLocationElementStore.getState().clearAll();
     useDarkThreadStore.getState().clearAll();
 
     for (const p of remaining) {
@@ -161,6 +163,7 @@ export function Storybook() {
       if (p.clues?.length) useClueStore.getState().addClues(p.clues);
       if (p.npcUpdates?.length) useNpcStore.getState().applyUpdates(p.npcUpdates);
       if (p.mapUpdates) useMapStore.getState().applyUpdates(p.mapUpdates);
+      if (p.locationElements?.length) useLocationElementStore.getState().applyExtracted(p.locationElements);
       if (p.darkThread?.development) {
         useDarkThreadStore.getState().addEntry({
           progress: p.darkThread.progress,

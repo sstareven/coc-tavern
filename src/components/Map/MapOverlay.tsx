@@ -4,6 +4,7 @@ import { useMapStore } from '../../stores/useMapStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { MapGraph } from './MapGraph';
+import { LocationElementsPanel } from './LocationElementsPanel';
 
 const PAGE_BG = 'linear-gradient(160deg, #14100b 0%, #0d0a07 100%)';
 
@@ -99,7 +100,13 @@ export function MapOverlay() {
         {empty ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-subtle)', fontStyle: 'italic', fontSize: 13 }}>尚无地点</div>
         ) : (
-          <MapGraph locations={locations} edges={edges} currentId={currentLocationId} selectedId={selId ?? currentLocationId} onSelect={setSelId} />
+          <>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <MapGraph locations={locations} edges={edges} currentId={currentLocationId} selectedId={selId ?? currentLocationId} onSelect={setSelId} />
+            </div>
+            {/* 选中地点（默认当前地点）的地点元素，可滚动浏览 */}
+            <LocationElementsPanel locationName={sel?.name ?? ''} />
+          </>
         )}
       </motion.div>
     </motion.div>
