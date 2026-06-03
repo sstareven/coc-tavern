@@ -677,38 +677,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // (mvuForceAlways forces it every turn for max extraction fidelity).
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
+        const useIndependentMvu = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction);
         let mvuUsage: TokenUsage | undefined;
-        let patchReport: { applied: number; failed: MvuOpError[] } | undefined;
         let selfCorrectUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
-        if (mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction) {
-          useStatusToastStore.getState().showProcessing('正在解析状态变量…');
-          try {
-            const extracted = await extractVariablesWithLLM(
-              hookProcessedContent,
-              mvuSettings.mvuApiBaseUrl,
-              mvuSettings.mvuApiKey,
-              mvuSettings.mvuApiModel,
-              mvuSettings.mvuTemperature,
-              mvuSettings.mvuRetryCount,
-              mvuSettings.mvuMaxTokens,
-            );
-            mvuUsage = extracted.usage;
-            const st = useVariableStore.getState();
-            patchReport = st.processResponse(hookProcessedContent).patchReport;
-            for (const [name, value] of Object.entries(extracted.variables)) {
-              st.setVariable(name, value, 'llm');
-            }
-          } catch (err) {
-            pushLog(
-              'warn',
-              `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
-              'system',
-            );
-            patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
-          }
-        } else {
-          patchReport = useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
-        }
+        // 先【同步】应用模型显式输出的 <UpdateVariable> JSONPatch（本地正则，快）：本回合 HP/SAN/MP/姿态/状态/阶段
+        // 由此落地，供下方 newPage.sheetSnapshot 与阶段校验取到最新值。独立 MVU API 的「隐含数值」LLM 提取较慢，
+        // 连同失败回灌自纠一起【挪到页面+物品提交之后】再 await（见 settleVariables 及其调用点），
+        // 让书页/背包/NPC/地图立即可见、不被 MVU 往返拖在后面。
+        const patchReport: { applied: number; failed: MvuOpError[] } =
+          useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
 
         // ── MVU 补丁块静默失败嗅探 ──
         // LLM 输出了 <UpdateVariable> 开标签、却一条 op 都没抽出来（applied+failed===0），
@@ -727,17 +704,46 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           );
         }
 
-        // ── MVU 变量更新校验失败 → 可见 + (可选)失败回灌自纠 ──
-        // (A) 校验始终生效、零额外 LLM：把未通过的更新记入日志让其可见。
-        // (B) 自纠默认关闭；开启后受预算约束、走 mvu 桶（见 runMvuSelfCorrect 的 RPM 死线保障）。
-        if (patchReport && patchReport.failed.length > 0) {
+        // ── MVU 变量更新校验失败 → 始终记日志让其可见（零额外 LLM）。实际的失败回灌自纠移入 settleVariables ──
+        if (patchReport.failed.length > 0) {
           pushLog(
             'warn',
             `[MVU校验] ${patchReport.failed.length} 项变量更新未通过校验：\n` +
               patchReport.failed.map((f) => `· ${f.path || f.op}: ${f.reason}`).join('\n'),
             'system',
           );
-          if (settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
+        }
+
+        // 页面+物品提交【之后】才结算的慢变量逻辑：独立 MVU API 隐含变量提取 + 可选失败回灌自纠（默认关闭）。
+        // 在可见结果提交后 await（见下方调用点）——await 让出事件循环，React 先渲染新页与背包，再跑 MVU 往返；
+        // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
+        const settleVariables = async () => {
+          if (useIndependentMvu) {
+            useStatusToastStore.getState().showProcessing('正在解析状态变量…');
+            try {
+              const extracted = await extractVariablesWithLLM(
+                hookProcessedContent,
+                mvuSettings.mvuApiBaseUrl,
+                mvuSettings.mvuApiKey,
+                mvuSettings.mvuApiModel,
+                mvuSettings.mvuTemperature,
+                mvuSettings.mvuRetryCount,
+                mvuSettings.mvuMaxTokens,
+              );
+              mvuUsage = extracted.usage;
+              const st = useVariableStore.getState();
+              for (const [name, value] of Object.entries(extracted.variables)) {
+                st.setVariable(name, value, 'llm');
+              }
+            } catch (err) {
+              pushLog(
+                'warn',
+                `[MVU] 独立提取失败，已回退本地正则: ${err instanceof Error ? err.message : String(err)}`,
+                'system',
+              );
+            }
+          }
+          if (patchReport.failed.length > 0 && settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
             useStatusToastStore.getState().showProcessing('正在校正状态变量…');
             const sc = await runMvuSelfCorrect(
               editedMessages,
@@ -764,12 +770,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 isAborted: () => controller.signal.aborted,
               },
             );
-            // 自纠消耗的 token 计入本回合 genStats（与主生成、MVU 提取同源汇总）。
             if (sc.usage.total_tokens > 0 || sc.usage.prompt_tokens > 0 || sc.usage.completion_tokens > 0) {
               selfCorrectUsage = sc.usage;
             }
           }
-        }
+        };
 
         // 本次生成统计：优先用 API 真实 usage，拿不到则按消息/正文估算；耗时含 JSON 重试墙钟。
         // 日志与右下角同源——避免「日志报估算、右下角报真实」对不上。
@@ -1169,6 +1174,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Reads live in-memory stores, so no snapshot object needed here.
         chatStore.savePages(useBookStore.getState().pages);
         if (chatStore.activeId) void saveConversation(chatStore.activeId);
+
+        // ⬆ 至此书页 + 物品 + NPC + 地图已提交并可见。⬇ 现在才结算【慢】的 MVU 变量（独立 API 隐含提取 / 失败自纠）。
+        // 把这步放到可见提交之后：下面的 await 会让出事件循环，React 先把新页与背包渲染出来，再跑 MVU 往返——
+        // 修复「开启 MVU 独立 API 时，物品/结构化字段要等 MVU 返回后才出现（看似漏掉、过会儿又有）」的时序 bug。
+        // await 期间 loading 仍为真、选项保持锁定，故变量不会迟到下一回合。
+        await settleVariables();
+        // 回填本页 token 统计（并入 MVU 提取 / 自纠用量），与右下角/日志同源。
+        if (mvuUsage || selfCorrectUsage) {
+          const settledPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+          useBookStore.getState().setPageGenStats(settledPageIdx, {
+            ...pageGenStats,
+            promptTokens: pageGenStats.promptTokens + (mvuUsage?.prompt_tokens ?? 0) + (selfCorrectUsage?.prompt_tokens ?? 0),
+            completionTokens: pageGenStats.completionTokens + (mvuUsage?.completion_tokens ?? 0) + (selfCorrectUsage?.completion_tokens ?? 0),
+            totalTokens: pageGenStats.totalTokens + (mvuUsage?.total_tokens ?? 0) + (selfCorrectUsage?.total_tokens ?? 0),
+          });
+          chatStore.savePages(useBookStore.getState().pages);
+          if (chatStore.activeId) void saveConversation(chatStore.activeId);
+        }
+
         // 生成成功结束：发出「叮」提醒（即便玩家已切到后台标签页也能听见——Web Audio 不受后台节流影响）。
         // 受全局 soundEnabled 门控；仅主生成成功路径触发，中止/报错走 false 分支不会误响。
         if (useSettingsStore.getState().soundEnabled) {

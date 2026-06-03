@@ -111,6 +111,8 @@ interface BookStore {
   setPageInventoryChanges: (index: number, changes: InventoryChange[]) => void;
   /** 按 index 覆写某页的 locationElements（供地点元素 fire-and-forget 异步抽取后页锚定写回；删页重放据此恢复）。 */
   setPageLocationElements: (index: number, elements: LocationElementInput[]) => void;
+  /** 按 index 覆写某页的 genStats（供 MVU 变量结算延后到页面提交之后时，回填本页 token 用量统计）。 */
+  setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -344,6 +346,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], locationElements: elements };
+    return { pages };
+  }),
+  setPageGenStats: (index, genStats) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], genStats };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {
