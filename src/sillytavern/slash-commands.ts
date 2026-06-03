@@ -7,6 +7,12 @@
 
 import { useVariableStore } from '../stores/useVariableStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
+import { useCombatStore } from '../stores/useCombatStore';
+import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useInventoryStore } from '../stores/useInventoryStore';
+import { buildPlayerCombatant } from './combat-detector';
+import { nextTurnOrder } from './combat-engine';
+import type { Combatant, Encounter } from '../types';
 
 // ── Types ──
 
@@ -336,4 +342,35 @@ export function initBuiltinCommands(): void {
       return cmds.map((c) => `/${c.name} — ${c.description}`).join('\n');
     },
   });
+
+  // /战斗测试 (别名 /combattest) — 开一场测试战斗：木头人(MOV1, 攻/逃 50:50)，脱战不推进正文。
+  const startTestCombat = (): string => {
+    try {
+      const sheet = useCharSheetStore.getState().sheet;
+      const player = buildPlayerCombatant(sheet, useInventoryStore.getState().items);
+      const dummy: Combatant = {
+        id: 'enemy-0-木头人', name: '木头人', faction: 'enemy', controlledBy: 'ai',
+        dex: 30, str: 50, siz: 80, con: 60, mov: 1,
+        fighting: 40, dodge: 20, damageBonus: '0',
+        hp: 20, maxHp: 20, armor: 2,
+        weapons: [{ name: '硬拳', skill: 40, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
+        flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+        tendency: { attack: 50, flee: 50 },
+        roundDefenses: 0,
+      };
+      const combatants = [player, dummy];
+      const enc: Encounter = {
+        active: true, round: 1, turnOrder: nextTurnOrder(combatants), currentIdx: 0,
+        combatants, bystanders: [], playerTargetId: dummy.id,
+        log: [{ kind: 'narrative', text: '【测试】木头人凭空出现，摆出迟钝的架势' }],
+        diceRecords: [], status: 'active', test: true,
+      };
+      useCombatStore.getState().start(enc);
+      return '[战斗测试：木头人登场（MOV1 · 攻/逃 50:50）。脱战后不推进正文，纯测试]';
+    } catch (e) {
+      return `[战斗测试启动失败：${e instanceof Error ? e.message : String(e)}]`;
+    }
+  };
+  registerCommand({ name: '战斗测试', description: '开一场测试战斗(木头人,脱战不推进正文)。用法: /战斗测试', execute: startTestCombat });
+  registerCommand({ name: 'combattest', description: '开一场测试战斗(木头人,脱战不推进正文)。用法: /combattest', execute: startTestCombat });
 }

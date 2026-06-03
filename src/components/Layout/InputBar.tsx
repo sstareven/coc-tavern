@@ -55,6 +55,13 @@ export function InputBar() {
       if (!enc) { resolvingRef.current = false; return; }
       if (enc.status !== 'resolving' || resolvingRef.current) return;
       resolvingRef.current = true;
+      // 测试战斗(/战斗测试)：脱战不推进正文，直接清场。
+      if (enc.test) {
+        useCombatStore.getState().clearCombat();
+        const id = useChatStore.getState().activeId;
+        if (id) void saveConversation(id);
+        return;
+      }
       const reason = enc.endReason ?? 'disengage';
       const outcomeText: Record<string, string> = {
         victory: '调查员获胜', defeat: '调查员落败/倒下', flee: '调查员逃离战斗',

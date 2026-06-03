@@ -719,6 +719,8 @@ export interface Encounter {
   diceRecords: DiceRecord[];
   status: 'active' | 'resolving' | 'ended';
   endReason?: CombatEndReason;
+  /** 测试战斗（/战斗测试 指令建场）：脱战后【不推进正文】，直接清场。 */
+  test?: boolean;
 }
 
 export interface CombatLog {
