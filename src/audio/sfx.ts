@@ -106,3 +106,27 @@ export function sfxClickSoft() {
   const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 0.7;
   src.connect(f); f.connect(g); g.connect(out()); src.start(now); src.stop(now + dur);
 }
+
+/**
+ * 生成完成提醒音「叮~」：清亮的钟铃声（两枚正弦谐音叠加 + 快起长衰的钟形包络）。
+ * 比 UI 点击音更醒目、余韵更长，用于提醒可能已切到后台的玩家。
+ * 走 Web Audio（AudioContext 在后台标签页仍会发声——浏览器节流的是 timer/rAF 而非音频播放），
+ * 且 getCtx() 会在 suspended 时 resume()，故后台触发也能听见。略微提前调度避开 resume 竞态。
+ */
+export function sfxDing() {
+  const c = getCtx();
+  const now = c.currentTime + 0.02; // 小幅前置，规避后台 resume 后 currentTime 落在过去
+  // [主音, 增益, 衰减时长]：E6 主体 + B6 高谐音点亮，纯正弦得干净的「叮」。
+  const partials: [number, number, number][] = [
+    [1318.5, 0.26, 1.1],
+    [1975.5, 0.13, 0.9],
+  ];
+  for (const [freq, peak, decay] of partials) {
+    const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(peak, now + 0.008); // 快起，避免起始爆音
+    g.gain.exponentialRampToValueAtTime(0.0001, now + decay); // 长衰，留下铃铛余韵
+    o.connect(g); g.connect(out()); o.start(now); o.stop(now + decay + 0.05);
+  }
+}

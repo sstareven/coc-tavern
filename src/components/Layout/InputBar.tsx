@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
+import { useCombatStore } from '../../stores/useCombatStore';
+import { useChatStore } from '../../stores/useChatStore';
+import { saveConversation } from '../../stores/sessionLifecycle';
+import { useMapStore } from '../../stores/useMapStore';
+import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
@@ -37,6 +42,47 @@ export function InputBar() {
     const handler = () => { handleSubmitRef.current(); };
     document.addEventListener('auto-submit-input', handler);
     return () => document.removeEventListener('auto-submit-input', handler);
+  }, []);
+
+  // ── 脱战结算：真实战斗 status 转 'resolving' 后【不自动推进】，等玩家在战斗面板点「推进」(combat-advance 事件)
+  // 再把战斗日志交主管线生成右页(承接战斗结果+后续选项)，好让玩家先回看战斗记录。
+  // 测试战斗(/战斗测试)不推进正文，脱战直接清场。一次性触发(resolvingRef 守卫)。──
+  const resolvingRef = useRef(false);
+  const pipelineRef = useRef(pipeline);
+  useEffect(() => { pipelineRef.current = pipeline; });
+  useEffect(() => {
+    const doAdvance = () => {
+      const enc = useCombatStore.getState().encounter;
+      if (!enc || enc.status !== 'resolving' || enc.test || resolvingRef.current) return;
+      resolvingRef.current = true;
+      const reason = enc.endReason ?? 'disengage';
+      const outcomeText: Record<string, string> = {
+        victory: '调查员获胜', defeat: '调查员落败/倒下', flee: '调查员逃离战斗',
+        enemy_retreat: '敌人撤退', disengage: '脱离了近战', surrender: '一方投降',
+      };
+      const summary = enc.log.map((l) => l.text).join('\n');
+      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${summary}`;
+      void (async () => {
+        try {
+          await pipelineRef.current.submit(input);
+        } finally {
+          const pages = useBookStore.getState().pages;
+          if (pages.length > 0) {
+            useBookStore.getState().setPageCombatLog(pages.length - 1, { entries: enc.log, endReason: reason });
+            useChatStore.getState().savePages(useBookStore.getState().pages);
+          }
+          useCombatStore.getState().clearCombat();
+          const id = useChatStore.getState().activeId;
+          if (id) void saveConversation(id);
+        }
+      })();
+    };
+    document.addEventListener('combat-advance', doAdvance);
+    const unsub = useCombatStore.subscribe((s) => {
+      // 仅重置一次性守卫；测试战斗的结束改由战斗面板「结束测试」按钮手动 clearCombat（不再自动清场，避免面板凭空消失）。
+      if (!s.encounter) resolvingRef.current = false;
+    });
+    return () => { document.removeEventListener('combat-advance', doAdvance); unsub(); };
   }, []);
 
   // ── Click outside to close wand menu ──
@@ -240,6 +286,16 @@ export function InputBar() {
                         divider
                         onClick={() => {
                           pipeline.toggleDebugLog();
+                          setWandOpen(false);
+                        }}
+                      />
+                      <WandRow
+                        icon="⤓"
+                        label="导出地图数据"
+                        iconColor="#7b9fc1"
+                        divider
+                        onClick={() => {
+                          exportMapData();
                           setWandOpen(false);
                         }}
                       />
@@ -527,3 +583,75 @@ const wandBtnStyle: React.CSSProperties = {
   transition: 'var(--transition-smooth)',
   flexShrink: 0,
 };
+
+/**
+ * 导出当前会话的地图数据为 JSON 并触发下载（排查用调试工具）。
+ * 含 locations/edges/locationElements 原始快照，外加 diagnostics：
+ * - isolatedLocations：无任何 edge 引用的孤立节点（对应「孤立无连线地点」异常）
+ * - emptyDescriptionLocations：description 为空的节点（对应「校门(无描述)」异常）
+ * - danglingEdges：端点指向不存在 location 的悬空边
+ * - currentLocationDangling：currentLocationId 指向不存在 location
+ * 下载五步法对齐 DebugLog.exportLogs / VariablePanel.handleExport。
+ */
+function exportMapData() {
+  const { locations, edges, currentLocationId } = useMapStore.getState();
+  const elements = useLocationElementStore.getState().elements;
+
+  const ids = new Set(locations.map((l) => l.id));
+  const referenced = new Set<string>();
+  for (const e of edges) {
+    referenced.add(e.fromId);
+    referenced.add(e.toId);
+  }
+
+  const isolatedLocations = locations
+    .filter((l) => !referenced.has(l.id))
+    .map((l) => ({ id: l.id, name: l.name }));
+  const emptyDescriptionLocations = locations
+    .filter((l) => !l.description || !l.description.trim())
+    .map((l) => ({ id: l.id, name: l.name }));
+  const danglingEdges = edges
+    .filter((e) => !ids.has(e.fromId) || !ids.has(e.toId))
+    .map((e) => ({
+      id: e.id,
+      fromId: e.fromId,
+      toId: e.toId,
+      type: e.type,
+      missingEnd: !ids.has(e.fromId) && !ids.has(e.toId) ? 'both' : !ids.has(e.fromId) ? 'from' : 'to',
+    }));
+  const currentLocationDangling =
+    currentLocationId !== null && !ids.has(currentLocationId)
+      ? { currentLocationId, exists: false }
+      : null;
+
+  const payload = {
+    exportedAt: Date.now(),
+    currentLocationId,
+    locations,
+    edges,
+    locationElements: elements,
+    diagnostics: {
+      summary: {
+        locationCount: locations.length,
+        edgeCount: edges.length,
+        elementCount: elements.length,
+        isolatedCount: isolatedLocations.length,
+        emptyDescCount: emptyDescriptionLocations.length,
+        danglingCount: danglingEdges.length,
+        currentValid: currentLocationDangling === null,
+      },
+      isolatedLocations,
+      emptyDescriptionLocations,
+      danglingEdges,
+      currentLocationDangling,
+    },
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `coc-map-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

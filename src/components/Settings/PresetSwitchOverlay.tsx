@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_XY_NAME, buildFusionPreset } from '../../sillytavern/fusion-preset';
@@ -59,6 +60,8 @@ function persistEnabled(id: string, items: PromptItem[]): void {
 export function PresetSwitchOverlay() {
   const open = usePanelStore((s) => s.openPanel === 'presetSwitch');
   const closeAll = usePanelStore((s) => s.closeAll);
+  // 双人成行面板不随「界面缩放」放大——施加反向 zoom 抵消根元素 zoom（嵌套相乘 S×(1/S)=1），同 ChangelogModal。
+  const uiScale = useSettingsStore((s) => s.uiScale);
 
   const [presetId, setPresetId] = useState('');
   const [presetName, setPresetName] = useState('');
@@ -195,6 +198,7 @@ export function PresetSwitchOverlay() {
         background: 'radial-gradient(ellipse at top, #1d160e 0%, var(--void) 95%)',
         border: '1px solid var(--gold)', borderRadius: 8,
         boxShadow: '0 18px 60px rgba(0,0,0,0.6)', fontFamily: 'var(--font-ui)',
+        zoom: uiScale === 1 ? undefined : 1 / uiScale,
       }}>
         <div style={{ padding: '16px 18px 10px', borderBottom: '1px solid rgba(196,168,85,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>

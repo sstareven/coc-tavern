@@ -1,9 +1,34 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNpcStore } from '../../stores/useNpcStore';
+import { useCombatStore } from '../../stores/useCombatStore';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
-import type { NpcProfile } from '../../types';
+import { parseNpcDerived } from '../../sillytavern/npc-derived';
+import { buildCombatantFromNpc, buildPlayerCombatant } from '../../sillytavern/combat-detector';
+import { nextTurnOrder } from '../../sillytavern/combat-engine';
+import { dispatchNpcAction } from '../../sillytavern/choice-action';
+import { NPC_QUICK_ACTIONS, NPC_ACTION_GROUPS, npcActionsByGroup, type NpcAction } from '../../sillytavern/npc-actions';
+import type { NpcProfile, COC7Characteristic, Encounter } from '../../types';
+
+/** 据名册 NPC 即时开战：建玩家+该 NPC(敌方)的 Encounter，锁定该 NPC 为目标，并关闭名册浮层。 */
+function startCombatWithNpc(npc: NpcProfile) {
+  const sheet = useCharSheetStore.getState().sheet;
+  const inventory = useInventoryStore.getState().items;
+  const player = buildPlayerCombatant(sheet, inventory);
+  const enemy = buildCombatantFromNpc(npc);
+  const combatants = [player, enemy];
+  const enc: Encounter = {
+    active: true, round: 1, turnOrder: nextTurnOrder(combatants), currentIdx: 0,
+    combatants, bystanders: [], playerTargetId: enemy.id,
+    log: [{ kind: 'narrative', text: `你向 ${npc.name} 发起攻击！` }],
+    diceRecords: [], status: 'active',
+  };
+  useCombatStore.getState().start(enc);
+  useNpcStore.getState().close();
+}
 
 function FavBar({ value }: { value: number }) {
   // -100..100 → 0..100% ；负=血红，正=金绿
@@ -31,10 +56,92 @@ function Section({ title, body }: { title: string; body: string }) {
   );
 }
 
+const CHAR_KEYS: { k: COC7Characteristic; label: string }[] = [
+  { k: 'STR', label: '力量' }, { k: 'CON', label: '体质' }, { k: 'SIZ', label: '体型' }, { k: 'DEX', label: '敏捷' },
+  { k: 'APP', label: '外貌' }, { k: 'INT', label: '智力' }, { k: 'POW', label: '意志' }, { k: 'EDU', label: '教育' },
+];
+
+function StatCell({ label, sub, value }: { label: string; sub?: string; value: string | number }) {
+  return (
+    <div style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.18)', borderRadius: 4, padding: '4px 6px', textAlign: 'center', background: 'rgba(0,0,0,0.015)' }}>
+      <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{label}{sub ? ` ${sub}` : ''}</div>
+      <div style={{ fontSize: 14, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{value}</div>
+    </div>
+  );
+}
+
+/** NPC 记录面板：基础属性 8 格 + 衍生属性 6 格（贴主角 CharSheet 风），缺字段显「—」/「未知」。 */
+function NpcRecordSheet({ npc }: { npc: NpcProfile }) {
+  const ch = npc.characteristics ?? {};
+  const d = parseNpcDerived(npc);
+  const derived: { label: string; value: string | number | undefined }[] = [
+    { label: 'HP', value: d.hp }, { label: 'SAN', value: d.san }, { label: 'MP', value: d.mp },
+    { label: 'DB', value: d.db }, { label: 'MOV', value: d.mov }, { label: '体格', value: d.build },
+  ];
+  return (
+    <>
+      <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>基础属性</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8 }}>
+        {CHAR_KEYS.map(({ k, label }) => <StatCell key={k} label={k} sub={label} value={ch[k] ?? '—'} />)}
+      </div>
+      <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>衍生属性</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+        {derived.map((it) => <StatCell key={it.label} label={it.label} value={it.value ?? '未知'} />)}
+      </div>
+    </>
+  );
+}
+
+/** 互动动作小药丸（战技/攻击=血红，检定=金）。带 hover 放大 + active 按压反馈。 */
+function NpcActionChip({ action, onClick }: { action: { label: string; kind?: string; skill?: string; difficulty?: string }; onClick: () => void }) {
+  const [h, setH] = useState(false);
+  const combat = action.kind === 'combat';
+  return (
+    <button onClick={onClick}
+      title={action.skill ? `进行${action.skill}检定${action.difficulty && action.difficulty !== '普通' ? `(${action.difficulty})` : ''}` : undefined}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
+      onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+      style={{
+        fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 1, padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
+        border: `1px solid ${combat ? 'rgba(176,58,46,0.5)' : 'rgba(196,168,85,0.5)'}`,
+        background: h ? (combat ? 'rgba(176,58,46,0.16)' : 'rgba(196,168,85,0.18)') : (combat ? 'rgba(176,58,46,0.06)' : 'rgba(196,168,85,0.06)'),
+        color: combat ? 'var(--blood)' : 'var(--ink)',
+        transform: h ? 'scale(1.05)' : 'scale(1)', transition: 'var(--transition-smooth)',
+      }}
+    >{action.label}</button>
+  );
+}
+
+/** 在场 NPC 互动菜单（卡内，非全屏）：快捷行 + 更多▾ 展开 COC7e 全套对人行动。 */
+function InteractionMenu({ npc }: { npc: NpcProfile }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const run = (a: NpcAction) => {
+    if (a.kind === 'combat') startCombatWithNpc(npc);                       // 攻击/战技 → 进战斗
+    else { dispatchNpcAction(npc.name, a); useNpcStore.getState().close(); } // 检定 → 走选项掷骰提交管线
+  };
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        {NPC_QUICK_ACTIONS.map((a) => <NpcActionChip key={a.id} action={a} onClick={() => run(a)} />)}
+        <NpcActionChip action={{ label: moreOpen ? '更多▴' : '更多▾' }} onClick={() => setMoreOpen((o) => !o)} />
+      </div>
+      {moreOpen && NPC_ACTION_GROUPS.map((g) => (
+        <div key={g} style={{ marginTop: 7 }}>
+          <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 3 }}>{g}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {npcActionsByGroup(g).map((a) => <NpcActionChip key={a.id} action={a} onClick={() => run(a)} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function NpcCard({ npc }: { npc: NpcProfile }) {
   const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const skillStr = npc.skills ? Object.entries(npc.skills).map(([n, v]) => `${n}${v}`).join('、') : '';
-  const charStr = npc.characteristics ? Object.entries(npc.characteristics).map(([k, v]) => `${k}${v}`).join(' ') : '';
   return (
     <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
@@ -42,18 +149,28 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>
           <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>{npc.identity || '身份不明'}</span>
           {npc.status && <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--blood)', border: '1px solid rgba(139,58,58,0.4)', borderRadius: 8, padding: '1px 7px' }}>{npc.status}</span>}
-          <span style={{ fontSize: 10, color: 'var(--ink-faded)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', marginLeft: npc.status ? 0 : 'auto' }}>▸</span>
+          {npc.isPresent && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((m) => !m); }}
+              style={{
+                marginLeft: npc.status ? 8 : 'auto', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 1,
+                color: 'var(--gold)', background: menuOpen ? 'rgba(196,168,85,0.18)' : 'transparent',
+                border: '1px solid rgba(196,168,85,0.5)', borderRadius: 3, padding: '2px 9px', cursor: 'pointer',
+                transition: 'var(--transition-smooth)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = menuOpen ? 'rgba(196,168,85,0.18)' : 'transparent'; }}
+            >{menuOpen ? '收起' : '互动'}</button>
+          )}
+          <span style={{ fontSize: 10, color: 'var(--ink-faded)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', marginLeft: (npc.status || npc.isPresent) ? 0 : 'auto' }}>▸</span>
         </div>
         {npc.appearance && <div style={{ fontSize: 11.5, color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.5, ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{npc.appearance}</div>}
         <div style={{ marginTop: 7 }}><FavBar value={npc.favorability} /></div>
       </div>
+      {npc.isPresent && menuOpen && <InteractionMenu npc={npc} />}
       {open && (
         <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
-          {(charStr || npc.derived) && (
-            <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', marginBottom: 4 }}>
-              {charStr}{charStr && npc.derived ? ' · ' : ''}{npc.derived}
-            </div>
-          )}
+          <NpcRecordSheet npc={npc} />
           <Section title="性格" body={npc.personality} />
           <Section title="动机/秘密（KP视角）" body={npc.innerThoughts} />
           <Section title="背景故事" body={npc.backstory} />

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
 import { useKeywordStore } from '../../stores/useKeywordStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 
 interface Props {
   keyword: string;
@@ -137,18 +138,25 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const meaning = getMeaning(keyword);
   const red = tone === 'red';
+  // 桌面端「界面缩放」把 zoom:S 施加在 <html>。本浮层用 position:fixed + createPortal(document.body)，
+  // 仍处于 zoom 上下文内，故 left/top 会被根 zoom 再乘一次；而鼠标 clientX/Y 以未缩放 CSS 像素上报。
+  // 修法：把坐标除以 scale —— (clientX/S)*S = clientX 恰好落回光标。clamp 的 vw 同步除以 S 保持同一坐标空间。
+  const uiScale = useSettingsStore((s) => s.uiScale);
 
   const TOOLTIP_W = 340; // max-width of tooltip
 
   const calcPos = useCallback((clientX: number, clientY: number) => {
+    const scale = uiScale || 1;
+    const cx = clientX / scale;
+    const cy = clientY / scale;
     const gap = 14;
-    const vw = window.innerWidth;
+    const vw = window.innerWidth / scale;
     // Default: right of cursor. If too close to right edge, flip to left
-    const x = clientX + gap + TOOLTIP_W > vw ? clientX - TOOLTIP_W - gap : clientX + gap;
+    const x = cx + gap + TOOLTIP_W > vw ? cx - TOOLTIP_W - gap : cx + gap;
     // Clamp y: don't go above viewport, fall below cursor if needed
-    const y = Math.max(4, clientY - 10);
+    const y = Math.max(4, cy - 10);
     setTpPos({ x: Math.max(0, x), y });
-  }, []);
+  }, [uiScale]);
 
   const onEnter = useCallback((e: React.MouseEvent) => {
     calcPos(e.clientX, e.clientY);

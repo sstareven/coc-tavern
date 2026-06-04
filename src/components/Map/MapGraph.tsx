@@ -1,4 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import type { MapLocation, MapEdge } from '../../types';
+
+const MIN_ZOOM = 0.4;   // 缩放下限阈值
+const MAX_ZOOM = 3;     // 缩放上限阈值
+const ZOOM_STEP = 1.12; // 每格滑轮缩放系数
 
 const NODE_R = 22;          // 节点圆半径
 const COL_GAP = 150;        // 列间距（左→右）
@@ -107,10 +112,76 @@ export function MapGraph({ locations, edges, currentId, selectedId, onSelect }: 
 }) {
   const { pos, W, H } = computeLayout(locations, edges, currentId);
 
+  // 抓取拖动平移（touchscreen 式 grab-pan）：鼠标按住地图任意处拖动，画布跟手平移，
+  // 取代「只能拖滚动条」。仅对鼠标生效——触屏交给浏览器原生 overflow 平移，避免冲突。
+  // 拖动时按 -delta 改 scrollLeft/Top：内容跟随指针（拖右→看到左侧内容，与滚动条相反）。
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ active: false, x: 0, y: 0, moved: false });
+
+  // 滑轮缩放：以光标为锚点缩放，限定在 [MIN_ZOOM, MAX_ZOOM] 阈值内。用非被动原生监听以 preventDefault 阻止页面滚动。
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const prev = zoomRef.current;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev * (e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
+      if (next === prev) return;
+      const rect = el.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left, offsetY = e.clientY - rect.top;
+      // 锚定光标下的内容点：缩放前后该点在视口位置不变
+      const cx = (el.scrollLeft + offsetX) / prev, cy = (el.scrollTop + offsetY) / prev;
+      zoomRef.current = next;
+      setZoom(next);
+      requestAnimationFrame(() => {
+        el.scrollLeft = cx * next - offsetX;
+        el.scrollTop = cy * next - offsetY;
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return; // 触屏/笔走原生滚动；仅鼠标左键抓取
+    drag.current = { active: true, x: e.clientX, y: e.clientY, moved: false };
+    e.currentTarget.style.cursor = 'grabbing';
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d.active || !scrollRef.current) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return; // 阈值：小抖动不算拖动，保留点击选中节点
+    d.moved = true;
+    scrollRef.current.scrollLeft -= dx;
+    scrollRef.current.scrollTop -= dy;
+    d.x = e.clientX; d.y = e.clientY;
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    e.currentTarget.style.cursor = 'grab';
+  };
+  // 拖动过的这一下产生的 click 不应选中节点——捕获阶段吞掉它（纯点击 moved=false 不受影响）。
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (drag.current.moved) { e.stopPropagation(); drag.current.moved = false; }
+  };
+
   return (
-    <div style={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto' }} className="inv-scroll">
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
-        style={{ display: 'block', margin: 'auto', minWidth: W, minHeight: H }}>
+    <div ref={scrollRef}
+      style={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', cursor: 'grab' }}
+      className="inv-scroll"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      onClickCapture={onClickCapture}
+    >
+      <svg width={W * zoom} height={H * zoom} viewBox={`0 0 ${W} ${H}`}
+        style={{ display: 'block', margin: 'auto', minWidth: W * zoom, minHeight: H * zoom }}>
         <defs>
           <marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="rgba(196,168,85,0.85)" />

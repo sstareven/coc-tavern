@@ -10,6 +10,9 @@ import type {
   MapLocation,
   MapEdge,
   LocationElement,
+  KeyPillar,
+  PlotAnchors,
+  Encounter,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 
@@ -86,6 +89,25 @@ export interface DarkEndingRow {
   ending: BadEnding;
 }
 
+// 拯救世界系统：本局真相支柱 + 拯救模式，一行/会话（守秘人机密）。
+export interface KeyClueRow {
+  conversationId: string;
+  pillars: KeyPillar[];
+  saveWorldMode: boolean;
+}
+
+// 本局剧情蓝图（骨架+约束+威胁依赖），一行/会话（守秘人机密，开局生成）。
+export interface PlotAnchorRow {
+  conversationId: string;
+  anchors: PlotAnchors;
+}
+
+// 进行中战斗（一行/会话；脱战后删行、内容固化进 BookPage.combatLog）。
+export interface CombatRow {
+  conversationId: string;
+  encounter: Encounter;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -102,6 +124,9 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   mapEdges: EntityTable<MapEdgeRow>;
   locationElements: EntityTable<LocationElementRow>;
   darkEndings: EntityTable<DarkEndingRow, 'conversationId'>;
+  keyClues: EntityTable<KeyClueRow, 'conversationId'>;
+  plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
+  combat: EntityTable<CombatRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -164,6 +189,30 @@ export const V7_SCHEMA = {
 } as const;
 
 db.version(7).stores(V7_SCHEMA);
+
+/** v8: 新增「拯救世界」关键线索/真相支柱单行表（一行/会话，无数据迁移）。 */
+export const V8_SCHEMA = {
+  ...V7_SCHEMA,
+  keyClues: '&conversationId',
+} as const;
+
+db.version(8).stores(V8_SCHEMA);
+
+/** v9: 新增「剧情锚点」单行表（一行/会话，无数据迁移）。 */
+export const V9_SCHEMA = {
+  ...V8_SCHEMA,
+  plotAnchors: '&conversationId',
+} as const;
+
+db.version(9).stores(V9_SCHEMA);
+
+/** v10: 新增「进行中战斗」单行表（无数据迁移）。 */
+export const V10_SCHEMA = {
+  ...V9_SCHEMA,
+  combat: '&conversationId',
+} as const;
+
+db.version(10).stores(V10_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

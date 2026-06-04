@@ -14,6 +14,8 @@ interface ClueStore {
   /** 归并：把指定（默认全部）active 线索归档（可回溯），用 1-3 条合成总结取代为新的 active。
    *  archiveIds 给出时只归档这些 id——避免归并 LLM 往返期间新发现的线索被一并误档。 */
   consolidateClues: (summaries: ClueInput[], archiveIds?: string[]) => void;
+  /** 给某条 active 线索打「关键线索」标记（揭示了某真相支柱）。宽松名匹配。 */
+  markClueKey: (name: string, pillarId: string) => void;
   removeClue: (name: string) => void;
   buildContextInjection: () => string;
   clearAll: () => void;
@@ -64,6 +66,8 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
           if (oldIdx >= 0) {
             clues[oldIdx] = { ...clues[oldIdx], status: 'archived', evolvedIntoId: newClue.id };
             newClue.evolvedFrom = clues[oldIdx].id;
+            // 演化保留关键性：旧线索若是关键线索，新线索继承其真相支柱
+            if (clues[oldIdx].keyPillarId) newClue.keyPillarId = clues[oldIdx].keyPillarId;
           }
           clues.push(newClue);
           continue;
@@ -119,10 +123,17 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
     // 1. 归档 active 线索（保留可回溯，显示在「历史线索」区）。
     //    给了 archiveIds 则只归档这些 id——防止归并 LLM 往返期间新加入的线索被误档而「消失」。
     const idSet = archiveIds ? new Set(archiveIds) : null;
+    // 收集被归档的 active 关键线索的真相支柱 id —— 让总结线索继承关键性（N 由 keyClueStore 独立跟踪，此处仅保留展示标记）。
+    const archivedKeyPillars = [...new Set(
+      s.clues
+        .filter((c) => c.status !== 'archived' && (!idSet || idSet.has(c.id)) && c.keyPillarId)
+        .map((c) => c.keyPillarId as string),
+    )];
     const clues = s.clues.map((c) =>
       (c.status !== 'archived' && (!idSet || idSet.has(c.id))) ? { ...c, status: 'archived' as const } : c
     );
-    // 2. 加入 1-3 条合成总结作为新的 active（major + synthesized）
+    // 2. 加入 1-3 条合成总结作为新的 active（major + synthesized）；把被归档的关键支柱依次绑定到总结上。
+    let pillarCursor = 0;
     for (const input of summaries) {
       const name = input.name?.trim();
       if (!name) continue;
@@ -138,8 +149,17 @@ export const useClueStore = create<ClueStore>()((set, get) => ({
         acquiredAt: Date.now(),
         status: 'active',
         tier: 'major',
+        keyPillarId: pillarCursor < archivedKeyPillars.length ? archivedKeyPillars[pillarCursor++] : undefined,
       });
     }
+    return { clues };
+  }),
+
+  markClueKey: (name, pillarId) => set((s) => {
+    const idx = findActiveByName(s.clues, name);
+    if (idx < 0 || s.clues[idx].keyPillarId === pillarId) return s;
+    const clues = [...s.clues];
+    clues[idx] = { ...clues[idx], keyPillarId: pillarId, tier: 'major' };
     return { clues };
   }),
 

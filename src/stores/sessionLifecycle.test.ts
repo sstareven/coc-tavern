@@ -9,7 +9,10 @@ import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
 import { useLocationElementStore } from './useLocationElementStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
-import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation } from './sessionLifecycle';
+import { useKeyClueStore } from './useKeyClueStore';
+import { useAnchorStore } from './useAnchorStore';
+import { useCombatStore } from './useCombatStore';
+import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation, switchConversation } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
 import { db } from '../db/database';
 import type { BookPage, CharacterSheet } from '../types';
@@ -265,11 +268,15 @@ describe('开新游戏的跨存档隔离（clues/npc/map/darkThread 不泄漏进
     await Promise.all([
       db.clues.clear(), db.npcProfiles.clear(),
       db.mapLocations.clear(), db.mapEdges.clear(),
+      db.plotAnchors.clear(),
+      db.combat.clear(),
     ]);
     useClueStore.getState().clearAll();
     useNpcStore.getState().clearAll();
     useMapStore.getState().clearAll();
     useDarkThreadStore.getState().clearAll();
+    useAnchorStore.getState().clearAll();
+    useCombatStore.getState().clearAll();
     useChatStore.setState({ sessions: [], activeId: null });
   });
 
@@ -305,6 +312,44 @@ describe('开新游戏的跨存档隔离（clues/npc/map/darkThread 不泄漏进
     // A 的数据不丢：切走前已由 saveConversation(a) 落库
     expect((await db.clues.where('conversationId').equals(a).toArray()).length).toBeGreaterThan(0);
     expect((await db.npcProfiles.where('conversationId').equals(a).toArray()).length).toBeGreaterThan(0);
+  });
+
+  it('正玩存档A时开新游戏B：B不继承A的剧情锚点；切回A可恢复', async () => {
+    const a = startNewConversation('A');
+    useChatStore.getState().setActive(a);
+    useAnchorStore.getState().setAnchors({
+      nodes: [{ id: 'n1', title: '抵达极地', description: '到达死城' }],
+      constraints: ['威胁在极地爆发'],
+      threatDependencies: ['船只补给'],
+    });
+    await saveConversation(a);
+
+    const b = startNewConversation('B');
+    expect(useAnchorStore.getState().anchors.nodes).toHaveLength(0); // B 不继承
+    expect(await db.plotAnchors.get(b)).toBeUndefined();
+
+    await switchConversation(a); // 切回 A 恢复
+    expect(useAnchorStore.getState().anchors.nodes).toHaveLength(1);
+    expect(useAnchorStore.getState().anchors.constraints).toContain('威胁在极地爆发');
+  });
+
+  it('正玩存档A时开新游戏B：B不继承A的进行中战斗；切回A恢复半成品', async () => {
+    const a = startNewConversation('A');
+    useChatStore.getState().setActive(a);
+    useCombatStore.getState().start({
+      active: true, round: 2, turnOrder: ['p'], currentIdx: 0,
+      combatants: [], bystanders: [], playerTargetId: null,
+      log: [{ kind: 'narrative', text: '战斗进行中' }], diceRecords: [], status: 'active',
+    });
+    await saveConversation(a);
+
+    const b = startNewConversation('B');
+    expect(useCombatStore.getState().encounter).toBeNull(); // B 不继承
+    expect(await db.combat.get(b)).toBeUndefined();
+
+    await switchConversation(a); // 切回 A 恢复半成品演出
+    expect(useCombatStore.getState().encounter?.round).toBe(2);
+    expect(useCombatStore.getState().encounter?.log).toHaveLength(1);
   });
   // 切档时若 loadConversation 的只读事务抛错（DB 损坏/迁移不全等），clearAllGameState 必须仍已执行——
   // 否则上一会话(A)的 clues/npc/map 残留内存、而 activeId 已切到 B → 下次保存把 A 数据写进 B = 污染。
@@ -457,5 +502,80 @@ describe('地点元素(locationElements)持久化 + 跨会话隔离', () => {
 
     await deleteConversation(a);
     expect(await db.locationElements.where('conversationId').equals(a).toArray()).toHaveLength(0);
+  });
+});
+
+describe('拯救世界·关键线索(keyClues)持久化 + 跨会话隔离', () => {
+  beforeEach(async () => {
+    await clearDb();
+    await db.keyClues.clear();
+    useKeyClueStore.getState().clearAll();
+    useChatStore.setState({ sessions: [], activeId: null });
+  });
+
+  function seedPillars() {
+    useKeyClueStore.getState().setPillars([
+      { id: 'p1', title: '凶手身份', secret: '镇长', uncovered: true, uncoveredByClue: '密信' },
+      { id: 'p2', title: '手段', secret: '仪式', uncovered: false },
+      { id: 'p3', title: '弱点', secret: '金徽', uncovered: false },
+    ]);
+  }
+
+  it('真相支柱 + 揭示状态 save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+
+    useKeyClueStore.getState().clearAll();
+    expect(useKeyClueStore.getState().pillars).toHaveLength(0);
+
+    await loadConversation(a);
+    const kc = useKeyClueStore.getState();
+    expect(kc.pillars).toHaveLength(3);
+    expect(kc.uncoveredCount()).toBe(1);
+    expect(kc.pillars[0]).toMatchObject({ id: 'p1', uncovered: true, uncoveredByClue: '密信' });
+  });
+
+  it('saveWorldMode save→load 往返保留', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    useKeyClueStore.getState().setPillars([
+      { id: 'p1', title: 't1', secret: 's1', uncovered: false },
+      { id: 'p2', title: 't2', secret: 's2', uncovered: false },
+      { id: 'p3', title: 't3', secret: 's3', uncovered: false },
+    ]);
+    useKeyClueStore.getState().markPillarUncovered('p1', 'c1');
+    useKeyClueStore.getState().markPillarUncovered('p2', 'c2');
+    useKeyClueStore.getState().markPillarUncovered('p3', 'c3'); // 第 3 个 → 触发 saveWorldMode
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(true);
+    await saveConversation(a);
+
+    useKeyClueStore.getState().clearAll();
+    await loadConversation(a);
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(true);
+  });
+
+  it('切到无支柱的会话 → 重置为空(不残留上一会话)', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+
+    const b = useChatStore.getState().createSession('B');
+    await loadConversation(b);
+    expect(useKeyClueStore.getState().pillars).toHaveLength(0);
+    expect(useKeyClueStore.getState().saveWorldMode).toBe(false);
+  });
+
+  it('删除会话时一并清除其 keyClues 行', async () => {
+    const a = useChatStore.getState().createSession('A');
+    useChatStore.getState().setActive(a);
+    seedPillars();
+    await saveConversation(a);
+    expect(await db.keyClues.get(a)).toBeDefined();
+
+    await deleteConversation(a);
+    expect(await db.keyClues.get(a)).toBeUndefined();
   });
 });

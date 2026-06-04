@@ -13,6 +13,8 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
+import { useKeyClueStore } from '../../stores/useKeyClueStore';
+import { useCombatStore } from '../../stores/useCombatStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -20,6 +22,7 @@ import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
+import { CombatPanel } from '../Combat/CombatPanel';
 import { TocOverlay } from './TocOverlay';
 import { PageNav } from './PageNav';
 import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
@@ -38,6 +41,7 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
+  const inCombat = useCombatStore((s) => !!s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
@@ -157,6 +161,7 @@ export function Storybook() {
     useMapStore.getState().clearAll();
     useLocationElementStore.getState().clearAll();
     useDarkThreadStore.getState().clearAll();
+    useKeyClueStore.getState().clearAll();
 
     for (const p of remaining) {
       if (p.inventoryChanges?.length) useInventoryStore.getState().applyChanges(p.inventoryChanges);
@@ -178,6 +183,11 @@ export function Storybook() {
     // 老存档页面无快照则不动角色卡，避免误清。
     const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
     if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
+
+    // NPC 名册回溯：优先用剩余末页的整页快照（含战斗结算的昏迷/死亡等，比 npcUpdates 重放更可靠）；
+    // 老存档无快照则保留上面的「clearAll + 重放 npcUpdates」兜底。
+    const lastNpcSnap = [...remaining].reverse().find((p) => p.npcSnapshot)?.npcSnapshot;
+    if (lastNpcSnap) useNpcStore.getState().replaceAll(Object.values(lastNpcSnap));
 
     // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first），并补上页码。
     useDiceStore.getState().setHistory(
@@ -382,6 +392,9 @@ export function Storybook() {
                   </FadingPage>
                 )}
               </div>
+            ) : inCombat ? (
+              /* 战斗中：右页变即时战斗面板（CombatPanel 自带 flex:1 填满右页；脱战后 clearCombat 自动回正常右页） */
+              <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />

@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useNpcStore } from './useNpcStore';
+import { useCharSheetStore } from './useCharSheetStore';
 
 function reset() { useNpcStore.getState().clearAll(); }
+function useChatSheetName(name: string) {
+  const s = useCharSheetStore.getState();
+  s.setSheet({ ...s.sheet, identity: { ...s.sheet.identity, name } });
+}
 
 describe('useNpcStore.applyUpdates', () => {
   beforeEach(reset);
@@ -42,6 +47,30 @@ describe('useNpcStore.applyUpdates', () => {
     const ctx = useNpcStore.getState().buildContextInjection();
     expect(ctx).toContain('在场甲');
     expect(ctx).not.toContain('离场乙');
+  });
+
+  it('新建 NPC 自动获得 8 项基础属性（确定性，同 id 稳定）', () => {
+    useNpcStore.getState().applyUpdates([{ name: '陌生人' }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    const c = p.characteristics!;
+    expect(Object.keys(c).sort()).toEqual(['APP', 'CON', 'DEX', 'EDU', 'INT', 'POW', 'SIZ', 'STR']);
+    expect(Object.values(c).every((v) => typeof v === 'number' && v >= 15 && v <= 90)).toBe(true);
+  });
+
+  it('LLM 提供的 characteristics 优先，不被默认值覆盖', () => {
+    useNpcStore.getState().applyUpdates([{ name: '教授', characteristics: { STR: 35, INT: 80 } }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.characteristics!.STR).toBe(35);
+    expect(p.characteristics!.INT).toBe(80);
+  });
+
+  it('调查员不入名册：同名 npcUpdate 被忽略', () => {
+    useChatSheetName('杰米');
+    useNpcStore.getState().applyUpdates([{ name: '杰米', identity: '调查员' }, { name: '路人', identity: '小贩' }]);
+    const names = Object.values(useNpcStore.getState().profiles).map((p) => p.name);
+    expect(names).not.toContain('杰米');
+    expect(names).toContain('路人');
+    useChatSheetName('');
   });
 });
 

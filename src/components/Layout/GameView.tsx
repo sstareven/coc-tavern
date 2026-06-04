@@ -36,6 +36,8 @@ export function GameView({ onReturnToMenu }: Props) {
   }, []);
 
   const onDiceComplete = useCallback(() => {
+    // 通知战斗面板：骰子动画已结束，可揭示此前暂存的战斗日志文字。
+    document.dispatchEvent(new Event('dice-animate-done'));
     setDiceAnim((prev) => {
       if (!prev.visible) return prev; // Already hidden by newer animation
       const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');

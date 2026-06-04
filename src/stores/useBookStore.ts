@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 
@@ -12,7 +12,7 @@ const defaultPages: BookPage[] = [
       + '梦里没有边际，脚下是一汪幽深不波的湖水；水面倒映的并非你的面容，而是几处从未见过、却莫名熟稔的去处——一座在涨潮中缓缓没顶的海港、一圈夜空滚着隆隆声的巨石、一道棱角过于规则的惨白雪山，以及一座常春藤缠绕的尖顶小镇。\n\n'
       + '一道{{低语}}自湖底升起，并不像有声音响起，却径直在你颅内成形：\n'
       + '「你已降生于这个时代，{{调查员}}。这些门皆曾被推开，也都将再度被推开；你的{{命运}}，尚未书写。」\n\n'
-      + '你猛然睁开双眼。窗外是一九二五年寻常的清晨，天空灰白而沉默——那低语却仍黏在耳膜深处，你隐隐知道，自己即将做出的选择，将决定那扇门通向何方。',
+      + '你猛然睁开双眼。窗外是一九二五年寻常的清晨，天空灰白而沉默——那低语却仍黏在耳膜深处，你隐隐知道，自己即将做出的选择，将决定那扇门通向何方。而无论那扇门通向何处，你都须在灾厄成形之前查明真相、集齐足以扭转结局的关键线索。',
     leftPage: pageNum(0),
     rightPage: rightPageNum(0),
     rightHeader: '命运的歧路',
@@ -111,6 +111,12 @@ interface BookStore {
   setPageInventoryChanges: (index: number, changes: InventoryChange[]) => void;
   /** 按 index 覆写某页的 locationElements（供地点元素 fire-and-forget 异步抽取后页锚定写回；删页重放据此恢复）。 */
   setPageLocationElements: (index: number, elements: LocationElementInput[]) => void;
+  /** 按 index 覆写某页的 genStats（供 MVU 变量结算延后到页面提交之后时，回填本页 token 用量统计）。 */
+  setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
+  /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
+  setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
+  /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
+  setPageCombatLog: (index: number, combatLog: CombatLog) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -344,6 +350,24 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], locationElements: elements };
+    return { pages };
+  }),
+  setPageGenStats: (index, genStats) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], genStats };
+    return { pages };
+  }),
+  setPageDarkThread: (index, darkThread) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], darkThread };
+    return { pages };
+  }),
+  setPageCombatLog: (index, combatLog) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], combatLog };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {

@@ -1,8 +1,35 @@
 import { create } from 'zustand';
-import type { NpcProfile, NpcUpdate } from '../types';
+import type { NpcProfile, NpcUpdate, COC7Characteristic } from '../types';
 import { useSettingsStore } from './useSettingsStore';
+import { useCharSheetStore } from './useCharSheetStore';
 
 export type { NpcUpdate };
+
+// ── NPC 默认基础属性（确定性：同一 id 每次生成同一组，避免每次读档重掷）──
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+/** 据种子(NPC id)确定性生成一组 COC7e 基础属性：STR/CON/DEX/APP/POW=3d6×5，SIZ/INT/EDU=(2d6+6)×5。 */
+function defaultCharacteristics(seed: string): Partial<Record<COC7Characteristic, number>> {
+  const rng = mulberry32(hashStr(seed) || 1);
+  const roll = (n: number, bonus = 0) => { let s = bonus; for (let i = 0; i < n; i++) s += Math.floor(rng() * 6) + 1; return s * 5; };
+  return { STR: roll(3), CON: roll(3), DEX: roll(3), APP: roll(3), POW: roll(3), SIZ: roll(2, 6), INT: roll(2, 6), EDU: roll(2, 6) };
+}
+/** 缺基础属性的 NPC 补上确定性默认值（用户要求 NPC 都要有基础属性）。 */
+function withDefaultChars(p: NpcProfile): NpcProfile {
+  if (p.characteristics && Object.keys(p.characteristics).length > 0) return p;
+  return { ...p, characteristics: defaultCharacteristics(p.id) };
+}
+/** 当前调查员名（调查员绝不应进入 NPC 名册）。 */
+function investigatorName(): string {
+  return useCharSheetStore.getState().sheet?.identity?.name?.trim() ?? '';
+}
 
 /** 折叠后默认保留的最近原始记忆条数（被 settings.npcMemoryKeep 覆盖） */
 export const MEMORY_RECENT_KEEP = 6;
@@ -56,8 +83,16 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
   applyUpdates: (updates) => {
     set((s) => {
       const profiles = { ...s.profiles };
+      const investigator = investigatorName();
+      // 清理历史脏数据：调查员本人绝不应在 NPC 名册里
+      if (investigator) {
+        for (const [pid, prof] of Object.entries(profiles)) {
+          if (prof.name.trim() === investigator) delete profiles[pid];
+        }
+      }
       for (const u of updates) {
         if (!u.name?.trim()) continue;
+        if (investigator && u.name.trim() === investigator) continue; // 调查员不入名册
         const now = Date.now();
         let id = findIdByName(profiles, u.name);
         let p: NpcProfile;
@@ -93,7 +128,7 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         // 安全兜底：即便 AI 未提供梗概，也绝不无限增长
         if (p.memories.length > MEMORY_HARD_CAP) p.memories = p.memories.slice(-MEMORY_HARD_CAP);
         p.updatedAt = now;
-        profiles[id] = p;
+        profiles[id] = withDefaultChars(p); // 确保有基础属性
       }
       return { profiles };
     });
@@ -120,6 +155,15 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     return `[在场NPC——请严格按各自的身份、性格、动机、好感度与记忆一致地扮演]\n${lines.join('\n')}`;
   },
 
-  replaceAll: (list) => set({ profiles: Object.fromEntries(list.map((p) => [p.id, p])) }),
+  replaceAll: (list) => set(() => {
+    const investigator = investigatorName();
+    const profiles: Record<string, NpcProfile> = {};
+    for (const p of list) {
+      if (investigator && p.name.trim() === investigator) continue; // 调查员不入名册（清理历史脏数据）
+      const fixed = withDefaultChars(p); // 缺基础属性则补确定性默认值
+      profiles[fixed.id] = fixed;
+    }
+    return { profiles };
+  }),
   clearAll: () => set({ profiles: {} }),
 }));

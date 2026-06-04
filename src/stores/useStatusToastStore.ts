@@ -13,6 +13,8 @@ interface StatusToastStore {
   toast: StatusToast | null;
   /** Show a persistent "processing" toast (stays until markDone/showError/hide). */
   showProcessing: (message: string) => void;
+  /** 更新当前 processing 提示的文案，但【保持同一 id】（顶部实时计时器不重置）；当前非 processing 时回退为新建 processing。 */
+  updateProcessing: (message: string) => void;
   /** Replace with a "done" toast that auto-fades after a short delay. */
   markDone: (message: string) => void;
   /** Replace with an "error" toast (red) that auto-fades after a longer delay. */
@@ -40,6 +42,18 @@ export const useStatusToastStore = create<StatusToastStore>((set, get) => ({
   showProcessing: (message) => {
     clearFadeTimer();
     set({ toast: { id: nextId++, kind: 'processing', message } });
+  },
+
+  updateProcessing: (message) => {
+    const cur = get().toast;
+    // 已在 processing：只换文案、保留同一 id（实时计时器按 id 走表，不重置）。
+    if (cur?.kind === 'processing') {
+      set({ toast: { ...cur, message } });
+    } else {
+      // 当前无 processing 提示（已 done/清空）→ 起一个新的（新 id，计时归零）。
+      clearFadeTimer();
+      set({ toast: { id: nextId++, kind: 'processing', message } });
+    }
   },
 
   markDone: (message) => {

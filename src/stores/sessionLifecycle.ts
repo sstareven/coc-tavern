@@ -5,6 +5,9 @@ import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
 import { useMapStore } from './useMapStore';
 import { useLocationElementStore } from './useLocationElementStore';
+import { useKeyClueStore } from './useKeyClueStore';
+import { useAnchorStore } from './useAnchorStore';
+import { useCombatStore } from './useCombatStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
@@ -53,6 +56,9 @@ export function clearAllGameState() {
   useDiceStore.getState().clearAll();
   useChoiceLockStore.getState().unlock();
   useDarkThreadStore.getState().clearAll();
+  useKeyClueStore.getState().clearAll();
+  useAnchorStore.getState().clearAll();
+  useCombatStore.getState().clearAll();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
@@ -138,6 +144,9 @@ async function saveConversationInner(cid: string): Promise<void> {
   const locationElements = useLocationElementStore.getState().elements;
   const entries = useDarkThreadStore.getState().entries;
   const badEnding = useDarkThreadStore.getState().badEnding;
+  const keyClueState = useKeyClueStore.getState();
+  const anchorState = useAnchorStore.getState();
+  const combatEncounter = useCombatStore.getState().encounter;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
   const statData = useVariableStore.getState().statData;
@@ -181,7 +190,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -224,6 +233,27 @@ async function saveConversationInner(cid: string): Promise<void> {
         await db.darkEndings.delete(cid);
       }
 
+      // 拯救世界：有支柱则 put（守秘人机密单行），无则删残留行（与 darkEndings 同范式）。
+      if (keyClueState.pillars.length > 0) {
+        await db.keyClues.put({ conversationId: cid, pillars: keyClueState.pillars, saveWorldMode: keyClueState.saveWorldMode });
+      } else {
+        await db.keyClues.delete(cid);
+      }
+
+      // 剧情锚点（单行/会话）：有节点则 put，无则删残留行。
+      if (anchorState.anchors.nodes.length > 0) {
+        await db.plotAnchors.put({ conversationId: cid, anchors: anchorState.anchors });
+      } else {
+        await db.plotAnchors.delete(cid);
+      }
+
+      // 进行中战斗（单行/会话）：有 encounter 则 put（半成品保留），无则删残留行。
+      if (combatEncounter) {
+        await db.combat.put({ conversationId: cid, encounter: combatEncounter });
+      } else {
+        await db.combat.delete(cid);
+      }
+
       await db.keywords.where('conversationId').equals(cid).delete();
       if (keywordRows.length > 0) await db.keywords.bulkPut(keywordRows);
 
@@ -261,10 +291,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -277,6 +307,9 @@ async function loadConversationInner(cid: string): Promise<void> {
           db.locationElements.where('conversationId').equals(cid).toArray(),
           db.darkThreads.where('conversationId').equals(cid).toArray(),
           db.darkEndings.get(cid),
+          db.keyClues.get(cid),
+          db.plotAnchors.get(cid),
+          db.combat.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
           db.macroVars.where('conversationId').equals(cid).toArray(),
@@ -330,6 +363,11 @@ async function loadConversationInner(cid: string): Promise<void> {
   useDarkThreadStore.getState().replaceAll(entries);
   // 坏结局（单行/会话）：无行则为 null（clearAllGameState 已置 null，此处显式恢复以覆盖切档）。
   useDarkThreadStore.getState().setBadEnding(darkEndingRow?.ending ?? null);
+  // 拯救世界：真相支柱 + 拯救模式（无行则空，clearAllGameState 已清，此处显式恢复以覆盖切档）。
+  useKeyClueStore.getState().replaceAll(keyClueRow?.pillars ?? [], keyClueRow?.saveWorldMode ?? false);
+  // 剧情锚点（单行/会话）：无行则空蓝图（clearAllGameState 已清，此处显式恢复以覆盖切档）。
+  useAnchorStore.getState().replaceAll(plotAnchorRow?.anchors ?? { nodes: [], constraints: [], threatDependencies: [] });
+  useCombatStore.getState().replaceAll(combatRow?.encounter ?? null);
 
   // 关键词
   const keywords: Record<string, string> = {};
@@ -395,7 +433,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -408,6 +446,9 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.locationElements.where('conversationId').equals(cid).delete();
       await db.darkThreads.where('conversationId').equals(cid).delete();
       await db.darkEndings.delete(cid);
+      await db.keyClues.delete(cid);
+      await db.plotAnchors.delete(cid);
+      await db.combat.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();
       await db.macroVars.where('conversationId').equals(cid).delete();

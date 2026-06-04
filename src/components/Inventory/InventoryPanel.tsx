@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInventoryStore, CATEGORY_LABELS } from '../../stores/useInventoryStore';
 import { useClueStore } from '../../stores/useClueStore';
+import { useKeyClueStore, KEY_CLUE_TARGET } from '../../stores/useKeyClueStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
 import { integrateClues } from '../../sillytavern/clue-integrator';
@@ -9,7 +10,7 @@ import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { pushLog } from '../../stores/useLogStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
-import { IconClue } from '../Layout/TabIcons';
+import { IconClue, IconKey } from '../Layout/TabIcons';
 import type { InventoryItem, ItemCategory, Clue } from '../../types';
 import { CLUE_TAGS } from '../../types';
 
@@ -58,6 +59,7 @@ function ItemRow({ item }: { item: InventoryItem }) {
 function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; archived?: boolean; evolvedIntoName?: string }) {
   const [expanded, setExpanded] = useState(false);
   const major = clue.tier === 'major';
+  const isKey = !!clue.keyPillarId;
   return (
     <div className="cv-row" style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.1)', opacity: archived ? 0.55 : 1 }}>
       <div
@@ -66,11 +68,14 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <span style={{ flexShrink: 0, marginTop: 1, color: clue.synthesized ? 'var(--gold-bright)' : major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
-          {clue.synthesized ? <span style={{ fontSize: 13 }}>✦</span> : major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
+        <span style={{ flexShrink: 0, marginTop: 1, color: isKey ? 'var(--blood)' : clue.synthesized ? 'var(--gold-bright)' : major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
+          {isKey ? <IconKey size={14} /> : clue.synthesized ? <span style={{ fontSize: 13 }}>✦</span> : major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--ink)', letterSpacing: 1, fontWeight: major ? 700 : 400 }}>{clue.name}</div>
+          <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: isKey ? 'var(--blood)' : 'var(--ink)', letterSpacing: 1, fontWeight: (major || isKey) ? 700 : 400 }}>
+            {isKey && <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid var(--blood)', borderRadius: 7, padding: '0 5px', marginRight: 5, letterSpacing: 0.5, verticalAlign: 'middle' }}>关键</span>}
+            {clue.name}
+          </div>
           {evolvedIntoName && (
             <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', fontStyle: 'italic', marginTop: 1 }}>→ 已演化为 {evolvedIntoName}</div>
           )}
@@ -106,6 +111,9 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
 export function InventoryOverlay() {
   const items = useInventoryStore((s) => s.items);
   const clues = useClueStore((s) => s.clues);
+  const keyPillars = useKeyClueStore((s) => s.pillars);
+  const saveWorldMode = useKeyClueStore((s) => s.saveWorldMode);
+  const uncoveredN = keyPillars.filter((p) => p.uncovered).length;
   const [filter, setFilter] = useState<Filter>('all');
   const isMobile = useIsMobile();
   const [side, setSide] = useState<Side>('left');
@@ -244,6 +252,27 @@ export function InventoryOverlay() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>线索</h3>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CLUES</span>
         </div>
+
+        {/* 关键线索进度 N/3 + 拯救世界模式（仅当本局已生成真相支柱时显示） */}
+        {keyPillars.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4, border: '1px solid rgba(var(--blood-rgb,139,58,58),0.35)', background: 'rgba(139,58,58,0.06)' }}>
+              <span style={{ flexShrink: 0, color: 'var(--blood)', display: 'inline-flex' }}><IconKey size={14} /></span>
+              <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink)', letterSpacing: 1 }}>关键线索</span>
+              <span style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
+                {Array.from({ length: KEY_CLUE_TARGET }).map((_, i) => (
+                  <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--blood)', background: i < uncoveredN ? 'var(--blood)' : 'transparent', transition: 'background 0.3s cubic-bezier(0.4,0,0.2,1)' }} />
+                ))}
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--blood)', marginLeft: 2 }}>{uncoveredN}/{KEY_CLUE_TARGET}</span>
+              </span>
+            </div>
+            {saveWorldMode && (
+              <div style={{ marginTop: 4, padding: '4px 8px', borderRadius: 4, background: 'var(--blood)', color: 'var(--parchment)', fontSize: 10.5, fontFamily: 'var(--font-ui)', letterSpacing: 1, textAlign: 'center' }}>
+                拯救世界模式 · 与灾厄赛跑
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tag filter — 多选，OR 命中；「全部」清空选择。仅在存在已打标签的线索时显示。 */}
         {availableTags.length > 0 && (

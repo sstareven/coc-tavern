@@ -17,6 +17,8 @@ interface LocationElementStore {
   buildContextInjection: (currentLocationName: string) => string;
   /** 用归纳结果替换某地点的全部元素（删该地点旧元素 + 落地 merged 为新元素），供超上限后整合收敛。 */
   consolidateLocation: (locationName: string, merged: LocationElementInput[]) => void;
+  /** 把元素的父地点名 from 改为 to（地图自检合并重复地点时，让元素跟着改挂到 canonical 名下）。 */
+  renameLocation: (from: string, to: string) => void;
   replaceAll: (list: LocationElement[]) => void;
   clearAll: () => void;
 }
@@ -81,6 +83,17 @@ export const useLocationElementStore = create<LocationElementStore>()((set, get)
 
   replaceAll: (list) => set({ elements: list }),
   clearAll: () => set({ elements: [] }),
+
+  renameLocation: (from, to) => set((s) => {
+    const f = from?.trim(); const t = to?.trim();
+    if (!f || !t || f === t) return {};
+    let changed = false;
+    const elements = s.elements.map((e) => {
+      if (e.locationName.trim() === f) { changed = true; return { ...e, locationName: t }; }
+      return e;
+    });
+    return changed ? { elements } : {};
+  }),
 
   consolidateLocation: (locationName, merged) => {
     set((s) => {

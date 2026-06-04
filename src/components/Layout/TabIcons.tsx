@@ -36,3 +36,7 @@ export function IconMap({ size = 18 }: IconProps) {
 export function IconClue({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><circle cx="10.5" cy="10.5" r="6" /><path d="M20 20l-5.3-5.3" /></svg>);
 }
+/** 关键线索：钥匙（bow + 齿） */
+export function IconKey({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="7.5" cy="7.5" r="3.6" /><path d="M10.1 10.1L19 19M15.5 15.5l2.2-2.2M18 18l1.8-1.8" /></svg>);
+}

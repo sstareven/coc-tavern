@@ -122,3 +122,40 @@ describe('线索演化与注入', () => {
     expect(active.map((c) => c.name).sort()).toEqual(['C', '总结']); // C 未被误档
   });
 });
+
+describe('关键线索（拯救世界系统）', () => {
+  beforeEach(() => { useClueStore.getState().clearAll(); });
+
+  it('markClueKey 给 active 线索打 keyPillarId + 上位 major', () => {
+    useClueStore.getState().addClues([{ name: '青蛙有毒', summary: '青蛙体表有毒' }]);
+    useClueStore.getState().markClueKey('青蛙有毒', 'pillar-1');
+    const c = useClueStore.getState().clues.find((x) => x.name === '青蛙有毒');
+    expect(c?.keyPillarId).toBe('pillar-1');
+    expect(c?.tier).toBe('major');
+  });
+
+  it('整合把被归档关键线索的支柱传递到总结线索', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: '青蛙有毒', summary: 'a' }, { name: '青蛙夜出', summary: 'b' }]);
+    store.markClueKey('青蛙有毒', 'pillar-frog');
+    const ids = useClueStore.getState().clues.map((c) => c.id);
+    store.consolidateClues([{ name: '总结：青蛙即凶手', summary: '综合' }], ids);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active).toHaveLength(1);
+    expect(active[0].keyPillarId).toBe('pillar-frog');
+  });
+
+  it('演化(evolvesFrom)新线索继承旧线索的 keyPillarId', () => {
+    const store = useClueStore.getState();
+    store.addClues([{ name: '可疑脚印', summary: '泥地脚印' }]);
+    store.markClueKey('可疑脚印', 'pillar-x');
+    store.addClues([{ name: '脚印属于镇长', summary: '比对吻合', evolvesFrom: '可疑脚印' }]);
+    const active = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
+    expect(active.find((c) => c.name === '脚印属于镇长')?.keyPillarId).toBe('pillar-x');
+  });
+
+  it('markClueKey 对不存在的线索安全无操作', () => {
+    useClueStore.getState().markClueKey('不存在', 'p');
+    expect(useClueStore.getState().clues).toHaveLength(0);
+  });
+});

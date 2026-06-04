@@ -82,8 +82,12 @@ export interface BookPage {
   darkThread?: DarkThreadData;
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
+  /** 本回合结束时的 NPC 名册快照（按 id）——供删页快照式回溯人物状态（含战斗结算的昏迷/死亡等）。 */
+  npcSnapshot?: Record<string, NpcProfile>;
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
+  /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
+  combatLog?: CombatLog;
 }
 
 /** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */
@@ -198,6 +202,39 @@ export interface Clue {
   evolvedIntoId?: string;
   /** 显著程度：major 为演化出的更关键线索，UI 高亮、注入加★ */
   tier?: 'normal' | 'major';
+  /** 关键线索标记：本线索揭示的「真相支柱」id（拯救世界系统）。非空即为关键线索。 */
+  keyPillarId?: string;
+}
+
+// ===== 拯救世界系统（关键线索 / 真相支柱）=====
+/** 真相支柱：开局生成的守秘人机密，揭示全部 3 个即开启拯救世界模式。 */
+export interface KeyPillar {
+  id: string;
+  /** 简短标题（守秘人视角，如「凶手身份」）。 */
+  title: string;
+  /** 该支柱的机密真相内容（绝不向玩家泄露原文）。 */
+  secret: string;
+  /** 是否已被某线索揭示。 */
+  uncovered: boolean;
+  /** 揭示它的线索名（展示/回溯用）。 */
+  uncoveredByClue?: string;
+}
+
+/** 剧情锚点：开局生成的一个「必达节点」（默认推进路线上的里程碑）。 */
+export interface AnchorNode {
+  id: string;
+  title: string;        // 简短节点名，如「抵达极地死城」
+  description: string;  // 1-2 句：该节点剧情应发生什么
+}
+
+/** 本局剧情蓝图：开局一次生成、整局固定（单行/会话）。 */
+export interface PlotAnchors {
+  /** 3-6 个有序必达节点（默认推进路线）。 */
+  nodes: AnchorNode[];
+  /** 3-5 条全局硬约束（地理/因果保证）。 */
+  constraints: string[];
+  /** 威胁达成坏结局所依赖之物（= 玩家可逻辑性瓦解的关键靶子）。 */
+  threatDependencies: string[];
 }
 
 // ===== Map System（地点有向连线网络）=====
@@ -316,6 +353,12 @@ export interface DiceRecord {
   page?: number;
   /** 检定种类：普通 d100 检定 / 多面骰（伤害·理智损失）。缺省视为 check。 */
   kind?: 'check' | 'poly';
+  /** 战斗检定标记：来自即时战斗面板的检定（与剧情检定区分/筛选）。 */
+  context?: 'combat';
+  /** 检定用途（战斗用）：攻击命中/伤害骰/闪避/反击/体质对抗/速度检定等。 */
+  purpose?: string;
+  /** 本次掷骰的逐颗骰子（供书页内滚骰动画渲染）；伤害记录必填，d100 检定可省。 */
+  dice?: { value: number; faces: number }[];
 }
 
 // ===== Lorebooks =====
@@ -601,4 +644,109 @@ export interface THOptimizeSettings {
   optimizeMessageLoad: boolean;
   forceWorldbookSettings: boolean;
   maximizePresetContext: boolean;
+}
+
+// ===== Combat System =====
+export type CombatFaction = 'player' | 'ally' | 'enemy';
+
+export interface CombatWeapon {
+  name: string;
+  skill: number;
+  damage: string;          // 伤害骰式，如 "1D10"、"1D8+1D4"、"1D3"
+  impaling: boolean;
+  ranged: boolean;
+  baseRange?: number;
+  attacksPerRound: number;
+  loadedAmmo?: number;     // 枪械当前已装弹
+  magazine?: number;       // 弹匣容量
+  ammoItemName?: string;   // 玩家备弹对应的随身物品名
+  reserveAmmo?: number;    // NPC 备弹(NPC 不走库存)
+}
+
+export interface CombatantFlags {
+  majorWound: boolean;
+  dying: boolean;
+  unconscious: boolean;
+  dead: boolean;
+  prone: boolean;
+  weaponJammed: boolean;
+  /** 已逃离/脱离战斗（区别于倒下/死亡——显示「脱离」而非「倒下」）。 */
+  fled: boolean;
+}
+
+export interface Combatant {
+  id: string;
+  name: string;
+  faction: CombatFaction;
+  controlledBy: 'player' | 'ai';
+  dex: number;
+  str: number;
+  siz: number;
+  con: number;
+  mov: number;
+  fighting: number;
+  dodge: number;
+  firearm?: number;
+  /** 伤害加值骰式（如 '1d4' / '0' / '-1'）；近战伤害结算时叠加。 */
+  damageBonus?: string;
+  hp: number;
+  maxHp: number;
+  armor: number;
+  weapons: CombatWeapon[];
+  flags: CombatantFlags;
+  tendency?: { attack: number; flee: number };
+  roundDefenses: number;
+}
+
+export type CombatEndReason = 'victory' | 'defeat' | 'disengage' | 'flee' | 'enemy_retreat' | 'surrender';
+
+/** 战技种类（COC7e 6.3 战技）：缴械/擒抱/推倒/击晕。 */
+export type ManeuverKind = 'disarm' | 'grapple' | 'shove' | 'knockout';
+
+/** 一次滚骰演示（同时投出若干骰子）：检定骰(d100，按 type 配色)或伤害骰(damage=true)。 */
+export interface CombatRollViz {
+  title?: string;
+  damage?: boolean;
+  dice: { value: number; faces: number; type?: DiceResultType; caption?: string }[];
+  total?: number;
+  /** 伤害骰滚定后要演出的掉血过渡（血条延后到此刻才下降）。 */
+  hp?: { id: string; from: number; to: number; max: number };
+  /** 本次检定的行动者 combatant id（供面板高亮「轮到谁」）。 */
+  actor?: string;
+}
+
+export interface CombatLogEntry {
+  kind: 'narrative' | 'roll';
+  text: string;
+  /** 该行揭示【前】要依次演示的滚骰(检定→伤害)；供书页内滚骰动画与日志交替播放。 */
+  rolls?: CombatRollViz[];
+}
+
+export interface CombatBystander {
+  id: string;
+  name: string;
+  friendly: boolean;
+  joinChance: number;
+  combatant?: Combatant;
+}
+
+export interface Encounter {
+  active: boolean;
+  round: number;
+  turnOrder: string[];
+  currentIdx: number;
+  combatants: Combatant[];
+  bystanders: CombatBystander[];
+  playerTargetId: string | null;
+  log: CombatLogEntry[];
+  diceRecords: DiceRecord[];
+  status: 'active' | 'resolving' | 'ended';
+  endReason?: CombatEndReason;
+  /** 测试战斗（/战斗测试 指令建场）：脱战后【不推进正文】，直接清场。 */
+  test?: boolean;
+}
+
+export interface CombatLog {
+  entries: CombatLogEntry[];
+  endReason: CombatEndReason;
 }

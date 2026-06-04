@@ -16,6 +16,8 @@ export interface LoreBuckets {
   constant: LoreEntry[];
   /** Dark-thread / foreshadowing injection entries. */
   darkThread: LoreEntry[];
+  /** 剧情骨架与进程注入（开局锚点+约束+已发生事件+软引导+开放式胜利判定）。可选，缺省视为空。 */
+  anchor?: LoreEntry[];
   /** 已知词条字典注入（混合策略：最近 N 页常驻 + 老词按当前文本匹配）。可选，缺省视为空。 */
   keyword?: LoreEntry[];
   /** statData 快照（世界/剧情/战斗 YAML 实时状态）注入。可选，缺省视为空。 */
@@ -59,6 +61,7 @@ export function selectLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpti
       ...buckets.summary,
       ...buckets.constant,
       ...buckets.darkThread,
+      ...(buckets.anchor ?? []),
       ...(buckets.keyword ?? []),
       ...(buckets.statSnapshot ?? []),
       ...buckets.generateInjects,
@@ -81,6 +84,7 @@ export function droppedLoreForRewrite(buckets: LoreBuckets, opts: RewriteLoreOpt
   const dropped: LoreEntry[] = [
     ...buckets.summary,
     ...buckets.darkThread,
+    ...(buckets.anchor ?? []),
     ...(buckets.keyword ?? []),
     ...(buckets.statSnapshot ?? []),
     ...buckets.generateInjects,

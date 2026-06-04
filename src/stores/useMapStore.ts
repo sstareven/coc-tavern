@@ -14,6 +14,10 @@ interface MapStore {
 
   applyUpdates: (u: MapUpdates) => void;
   setCurrentByName: (name: string) => void;
+  /** 移除连接指定两地点（按名匹配）的连线，无视方向。供地图自检纠正「错挂」的边。 */
+  removeEdgesByName: (pairs: { from: string; to: string }[]) => void;
+  /** 把若干别名地点合并进 canonical：重挂别名连线、去重、删别名节点、必要时补描述。供地图自检消除重复地点。 */
+  mergeLocations: (canonical: string, aliases: string[]) => void;
   replaceAll: (data: { locations: MapLocation[]; edges: MapEdge[]; currentLocationId?: string | null }) => void;
   clearAll: () => void;
 }
@@ -86,6 +90,69 @@ export const useMapStore = create<MapStore>()((set) => ({
   setCurrentByName: (name) => set((s) => {
     const loc = name?.trim() ? findLocByName(s.locations, name) : undefined;
     return loc ? { currentLocationId: loc.id } : {};
+  }),
+
+  removeEdgesByName: (pairs) => set((s) => {
+    if (!pairs?.length) return {};
+    // 把每对名字解析成 id 键（双向：a|b 与 b|a 都记，删边无视方向）。
+    const kill = new Set<string>();
+    for (const p of pairs) {
+      const a = p?.from?.trim() ? findLocByName(s.locations, p.from) : undefined;
+      const b = p?.to?.trim() ? findLocByName(s.locations, p.to) : undefined;
+      if (!a || !b || a.id === b.id) continue;
+      kill.add(`${a.id}|${b.id}`);
+      kill.add(`${b.id}|${a.id}`);
+    }
+    if (kill.size === 0) return {};
+    const edges = s.edges.filter((e) => !kill.has(`${e.fromId}|${e.toId}`));
+    return edges.length === s.edges.length ? {} : { edges };
+  }),
+
+  mergeLocations: (canonical, aliases) => set((s) => {
+    const canon = canonical?.trim() ? findLocByName(s.locations, canonical) : undefined;
+    if (!canon) return {};
+    // 收集别名 id（排除 canonical 自身）。
+    const aliasIds = new Set<string>();
+    for (const a of aliases ?? []) {
+      const loc = a?.trim() ? findLocByName(s.locations, a) : undefined;
+      if (loc && loc.id !== canon.id) aliasIds.add(loc.id);
+    }
+    if (aliasIds.size === 0) return {};
+
+    // canonical 空描述时，取首个有描述的别名补上。
+    let canonDesc = canon.description;
+    if (!canonDesc.trim()) {
+      for (const id of aliasIds) {
+        const al = s.locations.find((l) => l.id === id);
+        if (al?.description.trim()) { canonDesc = al.description; break; }
+      }
+    }
+
+    // 别名连线重挂到 canonical：合并后自环丢弃，再按 类型+端点 去重（双向无序/单向有序，与 applyUpdates 一致）。
+    const remap = (id: string) => (aliasIds.has(id) ? canon.id : id);
+    const seen = new Set<string>();
+    const edges: MapEdge[] = [];
+    for (const e of s.edges) {
+      const fromId = remap(e.fromId);
+      const toId = remap(e.toId);
+      if (fromId === toId) continue;
+      const key = e.type === 'bidirectional'
+        ? `b|${[fromId, toId].sort().join('|')}`
+        : `o|${fromId}|${toId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ ...e, fromId, toId });
+    }
+
+    const locations = s.locations
+      .filter((l) => !aliasIds.has(l.id))
+      .map((l) => (l.id === canon.id ? { ...l, description: canonDesc } : l));
+
+    const currentLocationId = s.currentLocationId && aliasIds.has(s.currentLocationId)
+      ? canon.id
+      : s.currentLocationId;
+
+    return { locations, edges, currentLocationId };
   }),
 
   clearAll: () => set({ locations: [], edges: [], currentLocationId: null }),
