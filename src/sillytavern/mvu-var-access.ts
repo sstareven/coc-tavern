@@ -88,7 +88,8 @@ export function writeVar(name: string, value: string): void {
       const sheet = useCharSheetStore.getState().sheet;
       const updated = applyCharsheetRedirect(sheet, name, 'replace', value);
       if (updated) {
-        useCharSheetStore.getState().setSheet(updated);
+        // A2.3：redirect 返回 RedirectResult，落回 sheet 时取 .sheet。
+        useCharSheetStore.getState().setSheet(updated.sheet);
         return;
       }
       // unrecognized 调查员.* leaf → fall through to flat var so it isn't silently lost

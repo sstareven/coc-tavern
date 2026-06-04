@@ -105,41 +105,64 @@ function coerceConditions(v: unknown): StatusCondition[] {
 }
 
 /**
+ * A2.3：把 redirect 的返回值由「裸 CharacterSheet」升级为带额外通道的对象。
+ *  - sheet：更新后的角色卡（不可为 null；null 走外层的 RedirectResult|null）。
+ *  - sanDelta：仅当 path 是 调查员.理智值.当前 时给出 (newSan - oldSan)，
+ *    其它路径不带此字段。供 A2.4 sanity evaluator 在 post-settle 阶段一次性读到 SAN 增减，
+ *    无需自己 diff 老 sheet 做对比。
+ */
+export interface RedirectResult {
+  sheet: CharacterSheet;
+  /** 仅当 path 是 调查员.理智值.当前 时给出 (newSan - oldSan)；其它路径不带此字段。 */
+  sanDelta?: number;
+}
+
+/**
  * Apply an MVU JSON Patch op that targets the 调查员.* (character-sheet) namespace,
- * returning a NEW CharacterSheet. Returns null if the op cannot/should not be applied to
- * the sheet (unrecognized path, non-numeric value, or an op that has no sheet meaning) —
- * in which case the caller leaves the op for statData / error logging.
+ * returning a NEW CharacterSheet wrapped in RedirectResult. Returns null if the op
+ * cannot/should not be applied to the sheet (unrecognized path, non-numeric value,
+ * or an op that has no sheet meaning) — in which case the caller leaves the op for
+ * statData / error logging.
  *
  * Source-of-truth boundary: the character sheet stays authoritative for 调查员.*; MVU patches
  * to those paths are redirected here instead of writing a parallel statData leaf.
- * Supported ops: replace (set), delta (numeric add). Numeric fields only (HP/SAN/MP current/max,
- * luck, skill.current).
+ *
+ * Supported ops & branches:
+ *  - replace/delta: HP/SAN/MP current|max, luck, skill.current, 临时疯狂.roundsLeft,
+ *    不定性疯狂.daysLeft, 每日理智损失
+ *  - replace: 姿态 (string), 临时疯狂.active/不定性疯狂.active/永久疯狂 (boolean),
+ *    临时疯狂.bout (structured {mode,table,entry})
+ *  - replace/insert/remove: 状态条件 (array + single)
+ *  - add/insert/replace/remove: 恐惧症 / 狂躁症 (string[] with dedup)
+ *
+ * A2.3：返回类型由 `CharacterSheet | null` 改为 `RedirectResult | null`。
+ * SAN 当前值分支额外回带 sanDelta 字段，供 A2.4 evaluator 读 ξ 一次性拿到 SAN 增减。
  */
 export function applyCharsheetRedirect(
   sheet: CharacterSheet,
   dotPath: string,
   op: string,
   value: unknown,
-): CharacterSheet | null {
+): RedirectResult | null {
   // ── Posture (调查员.姿态 → posture string) ──
   if (dotPath === '调查员.姿态') {
     if (op !== 'replace') return null;
     const s = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
     if (!s) return null;
-    return { ...sheet, posture: s };
+    return { sheet: { ...sheet, posture: s } };
   }
 
   // ── Status conditions (调查员.状态条件 数组) ──
   if (dotPath === '调查员.状态条件') {
     if (op === 'replace') {
-      return { ...sheet, statusConditions: coerceConditions(value) };
+      return { sheet: { ...sheet, statusConditions: coerceConditions(value) } };
     }
     if (op === 'insert') {
       const added = coerceConditions(value);
       if (added.length === 0) return null;
       const addedNames = new Set(added.map((c) => c.name));
       const kept = sheet.statusConditions.filter((c) => !addedNames.has(c.name)); // 同名覆盖
-      return { ...sheet, statusConditions: [...kept, ...added] };
+      return { sheet: { ...sheet, statusConditions: [...kept, ...added] } };
     }
     return null;
   }
@@ -151,25 +174,107 @@ export function applyCharsheetRedirect(
       // 优先按名删（状态名通常是描述性中文，含恰为纯数字的名）；仅当无此名、且 name 是合法数组下标时，
       // 才容忍 JSONPatch 通用模板的下标删法 /调查员/状态条件/0。
       if (sheet.statusConditions.some((c) => c.name === name)) {
-        return { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) };
+        return { sheet: { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) } };
       }
       if (/^\d+$/.test(name)) {
         const idx = Number(name);
         if (idx >= 0 && idx < sheet.statusConditions.length) {
           const next = sheet.statusConditions.slice();
           next.splice(idx, 1);
-          return { ...sheet, statusConditions: next };
+          return { sheet: { ...sheet, statusConditions: next } };
         }
       }
-      return { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) };
+      return { sheet: { ...sheet, statusConditions: sheet.statusConditions.filter((c) => c.name !== name) } };
     }
     if (op === 'replace' || op === 'insert') {
       const cond = coerceCondition(value, name);
       if (!cond) return null;
       const kept = sheet.statusConditions.filter((c) => c.name !== name);
-      return { ...sheet, statusConditions: [...kept, cond] };
+      return { sheet: { ...sheet, statusConditions: [...kept, cond] } };
     }
     return null;
+  }
+
+  // ── 临时疯狂 ──
+  if (dotPath === '调查员.临时疯狂.active') {
+    if (op !== 'replace') return null;
+    const v = value === true || value === 'true';
+    return { sheet: { ...sheet, temporaryInsanity: { ...sheet.temporaryInsanity, active: v } } };
+  }
+  if (dotPath === '调查员.临时疯狂.roundsLeft') {
+    if (op !== 'replace' && op !== 'delta') return null;
+    const n = toNumber(value);
+    if (n === null) return null;
+    const cur = sheet.temporaryInsanity.roundsLeft;
+    const next = Math.max(0, op === 'delta' ? cur + n : n);
+    return { sheet: { ...sheet, temporaryInsanity: { ...sheet.temporaryInsanity, roundsLeft: next } } };
+  }
+  if (dotPath === '调查员.临时疯狂.bout') {
+    if (op !== 'replace' || !value || typeof value !== 'object') return null;
+    const v = value as { mode?: unknown; table?: unknown; entry?: unknown };
+    const mode = v.mode === 'summary' || v.mode === 'realtime' ? v.mode : null;
+    const table = v.table === 'VII' || v.table === 'VIII' ? v.table : null;
+    const entry = toNumber(v.entry);
+    if (!mode || !table || entry === null) return null;
+    return { sheet: { ...sheet, temporaryInsanity: { ...sheet.temporaryInsanity, bout: { mode, table, entry } } } };
+  }
+
+  // ── 不定性疯狂 ──
+  if (dotPath === '调查员.不定性疯狂.active') {
+    if (op !== 'replace') return null;
+    const v = value === true || value === 'true';
+    return { sheet: { ...sheet, indefiniteInsanity: { ...sheet.indefiniteInsanity, active: v } } };
+  }
+  if (dotPath === '调查员.不定性疯狂.daysLeft') {
+    if (op !== 'replace' && op !== 'delta') return null;
+    const n = toNumber(value);
+    if (n === null) return null;
+    const cur = sheet.indefiniteInsanity.daysLeft;
+    const next = Math.max(0, op === 'delta' ? cur + n : n);
+    return { sheet: { ...sheet, indefiniteInsanity: { ...sheet.indefiniteInsanity, daysLeft: next } } };
+  }
+
+  // ── 永久疯狂 ──
+  if (dotPath === '调查员.永久疯狂') {
+    if (op !== 'replace') return null;
+    const v = value === true || value === 'true';
+    return { sheet: { ...sheet, permanentInsanity: v } };
+  }
+
+  // ── 恐惧症 / 狂躁症（string[] 受控；add/insert/replace 追加去重、remove 过滤）──
+  const arrayPath: 'phobias' | 'manias' | null =
+    dotPath === '调查员.恐惧症' ? 'phobias' :
+    dotPath === '调查员.狂躁症' ? 'manias' : null;
+  if (arrayPath) {
+    const item = typeof value === 'string' ? value.trim() : '';
+    if (!item) return null;
+    const cur: string[] = sheet[arrayPath] ?? [];
+    if (op === 'add' || op === 'insert' || op === 'replace') {
+      // 去重：已存在直接返回当前 sheet（不报错，由 redirect 自然消费）
+      if (cur.includes(item)) return { sheet };
+      const nextSheet: CharacterSheet = arrayPath === 'phobias'
+        ? { ...sheet, phobias: [...cur, item] }
+        : { ...sheet, manias: [...cur, item] };
+      return { sheet: nextSheet };
+    }
+    if (op === 'remove') {
+      const filtered = cur.filter((x) => x !== item);
+      const nextSheet: CharacterSheet = arrayPath === 'phobias'
+        ? { ...sheet, phobias: filtered }
+        : { ...sheet, manias: filtered };
+      return { sheet: nextSheet };
+    }
+    return null;
+  }
+
+  // ── 每日理智损失 ──
+  if (dotPath === '调查员.每日理智损失') {
+    if (op !== 'replace' && op !== 'delta') return null;
+    const n = toNumber(value);
+    if (n === null) return null;
+    const cur = sheet.dailySanLoss ?? 0;
+    const next = Math.max(0, op === 'delta' ? cur + n : n);
+    return { sheet: { ...sheet, dailySanLoss: next } };
   }
 
   if (op !== 'replace' && op !== 'delta') return null;
@@ -183,17 +288,23 @@ export function applyCharsheetRedirect(
       const raw = op === 'delta' ? sheet.secondary.luck + delta : delta;
       // 幸运恒夹在 0~99（update_rules 明示 range:0~99）——避免越界值写入后污染检定/显示。
       const next = Math.max(0, Math.min(99, raw));
-      return { ...sheet, secondary: { ...sheet.secondary, luck: next } };
+      return { sheet: { ...sheet, secondary: { ...sheet.secondary, luck: next } } };
     }
     const cur = sheet.secondary[sec.stat][sec.field];
     const next = op === 'delta' ? cur + delta : delta;
-    return {
+    const newSheet: CharacterSheet = {
       ...sheet,
       secondary: {
         ...sheet.secondary,
         [sec.stat]: { ...sheet.secondary[sec.stat], [sec.field]: next },
       },
     };
+    // SAN 当前值的特例：把本次实际增减 (next - cur) 透出给 A2.4 evaluator，
+    // 避免后者再自己读旧 sheet diff，省一次 sheet 快照拷贝且对 replace/delta 都正确。
+    if (sec.stat === 'san' && sec.field === 'current') {
+      return { sheet: newSheet, sanDelta: next - cur };
+    }
+    return { sheet: newSheet };
   }
 
   // ── Skills (调查员.技能.XXX → skills.XXX.current) ──
@@ -207,13 +318,15 @@ export function applyCharsheetRedirect(
     const existing = sheet.skills[skillName];
     const nextCurrent = op === 'delta' ? (existing?.current ?? 0) + n : n;
     return {
-      ...sheet,
-      skills: {
-        ...sheet.skills,
-        [skillName]: {
-          base: existing?.base ?? 0,
-          current: nextCurrent,
-          ticked: existing?.ticked ?? false,
+      sheet: {
+        ...sheet,
+        skills: {
+          ...sheet.skills,
+          [skillName]: {
+            base: existing?.base ?? 0,
+            current: nextCurrent,
+            ticked: existing?.ticked ?? false,
+          },
         },
       },
     };

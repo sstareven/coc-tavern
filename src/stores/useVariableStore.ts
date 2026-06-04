@@ -63,7 +63,9 @@ function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): MvuOp
       if (!isCharsheetPath(dotPath)) return false;
       const updated = applyCharsheetRedirect(sheet, dotPath, op, value);
       if (updated) {
-        sheet = updated;
+        // A2.3：redirect 返回类型由「裸 CharacterSheet」改为 RedirectResult；取 .sheet 落回引用。
+        // updated.sanDelta（仅 SAN 当前值分支带出）暂未消费——A2.4 sanity evaluator 会接驳到 patchReport。
+        sheet = updated.sheet;
         sheetChanged = true;
         return true;
       }

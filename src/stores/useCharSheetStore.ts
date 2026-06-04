@@ -101,7 +101,13 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     const bo = tiBoutRaw as Record<string, unknown>;
     const mode = bo.mode === 'realtime' || bo.mode === 'summary' ? bo.mode : undefined;
     const table = bo.table === 'VII' || bo.table === 'VIII' ? bo.table : undefined;
-    const entry = typeof bo.entry === 'string' ? bo.entry : undefined;
+    // A2.3 起 entry 统一为 number（1..10）；兼容老存档里的纯数字字符串。
+    let entry: number | undefined;
+    if (typeof bo.entry === 'number' && Number.isFinite(bo.entry)) {
+      entry = bo.entry;
+    } else if (typeof bo.entry === 'string' && bo.entry.trim() !== '' && !Number.isNaN(Number(bo.entry))) {
+      entry = Number(bo.entry);
+    }
     if (mode && table && entry !== undefined) {
       temporaryInsanity.bout = { mode, table, entry };
     }

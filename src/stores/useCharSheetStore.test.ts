@@ -73,7 +73,7 @@ describe('migrateSheet', () => {
       dailySanLoss: 12,
       phobias: ['幽闭恐惧症'],
       known_spells: ['萎缩术'],
-      temporaryInsanity: { active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } },
+      temporaryInsanity: { active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: 1 } },
       indefiniteInsanity: { active: true, daysLeft: 45 },
       permanentInsanity: true,
       recovery: { hpRegenAtMs: 1700000000000, sanRegenAtMs: 1700000100000 },
@@ -82,7 +82,7 @@ describe('migrateSheet', () => {
     expect(m.dailySanLoss).toBe(12);
     expect(m.phobias).toEqual(['幽闭恐惧症']);
     expect(m.known_spells).toEqual(['萎缩术']);
-    expect(m.temporaryInsanity).toEqual({ active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } });
+    expect(m.temporaryInsanity).toEqual({ active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: 1 } });
     expect(m.indefiniteInsanity).toEqual({ active: true, daysLeft: 45 });
     expect(m.permanentInsanity).toBe(true);
     expect(m.recovery).toEqual({ hpRegenAtMs: 1700000000000, sanRegenAtMs: 1700000100000 });

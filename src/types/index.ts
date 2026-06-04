@@ -44,11 +44,11 @@ export interface CharacterSheet {
    * 同时 A2.4 评估器读此字段判定 indefinite 触发。
    */
   dailySanLoss: number;
-  /** 临时疯狂（COC7e 表 VII/VIII）：active=true 时角色处于发作，roundsLeft 为剩余回合。 */
+  /** 临时疯狂（COC7e 表 VII/VIII）：active=true 时角色处于发作，roundsLeft 为剩余回合。entry 是表内 1..10 的命中点数（A2.3 起统一存数字，对齐 schema/redirect 的 number 校验）。 */
   temporaryInsanity: {
     active: boolean;
     roundsLeft: number;
-    bout?: { mode: 'realtime' | 'summary'; table: 'VII' | 'VIII'; entry: string };
+    bout?: { mode: 'realtime' | 'summary'; table: 'VII' | 'VIII'; entry: number };
   };
   /** 不定性疯狂（A2.4）：累计达 maxSan/5 / 单日 后触发，需 1d10 个月恢复或经治疗。daysLeft 为剩余恢复天数。 */
   indefiniteInsanity: { active: boolean; daysLeft: number };
