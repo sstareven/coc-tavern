@@ -904,9 +904,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           `API响应成功 — ${response.content.length}字符, ${realUsage ? '' : '约'}消耗 ${totalTok} tokens（输入 ${promptTok} / 输出 ${completionTok}${mvuUsage ? ' · 含MVU' : ''}）· 耗时 ${(durationMs / 1000).toFixed(1)}s${realUsage ? '' : '（估算）'}${attempt > 0 ? `（重试${attempt}次后成功）` : ''}`,
         );
         newPage.genStats = pageGenStats;
+        // 先把本回合 NPC 更新落库，再做快照——否则 npcSnapshot 会漏掉本页的 NPC 变化(登场/离场/昏迷)，
+        // 删页快照回溯就会把人物丢掉(教授因战斗页快照缺失而消失的根因)。
+        if (result.npcUpdates && result.npcUpdates.length > 0) {
+          useNpcStore.getState().applyUpdates(result.npcUpdates);
+          pushLog('debug', `[Pipeline] NPC 更新(${result.npcUpdates.length}): ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
+        } else {
+          pushLog('debug', '[Pipeline] 本回合无 NPC 更新(result.npcUpdates 为空)', 'system');
+        }
         // 角色卡快照（此刻 statData 已含独立 API 隐含提取 + 自纠后的终值）
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
-        // NPC 名册快照（含战斗结算后的昏迷/死亡等状态）——供删页快照式回溯
+        // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
         newPage.npcSnapshot = structuredClone(useNpcStore.getState().profiles);
 
         const bookStore = useBookStore.getState();
@@ -1198,13 +1206,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           })();
         }
 
-        // NPC 档案更新
-        if (result.npcUpdates && result.npcUpdates.length > 0) {
-          useNpcStore.getState().applyUpdates(result.npcUpdates);
-          pushLog('debug', `[Pipeline] NPC 更新(${result.npcUpdates.length}): ${result.npcUpdates.map((n) => n.name).join(', ')}`, 'system');
-        } else {
-          pushLog('debug', '[Pipeline] 本回合无 NPC 更新(result.npcUpdates 为空)', 'system');
-        }
+        // NPC 档案更新已在快照前(见上)落库；此处不再重复 applyUpdates。
 
         // 地图更新（新地点/连线/当前位置）
         if (result.mapUpdates) {
