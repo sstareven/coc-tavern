@@ -64,6 +64,8 @@ export interface DsCacheConfig {
   separateWiLights?: boolean;
   /** 静态/动态分桶：constant 桶也视为动态（含 EJS 引用动态变量的条目最大化下沉）。默认 false。 */
   treatConstantAsDynamic?: boolean;
+  /** 自动检测：constantBucket 里含 EJS `<%`/`{{getvar`/`{{xxx.yyy}}` 等动态 marker 的条目自动下沉。默认 true（建议）。 */
+  autoDetectDynamicConstant?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -79,6 +81,7 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   targetSources: 'deepseek,custom',
   separateWiLights: false,
   treatConstantAsDynamic: false,
+  autoDetectDynamicConstant: true,
 };
 
 /**

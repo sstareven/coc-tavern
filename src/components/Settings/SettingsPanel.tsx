@@ -890,8 +890,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
+                        自动检测动态常驻
+                        <HelpIcon text={'扫描内置&用户世界书的【常驻(蓝灯)】条目，含 EJS `<%`/`{{getvar}}`/`{{xxx.yyy}}` 等动态宏的自动下沉到动态尾段。\n这是修复"99.3%→48.8%"命中率衰减的关键——coc_lore 内置条目(ejs_hp_state/mvu_var_list 等)虽然 constant=true 但渲染结果随 statData 变。\n默认开。关掉等价旧版行为。'} />
+                      </span>
+                      <Toggle on={dsCache.autoDetectDynamicConstant !== false} onChange={() => setDsCache({ autoDetectDynamicConstant: !(dsCache.autoDetectDynamicConstant !== false) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
                         常驻条目视为动态
-                        <HelpIcon text={'激进选项：把【常驻(蓝灯)】世界书条目也下沉到动态尾段。\n用途：coc_lore 等常驻条目里含 EJS `<%`/{{getvar}} 引用 statData 动态变量，渲染后字节会变——把它们下沉避免污染缓存前缀。\n副作用：静态前缀变短，能命中的字节减少。命中率仍不理想再开。\n默认关。'} />
+                        <HelpIcon text={'激进选项：把【全部常驻(蓝灯)】世界书条目无差别下沉到动态尾段(不再按 EJS/宏内容自动判定)。\n仅在"自动检测动态常驻"不够用时开。会让静态前缀进一步缩短，但保前缀绝对干净。\n默认关。'} />
                       </span>
                       <Toggle on={dsCache.treatConstantAsDynamic === true} onChange={() => setDsCache({ treatConstantAsDynamic: !(dsCache.treatConstantAsDynamic === true) })} />
                     </div>

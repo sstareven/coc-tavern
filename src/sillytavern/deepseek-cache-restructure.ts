@@ -81,6 +81,25 @@ export function isDeepSeekSource(modelId: string | undefined, targetSources: str
 }
 
 /**
+ * 启发式：判断一段 lore content 是否含【动态 marker】——含则即使 entry.constant=true 也应视为动态，
+ * 否则它会污染"静态前缀"破坏缓存命中。
+ *
+ * 命中规则（worker 实测的元凶集合，2026-06-04 复盘）：
+ * - `<%` / `<%=` / `<%-`        — EJS 代码块（含 ejs_san_state/ejs_hp_state/ejs_combat 等）
+ * - `{{getvar`/`{{getwi`/`{{setvar`/`{{$`  — 显式 SillyTavern getvar 类宏
+ * - `{{xxx.yyy}}` 形态（双花括号含点路径）— 本项目 statData 引用宏（如 `{{调查员.生命值.当前}}`、`{{世界.时间}}`）
+ *
+ * 故意不命中：
+ * - `{{user}}` / `{{char}}` / `{{charName}}` / `{{newline}}` 等无点字面宏 — 这些在同一会话内字节稳定。
+ */
+const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|\$)|\{\{[^{}]*[^\s{}|()=+\-]\./;
+
+export function hasDynamicMarker(content: string): boolean {
+  if (!content) return false;
+  return DYNAMIC_MARKER_RE.test(content);
+}
+
+/**
  * 把 LoreBuckets 显式分静态/动态：
  *   静态 = constant + generateInjects + inverted（运行时通常字节稳定）
  *   动态 = matchedKeyword + summary + darkThread + anchor + keyword + statSnapshot（每回合通常变）

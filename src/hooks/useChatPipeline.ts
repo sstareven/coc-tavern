@@ -65,7 +65,7 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
-import { restructureMessages, isDeepSeekSource, buildDynamicTail, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -404,12 +404,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // DS 缓存优化器：在 lore 渲染前先决定哪些 entry 走"动态尾置"通道（仅 isDeepSeekSource & restructure 开启）。
       // 动态桶 = matchedKeyword/summary/darkThread/anchor/keyword/statSnapshot（每回合通常变）；
       // 静态桶 = constant/generateInjects/inverted；用户可通过 treatConstantAsDynamic 把 constant 也下沉。
+      // 自动检测(默认开)：constantBucket 里【含 EJS/动态宏】的条目(如 coc_lore 的 ejs_san_state/mvu_var_list 等)
+      //   会自动加入 dynamicEntriesByRef——它们 entry.constant=true 但渲染结果随 statData 变，曾是命中率衰减元凶。
       const dsCfg = settingsNow.dsCache;
       const dsRestructureOn =
         !liteMode &&
         dsCfg?.restructure === true &&
         isDeepSeekSource(settingsNow.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
       const dynamicEntriesByRef = new Set<LoreEntry>();
+      const autoDetectedDynamicConstants: string[] = []; // 名字列表，仅给 debugLog 用
       if (dsRestructureOn) {
         for (const e of matchedKeyword) dynamicEntriesByRef.add(e);
         for (const e of matchedSummary) dynamicEntriesByRef.add(e);
@@ -417,8 +420,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         for (const e of anchorBucket) dynamicEntriesByRef.add(e);
         for (const e of keywordBucket) dynamicEntriesByRef.add(e);
         for (const e of statSnapshotBucket) dynamicEntriesByRef.add(e);
-        if (dsCfg.treatConstantAsDynamic === true) {
-          for (const e of constantBucket) dynamicEntriesByRef.add(e);
+        const treatAllConstantAsDynamic = dsCfg.treatConstantAsDynamic === true;
+        const autoDetect = dsCfg.autoDetectDynamicConstant !== false; // 默认开
+        for (const e of constantBucket) {
+          if (treatAllConstantAsDynamic) {
+            dynamicEntriesByRef.add(e);
+          } else if (autoDetect && hasDynamicMarker(e.content)) {
+            dynamicEntriesByRef.add(e);
+            autoDetectedDynamicConstants.push(e.name);
+          }
+        }
+        if (dsCfg.debugLog === true && autoDetectedDynamicConstants.length > 0) {
+          console.log(
+            '[ds-cache-restructure] 自动下沉的 constant 条目(含 EJS/动态宏):',
+            autoDetectedDynamicConstants,
+          );
         }
       }
       // Token savings of lite mode = estimated tokens of the lore entries it dropped vs the full build.
@@ -570,6 +586,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           itemTexts.push(it.content);
         }
       });
+
+      // DS 缓存优化器诊断（debugLog 模式）：扫描【会进入静态前缀】的预设字段是否含动态宏。
+      // 这些字段虽是预设作者编写的静态文本，但若含 {{xxx.yyy}}/<% %>/{{getvar}} 等，
+      // 经 macro batch 解析后输出值会随 statData 变化，污染前缀缓存。无法自动下沉(会破坏 setvar/getvar
+      // 跨条目链)，只能让用户自己改预设——所以列出来给用户排查。
+      if (dsRestructureOn && dsCfg.debugLog === true) {
+        const presetWarnings: string[] = [];
+        if (hasDynamicMarker(processedPreset.systemPrompt)) {
+          presetWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
+        }
+        sortedItems.forEach((it) => {
+          if (it.enabled !== false && it.content && hasDynamicMarker(it.content)) {
+            presetWarnings.push(`promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`);
+          }
+        });
+        if (presetWarnings.length > 0) {
+          console.log(
+            '[ds-cache-restructure] ⚠️ 预设含动态宏(每回合渲染结果可能变化，污染前缀缓存)：\n  ' +
+              presetWarnings.join('\n  ') +
+              '\n  建议：把这些条目的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
+              '或在世界书里用 entry.constant=true 的形式注入(已自动下沉到 dynamicTail)。',
+          );
+        }
+      }
 
       const allTexts = [
         ...itemTexts, // 条目在前：setvar 先于后续 getvar 执行（promptItems 已按 order 排序）

@@ -4,6 +4,7 @@ import {
   isDeepSeekSource,
   splitLoreBucketsForCache,
   buildDynamicTail,
+  hasDynamicMarker,
   DEFAULT_RESTRUCTURE_CONFIG,
 } from './deepseek-cache-restructure';
 import type { AssembledMessage } from './prompt-assembler';
@@ -300,5 +301,36 @@ describe('buildDynamicTail', () => {
   });
   it('只有 fmt → 仅返回 fmt 段', () => {
     expect(buildDynamicTail({ dynamicLoreContents: [], dynamicFormatParts: ['F'] })).toBe('F');
+  });
+});
+
+describe('hasDynamicMarker', () => {
+  it('EJS 代码块 → 动态', () => {
+    expect(hasDynamicMarker('<% if (x > 0) { %>HP低<% } %>')).toBe(true);
+    expect(hasDynamicMarker('<%= getvar("san") %>')).toBe(true);
+    expect(hasDynamicMarker('<%- raw %>')).toBe(true);
+  });
+  it('getvar/getwi/setvar/$ 宏 → 动态', () => {
+    expect(hasDynamicMarker('{{getvar:san}}')).toBe(true);
+    expect(hasDynamicMarker('{{getwi:神话生物}}')).toBe(true);
+    expect(hasDynamicMarker('{{setvar::counter::1}}')).toBe(true);
+    expect(hasDynamicMarker('{{$myVar}}')).toBe(true);
+  });
+  it('点路径宏(本项目 statData 引用) → 动态', () => {
+    expect(hasDynamicMarker('当前HP: {{调查员.生命值.当前}}')).toBe(true);
+    expect(hasDynamicMarker('{{世界.时间}}')).toBe(true);
+    expect(hasDynamicMarker('暗线进度: {{剧情.暗线.进度}}')).toBe(true);
+  });
+  it('无点字面宏(同会话内稳定) → 不视为动态', () => {
+    expect(hasDynamicMarker('{{user}} 与 {{char}} 对话')).toBe(false);
+    expect(hasDynamicMarker('{{charName}} {{newline}}')).toBe(false);
+  });
+  it('纯静态文本 → 不动态', () => {
+    expect(hasDynamicMarker('你是 KP，遵循克苏鲁的呼唤 7e 规则')).toBe(false);
+    expect(hasDynamicMarker('# 输出格式\n\n请严格按 JSON 输出')).toBe(false);
+    expect(hasDynamicMarker('')).toBe(false);
+  });
+  it('混合：含 EJS + 静态文本 → 动态', () => {
+    expect(hasDynamicMarker('调查员状态：<% if (hp <= 0) %>濒死<% %> 当前位置：固定值')).toBe(true);
   });
 });
