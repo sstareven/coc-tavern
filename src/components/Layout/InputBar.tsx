@@ -7,6 +7,7 @@ import { useCombatStore } from '../../stores/useCombatStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { useMapStore } from '../../stores/useMapStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
@@ -246,6 +247,16 @@ export function InputBar() {
                         divider
                         onClick={() => {
                           pipeline.openTokenCounter(input);
+                          setWandOpen(false);
+                        }}
+                      />
+                      <WandRow
+                        icon="◷"
+                        label="缓存命中"
+                        iconColor="#69f0ae"
+                        divider
+                        onClick={() => {
+                          usePanelStore.getState().open('cacheStats');
                           setWandOpen(false);
                         }}
                       />

@@ -97,6 +97,11 @@ export interface PageGenStats {
   completionTokens?: number;
   durationMs: number;
   estimated: boolean;
+  /** DeepSeek 上下文缓存命中/未命中 token（主生成）——供缓存命中面板按页/按天统计；删页随页移除。 */
+  cacheHitTokens?: number;
+  cacheMissTokens?: number;
+  /** 本页生成时刻(epoch ms)——供缓存面板按天分组 X 轴。 */
+  at?: number;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====

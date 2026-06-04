@@ -50,3 +50,19 @@ export function buildThinkingMarker(cfg: DsCacheConfig | undefined): string {
   if (cfg.mode === 'custom') return cfg.customText.trim();
   return DS_THINKING_MARKERS[cfg.mode] ?? '';
 }
+
+/**
+ * DeepSeek 标准计价（deepseek-chat，人民币/百万 token；list 价，可按需调整）：
+ * 输入(缓存命中) ¥0.5 · 输入(缓存未命中) ¥2 · 输出 ¥8。
+ * 注：DeepSeek 偶有错峰/促销折扣，此处用标准价估算，仅供参考。
+ */
+export const DEEPSEEK_PRICE_CNY = { cacheHit: 0.5, cacheMiss: 2, output: 8 } as const;
+
+/** 据 token 用量估算人民币费用（命中输入/未命中输入/输出）。 */
+export function estimateCostCNY(cacheHitTokens: number, cacheMissTokens: number, outputTokens: number): number {
+  return (
+    (cacheHitTokens * DEEPSEEK_PRICE_CNY.cacheHit +
+      cacheMissTokens * DEEPSEEK_PRICE_CNY.cacheMiss +
+      outputTokens * DEEPSEEK_PRICE_CNY.output) / 1_000_000
+  );
+}

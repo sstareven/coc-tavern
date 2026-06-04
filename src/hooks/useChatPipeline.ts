@@ -907,6 +907,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           completionTokens: completionTok,
           durationMs,
           estimated: !realUsage,
+          // DeepSeek 上下文缓存命中/未命中(仅主生成)——供缓存面板按页/按天统计；删页随页移除。
+          cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
+          cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
+          at: Date.now(),
         };
         pushLog(
           'info',
