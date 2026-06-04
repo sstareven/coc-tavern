@@ -16,7 +16,7 @@ describe('parseNpcDerived', () => {
     expect(r.hp).toBe(12);
     expect(r.san).toBe(55);
     expect(r.mp).toBe(11);
-    expect(r.db).toBe('+1D4');
+    expect(r.db).toBe('1D4'); // 规范化：解析时去掉前导 +（与 buildAndDamageBonus 一致）
     expect(r.mov).toBe(8);
   });
   it('无 derived 时从 characteristics 推算', () => {

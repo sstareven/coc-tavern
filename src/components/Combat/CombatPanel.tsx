@@ -49,18 +49,18 @@ export function CombatPanel() {
   const logRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; });
 
-  // 书页内滚骰 + 日志逐行揭示：玩家动作伴随掷骰时，先播 CombatDiceRoll(攻击/闪避→伤害)，
-  // 骰子与文字【交替】揭示：逐行处理日志——该行若带 rolls 则先把骰子滚完(检定→伤害)，再打字显示该行，
-  // 然后推进到下一行；纯叙事行(无 rolls)直接打字。新战斗/清场重置全显。
+  // 骰子与文字【交替】揭示 + 掉血延后：逐行处理日志——该行若带 rolls 则先把骰子滚完(检定→伤害)，
+  // 伤害骰滚定(onTossComplete)才把该目标的【显示血量】降到新值(血条随 CSS 过渡掉血)，随后打字显示该行，再推进下一行。
   const [revealed, setRevealed] = useState(0);
   const [tosses, setTosses] = useState<DiceToss[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  const [displayHp, setDisplayHp] = useState<Record<string, number>>({});
   const revealedRef = useRef(0);
   const logLenRef = useRef(0);
   const runningRef = useRef(false);
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seedHp = (cs: { id: string; hp: number }[]) => setDisplayHp(Object.fromEntries(cs.map((c) => [c.id, c.hp])));
   const setRevealedBoth = (n: number) => { revealedRef.current = n; setRevealed(n); };
-  // 推进到下一行：有 rolls→先滚骰(滚完由 onTossComplete 显示该行)，无 rolls→直接显示该行
   const advance = () => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     const log = useCombatStore.getState().encounter?.log ?? [];
@@ -70,21 +70,32 @@ export function CombatPanel() {
     const rolls = log[n].rolls;
     if (rolls && rolls.length) {
       setTosses(buildTossesFromViz(rolls));
-      safetyRef.current = setTimeout(() => { setTosses(null); setRevealedBoth(revealedRef.current + 1); }, 8000); // 兜底防卡
+      safetyRef.current = setTimeout(() => { setTosses(null); applyHpAndReveal(); }, 8000); // 兜底防卡
     } else {
       setRevealedBoth(n + 1); // 该行打完 → onDone 调 advance
     }
   };
+  // 伤害骰滚定 → 该目标显示血量降到新值，再揭示该行
+  const applyHpAndReveal = () => {
+    const entry = useCombatStore.getState().encounter?.log[revealedRef.current];
+    const hpv = entry?.rolls?.find((rv) => rv.hp)?.hp;
+    if (hpv) setDisplayHp((prev) => ({ ...prev, [hpv.id]: hpv.to }));
+    setRevealedBoth(revealedRef.current + 1);
+  };
   const onTossComplete = () => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     setTosses(null);
-    setRevealedBoth(revealedRef.current + 1); // 骰子滚完 → 显示对应那行(打完后 onDone 再 advance)
+    applyHpAndReveal();
   };
   useEffect(() => {
-    if (!encounter) { logLenRef.current = 0; runningRef.current = false; return; }
+    if (!encounter) { logLenRef.current = 0; runningRef.current = false; setTosses(null); setDisplayHp({}); return; }
     const logLen = encounter.log.length;
+    if (logLenRef.current === 0) {
+      seedHp(encounter.combatants); // 进场/读档：显示血量种子=当前各人血量
+      if (logLen > 1) { setRevealedBoth(logLen); logLenRef.current = logLen; return; } // 读档恢复：历史日志不重播
+    }
     if (logLen < logLenRef.current) {
-      setRevealedBoth(logLen); setTosses(null); runningRef.current = false; // 新战斗/清场 → 全显
+      setRevealedBoth(logLen); setTosses(null); runningRef.current = false; seedHp(encounter.combatants); // 清场/回退 → 同步真实
     } else if (logLen > logLenRef.current && !runningRef.current) {
       advance(); // 有新行且链空闲 → 启动交替揭示(链由 onTossComplete/onDone 自持)
     }
@@ -163,9 +174,9 @@ export function CombatPanel() {
       {/* 敌人 / 友方 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, padding: '0 24px 10px', borderBottom: `1px solid ${FAINTER}` }}>
         {enemies.map((e) => (
-          <CombatantRow key={e.id} c={e} hostile target={enc.playerTargetId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
+          <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
         ))}
-        {allies.map((a) => <CombatantRow key={a.id} c={a} hostile={false} target={false} />)}
+        {allies.map((a) => <CombatantRow key={a.id} c={a} hp={displayHp[a.id] ?? a.hp} hostile={false} target={false} />)}
       </div>
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
@@ -180,7 +191,7 @@ export function CombatPanel() {
       {/* 玩家状态条 */}
       {player && (
         <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, padding: '8px 24px 0', flexWrap: 'wrap', flexShrink: 0 }}>
-          <span>HP <b style={{ color: 'var(--blood)' }}>{player.hp}/{player.maxHp}</b></span>
+          <span>HP <b style={{ color: 'var(--blood)' }}>{displayHp[player.id] ?? player.hp}/{player.maxHp}</b></span>
           <span>SAN <b style={{ color: 'var(--ink)' }}>{sheet.secondary.san.current}</b></span>
           <span>MP <b style={{ color: 'var(--ink)' }}>{sheet.secondary.mp.current}</b></span>
           {rangedWeapon && <span>弹药 <b style={{ color: 'var(--ink)' }}>{rangedWeapon.loadedAmmo ?? 0}/{rangedWeapon.magazine ?? 0}</b>（备 {reserve}）</span>}
@@ -264,11 +275,12 @@ function TypewriterLine({ text, narrative, onDone }: { text: string; narrative: 
   );
 }
 
-function CombatantRow({ c, hostile, target, onClick }: { c: Combatant; hostile: boolean; target: boolean; onClick?: () => void }) {
+function CombatantRow({ c, hp, hostile, target, onClick }: { c: Combatant; hp?: number; hostile: boolean; target: boolean; onClick?: () => void }) {
   const fled = c.flags.fled;
   const down = c.flags.dead || c.flags.unconscious || fled;
   const stateLabel = fled ? '（脱离）' : (c.flags.dead || c.flags.unconscious) ? '（倒下）' : c.flags.dying ? '·濒死' : c.flags.majorWound ? '·重伤' : '';
-  const pct = Math.max(0, Math.round((c.hp / c.maxHp) * 100));
+  const shownHp = hp ?? c.hp; // 显示血量(掉血延后到伤害骰滚定)
+  const pct = Math.max(0, Math.round((shownHp / c.maxHp) * 100));
   return (
     <div onClick={down ? undefined : onClick}
       style={{
@@ -290,7 +302,7 @@ function CombatantRow({ c, hostile, target, onClick }: { c: Combatant; hostile: 
       <div style={{ width: 72, height: 7, background: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: hostile ? 'var(--blood)' : 'var(--success)', transition: 'var(--transition-smooth)' }} />
       </div>
-      <span style={{ fontSize: 11, color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{c.hp}/{c.maxHp}</span>
+      <span style={{ fontSize: 11, color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{shownHp}/{c.maxHp}</span>
     </div>
   );
 }
@@ -367,7 +379,9 @@ function DiceRecordsExpander({ records }: { records: { skill: string; roll: stri
         <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${FAINTER}` }}>
           {records.map((r, i) => (
             <div key={i} style={{ fontSize: 11, color: 'var(--ink-faded)', lineHeight: 1.7 }}>
-              {r.purpose ? `[${r.purpose}] ` : ''}{r.skill} d100={r.roll}/{r.target}
+              {r.purpose === '伤害'
+                ? `[伤害] ${r.skill.split('·')[0]} ${r.target}=${r.roll}`
+                : `${r.purpose ? `[${r.purpose}] ` : ''}${r.skill} d100=${r.roll}/${r.target}`}
             </div>
           ))}
         </div>

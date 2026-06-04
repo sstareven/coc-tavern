@@ -28,7 +28,7 @@ export function parseNpcDerived(npc: NpcProfile): NpcDerived {
   let mp = numAfter(/(?:MP|魔法值|魔法)\s*[:：]?\s*(\d+)/i);
   let mov = numAfter(/(?:MOV|移动力|移动)\s*[:：]?\s*(\d+)/i);
   const dbMatch = d.match(/(?:DB|伤害加值|伤害奖励)\s*[:：]?\s*([+\-]?\d*[dD]\d+|[+\-]?\d+)/);
-  let db = dbMatch ? dbMatch[1].toUpperCase() : undefined;
+  let db = dbMatch ? dbMatch[1].toUpperCase().replace(/^\+/, '') : undefined; // 规范化：去掉前导 +（保留负号），与 buildAndDamageBonus 一致，避免拼式出现双号
 
   // 推算兜底
   if (hp == null && c.CON != null && c.SIZ != null) hp = Math.floor((c.CON + c.SIZ) / 10);

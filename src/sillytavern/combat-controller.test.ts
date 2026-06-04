@@ -165,16 +165,6 @@ describe('近战日志拆行 + 倒地劣势', () => {
     expect(out.log.some((l) => l.text.includes('倒地·劣势'))).toBe(true);
   });
 
-  it('命中后追加伤害记录(purpose:伤害, 携 dice 逐颗明细)', () => {
-    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, weapons: [{ name: '消防斧', skill: 90, damage: '2D6', impaling: true, ranged: false, attacksPerRound: 1 }] });
-    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 10, hp: 30, maxHp: 30 });
-    const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.9, 0.5, 0.5, 0.5, 0.5]));
-    const dmgRec = out.diceRecords.find((r) => r.purpose === '伤害');
-    expect(dmgRec).toBeTruthy();
-    expect((dmgRec!.dice ?? []).length).toBeGreaterThan(0);
-    expect(dmgRec!.dice!.every((d) => d.faces === 6)).toBe(true);
-  });
-
   it('日志行携带 rolls 供骰子/文字交替：判断行=2颗d100检定骰，命中结果行=伤害骰', () => {
     const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, weapons: [{ name: '消防斧', skill: 90, damage: '2D6', impaling: true, ranged: false, attacksPerRound: 1 }] });
     const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 10, hp: 30, maxHp: 30 });

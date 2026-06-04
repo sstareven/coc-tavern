@@ -709,6 +709,8 @@ export interface CombatRollViz {
   damage?: boolean;
   dice: { value: number; faces: number; type?: DiceResultType; caption?: string }[];
   total?: number;
+  /** 伤害骰滚定后要演出的掉血过渡（血条延后到此刻才下降）。 */
+  hp?: { id: string; from: number; to: number; max: number };
 }
 
 export interface CombatLogEntry {
