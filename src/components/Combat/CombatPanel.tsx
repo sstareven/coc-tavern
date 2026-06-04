@@ -8,11 +8,11 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
-  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver,
+  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
-import type { Combatant, ManeuverKind, DiceResultType, CombatRollViz } from '../../types';
+import type { Combatant, Encounter, ManeuverKind, DiceResultType, CombatRollViz } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
@@ -214,8 +214,11 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* 动作栏：测试战斗结束=「结束测试」(手动关闭)；真实战斗结束=「推进剧情」；战斗中=攻击/战技/…(测试战斗附带「结束测试」) */}
-      {resolving && enc.test ? (
+      {/* 动作栏：pendingDefense=AI 攻击挂起,玩家选防御方式；测试战斗结束=「结束测试」(手动关闭)；真实战斗结束=「推进剧情」；战斗中=攻击/战技/… */}
+      {enc.pendingDefense ? (
+        <DefensePanel pendingDefense={enc.pendingDefense} enc={enc} animating={animating}
+          onChoose={(choice) => act(true, () => setEncounter(resolvePlayerDefense(enc, choice)))} />
+      ) : resolving && enc.test ? (
         <div style={{ display: 'flex', justifyContent: 'center', borderTop: `1px solid ${FAINTER}`, padding: '12px 24px 2px', marginTop: 8, flexShrink: 0 }}>
           <ActionBtn label="结束测试 ✕" primary onClick={() => act(true, endTest)} />
         </div>
@@ -415,6 +418,54 @@ function DiceRecordsExpander({ records }: { records: { skill: string; roll: stri
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const MANEUVER_EFFECT_CN: Record<ManeuverKind, string> = { disarm: '武器被打落(暂不可用)', grapple: '被擒抱压制在地', shove: '被推倒在地', knockout: '被击晕,瘫倒在地' };
+
+/**
+ * AI 近战/战技攻击玩家时挂起的防御选择面板。按钮 hover 显示对抗规则与成败后果(COC7e p87-88)。
+ * 攻击=2按钮(闪避/反击)；战技=3按钮(闪避/反击/战技反击,规则书 p89)。
+ * animating=true(骰子动画/日志未追平)时按钮 disabled,避免连点击穿。
+ */
+function DefensePanel({ pendingDefense, enc, animating, onChoose }: {
+  pendingDefense: NonNullable<Encounter['pendingDefense']>;
+  enc: Encounter;
+  animating: boolean;
+  onChoose: (choice: 'dodge' | 'fightback' | 'maneuver-counter') => void;
+}) {
+  const attacker = enc.combatants.find((c) => c.id === pendingDefense.attackerId);
+  const player = enc.combatants.find((c) => c.faction === 'player');
+  if (!attacker || !player) return null;
+  const isManeuver = pendingDefense.kind === 'maneuver';
+  const weapon = pendingDefense.weaponIdx != null ? attacker.weapons[pendingDefense.weaponIdx] : attacker.weapons[0];
+  const atkLabel = isManeuver && pendingDefense.maneuverKind
+    ? `${attacker.name} 试图${MANEUVERS.find((m) => m.kind === pendingDefense.maneuverKind)?.label ?? '战技'}你`
+    : `${attacker.name} 用${weapon?.name ?? '徒手'}向你扑来`;
+  const atkSkill = isManeuver ? attacker.fighting : (weapon?.skill ?? attacker.fighting);
+  const playerWeapon = player.weapons[0];
+  const playerDmg = playerWeapon?.damage ?? '1D3';
+  const atkDmg = weapon?.damage ?? '1D3';
+
+  const dodgeTip = `用闪避 ${player.dodge} 对抗 ${attacker.name} 的格斗 ${atkSkill}。\n胜:化解攻击,你不挨刀。\n负/平手:挨刀 ${atkDmg}。\n(规则:闪避不能反伤,但稳妥)`;
+  const fightbackTip = isManeuver
+    ? `用格斗 ${player.fighting} 反击。\n胜:对${attacker.name}造成 ${playerDmg} 伤害,化解战技。\n负:挨同战技效果(${MANEUVER_EFFECT_CN[pendingDefense.maneuverKind!]})。\n平手:挨战技效果。\n(反击不能贯穿)`
+    : `用格斗 ${player.fighting} 反击。\n胜:你不挨刀,对${attacker.name}造成 ${playerDmg} 伤害。\n负:挨刀 ${atkDmg}。\n平手:攻击者胜,你挨刀。\n(反击不能贯穿,规则书 p87)`;
+  const counterTip = `用格斗 ${player.fighting} 反战技。\n胜:对${attacker.name}施加同战技效果(${MANEUVER_EFFECT_CN[pendingDefense.maneuverKind!]}),不致伤。\n负/平手:挨战技效果。\n(规则书 p89)`;
+
+  return (
+    <div style={{ borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
+      <div style={{ fontSize: 12, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1, marginBottom: 8, textAlign: 'center' }}>
+        ▸ {atkLabel} — 选择应对
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
+        <ActionBtn label={`闪避 [${player.dodge}]`} disabled={animating} title={dodgeTip} onClick={() => onChoose('dodge')} />
+        <ActionBtn label={`反击 [${player.fighting}]`} primary disabled={animating} title={fightbackTip} onClick={() => onChoose('fightback')} />
+        {isManeuver && (
+          <ActionBtn label={`战技反击 [${player.fighting}]`} disabled={animating} title={counterTip} onClick={() => onChoose('maneuver-counter')} />
+        )}
+      </div>
     </div>
   );
 }

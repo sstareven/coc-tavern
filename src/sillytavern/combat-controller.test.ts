@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, type OpeningPreset } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, resolvePlayerDefense, type OpeningPreset } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -91,6 +91,51 @@ describe('runAiTurn 逃跑（MOV/速度结算）', () => {
     const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', mov: 7 });
     const out = runAiTurn(mkEnc([enemy, player], 'p'), 'e', seqRng([0.0]));
     expect(out.combatants.find((c) => c.id === 'e')!.flags.fled).toBe(true);
+  });
+});
+
+describe('AI 近战攻击玩家时挂起 pendingDefense,玩家选 dodge/fightback 后才结算', () => {
+  it('AI 近战攻击玩家 → 挂起 pendingDefense,不立即结算', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dodge: 50, fighting: 60, hp: 10, maxHp: 10 });
+    const enemy = mkC({ id: 'e', faction: 'enemy', tendency: { attack: 100, flee: 0 } });
+    const enc = mkEnc([player, enemy], 'e');
+    const out = runAiTurn(enc, 'e', seqRng([0.5])); // 1<=0,不逃,选攻击
+    expect(out.pendingDefense).toBeTruthy();
+    expect(out.pendingDefense?.attackerId).toBe('e');
+    expect(out.pendingDefense?.kind).toBe('attack');
+    expect(out.combatants.find((c) => c.id === 'p')!.hp).toBe(10); // 玩家 HP 未变,等玩家选
+  });
+  it('AI 远程攻击玩家 → 不挂起,直接结算(规则书 p93:被射击不能反击/闪避)', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dodge: 99, hp: 20, maxHp: 20 });
+    const gunner = mkC({
+      id: 'e', faction: 'enemy', tendency: { attack: 100, flee: 0 },
+      weapons: [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: false === true ? true : true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }] as Combatant['weapons'],
+    });
+    // 修正 weapons[0].ranged=true
+    gunner.weapons = [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }];
+    const enc = mkEnc([player, gunner], 'e');
+    const out = runAiTurn(enc, 'e', seqRng([0.5, 0.01, 0.9, 0.9])); // 不逃,攻击命中=1,伤害=6
+    expect(out.pendingDefense).toBeFalsy(); // 远程不挂起
+  });
+  it('玩家选 fightback → 用 player.fighting 对抗,赢了反伤 AI', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0', hp: 10, maxHp: 10, weapons: [{ name: '徒手', skill: 90, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }] });
+    const enemy = mkC({ id: 'e', faction: 'enemy', fighting: 30, hp: 8, maxHp: 8 });
+    // currentIdx=1=enemy,模拟 AI 刚在自己回合攻击玩家挂起;应答后 advance 到 player 即停
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), currentIdx: 1, pendingDefense: { attackerId: 'e', kind: 'attack', weaponIdx: 0 } };
+    // 玩家 d100=10≤90 成功,AI d100=70/30 失败 → 玩家反击得手,AI 挨刀
+    const out = resolvePlayerDefense(enc, 'fightback', seqRng([0.0, 0.7, 0.0, 0.1, 0.9, 0.9]));
+    expect(out.pendingDefense).toBeFalsy(); // pendingDefense 已清空,推到 player 回合
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(8); // AI 挨刀
+    expect(out.combatants.find((c) => c.id === 'p')!.hp).toBe(10);        // 玩家不挨刀
+  });
+  it('玩家选 dodge 失败 → AI 命中,玩家挨刀,没有反伤', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dodge: 20, fighting: 40, hp: 10, maxHp: 10 });
+    const enemy = mkC({ id: 'e', faction: 'enemy', fighting: 80, damageBonus: '0', weapons: [{ name: '匕首', skill: 80, damage: '1D4', impaling: true, ranged: false, attacksPerRound: 1 }] });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), currentIdx: 1, pendingDefense: { attackerId: 'e', kind: 'attack', weaponIdx: 0 } };
+    // AI d100=10/80 成功, 玩家闪避 d100=70/20 失败 → AI 命中。本次结算完会推到下一轮,enemy.fighting>player → 可能再挂起,不强求
+    const out = resolvePlayerDefense(enc, 'dodge', seqRng([0.0, 0.1, 0.0, 0.7, 0.5, 0.5, 0.5, 0.5]));
+    expect(out.combatants.find((c) => c.id === 'p')!.hp).toBeLessThan(10); // 关键:玩家挨刀
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBe(10);          // dodge 不反伤
   });
 });
 

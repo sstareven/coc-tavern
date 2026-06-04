@@ -761,6 +761,18 @@ export interface Encounter {
   opener?: string;
   /** 测试战斗（/战斗测试 指令建场）：脱战后【不推进正文】，直接清场。 */
   test?: boolean;
+  /**
+   * AI 近战/战技攻击玩家时挂起：玩家在 UI 选「闪避/反击/战技反击」后才结算该次攻击并继续推进。
+   * 远程攻击不挂起(规则书 p93:被射击不能反击/闪避,直接命中骰)。
+   */
+  pendingDefense?: {
+    attackerId: string;
+    kind: 'attack' | 'maneuver';
+    /** kind='attack' 时攻击者武器索引 */
+    weaponIdx?: number;
+    /** kind='maneuver' 时战技种类 */
+    maneuverKind?: ManeuverKind;
+  } | null;
 }
 
 export interface CombatLog {
