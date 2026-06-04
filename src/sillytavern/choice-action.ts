@@ -1,4 +1,5 @@
 import type { NpcAction } from './npc-actions';
+import type { NpcProfile } from '../types';
 
 export interface NpcActionRequest {
   /** 提交给主管线的纯叙事文本（玩家对 NPC 做了什么）。 */
@@ -42,4 +43,22 @@ export function buildNpcActionRequest(npcName: string, action: NpcAction): NpcAc
 export function dispatchNpcAction(npcName: string, action: NpcAction): void {
   const req = buildNpcActionRequest(npcName, action);
   document.dispatchEvent(new CustomEvent('npc-action', { detail: req }));
+}
+
+/** NPC 是否已失能（重伤/昏迷/濒死，活着但几无抵抗）——对其再发起攻击应走「处决直叙」而非战斗面板。 */
+export function isHelplessNpc(npc: Pick<NpcProfile, 'status'>): boolean {
+  return /重伤|昏迷|濒死/.test(npc.status ?? '');
+}
+
+/** 据失能 NPC 与所选战斗动作构造「处决/制伏」纯叙事文本（无掷骰、不开战斗面板，交主管线出正文+选项）。 */
+export function buildExecutionNarrative(npcName: string, statusText: string, action: NpcAction): string {
+  const st = /昏迷/.test(statusText) ? '昏迷倒地' : /濒死/.test(statusText) ? '濒死' : '身负重伤';
+  if (action.maneuver === 'disarm') return `${npcName}已${st}、再无招架之力，调查员上前夺下其手中武器，彻底解除威胁`;
+  if (action.maneuver) return `${npcName}已${st}、再无招架之力，调查员上前将其制伏控制，使其无从反抗`;
+  return `${npcName}已${st}、几无抵抗之力，调查员上前补上决定性的一击，了结这场对峙`;
+}
+
+/** 处决/纯叙事动作：把一句叙事文本塞进输入栏（无检定标记），玩家按推进即走主管线生成正文+选项。 */
+export function dispatchNpcNarrative(text: string): void {
+  document.dispatchEvent(new CustomEvent('npc-action', { detail: { text, checkText: text } }));
 }

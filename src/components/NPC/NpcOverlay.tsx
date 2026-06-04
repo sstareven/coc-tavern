@@ -6,7 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { parseNpcDerived } from '../../sillytavern/npc-derived';
 import { enterCombat } from '../../sillytavern/combat-entry';
-import { dispatchNpcAction } from '../../sillytavern/choice-action';
+import { dispatchNpcAction, isHelplessNpc, buildExecutionNarrative, dispatchNpcNarrative } from '../../sillytavern/choice-action';
 import { NPC_QUICK_ACTIONS, NPC_ACTION_GROUPS, npcActionsByGroup, type NpcAction } from '../../sillytavern/npc-actions';
 import type { NpcProfile, COC7Characteristic } from '../../types';
 
@@ -112,8 +112,16 @@ function NpcActionChip({ action, onClick }: { action: { label: string; kind?: st
 function InteractionMenu({ npc }: { npc: NpcProfile }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const run = (a: NpcAction) => {
-    if (a.kind === 'combat') startCombatWithNpc(npc);                       // 攻击/战技 → 进战斗
-    else { dispatchNpcAction(npc.name, a); useNpcStore.getState().close(); } // 检定 → 走选项掷骰提交管线
+    if (a.kind === 'combat') {
+      // 已失能(重伤/昏迷/濒死)的 NPC 再被攻击不开战斗面板(否则按最大HP满血重建、还要逐回合对抗,违和)，
+      // 改走「处决/制伏」纯叙事：塞进输入栏 → 玩家推进 → 主管线出正文+选项。
+      if (isHelplessNpc(npc)) {
+        dispatchNpcNarrative(buildExecutionNarrative(npc.name, npc.status ?? '', a));
+        useNpcStore.getState().close();
+      } else {
+        startCombatWithNpc(npc);                                              // 攻击/战技 → 进战斗
+      }
+    } else { dispatchNpcAction(npc.name, a); useNpcStore.getState().close(); } // 检定 → 走选项掷骰提交管线
   };
   return (
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
