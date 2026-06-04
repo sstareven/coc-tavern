@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { DiceRecord, DiceResultType, DiceMode } from '../types';
 import { randD10, d100, determineResult } from '../sillytavern/dice-engine';
 import { useBookStore } from './useBookStore';
+import { useCharSheetStore } from './useCharSheetStore';
+import { useVariableStore } from './useVariableStore';
 
 export interface OpenCheckOptions {
   skill: string;
@@ -11,6 +13,26 @@ export interface OpenCheckOptions {
   sanCheck?: boolean;
   context?: DiceRecord['context'];
   onResolve: (level: DiceResultType, roll: number) => void;
+}
+
+/**
+ * A1.3 staging — 暂存一次掷骰的「原始上下文」，待玩家确认/扣幸运/推骰再落账。
+ * 与 history 互斥：rollStaged 不入 history，commitNow/commitWithLuck/commitAsPush 才入。
+ */
+export interface LastRollContext {
+  skill: string;
+  target: number;
+  page: number;
+  originalRoll: number;
+  originalResult: DiceResultType;
+  sanCheck: boolean;
+  mode: DiceMode;
+  tens: number;
+  ones: number;
+  finalTens: number;
+  bonusTens: number;
+  oppTens: number;
+  oppOnes: number;
 }
 
 interface DiceStore {
@@ -23,6 +45,9 @@ interface DiceStore {
   programmaticSkill?: string;
   programmaticContext?: DiceRecord['context'];
   onProgrammaticResolve?: (level: DiceResultType, roll: number) => void;
+  // —— A1.3 staging 状态 ——
+  isStaged: boolean;
+  lastRollContext: LastRollContext | null;
   open: () => void; close: () => void;
   setMode: (m: DiceMode) => void; setTarget: (t: number) => void;
   toggleBonus: () => void; togglePenalty: () => void; toggleSan: () => void;
@@ -38,6 +63,58 @@ interface DiceStore {
   clearAll: () => void;
   /** A1.7 — 由 UI/系统发起的目标检定。打开面板，玩家点掷骰后回调结果并自动关闭。 */
   openCheck: (opts: OpenCheckOptions) => void;
+  /** A1.3 — 滚一次骰但不入 history；写 lastRollContext + isStaged，等待 commit* 收口。 */
+  rollStaged: (skill?: string) => void;
+  /** A1.3 — 扣 luck 改写 finalRoll/resultType 后落账；走 applyCorrectiveOps 扣 /调查员/幸运。 */
+  commitWithLuck: (spend: number) => void;
+  /** A1.3 — 推骰二次掷，pushed=true + pushReason + pushedFrom 携带原 roll/type。 */
+  commitAsPush: (reason: string) => void;
+  /** A1.3 — 直接落账暂存结果（不动 luck、不推骰）。 */
+  commitNow: () => void;
+}
+
+/**
+ * A1.3 staging — 用 luck 扣点后重算 finalRoll/resultType。
+ * 与 dice-engine.applyLuckToRoll 的差异：
+ *   - dice-engine 版返回 LuckApplyResult（含 appliedSpend/reason 用于 SAN/伤害/01-100 拒绝路径）；
+ *   - 此处仅做「减点后重算」原语，由 commitWithLuck 上层做 spend 钳位和 applyCorrectiveOps。
+ */
+function recomputeRollWithLuck(
+  ctx: { originalRoll: number; target: number; sanCheck: boolean },
+  spend: number,
+): { finalRoll: number; resultType: DiceResultType } {
+  const finalRoll = Math.max(1, ctx.originalRoll - Math.max(0, spend));
+  return { finalRoll, resultType: determineResult(finalRoll, ctx.target, ctx.sanCheck) };
+}
+
+/** A1.3 — 推骰 commit 资格：失败 + 非 SAN + 非对抗 + 未推过。 */
+function canStartPush(ctx: {
+  resultType: DiceResultType | null;
+  sanCheck: boolean;
+  mode: DiceMode;
+  alreadyPushed: boolean;
+}): boolean {
+  return ctx.resultType === 'failure' && !ctx.sanCheck && ctx.mode !== 'opposed' && !ctx.alreadyPushed;
+}
+
+/**
+ * 从面板状态滚一次骰，得到 tens/ones/finalTens/bonusTens/originalRoll/finalRoll/resultType/对抗骰。
+ * 由 roll()/rollStaged()/commitAsPush() 共用，集中处理奖励/惩罚骰与对抗骰的选骰逻辑。
+ */
+function rollDiceSnapshot(state: { mode: DiceMode; bonusDice: number; target: number; sanCheck: boolean }) {
+  const tens = randD10();
+  const ones = randD10();
+  let bonusTens = 0;
+  if (state.bonusDice !== 0) bonusTens = randD10();
+  let finalTens = tens;
+  if (state.bonusDice > 0) finalTens = Math.min(tens, bonusTens);
+  else if (state.bonusDice < 0) finalTens = Math.max(tens, bonusTens);
+  const originalRoll = d100(tens, ones);
+  const finalRoll = d100(finalTens, ones);
+  const resultType = determineResult(finalRoll, state.target, state.sanCheck);
+  const oppTens = state.mode === 'opposed' ? randD10() : 0;
+  const oppOnes = state.mode === 'opposed' ? randD10() : 0;
+  return { tens, ones, bonusTens, finalTens, originalRoll, finalRoll, resultType, oppTens, oppOnes };
 }
 
 export const useDiceStore = create<DiceStore>((set, get) => ({
@@ -46,6 +123,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   originalRoll: 0, finalRoll: 0, resultType: null, history: [], pending: [],
   isProgrammatic: false,
   programmaticSkill: undefined, programmaticContext: undefined, onProgrammaticResolve: undefined,
+  isStaged: false, lastRollContext: null,
   open: () => set({ isOpen: true }),
   close: () => set({
     isOpen: false,
@@ -61,27 +139,21 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   toggleSan: () => set((s) => ({ sanCheck: !s.sanCheck })),
   roll: () => {
     const s = get();
-    const t = randD10(), o = randD10();
-    let bt = 0;
-    if (s.bonusDice !== 0) bt = randD10();
-    let ft = t;
-    if (s.bonusDice > 0) ft = Math.min(t, bt);
-    else if (s.bonusDice < 0) ft = Math.max(t, bt);
-    const originalRoll = d100(t, o);
-    const finalRoll = d100(ft, o);
-    const resultType = determineResult(finalRoll, s.target, s.sanCheck);
-    const oppTens = s.mode === 'opposed' ? randD10() : 0;
-    const oppOnes = s.mode === 'opposed' ? randD10() : 0;
-    set({ tens: t, ones: o, finalTens: ft, bonusTens: bt, oppTens, oppOnes, originalRoll, finalRoll, resultType });
+    const snap = rollDiceSnapshot(s);
+    set({
+      tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
+      oppTens: snap.oppTens, oppOnes: snap.oppOnes,
+      originalRoll: snap.originalRoll, finalRoll: snap.finalRoll, resultType: snap.resultType,
+    });
 
     const skillLabel = s.isProgrammatic && s.programmaticSkill
       ? s.programmaticSkill
       : s.bonusDice > 0 ? '奖励骰' : s.bonusDice < 0 ? '惩罚骰' : '检定';
     const rec: DiceRecord = {
       skill: skillLabel,
-      roll: String(finalRoll).padStart(2, '0'),
+      roll: String(snap.finalRoll).padStart(2, '0'),
       target: String(s.target),
-      type: resultType,
+      type: snap.resultType,
       time: Date.now(),
       page: useBookStore.getState().pageIndex + 1,
     };
@@ -98,7 +170,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
         programmaticContext: undefined,
         onProgrammaticResolve: undefined,
       });
-      cb(resultType, finalRoll);
+      cb(snap.resultType, snap.finalRoll);
     }
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
@@ -108,8 +180,18 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
     pending: [],
   })),
   clearPending: () => set({ pending: [] }),
-  setHistory: (records) => set({ history: records.slice(0, 20), pending: [] }),
-  clearAll: () => set({ history: [], pending: [] }),
+  setHistory: (records) => set({
+    history: records.slice(0, 20),
+    pending: [],
+    isStaged: false,
+    lastRollContext: null,
+  }),
+  clearAll: () => set({
+    history: [],
+    pending: [],
+    isStaged: false,
+    lastRollContext: null,
+  }),
   openCheck: (opts) => {
     const bonusDice = opts.bonus ? 1 : opts.penalty ? -1 : 0;
     set({
@@ -123,5 +205,107 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       programmaticContext: opts.context,
       onProgrammaticResolve: opts.onResolve,
     });
+  },
+
+  rollStaged: (skill) => {
+    const s = get();
+    const snap = rollDiceSnapshot(s);
+    set({
+      tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
+      oppTens: snap.oppTens, oppOnes: snap.oppOnes,
+      originalRoll: snap.originalRoll, finalRoll: snap.finalRoll, resultType: snap.resultType,
+      isStaged: true,
+      lastRollContext: {
+        skill: skill ?? (s.bonusDice > 0 ? '奖励骰' : s.bonusDice < 0 ? '惩罚骰' : '检定'),
+        target: s.target,
+        page: useBookStore.getState().pageIndex + 1,
+        originalRoll: snap.originalRoll,
+        originalResult: snap.resultType,
+        sanCheck: s.sanCheck,
+        mode: s.mode,
+        tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
+        oppTens: snap.oppTens, oppOnes: snap.oppOnes,
+      },
+    });
+  },
+
+  commitWithLuck: (spend) => {
+    const ctx = get().lastRollContext;
+    if (!ctx) return;
+    const luck = useCharSheetStore.getState().sheet.secondary.luck;
+    const safeSpend = Math.max(0, Math.min(spend, luck));
+    const { finalRoll, resultType } = recomputeRollWithLuck(
+      { originalRoll: ctx.originalRoll, target: ctx.target, sanCheck: ctx.sanCheck },
+      safeSpend,
+    );
+    if (safeSpend > 0) {
+      // 走 G2 自纠通路扣点；redirect(applyCharsheetRedirect) 处理 '调查员.幸运' op='delta' 分支，
+      // 由 useVariableStore.applyCorrectiveOps → applyMvuPatch → redirect → sheet.secondary.luck 落地。
+      useVariableStore.getState().applyCorrectiveOps([
+        { op: 'delta', path: '/调查员/幸运', value: -safeSpend },
+      ]);
+    }
+    set({ finalRoll, resultType });
+    get().addRecord({
+      skill: ctx.skill,
+      roll: String(finalRoll).padStart(2, '0'),
+      target: String(ctx.target),
+      type: resultType,
+      time: Date.now(),
+      page: ctx.page,
+      luckSpent: safeSpend,
+      // R7：用 luck 改写后的成功不算成长打钩。
+      growthTickEligible: false,
+    });
+    set({ isStaged: false, lastRollContext: null });
+  },
+
+  commitAsPush: (reason) => {
+    const ctx = get().lastRollContext;
+    if (!ctx) return;
+    if (!canStartPush({
+      resultType: ctx.originalResult,
+      sanCheck: ctx.sanCheck,
+      mode: ctx.mode,
+      alreadyPushed: false,
+    })) return;
+    const snap = rollDiceSnapshot({
+      mode: ctx.mode,
+      bonusDice: get().bonusDice,
+      target: ctx.target,
+      sanCheck: ctx.sanCheck,
+    });
+    set({
+      tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
+      oppTens: snap.oppTens, oppOnes: snap.oppOnes,
+      originalRoll: snap.originalRoll, finalRoll: snap.finalRoll, resultType: snap.resultType,
+    });
+    get().addRecord({
+      skill: ctx.skill,
+      roll: String(snap.finalRoll).padStart(2, '0'),
+      target: String(ctx.target),
+      type: snap.resultType,
+      time: Date.now(),
+      page: ctx.page,
+      pushed: true,
+      pushReason: reason,
+      pushedFrom: { roll: ctx.originalRoll, type: ctx.originalResult },
+    });
+    set({ isStaged: false, lastRollContext: null });
+  },
+
+  commitNow: () => {
+    const ctx = get().lastRollContext;
+    if (!ctx) return;
+    const s = get();
+    get().addRecord({
+      skill: ctx.skill,
+      roll: String(s.finalRoll).padStart(2, '0'),
+      target: String(ctx.target),
+      type: s.resultType ?? ctx.originalResult,
+      time: Date.now(),
+      page: ctx.page,
+    });
+    set({ isStaged: false, lastRollContext: null });
   },
 }));
