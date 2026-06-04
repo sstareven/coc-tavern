@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import { pushLog } from '../stores/useLogStore';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../types';
@@ -65,43 +62,28 @@ export async function integrateClues(
     })
     .join('\n');
 
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   pushLog('info', `[线索整合] 开始：输入 ${clues.length} 条线索，模型=${model}`, 'api');
-  await rpmAcquire('main');
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      ...appIdHeaders(),
-    },
-    body: JSON.stringify({
-      model,
-      messages: wrapSubagentMessages([
+  let resp;
+  try {
+    resp = await callDsSubagent({
+      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+      label: '线索整合',
+      messages: [
         { role: 'system', content: INTEGRATOR_PROMPT },
         { role: 'user', content: `调查员目前已掌握的线索：\n${list}` },
-      ], '线索整合'),
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  });
-
-  if (!response.ok) {
-    pushLog('error', `[线索整合] API 返回错误 ${response.status}`, 'api');
-    throw new Error(`线索整合 API 错误 ${response.status}`);
+      ],
+    });
+  } catch (err) {
+    pushLog('error', `[线索整合] API 返回错误 ${err instanceof Error ? err.message : String(err)}`, 'api');
+    throw err;
   }
-
-  const json = await response.json();
-  const content: string = json.choices?.[0]?.message?.content ?? '';
-  const usage: TokenUsage | undefined = json.usage;
+  const { content, parsed, parseError: error, usage } = resp;
   pushLog('debug', `[线索整合] 原始响应(${content.length}字${usage?.total_tokens ? `, ${usage.total_tokens} tokens` : ''}): ${content.slice(0, 500)}`, 'api');
 
   // 健壮解析：兼容 {"insights":[...]} / {"clues":[...]} / 顶层数组 [...]。
-  const { parsed, error } = coerceJsonObject(content);
-  const pObj = parsed as Record<string, unknown> | null;
   let insights: Record<string, unknown>[] = [];
-  if (pObj && Array.isArray(pObj.insights)) insights = pObj.insights as Record<string, unknown>[];
-  else if (pObj && Array.isArray(pObj.clues)) insights = pObj.clues as Record<string, unknown>[];
+  if (parsed && Array.isArray(parsed.insights)) insights = parsed.insights as Record<string, unknown>[];
+  else if (parsed && Array.isArray(parsed.clues)) insights = parsed.clues as Record<string, unknown>[];
   else {
     const m = content.match(/\[[\s\S]*\]/);
     if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) insights = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }

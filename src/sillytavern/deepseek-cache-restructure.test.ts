@@ -326,6 +326,22 @@ describe('hasDynamicMarker', () => {
     expect(hasDynamicMarker('{{user}} 与 {{char}} 对话')).toBe(false);
     expect(hasDynamicMarker('{{charName}} {{newline}}')).toBe(false);
   });
+  it('SillyTavern 经典动态宏(time/date/random/roll/newline::N) → 动态(回归 #3)', () => {
+    expect(hasDynamicMarker('当前时间: {{time}}')).toBe(true);
+    expect(hasDynamicMarker('日期: {{date}} / {{isotime}}')).toBe(true);
+    expect(hasDynamicMarker('{{random::A::B::C}}')).toBe(true);
+    expect(hasDynamicMarker('掷骰: {{roll::1d6}}')).toBe(true);
+    expect(hasDynamicMarker('{{newline::3}}')).toBe(true);
+    expect(hasDynamicMarker('{{format_message_variable::counter}}')).toBe(true);
+  });
+  it('SillyTavern 静态角色卡点路径宏(char.*/persona.*/scenario 等) → 不视为动态(回归 #13)', () => {
+    expect(hasDynamicMarker('角色: {{char.description}}')).toBe(false);
+    expect(hasDynamicMarker('人物: {{persona.name}}')).toBe(false);
+    expect(hasDynamicMarker('{{user.bio}} / {{scenario}}')).toBe(false);
+    // 混合:含静态点路径 + 真动态宏 → 仍判动态
+    expect(hasDynamicMarker('{{char.description}} 当前时间: {{time}}')).toBe(true);
+    expect(hasDynamicMarker('{{persona.name}} HP {{调查员.生命值.当前}}')).toBe(true);
+  });
   it('纯静态文本 → 不动态', () => {
     expect(hasDynamicMarker('你是 KP，遵循克苏鲁的呼唤 7e 规则')).toBe(false);
     expect(hasDynamicMarker('# 输出格式\n\n请严格按 JSON 输出')).toBe(false);

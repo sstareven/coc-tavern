@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import type { PlotAnchors } from '../types';
 
 /**
@@ -41,7 +38,6 @@ export async function generateAnchors(
   maxTokens = 20000, // 思考型模型防截断（项目硬下限 ≥20000）
   retries = 3,
 ): Promise<PlotAnchors | null> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   const pillarText = pillars.length
     ? pillars.map((p, i) => `${i + 1}. ${p.title}：${p.secret}`).join('\n')
     : '（暂无）';
@@ -50,31 +46,17 @@ export async function generateAnchors(
   for (let attempt = 0; attempt < retries; attempt++) {
     if (signal?.aborted) return null;
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
-    await rpmAcquire('main');
     if (signal?.aborted) return null;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...appIdHeaders() },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
-          { role: 'system', content: ANCHOR_PROMPT },
-          { role: 'user', content: userContent },
-        ], '剧情锚点生成'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-      signal,
+    const { parsed } = await callDsSubagent({
+      apiBaseUrl, apiKey, model, signal, temperature, maxTokens, rpmLane: 'main',
+      label: '剧情锚点生成',
+      messages: [
+        { role: 'system', content: ANCHOR_PROMPT },
+        { role: 'user', content: userContent },
+      ],
     });
-
-    if (!response.ok) throw new Error(`剧情锚点生成 API 错误 ${response.status}`);
-
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const { parsed } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
-    if (pObj) {
-      const rawNodes = Array.isArray(pObj.nodes) ? (pObj.nodes as Record<string, unknown>[]) : [];
+    if (parsed) {
+      const rawNodes = Array.isArray(parsed.nodes) ? (parsed.nodes as Record<string, unknown>[]) : [];
       const nodes = rawNodes
         .filter((x) => x && (typeof x.title === 'string' || typeof x.description === 'string'))
         .map((x) => ({
@@ -83,11 +65,11 @@ export async function generateAnchors(
           description: typeof x.description === 'string' ? x.description.trim() : '',
         }))
         .slice(0, 6);
-      const constraints = (Array.isArray(pObj.constraints) ? pObj.constraints : [])
+      const constraints = (Array.isArray(parsed.constraints) ? parsed.constraints : [])
         .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
         .map((c) => c.trim())
         .slice(0, 5);
-      const threatDependencies = (Array.isArray(pObj.threatDependencies) ? pObj.threatDependencies : [])
+      const threatDependencies = (Array.isArray(parsed.threatDependencies) ? parsed.threatDependencies : [])
         .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
         .map((d) => d.trim())
         .slice(0, 8);

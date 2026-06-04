@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.9.1';
+export const CURRENT_VERSION = 'v1.10.0';
 
 interface Release {
   version: string;
@@ -13,6 +13,23 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.10.0',
+    label: '战斗：玩家选反击/闪避 · 多目标自动切活敌 · DS 缓存大批修复',
+    items: [
+      '【战斗·新增】被攻击时玩家自选「闪避 / 反击 / 战技反击」— 此前 AI 攻击你时,系统默认替你闪避;现在 AI 近战/战技攻击玩家时面板会暂停并弹出选择按钮。鼠标悬停每个按钮显示对抗规则、当前技能值、胜/负/平手后果,严格遵循 COC7e 规则书 p87-89(反击赢了对攻方反伤、平手攻击者胜、反击不能贯穿;战技反击赢了不致伤而是反加同战技效果)。远程攻击不弹出(规则书:被射击不能反击/闪避)',
+      '【战斗·修复】多目标战斗:锁定目标死亡后自动切到下一个活敌 — 此前锁定的敌人死了但 playerTargetId 没更新,玩家点攻击会因为目标已死被静默忽略,然后回合直接推到 AI,屏幕表现为"我点攻击,对方在投骰",回合彻底乱轴',
+      '【战斗·修复】骰子动画/日志揭示期间锁住玩家动作按钮 — 此前在 AI 动画播放中连点攻击会一口气把后续 AI 全推完,造成同一种"屏幕在给对方投骰"的乱轴',
+      '【DS 缓存·修复】v1.8 升级用户的"消息重组"实际未生效 — UI 用 `!== false` 显示 ON 但管线用 `=== true` 视 OFF,老存档缺字段时"已启用"是假象;现在 persist 加深合并把缺失字段补回默认值,UI 极性也对齐管线',
+      '【DS 缓存·修复】实验性"跳过 mvu_var_list"开关此前完全 no-op — 误用了显示名"变量列表"做匹配,实际应比 entries 的 key,现在正确生效',
+      '【DS 缓存·修复】动态宏识别补齐 SillyTavern 经典宏 — {{time}}/{{date}}/{{isotime}}/{{random::..}}/{{roll::..}}/{{newline::N}}/{{format_message_variable::..}} 现在能被识别为动态;含这些宏的常驻条目不再污染静态前缀',
+      '【DS 缓存·修复】角色卡静态宏不再被误判 — {{char.description}}/{{persona.name}}/{{scenario}} 等 ST 标准角色卡宏点路径不再被当动态过度下沉,静态条目老老实实留在前缀',
+      '【DS 缓存·修复】空预设/legacy fallback 路径的动态 lore 双重注入 — promptItems=[] 时动态 lore 会被同时按 system 注入一次 + dynamicTail prepend 一次,prompt 膨胀且模型读重复内容;greenContents 同样漏过滤。两处统一过滤掉 `_isDynamic` 标记的条目',
+      '【DS 缓存·修复】前缀漂移诊断对"空段"的启发式定位失准 — wbBefore 为空时缝隙位置被误判为 wbBefore;现在 offsets 跳过零长度段',
+      '【DS 缓存·修复】前缀漂移诊断的状态 Map 在生产环境从不清理 — 开新游戏/删档时未释放,违反 session-isolation 约定;现在 startNewConversation/deleteConversation 时正确清理对应快照',
+      '【内部重构】抽出 callDsSubagent helper 收口 11 个独立子调用的样板 — 网络请求/RPM 限流/请求头/JSON 解析的样板代码从分散在 11 个文件统一到一处,净减约 130 行;后续给所有子调用加任何统一行为(超时/重试头/错误码处理)只改一处',
+    ],
+  },
   {
     version: 'v1.9.1',
     label: '热修：放弃本回合后顶部进度条不停',

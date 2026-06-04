@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
 import { parseNpcDerived } from './npc-derived';
@@ -233,31 +230,19 @@ export async function detectAndBuildEncounter(
   maxTokens = 20000,
   retries = 2,
 ): Promise<Encounter | null> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   for (let attempt = 0; attempt < retries; attempt++) {
     if (signal?.aborted) return null;
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
-    await rpmAcquire('mvu');
     if (signal?.aborted) return null;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...appIdHeaders() },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
-          { role: 'system', content: DETECT_PROMPT },
-          { role: 'user', content: `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n本回合叙事：\n${narrative}` },
-        ], '战斗检测'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-      signal,
+    const { parsed } = await callDsSubagent({
+      apiBaseUrl, apiKey, model, signal, temperature, maxTokens, rpmLane: 'mvu',
+      label: '战斗检测',
+      messages: [
+        { role: 'system', content: DETECT_PROMPT },
+        { role: 'user', content: `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n本回合叙事：\n${narrative}` },
+      ],
     });
-    if (!response.ok) throw new Error(`战斗检测 API 错误 ${response.status}`);
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const { parsed } = coerceJsonObject(content);
-    const p = parsed as Record<string, unknown> | null;
+    const p = parsed;
     if (!p) continue; // 解析失败 → 重试
     if (p.inCombat !== true) return null; // 明确未进战
     const rawCombatants = Array.isArray(p.combatants) ? (p.combatants as Record<string, unknown>[]) : [];

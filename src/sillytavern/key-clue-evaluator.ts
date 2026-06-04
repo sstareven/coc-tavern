@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import { pushLog } from '../stores/useLogStore';
 import type { TokenUsage } from './stream-parser';
 
@@ -56,7 +53,6 @@ export async function evaluateKeyClues(
   maxTokens = 20000, // 思考型模型把预算耗在 reasoning 上，给足余量防 JSON 截断（用户要求 max_tokens≥20000）
   retries = 3,       // API 层重试：仅对「截断/空响应」重试（coerceJsonObject 内部重试只是清洗同一份脏文本，救不了真截断）
 ): Promise<EvaluateKeyCluesResult> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   pushLog('info', `[关键线索] 开始评估，未揭示支柱 ${pillars.length} 个、新线索 ${clues.length} 条，模型=${model}`, 'api');
 
   // 合法 pillarId 集合：模型只能匹配传入的未揭示支柱，越界 id 一律过滤。
@@ -78,17 +74,12 @@ export async function evaluateKeyClues(
   let lastError = '';
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500)); // 截断/空响应退避后重试
-    await rpmAcquire('main');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
+    let resp;
+    try {
+      resp = await callDsSubagent({
+        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+        label: '关键线索评估',
+        messages: [
           { role: 'system', content: KEY_CLUE_PROMPT },
           {
             role: 'user',
@@ -96,26 +87,17 @@ export async function evaluateKeyClues(
               `未揭示的真相支柱：\n${pillarsText}\n\n` +
               `本回合新获得的线索：\n${cluesText}`,
           },
-        ], '关键线索评估'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      pushLog('error', `[关键线索] API 返回错误 ${response.status}`, 'api');
-      throw new Error(`关键线索评估 API 错误 ${response.status}`);
+        ],
+      });
+    } catch (err) {
+      pushLog('error', `[关键线索] API 返回错误 ${err instanceof Error ? err.message : String(err)}`, 'api');
+      throw err;
     }
-
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const usage: TokenUsage | undefined = json.usage;
+    const { content, parsed, parseError, usage } = resp;
 
     // 健壮解析：兼容 {"matches":[...]} / 顶层数组 [...]。
-    const { parsed, error } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
     let raw: Record<string, unknown>[] = [];
-    if (pObj && Array.isArray(pObj.matches)) raw = pObj.matches as Record<string, unknown>[];
+    if (parsed && Array.isArray(parsed.matches)) raw = parsed.matches as Record<string, unknown>[];
     else {
       const m = content.match(/\[[\s\S]*\]/);
       if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) raw = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }
@@ -141,7 +123,7 @@ export async function evaluateKeyClues(
     // 失败分流：JSON 根本没解析出来(parsed=null：空/截断/畸形) → 重试；
     // JSON 解析成功但无匹配 → 合法的「本回合无揭示」，重试无益，直接返回空数组。
     const retryable = !content.trim() || parsed === null;
-    lastError = error || '解析为空';
+    lastError = parseError || '解析为空';
     pushLog(
       attempt + 1 < retries && retryable ? 'warn' : 'info',
       `[关键线索] 解析: parsed=${parsed ? 'ok' : 'null'} 错误=${lastError}（第 ${attempt + 1}/${retries} 次，${retryable ? '空/截断/畸形，将重试' : '已解析但本回合无揭示，停止重试'}），匹配 0 个`,

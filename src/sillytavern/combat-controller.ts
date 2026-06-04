@@ -35,6 +35,18 @@ function byId(enc: Encounter, id: string | null): Combatant | undefined {
 function alive(c: Combatant): boolean { return !c.flags.dead && !c.flags.unconscious && !c.flags.fled; }
 function hostileTo(a: Combatant, b: Combatant): boolean { return (a.faction === 'enemy') !== (b.faction === 'enemy'); }
 
+/**
+ * 校准玩家锁定目标:若当前 playerTargetId 指向已倒下/脱离的敌人,自动切到下一个活敌。
+ * 不修则 performAttack 看 target 已死就静默 return,playerAttack 仍走 advanceUntilPlayerOrEnd,
+ * 把回合直接推到 AI——玩家屏幕上就是「我点攻击,对方在投骰」。
+ */
+function reaimPlayerTarget(enc: Encounter): Encounter {
+  const cur = enc.playerTargetId ? byId(enc, enc.playerTargetId) : null;
+  if (cur && alive(cur)) return enc;
+  const next = enc.combatants.find((c) => c.faction === 'enemy' && alive(c));
+  return { ...enc, playerTargetId: next?.id ?? null };
+}
+
 function log(enc: Encounter, text: string, kind: CombatLogEntry['kind'] = 'roll', rolls?: CombatRollViz[]): Encounter {
   return { ...enc, log: [...enc.log, { kind, text, ...(rolls && rolls.length ? { rolls } : {}) }] };
 }
@@ -109,8 +121,10 @@ export function advanceTurn(enc: Encounter): Encounter {
   return { ...enc, currentIdx: next };
 }
 
-/** 一次攻击结算（attacker 用 weaponIdx 攻击 targetId）。处理近战对抗/射击/伤害/贯穿/卡壳/弹药/寡不敌众。 */
-export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
+/** 一次攻击结算（attacker 用 weaponIdx 攻击 targetId）。处理近战对抗/射击/伤害/贯穿/卡壳/弹药/寡不敌众。
+ *  forcedDefense:由玩家在 UI 选择(dodge/fightback)时传入,覆盖默认决策(AI 倾向规则);仅近战路径使用,远程攻击不受影响。
+ */
+export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset, forcedDefense?: 'dodge' | 'fightback'): Encounter {
   let enc = enc0;
   const attacker = byId(enc, attackerId);
   const target = byId(enc, targetId);
@@ -141,9 +155,11 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
   }
 
-  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避。preset 给定时复用选项那次对抗掷骰作开场。
+  // 近战对抗：preset > forcedDefense(玩家UI选择) > 默认决策(AI 倾向)。
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
-  const defense: 'dodge' | 'fightback' = preset ? preset.defense : ((target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge');
+  const defense: 'dodge' | 'fightback' = preset ? preset.defense
+    : forcedDefense ? forcedDefense
+    : ((target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge');
   const defenderValue = preset ? preset.defenderValue : (defense === 'fightback' ? target.fighting : target.dodge);
   const pm = proneMods(target); // 倒地(被压制)：攻方+1奖励骰、守方防御+1惩罚骰
   const bonus = outnumberBonusDice(target) + pm.atkBonus; // 守方本轮已防御→攻方得奖励骰
@@ -210,6 +226,12 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     }
     return log(enc, `${ai.name} 想要逃跑，却被拦了下来`, 'narrative');
   }
+  // AI 近战攻击玩家时挂起,等玩家在 UI 选择「闪避/反击」(远程攻击直接结算,规则书 p93:被射击不能反击/闪避)。
+  const targetC = byId(enc, action.targetId);
+  const weapon0 = ai.weapons[0];
+  if (targetC?.controlledBy === 'player' && weapon0 && !weapon0.ranged) {
+    return { ...enc, pendingDefense: { attackerId: aiId, kind: 'attack', weaponIdx: 0 } };
+  }
   return performAttack(enc, aiId, action.targetId, 0, rng);
 }
 
@@ -218,22 +240,51 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
   let enc = enc0;
   let guard = 0;
   while (guard++ < 200) {
+    if (enc.pendingDefense) return enc; // AI 攻击玩家挂起,UI 显示防御按钮组,等玩家 resolvePlayerDefense
     if (checkEndReason(enc)) { return { ...enc, status: 'resolving', endReason: checkEndReason(enc)! }; }
     enc = advanceTurn(enc);
     const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
     if (!cur || !alive(cur)) continue;          // 跳过已倒下者
-    if (cur.controlledBy === 'player') return enc; // 轮到玩家，停
+    if (cur.controlledBy === 'player') return reaimPlayerTarget(enc); // 轮到玩家,顺手把死目标切到下一个活敌
     enc = runAiTurn(enc, cur.id, rng);             // AI 行动
   }
   return enc;
 }
 
+/**
+ * 玩家在 UI 选择防御方式后调用:消费 pendingDefense,把玩家的 defense 选择交给 performAttack/performManeuver
+ * 结算这一次 AI 攻击,然后继续推进 AI 回合(advanceUntilPlayerOrEnd)。
+ * choice='dodge'|'fightback':近战攻击的二选一;'maneuver-counter':战技攻击专用第三项(规则书 p89)。
+ */
+export function resolvePlayerDefense(
+  enc0: Encounter,
+  choice: 'dodge' | 'fightback' | 'maneuver-counter',
+  rng: Rng = defaultRng,
+): Encounter {
+  const pd = enc0.pendingDefense;
+  if (!pd) return enc0;
+  const player = enc0.combatants.find((c) => c.faction === 'player');
+  if (!player) return { ...enc0, pendingDefense: null };
+  let enc: Encounter = { ...enc0, pendingDefense: null };
+  if (pd.kind === 'attack') {
+    // 近战只能 dodge/fightback;maneuver-counter 误选时按 fightback 处理(规则书:战技反击属于战技攻击专属)
+    const def: 'dodge' | 'fightback' = choice === 'fightback' || choice === 'maneuver-counter' ? 'fightback' : 'dodge';
+    enc = performAttack(enc, pd.attackerId, player.id, pd.weaponIdx ?? 0, rng, undefined, def);
+  } else if (pd.kind === 'maneuver' && pd.maneuverKind) {
+    enc = performManeuver(enc, pd.attackerId, player.id, pd.maneuverKind, rng, choice);
+  }
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
 
 export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
-  const player = enc0.combatants.find((c) => c.faction === 'player');
-  if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performAttack(standUp(enc0, player.id), player.id, enc0.playerTargetId, weaponIdx, rng, preset); // 倒地先起身再近战(COC7e 俯卧规则)
+  const enc1 = reaimPlayerTarget(enc0); // 目标已死/脱离则自动切下一个活敌,避免 performAttack 静默 return 把回合让给 AI
+  const player = enc1.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc1.playerTargetId) return enc1;
+  const enc = performAttack(standUp(enc1, player.id), player.id, enc1.playerTargetId, weaponIdx, rng, preset); // 倒地先起身再近战(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
@@ -245,8 +296,12 @@ const buildOf = (c: Combatant): number => buildAndDamageBonus(c.str, c.siz).buil
 /**
  * 一次战技结算（COC7e 6.3）：①体格比较（目标比攻方大≥3→无效，否则差额转攻方惩罚骰，上限2）
  * ②格斗 vs 闪避/反击 对抗 ③攻方胜施加 prone/weaponJammed 代理效果（不致伤），守方反击胜→攻方受伤。
+ * forcedDefense:玩家在 UI 三选一(dodge/fightback/maneuver-counter)时传入。
+ *  - dodge:闪避(用 dodge 对抗,赢则化解)
+ *  - fightback:格斗反击(用 fighting 对抗,赢则对攻方致伤)
+ *  - maneuver-counter:战技反击(对抗同 fightback,但赢了【施加同战技效果给攻方】而非致伤,规则书 p89)
  */
-export function performManeuver(enc0: Encounter, attackerId: string, targetId: string, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
+export function performManeuver(enc0: Encounter, attackerId: string, targetId: string, kind: ManeuverKind, rng: Rng = defaultRng, forcedDefense?: 'dodge' | 'fightback' | 'maneuver-counter'): Encounter {
   let enc = enc0;
   const attacker = byId(enc, attackerId);
   const target = byId(enc, targetId);
@@ -262,17 +317,20 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
   }
   const penaltyDice = Math.max(0, Math.min(2, diff)); // 目标更大→攻方惩罚骰
 
-  // ② 对抗：守方默认反击(格斗≥闪避且不逃)否则闪避
+  // ② 对抗：forcedDefense > AI 默认决策(反击或闪避,取决于格斗/闪避值)
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
-  const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
-  const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
+  const defense: 'dodge' | 'fightback' | 'maneuver-counter' = forcedDefense
+    ?? ((target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge');
+  // 战技反击的对抗机制与 fightback 同(用 target.fighting),仅胜负效果不同
+  const opDefense: 'dodge' | 'fightback' = defense === 'dodge' ? 'dodge' : 'fightback';
+  const defenderValue = opDefense === 'fightback' ? target.fighting : target.dodge;
   const pm = proneMods(target); // 倒地：攻方+1奖励骰、守方防御+1惩罚骰
   const bonus = outnumberBonusDice(target) + pm.atkBonus;
-  const op = resolveOpposed(attacker.fighting, target.fighting, defenderValue, 0, defense, rng, bonus, penaltyDice, 0, pm.defPenalty);
+  const op = resolveOpposed(attacker.fighting, target.fighting, defenderValue, 0, opDefense, rng, bonus, penaltyDice, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${cn}`, roll: String(op.attackerRoll.finalRoll), target: String(attacker.fighting), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: `战技-${cn}` });
-  const defLabel = defense === 'dodge' ? '闪避' : '反击';
-  enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
+  const defLabel = defense === 'dodge' ? '闪避' : defense === 'fightback' ? '反击' : '战技反击';
+  enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : defense === 'fightback' ? '格斗反击' : '战技反击' });
   const atkLine = `${attacker.name} ${cn} d100=${op.attackerRoll.finalRoll}/${attacker.fighting}（${LEVEL_CN[op.attackerLevel]}）`;
   const defLine = `${target.name} ${defLabel}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
   enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, cn, op.attackerRoll.finalRoll, op.attackerLevel, attacker.fighting, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断
@@ -296,15 +354,26 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
     return log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
   }
+  if (op.winner === 'defender' && defense === 'maneuver-counter') {
+    // 战技反击得手:不致伤,施加同战技效果给攻方(规则书 p89)
+    const aflags = { ...attacker.flags };
+    let effect: string;
+    if (kind === 'disarm') { aflags.weaponJammed = true; effect = '武器被打落，暂不可用'; }
+    else if (kind === 'knockout') { aflags.prone = true; effect = '被击晕，瘫倒在地'; }
+    else { aflags.prone = true; effect = kind === 'grapple' ? '被擒抱压制在地' : '被推倒在地'; }
+    enc = patchCombatant(enc, attackerId, { flags: aflags });
+    return log(enc, `${target.name} 用${cn}反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} ${effect}`);
+  }
   if (op.winner === 'defender') return log(enc, `${attacker.name} 的${cn}被 ${target.name} 化解（${LEVEL_CN[op.defenderLevel]} ≥ ${LEVEL_CN[op.attackerLevel]}）`);
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
 }
 
 /** 玩家发起战技：对锁定目标 performManeuver，结算脱战，否则推进 AI 回合。 */
 export function playerManeuver(enc0: Encounter, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
-  const player = enc0.combatants.find((c) => c.faction === 'player');
-  if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performManeuver(standUp(enc0, player.id), player.id, enc0.playerTargetId, kind, rng); // 倒地先起身再发战技(COC7e 俯卧规则)
+  const enc1 = reaimPlayerTarget(enc0); // 同 playerAttack:防目标已死时 performManeuver 静默 return 让回合让给 AI
+  const player = enc1.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc1.playerTargetId) return enc1;
+  const enc = performManeuver(standUp(enc1, player.id), player.id, enc1.playerTargetId, kind, rng); // 倒地先起身再发战技(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);

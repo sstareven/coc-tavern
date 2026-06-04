@@ -19,6 +19,7 @@ import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
+import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
 import type { GameVariable, BookPage } from '../types';
 import {
   db,
@@ -107,6 +108,7 @@ export function cleanupOrphanGameState() {
  */
 export function startNewConversation(name: string): string {
   clearAllGameState();
+  clearAllDiagnostics(); // 旧 sessionId 的前缀诊断快照对新游戏无意义,清掉防 stateBySession Map 累积
   // 种子化世界/剧情/暗线 statData 树——否则 LLM 的 世界.*、剧情.暗线.* JSONPatch replace 会因 path 不存在而失败。
   // 覆盖所有新开局路径(含 ChatlistPanel「新建对话」);CharacterCreator 之后的显式 setStatData 仍幂等。
   useVariableStore.getState().setStatData(createInitialStatData());
@@ -463,6 +465,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.macroVars.where('conversationId').equals(cid).delete();
     },
   );
+  clearDiagnosticsFor(cid); // 释放该会话的前缀诊断快照(违反 session-isolation invariant 的修复)
 }
 
 /** 公共入口：经 enqueue 串行化（与 save/load 共用同一条链，避免 delete 与 save 撕裂）。 */

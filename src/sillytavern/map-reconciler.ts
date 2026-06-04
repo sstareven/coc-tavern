@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import { pushLog } from '../stores/useLogStore';
 import type { MapLocation, MapEdge } from '../types';
 import type { TokenUsage } from './stream-parser';
@@ -61,7 +58,6 @@ export async function reconcileMap(
   maxTokens = 20000, // 思考型模型预算耗在 reasoning，给足余量防 JSON 截断（用户要求 max_tokens≥20000）
   retries = 3,
 ): Promise<MapReconcileResult> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   const names = new Set(locations.map((l) => l.name.trim()));
   const idToName = new Map(locations.map((l) => [l.id, l.name]));
 
@@ -83,41 +79,26 @@ export async function reconcileMap(
   let lastError = '';
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
-    await rpmAcquire('main');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
+    let resp;
+    try {
+      resp = await callDsSubagent({
+        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+        label: '地图自检',
+        messages: [
           { role: 'system', content: RECONCILE_PROMPT },
           { role: 'user', content: `当前全部地点：\n${locList}\n\n当前全部连线：\n${edgeList || '（暂无连线）'}` },
-        ], '地图自检'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      pushLog('error', `[地图自检] API 返回错误 ${response.status}`, 'api');
-      throw new Error(`地图自检 API 错误 ${response.status}`);
+        ],
+      });
+    } catch (err) {
+      pushLog('error', `[地图自检] API 返回错误 ${err instanceof Error ? err.message : String(err)}`, 'api');
+      throw err;
     }
+    const { content, parsed, parseError, usage } = resp;
 
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const usage: TokenUsage | undefined = json.usage;
-
-    const { parsed, error } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
-
-    if (pObj) {
-      const rawAdd = Array.isArray(pObj.addEdges) ? (pObj.addEdges as unknown[]) : [];
-      const rawRemove = Array.isArray(pObj.removeEdges) ? (pObj.removeEdges as unknown[]) : [];
-      const rawMerge = Array.isArray(pObj.merges) ? (pObj.merges as unknown[]) : [];
+    if (parsed) {
+      const rawAdd = Array.isArray(parsed.addEdges) ? (parsed.addEdges as unknown[]) : [];
+      const rawRemove = Array.isArray(parsed.removeEdges) ? (parsed.removeEdges as unknown[]) : [];
+      const rawMerge = Array.isArray(parsed.merges) ? (parsed.merges as unknown[]) : [];
 
       const addEdges: MapReconcileResult['addEdges'] = [];
       for (const x of rawAdd) {
@@ -154,7 +135,7 @@ export async function reconcileMap(
       return { addEdges, removeEdges, merges, usage };
     }
 
-    lastError = error || '解析为空';
+    lastError = parseError || '解析为空';
     const retryable = !content.trim() || parsed === null;
     pushLog(
       attempt + 1 < retries && retryable ? 'warn' : 'info',

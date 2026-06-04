@@ -227,6 +227,17 @@ export const useSettingsStore = create<SettingsStore>()(
       name: 'coc_settings_v2',
       storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state),
+      // 反序列化时给 dsCache 做深合并:zustand 默认顶层 shallow merge,会让老存档里缺失的
+      // dsCache 子字段(如 v1.8 没有的 restructure/experimentalPrefixDiagnostics 等)整块覆盖
+      // 默认值——结果 UI 的 `!== false` 显 ON、管线的 `=== true` 视 OFF,功能形同未启用。
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsStore>;
+        return {
+          ...current,
+          ...p,
+          dsCache: { ...DEFAULT_DS_CACHE_CONFIG, ...(p.dsCache ?? {}) },
+        } as SettingsStore;
+      },
     },
   ),
 );
