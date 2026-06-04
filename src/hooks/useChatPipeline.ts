@@ -64,6 +64,7 @@ import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
+import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -598,6 +599,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         resolvedFormat,
         { before: wbBefore, after: wbAfter },
       );
+      // DeepSeek V4 缓存优化器：把所选思维模式 marker 附着到【最后一条用户消息】末尾(尾部高注意力区)。
+      // 只改最后一条 user 消息，不动 system/格式/世界书前缀 → 保 DeepSeek 前缀缓存；marker 不写入书页正文/历史。
+      const dsMarker = buildThinkingMarker(settingsNow.dsCache);
+      if (dsMarker) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'user') { messages[i] = { ...messages[i], content: `${messages[i].content}\n\n${dsMarker}` }; break; }
+        }
+      }
       // Store for Prompt Viewer
       usePromptViewerStore.getState().setPrompt(
         messages,

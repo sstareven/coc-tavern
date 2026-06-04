@@ -6,6 +6,7 @@ import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
+import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
@@ -371,6 +372,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setAlertOnOverflow = useSettingsStore((s) => s.setAlertOnOverflow);
   const worldInfoStrategy = useSettingsStore((s) => s.worldInfoStrategy);
   const setWorldInfoStrategy = useSettingsStore((s) => s.setWorldInfoStrategy);
+  const dsCache = useSettingsStore((s) => s.dsCache);
+  const setDsCache = useSettingsStore((s) => s.setDsCache);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -789,6 +792,42 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       style={{ width: 110 }} />
                   </div>
                 </div>
+
+                {/* DeepSeek V4 缓存优化：思维模式指令注入（附着到末条用户消息尾部，不动前缀缓存） */}
+                <CategoryBar label="DeepSeek V4 缓存优化（思维模式）" />
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    启用
+                    <HelpIcon text={'把所选「思维模式指令」附着到发给模型的【最后一条用户消息尾部】(高注意力区)，概率性增强 DeepSeek V4 在 <think> 思考内的风格。\n指令不进 system / 世界书前缀，也不写入正文与历史——因此不破坏 DeepSeek 前缀缓存。\n仅对支持思维链的模型(DeepSeek V4 等)有效，其他模型会忽略；默认模式不注入。'} />
+                  </span>
+                  <Toggle on={dsCache.enabled} onChange={() => setDsCache({ enabled: !dsCache.enabled })} />
+                </div>
+                {dsCache.enabled && (
+                  <>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        思维模式
+                        <HelpIcon text={'默认=不注入。\n角色沉浸：思考中以括号包裹角色第一人称内心独白。\n纯分析：思考只做逻辑分析、禁内心独白。\n格式加强：尾部复述「遵从既定格式(含省略规则、不新增字段)」。\n自定义：用你自己的指令。'} />
+                      </span>
+                      <DarkSelect compact value={dsCache.mode} onChange={(v) => setDsCache({ mode: v as DsThinkingMode })}
+                        options={[
+                          { value: 'default', label: '不注入（默认）' },
+                          { value: 'immersive', label: '角色沉浸' },
+                          { value: 'analysis', label: '纯分析' },
+                          { value: 'format_enforce', label: '格式加强' },
+                          { value: 'custom', label: '自定义' },
+                        ]} style={{ width: 150 }} />
+                    </div>
+                    {dsCache.mode === 'custom' && (
+                      <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
+                        <span style={labelStyle}>自定义指令</span>
+                        <textarea rows={3} value={dsCache.customText} onChange={(e) => setDsCache({ customText: e.target.value })}
+                          placeholder="自填思维模式指令，将附着到最后一条用户消息尾部（此处不解析 {{宏}}）"
+                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* API section */}
                 <div style={{ marginTop: 4 }}>
