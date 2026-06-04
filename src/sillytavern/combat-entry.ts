@@ -2,7 +2,7 @@ import type { Encounter, Combatant, NpcProfile } from '../types';
 import { detectAndBuildEncounter, buildPlayerCombatant, buildCombatantFromNpc } from './combat-detector';
 import { nextTurnOrder, successLevel } from './combat-engine';
 import { playerAttack, type OpeningPreset } from './combat-controller';
-import { useCombatStore } from '../stores/useCombatStore';
+import { useCombatStore, isOrphanedEncounter } from '../stores/useCombatStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
@@ -84,7 +84,14 @@ function buildLocalEncounter(opts: EnterCombatOpts): Encounter {
  * 锚定战斗所属页、记录触发文本(opener)；带 opposed 时复用选项那次掷骰跑一次开场攻击。
  */
 export async function enterCombat(opts: EnterCombatOpts): Promise<void> {
-  if (entering || useCombatStore.getState().encounter) return; // 防并发双触发 / 已在战斗中
+  // 悬空战斗(锚定页被删/裁→面板永不显示)在此就地自愈:清掉以允许重新进战斗;真实进行中战斗→提示后退出(不再静默)。
+  const existing = useCombatStore.getState().encounter;
+  if (existing) {
+    const pageIds = useBookStore.getState().pages.map((p) => p.id ?? '');
+    if (isOrphanedEncounter(existing, pageIds)) useCombatStore.getState().clearCombat();
+    else { useStatusToastStore.getState().markDone('你正在战斗中'); return; }
+  }
+  if (entering) return; // 防并发双触发(LLM 建场期间重复点)
   entering = true;
   const toast = useStatusToastStore.getState();
   toast.showProcessing('正在进入战斗…');
@@ -98,9 +105,12 @@ export async function enterCombat(opts: EnterCombatOpts): Promise<void> {
 
     let enc: Encounter | null = null;
     if (base.trim() && key.trim() && model.trim()) {
+      // 加超时:防思维模型/中转站请求挂起致本函数永不返回、entering 永久卡死(后续进战斗被守卫静默挡掉)。超时→本地兜底建场。
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30000);
       try {
-        enc = await detectAndBuildEncounter(opts.contextText, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, base, key, model);
-      } catch { enc = null; }
+        enc = await detectAndBuildEncounter(opts.contextText, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, base, key, model, ctrl.signal);
+      } catch { enc = null; } finally { clearTimeout(timer); }
     }
     // 切换会话则放弃
     if (useChatStore.getState().activeId !== aidStart || useCombatStore.getState().encounter) { toast.hide(); return; }

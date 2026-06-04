@@ -1230,6 +1230,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } else {
           pushLog('debug', '[Pipeline] 本回合无地图更新(result.mapUpdates 为空)', 'system');
         }
+        // 兜底:无论 LLM 是否给 mapUpdates,都把本回合场景地点登记为地图当前地点——
+        // 否则开局/原地不动时地图全空、无当前地点节点(地图只靠 LLM mapUpdates 时常缺位)。
+        // 仅当 mapUpdates 未自带 current 时补,避免覆盖 LLM 给的当前地点。
+        const sceneLoc = result.page.sceneInfo?.location?.trim();
+        if (sceneLoc && sceneLoc !== '未知' && !result.mapUpdates?.current) {
+          useMapStore.getState().applyUpdates({ current: sceneLoc, newLocations: [{ name: sceneLoc }] });
+        }
 
         // 地点元素抽取：对【当前地点】用独立 LLM 调用从本回合叙事抽取新环境元素，与主输出解耦、不阻塞翻页。
         // 优先走 MVU 独立 API（mvuUseIndependentApi && mvuApiKey），否则回退主 API。fire-and-forget + 会话守卫；

@@ -14,6 +14,7 @@ import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
 import { useVariableStore } from './useVariableStore';
+import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
@@ -106,6 +107,9 @@ export function cleanupOrphanGameState() {
  */
 export function startNewConversation(name: string): string {
   clearAllGameState();
+  // 种子化世界/剧情/暗线 statData 树——否则 LLM 的 世界.*、剧情.暗线.* JSONPatch replace 会因 path 不存在而失败。
+  // 覆盖所有新开局路径(含 ChatlistPanel「新建对话」);CharacterCreator 之后的显式 setStatData 仍幂等。
+  useVariableStore.getState().setStatData(createInitialStatData());
   return useChatStore.getState().createSession(name);
 }
 
