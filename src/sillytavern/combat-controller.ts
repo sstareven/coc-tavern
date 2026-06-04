@@ -5,6 +5,7 @@ import {
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
 } from './combat-engine';
+import { useCharSheetStore } from '../stores/useCharSheetStore';
 
 const defaultRng: Rng = Math.random;
 
@@ -110,8 +111,30 @@ export function checkEndReason(enc: Encounter): CombatEndReason | null {
   return null;
 }
 
-/** 推进到下一个行动者；轮内全员走完→新一轮（重排 turnOrder、清 roundDefenses）。 */
+/** 推进到下一个行动者；轮内全员走完→新一轮（重排 turnOrder、清 roundDefenses）。
+ *  A2.5：每次推进顺手把玩家的 temporaryInsanity.roundsLeft 倒计时一回合；归 0 时清 active 标志。
+ *  直接 setSheet（不走 MVU corrective 通道）——这是引擎驱动的派生状态推进，非 LLM 输出，避免被
+ *  MVU 快照系统视作"本回合写入"产生伪失败。 */
 export function advanceTurn(enc: Encounter): Encounter {
+  // ── A2.5：临时疯狂回合倒计时 ──
+  // 把推进放在轮转分支前，使每一次 advanceTurn 都把发作回合减一（与战斗回合节奏同步，不论新旧一轮）。
+  const sheet = useCharSheetStore.getState().sheet;
+  const ti = sheet.temporaryInsanity;
+  if (ti.active && ti.roundsLeft > 0) {
+    const nextRoundsLeft = ti.roundsLeft - 1;
+    const stillActive = nextRoundsLeft > 0;
+    useCharSheetStore.getState().setSheet({
+      ...sheet,
+      temporaryInsanity: {
+        ...ti,
+        active: stillActive,
+        roundsLeft: nextRoundsLeft,
+        // 归 0 后保留 bout 历史信息也无害，但语义上发作已结束——清掉避免渲染残留发作标签。
+        ...(stillActive ? {} : { bout: undefined }),
+      },
+    });
+  }
+
   const next = enc.currentIdx + 1;
   if (next >= enc.turnOrder.length) {    // 新一轮：重排（排除死亡/昏迷）、清防御计数
     const cleared = enc.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
