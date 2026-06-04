@@ -40,7 +40,7 @@ interface CheckInfo {
   opponentTarget: number;
 }
 
-function parseCheckAction(text: string): CheckInfo | null {
+export function parseCheckAction(text: string): CheckInfo | null {
   // 技能名校验所需的角色卡：把「魔法值消耗」这类非技能词挡在检定之外（详见 isKnownCheckTarget）。
   const sheet = useCharSheetStore.getState().sheet;
   // Format: 对抗检定 "进行力量对抗(对手目标值:45)" or legacy "进行力量对抗(玩家目标值:60, 对手目标值:45)"
@@ -80,6 +80,16 @@ function parseCheckAction(text: string): CheckInfo | null {
     const skillName = normalizeSkillName(m3[1]);
     if (!isKnownCheckTarget(skillName, sheet)) return null;
     return { skillName, target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
+  }
+  // Format 4 (BUG4 catch-all): 兜底兼容 cleanChoiceField 没归一化掉的漂移格式。
+  // 同时支持「进行<难度>XX检定」、「进行XX的<难度>检定」、「进行XX检定」（无括号），
+  // 仍排除 "对抗" 防误伤格斗对抗。
+  const m4 = text.match(/进行(?:(普通|困难|极难))?([^()（）对]+?)(?:的(普通|困难|极难))?检定(?![(（])/);
+  if (m4) {
+    const skillName = normalizeSkillName(m4[2]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
+    const difficulty = m4[1] || m4[3] || '普通';
+    return { skillName, target: 0, difficulty, bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
 }
@@ -601,7 +611,8 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   // 选项锁：本回合已按下一个会推进/掷骰的选项后，全部选项置灰禁用，防止重复点击重掷
   const locked = useChoiceLockStore((s) => s.locked);
-  const check = parseCheckAction(ch.action);
+  // BUG4: 优先解析 action 字段；当 LLM 把检定标记漂移到了 text 字段时回退尝试 text。
+  const check = parseCheckAction(ch.action) ?? parseCheckAction(ch.text);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
   const enabled = isLatestPage && !locked;

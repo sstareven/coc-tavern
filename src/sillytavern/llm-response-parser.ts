@@ -86,10 +86,34 @@ export function stripVarTagsLoose(s: string): string {
  *
  * 注意：合法检定标记 `进行XX检定(普通)` 不带「难度」二字，故不会被难度清理误删，
  * 掷骰判定（parseCheckAction）依旧正常工作。
+ *
+ * BUG4 漂移格式归一化：LLM 偶尔输出非标准形态，统一改写成 parseCheckAction 能识别的
+ * `进行<技能>检定(<难度>)`：
+ *   - "进行<难度>XX检定"        → "进行XX检定(<难度>)"      （前缀难度，无括号）
+ *   - "进行XX的<难度>检定"       → "进行XX检定(<难度>)"
+ *   - "进行XX检定（<难度>...）" → "进行XX检定(<难度>...)" （全角括号归一化）
+ * 必须在 stripMvu 等其它清理之前做归一化，否则全角括号与「难度」前缀会被其它路径破坏。
  */
 export function cleanChoiceField(s: string): string {
+  // BUG4：先做检定标记的形态归一化（在 stripMvu / 难度文字清理之前）。
+  const DIFF = '(?:普通|困难|极难)';
+  const normalized = s
+    // 全角括号 → 半角：仅对 "进行XX检定（...）" 内的全角括号转换，避免误改正文中其它中文。
+    .replace(/(进行[^()（）]{1,40}?检定)\s*（([^）]*?)）/g, '$1($2)')
+    // "进行<难度>XX检定" → "进行XX检定(<难度>)"（无括号前缀难度）
+    // 用零宽断言保护 "进行XX对抗"：require 后续以「检定」结尾，且 XX 不含括号 / 对抗 关键词。
+    .replace(
+      new RegExp(`进行(${DIFF})([^()（）对]{1,20}?)检定(?![(（])`, 'g'),
+      (_full, diff: string, skill: string) => `进行${skill}检定(${diff})`,
+    )
+    // "进行XX的<难度>检定" → "进行XX检定(<难度>)"
+    .replace(
+      new RegExp(`进行([^()（）对]{1,20}?)的(${DIFF})检定`, 'g'),
+      (_full, skill: string, diff: string) => `进行${skill}检定(${diff})`,
+    );
+
   return stripMvu(
-    stripVarTagsLoose(s)
+    stripVarTagsLoose(normalized)
       // LLM 误写到叙事里的裸难度文字（非检定标记）。仅匹配带「难度」后缀者，保护 检定(普通) 标记。
       .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, ''),
   )
