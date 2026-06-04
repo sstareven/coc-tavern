@@ -17,7 +17,8 @@ import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
-import type { ChoiceItem, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
+import { shouldStage, type StagingTrigger } from '../../sillytavern/option-staging';
+import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
 
 interface Props {
   header: string;
@@ -295,6 +296,7 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
+    // 对抗检定不进 staging（shouldStage 排除 opposed）→ 立即 stashRecord，保持旧行为
     useDiceStore.getState().stashRecord(diceRec);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
@@ -315,7 +317,7 @@ function fillInputBar(text: string, checkText: string = text) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target}${bonusLabel} ${result.label}]\n`;
 
-    const diceRec2 = {
+    const diceRec2: DiceRecord = {
       skill: parsed.bonus === 'bonus' ? `${parsed.skillName}(奖励骰)` : parsed.bonus === 'penalty' ? `${parsed.skillName}(惩罚骰)` : parsed.skillName,
       roll: String(result.raw),
       target: String(parsed.target),
@@ -323,7 +325,21 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().stashRecord(diceRec2);
+    // A1.8 — 普通 check 走 staging：动画结束后由 OptionResolutionOverlay 接管 stashRecord + textarea 写入。
+    // SAN/opposed 已被前面分支拦掉，这里 staging 条件天然成立（kind=check）；GameView 端再用 shouldStage 复核一次。
+    const stagingTrigger: StagingTrigger = {
+      kind: 'check',
+      skill: parsed.skillName,
+      target: parsed.target,
+      originalRoll: result.raw,
+      originalResult: result.resultType as DiceResultType,
+      sanCheck: false,
+      inputText: resultLine + text,
+      resultLine,
+      baseText: text,
+      page,
+      record: diceRec2,
+    };
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -332,6 +348,7 @@ function fillInputBar(text: string, checkText: string = text) {
         inputText: resultLine + text,
         bonus: parsed.bonus, bonusTens: result.bonusTens,
         tensUsed: result.tensUsed, tensAlt: result.tensAlt, ones: result.ones,
+        stagingTrigger,
       },
     }));
   } else if (parsed && parsed.target === 0) {
@@ -342,7 +359,7 @@ function fillInputBar(text: string, checkText: string = text) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName}${diffLabel} d100=${rollStr}/${resolvedTarget}${bonusLabel} ${result.label}]\n`;
 
-    const diceRec3 = {
+    const diceRec3: DiceRecord = {
       skill: `${parsed.skillName}${diffLabel}${bonusLabel}`,
       roll: String(result.raw),
       target: String(resolvedTarget),
@@ -350,7 +367,20 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().stashRecord(diceRec3);
+    // A1.8 — 同上：difficulty-based 普通 check 也走 staging。
+    const stagingTrigger: StagingTrigger = {
+      kind: 'check',
+      skill: parsed.skillName,
+      target: resolvedTarget,
+      originalRoll: result.raw,
+      originalResult: result.resultType as DiceResultType,
+      sanCheck: false,
+      inputText: resultLine + text,
+      resultLine,
+      baseText: text,
+      page,
+      record: diceRec3,
+    };
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -358,6 +388,7 @@ function fillInputBar(text: string, checkText: string = text) {
         roll: result.raw, resultType: result.resultType,
         inputText: resultLine + text,
         bonus: parsed.bonus, bonusTens: result.bonusTens,
+        stagingTrigger,
       },
     }));
   } else {

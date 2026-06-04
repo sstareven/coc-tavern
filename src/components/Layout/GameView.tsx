@@ -4,9 +4,13 @@ import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
+import { OptionResolutionOverlay } from '../Book/OptionResolutionOverlay';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useViewportHeight } from '../../hooks/useViewportHeight';
+import { useOptionStagingStore } from '../../stores/useOptionStagingStore';
+import { useDiceStore } from '../../stores/useDiceStore';
+import { shouldStage, type StagingTrigger } from '../../sillytavern/option-staging';
 
 interface Props { onReturnToMenu: () => void }
 
@@ -19,7 +23,9 @@ export function GameView({ onReturnToMenu }: Props) {
     bonus: 'none' | 'bonus' | 'penalty'; bonusTens: number;
     opposed: boolean; opponentRoll: number; opponentTarget: number; opponentResultType: string; opposedOutcome: 'win' | 'lose' | 'draw';
     kind: 'check' | 'poly'; polyTheme: 'damage' | 'sanity'; polyLabel: string; polyExpr: string; polyTotal: number; polySub: string; hidden: boolean;
-  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '', hidden: false });
+    /** A1.8 — fillInputBar 把 staging 触发器挂到事件 payload；动画结束后由 onDiceComplete 决定 stage 或直接落账。 */
+    stagingTrigger: StagingTrigger | null;
+  }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '', hidden: false, stagingTrigger: null });
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
@@ -29,6 +35,7 @@ export function GameView({ onReturnToMenu }: Props) {
         bonus: detail.bonus || 'none', bonusTens: detail.bonusTens || 0,
         opposed: detail.opposed || false, opponentRoll: detail.opponentRoll || 0, opponentTarget: detail.opponentTarget || 0, opponentResultType: detail.opponentResultType || 'failure', opposedOutcome: detail.opposedOutcome || 'draw',
         kind: detail.kind || 'check', polyTheme: detail.polyTheme || 'damage', polyLabel: detail.polyLabel || '', polyExpr: detail.polyExpr || '', polyTotal: detail.polyTotal || 0, polySub: detail.polySub || '', hidden: detail.hidden || false,
+        stagingTrigger: detail.stagingTrigger || null,
       });
     };
     document.addEventListener('dice-roll-animate', handler);
@@ -40,6 +47,20 @@ export function GameView({ onReturnToMenu }: Props) {
     document.dispatchEvent(new Event('dice-animate-done'));
     setDiceAnim((prev) => {
       if (!prev.visible) return prev; // Already hidden by newer animation
+
+      // A1.8 — 若 fillInputBar 标记了 stagingTrigger，动画结束后把它推给 OptionResolutionOverlay；
+      // 不写 textarea、不 stashRecord 由浮层 commit/cancel 路径接管。
+      if (prev.stagingTrigger && shouldStage({
+        kind: prev.stagingTrigger.kind,
+        sanCheck: prev.stagingTrigger.sanCheck,
+        opposed: prev.stagingTrigger.kind === 'opposed',
+      })) {
+        useOptionStagingStore.getState().open(prev.stagingTrigger);
+        return { ...prev, visible: false };
+      }
+
+      // 非 staging 路径（poly/hidden/opposed/sanCheck）保持原行为：写 textarea + auto-submit。
+      // 这些类别 fillInputBar 已经 stashRecord 完毕，这里只补 textarea/dispatch。
       const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
       if (textarea && prev.inputText) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
@@ -52,6 +73,17 @@ export function GameView({ onReturnToMenu }: Props) {
       }
       return { ...prev, visible: false };
     });
+  }, []);
+
+  // A1.8 — 切换/读取会话时把任何挂着的 staging 浮层一并清掉，避免跨档残留。
+  // 与 useDiceStore.clearAll 同源（GameView 是 session 边界）。
+  useEffect(() => {
+    const handler = () => {
+      useOptionStagingStore.getState().cancel();
+      useDiceStore.getState().clearPending();
+    };
+    document.addEventListener('session-reset', handler);
+    return () => document.removeEventListener('session-reset', handler);
   }, []);
 
   const isMobile = useIsMobile();
@@ -170,6 +202,9 @@ export function GameView({ onReturnToMenu }: Props) {
         hidden={diceAnim.hidden}
         onComplete={onDiceComplete}
       />
+
+      {/* A1.8 — 选项检定 staging 浮层：动画结束后浮出，让玩家选 推骰/幸运/落账。 */}
+      <OptionResolutionOverlay />
     </div>
   );
 }
