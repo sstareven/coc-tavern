@@ -1128,6 +1128,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               try {
                 const enc = await detectAndBuildEncounter(narrativeCB, sheetCB, invCB, cdBase, cdKey, cdModel, controller.signal);
                 if (!enc || useChatStore.getState().activeId !== aidCB || useCombatStore.getState().encounter) return;
+                const anchorPages = useBookStore.getState().pages;
+                enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
                 useCombatStore.getState().start(enc);
                 if (aidCB) await saveConversation(aidCB);
                 pushLog('info', `[战斗] 进入即时战斗：${enc.combatants.filter((c) => c.faction === 'enemy').map((c) => c.name).join('、')}`, 'system');
@@ -1502,6 +1504,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const enc = await detectAndBuildEncounter(ctx, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, cdBase, cdKey, cdModel, controller.signal);
           if (enc && !useCombatStore.getState().encounter) {
             enc.log = [...enc.log, { kind: 'narrative', text: trimmed }];
+            const anchorPages = useBookStore.getState().pages;
+            enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
+            enc.opener = trimmed; // 玩家发起的动作并入脱战输入
             useCombatStore.getState().start(enc);
             const aidCB = useChatStore.getState().activeId;
             if (aidCB) await saveConversation(aidCB);

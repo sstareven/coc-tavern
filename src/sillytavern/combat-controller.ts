@@ -1,12 +1,19 @@
 import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, CombatRollViz, DiceRecord, DiceResultType, ManeuverKind } from '../types';
 import {
-  type Rng, type SuccessLevel,
+  type Rng, type SuccessLevel, type OpposedResult,
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
 } from './combat-engine';
 
 const defaultRng: Rng = Math.random;
+
+/** 开场对抗预设：复用「选项里那次对抗掷骰」作为进面板的第一次判定（跳过引擎重掷）。 */
+export interface OpeningPreset {
+  op: OpposedResult;
+  defenderValue: number;
+  defense: 'dodge' | 'fightback';
+}
 
 /** 成功等级 → 检定记录用的 DiceResultType（使战斗检定能进主「检定记录」面板且配色正确）。 */
 const LEVEL_TO_DICE_TYPE: Record<SuccessLevel, DiceResultType> = {
@@ -91,7 +98,7 @@ export function advanceTurn(enc: Encounter): Encounter {
 }
 
 /** 一次攻击结算（attacker 用 weaponIdx 攻击 targetId）。处理近战对抗/射击/伤害/贯穿/卡壳/弹药/寡不敌众。 */
-export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   let enc = enc0;
   const attacker = byId(enc, attackerId);
   const target = byId(enc, targetId);
@@ -122,13 +129,13 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
   }
 
-  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避
+  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避。preset 给定时复用选项那次对抗掷骰作开场。
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
-  const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
-  const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
+  const defense: 'dodge' | 'fightback' = preset ? preset.defense : ((target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge');
+  const defenderValue = preset ? preset.defenderValue : (defense === 'fightback' ? target.fighting : target.dodge);
   const pm = proneMods(target); // 倒地(被压制)：攻方+1奖励骰、守方防御+1惩罚骰
   const bonus = outnumberBonusDice(target) + pm.atkBonus; // 守方本轮已防御→攻方得奖励骰
-  const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
+  const op = preset ? preset.op : resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
@@ -202,10 +209,10 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
 
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
 
-export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   const player = enc0.combatants.find((c) => c.faction === 'player');
   if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performAttack(enc0, player.id, enc0.playerTargetId, weaponIdx, rng);
+  const enc = performAttack(enc0, player.id, enc0.playerTargetId, weaponIdx, rng, preset);
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);

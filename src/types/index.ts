@@ -742,6 +742,10 @@ export interface Encounter {
   diceRecords: DiceRecord[];
   status: 'active' | 'resolving' | 'ended';
   endReason?: CombatEndReason;
+  /** 战斗所属页的稳定 id——战斗面板只在查看该页时显示(翻去别页见正常左右页)。 */
+  anchorPageId?: string;
+  /** 触发本场战斗的选项/动作文本——脱战生成正文时并入输入。 */
+  opener?: string;
   /** 测试战斗（/战斗测试 指令建场）：脱战后【不推进正文】，直接清场。 */
   test?: boolean;
 }

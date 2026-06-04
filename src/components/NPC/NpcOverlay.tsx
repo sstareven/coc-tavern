@@ -1,32 +1,25 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNpcStore } from '../../stores/useNpcStore';
-import { useCombatStore } from '../../stores/useCombatStore';
-import { useCharSheetStore } from '../../stores/useCharSheetStore';
-import { useInventoryStore } from '../../stores/useInventoryStore';
+import { useBookStore } from '../../stores/useBookStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
 import { parseNpcDerived } from '../../sillytavern/npc-derived';
-import { buildCombatantFromNpc, buildPlayerCombatant } from '../../sillytavern/combat-detector';
-import { nextTurnOrder } from '../../sillytavern/combat-engine';
+import { enterCombat } from '../../sillytavern/combat-entry';
 import { dispatchNpcAction } from '../../sillytavern/choice-action';
 import { NPC_QUICK_ACTIONS, NPC_ACTION_GROUPS, npcActionsByGroup, type NpcAction } from '../../sillytavern/npc-actions';
-import type { NpcProfile, COC7Characteristic, Encounter } from '../../types';
+import type { NpcProfile, COC7Characteristic } from '../../types';
 
-/** 据名册 NPC 即时开战：建玩家+该 NPC(敌方)的 Encounter，锁定该 NPC 为目标，并关闭名册浮层。 */
+/** 据名册 NPC 即时开战：交 enterCombat 经 LLM 建场（算对手倾向 + 在场其他 NPC 是否参战/旁观），失败回退本地 1v1；并关闭名册浮层。 */
 function startCombatWithNpc(npc: NpcProfile) {
-  const sheet = useCharSheetStore.getState().sheet;
-  const inventory = useInventoryStore.getState().items;
-  const player = buildPlayerCombatant(sheet, inventory);
-  const enemy = buildCombatantFromNpc(npc);
-  const combatants = [player, enemy];
-  const enc: Encounter = {
-    active: true, round: 1, turnOrder: nextTurnOrder(combatants), currentIdx: 0,
-    combatants, bystanders: [], playerTargetId: enemy.id,
-    log: [{ kind: 'narrative', text: `你向 ${npc.name} 发起攻击！` }],
-    diceRecords: [], status: 'active',
-  };
-  useCombatStore.getState().start(enc);
+  const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n');
+  const present = useNpcStore.getState().getPresent()
+    .map((n) => `${n.name}（${n.identity || '身份不明'}，对调查员好感${n.favorability}${n.id === npc.id ? '，被攻击目标' : ''}）`).join('；');
+  void enterCombat({
+    contextText: `${recent}\n调查员对 ${npc.name} 发起攻击。\n在场NPC：${present}\n（请把 ${npc.name} 列为敌方；其余在场 NPC 据其立场/好感度判断是否参战及站哪边，敌对者列为 enemy、护着调查员者列为 ally、未表态者列为旁观 bystander。）`,
+    opener: `（对 ${npc.name} 发起攻击）`,
+    npcTarget: npc,
+  });
   useNpcStore.getState().close();
 }
 

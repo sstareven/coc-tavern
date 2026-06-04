@@ -61,7 +61,8 @@ export function InputBar() {
         enemy_retreat: '敌人撤退', disengage: '脱离了近战', surrender: '一方投降',
       };
       const summary = enc.log.map((l) => l.text).join('\n');
-      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${summary}`;
+      const openerLine = enc.opener ? `触发本场战斗的行动：${enc.opener}\n` : '';
+      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${openerLine}${summary}`;
       void (async () => {
         try {
           await pipelineRef.current.submit(input);

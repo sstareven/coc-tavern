@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, playerManeuver } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, playerManeuver, type OpeningPreset } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -173,5 +173,18 @@ describe('近战日志拆行 + 倒地劣势', () => {
     expect(judg?.rolls?.[0].dice.length).toBe(2); // 攻击骰 + 守骰
     const res = out.log.find((l) => l.rolls?.some((rv) => rv.damage));
     expect((res?.rolls?.find((rv) => rv.damage)?.dice.length ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('presetOpposed 复用选项那次对抗掷骰作开场(不重掷)，命中致伤', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 99, weapons: [{ name: '徒手', skill: 99, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }] });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const preset: OpeningPreset = {
+      op: { winner: 'attacker', attackerRoll: { tens: [1], ones: 0, finalRoll: 10 }, attackerLevel: 'extreme', defenderRoll: { tens: [5], ones: 8, finalRoll: 58 }, defenderLevel: 'fail' },
+      defenderValue: 30, defense: 'dodge',
+    };
+    const out = performAttack(mkEnc([player, enemy], 'e'), 'p', 'e', 0, seqRng([0.5, 0.5, 0.5, 0.5]), preset);
+    expect(out.log[0].text).toContain('d100=10/99'); // 玩家用选项的 10 / 格斗99
+    expect(out.log[0].text).toContain('d100=58/30'); // 对手用选项的 58 / 对手目标值30
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
   });
 });
