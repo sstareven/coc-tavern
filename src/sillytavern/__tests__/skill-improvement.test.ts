@@ -170,7 +170,7 @@ describe('A3.4 buildDevelopmentOps — 正确发 ops', () => {
     ];
     const ops = buildDevelopmentOps(rows);
     expect(ops).toEqual([
-      { op: 'replace', path: '/调查员/技能/侦查/current', value: 46 },
+      { op: 'replace', path: '/调查员/技能/侦查', value: 46 },
       { op: 'replace', path: '/调查员/技能/侦查/ticked', value: false },
     ]);
   });
@@ -191,7 +191,7 @@ describe('A3.4 buildDevelopmentOps — 正确发 ops', () => {
     ];
     const ops = buildDevelopmentOps(rows);
     expect(ops).toEqual([
-      { op: 'replace', path: '/调查员/技能/神秘学/current', value: 93 },
+      { op: 'replace', path: '/调查员/技能/神秘学', value: 93 },
       { op: 'replace', path: '/调查员/技能/神秘学/ticked', value: false },
       { op: 'delta', path: '/调查员/理智值/当前', value: 7 },
     ]);
@@ -206,7 +206,7 @@ describe('A3.4 buildDevelopmentOps — 正确发 ops', () => {
     const ops = buildDevelopmentOps(rows);
     // 侦查: 2 op；神秘学: 3 op；历史: 1 op；共 6
     expect(ops).toHaveLength(6);
-    expect(ops[0]).toEqual({ op: 'replace', path: '/调查员/技能/侦查/current', value: 46 });
+    expect(ops[0]).toEqual({ op: 'replace', path: '/调查员/技能/侦查', value: 46 });
     expect(ops[4]).toEqual({ op: 'delta', path: '/调查员/理智值/当前', value: 7 });
     expect(ops[5]).toEqual({ op: 'replace', path: '/调查员/技能/历史/ticked', value: false });
   });

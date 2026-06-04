@@ -58,14 +58,14 @@ describe('A1.6 session 加载 → setHistory 保留 DiceRecord 扩展字段', ()
     // Mock 一个含两页 diceResults 的存档, 模拟 sessionLifecycle 的 flatMap 重建
     const pages: BookPage[] = [
       {
-        id: 'p1', leftHeader: '', leftContent: '', rightHeader: '', rightContent: '', rightChoices: [],
+        id: 'p1', leftPage: '1', rightPage: '2', leftHeader: '', leftContent: '', rightHeader: '', rightContent: '', rightChoices: [],
         diceResults: [
           { skill: '侦查', roll: '42', target: '60', type: 'success', time: 100 }, // 老记录
           { skill: '侦查', roll: '60', target: '60', type: 'success', time: 101, luckSpent: 5, growthTickEligible: false },
         ],
       } as BookPage,
       {
-        id: 'p2', leftHeader: '', leftContent: '', rightHeader: '', rightContent: '', rightChoices: [],
+        id: 'p2', leftPage: '3', rightPage: '4', leftHeader: '', leftContent: '', rightHeader: '', rightContent: '', rightChoices: [],
         diceResults: [
           { skill: '图书馆使用', roll: '11', target: '30', type: 'hard-success', time: 200,
             pushed: true, pushReason: '再翻一遍', pushedFrom: { roll: 55, type: 'failure' } },

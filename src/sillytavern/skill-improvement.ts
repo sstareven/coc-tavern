@@ -130,11 +130,13 @@ export function buildDevelopmentRows(
 /**
  * 把 Row[] 拼成提交给 useVariableStore.applyCorrectiveOps 的 JSON Patch op 列表。
  *
- *  - 提升的：`replace /调查员/技能/X/current value=after`
+ *  - 提升的：`replace /调查员/技能/X value=after`（约定：写技能即写 current；redirect 在该分支落地）
  *  - 所有行（无论提升与否）：`replace /调查员/技能/X/ticked value=false`（清打钩）
  *  - 跨越 90% 的：`delta /调查员/理智值/当前 value=sanBonus`
  *
  * 由调用方一次性 applyCorrectiveOps([..ops])；redirect 内的 ticked / current / SAN 分支会落地。
+ * 路径约定来自 useLorebookStore 写规则：`/调查员/技能/<技能名>`，值为当前成功率（数字）；
+ * 不写 `/调查员/技能/X/current`（不在 redirect 支持范围内）。
  */
 export interface MvuOp {
   op: string;
@@ -146,7 +148,7 @@ export function buildDevelopmentOps(rows: DevPhaseRow[]): MvuOp[] {
   const ops: MvuOp[] = [];
   for (const row of rows) {
     if (row.improved) {
-      ops.push({ op: 'replace', path: `/调查员/技能/${row.name}/current`, value: row.after });
+      ops.push({ op: 'replace', path: `/调查员/技能/${row.name}`, value: row.after });
     }
     // 总是清打钩（包括未提升的）——下场冒险重新累积。
     ops.push({ op: 'replace', path: `/调查员/技能/${row.name}/ticked`, value: false });
