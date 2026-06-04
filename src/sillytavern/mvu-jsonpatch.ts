@@ -26,6 +26,15 @@ export interface MvuOpError {
   rawOp: unknown;
 }
 
+/**
+ * 一次 MVU 补丁应用后的汇总：成功条数 + 结构化失败清单。
+ * processResponse / useChatPipeline / post-settle-evaluators 共享同一形状，集中此处避免内联重复。
+ */
+export interface MvuPatchReport {
+  applied: number;
+  failed: MvuOpError[];
+}
+
 export interface ApplyOpts {
   /**
    * Return true when the op has been consumed externally (this engine skips it),

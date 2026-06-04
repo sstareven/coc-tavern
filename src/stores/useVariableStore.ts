@@ -9,7 +9,7 @@ import {
   stripVariableMarkup,
   buildSubstitutionMap,
 } from '../sillytavern/variables';
-import { applyMvuPatch, extractJsonPatchBlocks, type MvuOpError } from '../sillytavern/mvu-jsonpatch';
+import { applyMvuPatch, extractJsonPatchBlocks, type MvuOpError, type MvuPatchReport } from '../sillytavern/mvu-jsonpatch';
 import { isCharsheetPath, isNumericCharsheetTarget, applyCharsheetRedirect, isKnownOptionalCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { COC_MVU_SCHEMA } from '../sillytavern/mvu-schema';
 import { flattenStatData } from '../sillytavern/mvu-flatten';
@@ -29,7 +29,7 @@ interface VariableStore {
   processResponse: (text: string) => {
     cleanedText: string;
     extracted: Record<string, string>;
-    patchReport: { applied: number; failed: MvuOpError[] };
+    patchReport: MvuPatchReport;
   };
 
   // 在当前已提交的 statData 上叠加一批修正 op（用于失败回灌自纠），返回残余失败清单。

@@ -68,8 +68,9 @@ import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
-import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
+import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
+import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -908,7 +909,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 由此落地，供下方 newPage.sheetSnapshot 与阶段校验取到最新值。独立 MVU API 的「隐含数值」LLM 提取较慢，
         // 连同失败回灌自纠一起【挪到页面+物品提交之后】再 await（见 settleVariables 及其调用点），
         // 让书页/背包/NPC/地图立即可见、不被 MVU 往返拖在后面。
-        const patchReport: { applied: number; failed: MvuOpError[] } =
+        const patchReport: MvuPatchReport =
           useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
 
         // ── MVU 补丁块静默失败嗅探 ──
@@ -1005,6 +1006,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               selfCorrectUsage = sc.usage;
             }
           }
+
+          // ── G3: post-settle 评估器相位 ──
+          // MVU drain + corrective 已结束的此刻才跑 evaluator——它们 emit 的 ops 走【独立的】
+          // applyCorrectiveOps 通道,不被 MVU 快照体系视为"本回合 LLM 写入"而回滚.
+          // A2(SAN-loss→临疯) / A3(成功检定→ticked) 在后续 ticket 通过 registerEvaluator 接入.
+          runPostSettleEvaluators({
+            sheet: useCharSheetStore.getState().sheet,
+            statData: useVariableStore.getState().statData,
+            patchReport,
+            applyCorrectiveOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
+          });
         };
 
         const newPage = result.page;
