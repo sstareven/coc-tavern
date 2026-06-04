@@ -55,16 +55,72 @@ interface NpcStore {
   clearAll: () => void;
 }
 
+/**
+ * 严格按 trim 后逐字相等查 NPC id（BUG2 Part 1）。
+ * 不再用双向 includes 做模糊归并——「霍尔姆斯先生」过去会被并到既有「霍尔姆斯」，
+ * 导致新登场的同姓 NPC 不入名册、表面上看像「登场了却查不到」。
+ * 真正的别名归并交给 {@link mergeAliases} 显式执行，不在每次 applyUpdates 自动触发。
+ */
 function findIdByName(profiles: Record<string, NpcProfile>, name: string): string | null {
   const trimmed = name.trim();
+  if (!trimmed) return null;
   for (const [id, p] of Object.entries(profiles)) {
-    if (p.name === trimmed) return id;
-  }
-  // 宽松包含匹配兜底
-  for (const [id, p] of Object.entries(profiles)) {
-    if (p.name.includes(trimmed) || trimmed.includes(p.name)) return id;
+    if (p.name.trim() === trimmed) return id;
   }
   return null;
+}
+
+/**
+ * 老档同名清理（迁移用）：trim 后逐字相等视为同一人，按 createdAt 早者保留，
+ * 晚者把 memories 追加到早者后丢弃。仅在 replaceAll(load 时) 跑一次，避免数据残留。
+ * 返回去重后的 profile 列表（保持原 id 不变）。
+ */
+export function dedupeProfilesByName(list: NpcProfile[]): NpcProfile[] {
+  const byName = new Map<string, NpcProfile>();
+  for (const p of list) {
+    const key = p.name.trim();
+    if (!key) continue;
+    const exist = byName.get(key);
+    if (!exist) {
+      byName.set(key, p);
+      continue;
+    }
+    // 早者保留（createdAt 小），晚者并入：合并 memories（去重保序）、保留早者其它字段。
+    const [keep, drop] = exist.createdAt <= p.createdAt ? [exist, p] : [p, exist];
+    const seen = new Set(keep.memories);
+    const mergedMemories = [...keep.memories];
+    for (const m of drop.memories) if (!seen.has(m)) { mergedMemories.push(m); seen.add(m); }
+    byName.set(key, { ...keep, memories: mergedMemories, updatedAt: Math.max(keep.updatedAt, drop.updatedAt) });
+  }
+  return [...byName.values()];
+}
+
+/**
+ * 显式别名归并工具（不在 applyUpdates 内自动触发）：把 src 名的 NPC 合到 target 名的 NPC，
+ * memories 追加保序、其它字段以 target 为准（src 仅作为别名留痕被丢弃）。
+ * 仅由 UI 操作或显式工具调用，避免「霍尔姆斯先生」被自动并到「霍尔姆斯」的回归。
+ */
+export function mergeAliases(
+  profiles: Record<string, NpcProfile>,
+  targetName: string,
+  srcName: string,
+): Record<string, NpcProfile> {
+  const t = targetName.trim();
+  const s = srcName.trim();
+  if (!t || !s || t === s) return profiles;
+  const targetEntry = Object.entries(profiles).find(([, p]) => p.name.trim() === t);
+  const srcEntry = Object.entries(profiles).find(([, p]) => p.name.trim() === s);
+  if (!targetEntry || !srcEntry) return profiles;
+  const [tid, tprof] = targetEntry;
+  const [sid, sprof] = srcEntry;
+  if (tid === sid) return profiles;
+  const seen = new Set(tprof.memories);
+  const merged = [...tprof.memories];
+  for (const m of sprof.memories) if (!seen.has(m)) { merged.push(m); seen.add(m); }
+  const next = { ...profiles };
+  next[tid] = { ...tprof, memories: merged, updatedAt: Date.now() };
+  delete next[sid];
+  return next;
 }
 
 function clampFav(n: number): number {
@@ -194,8 +250,11 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
 
   replaceAll: (list) => set(() => {
     const investigator = investigatorName();
+    // 老档同名条目按 createdAt 早者保留（BUG2 Part 1 迁移）——历史上 includes 双向匹配会把
+    // 「霍尔姆斯先生」并到「霍尔姆斯」，但其它路径偶尔仍能落进同名档；读档时一次性去重。
+    const deduped = dedupeProfilesByName(list);
     const profiles: Record<string, NpcProfile> = {};
-    for (const p of list) {
+    for (const p of deduped) {
       if (investigator && p.name.trim() === investigator) continue; // 调查员不入名册（清理历史脏数据）
       const fixed = withDefaultChars(p); // 缺基础属性则补确定性默认值
       profiles[fixed.id] = fixed;

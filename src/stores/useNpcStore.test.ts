@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useNpcStore } from './useNpcStore';
+import { useNpcStore, dedupeProfilesByName, mergeAliases } from './useNpcStore';
 import { useCharSheetStore } from './useCharSheetStore';
+import type { NpcProfile } from '../types';
 
 function reset() { useNpcStore.getState().clearAll(); }
 function useChatSheetName(name: string) {
@@ -62,6 +63,23 @@ describe('useNpcStore.applyUpdates', () => {
     const p = Object.values(useNpcStore.getState().profiles)[0];
     expect(p.characteristics!.STR).toBe(35);
     expect(p.characteristics!.INT).toBe(80);
+  });
+
+  it('应用更新两次同名（trim 后等长）→ 仍只创建 1 条', () => {
+    useNpcStore.getState().applyUpdates([{ name: '老约翰', identity: '看门人' }]);
+    useNpcStore.getState().applyUpdates([{ name: '老约翰  ', identity: '看门人B' }]); // 尾随空白
+    const all = Object.values(useNpcStore.getState().profiles);
+    expect(all).toHaveLength(1);
+    expect(all[0].identity).toBe('看门人B'); // 后一次覆盖
+  });
+
+  it('不再宽松 includes 归并：新登场「霍尔姆斯先生」不会被并到既有「霍尔姆斯」（BUG2 Part 1）', () => {
+    useNpcStore.getState().applyUpdates([{ name: '霍尔姆斯', identity: '侦探' }]);
+    useNpcStore.getState().applyUpdates([{ name: '霍尔姆斯先生', identity: '同名长辈' }]);
+    const all = Object.values(useNpcStore.getState().profiles);
+    expect(all).toHaveLength(2);
+    const names = all.map((p) => p.name).sort();
+    expect(names).toEqual(['霍尔姆斯', '霍尔姆斯先生']);
   });
 
   it('调查员不入名册：同名 npcUpdate 被忽略', () => {
@@ -154,5 +172,81 @@ describe('NPC 当前 HP/SAN/MP 追踪', () => {
     const before = useNpcStore.getState().profiles;
     st.applyCombatResult([{ id: 'enemy-0-邪教徒', hp: 1, maxHp: 10 }, { id: 'npc-不存在', hp: 1, maxHp: 10 }]);
     expect(useNpcStore.getState().profiles).toEqual(before); // 无变化
+  });
+});
+
+function makeProfile(over: Partial<NpcProfile>): NpcProfile {
+  return {
+    id: over.id ?? crypto.randomUUID(),
+    name: over.name ?? '佚名',
+    identity: over.identity ?? '',
+    favorability: over.favorability ?? 0,
+    appearance: over.appearance ?? '',
+    personality: over.personality ?? '',
+    innerThoughts: over.innerThoughts ?? '',
+    memories: over.memories ?? [],
+    experience: over.experience ?? '',
+    backstory: over.backstory ?? '',
+    possessions: over.possessions ?? [],
+    isPresent: over.isPresent ?? true,
+    createdAt: over.createdAt ?? 0,
+    updatedAt: over.updatedAt ?? 0,
+    ...over,
+  };
+}
+
+describe('dedupeProfilesByName — 老档同名条目合并迁移（BUG2 Part 1）', () => {
+  it('同名两条 → 按 createdAt 早者保留；memories 去重并入早者', () => {
+    const a = makeProfile({ id: 'A', name: '霍尔姆斯', identity: '侦探', memories: ['m1', 'm2'], createdAt: 100, updatedAt: 100 });
+    const b = makeProfile({ id: 'B', name: '霍尔姆斯', identity: '后档', memories: ['m2', 'm3'], createdAt: 200, updatedAt: 200 });
+    const out = dedupeProfilesByName([a, b]);
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('A');
+    expect(out[0].identity).toBe('侦探');
+    expect(out[0].memories).toEqual(['m1', 'm2', 'm3']);
+    expect(out[0].updatedAt).toBe(200);
+  });
+
+  it('非同名（含「先生」后缀）→ 视为不同人，不被合并', () => {
+    const a = makeProfile({ id: 'A', name: '霍尔姆斯', createdAt: 100 });
+    const b = makeProfile({ id: 'B', name: '霍尔姆斯先生', createdAt: 200 });
+    const out = dedupeProfilesByName([a, b]);
+    expect(out).toHaveLength(2);
+    expect(out.map((p) => p.name).sort()).toEqual(['霍尔姆斯', '霍尔姆斯先生']);
+  });
+
+  it('replaceAll 把老档同名条目合并到早者', () => {
+    const a = makeProfile({ id: 'A', name: '管家', identity: '宅邸管家', memories: ['事件1'], createdAt: 100 });
+    const b = makeProfile({ id: 'B', name: '管家', identity: '复制条目', memories: ['事件2'], createdAt: 999 });
+    useNpcStore.getState().replaceAll([a, b]);
+    const all = Object.values(useNpcStore.getState().profiles);
+    expect(all).toHaveLength(1);
+    expect(all[0].id).toBe('A');
+    expect(all[0].identity).toBe('宅邸管家');
+    expect(all[0].memories).toEqual(['事件1', '事件2']);
+  });
+});
+
+describe('mergeAliases — 显式别名归并（不在 applyUpdates 自动触发）', () => {
+  beforeEach(() => useNpcStore.getState().clearAll());
+
+  it('把 src 名 NPC 合到 target 名 NPC：memories 追加并删 src', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '霍尔姆斯', addMemory: 'A1' },
+      { name: '霍尔姆斯先生', addMemory: 'B1' },
+    ]);
+    const before = useNpcStore.getState().profiles;
+    const after = mergeAliases(before, '霍尔姆斯', '霍尔姆斯先生');
+    expect(Object.keys(after)).toHaveLength(1);
+    const remain = Object.values(after)[0];
+    expect(remain.name).toBe('霍尔姆斯');
+    expect(remain.memories).toEqual(['A1', 'B1']);
+  });
+
+  it('target 或 src 不存在 → 原样返回', () => {
+    useNpcStore.getState().applyUpdates([{ name: 'X' }]);
+    const before = useNpcStore.getState().profiles;
+    expect(mergeAliases(before, 'X', 'Y')).toBe(before);
+    expect(mergeAliases(before, 'Z', 'X')).toBe(before);
   });
 });
