@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import type { TokenUsage } from './stream-parser';
 
@@ -87,7 +88,7 @@ export async function evaluateKeyClues(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: KEY_CLUE_PROMPT },
           {
             role: 'user',
@@ -95,7 +96,7 @@ export async function evaluateKeyClues(
               `未揭示的真相支柱：\n${pillarsText}\n\n` +
               `本回合新获得的线索：\n${cluesText}`,
           },
-        ],
+        ], '关键线索评估'),
         temperature,
         max_tokens: maxTokens,
       }),

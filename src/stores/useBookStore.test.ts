@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useBookStore } from './useBookStore';
-import type { RewriteBlock } from '../types';
+import { useCombatStore } from './useCombatStore';
+import type { RewriteBlock, BookPage, Encounter } from '../types';
 
 // ============================================================
 // setPages — 开场白随版本刷新迁移
@@ -180,5 +181,47 @@ describe('useBookStore.settleFlip — 后台翻页卡页修复', () => {
     useBookStore.setState({ pageIndex: 0, isFlipping: false, flipProgress: 0 });
     expect(() => useBookStore.getState().settleFlip()).not.toThrow();
     expect(useBookStore.getState().pageIndex).toBe(0);
+  });
+});
+
+// ============================================================
+// deletePage / trimPages — 清理悬空战斗（删掉锚定页后不留隐形僵尸战斗）
+// ============================================================
+describe('useBookStore — 删页/裁页清理悬空战斗', () => {
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const mkEnc = (anchorPageId: string): Encounter => ({
+    active: true, round: 1, turnOrder: [], currentIdx: 0,
+    combatants: [], bystanders: [], playerTargetId: null,
+    log: [], diceRecords: [], status: 'active', anchorPageId,
+  });
+  const pg = (id: string): BookPage => ({
+    id, leftHeader: '', leftContent: '', leftPage: '', rightPage: '',
+    rightHeader: '', rightContent: '', rightChoices: [],
+  });
+
+  beforeEach(() => useCombatStore.getState().clearAll());
+
+  it('deletePage 删掉战斗锚定页 → clearCombat', async () => {
+    useBookStore.getState().setPages([pg('p0'), pg('p1'), pg('p2')]);
+    useCombatStore.getState().start(mkEnc('p2'));
+    useBookStore.getState().deletePage(2); // 删掉锚定页 p2（及其后）
+    await tick();
+    expect(useCombatStore.getState().encounter).toBeNull();
+  });
+
+  it('deletePage 删的不是锚定页 → 战斗保留', async () => {
+    useBookStore.getState().setPages([pg('p0'), pg('p1'), pg('p2')]);
+    useCombatStore.getState().start(mkEnc('p0')); // 锚在 p0，删 p2 不应影响
+    useBookStore.getState().deletePage(2);
+    await tick();
+    expect(useCombatStore.getState().encounter).not.toBeNull();
+  });
+
+  it('trimPages 裁掉战斗锚定页 → clearCombat', async () => {
+    useBookStore.getState().setPages([pg('p0'), pg('p1'), pg('p2'), pg('p3')]);
+    useCombatStore.getState().start(mkEnc('p0')); // p0 会被裁掉
+    useBookStore.getState().trimPages(2); // 仅保留最后 2 页 → 裁掉 p0/p1
+    await tick();
+    expect(useCombatStore.getState().encounter).toBeNull();
   });
 });

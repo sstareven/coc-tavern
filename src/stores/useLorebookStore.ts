@@ -20,17 +20,17 @@ export const AUTO_SUMMARY_BOOK_ID = '__auto_summaries';
 const defaultBooks: Record<string, LoreBook> = {
   [AUTO_SUMMARY_BOOK_ID]: { name: '剧情回顾 (自动)', enabled: true, entries: {} },
   mvu_rules: { name: 'MVU规则系统', enabled: true, entries: {
-    mvu_core: e({ name: 'MVU变量规范', keys: 'MVU, var', logic: 'AND_ANY', priority: 1,
+    mvu_core: e({ name: 'MVU变量规范', keys: 'MVU, var', logic: 'AND_ANY', priority: 920, constant: true,
       content: '【变量更新 · JSON Patch】在回复末尾用 <UpdateVariable><JSONPatch>[...]</JSONPatch></UpdateVariable> 输出本回合所有状态变化。JSONPatch 是操作对象数组，op 取值：replace(替换已存在路径)、delta(数值增减，如理智-5)、insert(新增对象键或数组元素，数组用 /- 追加)、remove(删除)。路径用 JSON Pointer：调查员状态写 /调查员/生命值/当前、/调查员/理智值/当前；世界写 /世界/时间、/世界/地点；剧情写 /剧情/阶段、/剧情/线索/-。示例：[{"op":"delta","path":"/调查员/理智值/当前","value":-5},{"op":"replace","path":"/世界/地点","value":"地下室"}]。不要再用 <var>/{{set}} 旧格式。' }),
-    skill_check: e({ name: 'CoC检定规则', keys: '检定, d100, 大成功', logic: 'AND_ANY', priority: 20,
+    skill_check: e({ name: 'CoC检定规则', keys: '检定, d100, 大成功', logic: 'AND_ANY', priority: 900, constant: true,
       content: '【CoC 7th检定】成功=d100≤技能，困难≤半值，极难≤1/5，大成功=01，大失败=100(技能≥50)或96-100(技能<50)。有利→奖励骰(双十面取优)，不利→惩罚骰(取差)。\n侦查系：查账→会计学，变装→乔装，查资料→图书馆使用，偷听→聆听，开锁→锁匠，藏东西→妙手，搜证→侦查，暗处→潜行，追迹→追踪，拍照→摄影。\n交涉系：魅力→取悦，欺瞒→话术，威吓→恐吓，辩论→说服，读心→心理学。\n战斗系：近战→格斗(斗殴)，手枪→枪械(手枪)，步枪→枪械(步枪/霰弹枪)。\n运动系：攀爬→攀爬，闪躲→躲闪，跳过沟→跳跃，骑马→骑术，渡水→游泳，扔东西→投掷。\n护理系：止血→急救，治病→医学，心理→精神分析。\n生活系：看文化→人类学，估价→估价，挖遗迹→考古学，创作→艺术与手艺，用电脑→计算机使用，开车→汽车驾驶，修电器→电气维修，修电路→电子学，回想→历史，读外语→语言(其他)，打官司→法律，修机器→机械维修，认动物→博物学，找方向→导航，辨灵异→神秘学，开起重机→操作重型机械，开飞机→驾驶，荒野→生存，炸东西→爆破，邪神知识→克苏鲁神话(掉SAN)。日常无需检定。' }),
-    combat: e({ name: '战斗规则', keys: '战斗, 格斗, 闪避', logic: 'AND_ANY', priority: 30,
+    combat: e({ name: '战斗规则', keys: '战斗, 格斗, 闪避', logic: 'AND_ANY', priority: 895, constant: true,
       content: '【CoC战斗】先攻=按DEX数值高低排序(高者先动)，持火器者先攻视为+50DEX。每轮攻击/闪避/移动。近战→目标可闪避或反击。火器→近距正常、中距困难、远距极难。伤害=武器+DB。HP≤0→昏迷。选项：I攻击 II防御 III撤退 IV特殊，标注检定。' }),
-    sanity: e({ name: '理智系统', keys: 'SAN, 理智, 疯狂', logic: 'AND_ANY', priority: 40,
+    sanity: e({ name: '理智系统', keys: 'SAN, 理智, 疯狂', logic: 'AND_ANY', priority: 890, constant: true,
       content: '【SAN规则】SAN=POW。损失：尸体0/1D2，怪物0/1D6，大恐怖1D10/1D100。单次损失≥5→智力(INT)检定，掷骰≤INT(通过，领会恐怖真相)→陷入临时疯狂，>INT(失败)→心智暂时压抑，不立即疯狂。SAN≤0→永久疯狂。恢复：完成调查+1D6，精神分析+1D3，休息一月+1D3。' }),
 
     // ── MVU 变量系统 ──
-    mvu_update_rules: e({ name: '[mvu_update]变量更新规则', keys: 'mvu_update, 变量更新', logic: 'AND_ANY', priority: 5, constant: true, depth: 0,
+    mvu_update_rules: e({ name: '[mvu_update]变量更新规则', keys: 'mvu_update, 变量更新', logic: 'AND_ANY', priority: 915, constant: true, depth: 0,
       content: `---
 变量更新规则:
 
@@ -293,7 +293,7 @@ _元数据:
   _变量版本: '1.0'
 ` }),
 
-    mvu_output_format: e({ name: '[mvu_update]变量输出格式', keys: 'mvu_update, 输出格式', logic: 'AND_ANY', priority: 7, constant: true, depth: 0,
+    mvu_output_format: e({ name: '[mvu_update]变量输出格式', keys: 'mvu_update, 输出格式', logic: 'AND_ANY', priority: 910, constant: true, depth: 0,
       content: `---
 变量输出格式:
   rule:
@@ -324,11 +324,11 @@ _元数据:
     </UpdateVariable>
 ` }),
 
-    mvu_var_list: e({ name: '变量列表', keys: '变量, variable, stat', logic: 'AND_ANY', priority: 8, depth: 0, constant: true,
+    mvu_var_list: e({ name: '变量列表', keys: '变量, variable, stat', logic: 'AND_ANY', priority: 50, depth: 0, constant: true,
       content: '<status_current_variable>\n调查员.生命值: {{调查员.生命值.当前}}/{{调查员.生命值.最大}}\n调查员.理智值: {{调查员.理智值.当前}}/{{调查员.理智值.最大}}\n调查员.魔法值: {{调查员.魔法值.当前}}/{{调查员.魔法值.最大}}\n调查员.幸运: {{调查员.幸运}}\n调查员.技能: 侦查={{调查员.技能.侦查}} | 图书馆使用={{调查员.技能.图书馆使用}} | 话术={{调查员.技能.话术}} | 聆听={{调查员.技能.聆听}} | 心理学={{调查员.技能.心理学}} | 潜行={{调查员.技能.潜行}} | 说服={{调查员.技能.说服}} | 汽车驾驶={{调查员.技能.汽车驾驶}}\n世界.日期: {{世界.日期}} | 世界.时间: {{世界.时间}}\n世界.地点: {{世界.地点}} | 世界.天气: {{世界.天气}}\n剧情.当前章节: {{剧情.当前章节}}\n剧情.阶段: {{剧情.阶段}} | 暗线进度: {{剧情.暗线.进度}} ({{剧情.暗线.威胁等级}})\n</status_current_variable>' }),
 
     // ── 叙事弧线系统 ──
-    narrative_arc: e({ name: '叙事弧线与暗线规则', keys: '叙事, 暗线, 结局', logic: 'AND_ANY', priority: 3, constant: true, depth: 0,
+    narrative_arc: e({ name: '叙事弧线与暗线规则', keys: '叙事, 暗线, 结局', logic: 'AND_ANY', priority: 905, constant: true, depth: 0,
       content: `---
 叙事弧线规则:
 
@@ -423,17 +423,17 @@ _元数据:
       content: '【NPC关系提醒】NPC的态度值(-100到100)会影响他们的行为：\n- 态度>50：友善，主动提供帮助和信息\n- 态度0~50：中立，需要说服或交换才会配合\n- 态度-50~0：冷淡或警惕，可能拒绝配合或隐瞒信息\n- 态度<-50：敌意，可能主动阻碍、欺骗甚至攻击调查员\n请根据剧情.NPC中记录的态度值来决定NPC的行为方式。极端事件可使态度大幅变化(±20~50)。' }),
   }},
   coc_magic: { name: 'COC魔法规则', enabled: true, entries: {
-    magic_basics: e({ name: '魔法基础', keys: '魔法, 法术, 施法, 咒语, 仪式', logic: 'AND_ANY', priority: 100, constant: true,
+    magic_basics: e({ name: '魔法基础', keys: '魔法, 法术, 施法, 咒语, 仪式', logic: 'AND_ANY', priority: 880, constant: true,
       content: '【神话魔法基础】克苏鲁神话的魔法不同于奇幻魔法——它是有敌意的，在帮助施法者的同时必让其付出代价。行使异界能量会让行使者受诅咒，魔法会摧毁道德品行、撕碎理智与人性。\n施法要求：\n- 精神状态：施法需专注和冥想，外界干扰(恶劣环境/战斗)需通过INT检定保持专注\n- 施法区域：复杂法术需净化施法区域，旧法术残余可能污染新法术\n- 牺牲本质：牺牲必须对施法者有价值——俘获的敌人无效，但砍下自己的手可以；随便偷来的牲畜无效，需是心爱之物\n- 天象影响：月相(上弦月利召唤/满月利赋能/下弦月利驱逐/新月利占卜)、节气(萨温节/冬至/春分等)、行星合等可影响法术效果\n- 七曜：周一(梦境/回复)周二(战斗/灾祸)周三(交流/预言)周四(好运/召唤)周五(创造力)周六(防护/驱逐)周日(意志/力量)' }),
-    spell_casting: e({ name: '施法规则', keys: '施法, 法术消耗, 魔法值, MP, POW, 施法用时, 深层魔法, 缺陷魔法', logic: 'AND_ANY', priority: 90,
+    spell_casting: e({ name: '施法规则', keys: '施法, 法术消耗, 魔法值, MP, POW, 施法用时, 深层魔法, 缺陷魔法', logic: 'AND_ANY', priority: 879, constant: true,
       content: '【施法规则】法术三要素：消耗(MP/POW/SAN等)、描述(视觉效果)、效果(游戏机制)。\n施法时间：即时=施法者DEX+50生效(同准备枪械)；1轮=本轮DEX生效；2轮=次轮DEX生效。\n深层魔法：SAN=0的疯狂巫师可发现法术的更强版本。调查员在疯狂中成功施法时投1D100≤「克苏鲁神话」则发现深层版本。深层魔法代价更大但效果更强。\n缺陷魔法：抄写翻译错误导致的有缺陷法术。施放时60%无效(消耗照扣)，40%出错——可能环境异变(血从地下喷涌/异界生物漂浮)、施法者副作用(皮肤变色/目盲)、效果扭曲(选择消耗相近的其他法术效果)。已知类似法术可通过「克苏鲁神话」检定发现缺陷。\n施法困难：人祭需理智检定失败才能执行(通过则良心发现拒绝)，参与者均损失SAN。' }),
-    spell_categories: e({ name: '法术分类', keys: '法术分类, 召唤术, 请神术, 联络术, 通神术, 束缚术, 送神术', logic: 'AND_ANY', priority: 80,
+    spell_categories: e({ name: '法术分类', keys: '法术分类, 召唤术, 请神术, 联络术, 通神术, 束缚术, 送神术', logic: 'AND_ANY', priority: 878, constant: true,
       content: '【法术分类辨析】\n请神术：极强仪式，将神祇物理形态展现于施法者面前。邪教团体用来召唤崇拜的神享用祭品。对应"送神术"可将神祇遣返。\n联络/通神术：交流请求，类似"神秘电话"。对生物使用会带一个以上生物自由前来(不受控)；对神祇使用开启交流但不产生物理形态。\n召唤术：强迫怪物(不能是神)出现并可被束缚执行命令。\n其他分类：战斗魔法(攻击/防御/伤害)、交流魔法(心灵感应/梦境发送)、附魔魔法(赋予物品魔力)、环境魔法(天气/地形改变)、续命魔法(不朽/转移/复活)、保护魔法(防护/驱逐/守卫)、变形魔法(形体改变/灵魂转移)、旅行魔法(传送/飞行/时空门)、加害魔法(诅咒/疾病/精神攻击)。' }),
-    sacrifice_rules: e({ name: '牺牲与代价', keys: '牺牲, 祭品, 人祭, 血祭, 活祭, 献祭', logic: 'AND_ANY', priority: 85,
+    sacrifice_rules: e({ name: '牺牲与代价', keys: '牺牲, 祭品, 人祭, 血祭, 活祭, 献祭', logic: 'AND_ANY', priority: 877, constant: true,
       content: '【牺牲规则】几乎所有法术都要求牺牲(MP/POW/SAN或实物)。核心原则：\n- 价值原则：牺牲必须对施法者有价值。随便抓来的敌人无效，但对神话神祇的祭品(任何人)可令其满意\n- 人祭：执行前需理智检定并失败——通过意味着良心不允许。参与者均损失SAN，并可能腐化背景连接(信念/关系)\n- 道德困境：牺牲心爱宠物vs法术失败、砍下自己的手vs弟弟死亡——这些选择定义调查员的道德走向\n- 忘记给神话生物奉上合适祭品的巫师，会发现自己变成了祭品\n- 法术成分：仪式刀(引导能量)、魔法书(典籍)、香炉(净化/催眠)、占卜用具(水晶球/符文)、杖(指向目标)、祭坛、釜(酿造药剂)' }),
-    folk_magic: e({ name: '民俗魔法', keys: '民俗魔法, 民俗, 巫医, 萨满, 祝福, 诅咒, 治愈法, 动物魅惑', logic: 'AND_ANY', priority: 75,
+    folk_magic: e({ name: '民俗魔法', keys: '民俗魔法, 民俗, 巫医, 萨满, 祝福, 诅咒, 治愈法, 动物魅惑', logic: 'AND_ANY', priority: 876, constant: true,
       content: '【民俗魔法】一种"漂白"的神话魔法，人类掌握并代代口耳相传。通常只有萨满、巫医才掌握，不见于任何神话典籍。虽被削弱且施法者不清楚原理，但仍从隐蔽的神话脉络获取能量。\n民俗法术倾向产生诅咒和祝福，看起来更像"实用"法术。包括：占卜法、祝福法、诅咒法、动物魅惑法、治愈法、失物找寻法、符咒创建法、风暴创建法、爱情魔药酿造法、灵魂之歌等。\n民俗魔法是可选规则——如果觉得治愈法和动物魅惑法不适合恐怖游戏，可以忽略。' }),
-    dreamlands_magic: e({ name: '幻梦境魔法', keys: '幻梦境, 梦境, 梦想家, 幻梦, 梦境法术', logic: 'AND_ANY', priority: 70,
+    dreamlands_magic: e({ name: '幻梦境魔法', keys: '幻梦境, 梦境, 梦想家, 幻梦, 梦境法术', logic: 'AND_ANY', priority: 875, constant: true,
       content: '【幻梦境魔法】仅在幻梦境学习和施放的特殊魔法。梦想家醒来后不记得幻梦境法术，下次入梦时才会想起。\n幻梦境人施放清醒世界法术(非幻梦境法术)时只损失法术的最小SAN值。但施放幻梦境法术仍需支付正常SAN消耗。\n幻梦境法术包括：咒逐术(驱散法术/遣返召唤生物)、退化术、不透明之墙、灵魂窃取术、螺旋升空术、远行涡流术等。这些法术更像奇幻魔法，体现梦境的可能性和缥缈神奇。KP可扭曲幻梦境法术使其更黑暗——如让防护墙由地下世界的尸骨组成。' }),
   }},
 };

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
+import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
 
 /** 界面缩放合法档位：标准/大/特大/超大。控件与 clamp 共用。 */
 export const UI_SCALE_LEVELS = [1, 1.15, 1.3, 1.5] as const;
@@ -65,6 +66,8 @@ interface SettingsState {
   mvuSelfCorrectRetries: number;
   /** 界面整体缩放倍率（桌面端，合法档位见 UI_SCALE_LEVELS）。默认 1=100%。 */
   uiScale: number;
+  /** DeepSeek V4 缓存优化器：思维模式指令注入（附着到末条用户消息，保前缀缓存）。 */
+  dsCache: DsCacheConfig;
 }
 
 interface SettingsStore extends SettingsState {
@@ -114,6 +117,7 @@ interface SettingsStore extends SettingsState {
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
   setUiScale: (v: number) => void;
+  setDsCache: (c: Partial<DsCacheConfig>) => void;
 }
 
 const defaults: SettingsState = {
@@ -163,6 +167,7 @@ const defaults: SettingsState = {
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
   uiScale: 1,
+  dsCache: DEFAULT_DS_CACHE_CONFIG,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -216,6 +221,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
       setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
+      setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
     }),
     {
       name: 'coc_settings_v2',

@@ -4,6 +4,11 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 
 const NO_VALUE = '未知';
 
+/** 状态条件严重度配色（用于顶部状态栏，深底浅字）。 */
+const SEVERITY_COLOR: Record<string, string> = {
+  minor: '#b7a35a', moderate: 'var(--gold)', severe: '#d88a4a', critical: '#ff6a5a',
+};
+
 /** 状态栏取的场景值可能残留关键词标签 {{词}}（供正文高亮，本栏不渲染高亮）、var 标签或 HTML，
  *  显示前清成纯文本：去掉花括号保留词、剥除标签。 */
 function cleanStatus(s: string): string {
@@ -34,6 +39,8 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   const vars = useVariableStore((s) => s.variables);
   const statData = useVariableStore((s) => s.statData);
   const secondary = useCharSheetStore((s) => s.sheet.secondary);
+  const posture = useCharSheetStore((s) => s.sheet.posture);
+  const statusConditions = useCharSheetStore((s) => s.sheet.statusConditions);
   let scene = pages[pageIndex]?.sceneInfo;
 
   // Fallback: fill missing fields from MVU variable store.
@@ -92,6 +99,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
             <CompactStat label="MP" stat={mp} color="var(--gold)" />
           </>
         )}
+        <StateChips posture={posture} conditions={statusConditions} compact />
       </div>
     );
   }
@@ -157,6 +165,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
           <StatPill label="MP" stat={mp} color="var(--gold)" />
         </div>
       )}
+      <StateChips posture={posture} conditions={statusConditions} />
     </div>
   );
 }
@@ -186,6 +195,32 @@ function CompactStat({ label, stat, color }: { label: string; stat: { current: n
       <span style={{ color, fontWeight: 700 }}>{label}</span>
       <span style={{ color: 'var(--parchment)' }}>{stat.current}/{stat.max}</span>
     </span>
+  );
+}
+
+/** 调查员姿态(非「站立」才显示) + 状态条件小标签(按严重度着色)。两者皆空则不渲染。 */
+function StateChips({ posture, conditions, compact }: {
+  posture: string;
+  conditions: { name: string; severity: string; description: string }[];
+  compact?: boolean;
+}) {
+  const showPosture = !!posture && posture !== '站立';
+  if (!showPosture && conditions.length === 0) return null;
+  const fs = compact ? 9 : 10;
+  const chip = (key: React.Key, label: string, color: string, title?: string) => (
+    <span key={key} title={title} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-ui)', fontSize: fs, letterSpacing: 0.5,
+      whiteSpace: 'nowrap', padding: '1px 8px', borderRadius: 9,
+      color, background: 'rgba(0,0,0,0.25)', border: `1px solid ${color}`,
+    }}>
+      <span aria-hidden style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />{label}
+    </span>
+  );
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {showPosture && chip('posture', posture, 'var(--gold-bright)', '当前姿态')}
+      {conditions.map((c, i) => chip(`c${i}`, c.name, SEVERITY_COLOR[c.severity] || SEVERITY_COLOR.moderate, c.description))}
+    </div>
   );
 }
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog } from '../types';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
+import { useCombatStore } from './useCombatStore';
 
 const defaultPages: BookPage[] = [
   // ▸▸▸ 序章：降生之梦 + 命运歧路 ◂◂◂
@@ -179,6 +180,10 @@ export const useBookStore = create<BookStore>((set, get) => ({
       setTimeout(() => {
         const lore = useLorebookStore.getState();
         for (const id of removedIds) lore.removeSummaryEntry(id);
+        // 删页/回溯若删掉战斗锚定页 → 清掉这场悬空战斗，否则它非空却任何页都渲染不出面板(隐形)，
+        // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。
+        const enc = useCombatStore.getState().encounter;
+        if (enc?.anchorPageId && removedIds.includes(enc.anchorPageId)) useCombatStore.getState().clearCombat();
       }, 0);
     }
     return { pages: fixed, pageIndex };
@@ -289,6 +294,9 @@ export const useBookStore = create<BookStore>((set, get) => ({
       for (const p of removedPages) {
         if (p.id) lore.removeSummaryEntry(p.id);
       }
+      // 裁页若裁掉战斗锚定页 → 清掉悬空战斗(同 deletePage，防隐形战斗堵死进战入口)。
+      const enc = useCombatStore.getState().encounter;
+      if (enc?.anchorPageId && removedPages.some((p) => p.id === enc.anchorPageId)) useCombatStore.getState().clearCombat();
     }, 0);
     set({ pages: trimmed, pageIndex: newPageIndex });
   },

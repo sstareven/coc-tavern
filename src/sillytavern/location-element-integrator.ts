@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import { LOCATION_ELEMENT_CATEGORIES } from '../types';
 import type { LocationElementInput, LocationElementCategory } from '../types';
@@ -71,13 +72,13 @@ export async function integrateLocationElements(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: INTEGRATOR_PROMPT },
           {
             role: 'user',
             content: `地点名：${locationName}\n当前全部地点元素：\n${list}`,
           },
-        ],
+        ], '地点元素整合'),
         temperature,
         max_tokens: maxTokens,
       }),

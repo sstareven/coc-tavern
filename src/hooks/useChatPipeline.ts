@@ -64,6 +64,9 @@ import { pushLog } from '../stores/useLogStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
+import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
+import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -217,6 +220,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const chatNow = useChatStore.getState();
       const sessionLorebookIds = chatNow.sessions.find((s) => s.id === chatNow.activeId)?.lorebookIds ?? [];
       const scopedBooks = resolveActiveBooks(allBooks, sessionLorebookIds, thOptimize.forceWorldbookSettings);
+      // 早期取 DS 缓存配置：experimentalSkipMvuVarList 在 buckets 收集阶段就要用
+      const earlyDsCache = useSettingsStore.getState().dsCache;
+      const experimentalSkipMvuVarList = earlyDsCache?.experimentalSkipMvuVarList === true;
       type ScopedEntry = LoreEntry & { _source?: WorldInfoSource };
       let otherEntries: ScopedEntry[] = [];
       let summaryEntries: ScopedEntry[] = [];
@@ -225,6 +231,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       for (const { bookId, book, source } of scopedBooks) {
         for (const rawEntry of Object.values(book.entries)) {
           if (rawEntry.disabled) continue;
+          // 实验性：跳过 mvu_var_list（与 statSnapshot 重复，节省 ~400-800 tokens）
+          if (experimentalSkipMvuVarList && rawEntry.name === 'mvu_var_list') continue;
           const entry: ScopedEntry = { ...rawEntry, _source: source };
           const keys = entry.keys.toLowerCase();
           const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
@@ -349,8 +357,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       for (const [k, v] of Object.entries(rawStat)) {
         if (!k.startsWith('_') && !k.startsWith('$')) visibleStat[k] = v;
       }
-      if (Object.keys(visibleStat).length > 0) {
-        const snapshotYaml = formatStatDataYaml(visibleStat);
+      // 实验性 statSnapshot 减肥：丢弃 /剧情/已解锁/线索/关键事件 等长但低频字段，
+      // 仅保留 HP/SAN/MP/姿态/状态/战斗/时间/天气/暗线进度/阶段。省 ~500-1500 tokens/回合。
+      const leanedStat = earlyDsCache?.experimentalLeanSnapshot === true
+        ? leanStatData(visibleStat)
+        : visibleStat;
+      if (Object.keys(leanedStat).length > 0) {
+        const snapshotYaml = formatStatDataYaml(leanedStat);
         if (snapshotYaml && snapshotYaml !== '{}') {
           statSnapshotBucket.push({
             name: '当前状态', keys: '', content: `[当前状态 — 守秘人参考，世界/剧情/战斗的实时快照]\n${snapshotYaml}`,
@@ -398,6 +411,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       };
       const loreOpts = { lite: liteMode, liteIncludeMatchedLore: opts?.liteIncludeMatchedLore };
       const matchedLore = selectLoreForRewrite(loreBuckets, loreOpts);
+
+      // DS 缓存优化器：在 lore 渲染前先决定哪些 entry 走"动态尾置"通道（仅 isDeepSeekSource & restructure 开启）。
+      // 动态桶 = matchedKeyword/summary/darkThread/anchor/keyword/statSnapshot（每回合通常变）；
+      // 静态桶 = constant/generateInjects/inverted；用户可通过 treatConstantAsDynamic 把 constant 也下沉。
+      // 自动检测(默认开)：constantBucket 里【含 EJS/动态宏】的条目(如 coc_lore 的 ejs_san_state/mvu_var_list 等)
+      //   会自动加入 dynamicEntriesByRef——它们 entry.constant=true 但渲染结果随 statData 变，曾是命中率衰减元凶。
+      const dsCfg = settingsNow.dsCache;
+      const dsRestructureOn =
+        !liteMode &&
+        dsCfg?.restructure === true &&
+        isDeepSeekSource(settingsNow.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
+      const dynamicEntriesByRef = new Set<LoreEntry>();
+      const autoDetectedDynamicConstants: string[] = []; // 名字列表，仅给 debugLog 用
+      if (dsRestructureOn) {
+        for (const e of matchedKeyword) dynamicEntriesByRef.add(e);
+        for (const e of matchedSummary) dynamicEntriesByRef.add(e);
+        for (const e of darkThreadBucket) dynamicEntriesByRef.add(e);
+        for (const e of anchorBucket) dynamicEntriesByRef.add(e);
+        for (const e of keywordBucket) dynamicEntriesByRef.add(e);
+        for (const e of statSnapshotBucket) dynamicEntriesByRef.add(e);
+        const treatAllConstantAsDynamic = dsCfg.treatConstantAsDynamic === true;
+        const autoDetect = dsCfg.autoDetectDynamicConstant !== false; // 默认开
+        for (const e of constantBucket) {
+          if (treatAllConstantAsDynamic) {
+            dynamicEntriesByRef.add(e);
+          } else if (autoDetect && hasDynamicMarker(e.content)) {
+            dynamicEntriesByRef.add(e);
+            autoDetectedDynamicConstants.push(e.name);
+          }
+        }
+        if (dsCfg.debugLog === true && autoDetectedDynamicConstants.length > 0) {
+          console.log(
+            '[ds-cache-restructure] 自动下沉的 constant 条目(含 EJS/动态宏):',
+            autoDetectedDynamicConstants,
+          );
+        }
+      }
       // Token savings of lite mode = estimated tokens of the lore entries it dropped vs the full build.
       // Pure calculation over the bucket diff (no second buildPromptMessages call → no side effects).
       const liteSavedTokens = liteMode
@@ -467,29 +517,37 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const processedLore = matchedLore.map((e) => ({
         ...e,
         content: renderTemplate(e.content, tmplOpts),
+        _isDynamic: dynamicEntriesByRef.has(e),
       }));
       // 序章首回合的「起始装备」【不再注入主回合格式】——曾内联追加 PROLOGUE_STARTING_ITEMS_INSTRUCTION，
       // 但被 FORMAT_INSTRUCTION 主体「无物品变化则省略 inventoryChanges」压过，模型把开场判为「无变化」整体丢弃
       // （日志现象：parsed 顶层键缺 inventoryChanges/clues）。改为解析成功后用独立 LLM 调用 generateStartingItems
       // 生成、并入首页 inventoryChanges（见下方应用段），与坏结局同源解耦（inline-llm-fields-truncate-trailing）。
       let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
+      // DS 缓存优化器：动态附加段（每回合变）按开关分流——dsRestructureOn 时 push 到 dynamicFormatParts，
+      // 由 dynamicTail 拼到合并 user 末尾；否则保持原行为 `+=` 到 baseFormat 中（旧路径，进 system 前缀）。
+      const dynamicFormatParts: string[] = [];
+      const addFormatPart = (s: string) => {
+        if (dsRestructureOn && !formatOverride) dynamicFormatParts.push(s);
+        else baseFormat += '\n\n' + s;
+      };
       // 坏结局【不再注入主回合格式】——曾导致模型在主 JSON 末尾挤掉 clues/npcUpdates/mapUpdates 的回归。
       // 改为回合后用独立 LLM 调用 generateBadEnding 生成（见下方应用段），与主输出彻底解耦。
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
-        baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
+        addFormatPart('【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE);
       }
       // 注入「当前随身物品」清单：让 LLM 知道调查员实际持有什么，生成行动选项时不再凭空让玩家使用未拥有的物品
       // （如背包没相机却给「使用相机」选项——根因是物品清单此前只进世界书匹配 contextText、从不进消息体）。
       // 空背包也注入「空」提示——此时任何「使用某物」选项都更应避免。物品使用约束规则见 FORMAT_INSTRUCTION 重要物品约束段。
       if (!formatOverride) {
         const invSummary = useInventoryStore.getState().buildInventorySummary();
-        baseFormat += '\n\n' + (invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
+        addFormatPart(invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
       }
       // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
       if (!formatOverride) {
         const npcCtx = useNpcStore.getState().buildContextInjection();
-        if (npcCtx) baseFormat += '\n\n' + npcCtx;
+        if (npcCtx) addFormatPart(npcCtx);
       }
       // 注入当前地点已知的「地点元素」，让 LLM 与既有环境特征保持一致、不凭空矛盾。
       if (!formatOverride) {
@@ -497,20 +555,22 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const curLocName = ms.locations.find((l) => l.id === ms.currentLocationId)?.name ?? '';
         if (curLocName) {
           const locElemCtx = useLocationElementStore.getState().buildContextInjection(curLocName);
-          if (locElemCtx) baseFormat += '\n\n' + locElemCtx;
+          if (locElemCtx) addFormatPart(locElemCtx);
         }
       }
       // 拯救世界系统注入。
       if (!formatOverride) {
         // 真相支柱进度（守秘人机密引导，引导剧情逐步让玩家逼近未揭示支柱；绝不泄露原文给玩家）。
         const pillarCtx = useKeyClueStore.getState().buildContextInjection();
-        if (pillarCtx) baseFormat += '\n\n' + pillarCtx;
+        if (pillarCtx) addFormatPart(pillarCtx);
         // 拯救世界模式：集齐 3 关键线索后进入与暗线赛跑的终局。
-        if (saveWorldMode) baseFormat += '\n\n' + SAVE_WORLD_INSTRUCTION;
+        if (saveWorldMode) addFormatPart(SAVE_WORLD_INSTRUCTION);
         // 序章首幕：结合本局谜题向调查员点明核心目标（纯叙事，无截断风险）。
-        if (useBookStore.getState().pages.length <= 1) baseFormat += '\n\n' + PROLOGUE_GOAL_INSTRUCTION;
+        if (useBookStore.getState().pages.length <= 1) addFormatPart(PROLOGUE_GOAL_INSTRUCTION);
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
+      const dynamicFormatJoined = dynamicFormatParts.join('\n\n');
+      const renderedDynamicFormat = dynamicFormatJoined ? renderTemplate(dynamicFormatJoined, tmplOpts) : '';
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
       const macroCtx: MacroContext = {
@@ -538,12 +598,37 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       });
 
+      // DS 缓存优化器诊断（debugLog 模式）：扫描【会进入静态前缀】的预设字段是否含动态宏。
+      // 这些字段虽是预设作者编写的静态文本，但若含 {{xxx.yyy}}/<% %>/{{getvar}} 等，
+      // 经 macro batch 解析后输出值会随 statData 变化，污染前缀缓存。无法自动下沉(会破坏 setvar/getvar
+      // 跨条目链)，只能让用户自己改预设——所以列出来给用户排查。
+      if (dsRestructureOn && dsCfg.debugLog === true) {
+        const presetWarnings: string[] = [];
+        if (hasDynamicMarker(processedPreset.systemPrompt)) {
+          presetWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
+        }
+        sortedItems.forEach((it) => {
+          if (it.enabled !== false && it.content && hasDynamicMarker(it.content)) {
+            presetWarnings.push(`promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`);
+          }
+        });
+        if (presetWarnings.length > 0) {
+          console.log(
+            '[ds-cache-restructure] ⚠️ 预设含动态宏(每回合渲染结果可能变化，污染前缀缓存)：\n  ' +
+              presetWarnings.join('\n  ') +
+              '\n  建议：把这些条目的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
+              '或在世界书里用 entry.constant=true 的形式注入(已自动下沉到 dynamicTail)。',
+          );
+        }
+      }
+
       const allTexts = [
         ...itemTexts, // 条目在前：setvar 先于后续 getvar 执行（promptItems 已按 order 排序）
         processedPreset.systemPrompt,
         ...processedLore.map((e) => e.content),
         macroProcessedInput,
         processedFormat,
+        renderedDynamicFormat, // DS 重组：动态附加段同走 macro batch（保持 setvar/getvar 跨段一致）
       ];
       const macroResults = resolveAllMacrosBatch(allTexts, macroCtx);
 
@@ -559,6 +644,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
       macroProcessedInput = macroResults[base + 1 + processedLore.length].text;
       const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
+      const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
 
       // Persist macro var mutations back to store
       const mutationStore = useTavernHelperStore.getState();
@@ -582,11 +668,44 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       // Build world book content from matched entries (matchedLore), ordered by insertion strategy.
       // position 0 → before；其余 → after（COC 仅 worldInfoBefore/After 两个注入点）。
+      // DS 重组开启时：wbBefore/wbAfter 仅由静态 lore 构成 → 让 system 前缀字节稳定；
+      // 动态 lore 走 dynamicTail，由下方 prepend 到合并 user 内容的末段（紧贴用户输入之前）。
       const wiStrategy = settingsNow.worldInfoStrategy ?? 'evenly';
-      const beforeEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position === 0), wiStrategy);
-      const afterEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position !== 0), wiStrategy);
+      const loreForWb = dsRestructureOn
+        ? processedLore.filter((e) => !(e as { _isDynamic?: boolean })._isDynamic)
+        : processedLore;
+      const beforeEntries = sortByInsertionStrategy(loreForWb.filter((e) => e.position === 0), wiStrategy);
+      const afterEntries = sortByInsertionStrategy(loreForWb.filter((e) => e.position !== 0), wiStrategy);
       const wbBefore = beforeEntries.map((e) => e.content).join('\n');
       const wbAfter = afterEntries.map((e) => e.content).join('\n');
+
+      // 实验性：跨回合静态前缀漂移诊断（借鉴 claude-code-best PROMPT_CACHE_BREAK_DETECTION）。
+      // 把"理论上应每回合相等"的静态字段(systemPrompt + wbBefore + processedFormat + wbAfter)
+      // 拼成字符串，跨回合对比 → 找出第一处字节差异点 + 启发式定位是哪段污染。
+      // 仅 dsRestructureOn && experimentalPrefixDiagnostics 同时开启时生效，写到 console + pushLog。
+      if (dsRestructureOn && dsCfg.experimentalPrefixDiagnostics === true) {
+        const SEP = '\n--§--\n';
+        const segSystem = processedPreset.systemPrompt;
+        const segWbBefore = wbBefore;
+        const segFormat = resolvedFormat;
+        const segWbAfter = wbAfter;
+        // segment offsets（用于诊断器启发式定位漂移在哪个段）
+        const offsets: Record<string, number> = {
+          systemPrompt: 0,
+          wbBefore: segSystem.length + SEP.length,
+          processedFormat: segSystem.length + SEP.length + segWbBefore.length + SEP.length,
+          wbAfter: segSystem.length + SEP.length + segWbBefore.length + SEP.length + segFormat.length + SEP.length,
+        };
+        const staticPrefix = [segSystem, segWbBefore, segFormat, segWbAfter].join(SEP);
+        const sessionId = useChatStore.getState().activeId ?? '__no_session__';
+        const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
+        const line = formatDiagnosticLine(result);
+        if (dsCfg.debugLog === true) console.log(line);
+        if (!result.prefixStable) {
+          // 命中漂移：在主日志面板写一条 warn，提醒用户排查
+          pushLog('warn', line, 'system');
+        }
+      }
 
       // Assemble prompt messages (variables already resolved by unified macro engine)
       const messages = assemblePrompt(
@@ -598,12 +717,39 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         resolvedFormat,
         { before: wbBefore, after: wbAfter },
       );
-      // Store for Prompt Viewer
-      usePromptViewerStore.getState().setPrompt(
-        messages,
-        useSettingsStore.getState().apiModel,
-        activePreset.name,
-      );
+
+      // DS 缓存优化器(B') —— 静态前置/动态尾置：把动态 lore + 动态 baseFormat 段拼成 dynamicTail，
+      // prepend 到 messages 中【最后一条 user 消息】的 content 前。这样合并后的字节顺序为：
+      //   [静态 system 段(每回合不变)] + [dynamicTail(本回合状态)] + [用户输入] + [dsMarker]
+      // 静态前缀才是 DeepSeek 真正可缓存的部分。
+      if (dsRestructureOn) {
+        const dynamicProcessedLore = processedLore.filter(
+          (e) => (e as { _isDynamic?: boolean })._isDynamic,
+        );
+        const sortedDynamic = sortByInsertionStrategy(dynamicProcessedLore, wiStrategy);
+        const dynamicTail = buildDynamicTail({
+          dynamicLoreContents: sortedDynamic.map((e) => e.content),
+          dynamicFormatParts: resolvedDynamicFormat ? [resolvedDynamicFormat] : [],
+        });
+        if (dynamicTail) {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+              messages[i] = { ...messages[i], content: `${dynamicTail}\n\n${messages[i].content}` };
+              break;
+            }
+          }
+        }
+      }
+
+      // DeepSeek V4 缓存优化器(A) —— 思维模式 marker 附着到【最后一条 user 消息】末尾。
+      // 重组开启后这一步仍发生在重组前，marker 进入"被合并的首条 user"里，等价于"前缀缓存中段插指令"——
+      // 但 marker 是用户主动开启的，且对每回合都是同一段文本，所以仍是稳定字节段，不破坏前缀。
+      const dsMarker = buildThinkingMarker(settingsNow.dsCache);
+      if (dsMarker) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'user') { messages[i] = { ...messages[i], content: `${messages[i].content}\n\n${dsMarker}` }; break; }
+        }
+      }
 
       // Context budget management — trim if over limit
       const settings = useSettingsStore.getState();
@@ -617,7 +763,37 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       }
 
-      const finalTokens = estimateTokens(JSON.stringify(result.trimmed));
+      // DeepSeek V4 缓存优化器(B) —— 消息三区重组。仅对 isDeepSeekSource(modelId, targetSources) 命中时启用。
+      // 把 [system×N, user×1, assistant×M, user] 合并为顶部稳定 user(缓存区) + 中间对话区 + 末 user 前置高注意力区。
+      // 本项目 history=[]，通常走 isSingleMessage 路径 → 所有 system + 当前 user 合并成一条 user 消息。
+      // dsCfg/dsRestructureOn 已在 buildPromptMessages 上半段提前计算（用于 baseFormat / lore 分桶）；此处复用。
+      let finalMessages = result.trimmed;
+      if (dsRestructureOn) {
+        const rsCfg: DsRestructureConfig = {
+          enabled: true,
+          roleTags: dsCfg.roleTags !== false,
+          debugLog: dsCfg.debugLog === true,
+          keepTailAssistant: dsCfg.keepTailAssistant !== false,
+          customPrefillEnabled: dsCfg.customPrefillEnabled === true,
+          customPrefillContent: dsCfg.customPrefillContent ?? '',
+          separateWiLights: dsCfg.separateWiLights === true,
+        };
+        // 绿灯 lore 内容：从 matchedLore 中抽出 constant=false 的渲染后内容（仅当 separateWiLights 开启时）。
+        // 抽取自 processedLore 而非原 buckets，因为后者尚未经 EJS/宏渲染。
+        const greenContents = rsCfg.separateWiLights
+          ? processedLore.filter((e) => !e.constant).map((e) => e.content)
+          : undefined;
+        finalMessages = restructureMessages(result.trimmed, rsCfg, greenContents);
+      }
+
+      // Store for Prompt Viewer —— 显示真实发送的(重组后)消息结构，所见即所得。
+      usePromptViewerStore.getState().setPrompt(
+        finalMessages,
+        useSettingsStore.getState().apiModel,
+        activePreset.name,
+      );
+
+      const finalTokens = estimateTokens(JSON.stringify(finalMessages));
       if (result.trimmedCount > 0) {
         pushLog(
           'warn',
@@ -625,7 +801,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
       }
 
-      return { messages: result.trimmed, tokenCount: finalTokens, preset: activePreset, liteSavedTokens };
+      return { messages: finalMessages, tokenCount: finalTokens, preset: activePreset, liteSavedTokens };
     },
     [thHooks],
   );
@@ -898,6 +1074,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           completionTokens: completionTok,
           durationMs,
           estimated: !realUsage,
+          // DeepSeek 上下文缓存命中/未命中(仅主生成)——供缓存面板按页/按天统计；删页随页移除。
+          cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
+          cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
+          at: Date.now(),
         };
         pushLog(
           'info',
@@ -1128,6 +1308,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               try {
                 const enc = await detectAndBuildEncounter(narrativeCB, sheetCB, invCB, cdBase, cdKey, cdModel, controller.signal);
                 if (!enc || useChatStore.getState().activeId !== aidCB || useCombatStore.getState().encounter) return;
+                const anchorPages = useBookStore.getState().pages;
+                enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
                 useCombatStore.getState().start(enc);
                 if (aidCB) await saveConversation(aidCB);
                 pushLog('info', `[战斗] 进入即时战斗：${enc.combatants.filter((c) => c.faction === 'enemy').map((c) => c.name).join('、')}`, 'system');
@@ -1214,6 +1396,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('debug', `[Pipeline] 地图更新: 当前=${result.mapUpdates.current ?? '-'} 新地点=${result.mapUpdates.newLocations?.length ?? 0} 新连线=${result.mapUpdates.newEdges?.length ?? 0}`, 'system');
         } else {
           pushLog('debug', '[Pipeline] 本回合无地图更新(result.mapUpdates 为空)', 'system');
+        }
+        // 兜底:无论 LLM 是否给 mapUpdates,都把本回合场景地点登记为地图当前地点——
+        // 否则开局/原地不动时地图全空、无当前地点节点(地图只靠 LLM mapUpdates 时常缺位)。
+        // 仅当 mapUpdates 未自带 current 时补,避免覆盖 LLM 给的当前地点。
+        const sceneLoc = result.page.sceneInfo?.location?.trim();
+        if (sceneLoc && sceneLoc !== '未知' && !result.mapUpdates?.current) {
+          useMapStore.getState().applyUpdates({ current: sceneLoc, newLocations: [{ name: sceneLoc }] });
         }
 
         // 地点元素抽取：对【当前地点】用独立 LLM 调用从本回合叙事抽取新环境元素，与主输出解耦、不阻塞翻页。
@@ -1502,6 +1691,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const enc = await detectAndBuildEncounter(ctx, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, cdBase, cdKey, cdModel, controller.signal);
           if (enc && !useCombatStore.getState().encounter) {
             enc.log = [...enc.log, { kind: 'narrative', text: trimmed }];
+            const anchorPages = useBookStore.getState().pages;
+            enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
+            enc.opener = trimmed; // 玩家发起的动作并入脱战输入
             useCombatStore.getState().start(enc);
             const aidCB = useChatStore.getState().activeId;
             if (aidCB) await saveConversation(aidCB);

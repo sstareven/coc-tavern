@@ -61,7 +61,7 @@ export function CombatPanel() {
   const runningRef = useRef(false);
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seedHp = (cs: { id: string; hp: number }[]) => setDisplayHp(Object.fromEntries(cs.map((c) => [c.id, c.hp])));
-  const setRevealedBoth = (n: number) => { revealedRef.current = n; setRevealed(n); };
+  const setRevealedBoth = (n: number) => { revealedRef.current = n; setRevealed(n); useCombatStore.getState().markSeen(n); };
   const advance = () => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     const log = useCombatStore.getState().encounter?.log ?? [];
@@ -96,7 +96,10 @@ export function CombatPanel() {
     const logLen = encounter.log.length;
     if (logLenRef.current === 0) {
       seedHp(encounter.combatants); // 进场/读档：显示血量种子=当前各人血量
-      if (logLen > 1) { setRevealedBoth(logLen); logLenRef.current = logLen; return; } // 读档恢复：历史日志不重播
+      // 已看过的行(读档恢复/翻页重挂载)瞬显不重播；未看过的(新开战的开场等)走下面 advance 逐条骰子+打字演出
+      const seen = Math.min(useCombatStore.getState().seenLogLen, logLen);
+      if (seen > 0) { setRevealedBoth(seen); }
+      logLenRef.current = seen;
     }
     if (logLen < logLenRef.current) {
       setRevealedBoth(logLen); setTosses(null); runningRef.current = false; seedHp(encounter.combatants); // 清场/回退 → 同步真实

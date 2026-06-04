@@ -2,6 +2,9 @@ export interface TokenUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  /** DeepSeek 上下文缓存：命中/未命中的 prompt token 数（prompt_tokens = 命中 + 未命中）。 */
+  prompt_cache_hit_tokens?: number;
+  prompt_cache_miss_tokens?: number;
 }
 
 export interface StreamToken {

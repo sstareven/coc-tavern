@@ -4,9 +4,11 @@ import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCombatStore } from '../../stores/useCombatStore';
+import { useNpcStore } from '../../stores/useNpcStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { useMapStore } from '../../stores/useMapStore';
+import { usePanelStore } from '../../stores/usePanelStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
 import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
@@ -61,7 +63,8 @@ export function InputBar() {
         enemy_retreat: '敌人撤退', disengage: '脱离了近战', surrender: '一方投降',
       };
       const summary = enc.log.map((l) => l.text).join('\n');
-      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${summary}`;
+      const openerLine = enc.opener ? `触发本场战斗的行动：${enc.opener}\n` : '';
+      const input = `（即时战斗结束：${outcomeText[reason] ?? '战斗结束'}。以下是这场战斗的经过，请据此承接叙述战斗结果与现场状况，并给出后续行动选项。）\n${openerLine}${summary}`;
       void (async () => {
         try {
           await pipelineRef.current.submit(input);
@@ -71,6 +74,7 @@ export function InputBar() {
             useBookStore.getState().setPageCombatLog(pages.length - 1, { entries: enc.log, endReason: reason });
             useChatStore.getState().savePages(useBookStore.getState().pages);
           }
+          useNpcStore.getState().applyCombatResult(enc.combatants); // 把名册NPC战斗员终值HP/状态回写档案
           useCombatStore.getState().clearCombat();
           const id = useChatStore.getState().activeId;
           if (id) void saveConversation(id);
@@ -245,6 +249,16 @@ export function InputBar() {
                         divider
                         onClick={() => {
                           pipeline.openTokenCounter(input);
+                          setWandOpen(false);
+                        }}
+                      />
+                      <WandRow
+                        icon="◷"
+                        label="缓存命中"
+                        iconColor="#69f0ae"
+                        divider
+                        onClick={() => {
+                          usePanelStore.getState().open('cacheStats');
                           setWandOpen(false);
                         }}
                       />

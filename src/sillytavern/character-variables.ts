@@ -6,18 +6,46 @@ const CHAR_ZH: Record<COC7Characteristic, string> = {
 };
 
 /**
+ * 把 0-100 的属性值映射成 5 档定性描述。
+ * 避免把"力量50"这种具体数字注入 prompt——LLM 看到数值会照搬进角色内心独白("我心想：力量50…")，
+ * 极度脱戏。改用定性等级，LLM 仍能据此判断强项弱项，但叙事中不会蹦出数字。
+ */
+function qualitativeAttr(v: number): string {
+  if (v >= 90) return '极高';
+  if (v >= 70) return '高';
+  if (v >= 50) return '中等';
+  if (v >= 30) return '中下';
+  return '低';
+}
+
+/**
+ * 技能值定性等级（≥50 才算"擅长"，对应 COC7e 普通成功阈值起点）：
+ * 90+「登峰造极」、75-89「炉火纯青」、60-74「颇为熟练」、50-59「略通门径」。
+ */
+function qualitativeSkill(v: number): string {
+  if (v >= 90) return '登峰造极';
+  if (v >= 75) return '炉火纯青';
+  if (v >= 60) return '颇为熟练';
+  return '略通门径';
+}
+
+/**
  * 调查员能力概览（属性 + 擅长技能 + 性格 + 当前姿态/状态）——注入 prompt，
  * 让 LLM 知道角色的强项与处境，从而生成贴合其能力与性格的行动选项。
+ *
+ * 【脱戏防护】2026-06-04 修复：把属性/技能值改为定性等级输出。曾出现过 LLM 把"医学85"
+ * 这种数值直接写进 leftContent 的角色内心独白("我心想：医学85，够我判断…")，破坏沉浸感。
+ * 数值仅在 charVars / mvu_var_list 等机制位置仍保留(用于 JSONPatch 计算)，叙事面不再暴露。
  */
 export function buildAbilityBrief(): string {
   const sheet = useCharSheetStore.getState().sheet;
   const order: COC7Characteristic[] = ['STR', 'CON', 'SIZ', 'DEX', 'APP', 'INT', 'POW', 'EDU'];
-  const attrs = order.map((k) => `${CHAR_ZH[k]}${sheet.characteristics[k]}`).join('、');
+  const attrs = order.map((k) => `${CHAR_ZH[k]}${qualitativeAttr(sheet.characteristics[k])}`).join('、');
   const topSkills = Object.entries(sheet.skills)
     .filter(([, s]) => s.current >= 50)
     .sort((a, b) => b[1].current - a[1].current)
     .slice(0, 10)
-    .map(([name, s]) => `${name}${s.current}`);
+    .map(([name, s]) => `${name}(${qualitativeSkill(s.current)})`);
   const skillStr = topSkills.length ? topSkills.join('、') : '无特别突出的专长';
   const parts = [`属性——${attrs}`, `擅长技能(技能值≥50)——${skillStr}`];
   if (sheet.personality?.trim()) parts.push(`性格——${sheet.personality.trim()}`);

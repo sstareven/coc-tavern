@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../types';
@@ -76,10 +77,10 @@ export async function integrateClues(
     },
     body: JSON.stringify({
       model,
-      messages: [
+      messages: wrapSubagentMessages([
         { role: 'system', content: INTEGRATOR_PROMPT },
         { role: 'user', content: `调查员目前已掌握的线索：\n${list}` },
-      ],
+      ], '线索整合'),
       temperature,
       max_tokens: maxTokens,
     }),

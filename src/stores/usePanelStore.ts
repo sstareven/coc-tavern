@@ -12,6 +12,7 @@ export type Panel =
   | 'extManager'
   | 'diceHistory'
   | 'variable'
+  | 'cacheStats'
   | null;
 
 interface PanelStore {

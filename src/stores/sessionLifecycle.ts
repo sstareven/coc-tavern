@@ -7,13 +7,14 @@ import { useMapStore } from './useMapStore';
 import { useLocationElementStore } from './useLocationElementStore';
 import { useKeyClueStore } from './useKeyClueStore';
 import { useAnchorStore } from './useAnchorStore';
-import { useCombatStore } from './useCombatStore';
+import { useCombatStore, isOrphanedEncounter } from './useCombatStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
 import { useVariableStore } from './useVariableStore';
+import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
@@ -106,6 +107,9 @@ export function cleanupOrphanGameState() {
  */
 export function startNewConversation(name: string): string {
   clearAllGameState();
+  // 种子化世界/剧情/暗线 statData 树——否则 LLM 的 世界.*、剧情.暗线.* JSONPatch replace 会因 path 不存在而失败。
+  // 覆盖所有新开局路径(含 ChatlistPanel「新建对话」);CharacterCreator 之后的显式 setStatData 仍幂等。
+  useVariableStore.getState().setStatData(createInitialStatData());
   return useChatStore.getState().createSession(name);
 }
 
@@ -368,6 +372,11 @@ async function loadConversationInner(cid: string): Promise<void> {
   // 剧情锚点（单行/会话）：无行则空蓝图（clearAllGameState 已清，此处显式恢复以覆盖切档）。
   useAnchorStore.getState().replaceAll(plotAnchorRow?.anchors ?? { nodes: [], constraints: [], threatDependencies: [] });
   useCombatStore.getState().replaceAll(combatRow?.encounter ?? null);
+  // 读档自愈：删页/回溯曾删掉战斗锚定页，使存档里的 encounter 悬空(非空却面板隐形)，
+  // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。锚定页已不在现存 pages → 视为脱战清除。
+  if (isOrphanedEncounter(useCombatStore.getState().encounter, useBookStore.getState().pages.map((p) => p.id ?? ''))) {
+    useCombatStore.getState().clearCombat();
+  }
 
   // 关键词
   const keywords: Record<string, string> = {};

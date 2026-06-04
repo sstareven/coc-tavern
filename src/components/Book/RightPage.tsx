@@ -7,6 +7,8 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
+import { useNpcStore } from '../../stores/useNpcStore';
+import { enterCombat } from '../../sillytavern/combat-entry';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
 import { isHiddenRollSkill, stashHiddenRoll } from '../../sillytavern/hidden-roll';
 import { itemNarrated } from '../../sillytavern/llm-response-parser';
@@ -146,6 +148,10 @@ function rollWithBonus(target: number, bonus: BonusType): RollResult {
 const RESULT_RANK: Record<string, number> = {
   'crit-success': 5, 'extreme-success': 4, 'hard-success': 3, 'success': 2, 'failure': 1, 'crit-failure': 0,
 };
+
+/** 战斗类对抗技能（格斗/斗殴/擒抱/缴械等）——这类对抗选项应直接进战斗面板而非掷骰提交。 */
+const COMBAT_OPPOSED_RE = /格斗|斗殴|擒|缴械|搏斗|近战|拳|踢|扑|武器|肉搏/;
+function isCombatOpposed(skillName: string): boolean { return COMBAT_OPPOSED_RE.test(skillName); }
 
 function rollOpposed(playerTarget: number, opponentTarget: number) {
   const d10 = () => Math.floor(Math.random() * 10);
@@ -606,6 +612,20 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       onClick={() => {
         if (!enabled) return;
         commitRewriteItemGain(ch);
+        // 战斗类对抗选项(格斗/斗殴对抗) → 直接进战斗面板，复用这次对抗掷骰作开场；不走普通掷骰提交。
+        if (check?.opposed && isCombatOpposed(check.skillName)) {
+          useChoiceLockStore.getState().lock();
+          const r = rollOpposed(check.target || 50, check.opponentTarget);
+          const opener = buildChoiceInput(ch);
+          const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n');
+          const present = useNpcStore.getState().getPresent().map((n) => `${n.name}（${n.identity || '身份不明'}，好感${n.favorability}）`).join('；');
+          void enterCombat({
+            contextText: `${recent}\n调查员行动：${opener}${present ? `\n在场NPC：${present}` : ''}`,
+            opener,
+            opposed: { playerRoll: r.pRaw, playerTarget: check.target || 50, oppRoll: r.oRaw, oppTarget: check.opponentTarget, outcome: r.outcome },
+          });
+          return;
+        }
         fillInputBar(buildChoiceInput(ch), ch.action);
       }}
       disabled={!enabled}

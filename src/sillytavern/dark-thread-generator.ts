@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import type { TokenUsage } from './stream-parser';
 
 /**
@@ -66,10 +67,10 @@ export async function generateDarkThread(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: DARK_THREAD_PROMPT },
           { role: 'user', content: `本回合情境与当前暗线状态：\n${context}` },
-        ],
+        ], '暗线生成'),
         temperature,
         max_tokens: maxTokens,
       }),

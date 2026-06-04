@@ -27,3 +27,12 @@ export function useUiScale(): void {
     applyUiScale(uiScale);
   }, [uiScale]);
 }
+
+/**
+ * 当前界面缩放倍率（>0，默认 1）。供 portal 到 body 的 position:fixed 浮层（HelpIcon/DarkSelect 等）
+ * 把 getBoundingClientRect 的可视坐标【除以它】换回布局坐标——否则浮层在 zoom 内会被二次缩放而错位。
+ */
+export function getUiScale(): number {
+  const s = useSettingsStore.getState().uiScale;
+  return s && s > 0 ? s : 1;
+}

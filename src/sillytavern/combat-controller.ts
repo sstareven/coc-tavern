@@ -1,12 +1,19 @@
 import type { Encounter, Combatant, CombatEndReason, CombatLogEntry, CombatRollViz, DiceRecord, DiceResultType, ManeuverKind } from '../types';
 import {
-  type Rng, type SuccessLevel,
+  type Rng, type SuccessLevel, type OpposedResult,
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
 } from './combat-engine';
 
 const defaultRng: Rng = Math.random;
+
+/** 开场对抗预设：复用「选项里那次对抗掷骰」作为进面板的第一次判定（跳过引擎重掷）。 */
+export interface OpeningPreset {
+  op: OpposedResult;
+  defenderValue: number;
+  defense: 'dodge' | 'fightback';
+}
 
 /** 成功等级 → 检定记录用的 DiceResultType（使战斗检定能进主「检定记录」面板且配色正确）。 */
 const LEVEL_TO_DICE_TYPE: Record<SuccessLevel, DiceResultType> = {
@@ -42,6 +49,18 @@ const LEVEL_CN: Record<SuccessLevel, string> = {
 /** 倒地(被压制)：COC7e 战技劣势效果——攻方对其 +1 奖励骰，守方防御吃 +1 惩罚骰。 */
 function proneMods(target: Combatant): { atkBonus: number; defPenalty: number; note: string } {
   return target.flags.prone ? { atkBonus: 1, defPenalty: 1, note: '(倒地·劣势)' } : { atkBonus: 0, defPenalty: 0, note: '' };
+}
+
+/**
+ * 起身：清除倒地(prone)标记。
+ * COC7e「俯卧」可选规则——倒地角色轮到自己时须先起身再行动；起身消耗本回合移动，
+ * 故倒地者【当回合无法脱离战斗】(脱离=追逐，需移动)，但起身后仍可做不需移动的近战攻击。
+ * 非倒地则原样返回。
+ */
+function standUp(enc: Encounter, id: string): Encounter {
+  const c = byId(enc, id);
+  if (!c?.flags.prone) return enc;
+  return patchCombatant(enc, id, { flags: { ...c.flags, prone: false } });
 }
 
 /** 检定滚骰演示：攻击骰 + 守方闪避/反击骰（同投，按成功等级配色）。actor=行动者 id。 */
@@ -91,7 +110,7 @@ export function advanceTurn(enc: Encounter): Encounter {
 }
 
 /** 一次攻击结算（attacker 用 weaponIdx 攻击 targetId）。处理近战对抗/射击/伤害/贯穿/卡壳/弹药/寡不敌众。 */
-export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+export function performAttack(enc0: Encounter, attackerId: string, targetId: string, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   let enc = enc0;
   const attacker = byId(enc, attackerId);
   const target = byId(enc, targetId);
@@ -122,13 +141,13 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
   }
 
-  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避
+  // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避。preset 给定时复用选项那次对抗掷骰作开场。
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
-  const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
-  const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
+  const defense: 'dodge' | 'fightback' = preset ? preset.defense : ((target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge');
+  const defenderValue = preset ? preset.defenderValue : (defense === 'fightback' ? target.fighting : target.dodge);
   const pm = proneMods(target); // 倒地(被压制)：攻方+1奖励骰、守方防御+1惩罚骰
   const bonus = outnumberBonusDice(target) + pm.atkBonus; // 守方本轮已防御→攻方得奖励骰
-  const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
+  const op = preset ? preset.op : resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
@@ -165,6 +184,15 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
   const ai = byId(enc, aiId);
   if (!ai || !alive(ai) || ai.controlledBy !== 'ai') return enc;
   const action = decideAiAction(ai, enc, rng);
+  // 倒地者轮到自己先起身(COC7e 俯卧规则)。起身消耗本回合移动：
+  // 选逃则本回合只能起身、无法脱离(下回合才能真正逃)；选攻则起身后照常近战(不需移动)。
+  if (ai.flags.prone) {
+    enc = standUp(enc, aiId);
+    if (action.type === 'flee') {
+      return log(enc, `${ai.name} 倒在地上，先挣扎着起身，未能在本回合脱离战斗`, 'narrative');
+    }
+    enc = log(enc, `${ai.name} 从地上起身，随即发难`, 'narrative');
+  }
   if (action.type === 'flee') {
     // 逃跑需 MOV/速度结算：比所有敌对存活者都快 → 直接脱离；否则掷 CON 速度检定，成功才逃脱、失败被拦下(留在场继续)。
     const opponents = enc.combatants.filter((c) => hostileTo(ai, c) && alive(c));
@@ -202,10 +230,10 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
 
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
 
-export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng): Encounter {
+export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   const player = enc0.combatants.find((c) => c.faction === 'player');
   if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performAttack(enc0, player.id, enc0.playerTargetId, weaponIdx, rng);
+  const enc = performAttack(standUp(enc0, player.id), player.id, enc0.playerTargetId, weaponIdx, rng, preset); // 倒地先起身再近战(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
@@ -276,7 +304,7 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
 export function playerManeuver(enc0: Encounter, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
   const player = enc0.combatants.find((c) => c.faction === 'player');
   if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performManeuver(enc0, player.id, enc0.playerTargetId, kind, rng);
+  const enc = performManeuver(standUp(enc0, player.id), player.id, enc0.playerTargetId, kind, rng); // 倒地先起身再发战技(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
@@ -337,6 +365,11 @@ export function playerCallForHelp(enc0: Encounter, bystanderId: string, rng: Rng
 export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
   const player = enc0.combatants.find((c) => c.faction === 'player');
   if (!player) return enc0;
+  // 倒地须先起身(COC7e 俯卧规则)，起身消耗本回合移动 → 当回合无法脱离战斗；起身后留在场，下回合可再逃。
+  if (player.flags.prone) {
+    const enc = log(standUp(enc0, player.id), `${player.name} 倒在地上，先起身，未能在本回合脱离战斗`, 'narrative');
+    return advanceUntilPlayerOrEnd(enc, rng);
+  }
   const r = d100WithDice(0, 0, rng);
   const ok = successLevel(r.finalRoll, player.con) !== 'fail' && successLevel(r.finalRoll, player.con) !== 'fumble';
   let enc = rec(enc0, { skill: `${player.name}·速度检定`, roll: String(r.finalRoll), target: String(player.con), type: diceTypeFor(r.finalRoll, player.con), purpose: '速度检定' });

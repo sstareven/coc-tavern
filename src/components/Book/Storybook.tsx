@@ -41,7 +41,7 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
-  const inCombat = useCombatStore((s) => !!s.encounter);
+  const encounter = useCombatStore((s) => s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
@@ -74,6 +74,14 @@ export function Storybook() {
 
   const page = pages[pageIndex];
   if (!page) return null;
+
+  // 战斗面板只在「战斗所属页」显示：翻去别页见正常左右页，翻回战斗页才显示面板。
+  // 老存档/在途战斗无 anchorPageId 时回退为「在最新页显示」，不破坏在途战斗。
+  const inCombat = !!encounter && (
+    encounter.anchorPageId
+      ? page.id === encounter.anchorPageId
+      : pageIndex === pages.length - 1
+  );
 
   const closeOtherOverlays = (keep?: 'inventory' | 'charsheet' | 'npc' | 'map' | 'toc') => {
     // 若本次切换会关掉某个正打开的浮层，播一次翻页音效（与「返回」一致，配合右页退场动画）。

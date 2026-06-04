@@ -10,6 +10,7 @@ import { useTavernHelperStore } from '../stores/useTavernHelperStore';
 import { useCombatStore } from '../stores/useCombatStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
+import { useBookStore } from '../stores/useBookStore';
 import { buildPlayerCombatant } from './combat-detector';
 import { nextTurnOrder } from './combat-engine';
 import type { Combatant, Encounter } from '../types';
@@ -368,6 +369,8 @@ export function initBuiltinCommands(): void {
         log: [{ kind: 'narrative', text: '【测试】两个木头人凭空出现，一个友方木头人站到你这边' }],
         diceRecords: [], status: 'active', test: true,
       };
+      const tp = useBookStore.getState().pages;
+      enc.anchorPageId = tp[tp.length - 1]?.id; // 锚定到当前页
       useCombatStore.getState().start(enc);
       return '[战斗测试：2 敌方木头人 + 1 友方木头人助战（均 MOV1 · 不逃 · HP60）。脱战后不推进正文，点面板「结束测试」手动关闭]';
     } catch (e) {

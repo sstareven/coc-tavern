@@ -97,6 +97,11 @@ export interface PageGenStats {
   completionTokens?: number;
   durationMs: number;
   estimated: boolean;
+  /** DeepSeek 上下文缓存命中/未命中 token（主生成）——供缓存命中面板按页/按天统计；删页随页移除。 */
+  cacheHitTokens?: number;
+  cacheMissTokens?: number;
+  /** 本页生成时刻(epoch ms)——供缓存面板按天分组 X 轴。 */
+  at?: number;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
@@ -139,6 +144,10 @@ export interface NpcUpdate {
   possessions?: string[];
   isPresent?: boolean;
   status?: string;
+  /** 当前生命/理智/魔法值增量（受伤/恢复/损失理智时给出，正=增负=减；系统自动钳制到 [0, 推算最大值]）。 */
+  hpDelta?: number;
+  sanDelta?: number;
+  mpDelta?: number;
 }
 
 export interface MapUpdates {
@@ -318,6 +327,10 @@ export interface NpcProfile {
   isPresent: boolean;
   /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
   status?: string;
+  /** 当前生命/理智/魔法值（缺省=按属性推算的最大值；最大值仍由 parseNpcDerived 现算）。受 npcUpdates 的 hp/san/mpDelta 与战斗结算回写更新。 */
+  hpCurrent?: number;
+  sanCurrent?: number;
+  mpCurrent?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -742,6 +755,10 @@ export interface Encounter {
   diceRecords: DiceRecord[];
   status: 'active' | 'resolving' | 'ended';
   endReason?: CombatEndReason;
+  /** 战斗所属页的稳定 id——战斗面板只在查看该页时显示(翻去别页见正常左右页)。 */
+  anchorPageId?: string;
+  /** 触发本场战斗的选项/动作文本——脱战生成正文时并入输入。 */
+  opener?: string;
   /** 测试战斗（/战斗测试 指令建场）：脱战后【不推进正文】，直接清场。 */
   test?: boolean;
 }

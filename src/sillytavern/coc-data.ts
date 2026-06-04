@@ -253,11 +253,12 @@ export const DB_TABLE: { range: string; db: string; build: number }[] = [
   { range: '165 – 204', db: '+1D6', build: 2 },
 ];
 
-export const SECONDARY_STATS: { key: string; zh: string; color: string }[] = [
+export const SECONDARY_STATS: { key: string; zh: string; color: string; tip?: string }[] = [
   { key: 'hp', zh: 'HP 生命', color: 'var(--success)' },
   { key: 'san', zh: 'SAN 理智', color: 'var(--blood)' },
   { key: 'mp', zh: 'MP 魔法', color: 'var(--gold)' },
   { key: 'luck', zh: 'LUCK 幸运', color: 'var(--gold-bright)' },
   { key: 'mov', zh: 'MOV 移动', color: 'var(--ink-subtle)' },
   { key: 'db', zh: 'DB 伤害', color: 'var(--ink-subtle)' },
+  { key: 'build', zh: '体格 BUILD', color: 'var(--ink-subtle)', tip: '体格(Build)：由 力量+体型 查表得出(与伤害加值同表)，普通人多在 -2～+1。用于战技对抗(擒抱/推倒/缴械)：目标比你大 ≥3 级则战技无效，差额转为你的惩罚骰。' },
 ];

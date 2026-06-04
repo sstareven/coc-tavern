@@ -16,6 +16,13 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 【正文语言纯净·硬约束】leftContent / rightContent 等所有叙事正文【必须是纯中文】。严禁在中文词语后【紧贴】其英文原文或译名（如「借书台circulation desk」「阿卡姆Arkham」「奈克特抄本Necronomicon」这类中英黏连写法）——这会污染上下文。地名、人名、术语一律【只用中文】。世界书/参考资料里出现的英文释义仅供你理解，绝不可照搬进正文。
 
+【数值脱戏·硬约束】所有叙事正文(leftContent / rightContent / 内心独白 / NPC 对话 / 思考链)中【严禁出现具体的机制数值】——包括但不限于：技能值(医学85/侦查70/格斗50 这种)、属性值(力量50/敏捷80)、HP/SAN/MP 当前值或上限、伤害骰(1D6/2D8)、检定目标值(d100=04/25 这种)、伤害结算数字(HP 9→2)。角色不应知道自己被数字量化。
+- 想表达"角色擅长某项"时，用定性描述："医术高明"/"手感娴熟"/"经验丰富"/"略通门径"/"力大无穷"/"体格瘦削"。
+- 想表达"伤势"时，用感官描写："肋骨像被铁锤敲过"/"视野开始发暗"/"血从指缝里渗出"，不要写"HP 还剩 2"。
+- 想表达"精神状态"时，用现象："手抖得握不住钢笔"/"思绪散成片片冷雾"/"还能撑住"，不要写"SAN 30/65"。
+- 想表达"检定信息"时，用感受与现象："这一拳出得干脆"/"看清了对方手指的颤抖"，不要写"d100=30/99 困难成功"。
+- 仅在 JSON 之外的 \`<UpdateVariable><JSONPatch>...</JSONPatch></UpdateVariable>\` 补丁块、以及 sceneInfo 等机制字段里【才允许】出现数字；叙事字段里出现具体机制数字将视为脱戏 bug。
+
 【每回合推进剧情】每一回合的 leftContent 都要让故事实质前进（至少其一：揭示新信息或线索、发生新事件或变故、推动 NPC 行动或表态、改变调查员处境或状态、升级冲突或悬念、给出上一回合行动的明确后果）；避免只复述当前场景、单纯渲染气氛的「水文」。即便玩家选择等待或观察，世界（时间 / 暗线 / NPC）也应自行推进。
 
 关键词高亮：在叙事文本中，用{{}}包裹重要的人名、地名、物品、线索等关键词（如"你走进{{阿卡姆}}的街道"、"桌上放着一本{{奈克特抄本}}"）。每段叙事至少包含2-5个关键词标记。注意：不要给变量补丁块加{{}}。
@@ -99,7 +106,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。若守秘人档案中已给出"本局注定的坏结局"，暗线必须朝该结局逐步逼近——progress 越高越接近其成形，75+爆发时该坏结局趋于不可逆地降临；development 应体现这种向既定终局推进的态势。后日谈阶段省略darkThread字段。
 
-【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、hpDelta/sanDelta/mpDelta(NPC当前生命/理智/魔法值增量，受伤或损失理智时给出，正=增负=减；系统自动钳制到 0~最大值，无需自己算上限)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
 
 【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
 - current：调查员当前所在地点名（每当所在地点变化时给出）。
@@ -109,7 +116,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
   ① 连线必须反映【真实的空间相邻关系】——连的是【实际直接相通的两个地点】，而不是把新地点一律连回当前地点。若某地点 A 的描述称它"通往/连接/可达/直通 B"，就必须给出一条 A—B 连线，哪怕 A、B 都不是当前所在地点。
   ② 当本回合一次引入【一串】依次相连的地点（例如 镇口—碎石小径入口—码头区），必须按真实先后【逐段】连线（镇口—碎石小径入口、碎石小径入口—码头区），绝不能让中间或末端的地点都直接连回当前地点而跳过中间环节。
   ③ 一致性：不得出现"某地点描述说通往 X，却没有它与 X 的连线"的矛盾；每条连线的 description 要与其两端地点的描述吻合（如"碎石小径"应连在这条小径真正的两个端点之间，而不是别处）。
-移动可达性（务必遵守）：调查员本回合的落脚地点必须能从当前地点【沿连线（含本回合新建连线）走到】——允许经一两跳中转，但不可瞬移到与现有连线网络完全无通路的地点；oneway 连线不可逆向通行。current 应与 sceneInfo.location 保持一致。若本回合地点与连线均无变化则省略 mapUpdates。
+移动可达性（务必遵守）：调查员本回合的落脚地点必须能从当前地点【沿连线（含本回合新建连线）走到】——允许经一两跳中转，但不可瞬移到与现有连线网络完全无通路的地点；oneway 连线不可逆向通行。current 应与 sceneInfo.location 保持一致。首次进入某地点（含开局所在的起始地点）即便尚未移动，也要在 current 与 newLocations 中登记它（给出 description）；仅当本回合地点与连线相对上一回合【均无变化】时才省略 mapUpdates。
 
 重要：choices的text字段是玩家看到的行动描述，必须是纯粹的叙事文字（如"仔细搜查书房的每个角落"），禁止包含任何检定标记、方括号标注或技能名称前缀（如[检定:侦查]、[侦查]等）。检定信息只能出现在action字段中。
 
