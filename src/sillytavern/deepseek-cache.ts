@@ -90,10 +90,13 @@ export interface DsCacheConfig {
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
-  enabled: false,
+  // 思维模式默认开启但 mode='default'（不实际注入文案），让用户能在 UI 直接切换模式，
+  // 无需先点"启用"开关——降低 UX 门槛。
+  enabled: true,
   mode: 'default',
   customText: '',
-  restructure: false,
+  // 消息重组：默认开启，跨 API 通用（targetSources 兜底 'deepseek,custom' 覆盖中转站）。
+  restructure: true,
   roleTags: true,
   debugLog: false,
   keepTailAssistant: true,
@@ -103,10 +106,14 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   separateWiLights: false,
   treatConstantAsDynamic: false,
   autoDetectDynamicConstant: true,
+  // 实验性区(仅 DS 有意义,默认关)：减肥/去重。
   experimentalLeanSnapshot: false,
   experimentalSkipMvuVarList: false,
-  experimentalPrefixDiagnostics: false,
-  experimentalSubagentSharedSystem: false,
+  // 已升正式(默认开)：前缀漂移诊断 + 子调用共享前缀。
+  // 注：store 字段名保留 experimental* 前缀以兼容老存档(zustand persist 按字段名加载)；
+  // UI 文案已去掉"实验性"前缀，分组中移到正式区。
+  experimentalPrefixDiagnostics: true,
+  experimentalSubagentSharedSystem: true,
 };
 
 /**

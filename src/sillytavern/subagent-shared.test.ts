@@ -29,9 +29,21 @@ describe('wrapSubagentMessages', () => {
     expect(out).not.toBe(input);
   });
 
-  it('非 DS 模型 → 原样返回', () => {
+  it('开关 undefined(老存档) → 默认开启(experimentalSubagentSharedSystem !== false)', () => {
     useSettingsStore.setState({
-      dsCache: { ...DS_ON_CONFIG, targetSources: 'openai' }, // 不含 custom/deepseek
+      dsCache: { ...DEFAULT_DS_CACHE_CONFIG, experimentalSubagentSharedSystem: undefined as unknown as boolean },
+    });
+    const input = [
+      { role: 'system' as const, content: 'S' },
+      { role: 'user' as const, content: 'U' },
+    ];
+    const out = wrapSubagentMessages(input, 't');
+    expect(out[0].content).toBe(SUBAGENT_SHARED_SYSTEM);
+  });
+
+  it('非 DS 模型也会包装(跨 API 通用)：targetSources 不再起限制作用', () => {
+    useSettingsStore.setState({
+      dsCache: { ...DS_ON_CONFIG, targetSources: 'openai' }, // 任何 sources 都不影响
       apiModel: 'gpt-4o',
     });
     const input = [
@@ -39,7 +51,8 @@ describe('wrapSubagentMessages', () => {
       { role: 'user' as const, content: 'ORIG_USER' },
     ];
     const out = wrapSubagentMessages(input, '坏结局生成');
-    expect(out[0].content).toBe('ORIG_SYS');
+    expect(out[0].content).toBe(SUBAGENT_SHARED_SYSTEM);
+    expect(out[1].content).toContain('ORIG_SYS');
   });
 
   it('开关开启 + DS 模型 → 包装：system 换为 SHARED；原 system 下沉到 user 头部', () => {

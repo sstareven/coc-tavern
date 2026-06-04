@@ -794,52 +794,26 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </div>
                 </div>
 
-                {/* DeepSeek V4 缓存优化：思维模式指令注入（附着到末条用户消息尾部，不动前缀缓存） */}
-                <CategoryBar label="DeepSeek V4 缓存优化（思维模式）" />
+                {/* 缓存优化（通用 API）—— 跨 API 通用的子调用共享前缀，独立于 DeepSeek 重组 */}
+                <CategoryBar label="缓存优化（通用 API）" />
                 <div style={rowStyle}>
                   <span style={labelStyle}>
-                    启用
-                    <HelpIcon text={'把所选「思维模式指令」附着到发给模型的【最后一条用户消息尾部】(高注意力区)，概率性增强 DeepSeek V4 在 <think> 思考内的风格。\n指令不进 system / 世界书前缀，也不写入正文与历史——因此不破坏 DeepSeek 前缀缓存。\n仅对支持思维链的模型(DeepSeek V4 等)有效，其他模型会忽略；默认模式不注入。'} />
+                    子调用共享前缀
+                    <HelpIcon text={'让所有 LLM 子调用(坏结局/起始物品/地点元素抽取/地图自检/线索整合/剧情锚点/暗线生成/战斗检测/MVU 提取/关键线索评估/地点元素整合 共 11 个)共用同一段 KP 助手定位文案；原各自 system 内容下沉到 user 头部 + [子任务: xxx] 标签。\n收益：子调用之间 messages[0] 字节完全相同 → 任意 API 的 prefix cache(DS 隐式 / Anthropic ephemeral / OpenAI auto-prefix)都能跨子调用复用，开局/战斗等多子调用回合省 ~600-1000 tokens cache write。\n跨 API 通用：DeepSeek / Claude / GPT / Gemini 等任何 OpenAI 兼容端点都受益。\n副作用：原 system 通用化，LLM 任务理解能力可能略下降——任务说明置于 user 头部 + [子任务: xxx] 标签部分抵消。\n默认开启。'} />
                   </span>
-                  <Toggle on={dsCache.enabled} onChange={() => setDsCache({ enabled: !dsCache.enabled })} />
+                  <Toggle on={dsCache.experimentalSubagentSharedSystem !== false} onChange={() => setDsCache({ experimentalSubagentSharedSystem: !(dsCache.experimentalSubagentSharedSystem !== false) })} />
                 </div>
-                {dsCache.enabled && (
-                  <>
-                    <div style={rowStyle}>
-                      <span style={labelStyle}>
-                        思维模式
-                        <HelpIcon text={'默认=不注入。\n角色沉浸：思考中以括号包裹角色第一人称内心独白。\n纯分析：思考只做逻辑分析、禁内心独白。\n格式加强：尾部复述「遵从既定格式(含省略规则、不新增字段)」。\n自定义：用你自己的指令。'} />
-                      </span>
-                      <DarkSelect compact value={dsCache.mode} onChange={(v) => setDsCache({ mode: v as DsThinkingMode })}
-                        options={[
-                          { value: 'default', label: '不注入（默认）' },
-                          { value: 'immersive', label: '角色沉浸' },
-                          { value: 'analysis', label: '纯分析' },
-                          { value: 'format_enforce', label: '格式加强' },
-                          { value: 'custom', label: '自定义' },
-                        ]} style={{ width: 150 }} />
-                    </div>
-                    {dsCache.mode === 'custom' && (
-                      <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
-                        <span style={labelStyle}>自定义指令</span>
-                        <textarea rows={3} value={dsCache.customText} onChange={(e) => setDsCache({ customText: e.target.value })}
-                          placeholder="自填思维模式指令，将附着到最后一条用户消息尾部（此处不解析 {{宏}}）"
-                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
-                      </div>
-                    )}
-                  </>
-                )}
 
-                {/* DeepSeek 消息三区重组（核心前缀缓存优化，移植自 deepseek-cache-optimizer 插件） */}
+                {/* DeepSeek 消息三区重组（前缀缓存）—— 合并思维模式 + 漂移诊断（升正式） */}
                 <CategoryBar label="DeepSeek 消息重组（前缀缓存）" />
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     启用消息重组
-                    <HelpIcon text={'把发给 API 的 messages 重组成三个区域以最大化 DeepSeek 前缀缓存命中：\n顶部(缓存区) — 所有 system 设定 + 首条 user 合并成一条 user，字节稳定 → 命中缓存\n中间(对话区) — 聊天历史保持原样\n底部(高注意力区) — 内联 system / 绿灯 lore / 作者注塞到最后 user 之前(等效 D1)\n\n本游戏每回合 stateless 重构 prompt(无聊天历史)，重组后通常发送【一条 user 消息】，能让 DeepSeek 前缀缓存命中率从极低跃升到 80%+。\n默认关闭——需自行确认中转站走的是 DeepSeek 通道再开启。'} />
+                    <HelpIcon text={'把发给 API 的 messages 重组成三个区域以最大化 DeepSeek 前缀缓存命中：\n顶部(缓存区) — 所有 system 设定 + 首条 user 合并成一条 user，字节稳定 → 命中缓存\n中间(对话区) — 聊天历史保持原样\n底部(高注意力区) — 内联 system / 绿灯 lore / 作者注塞到最后 user 之前(等效 D1)\n\n本游戏每回合 stateless 重构 prompt(无聊天历史)，重组后通常发送【一条 user 消息】，能让 DeepSeek 前缀缓存命中率从极低跃升到 80%+。\n默认开启。需自行确认中转站走的是 DeepSeek 通道。'} />
                   </span>
-                  <Toggle on={dsCache.restructure === true} onChange={() => setDsCache({ restructure: !(dsCache.restructure === true) })} />
+                  <Toggle on={dsCache.restructure !== false} onChange={() => setDsCache({ restructure: !(dsCache.restructure !== false) })} />
                 </div>
-                {dsCache.restructure === true && (
+                {dsCache.restructure !== false && (
                   <>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
@@ -884,23 +858,23 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <div style={rowStyle}>
                       <span style={labelStyle}>
                         世界书蓝绿灯分离
-                        <HelpIcon text={'实验性：把【非常驻】世界书条目(绿灯)从顶部缓存区移到底部高注意力区(最后 user 之前)，让蓝灯(常驻)条目独享缓存。\n本项目世界书匹配每回合都变(matchedKeyword/anchor/keyword/statSnapshot 等动态桶) → 启用后能让前缀更稳定。\n默认关 —— 与原插件保守一致。'} />
+                        <HelpIcon text={'把【非常驻】世界书条目(绿灯)从顶部缓存区移到底部高注意力区(最后 user 之前)，让蓝灯(常驻)条目独享缓存。\n本项目世界书匹配每回合都变(matchedKeyword/anchor/keyword/statSnapshot 等动态桶) → 启用后能让前缀更稳定。'} />
                       </span>
                       <Toggle on={dsCache.separateWiLights === true} onChange={() => setDsCache({ separateWiLights: !(dsCache.separateWiLights === true) })} />
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
                         自动检测动态常驻
-                        <HelpIcon text={'扫描内置&用户世界书的【常驻(蓝灯)】条目，含 EJS `<%`/`{{getvar}}`/`{{xxx.yyy}}` 等动态宏的自动下沉到动态尾段。\n这是修复"99.3%→48.8%"命中率衰减的关键——coc_lore 内置条目(ejs_hp_state/mvu_var_list 等)虽然 constant=true 但渲染结果随 statData 变。\n默认开。关掉等价旧版行为。'} />
+                        <HelpIcon text={'扫描内置&用户世界书的【常驻(蓝灯)】条目，含 EJS `<%`/`{{getvar}}`/`{{xxx.yyy}}` 等动态宏的自动下沉到动态尾段。\n这是修复"99.3%→48.8%"命中率衰减的关键——coc_lore 内置条目(ejs_hp_state/mvu_var_list 等)虽然 constant=true 但渲染结果随 statData 变。\n默认开。'} />
                       </span>
                       <Toggle on={dsCache.autoDetectDynamicConstant !== false} onChange={() => setDsCache({ autoDetectDynamicConstant: !(dsCache.autoDetectDynamicConstant !== false) })} />
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
-                        常驻条目视为动态
-                        <HelpIcon text={'激进选项：把【全部常驻(蓝灯)】世界书条目无差别下沉到动态尾段(不再按 EJS/宏内容自动判定)。\n仅在"自动检测动态常驻"不够用时开。会让静态前缀进一步缩短，但保前缀绝对干净。\n默认关。'} />
+                        前缀漂移诊断
+                        <HelpIcon text={'借鉴 claude-code-best 的 PROMPT_CACHE_BREAK_DETECTION：跨回合保存"理论应每回合相等"的静态前缀(systemPrompt+wbBefore+processedFormat+wbAfter)，本回合发送前对比，漂移时在日志面板打 warn：\n• 第一处差异字节位置\n• 前后 80 字符上下文(上回合 vs 本回合)\n• 启发式定位是哪段污染(systemPrompt / wbBefore / processedFormat / wbAfter)\n让你自助定位"为何命中率不达预期"——找到漂移源后改预设/世界书把它静态化。\n纯诊断，不改 prompt，对生成质量无影响。默认开启。'} />
                       </span>
-                      <Toggle on={dsCache.treatConstantAsDynamic === true} onChange={() => setDsCache({ treatConstantAsDynamic: !(dsCache.treatConstantAsDynamic === true) })} />
+                      <Toggle on={dsCache.experimentalPrefixDiagnostics !== false} onChange={() => setDsCache({ experimentalPrefixDiagnostics: !(dsCache.experimentalPrefixDiagnostics !== false) })} />
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
@@ -910,39 +884,62 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       <Toggle on={dsCache.debugLog === true} onChange={() => setDsCache({ debugLog: !(dsCache.debugLog === true) })} />
                     </div>
 
-                    {/* 实验性 ULTRA 缓存优化：默认全关，进一步压榨命中率（副作用见 HelpIcon） */}
-                    <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(196,168,85,0.06)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, transition: 'var(--transition-smooth)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--brass)', marginBottom: 6, letterSpacing: 1 }}>
-                        实验性 ULTRA 缓存（默认关，自选启用）
+                    {/* 思维模式注入：合并自原"DeepSeek V4 缓存优化（思维模式）"分组 */}
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        思维模式注入
+                        <HelpIcon text={'把所选「思维模式指令」附着到发给模型的【最后一条用户消息尾部】(高注意力区)，概率性增强 DeepSeek V4 在 <think> 思考内的风格。\n• 不注入（默认）：零副作用\n• 角色沉浸：思考中以括号包裹角色第一人称内心独白\n• 纯分析：思考只做逻辑分析、禁内心独白\n• 格式加强：尾部复述「遵从既定格式(含省略规则、不新增字段)」\n• 自定义：用你自己的指令\n指令不进 system / 世界书前缀，也不写入正文与历史——不破坏 DeepSeek 前缀缓存。仅对支持思维链的模型(DS V4 等)有效。'} />
+                      </span>
+                      <DarkSelect compact value={dsCache.mode} onChange={(v) => setDsCache({ mode: v as DsThinkingMode, enabled: true })}
+                        options={[
+                          { value: 'default', label: '不注入（默认）' },
+                          { value: 'immersive', label: '角色沉浸' },
+                          { value: 'analysis', label: '纯分析' },
+                          { value: 'format_enforce', label: '格式加强' },
+                          { value: 'custom', label: '自定义' },
+                        ]} style={{ width: 150 }} />
+                    </div>
+                    {dsCache.mode === 'custom' && (
+                      <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
+                        <span style={labelStyle}>自定义指令</span>
+                        <textarea rows={3} value={dsCache.customText} onChange={(e) => setDsCache({ customText: e.target.value })}
+                          placeholder="自填思维模式指令，将附着到最后一条用户消息尾部（此处不解析 {{宏}}）"
+                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
                       </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>
-                          statSnapshot 减肥
-                          <HelpIcon text={'把发给 LLM 的 statData YAML 过滤为【高频变化字段】：保留 HP/SAN/MP/姿态/状态/战斗/时间/天气/地点/暗线进度/阶段；丢弃 /剧情/已解锁/、/剧情/线索/、/剧情/关键事件/、/剧情/当前章节 等长但低频字段。\n收益：dynamicTail 段缩短 ~500-1500 tokens/回合，整体命中率提升。\n副作用：LLM 看不到"已解锁"等状态字面值，需通过叙事推断——一般不影响输出质量，但可能让 LLM 偶尔重复解锁过的场景细节。'} />
-                        </span>
-                        <Toggle on={dsCache.experimentalLeanSnapshot === true} onChange={() => setDsCache({ experimentalLeanSnapshot: !(dsCache.experimentalLeanSnapshot === true) })} />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>
-                          跳过 mvu_var_list
-                          <HelpIcon text={'内置 coc_lore.mvu_var_list 条目用 {{调查员.生命值.当前}} 等列出全量变量，与 statSnapshot 内容几乎完全重复。开启后从匹配里过滤掉，省 ~400-800 tokens/回合。\n副作用：基本无——LLM 仍能从 statSnapshot 看到完整状态，mvu_var_list 本就是冗余的回退方案。'} />
-                        </span>
-                        <Toggle on={dsCache.experimentalSkipMvuVarList === true} onChange={() => setDsCache({ experimentalSkipMvuVarList: !(dsCache.experimentalSkipMvuVarList === true) })} />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>
-                          前缀漂移诊断
-                          <HelpIcon text={'借鉴 claude-code-best 的 PROMPT_CACHE_BREAK_DETECTION：跨回合保存"理论应每回合相等"的静态前缀(systemPrompt+wbBefore+processedFormat+wbAfter)，本回合发送前对比，漂移时在日志面板打 warn：\n• 第一处差异字节位置\n• 前后 80 字符上下文(上回合 vs 本回合)\n• 启发式定位是哪段污染(systemPrompt / wbBefore / processedFormat / wbAfter)\n这能让你自助定位"为何命中率不达预期"——找到那段漂移源后改预设/世界书把它静态化。\n副作用：纯诊断，不改 prompt，对生成质量无影响。'} />
-                        </span>
-                        <Toggle on={dsCache.experimentalPrefixDiagnostics === true} onChange={() => setDsCache({ experimentalPrefixDiagnostics: !(dsCache.experimentalPrefixDiagnostics === true) })} />
-                      </div>
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>
-                          子调用共享前缀
-                          <HelpIcon text={'借鉴 claude-code-best 的 subagent fresh+small context 设计：让所有 LLM 子调用(坏结局/起始物品/地点元素抽取/地图自检/线索整合/剧情锚点/暗线生成/战斗检测/MVU 提取/关键线索评估/地点元素整合 共 11 个)共用同一段 SUBAGENT_SHARED_SYSTEM；各自原 system 内容下沉到 user 头部 + [子任务: xxx] 标签。\n收益：同回合内多个子调用 messages[0] 字节完全相同 → DS 前缀缓存跨子调用复用，开局/战斗后等子调用密集回合省 ~600-1000 tokens cache write。\n副作用：原 system 通用化，LLM 任务理解能力可能略下降（任务说明置于 user 头部部分抵消）。仅 DS 模型生效，非 DS 自动跳过。'} />
-                        </span>
-                        <Toggle on={dsCache.experimentalSubagentSharedSystem === true} onChange={() => setDsCache({ experimentalSubagentSharedSystem: !(dsCache.experimentalSubagentSharedSystem === true) })} />
-                      </div>
+                    )}
+
+                    {/* 实验性 ULTRA 缓存——标题强化为带橙色标签的 sub-bar，明显区别 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '24px 0 12px' }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#d47830',
+                        fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', flexShrink: 0,
+                        padding: '3px 10px', background: 'rgba(212,120,48,0.15)',
+                        border: '1px solid rgba(212,120,48,0.5)', borderRadius: 3,
+                        textTransform: 'uppercase',
+                      }}>⚗ 实验性 · ULTRA 缓存优化</span>
+                      <span style={{ fontSize: 10, color: 'rgba(212,120,48,0.75)', letterSpacing: 1 }}>副作用较大 · 自选启用</span>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(212,120,48,0.5), rgba(212,120,48,0.04))' }} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        statSnapshot 减肥
+                        <HelpIcon text={'把发给 LLM 的 statData YAML 过滤为【高频变化字段】：保留 HP/SAN/MP/姿态/状态/战斗/时间/天气/地点/暗线进度/阶段；丢弃 /剧情/已解锁/、/剧情/线索/、/剧情/关键事件/、/剧情/当前章节 等长但低频字段。\n收益：dynamicTail 段缩短 ~500-1500 tokens/回合，整体命中率提升。\n副作用：LLM 看不到"已解锁"等状态字面值，需通过叙事推断——一般不影响输出质量，但可能让 LLM 偶尔重复解锁过的场景细节。'} />
+                      </span>
+                      <Toggle on={dsCache.experimentalLeanSnapshot === true} onChange={() => setDsCache({ experimentalLeanSnapshot: !(dsCache.experimentalLeanSnapshot === true) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        跳过 mvu_var_list
+                        <HelpIcon text={'内置 coc_lore.mvu_var_list 条目用 {{调查员.生命值.当前}} 等列出全量变量，与 statSnapshot 内容几乎完全重复。开启后从匹配里过滤掉，省 ~400-800 tokens/回合。\n副作用：基本无——LLM 仍能从 statSnapshot 看到完整状态，mvu_var_list 本就是冗余的回退方案。'} />
+                      </span>
+                      <Toggle on={dsCache.experimentalSkipMvuVarList === true} onChange={() => setDsCache({ experimentalSkipMvuVarList: !(dsCache.experimentalSkipMvuVarList === true) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        常驻条目视为动态
+                        <HelpIcon text={'激进选项：把【全部常驻(蓝灯)】世界书条目无差别下沉到动态尾段(不再按 EJS/宏内容自动判定)。\n仅在"自动检测动态常驻"不够用时开。会让静态前缀进一步缩短，但保前缀绝对干净。'} />
+                      </span>
+                      <Toggle on={dsCache.treatConstantAsDynamic === true} onChange={() => setDsCache({ treatConstantAsDynamic: !(dsCache.treatConstantAsDynamic === true) })} />
                     </div>
                   </>
                 )}
