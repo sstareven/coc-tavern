@@ -65,7 +65,7 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
-import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -219,6 +219,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const chatNow = useChatStore.getState();
       const sessionLorebookIds = chatNow.sessions.find((s) => s.id === chatNow.activeId)?.lorebookIds ?? [];
       const scopedBooks = resolveActiveBooks(allBooks, sessionLorebookIds, thOptimize.forceWorldbookSettings);
+      // 早期取 DS 缓存配置：experimentalSkipMvuVarList 在 buckets 收集阶段就要用
+      const earlyDsCache = useSettingsStore.getState().dsCache;
+      const experimentalSkipMvuVarList = earlyDsCache?.experimentalSkipMvuVarList === true;
       type ScopedEntry = LoreEntry & { _source?: WorldInfoSource };
       let otherEntries: ScopedEntry[] = [];
       let summaryEntries: ScopedEntry[] = [];
@@ -227,6 +230,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       for (const { bookId, book, source } of scopedBooks) {
         for (const rawEntry of Object.values(book.entries)) {
           if (rawEntry.disabled) continue;
+          // 实验性：跳过 mvu_var_list（与 statSnapshot 重复，节省 ~400-800 tokens）
+          if (experimentalSkipMvuVarList && rawEntry.name === 'mvu_var_list') continue;
           const entry: ScopedEntry = { ...rawEntry, _source: source };
           const keys = entry.keys.toLowerCase();
           const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
@@ -351,8 +356,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       for (const [k, v] of Object.entries(rawStat)) {
         if (!k.startsWith('_') && !k.startsWith('$')) visibleStat[k] = v;
       }
-      if (Object.keys(visibleStat).length > 0) {
-        const snapshotYaml = formatStatDataYaml(visibleStat);
+      // 实验性 statSnapshot 减肥：丢弃 /剧情/已解锁/线索/关键事件 等长但低频字段，
+      // 仅保留 HP/SAN/MP/姿态/状态/战斗/时间/天气/暗线进度/阶段。省 ~500-1500 tokens/回合。
+      const leanedStat = earlyDsCache?.experimentalLeanSnapshot === true
+        ? leanStatData(visibleStat)
+        : visibleStat;
+      if (Object.keys(leanedStat).length > 0) {
+        const snapshotYaml = formatStatDataYaml(leanedStat);
         if (snapshotYaml && snapshotYaml !== '{}') {
           statSnapshotBucket.push({
             name: '当前状态', keys: '', content: `[当前状态 — 守秘人参考，世界/剧情/战斗的实时快照]\n${snapshotYaml}`,

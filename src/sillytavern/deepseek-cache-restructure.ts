@@ -100,6 +100,50 @@ export function hasDynamicMarker(content: string): boolean {
 }
 
 /**
+ * 实验性"statSnapshot 减肥"：把 statData YAML 过滤为【高频变化字段】，丢弃【长但低频字段】。
+ * 仅在 dsCache.experimentalLeanSnapshot=true 时调用。
+ *
+ * 保留（每回合可能变化、且对叙事直接相关）：
+ *   /调查员/生命值,/调查员/理智值,/调查员/魔法值,/调查员/姓名,/调查员/职业,/调查员/姿态,/调查员/状态条件,/调查员/幸运
+ *   /世界/* (整段——时间/天气/地点/日期都跟叙事强相关)
+ *   /战斗/* (战斗状态/回合数/当前 NPC HP——战斗回合密集变化)
+ *   /剧情/暗线 (进度/威胁等级——叙事核心)
+ *   /剧情/阶段 (调查/高潮/结局)
+ *
+ * 丢弃（长但低频，且通过 clues/线索面板/世界书等其他途径已记录）：
+ *   /剧情/已解锁/* (条件解锁状态——已用世界书 EJS 揭示)
+ *   /剧情/线索/* (本就由 clues 字段记录)
+ *   /剧情/关键事件/* (由 darkThread/anchorBucket 注入)
+ *   /剧情/当前章节 (叙事正文已表达)
+ *
+ * 副作用：LLM 看不到"已解锁"等状态字面值，需通过叙事推断。一般不影响输出质量。
+ */
+export function leanStatData(stat: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const inv = stat['调查员'];
+  if (inv && typeof inv === 'object') {
+    const i = inv as Record<string, unknown>;
+    const slim: Record<string, unknown> = {};
+    const KEEP_INVESTIGATOR_KEYS = ['生命值', '理智值', '魔法值', '姓名', '职业', '姿态', '状态条件', '幸运'];
+    for (const k of KEEP_INVESTIGATOR_KEYS) {
+      if (k in i) slim[k] = i[k];
+    }
+    if (Object.keys(slim).length > 0) out['调查员'] = slim;
+  }
+  if (stat['世界']) out['世界'] = stat['世界'];
+  if (stat['战斗']) out['战斗'] = stat['战斗'];
+  const plot = stat['剧情'];
+  if (plot && typeof plot === 'object') {
+    const p = plot as Record<string, unknown>;
+    const slim: Record<string, unknown> = {};
+    if ('暗线' in p) slim['暗线'] = p['暗线'];
+    if ('阶段' in p) slim['阶段'] = p['阶段'];
+    if (Object.keys(slim).length > 0) out['剧情'] = slim;
+  }
+  return out;
+}
+
+/**
  * 把 LoreBuckets 显式分静态/动态：
  *   静态 = constant + generateInjects + inverted（运行时通常字节稳定）
  *   动态 = matchedKeyword + summary + darkThread + anchor + keyword + statSnapshot（每回合通常变）

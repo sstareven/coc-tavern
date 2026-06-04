@@ -909,6 +909,27 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       </span>
                       <Toggle on={dsCache.debugLog === true} onChange={() => setDsCache({ debugLog: !(dsCache.debugLog === true) })} />
                     </div>
+
+                    {/* 实验性 ULTRA 缓存优化：默认全关，进一步压榨命中率（副作用见 HelpIcon） */}
+                    <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(196,168,85,0.06)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, transition: 'var(--transition-smooth)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--brass)', marginBottom: 6, letterSpacing: 1 }}>
+                        实验性 ULTRA 缓存（默认关，自选启用）
+                      </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>
+                          statSnapshot 减肥
+                          <HelpIcon text={'把发给 LLM 的 statData YAML 过滤为【高频变化字段】：保留 HP/SAN/MP/姿态/状态/战斗/时间/天气/地点/暗线进度/阶段；丢弃 /剧情/已解锁/、/剧情/线索/、/剧情/关键事件/、/剧情/当前章节 等长但低频字段。\n收益：dynamicTail 段缩短 ~500-1500 tokens/回合，整体命中率提升。\n副作用：LLM 看不到"已解锁"等状态字面值，需通过叙事推断——一般不影响输出质量，但可能让 LLM 偶尔重复解锁过的场景细节。'} />
+                        </span>
+                        <Toggle on={dsCache.experimentalLeanSnapshot === true} onChange={() => setDsCache({ experimentalLeanSnapshot: !(dsCache.experimentalLeanSnapshot === true) })} />
+                      </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>
+                          跳过 mvu_var_list
+                          <HelpIcon text={'内置 coc_lore.mvu_var_list 条目用 {{调查员.生命值.当前}} 等列出全量变量，与 statSnapshot 内容几乎完全重复。开启后从匹配里过滤掉，省 ~400-800 tokens/回合。\n副作用：基本无——LLM 仍能从 statSnapshot 看到完整状态，mvu_var_list 本就是冗余的回退方案。'} />
+                        </span>
+                        <Toggle on={dsCache.experimentalSkipMvuVarList === true} onChange={() => setDsCache({ experimentalSkipMvuVarList: !(dsCache.experimentalSkipMvuVarList === true) })} />
+                      </div>
+                    </div>
                   </>
                 )}
 

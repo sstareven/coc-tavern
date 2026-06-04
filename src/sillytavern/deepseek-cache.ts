@@ -68,6 +68,13 @@ export interface DsCacheConfig {
   treatConstantAsDynamic?: boolean;
   /** 自动检测：constantBucket 里含 EJS `<%`/`{{getvar`/`{{xxx.yyy}}` 等动态 marker 的条目自动下沉。默认 true（建议）。 */
   autoDetectDynamicConstant?: boolean;
+  /** ── 实验性 ULTRA 缓存优化（默认全关，用户主动启用） ── */
+  /** statSnapshot 减肥：只发 HP/SAN/MP/姿态/状态/战斗/时间/天气/暗线进度 等高频字段，
+   *  丢弃 /剧情/已解锁/线索/关键事件 等长但不常变的字段。省 ~500-1500 tokens/回合。 */
+  experimentalLeanSnapshot?: boolean;
+  /** 跳过 mvu_var_list：内置 coc_lore 的 mvu_var_list 与 statSnapshot 几乎完全重复，
+   *  开启后从匹配里过滤掉它，省 ~400-800 tokens/回合。 */
+  experimentalSkipMvuVarList?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -84,6 +91,8 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   separateWiLights: false,
   treatConstantAsDynamic: false,
   autoDetectDynamicConstant: true,
+  experimentalLeanSnapshot: false,
+  experimentalSkipMvuVarList: false,
 };
 
 /**

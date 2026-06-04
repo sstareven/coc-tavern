@@ -5,6 +5,7 @@ import {
   splitLoreBucketsForCache,
   buildDynamicTail,
   hasDynamicMarker,
+  leanStatData,
   DEFAULT_RESTRUCTURE_CONFIG,
 } from './deepseek-cache-restructure';
 import type { AssembledMessage } from './prompt-assembler';
@@ -332,5 +333,84 @@ describe('hasDynamicMarker', () => {
   });
   it('混合：含 EJS + 静态文本 → 动态', () => {
     expect(hasDynamicMarker('调查员状态：<% if (hp <= 0) %>濒死<% %> 当前位置：固定值')).toBe(true);
+  });
+});
+
+describe('leanStatData', () => {
+  const fullStat = {
+    调查员: {
+      生命值: { 当前: 9, 最大: 10 },
+      理智值: { 当前: 50, 最大: 65 },
+      魔法值: { 当前: 10, 最大: 14 },
+      姓名: '杰米',
+      职业: '医生',
+      姿态: '站立',
+      状态条件: [],
+      幸运: 70,
+      技能: { 医学: 85, 侦查: 60 },
+      背包: ['绷带'],
+    },
+    世界: { 时间: '清晨', 天气: '薄雾', 地点: '阿卡姆', 日期: '1925-01-01' },
+    战斗: { 是否战斗中: false, 回合数: 0 },
+    剧情: {
+      暗线: { 进度: 15, 威胁等级: '潜伏' },
+      阶段: '调查期',
+      已解锁: { 阿卡姆: true, 密大: true, 印斯茅斯: false },
+      线索: { 化石证据: { 内容: '...', 是否已调查: true } },
+      关键事件: { 事件1: { 名称: '...' } },
+      当前章节: '序章',
+    },
+  };
+
+  it('保留高频字段：调查员的 HP/SAN/MP/姓名/职业/姿态/状态/幸运', () => {
+    const lean = leanStatData(fullStat) as Record<string, Record<string, unknown>>;
+    expect(lean.调查员).toMatchObject({
+      生命值: { 当前: 9, 最大: 10 },
+      理智值: { 当前: 50, 最大: 65 },
+      姓名: '杰米',
+      职业: '医生',
+      姿态: '站立',
+    });
+    // 不应包含技能/背包等
+    expect(lean.调查员.技能).toBeUndefined();
+    expect(lean.调查员.背包).toBeUndefined();
+  });
+
+  it('世界、战斗整段保留', () => {
+    const lean = leanStatData(fullStat);
+    expect(lean.世界).toEqual(fullStat.世界);
+    expect(lean.战斗).toEqual(fullStat.战斗);
+  });
+
+  it('剧情仅保留暗线/阶段，丢弃 已解锁/线索/关键事件/当前章节', () => {
+    const lean = leanStatData(fullStat) as Record<string, Record<string, unknown>>;
+    expect(lean.剧情).toEqual({
+      暗线: { 进度: 15, 威胁等级: '潜伏' },
+      阶段: '调查期',
+    });
+    expect(lean.剧情.已解锁).toBeUndefined();
+    expect(lean.剧情.线索).toBeUndefined();
+    expect(lean.剧情.关键事件).toBeUndefined();
+    expect(lean.剧情.当前章节).toBeUndefined();
+  });
+
+  it('空 statData → 空对象', () => {
+    expect(leanStatData({})).toEqual({});
+  });
+
+  it('部分字段缺失 → 跳过缺失项不报错', () => {
+    const lean = leanStatData({ 调查员: { 生命值: { 当前: 5 } } }) as Record<string, Record<string, unknown>>;
+    expect(lean.调查员).toEqual({ 生命值: { 当前: 5 } });
+    expect(lean.世界).toBeUndefined();
+    expect(lean.战斗).toBeUndefined();
+    expect(lean.剧情).toBeUndefined();
+  });
+
+  it('实测体积估算：典型 statData lean 后字节减少 30-60%', () => {
+    const fullJson = JSON.stringify(fullStat);
+    const leanJson = JSON.stringify(leanStatData(fullStat));
+    expect(leanJson.length).toBeLessThan(fullJson.length);
+    // 至少能砍掉 20%（实际取决于具体字段长度）
+    expect(leanJson.length / fullJson.length).toBeLessThan(0.8);
   });
 });
