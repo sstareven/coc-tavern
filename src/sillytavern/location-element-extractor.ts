@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import { pushLog } from '../stores/useLogStore';
 import { LOCATION_ELEMENT_CATEGORIES } from '../types';
 import type { LocationElementInput, LocationElementCategory } from '../types';
@@ -57,7 +54,6 @@ export async function extractLocationElements(
   maxTokens = 20000, // 思考型模型把预算耗在 reasoning 上，给足余量防 JSON 截断（用户要求 max_tokens≥20000）
   retries = 3,       // API 层重试：仅对「截断/空响应」重试（coerceJsonObject 内部重试只是清洗同一份脏文本，救不了真截断）
 ): Promise<GenerateLocationElementsResult> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
   pushLog('info', `[地点元素] 开始抽取「${locationName}」，模型=${model}`, 'api');
 
   // 已知名集合（trim 后比较），用于过滤掉 LLM 仍可能吐回的重复元素。
@@ -66,17 +62,12 @@ export async function extractLocationElements(
   let lastError = '';
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500)); // 截断/空响应退避后重试
-    await rpmAcquire('main');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
+    let resp;
+    try {
+      resp = await callDsSubagent({
+        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+        label: '地点元素抽取',
+        messages: [
           { role: 'system', content: LOCATION_ELEMENTS_PROMPT },
           {
             role: 'user',
@@ -85,26 +76,17 @@ export async function extractLocationElements(
               `该地点已知元素名清单：${existingSet.size ? Array.from(existingSet).join('、') : '（暂无）'}\n` +
               `本回合叙事正文：\n${narrative}`,
           },
-        ], '地点元素抽取'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      pushLog('error', `[地点元素] API 返回错误 ${response.status}`, 'api');
-      throw new Error(`地点元素抽取 API 错误 ${response.status}`);
+        ],
+      });
+    } catch (err) {
+      pushLog('error', `[地点元素] API 返回错误 ${err instanceof Error ? err.message : String(err)}`, 'api');
+      throw err;
     }
-
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const usage: TokenUsage | undefined = json.usage;
+    const { content, parsed, parseError, usage } = resp;
 
     // 健壮解析：兼容 {"elements":[...]} / 顶层数组 [...]。
-    const { parsed, error } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
     let raw: Record<string, unknown>[] = [];
-    if (pObj && Array.isArray(pObj.elements)) raw = pObj.elements as Record<string, unknown>[];
+    if (parsed && Array.isArray(parsed.elements)) raw = parsed.elements as Record<string, unknown>[];
     else {
       const m = content.match(/\[[\s\S]*\]/);
       if (m) { try { const a = JSON.parse(m[0]); if (Array.isArray(a)) raw = a as Record<string, unknown>[]; } catch { /* 顶层数组兜底失败，留空 */ } }
@@ -133,7 +115,7 @@ export async function extractLocationElements(
     // 失败分流：JSON 根本没解析出来(parsed=null：空/截断/畸形) → 重试；
     // JSON 解析成功但无新元素 → 合法的「本回合无新元素」，重试无益，直接返回空数组。
     const retryable = !content.trim() || parsed === null;
-    lastError = error || '解析为空';
+    lastError = parseError || '解析为空';
     pushLog(
       attempt + 1 < retries && retryable ? 'warn' : 'info',
       `[地点元素] 解析: parsed=${parsed ? 'ok' : 'null'} 错误=${lastError}（第 ${attempt + 1}/${retries} 次，${retryable ? '空/截断/畸形，将重试' : '已解析但本回合无新元素，停止重试'}），产出 0 个`,

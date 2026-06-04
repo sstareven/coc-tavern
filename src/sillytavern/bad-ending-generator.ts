@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import type { TokenUsage } from './stream-parser';
 
 /**
@@ -47,40 +44,19 @@ export async function generateBadEnding(
   maxTokens = 20000, // 坏结局 + 3 支柱需余量，且思考型模型防截断（项目要求 max_tokens≥20000）
   retries = 3,
 ): Promise<GenerateBadEndingResult> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
-
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
-    await rpmAcquire('main');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
-          { role: 'system', content: BAD_ENDING_PROMPT },
-          { role: 'user', content: `本局开场情境与背景：\n${context}` },
-        ], '坏结局生成'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
+    const { parsed, usage } = await callDsSubagent({
+      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+      label: '坏结局生成',
+      messages: [
+        { role: 'system', content: BAD_ENDING_PROMPT },
+        { role: 'user', content: `本局开场情境与背景：\n${context}` },
+      ],
     });
-
-    if (!response.ok) throw new Error(`坏结局生成 API 错误 ${response.status}`);
-
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const usage: TokenUsage | undefined = json.usage;
-
-    const { parsed } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
-    if (pObj) {
-      const description = typeof pObj.badEnding === 'string' ? pObj.badEnding.trim() : '';
-      const rawPillars = Array.isArray(pObj.pillars) ? (pObj.pillars as Record<string, unknown>[]) : [];
+    if (parsed) {
+      const description = typeof parsed.badEnding === 'string' ? parsed.badEnding.trim() : '';
+      const rawPillars = Array.isArray(parsed.pillars) ? (parsed.pillars as Record<string, unknown>[]) : [];
       const pillars = rawPillars
         .filter((x) => x && (typeof x.title === 'string' || typeof x.secret === 'string'))
         .map((x) => ({

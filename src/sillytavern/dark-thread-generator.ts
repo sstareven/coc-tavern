@@ -1,7 +1,4 @@
-import { rpmAcquire } from './rpm-limiter';
-import { appIdHeaders } from './api-router';
-import { coerceJsonObject } from './llm-response-parser';
-import { wrapSubagentMessages } from './subagent-shared';
+import { callDsSubagent } from './subagent-call';
 import type { TokenUsage } from './stream-parser';
 
 /**
@@ -51,47 +48,25 @@ export async function generateDarkThread(
   maxTokens = 20000, // 思考型模型防截断（项目要求 max_tokens≥20000）
   retries = 3,
 ): Promise<GenerateDarkThreadResult | null> {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
-
   for (let attempt = 0; attempt < retries; attempt++) {
     if (signal?.aborted) return null;
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
-    await rpmAcquire('mvu');
     if (signal?.aborted) return null;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages: wrapSubagentMessages([
-          { role: 'system', content: DARK_THREAD_PROMPT },
-          { role: 'user', content: `本回合情境与当前暗线状态：\n${context}` },
-        ], '暗线生成'),
-        temperature,
-        max_tokens: maxTokens,
-      }),
-      signal,
+    const { parsed, usage } = await callDsSubagent({
+      apiBaseUrl, apiKey, model, signal, temperature, maxTokens, rpmLane: 'mvu',
+      label: '暗线生成',
+      messages: [
+        { role: 'system', content: DARK_THREAD_PROMPT },
+        { role: 'user', content: `本回合情境与当前暗线状态：\n${context}` },
+      ],
     });
-
-    if (!response.ok) throw new Error(`暗线补生成 API 错误 ${response.status}`);
-
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? '';
-    const usage: TokenUsage | undefined = json.usage;
-
-    const { parsed } = coerceJsonObject(content);
-    const pObj = parsed as Record<string, unknown> | null;
-    if (pObj) {
-      const development = typeof pObj.development === 'string' ? pObj.development.trim() : '';
-      const rawProgress = typeof pObj.progress === 'number' ? pObj.progress : Number(pObj.progress);
+    if (parsed) {
+      const development = typeof parsed.development === 'string' ? parsed.development.trim() : '';
+      const rawProgress = typeof parsed.progress === 'number' ? parsed.progress : Number(parsed.progress);
       const progress = Number.isFinite(rawProgress) ? Math.max(0, Math.min(100, Math.round(rawProgress))) : 0;
-      const rawLevel = typeof pObj.threatLevel === 'string' ? pObj.threatLevel.trim() : '';
+      const rawLevel = typeof parsed.threatLevel === 'string' ? parsed.threatLevel.trim() : '';
       const threatLevel = THREAT_LEVELS.includes(rawLevel) ? rawLevel : '潜伏';
-      const foreshadowing = typeof pObj.foreshadowing === 'string' ? pObj.foreshadowing.trim() : '';
+      const foreshadowing = typeof parsed.foreshadowing === 'string' ? parsed.foreshadowing.trim() : '';
       if (development) return { development, progress, threatLevel, foreshadowing, usage };
     }
     // parsed 为 null（空/截断/畸形）或无 development → 继续下一次重试。
