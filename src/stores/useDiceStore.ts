@@ -87,8 +87,8 @@ function recomputeRollWithLuck(
   return { finalRoll, resultType: determineResult(finalRoll, ctx.target, ctx.sanCheck) };
 }
 
-/** A1.3 — 推骰 commit 资格：失败 + 非 SAN + 非对抗 + 未推过。 */
-function canStartPush(ctx: {
+/** A1.3 — 推骰 commit 资格：失败 + 非 SAN + 非对抗 + 未推过。A1.5 起对外暴露给 DicePanel UI。 */
+export function canStartPush(ctx: {
   resultType: DiceResultType | null;
   sanCheck: boolean;
   mode: DiceMode;

@@ -5,8 +5,8 @@ import { useVariableStore } from '../useVariableStore';
 
 // ============================================================
 // A1.3 — useDiceStore staging（rollStaged/commitWithLuck/commitAsPush/commitNow）
-// 行为级（非纯函数）：recomputeRollWithLuck / canStartPush 是文件局部辅助，
-// 仅通过 store API（commitWithLuck/commitAsPush）间接覆盖。
+// 行为级（非纯函数）：recomputeRollWithLuck 是文件局部辅助，canStartPush A1.5 起对外导出，
+// 二者仅通过 store API（commitWithLuck/commitAsPush）间接覆盖。
 // ============================================================
 describe('A1.3 useDiceStore staging', () => {
   beforeEach(() => {

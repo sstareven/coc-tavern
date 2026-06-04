@@ -40,3 +40,11 @@ export function IconClue({ size = 18 }: IconProps) {
 export function IconKey({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><circle cx="7.5" cy="7.5" r="3.6" /><path d="M10.1 10.1L19 19M15.5 15.5l2.2-2.2M18 18l1.8-1.8" /></svg>);
 }
+/** 幸运：四芒星轮廓（A1.5 DicePanel 幸运扣点徽章） */
+export function IconLuck({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><path d="M12 3l2.2 6.3 6.6.4-5.1 4.2 1.7 6.4L12 16.8 6.6 20.3l1.7-6.4L3.2 9.7l6.6-.4L12 3z" /></svg>);
+}
+/** 推骰：圆中循环箭头（A1.5 DicePanel 推骰徽章） */
+export function IconPush({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="12" cy="12" r="8" /><path d="M9 9h-3v-3M15 15h3v3M8 14.5a5 5 0 008 1.5M16 9.5a5 5 0 00-8-1.5" /></svg>);
+}
