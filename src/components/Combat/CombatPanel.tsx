@@ -50,6 +50,40 @@ export function CombatPanel() {
     lastDiceCount.current = recs.length;
   }, [encounter?.diceRecords, encounter?.combatants]);
 
+  // 日志揭示门控：动作若伴随掷骰，则【暂存】新日志行，待骰子动画结束(dice-animate-done)再揭示并逐字显示；
+  // 纯叙事(换弹/呼救等，无新检定)立即显示；新战斗/清场则重置全显。带 6s 兜底防卡死。
+  const [revealed, setRevealed] = useState(0);
+  const pendingRevealRef = useRef(0);
+  const lastLogLen = useRef(0);
+  const lastDiceLen = useRef(0);
+  const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!encounter) { lastLogLen.current = 0; lastDiceLen.current = 0; return; }
+    const logLen = encounter.log.length;
+    const diceLen = encounter.diceRecords.length;
+    if (logLen < lastLogLen.current) {
+      setRevealed(logLen); // 新战斗/清场 → 全显
+    } else if (logLen > lastLogLen.current) {
+      if (diceLen > lastDiceLen.current) {
+        pendingRevealRef.current = logLen; // 有掷骰 → 暂存，等动画结束
+        if (safetyRef.current) clearTimeout(safetyRef.current);
+        safetyRef.current = setTimeout(() => setRevealed(pendingRevealRef.current), 6000);
+      } else {
+        setRevealed(logLen); // 无掷骰 → 立即显示
+      }
+    }
+    lastLogLen.current = logLen;
+    lastDiceLen.current = diceLen;
+  }, [encounter?.log, encounter?.diceRecords, encounter]);
+  useEffect(() => {
+    const onDone = () => {
+      if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
+      setRevealed(pendingRevealRef.current);
+    };
+    document.addEventListener('dice-animate-done', onDone);
+    return () => document.removeEventListener('dice-animate-done', onDone);
+  }, []);
+
   if (!encounter) return null;
   const enc = encounter;
   const player = enc.combatants.find((c) => c.faction === 'player');
@@ -127,7 +161,7 @@ export function CombatPanel() {
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
       <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
-        {enc.log.map((l, i) => (
+        {enc.log.slice(0, revealed).map((l, i) => (
           <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'} />
         ))}
         <DiceRecordsExpander records={enc.diceRecords} />
@@ -141,6 +175,8 @@ export function CombatPanel() {
           <span>MP <b style={{ color: 'var(--ink)' }}>{sheet.secondary.mp.current}</b></span>
           {rangedWeapon && <span>弹药 <b style={{ color: 'var(--ink)' }}>{rangedWeapon.loadedAmmo ?? 0}/{rangedWeapon.magazine ?? 0}</b>（备 {reserve}）</span>}
           {jammed && <span style={{ color: 'var(--blood)' }}>卡壳</span>}
+          {player.flags.prone && <span style={{ color: 'var(--blood)' }}>倒地</span>}
+          {player.flags.majorWound && <span style={{ color: 'var(--blood)' }}>重伤</span>}
         </div>
       )}
 
@@ -201,11 +237,24 @@ function CombatantRow({ c, hostile, target, onClick }: { c: Combatant; hostile: 
       <span style={{ flex: 1, fontSize: 13, color: hostile ? 'var(--ink)' : 'var(--success)' }}>
         {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}
       </span>
+      {!down && (c.flags.prone || c.flags.weaponJammed) && (
+        <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
+          {c.flags.prone && <StatusChip label="倒地" />}
+          {c.flags.weaponJammed && <StatusChip label="已缴械" />}
+        </span>
+      )}
       <div style={{ width: 72, height: 7, background: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: hostile ? 'var(--blood)' : 'var(--success)', transition: 'var(--transition-smooth)' }} />
       </div>
       <span style={{ fontSize: 11, color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{c.hp}/{c.maxHp}</span>
     </div>
+  );
+}
+
+/** 战斗状态小标签（倒地/已缴械等，血红描边）。 */
+function StatusChip({ label }: { label: string }) {
+  return (
+    <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid rgba(176,58,46,0.45)', background: 'rgba(176,58,46,0.06)', borderRadius: 8, padding: '0 6px', whiteSpace: 'nowrap', lineHeight: 1.6 }}>{label}</span>
   );
 }
 

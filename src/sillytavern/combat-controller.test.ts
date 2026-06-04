@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performManeuver, playerManeuver } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, playerManeuver } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -115,9 +115,17 @@ describe('performManeuver（COC7e 6.3 战技）', () => {
 
   it('缴械攻方胜 → 目标 weaponJammed', () => {
     const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50, fighting: 80 });
-    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 30 });
+    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 30, weapons: [{ name: '匕首', skill: 30, damage: '1D4', impaling: true, ranged: false, attacksPerRound: 1 }] });
     const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'disarm', seqRng([0.0, 0.1, 0.5, 0.9]));
     expect(out.combatants.find((c) => c.id === 'e')!.flags.weaponJammed).toBe(true);
+  });
+
+  it('缴械目标仅徒手 → 无从缴械，战技无效', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', str: 50, siz: 50, fighting: 80 });
+    const target = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }] });
+    const out = performManeuver(mkEnc([attacker, target], 'e'), 'p', 'e', 'disarm', seqRng([0.0, 0.1, 0.5, 0.9]));
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.weaponJammed).toBe(false);
+    expect(out.log.some((l) => l.text.includes('无从缴械'))).toBe(true);
   });
 
   it('守方反击胜 → 攻方受伤', () => {
@@ -136,5 +144,24 @@ describe('playerManeuver', () => {
     const enemy = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 20, hp: 12, maxHp: 12, tendency: { attack: 0, flee: 0 } });
     const out = playerManeuver(mkEnc([player, enemy], 'e'), 'knockout', seqRng([0.0, 0.1, 0.5, 0.9, 0.5, 0.5]));
     expect(out.combatants.find((c) => c.id === 'e')!.flags.prone).toBe(true);
+  });
+});
+
+describe('近战日志拆行 + 倒地劣势', () => {
+  it('每次近战结算 → 第一行为骰子判断(双方d100，单独成行)，第二行为结果', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 70 });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 30, dodge: 40 });
+    const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9, 0.5, 0.5]));
+    expect(out.log.length).toBeGreaterThanOrEqual(2);
+    expect(out.log[0].text).toContain('d100=');
+    expect(out.log[0].text).toContain('｜');       // 判断行含双方掷骰
+    expect(out.log[1].text).not.toContain('d100='); // 结果行不再混入掷骰
+  });
+
+  it('目标倒地(prone) → 判断行标注「倒地·劣势」', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 70 });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 40, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+    const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]));
+    expect(out.log.some((l) => l.text.includes('倒地·劣势'))).toBe(true);
   });
 });

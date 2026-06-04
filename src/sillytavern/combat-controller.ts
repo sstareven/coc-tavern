@@ -39,6 +39,11 @@ const LEVEL_CN: Record<SuccessLevel, string> = {
   critical: '大成功', extreme: '极难成功', hard: '困难成功', success: '成功', fail: '失败', fumble: '大失败',
 };
 
+/** 倒地(被压制)：COC7e 战技劣势效果——攻方对其 +1 奖励骰，守方防御吃 +1 惩罚骰。 */
+function proneMods(target: Combatant): { atkBonus: number; defPenalty: number; note: string } {
+  return target.flags.prone ? { atkBonus: 1, defPenalty: 1, note: '(倒地·劣势)' } : { atkBonus: 0, defPenalty: 0, note: '' };
+}
+
 /** 判定脱战原因；null=继续。 */
 export function checkEndReason(enc: Encounter): CombatEndReason | null {
   const enemies = enc.combatants.filter((c) => c.faction === 'enemy');
@@ -99,13 +104,15 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
   const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
   const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
-  const bonus = outnumberBonusDice(target); // 守方本轮已防御→攻方得奖励骰
-  const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0);
+  const pm = proneMods(target); // 倒地(被压制)：攻方+1奖励骰、守方防御+1惩罚骰
+  const bonus = outnumberBonusDice(target) + pm.atkBonus; // 守方本轮已防御→攻方得奖励骰
+  const op = resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
   const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${weapon.skill}（${LEVEL_CN[op.attackerLevel]}）`;
-  const defLine = `${target.name} ${defense === 'dodge' ? '闪避' : '反击'} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
+  const defLine = `${target.name} ${defense === 'dodge' ? '闪避' : '反击'}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
+  enc = log(enc, `${atkLine} ｜ ${defLine}`); // 第一行：骰子判断（双方掷骰，单独成行）
 
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
@@ -114,7 +121,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = target.hp;
     const dr = applyDamage(target, dmg);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags, roundDefenses: target.roundDefenses + 1 });
-    return log(enc, `${atkLine}${impale ? '·贯穿' : ''} 胜过 ${defLine} → 伤害 ${dmgFormula(db)}=${dmg}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
+    return log(enc, `${attacker.name} 命中${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmg}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? weapon;
@@ -122,10 +129,10 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmg);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${defLine} 反击得手，压过 ${atkLine} → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
+    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
   }
-  if (op.winner === 'defender') return log(enc, `${atkLine} 被 ${defLine} 躲开`);
-  return log(enc, `${atkLine} 与 ${defLine} 均未得手`);
+  if (op.winner === 'defender') return log(enc, `${attacker.name} 的攻击被 ${target.name} ${defense === 'dodge' ? '躲开' : '挡下'}`);
+  return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
 }
 
 /** 单个 AI 行动者的回合：按倾向决策攻击/逃跑。 */
@@ -197,19 +204,25 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
   // ① 体格比较：diff = 目标 build − 攻方 build
   const diff = buildOf(target) - buildOf(attacker);
   if (diff >= 3) return log(enc, `${attacker.name} 试图${cn} ${target.name}，但目标体格过于庞大，战技无效`);
+  // 缴械需目标确实持有武器（仅徒手/空手则无从缴械）
+  if (kind === 'disarm' && !target.weapons.some((w) => w.name !== '徒手')) {
+    return log(enc, `${attacker.name} 试图缴械 ${target.name}，但对方手无寸铁，无从缴械`);
+  }
   const penaltyDice = Math.max(0, Math.min(2, diff)); // 目标更大→攻方惩罚骰
 
   // ② 对抗：守方默认反击(格斗≥闪避且不逃)否则闪避
   const wantFlee = (target.tendency?.flee ?? 0) > (target.tendency?.attack ?? 0);
   const defense: 'dodge' | 'fightback' = (target.controlledBy === 'ai' && !wantFlee && target.fighting >= target.dodge) ? 'fightback' : 'dodge';
   const defenderValue = defense === 'fightback' ? target.fighting : target.dodge;
-  const bonus = outnumberBonusDice(target);
-  const op = resolveOpposed(attacker.fighting, target.fighting, defenderValue, 0, defense, rng, bonus, penaltyDice);
+  const pm = proneMods(target); // 倒地：攻方+1奖励骰、守方防御+1惩罚骰
+  const bonus = outnumberBonusDice(target) + pm.atkBonus;
+  const op = resolveOpposed(attacker.fighting, target.fighting, defenderValue, 0, defense, rng, bonus, penaltyDice, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${cn}`, roll: String(op.attackerRoll.finalRoll), target: String(attacker.fighting), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: `战技-${cn}` });
   enc = rec(enc, { skill: `${target.name}·${defense === 'dodge' ? '闪避' : '反击'}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
   const atkLine = `${attacker.name} ${cn} d100=${op.attackerRoll.finalRoll}/${attacker.fighting}（${LEVEL_CN[op.attackerLevel]}）`;
-  const defLine = `${target.name} ${defense === 'dodge' ? '闪避' : '反击'} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
+  const defLine = `${target.name} ${defense === 'dodge' ? '闪避' : '反击'}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
+  enc = log(enc, `${atkLine} ｜ ${defLine}`); // 第一行：骰子判断（单独成行）
 
   // ③ 效果
   if (op.winner === 'attacker') {
@@ -219,7 +232,7 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
     else if (kind === 'knockout') { flags.prone = true; effect = '被击晕，瘫倒在地'; }
     else { flags.prone = true; effect = kind === 'grapple' ? '被擒抱压制在地' : '被推倒在地'; }
     enc = patchCombatant(enc, targetId, { flags, roundDefenses: target.roundDefenses + 1 });
-    return log(enc, `${atkLine} 胜过 ${defLine} → ${target.name} ${effect}`);
+    return log(enc, `${attacker.name} ${cn}得手 → ${target.name} ${effect}`);
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? { name: '徒手', skill: target.fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
@@ -227,10 +240,10 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmg);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${defLine} 反击得手，压过 ${atkLine} → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
+    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
   }
-  if (op.winner === 'defender') return log(enc, `${atkLine} 被 ${defLine} 化解`);
-  return log(enc, `${atkLine} 与 ${defLine} 均未得手`);
+  if (op.winner === 'defender') return log(enc, `${attacker.name} 的${cn}被 ${target.name} 化解`);
+  return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
 }
 
 /** 玩家发起战技：对锁定目标 performManeuver，结算脱战，否则推进 AI 回合。 */

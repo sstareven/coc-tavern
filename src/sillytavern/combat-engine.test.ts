@@ -140,6 +140,12 @@ describe('resolveOpposed（近战对抗，每方掷 个位+十位）', () => {
     const r = resolveOpposed(40, 50, 50, 60, 'dodge', seqRng([0.0, 0.0, 0.0, 0.7]));
     expect(r.winner).toBe('none');
   });
+  it('守方惩罚骰(倒地) → 守方多掷十位取最差', () => {
+    // 攻 d100=10(对80→extreme) ; 守方惩罚骰：个位5，十位 20/80 → 取最差 85（对50→fail）
+    const r = resolveOpposed(80, 50, 50, 0, 'dodge', seqRng([0.0, 0.1, 0.5, 0.2, 0.8]), 0, 0, 0, 1);
+    expect(r.defenderRoll.finalRoll).toBe(85);
+    expect(r.winner).toBe('attacker');
+  });
 });
 
 describe('resolveRanged（射击大失败→卡壳）', () => {

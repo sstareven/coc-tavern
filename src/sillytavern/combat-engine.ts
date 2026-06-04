@@ -139,10 +139,12 @@ export function resolveOpposed(
   rng: Rng = defaultRng,
   attBonus = 0,
   attPenalty = 0,
+  defBonus = 0,
+  defPenalty = 0,
 ): OpposedResult {
   const aRoll = d100WithDice(attBonus, attPenalty, rng);
   const aLevel = successLevel(aRoll.finalRoll, attackerSkill);
-  const dRoll = d100WithDice(0, 0, rng);
+  const dRoll = d100WithDice(defBonus, defPenalty, rng);
   const dLevel = successLevel(dRoll.finalRoll, defenderValue);
   let winner: OpposedResult['winner'];
   const aR = LEVEL_RANK[aLevel], dR = LEVEL_RANK[dLevel];
