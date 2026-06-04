@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import type { PlotAnchors } from '../types';
 
 /**
@@ -56,10 +57,10 @@ export async function generateAnchors(
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...appIdHeaders() },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: ANCHOR_PROMPT },
           { role: 'user', content: userContent },
-        ],
+        ], '剧情锚点生成'),
         temperature,
         max_tokens: maxTokens,
       }),

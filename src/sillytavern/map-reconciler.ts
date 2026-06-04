@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import type { MapLocation, MapEdge } from '../types';
 import type { TokenUsage } from './stream-parser';
@@ -92,10 +93,10 @@ export async function reconcileMap(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: RECONCILE_PROMPT },
           { role: 'user', content: `当前全部地点：\n${locList}\n\n当前全部连线：\n${edgeList || '（暂无连线）'}` },
-        ],
+        ], '地图自检'),
         temperature,
         max_tokens: maxTokens,
       }),

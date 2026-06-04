@@ -80,6 +80,13 @@ export interface DsCacheConfig {
    *  漂移时写日志告知第一处差异位置 + 上下文 + 启发式定位（systemPrompt/wbBefore/processedFormat/wbAfter）。
    *  让用户自助排查"为何缓存命中率不达预期"。 */
   experimentalPrefixDiagnostics?: boolean;
+  /** Subagent 共享前缀（借鉴 claude-code-best 的 subagent fresh+small context 设计）：
+   *  所有 LLM 子调用(坏结局/起始物品/地点元素抽取/地图自检/线索整合/剧情锚点等)共用同一段
+   *  SUBAGENT_SHARED_SYSTEM；原各自 system 内容下沉到 user 头部 + [子任务: xxx] 标签。
+   *  同回合内多个子调用之间 messages[0] 字节完全相同 → DS 前缀缓存跨子调用复用。
+   *  收益：开局/战斗后等多子调用密集回合可省 ~600-1000 tokens cache write。
+   *  副作用：原 system 通用化，LLM 任务理解能力可能略下降——任务说明置于 user 头部部分抵消。 */
+  experimentalSubagentSharedSystem?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -99,6 +106,7 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   experimentalLeanSnapshot: false,
   experimentalSkipMvuVarList: false,
   experimentalPrefixDiagnostics: false,
+  experimentalSubagentSharedSystem: false,
 };
 
 /**

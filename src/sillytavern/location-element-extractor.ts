@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import { LOCATION_ELEMENT_CATEGORIES } from '../types';
 import type { LocationElementInput, LocationElementCategory } from '../types';
@@ -75,7 +76,7 @@ export async function extractLocationElements(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: LOCATION_ELEMENTS_PROMPT },
           {
             role: 'user',
@@ -84,7 +85,7 @@ export async function extractLocationElements(
               `该地点已知元素名清单：${existingSet.size ? Array.from(existingSet).join('、') : '（暂无）'}\n` +
               `本回合叙事正文：\n${narrative}`,
           },
-        ],
+        ], '地点元素抽取'),
         temperature,
         max_tokens: maxTokens,
       }),

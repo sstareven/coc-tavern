@@ -1,6 +1,7 @@
 import { extractAllVariables, parseStatChanges } from './variables';
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
+import { wrapSubagentMessages } from './subagent-shared';
 import type { TokenUsage } from './stream-parser';
 
 const EXTRACTOR_PROMPT = `你是一个MVU（Model-View-Update）变量提取引擎。从以下COC跑团叙事文本中提取所有游戏状态变量。
@@ -67,10 +68,10 @@ export async function extractVariablesWithLLM(
         },
         body: JSON.stringify({
           model,
-          messages: [
+          messages: wrapSubagentMessages([
             { role: 'system', content: EXTRACTOR_PROMPT },
             { role: 'user', content: text },
-          ],
+          ], 'MVU 变量提取'),
           temperature,
           max_tokens: maxTokens,
         }),

@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
 import { parseNpcDerived } from './npc-derived';
@@ -243,10 +244,10 @@ export async function detectAndBuildEncounter(
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...appIdHeaders() },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: DETECT_PROMPT },
           { role: 'user', content: `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n本回合叙事：\n${narrative}` },
-        ],
+        ], '战斗检测'),
         temperature,
         max_tokens: maxTokens,
       }),

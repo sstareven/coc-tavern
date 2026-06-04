@@ -936,6 +936,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         </span>
                         <Toggle on={dsCache.experimentalPrefixDiagnostics === true} onChange={() => setDsCache({ experimentalPrefixDiagnostics: !(dsCache.experimentalPrefixDiagnostics === true) })} />
                       </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>
+                          子调用共享前缀
+                          <HelpIcon text={'借鉴 claude-code-best 的 subagent fresh+small context 设计：让所有 LLM 子调用(坏结局/起始物品/地点元素抽取/地图自检/线索整合/剧情锚点/暗线生成/战斗检测/MVU 提取/关键线索评估/地点元素整合 共 11 个)共用同一段 SUBAGENT_SHARED_SYSTEM；各自原 system 内容下沉到 user 头部 + [子任务: xxx] 标签。\n收益：同回合内多个子调用 messages[0] 字节完全相同 → DS 前缀缓存跨子调用复用，开局/战斗后等子调用密集回合省 ~600-1000 tokens cache write。\n副作用：原 system 通用化，LLM 任务理解能力可能略下降（任务说明置于 user 头部部分抵消）。仅 DS 模型生效，非 DS 自动跳过。'} />
+                        </span>
+                        <Toggle on={dsCache.experimentalSubagentSharedSystem === true} onChange={() => setDsCache({ experimentalSubagentSharedSystem: !(dsCache.experimentalSubagentSharedSystem === true) })} />
+                      </div>
                     </div>
                   </>
                 )}

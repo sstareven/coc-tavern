@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import { pushLog } from '../stores/useLogStore';
 import type { InventoryChange, ItemCategory } from '../types';
 import type { TokenUsage } from './stream-parser';
@@ -64,10 +65,10 @@ export async function generateStartingItems(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: STARTING_ITEMS_PROMPT },
           { role: 'user', content: `本局调查员背景与开场情境：\n${context}` },
-        ],
+        ], '起始物品生成'),
         temperature,
         max_tokens: maxTokens,
       }),

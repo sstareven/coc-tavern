@@ -1,6 +1,7 @@
 import { rpmAcquire } from './rpm-limiter';
 import { appIdHeaders } from './api-router';
 import { coerceJsonObject } from './llm-response-parser';
+import { wrapSubagentMessages } from './subagent-shared';
 import type { TokenUsage } from './stream-parser';
 
 /**
@@ -60,10 +61,10 @@ export async function generateBadEnding(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        messages: wrapSubagentMessages([
           { role: 'system', content: BAD_ENDING_PROMPT },
           { role: 'user', content: `本局开场情境与背景：\n${context}` },
-        ],
+        ], '坏结局生成'),
         temperature,
         max_tokens: maxTokens,
       }),
