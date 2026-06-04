@@ -62,6 +62,8 @@ export interface DsCacheConfig {
   targetSources?: string;
   /** WI 蓝绿灯分离（绿灯/非常驻 lore 下沉到底部高注意力区）。默认 false。 */
   separateWiLights?: boolean;
+  /** 静态/动态分桶：constant 桶也视为动态（含 EJS 引用动态变量的条目最大化下沉）。默认 false。 */
+  treatConstantAsDynamic?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -76,6 +78,7 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   customPrefillContent: '',
   targetSources: 'deepseek,custom',
   separateWiLights: false,
+  treatConstantAsDynamic: false,
 };
 
 /**

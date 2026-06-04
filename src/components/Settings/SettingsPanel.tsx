@@ -890,6 +890,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
+                        常驻条目视为动态
+                        <HelpIcon text={'激进选项：把【常驻(蓝灯)】世界书条目也下沉到动态尾段。\n用途：coc_lore 等常驻条目里含 EJS `<%`/{{getvar}} 引用 statData 动态变量，渲染后字节会变——把它们下沉避免污染缓存前缀。\n副作用：静态前缀变短，能命中的字节减少。命中率仍不理想再开。\n默认关。'} />
+                      </span>
+                      <Toggle on={dsCache.treatConstantAsDynamic === true} onChange={() => setDsCache({ treatConstantAsDynamic: !(dsCache.treatConstantAsDynamic === true) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
                         调试日志
                         <HelpIcon text={'在浏览器控制台(F12)打印重组前/后的 messages 结构（含 role + 内容首 80 字）。仅排查时开。'} />
                       </span>

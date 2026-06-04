@@ -1,27 +1,30 @@
 /**
- * DeepSeek 前缀缓存优化器 —— 消息三区重组（移植自 SillyTavern 插件 deepseek-cache-optimizer
- * by @kousakayou；仅迁移算法，不引入 ST 运行时依赖）。
+ * DeepSeek 前缀缓存优化器 —— 消息三区重组 + 静态/动态分桶（移植自 SillyTavern 插件
+ * deepseek-cache-optimizer by @kousakayou，仅迁移算法，不引入 ST 运行时依赖）。
  *
- * 原理：把 SillyTavern 风格的 [system×N, user×1, assistant×M, user...] 数组重组成三个区域，
- * 使 DeepSeek API 的"逐字节最长公共前缀"缓存最大化命中：
- *   ┌────────────────────────────────────────────────────────────────────────┐
- *   │ 顶部（缓存区） — 第一条 user 之前所有 system 设定 + 首条 user 内容       │
- *   │   按相邻同 role 分组、可加 <role==X> 标签包裹；合并成 ONE role:'user'。  │
- *   │   这是【字节稳定的长前缀】，每回合不变 → 命中缓存。                       │
- *   ├────────────────────────────────────────────────────────────────────────┤
- *   │ 中间（对话区） — 第二条起的 chat history，按原样保留；内联 system 抽到底部 │
- *   ├────────────────────────────────────────────────────────────────────────┤
- *   │ 底部（高注意力区） — 抽出的 system + 绿灯 lore + postHistory 拼到最后    │
- *   │   user.content 的【前面】（不是末尾），等效 D1 深度的高注意力位          │
- *   └────────────────────────────────────────────────────────────────────────┘
+ * 核心原理：DeepSeek 前缀缓存按【messages 序列化后的逐字节最长公共前缀】计费。
+ * 单纯把多条 system 合并为一条 user 只是减少消息条数 → 内容字节稳定性不变；
+ * 真正让前缀稳定的关键是【静态前置、动态尾置】，把每回合变化的内容物理推到合并文本末尾。
  *
- * 本项目通常 history=[]（每回合 stateless 重构 prompt），走 isSingleMessage 路径：
- * 所有 system + 当前 user 拍平成【一条 user 消息】，messages.length 通常变为 1。
+ * 本模块两个核心函数：
+ *   1. splitLoreBucketsForCache —— 把 LoreBuckets 显式分为 staticLore / dynamicLore，
+ *      静态(constant/generateInjects/inverted)进 wbBefore/wbAfter；
+ *      动态(matchedKeyword/summary/darkThread/anchor/keyword/statSnapshot)进 dynamicTail。
+ *   2. restructureMessages —— 把 [system×N, user×1, assistant×M, user] 三区重组：
+ *      ┌────────────────────────────────────────────────────────────────────┐
+ *      │ 顶部缓存区: 全部 system + 首 user 合并成 ONE user，含 <role==X> 标签 │
+ *      │ 中间对话区: 多轮场景保留原 history                                  │
+ *      │ 底部高注意力区: greenContents/extracted-system/postHistory prepend │
+ *      │                到末 user 内容前                                     │
+ *      └────────────────────────────────────────────────────────────────────┘
+ *      本项目通常 history=[] → 走 isSingleMessage 路径，输出 1 条 user。
  *
- * 仅当当前模型源在 targetSources 命中时启用（默认 'deepseek,custom'）；其他模型零副作用。
+ * 仅当当前模型源在 targetSources 命中时启用；其他模型零副作用。
  */
 
 import type { AssembledMessage } from './prompt-assembler';
+import type { LoreEntry } from '../types';
+import type { LoreBuckets } from './rewrite-lite';
 
 const JOINER = '\n\n';
 
@@ -75,6 +78,56 @@ export function isDeepSeekSource(modelId: string | undefined, targetSources: str
   // 其它统一为 custom（中转站通用）
   inferred.push('custom');
   return inferred.some((tag) => sources.includes(tag));
+}
+
+/**
+ * 把 LoreBuckets 显式分静态/动态：
+ *   静态 = constant + generateInjects + inverted（运行时通常字节稳定）
+ *   动态 = matchedKeyword + summary + darkThread + anchor + keyword + statSnapshot（每回合通常变）
+ *
+ * 注意：constant 桶里若条目含 EJS `<%`/`{{getvar}}` 引用动态变量，渲染后仍会变。本函数按【来源桶】粗分，
+ * 不做内容扫描——若某 constant 条目实际是动态的，仍会进静态通道，命中率会稍受影响但不会出错。
+ * 若用户启用 `treatConstantAsDynamic`，把 constant 桶也下沉到动态侧（最大化前缀稳定）。
+ */
+export function splitLoreBucketsForCache(
+  buckets: LoreBuckets,
+  opts?: { treatConstantAsDynamic?: boolean },
+): { staticLore: LoreEntry[]; dynamicLore: LoreEntry[] } {
+  const treatConstantAsDynamic = opts?.treatConstantAsDynamic === true;
+  const staticLore: LoreEntry[] = [
+    ...(treatConstantAsDynamic ? [] : buckets.constant),
+    ...buckets.generateInjects,
+    ...buckets.inverted,
+  ];
+  const dynamicLore: LoreEntry[] = [
+    ...buckets.matchedKeyword,
+    ...buckets.summary,
+    ...buckets.darkThread,
+    ...(treatConstantAsDynamic ? buckets.constant : []),
+    ...(buckets.anchor ?? []),
+    ...(buckets.keyword ?? []),
+    ...(buckets.statSnapshot ?? []),
+  ];
+  return { staticLore, dynamicLore };
+}
+
+/**
+ * 把动态 lore 内容 + baseFormat 的动态附加段拼成 dynamicTail 字符串。
+ * 调用方负责把 dynamicTail prepend 到最后一条 user.content 之前——重组后这段就紧贴用户输入，
+ * 成为合并 user 内容的【末段】(动态高注意力区)，前面的内容（静态 system+静态 lore）成为字节稳定前缀。
+ */
+export function buildDynamicTail(input: {
+  /** 已 EJS/宏渲染、按 priority 排序的动态 lore 内容数组 */
+  dynamicLoreContents: readonly string[];
+  /** baseFormat 拆出的动态附加段（能力/物品/NPC/地点/支柱/saveWorld/序章 等，已渲染） */
+  dynamicFormatParts: readonly string[];
+}): string {
+  const parts: string[] = [];
+  const lore = input.dynamicLoreContents.filter((s) => s && s.trim()).join('\n');
+  if (lore) parts.push(lore);
+  const fmt = input.dynamicFormatParts.filter((s) => s && s.trim()).join(JOINER);
+  if (fmt) parts.push(fmt);
+  return parts.join(JOINER);
 }
 
 interface Entry {

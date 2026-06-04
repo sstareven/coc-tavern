@@ -2,15 +2,38 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   restructureMessages,
   isDeepSeekSource,
+  splitLoreBucketsForCache,
+  buildDynamicTail,
   DEFAULT_RESTRUCTURE_CONFIG,
 } from './deepseek-cache-restructure';
 import type { AssembledMessage } from './prompt-assembler';
+import type { LoreEntry } from '../types';
+import type { LoreBuckets } from './rewrite-lite';
 
 const cfg = (over: Partial<typeof DEFAULT_RESTRUCTURE_CONFIG> = {}) => ({
   ...DEFAULT_RESTRUCTURE_CONFIG,
   enabled: true,
   ...over,
 });
+
+function mkEntry(name: string): LoreEntry {
+  return {
+    name, keys: name, content: name, logic: 'AND_ANY', priority: 0, disabled: false,
+    constant: false, position: 0, depth: 0, probability: 100, secondaryKeys: '',
+    scanDepth: 0, caseSensitive: 0, matchWholeWord: 0, groupScoring: 0,
+    automationId: '', inclusionGroup: '', prioritizeInclusion: false, groupWeight: 100,
+    sticky: 0, cooldown: 0, delay: 0, preventRecursion: true, delayUntilRecursion: false,
+    excludeRecursion: false, ignoreReplyLimit: false,
+  };
+}
+
+function mkBuckets(over: Partial<LoreBuckets> = {}): LoreBuckets {
+  return {
+    matchedKeyword: [], summary: [], constant: [], darkThread: [],
+    generateInjects: [], inverted: [], anchor: [], keyword: [], statSnapshot: [],
+    ...over,
+  };
+}
 
 describe('isDeepSeekSource', () => {
   it('modelId 含 deepseek → 命中 deepseek', () => {
@@ -218,5 +241,64 @@ describe('restructureMessages — 边界', () => {
     const a = restructureMessages(input, cfg());
     const b = restructureMessages(input, cfg());
     expect(a[0].content).toBe(b[0].content);
+  });
+});
+
+describe('splitLoreBucketsForCache', () => {
+  it('默认：constant/generateInjects/inverted 进静态；其余进动态', () => {
+    const buckets = mkBuckets({
+      matchedKeyword: [mkEntry('mk1')],
+      summary: [mkEntry('sm1')],
+      constant: [mkEntry('c1'), mkEntry('c2')],
+      darkThread: [mkEntry('dt1')],
+      anchor: [mkEntry('an1')],
+      keyword: [mkEntry('kw1')],
+      statSnapshot: [mkEntry('ss1')],
+      generateInjects: [mkEntry('gi1')],
+      inverted: [mkEntry('iv1')],
+    });
+    const { staticLore, dynamicLore } = splitLoreBucketsForCache(buckets);
+    expect(staticLore.map((e) => e.name)).toEqual(['c1', 'c2', 'gi1', 'iv1']);
+    expect(dynamicLore.map((e) => e.name)).toEqual(['mk1', 'sm1', 'dt1', 'an1', 'kw1', 'ss1']);
+  });
+
+  it('treatConstantAsDynamic=true：constant 也下沉到动态', () => {
+    const buckets = mkBuckets({
+      constant: [mkEntry('c1')],
+      generateInjects: [mkEntry('gi1')],
+      matchedKeyword: [mkEntry('mk1')],
+    });
+    const { staticLore, dynamicLore } = splitLoreBucketsForCache(buckets, {
+      treatConstantAsDynamic: true,
+    });
+    expect(staticLore.map((e) => e.name)).toEqual(['gi1']);
+    expect(dynamicLore.map((e) => e.name)).toContain('c1');
+    expect(dynamicLore.map((e) => e.name)).toContain('mk1');
+  });
+
+  it('空 buckets → 空数组', () => {
+    const { staticLore, dynamicLore } = splitLoreBucketsForCache(mkBuckets());
+    expect(staticLore).toEqual([]);
+    expect(dynamicLore).toEqual([]);
+  });
+});
+
+describe('buildDynamicTail', () => {
+  it('两段都非空 → 用 \\n\\n 连接，lore 内部用 \\n', () => {
+    const tail = buildDynamicTail({
+      dynamicLoreContents: ['LOR1', 'LOR2'],
+      dynamicFormatParts: ['FMT1', 'FMT2'],
+    });
+    expect(tail).toBe('LOR1\nLOR2\n\nFMT1\n\nFMT2');
+  });
+  it('全空 → 空串', () => {
+    expect(buildDynamicTail({ dynamicLoreContents: [], dynamicFormatParts: [] })).toBe('');
+    expect(buildDynamicTail({ dynamicLoreContents: ['  '], dynamicFormatParts: [''] })).toBe('');
+  });
+  it('只有 lore → 仅返回 lore 段（无 FMT）', () => {
+    expect(buildDynamicTail({ dynamicLoreContents: ['A'], dynamicFormatParts: [] })).toBe('A');
+  });
+  it('只有 fmt → 仅返回 fmt 段', () => {
+    expect(buildDynamicTail({ dynamicLoreContents: [], dynamicFormatParts: ['F'] })).toBe('F');
   });
 });

@@ -65,7 +65,7 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
-import { restructureMessages, isDeepSeekSource, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { restructureMessages, isDeepSeekSource, buildDynamicTail, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -400,6 +400,27 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       };
       const loreOpts = { lite: liteMode, liteIncludeMatchedLore: opts?.liteIncludeMatchedLore };
       const matchedLore = selectLoreForRewrite(loreBuckets, loreOpts);
+
+      // DS 缓存优化器：在 lore 渲染前先决定哪些 entry 走"动态尾置"通道（仅 isDeepSeekSource & restructure 开启）。
+      // 动态桶 = matchedKeyword/summary/darkThread/anchor/keyword/statSnapshot（每回合通常变）；
+      // 静态桶 = constant/generateInjects/inverted；用户可通过 treatConstantAsDynamic 把 constant 也下沉。
+      const dsCfg = settingsNow.dsCache;
+      const dsRestructureOn =
+        !liteMode &&
+        dsCfg?.restructure === true &&
+        isDeepSeekSource(settingsNow.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
+      const dynamicEntriesByRef = new Set<LoreEntry>();
+      if (dsRestructureOn) {
+        for (const e of matchedKeyword) dynamicEntriesByRef.add(e);
+        for (const e of matchedSummary) dynamicEntriesByRef.add(e);
+        for (const e of darkThreadBucket) dynamicEntriesByRef.add(e);
+        for (const e of anchorBucket) dynamicEntriesByRef.add(e);
+        for (const e of keywordBucket) dynamicEntriesByRef.add(e);
+        for (const e of statSnapshotBucket) dynamicEntriesByRef.add(e);
+        if (dsCfg.treatConstantAsDynamic === true) {
+          for (const e of constantBucket) dynamicEntriesByRef.add(e);
+        }
+      }
       // Token savings of lite mode = estimated tokens of the lore entries it dropped vs the full build.
       // Pure calculation over the bucket diff (no second buildPromptMessages call → no side effects).
       const liteSavedTokens = liteMode
@@ -469,29 +490,37 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const processedLore = matchedLore.map((e) => ({
         ...e,
         content: renderTemplate(e.content, tmplOpts),
+        _isDynamic: dynamicEntriesByRef.has(e),
       }));
       // 序章首回合的「起始装备」【不再注入主回合格式】——曾内联追加 PROLOGUE_STARTING_ITEMS_INSTRUCTION，
       // 但被 FORMAT_INSTRUCTION 主体「无物品变化则省略 inventoryChanges」压过，模型把开场判为「无变化」整体丢弃
       // （日志现象：parsed 顶层键缺 inventoryChanges/clues）。改为解析成功后用独立 LLM 调用 generateStartingItems
       // 生成、并入首页 inventoryChanges（见下方应用段），与坏结局同源解耦（inline-llm-fields-truncate-trailing）。
       let baseFormat = formatOverride ?? FORMAT_INSTRUCTION;
+      // DS 缓存优化器：动态附加段（每回合变）按开关分流——dsRestructureOn 时 push 到 dynamicFormatParts，
+      // 由 dynamicTail 拼到合并 user 末尾；否则保持原行为 `+=` 到 baseFormat 中（旧路径，进 system 前缀）。
+      const dynamicFormatParts: string[] = [];
+      const addFormatPart = (s: string) => {
+        if (dsRestructureOn && !formatOverride) dynamicFormatParts.push(s);
+        else baseFormat += '\n\n' + s;
+      };
       // 坏结局【不再注入主回合格式】——曾导致模型在主 JSON 末尾挤掉 clues/npcUpdates/mapUpdates 的回归。
       // 改为回合后用独立 LLM 调用 generateBadEnding 生成（见下方应用段），与主输出彻底解耦。
       // 注入「调查员能力概览」+ 选项契合规则，让 LLM 据角色强项/性格生成选项（非补写、非空白卡）。
       if (!formatOverride && !isDefaultSheet(useCharSheetStore.getState().sheet)) {
-        baseFormat += '\n\n【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE;
+        addFormatPart('【调查员能力概览】' + buildAbilityBrief() + '\n\n' + CHOICE_FIT_RULE);
       }
       // 注入「当前随身物品」清单：让 LLM 知道调查员实际持有什么，生成行动选项时不再凭空让玩家使用未拥有的物品
       // （如背包没相机却给「使用相机」选项——根因是物品清单此前只进世界书匹配 contextText、从不进消息体）。
       // 空背包也注入「空」提示——此时任何「使用某物」选项都更应避免。物品使用约束规则见 FORMAT_INSTRUCTION 重要物品约束段。
       if (!formatOverride) {
         const invSummary = useInventoryStore.getState().buildInventorySummary();
-        baseFormat += '\n\n' + (invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
+        addFormatPart(invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
       }
       // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
       if (!formatOverride) {
         const npcCtx = useNpcStore.getState().buildContextInjection();
-        if (npcCtx) baseFormat += '\n\n' + npcCtx;
+        if (npcCtx) addFormatPart(npcCtx);
       }
       // 注入当前地点已知的「地点元素」，让 LLM 与既有环境特征保持一致、不凭空矛盾。
       if (!formatOverride) {
@@ -499,20 +528,22 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const curLocName = ms.locations.find((l) => l.id === ms.currentLocationId)?.name ?? '';
         if (curLocName) {
           const locElemCtx = useLocationElementStore.getState().buildContextInjection(curLocName);
-          if (locElemCtx) baseFormat += '\n\n' + locElemCtx;
+          if (locElemCtx) addFormatPart(locElemCtx);
         }
       }
       // 拯救世界系统注入。
       if (!formatOverride) {
         // 真相支柱进度（守秘人机密引导，引导剧情逐步让玩家逼近未揭示支柱；绝不泄露原文给玩家）。
         const pillarCtx = useKeyClueStore.getState().buildContextInjection();
-        if (pillarCtx) baseFormat += '\n\n' + pillarCtx;
+        if (pillarCtx) addFormatPart(pillarCtx);
         // 拯救世界模式：集齐 3 关键线索后进入与暗线赛跑的终局。
-        if (saveWorldMode) baseFormat += '\n\n' + SAVE_WORLD_INSTRUCTION;
+        if (saveWorldMode) addFormatPart(SAVE_WORLD_INSTRUCTION);
         // 序章首幕：结合本局谜题向调查员点明核心目标（纯叙事，无截断风险）。
-        if (useBookStore.getState().pages.length <= 1) baseFormat += '\n\n' + PROLOGUE_GOAL_INSTRUCTION;
+        if (useBookStore.getState().pages.length <= 1) addFormatPart(PROLOGUE_GOAL_INSTRUCTION);
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
+      const dynamicFormatJoined = dynamicFormatParts.join('\n\n');
+      const renderedDynamicFormat = dynamicFormatJoined ? renderTemplate(dynamicFormatJoined, tmplOpts) : '';
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
       const macroCtx: MacroContext = {
@@ -546,6 +577,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ...processedLore.map((e) => e.content),
         macroProcessedInput,
         processedFormat,
+        renderedDynamicFormat, // DS 重组：动态附加段同走 macro batch（保持 setvar/getvar 跨段一致）
       ];
       const macroResults = resolveAllMacrosBatch(allTexts, macroCtx);
 
@@ -561,6 +593,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
       macroProcessedInput = macroResults[base + 1 + processedLore.length].text;
       const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
+      const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
 
       // Persist macro var mutations back to store
       const mutationStore = useTavernHelperStore.getState();
@@ -584,9 +617,14 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       // Build world book content from matched entries (matchedLore), ordered by insertion strategy.
       // position 0 → before；其余 → after（COC 仅 worldInfoBefore/After 两个注入点）。
+      // DS 重组开启时：wbBefore/wbAfter 仅由静态 lore 构成 → 让 system 前缀字节稳定；
+      // 动态 lore 走 dynamicTail，由下方 prepend 到合并 user 内容的末段（紧贴用户输入之前）。
       const wiStrategy = settingsNow.worldInfoStrategy ?? 'evenly';
-      const beforeEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position === 0), wiStrategy);
-      const afterEntries = sortByInsertionStrategy(processedLore.filter((e) => e.position !== 0), wiStrategy);
+      const loreForWb = dsRestructureOn
+        ? processedLore.filter((e) => !(e as { _isDynamic?: boolean })._isDynamic)
+        : processedLore;
+      const beforeEntries = sortByInsertionStrategy(loreForWb.filter((e) => e.position === 0), wiStrategy);
+      const afterEntries = sortByInsertionStrategy(loreForWb.filter((e) => e.position !== 0), wiStrategy);
       const wbBefore = beforeEntries.map((e) => e.content).join('\n');
       const wbAfter = afterEntries.map((e) => e.content).join('\n');
 
@@ -600,6 +638,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         resolvedFormat,
         { before: wbBefore, after: wbAfter },
       );
+
+      // DS 缓存优化器(B') —— 静态前置/动态尾置：把动态 lore + 动态 baseFormat 段拼成 dynamicTail，
+      // prepend 到 messages 中【最后一条 user 消息】的 content 前。这样合并后的字节顺序为：
+      //   [静态 system 段(每回合不变)] + [dynamicTail(本回合状态)] + [用户输入] + [dsMarker]
+      // 静态前缀才是 DeepSeek 真正可缓存的部分。
+      if (dsRestructureOn) {
+        const dynamicProcessedLore = processedLore.filter(
+          (e) => (e as { _isDynamic?: boolean })._isDynamic,
+        );
+        const sortedDynamic = sortByInsertionStrategy(dynamicProcessedLore, wiStrategy);
+        const dynamicTail = buildDynamicTail({
+          dynamicLoreContents: sortedDynamic.map((e) => e.content),
+          dynamicFormatParts: resolvedDynamicFormat ? [resolvedDynamicFormat] : [],
+        });
+        if (dynamicTail) {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+              messages[i] = { ...messages[i], content: `${dynamicTail}\n\n${messages[i].content}` };
+              break;
+            }
+          }
+        }
+      }
+
       // DeepSeek V4 缓存优化器(A) —— 思维模式 marker 附着到【最后一条 user 消息】末尾。
       // 重组开启后这一步仍发生在重组前，marker 进入"被合并的首条 user"里，等价于"前缀缓存中段插指令"——
       // 但 marker 是用户主动开启的，且对每回合都是同一段文本，所以仍是稳定字节段，不破坏前缀。
@@ -625,12 +687,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // DeepSeek V4 缓存优化器(B) —— 消息三区重组。仅对 isDeepSeekSource(modelId, targetSources) 命中时启用。
       // 把 [system×N, user×1, assistant×M, user] 合并为顶部稳定 user(缓存区) + 中间对话区 + 末 user 前置高注意力区。
       // 本项目 history=[]，通常走 isSingleMessage 路径 → 所有 system + 当前 user 合并成一条 user 消息。
-      const dsCfg = settingsNow.dsCache;
-      const dsRestructureEnabled =
-        dsCfg?.restructure === true &&
-        isDeepSeekSource(settings.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
+      // dsCfg/dsRestructureOn 已在 buildPromptMessages 上半段提前计算（用于 baseFormat / lore 分桶）；此处复用。
       let finalMessages = result.trimmed;
-      if (dsRestructureEnabled) {
+      if (dsRestructureOn) {
         const rsCfg: DsRestructureConfig = {
           enabled: true,
           roleTags: dsCfg.roleTags !== false,
