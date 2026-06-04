@@ -50,10 +50,10 @@ export interface CharacterSheet {
     roundsLeft: number;
     bout?: { mode: 'realtime' | 'summary'; table: 'VII' | 'VIII'; entry: string };
   };
-  /** 不定性疯狂（A2.4）：累计达 maxSan/5 / 单日 后触发，需 1d10 个月恢复或经治疗。 */
-  indefiniteInsanity: { active: boolean; cause?: string; triggeredAt?: number };
-  /** 永久性疯狂（SAN 归零）。 */
-  permanentInsanity: { active: boolean; triggeredAt?: number };
+  /** 不定性疯狂（A2.4）：累计达 maxSan/5 / 单日 后触发，需 1d10 个月恢复或经治疗。daysLeft 为剩余恢复天数。 */
+  indefiniteInsanity: { active: boolean; daysLeft: number };
+  /** 永久性疯狂（SAN 归零）。布尔标志即可：触发即终局，没有阶段或残量。 */
+  permanentInsanity: boolean;
   /** 恐惧症（A2 临时/不定性疯狂获得的长期 phobia 标签）。与 statusConditions 正交。 */
   phobias: string[];
   /** 狂躁症（A2 临时/不定性疯狂获得的长期 mania 标签）。与 statusConditions 正交。 */

@@ -41,8 +41,8 @@ describe('migrateSheet', () => {
     expect(m.identity.name).toBe('');
     expect(m.dailySanLoss).toBe(0);
     expect(m.temporaryInsanity).toEqual({ active: false, roundsLeft: 0 });
-    expect(m.indefiniteInsanity).toEqual({ active: false });
-    expect(m.permanentInsanity).toEqual({ active: false });
+    expect(m.indefiniteInsanity).toEqual({ active: false, daysLeft: 0 });
+    expect(m.permanentInsanity).toBe(false);
     expect(m.phobias).toEqual([]);
     expect(m.manias).toEqual([]);
     expect(m.known_spells).toEqual([]);
@@ -60,7 +60,7 @@ describe('migrateSheet', () => {
     const m = migrateSheet(legacy);
     expect(m.identity.name).toBe('亚瑟');
     expect(m.characteristics.STR).toBe(70);
-    expect(m.skills.侦查).toEqual({ base: 25, current: 50 });
+    expect(m.skills.侦查).toEqual({ base: 25, current: 50, ticked: false });
     expect(m.dailySanLoss).toBe(0);
     expect(m.phobias).toEqual([]);
     expect(m.recovery).toEqual({ hp: 0, san: 0 });
@@ -74,7 +74,8 @@ describe('migrateSheet', () => {
       phobias: ['幽闭恐惧症'],
       known_spells: ['萎缩术'],
       temporaryInsanity: { active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } },
-      indefiniteInsanity: { active: true, cause: '目睹深潜者' },
+      indefiniteInsanity: { active: true, daysLeft: 45 },
+      permanentInsanity: true,
       recovery: { hp: 2, san: 1 },
     } as unknown as Partial<CharacterSheet>;
     const m = migrateSheet(legacy);
@@ -82,7 +83,8 @@ describe('migrateSheet', () => {
     expect(m.phobias).toEqual(['幽闭恐惧症']);
     expect(m.known_spells).toEqual(['萎缩术']);
     expect(m.temporaryInsanity).toEqual({ active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } });
-    expect(m.indefiniteInsanity).toEqual({ active: true, cause: '目睹深潜者' });
+    expect(m.indefiniteInsanity).toEqual({ active: true, daysLeft: 45 });
+    expect(m.permanentInsanity).toBe(true);
     expect(m.recovery).toEqual({ hp: 2, san: 1 });
   });
 
@@ -111,5 +113,22 @@ describe('migrateSheet', () => {
     const legacy = { phobias: '幽闭恐惧症' as unknown as string[] } as unknown as Partial<CharacterSheet>;
     const m = migrateSheet(legacy);
     expect(m.phobias).toEqual([]);
+  });
+
+  it('skills without `ticked` get ticked:false injected by migrateSheet', () => {
+    const partial = {
+      skills: { 侦查: { base: 25, current: 25 }, 急救: { base: 30, current: 30 } },
+    } as unknown as Partial<CharacterSheet>;
+    const m = migrateSheet(partial);
+    expect(m.skills['侦查'].ticked).toBe(false);
+    expect(m.skills['急救'].ticked).toBe(false);
+  });
+
+  it('skills with existing ticked:true preserve it through migrateSheet', () => {
+    const partial = {
+      skills: { 心理学: { base: 10, current: 50, ticked: true } },
+    } as unknown as Partial<CharacterSheet>;
+    const m = migrateSheet(partial);
+    expect(m.skills['心理学'].ticked).toBe(true);
   });
 });

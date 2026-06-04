@@ -4,47 +4,23 @@ import type { CharacterSheet, COC7Characteristic } from '../types';
 /** COC7e 8 项基础属性的英文键白名单——用于过滤老存档里残留的中文键。 */
 const COC7_CHARS: readonly COC7Characteristic[] = ['STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU'];
 
-export const defaultSheet: CharacterSheet = {
-  characteristics: { STR: 0, CON: 0, POW: 0, DEX: 0, APP: 0, SIZ: 0, INT: 0, EDU: 0 },
-  halfFifth: {
-    STR: { half: 0, fifth: 0 }, CON: { half: 0, fifth: 0 }, POW: { half: 0, fifth: 0 },
-    DEX: { half: 0, fifth: 0 }, APP: { half: 0, fifth: 0 }, SIZ: { half: 0, fifth: 0 },
-    INT: { half: 0, fifth: 0 }, EDU: { half: 0, fifth: 0 },
-  },
-  secondary: { hp: { current: 0, max: 0 }, san: { current: 0, max: 0 }, mp: { current: 0, max: 0 }, luck: 0, mov: 0, db: '0', build: 0 },
-  skills: {},
-  identity: { name: '', occupation: '', age: 0, gender: '', birthplace: '', residence: '', id: '' },
-  greeting: '',
-  description: '',
-  personality: '',
-  scenario: '',
-  personaDescription: '',
-  posture: '站立',
-  statusConditions: [],
-  dailySanLoss: 0,
-  temporaryInsanity: { active: false, roundsLeft: 0 },
-  indefiniteInsanity: { active: false },
-  permanentInsanity: { active: false },
-  phobias: [],
-  manias: [],
-  known_spells: [],
-  recovery: { hp: 0, san: 0 },
-};
-
 /**
  * 把任意来源（老存档行 / 旧版本默认 sheet / undefined）升级为最新 CharacterSheet。
  *
  * 唯一升级口：所有从 DB / per-conversation 行加载角色卡的地方都应经此通道，
  * 而非自行 `?? defaultSheet`。后续 A2/A3/B1/C2/M2/M3 新增字段只在此一处补默认。
+ * defaultSheet 本身也由 migrateSheet({}) 派生——保单一真值源。
  *
  * 关键防御点：
  * 1. characteristics 走 COC7_CHARS 白名单——老存档可能把属性以中文键存（「力量: 50」），
  *    直接展开会污染 Record<COC7Characteristic, number> 的类型契约。
  * 2. halfFifth / secondary 走 per-key 深合并——浅展开会让缺省子对象保持 undefined，
  *    后续读 secondary.san.max 时直接崩。
- * 3. phobias/manias/known_spells 始终是数组——老存档里 CharacterCreator 把 phobias 当字符串状态用，
+ * 3. skills 逐项重建，注入 ticked:false 默认——与 mvu-charsheet-redirect 写入路径保持
+ *    一致，避免读侧拿到 boolean | undefined。
+ * 4. phobias/manias/known_spells 始终是数组——老存档里 CharacterCreator 把 phobias 当字符串状态用，
  *    若误持久化进角色卡需丢弃。
- * 4. temporaryInsanity.bout 是结构化对象（mode/table/entry），不接受裸字符串。
+ * 5. temporaryInsanity.bout 是结构化对象（mode/table/entry），不接受裸字符串。
  */
 export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): CharacterSheet {
   const r = (raw ?? {}) as Partial<CharacterSheet>;
@@ -89,6 +65,19 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     build: typeof rawSec.build === 'number' ? rawSec.build : 0,
   };
 
+  // ── skills：逐项重建，注入 ticked:false 默认 ──
+  const baseSkills = (r.skills ?? {}) as Record<string, unknown>;
+  const skills: CharacterSheet['skills'] = {};
+  for (const [k, v] of Object.entries(baseSkills)) {
+    if (!v || typeof v !== 'object') continue;
+    const sv = v as { base?: unknown; current?: unknown; ticked?: unknown };
+    skills[k] = {
+      base: typeof sv.base === 'number' ? sv.base : 0,
+      current: typeof sv.current === 'number' ? sv.current : 0,
+      ticked: typeof sv.ticked === 'boolean' ? sv.ticked : false,
+    };
+  }
+
   // ── identity：浅合并 + per-field fallback ──
   const rawId = (r.identity ?? {}) as Partial<CharacterSheet['identity']>;
   const identity: CharacterSheet['identity'] = {
@@ -118,14 +107,15 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     }
   }
 
+  // ── indefiniteInsanity：{ active, daysLeft } ──
   const rawII = (r.indefiniteInsanity ?? {}) as Partial<CharacterSheet['indefiniteInsanity']>;
-  const indefiniteInsanity: CharacterSheet['indefiniteInsanity'] = { active: rawII.active === true };
-  if (typeof rawII.cause === 'string') indefiniteInsanity.cause = rawII.cause;
-  if (typeof rawII.triggeredAt === 'number') indefiniteInsanity.triggeredAt = rawII.triggeredAt;
+  const indefiniteInsanity: CharacterSheet['indefiniteInsanity'] = {
+    active: rawII.active === true,
+    daysLeft: typeof rawII.daysLeft === 'number' ? rawII.daysLeft : 0,
+  };
 
-  const rawPI = (r.permanentInsanity ?? {}) as Partial<CharacterSheet['permanentInsanity']>;
-  const permanentInsanity: CharacterSheet['permanentInsanity'] = { active: rawPI.active === true };
-  if (typeof rawPI.triggeredAt === 'number') permanentInsanity.triggeredAt = rawPI.triggeredAt;
+  // ── permanentInsanity：bare boolean ──
+  const permanentInsanity: boolean = typeof r.permanentInsanity === 'boolean' ? r.permanentInsanity : false;
 
   // ── phobias / manias / known_spells：必须为 string[]，老存档可能误存字符串 ──
   const asStringArray = (v: unknown): string[] =>
@@ -141,7 +131,7 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     characteristics,
     halfFifth,
     secondary,
-    skills: r.skills ?? {},
+    skills,
     identity,
     greeting: r.greeting ?? '',
     description: r.description ?? '',
@@ -160,6 +150,9 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     recovery,
   };
 }
+
+/** 默认/空白角色卡——经 migrateSheet({}) 派生，保单一真值源。 */
+export const defaultSheet: CharacterSheet = migrateSheet({});
 
 interface CharSheetStore {
   sheet: CharacterSheet;
