@@ -121,11 +121,11 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
   const asStringArray = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 
+  // ── recovery：B1.6 (M2) 时间戳占位形（hpRegenAtMs / sanRegenAtMs，均可选），现仅透传无字段 ──
   const rawRec = (r.recovery ?? {}) as Partial<CharacterSheet['recovery']>;
-  const recovery: CharacterSheet['recovery'] = {
-    hp: typeof rawRec.hp === 'number' ? rawRec.hp : 0,
-    san: typeof rawRec.san === 'number' ? rawRec.san : 0,
-  };
+  const recovery: CharacterSheet['recovery'] = {};
+  if (typeof rawRec.hpRegenAtMs === 'number') recovery.hpRegenAtMs = rawRec.hpRegenAtMs;
+  if (typeof rawRec.sanRegenAtMs === 'number') recovery.sanRegenAtMs = rawRec.sanRegenAtMs;
 
   return {
     characteristics,

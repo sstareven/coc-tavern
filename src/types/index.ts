@@ -60,8 +60,8 @@ export interface CharacterSheet {
   manias: string[];
   /** 已知法术（B1 法术系统）。仅记法术 id/名，详细 cost/effect 在法术库 / 世界书内。 */
   known_spells: string[];
-  /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 在静养/治疗下的累积进度。 */
-  recovery: { hp: number; san: number };
+  /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
+  recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
 }
 
 /** 角色的持续状态条件（如中毒、着火、极度口渴）。 */

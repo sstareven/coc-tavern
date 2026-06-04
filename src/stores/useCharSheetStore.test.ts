@@ -46,7 +46,7 @@ describe('migrateSheet', () => {
     expect(m.phobias).toEqual([]);
     expect(m.manias).toEqual([]);
     expect(m.known_spells).toEqual([]);
-    expect(m.recovery).toEqual({ hp: 0, san: 0 });
+    expect(m.recovery).toEqual({});
     expect(m.posture).toBe('站立');
     expect(m.statusConditions).toEqual([]);
   });
@@ -63,7 +63,7 @@ describe('migrateSheet', () => {
     expect(m.skills.侦查).toEqual({ base: 25, current: 50, ticked: false });
     expect(m.dailySanLoss).toBe(0);
     expect(m.phobias).toEqual([]);
-    expect(m.recovery).toEqual({ hp: 0, san: 0 });
+    expect(m.recovery).toEqual({});
     expect(m.posture).toBe('站立');
     expect(m.statusConditions).toEqual([]);
   });
@@ -76,7 +76,7 @@ describe('migrateSheet', () => {
       temporaryInsanity: { active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } },
       indefiniteInsanity: { active: true, daysLeft: 45 },
       permanentInsanity: true,
-      recovery: { hp: 2, san: 1 },
+      recovery: { hpRegenAtMs: 1700000000000, sanRegenAtMs: 1700000100000 },
     } as unknown as Partial<CharacterSheet>;
     const m = migrateSheet(legacy);
     expect(m.dailySanLoss).toBe(12);
@@ -85,7 +85,7 @@ describe('migrateSheet', () => {
     expect(m.temporaryInsanity).toEqual({ active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: '失忆' } });
     expect(m.indefiniteInsanity).toEqual({ active: true, daysLeft: 45 });
     expect(m.permanentInsanity).toBe(true);
-    expect(m.recovery).toEqual({ hp: 2, san: 1 });
+    expect(m.recovery).toEqual({ hpRegenAtMs: 1700000000000, sanRegenAtMs: 1700000100000 });
   });
 
   it('中文键的 legacy characteristics 被丢弃，STR/... 回落 0', () => {
@@ -130,5 +130,23 @@ describe('migrateSheet', () => {
     } as unknown as Partial<CharacterSheet>;
     const m = migrateSheet(partial);
     expect(m.skills['心理学'].ticked).toBe(true);
+  });
+
+  it('malformed bout (string instead of object) is dropped without crashing', () => {
+    const partial = {
+      temporaryInsanity: { active: true, roundsLeft: 3, bout: 'failure-of-memory' as unknown },
+    } as unknown as Partial<CharacterSheet>;
+    const m = migrateSheet(partial);
+    expect(m.temporaryInsanity.active).toBe(true);
+    expect(m.temporaryInsanity.roundsLeft).toBe(3);
+    expect(m.temporaryInsanity.bout).toBeUndefined();
+  });
+
+  it('malformed bout (partial object missing mode/table) is dropped', () => {
+    const partial = {
+      temporaryInsanity: { active: true, roundsLeft: 5, bout: { entry: 'panic' } as unknown },
+    } as unknown as Partial<CharacterSheet>;
+    const m = migrateSheet(partial);
+    expect(m.temporaryInsanity.bout).toBeUndefined();
   });
 });

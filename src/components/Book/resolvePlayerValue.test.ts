@@ -50,7 +50,7 @@ const mockSheet: CharacterSheet = {
   phobias: [],
   manias: [],
   known_spells: [],
-  recovery: { hp: 0, san: 0 },
+  recovery: {},
 };
 
 describe('resolvePlayerValue', () => {

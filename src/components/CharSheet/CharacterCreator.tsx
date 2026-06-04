@@ -438,7 +438,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         phobias: [],
         manias: [],
         known_spells: [],
-        recovery: { hp: 0, san: 0 },
+        recovery: {},
       };
 
     // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
