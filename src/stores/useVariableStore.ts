@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { GameVariable } from '../types';
 import { useCharSheetStore } from './useCharSheetStore';
+import { useBookStore } from './useBookStore';
 import {
   createVariable,
   extractAllVariables,
@@ -50,23 +51,25 @@ interface VariableStore {
 
 /**
  * 把一批 MVU ops 应用到给定 statData 树（原地修改），处理 调查员.* 角色卡改道与轻量 schema 校验，
- * 并把角色卡变更提交回 useCharSheetStore。返回结构化失败清单。
+ * 并把角色卡变更提交回 useCharSheetStore。返回结构化失败清单 + 本批次累计 sanDelta（A2.4 evaluator 用）。
  * processResponse（首次应用）与 applyCorrectiveOps（自纠叠加）共用此逻辑，避免两处分叉。
  */
-function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): MvuOpError[] {
+function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): { failed: MvuOpError[]; sanDelta: number } {
   const errors: MvuOpError[] = [];
   let sheet = useCharSheetStore.getState().sheet;
   let sheetChanged = false;
+  let sanDeltaAcc = 0;
   applyMvuPatch(tree, ops, {
     schema: COC_MVU_SCHEMA,
     redirect: (dotPath, op, value) => {
       if (!isCharsheetPath(dotPath)) return false;
       const updated = applyCharsheetRedirect(sheet, dotPath, op, value);
       if (updated) {
-        // A2.3：redirect 返回类型由「裸 CharacterSheet」改为 RedirectResult；取 .sheet 落回引用。
-        // updated.sanDelta（仅 SAN 当前值分支带出）暂未消费——A2.4 sanity evaluator 会接驳到 patchReport。
+        // A2.3：redirect 返回 RedirectResult；取 .sheet 落回引用。
+        // A2.4：累计 updated.sanDelta（仅 SAN 当前值分支带出），后续 evaluator 据此触发 INT/不定/永久疯狂判定。
         sheet = updated.sheet;
         sheetChanged = true;
+        if (typeof updated.sanDelta === 'number') sanDeltaAcc += updated.sanDelta;
         return true;
       }
       // applyCharsheetRedirect 返回 null 的两种语义：
@@ -99,7 +102,7 @@ function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): MvuOp
     onOpError: (err) => errors.push(err),
   });
   if (sheetChanged) useCharSheetStore.getState().setSheet(sheet);
-  return errors;
+  return { failed: errors, sanDelta: sanDeltaAcc };
 }
 
 export const useVariableStore = create<VariableStore>((set, get) => ({
@@ -153,27 +156,42 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
     const ops = extractJsonPatchBlocks(text);
     let nextStatData = st.statData;
     let failed: MvuOpError[] = [];
+    let sanDelta = 0;
     if (ops.length > 0) {
       nextStatData = structuredClone(st.statData);
       // redirect 调查员.* → 角色卡；schema 校验 + 结构化失败收集统一在 applyMvuOpsToTree 内处理。
-      failed = applyMvuOpsToTree(nextStatData, ops);
+      const res = applyMvuOpsToTree(nextStatData, ops);
+      failed = res.failed;
+      sanDelta = res.sanDelta;
     }
 
     set({ variables: merged, statData: nextStatData });
 
+    const patchReport: MvuPatchReport = {
+      applied: ops.length - failed.length,
+      failed,
+    };
+    // A2.4：仅当本回合捕获到 SAN 旁路增减时才挂 charSheetDeltas，避免给 evaluator 一个永远存在但都为 0 的字段。
+    // episodeId = pageIndex + ':' + 时间戳，做 fingerprint dedupe key（同一事件不重复弹 INT 检定）。
+    if (sanDelta !== 0) {
+      let pageIdx = -1;
+      try { pageIdx = useBookStore.getState().pageIndex; } catch { /* test 环境无 book store 时降级 */ }
+      patchReport.charSheetDeltas = { sanDelta, episodeId: `${pageIdx}:${Date.now()}` };
+    }
+
     return {
       cleanedText: stripVariableMarkup(text),
       extracted: allExtracted,
-      patchReport: { applied: ops.length - failed.length, failed },
+      patchReport,
     };
   },
 
   applyCorrectiveOps: (ops) => {
     if (!ops || ops.length === 0) return [];
     const next = structuredClone(get().statData);
-    const failed = applyMvuOpsToTree(next, ops);
+    const res = applyMvuOpsToTree(next, ops);
     set({ statData: next });
-    return failed;
+    return res.failed;
   },
 
   setStatData: (tree) => set({ statData: { ...tree } }),

@@ -29,10 +29,17 @@ export interface MvuOpError {
 /**
  * 一次 MVU 补丁应用后的汇总：成功条数 + 结构化失败清单。
  * processResponse / useChatPipeline / post-settle-evaluators 共享同一形状，集中此处避免内联重复。
+ *
+ * charSheetDeltas（A2.4）：本回合 MVU 应用中通过 applyCharsheetRedirect 旁路捕获的角色卡数值增减，
+ * 由 useVariableStore.processResponse 聚合后透传给 post-settle-evaluator——sanityEvaluator 据此
+ * 判定本次事件触发 INT 检定 / 不定性疯狂 / 永久疯狂。episodeId 用作幂等指纹：相同
+ * (page+sanDelta+oldSan+ts) 不重复触发 INT 弹窗。
  */
 export interface MvuPatchReport {
   applied: number;
   failed: MvuOpError[];
+  /** A2.4：本回合角色卡数值旁路增减（目前只有 SAN 当前值；后续若有 HP/MP 类似需求一并扩在此）。 */
+  charSheetDeltas?: { sanDelta?: number; episodeId?: string };
 }
 
 export interface ApplyOpts {
