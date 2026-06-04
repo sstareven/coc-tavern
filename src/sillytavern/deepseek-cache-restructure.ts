@@ -96,9 +96,14 @@ export function isDeepSeekSource(modelId: string | undefined, targetSources: str
  */
 const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|\$|time|date|isotime|isodate|random(?:\s*::|\s*\})|roll\s*::|newline\s*::|format_message_variable\s*::)|\{\{[^{}]*[^\s{}|()=+\-]\./;
 
+// SillyTavern 标准角色卡静态点路径宏 — 这些在会话内字节稳定,但点路径分支会误把它们当动态,
+// 导致过度下沉。先剥掉再判,避免误判。
+const ST_STATIC_DOT_MACRO_RE = /\{\{\s*(char|persona|charName|user|scenario|charDepth|description|personality|first_mes|mes_example)[.\w-]*[^{}]*\}\}/g;
+
 export function hasDynamicMarker(content: string): boolean {
   if (!content) return false;
-  return DYNAMIC_MARKER_RE.test(content);
+  const cleaned = content.replace(ST_STATIC_DOT_MACRO_RE, '');
+  return DYNAMIC_MARKER_RE.test(cleaned);
 }
 
 /**

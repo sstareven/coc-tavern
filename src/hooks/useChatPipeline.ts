@@ -690,13 +690,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const segWbBefore = wbBefore;
         const segFormat = resolvedFormat;
         const segWbAfter = wbAfter;
-        // segment offsets（用于诊断器启发式定位漂移在哪个段）
-        const offsets: Record<string, number> = {
-          systemPrompt: 0,
-          wbBefore: segSystem.length + SEP.length,
-          processedFormat: segSystem.length + SEP.length + segWbBefore.length + SEP.length,
-          wbAfter: segSystem.length + SEP.length + segWbBefore.length + SEP.length + segFormat.length + SEP.length,
-        };
+        // segment offsets — 跳过零长度段:它们与下个段差距仅 SEP.length,会让 inferSegment 把缝隙处误判为空段
+        const offsets: Record<string, number> = { systemPrompt: 0 };
+        let acc = segSystem.length + SEP.length;
+        if (segWbBefore.length) { offsets.wbBefore = acc; acc += segWbBefore.length + SEP.length; }
+        if (segFormat.length)   { offsets.processedFormat = acc; acc += segFormat.length + SEP.length; }
+        if (segWbAfter.length)  { offsets.wbAfter = acc; }
         const staticPrefix = [segSystem, segWbBefore, segFormat, segWbAfter].join(SEP);
         const sessionId = useChatStore.getState().activeId ?? '__no_session__';
         const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
@@ -709,11 +708,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
 
       // Assemble prompt messages (variables already resolved by unified macro engine)
+      // 关键:dsRestructureOn 时,_isDynamic 标记的条目会通过 dynamicTail 再注入一次(line 727+),
+      // 这里必须先剔除以避免【双重注入】(legacy fallback 路径会把 lore 整组 push 成 system 消息;
+      // 见 prompt-assembler.ts fallback 分支)。
+      const loreForAssemble = dsRestructureOn
+        ? processedLore.filter((e) => !(e as { _isDynamic?: boolean })._isDynamic)
+        : processedLore;
       const messages = assemblePrompt(
         regexProcessedInput,
         [],
         processedPreset,
-        processedLore,
+        loreForAssemble,
         {},
         resolvedFormat,
         { before: wbBefore, after: wbAfter },
@@ -781,8 +786,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         };
         // 绿灯 lore 内容：从 matchedLore 中抽出 constant=false 的渲染后内容（仅当 separateWiLights 开启时）。
         // 抽取自 processedLore 而非原 buckets，因为后者尚未经 EJS/宏渲染。
+        // 同 assemblePrompt 路径,这里也要剔除 _isDynamic 标记的条目——它们已经走 dynamicTail 注入一次,
+        // 不剔除则 restructureMessages 顶部合并区会再注入一次,与 dynamicTail 形成双重注入。
         const greenContents = rsCfg.separateWiLights
-          ? processedLore.filter((e) => !e.constant).map((e) => e.content)
+          ? processedLore
+              .filter((e) => !e.constant && !(e as { _isDynamic?: boolean })._isDynamic)
+              .map((e) => e.content)
           : undefined;
         finalMessages = restructureMessages(result.trimmed, rsCfg, greenContents);
       }
