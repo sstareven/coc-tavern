@@ -1,6 +1,7 @@
 // ===== COC 7th Edition Rules: Pure functions =====
 // Inspired by Call of Cthulhu 7th Edition rulebook
 import type { COC7Characteristic } from '../types';
+import { BOUT_BEHAVIOR_TABLE, PHOBIA_TABLE, MANIA_TABLE, type CocTableEntry } from './coc7e-tables';
 
 /* ============================== Random Helpers ============================== */
 
@@ -66,3 +67,38 @@ export function deriveSecondaryStats(
   const { db, build } = getDBBuild(str + siz);
   return { hpMax, sanMax, mpMax, db, build };
 }
+
+/* ============================== Sanity / Bout Rolls (A2.2) ============================== */
+//
+// 这些助手都接受外部注入的 `rng: () => number ∈ [0,1)`，便于单测用确定性序列；
+// 调用方传 `Math.random` 即得到真实随机。
+// 与上方 roll3D6/roll2D6 的「内部 Math.random」分离是有意的——疯狂/INT 检定走
+// post-settle evaluator 路径，evaluator 注入受控 RNG 才能 dedupe 同一次 SAN 事件。
+
+/** INT 检定：1D100 ≤ INT 为成功。 */
+export function rollIntCheck(intStat: number, rng: () => number): { roll: number; success: boolean } {
+  const roll = Math.floor(rng() * 100) + 1; // 1..100
+  return { roll, success: roll <= intStat };
+}
+
+/** 在 N 项表（Bout VII/VIII 或 PHOBIA/MANIA）随机挑一项。 */
+export function rollBoutEntry(rng: () => number, table: CocTableEntry[]): CocTableEntry {
+  const idx = Math.min(table.length - 1, Math.floor(rng() * table.length));
+  return table[idx];
+}
+
+/** PHOBIA 表 1D100（30 项种子时按比例索引）。 */
+export function rollPhobia(rng: () => number): CocTableEntry {
+  return rollBoutEntry(rng, PHOBIA_TABLE);
+}
+
+/** MANIA 表 1D100（30 项种子时按比例索引）。 */
+export function rollMania(rng: () => number): CocTableEntry {
+  return rollBoutEntry(rng, MANIA_TABLE);
+}
+
+/**
+ * 保证 BOUT_BEHAVIOR_TABLE 在编译期被引用（防止上方的 import 在 tree-shake 后被误删）。
+ * 实际运行时该常量仍由 A2.5 triggerBout 直接使用。
+ */
+void BOUT_BEHAVIOR_TABLE;
