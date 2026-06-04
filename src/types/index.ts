@@ -113,6 +113,9 @@ export interface BookPage {
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
   combatLog?: CombatLog;
+  /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目(对应叙事正文里嵌的 <san id="N"/> 标签)。
+   *  随页持久化, 删页/翻页时 SanityBubble 列表据此重建; 玩家点击解决态在 useSanityBubbleStore.resolved。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 /** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */

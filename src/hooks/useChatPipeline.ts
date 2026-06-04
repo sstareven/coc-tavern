@@ -1038,6 +1038,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
+        // A2 重设: 本页 SAN check 气泡数组(随页持久化, 删页时一并随页移除, 不污染剩余页面)
+        if (result.sanityCheckPrompts) newPage.sanityCheckPrompts = result.sanityCheckPrompts;
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);

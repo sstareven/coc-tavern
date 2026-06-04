@@ -13,6 +13,7 @@ import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
+import { useSanityBubbleStore } from './useSanityBubbleStore';
 import { useVariableStore } from './useVariableStore';
 import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
@@ -65,6 +66,7 @@ export function clearAllGameState() {
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
+  useSanityBubbleStore.getState().reset();
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
   useBookStore.getState().resetToPrologue();
