@@ -8,6 +8,7 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { getUiScale } from '../../hooks/useUiScale';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -1177,13 +1178,16 @@ function HelpIcon({ text }: { text: string }) {
   const onEnter = () => {
     const el = ref.current;
     if (el) {
+      // s=界面缩放：tooltip portal 到 body(在 zoom 内)，fixed 坐标需除以 s 换回布局空间，否则被二次缩放错位。
+      const s = getUiScale();
       const r = el.getBoundingClientRect();
-      const W = 300;
+      const W = 300 * s;
       let x = r.left;
       if (x + W > window.innerWidth - 8) x = window.innerWidth - W - 8;
       x = Math.max(8, x);
       const below = r.bottom < window.innerHeight * 0.55;
-      setPos({ x, y: below ? r.bottom + 6 : r.top - 6, below });
+      const yRaw = below ? r.bottom + 6 : r.top - 6;
+      setPos({ x: x / s, y: yRaw / s, below });
     }
     setShow(true);
   };
