@@ -703,9 +703,19 @@ export type CombatEndReason = 'victory' | 'defeat' | 'disengage' | 'flee' | 'ene
 /** 战技种类（COC7e 6.3 战技）：缴械/擒抱/推倒/击晕。 */
 export type ManeuverKind = 'disarm' | 'grapple' | 'shove' | 'knockout';
 
+/** 一次滚骰演示（同时投出若干骰子）：检定骰(d100，按 type 配色)或伤害骰(damage=true)。 */
+export interface CombatRollViz {
+  title?: string;
+  damage?: boolean;
+  dice: { value: number; faces: number; type?: DiceResultType; caption?: string }[];
+  total?: number;
+}
+
 export interface CombatLogEntry {
   kind: 'narrative' | 'roll';
   text: string;
+  /** 该行揭示【前】要依次演示的滚骰(检定→伤害)；供书页内滚骰动画与日志交替播放。 */
+  rolls?: CombatRollViz[];
 }
 
 export interface CombatBystander {

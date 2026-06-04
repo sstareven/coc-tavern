@@ -174,4 +174,14 @@ describe('近战日志拆行 + 倒地劣势', () => {
     expect((dmgRec!.dice ?? []).length).toBeGreaterThan(0);
     expect(dmgRec!.dice!.every((d) => d.faces === 6)).toBe(true);
   });
+
+  it('日志行携带 rolls 供骰子/文字交替：判断行=2颗d100检定骰，命中结果行=伤害骰', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, weapons: [{ name: '消防斧', skill: 90, damage: '2D6', impaling: true, ranged: false, attacksPerRound: 1 }] });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 10, hp: 30, maxHp: 30 });
+    const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.9, 0.5, 0.5, 0.5, 0.5]));
+    const judg = out.log.find((l) => l.rolls?.some((rv) => !rv.damage));
+    expect(judg?.rolls?.[0].dice.length).toBe(2); // 攻击骰 + 守骰
+    const res = out.log.find((l) => l.rolls?.some((rv) => rv.damage));
+    expect((res?.rolls?.find((rv) => rv.damage)?.dice.length ?? 0)).toBeGreaterThan(0);
+  });
 });

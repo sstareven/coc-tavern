@@ -12,7 +12,7 @@ import {
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
-import type { Combatant, ManeuverKind, DiceRecord, DiceResultType } from '../../types';
+import type { Combatant, ManeuverKind, DiceResultType, CombatRollViz } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
@@ -23,32 +23,14 @@ const DICE_COLORS: Record<DiceResultType, string> = {
   'success': '#69f0ae', 'failure': '#ff5252', 'crit-failure': '#d50000',
 };
 const colorFor = (t: DiceResultType): string => DICE_COLORS[t] ?? '#999';
-const isAtkRec = (r: DiceRecord): boolean => !!r.purpose && (r.purpose.startsWith('攻击命中') || r.purpose.startsWith('战技'));
 
-/**
- * 从本次新增的检定记录里，把【每一次攻击/战技】(玩家与敌方都算)切成一组，依次构建滚骰序列：
- * 每组 ① 检定投掷（攻击骰 + 守方闪避/反击骰，同投）② 伤害投掷（多骰同投）。
- * 速度检定/排障/呼救等非攻击记录不演骰。
- */
-function buildTosses(fresh: DiceRecord[]): DiceToss[] {
-  const tosses: DiceToss[] = [];
-  let i = 0;
-  while (i < fresh.length && !isAtkRec(fresh[i])) i++; // 跳过开头的非攻击记录
-  while (i < fresh.length) {
-    const start = i; i++;
-    while (i < fresh.length && !isAtkRec(fresh[i])) i++; // 本组 = 这条攻击 + 其后非攻击记录(守方/伤害)
-    const seg = fresh.slice(start, i);
-    const who = seg[0].skill.split('·')[0];
-    const checkDice = seg
-      .filter((r) => isAtkRec(r) || r.purpose === '闪避' || r.purpose === '格斗反击')
-      .map((r) => ({ value: Number(r.roll) || 0, faces: 100, color: colorFor(r.type), caption: `${r.skill.split('·').pop()} ≤${r.target}` }));
-    tosses.push({ title: `${who} · 攻击`, dice: checkDice });
-    const dmg = seg.find((r) => r.purpose === '伤害');
-    if (dmg?.dice?.length) {
-      tosses.push({ title: `${dmg.skill.split('·')[0]} · 伤害`, dice: dmg.dice.map((d) => ({ value: d.value, faces: d.faces, color: '#ff7043' })), total: Number(dmg.roll) || 0 });
-    }
-  }
-  return tosses;
+/** 把一行日志携带的 rolls(检定→伤害)转成动画用 toss(每个 viz=一次同投)。 */
+function buildTossesFromViz(rolls: CombatRollViz[]): DiceToss[] {
+  return rolls.map((rv) => ({
+    title: rv.title ?? (rv.damage ? '伤害' : '检定'),
+    dice: rv.dice.map((d) => ({ value: d.value, faces: d.faces, color: rv.damage ? '#ff7043' : colorFor(d.type ?? 'success'), caption: d.caption })),
+    total: rv.total,
+  }));
 }
 
 /** 战技目录（COC7e 6.3）：体格对抗，攻方胜施加倒地/缴械效果，不直接致伤。 */
@@ -68,42 +50,46 @@ export function CombatPanel() {
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; });
 
   // 书页内滚骰 + 日志逐行揭示：玩家动作伴随掷骰时，先播 CombatDiceRoll(攻击/闪避→伤害)，
-  // 结束后逐行揭示该批日志（一行打完再出下一行）；纯叙事(无掷骰)直接逐行揭示。新战斗/清场重置全显。
+  // 骰子与文字【交替】揭示：逐行处理日志——该行若带 rolls 则先把骰子滚完(检定→伤害)，再打字显示该行，
+  // 然后推进到下一行；纯叙事行(无 rolls)直接打字。新战斗/清场重置全显。
   const [revealed, setRevealed] = useState(0);
   const [tosses, setTosses] = useState<DiceToss[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
-  const revealTargetRef = useRef(0);
-  const lastLogLen = useRef(0);
-  const lastDiceLen = useRef(0);
+  const revealedRef = useRef(0);
+  const logLenRef = useRef(0);
+  const runningRef = useRef(false);
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 逐行揭示：当前末行打完 → 揭示下一行，直至追平目标
-  const kickReveal = () => setRevealed((r) => (r < revealTargetRef.current ? r + 1 : r));
-  useEffect(() => {
-    if (!encounter) { lastLogLen.current = 0; lastDiceLen.current = 0; return; }
-    const logLen = encounter.log.length;
-    const diceLen = encounter.diceRecords.length;
-    if (logLen < lastLogLen.current) {
-      // 新战斗/清场 → 全显，停掉滚骰
-      revealTargetRef.current = logLen; setRevealed(logLen); setTosses(null);
-    } else if (logLen > lastLogLen.current) {
-      revealTargetRef.current = logLen;
-      const seq = buildTosses(encounter.diceRecords.slice(lastDiceLen.current));
-      if (safetyRef.current) clearTimeout(safetyRef.current);
-      if (seq.length > 0) {
-        setTosses(seq); // 先演骰；演完由 onComplete 逐行揭示
-        safetyRef.current = setTimeout(() => { setTosses(null); setRevealed(revealTargetRef.current); }, 8000); // 兜底防卡：全显
-      } else {
-        kickReveal(); // 无掷骰 → 立即逐行
-      }
+  const setRevealedBoth = (n: number) => { revealedRef.current = n; setRevealed(n); };
+  // 推进到下一行：有 rolls→先滚骰(滚完由 onTossComplete 显示该行)，无 rolls→直接显示该行
+  const advance = () => {
+    if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
+    const log = useCombatStore.getState().encounter?.log ?? [];
+    const n = revealedRef.current;
+    if (n >= log.length) { runningRef.current = false; setTosses(null); return; }
+    runningRef.current = true;
+    const rolls = log[n].rolls;
+    if (rolls && rolls.length) {
+      setTosses(buildTossesFromViz(rolls));
+      safetyRef.current = setTimeout(() => { setTosses(null); setRevealedBoth(revealedRef.current + 1); }, 8000); // 兜底防卡
+    } else {
+      setRevealedBoth(n + 1); // 该行打完 → onDone 调 advance
     }
-    lastLogLen.current = logLen;
-    lastDiceLen.current = diceLen;
-  }, [encounter?.log, encounter?.diceRecords, encounter]);
+  };
   const onTossComplete = () => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     setTosses(null);
-    kickReveal();
+    setRevealedBoth(revealedRef.current + 1); // 骰子滚完 → 显示对应那行(打完后 onDone 再 advance)
   };
+  useEffect(() => {
+    if (!encounter) { logLenRef.current = 0; runningRef.current = false; return; }
+    const logLen = encounter.log.length;
+    if (logLen < logLenRef.current) {
+      setRevealedBoth(logLen); setTosses(null); runningRef.current = false; // 新战斗/清场 → 全显
+    } else if (logLen > logLenRef.current && !runningRef.current) {
+      advance(); // 有新行且链空闲 → 启动交替揭示(链由 onTossComplete/onDone 自持)
+    }
+    logLenRef.current = logLen;
+  }, [encounter?.log, encounter]);
 
   if (!encounter) return null;
   const enc = encounter;
@@ -186,7 +172,7 @@ export function CombatPanel() {
       <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.slice(0, revealed).map((l, i) => (
           <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'}
-            onDone={i === revealed - 1 ? kickReveal : undefined} />
+            onDone={i === revealed - 1 ? advance : undefined} />
         ))}
         <DiceRecordsExpander records={enc.diceRecords} />
       </div>
