@@ -22,6 +22,7 @@ import { persistActiveGameState } from '../../stores/sessionLifecycle';
 import { usePageFlip } from '../../hooks/usePageFlip';
 import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
+import { useSanityBubbleStore } from '../../stores/useSanityBubbleStore';
 import { CombatPanel } from '../Combat/CombatPanel';
 import { TocOverlay } from './TocOverlay';
 import { PageNav } from './PageNav';
@@ -74,6 +75,10 @@ export function Storybook() {
 
   const page = pages[pageIndex];
   if (!page) return null;
+
+  // A2 重设: 当前页 SAN 气泡 id 喂进 useSanityBubbleStore.pending — 决定本页选项是否被阻塞。
+  // 仅最新页(玩家正待选择的页)的气泡才阻塞选项; 翻回老页面看到的气泡只是已解决态视觉。
+  useSanityBubbleEffect(page.sanityCheckPrompts, pageIndex === pages.length - 1);
 
   // 战斗面板只在「战斗所属页」显示：翻去别页见正常左右页，翻回战斗页才显示面板。
   // 老存档/在途战斗无 anchorPageId 时回退为「在最新页显示」，不破坏在途战斗。
@@ -358,18 +363,18 @@ export function Storybook() {
                 {direction === 'backward' ? (
                   /* [A] flips to the right — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="backward">
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} />
                   </CSSFlipPage>
                 ) : (
                   /* Forward: [A] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} />
                   </FadingPage>
                 )}
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} />
               </AppearPage>
             )}
           </div>
@@ -391,12 +396,12 @@ export function Storybook() {
                 {direction === 'forward' ? (
                   /* [B] flips to the left — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="forward">
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
                   </CSSFlipPage>
                 ) : (
                   /* Backward: [B] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
                   </FadingPage>
                 )}
               </div>
@@ -405,7 +410,7 @@ export function Storybook() {
               <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} />
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
               </AppearPage>
             )}
           </div>
@@ -661,4 +666,24 @@ export function Storybook() {
       </div>
     </div>
   );
+}
+
+/**
+ * A2 重设: 把当前页 sanityCheckPrompts 的 id 同步进 useSanityBubbleStore.pending。
+ * 仅当 isLatestPage=true 时喂进 — 翻历史页时不阻塞,因为玩家本就在回看。
+ * 当切到其他页 / 卸载, 把 pending 清空(气泡块已经历过, 不需要再阻塞)。
+ */
+function useSanityBubbleEffect(prompts: import('../../types').SanityCheckPrompt[] | undefined, isLatestPage: boolean) {
+  useEffect(() => {
+    if (!isLatestPage) {
+      useSanityBubbleStore.getState().setPending([]);
+      return;
+    }
+    const ids = (prompts ?? []).map((p) => p.id);
+    useSanityBubbleStore.getState().setPending(ids);
+    return () => {
+      // 离开最新页 → 清空 pending(不影响 resolved 集合)
+      useSanityBubbleStore.getState().setPending([]);
+    };
+  }, [prompts, isLatestPage]);
 }

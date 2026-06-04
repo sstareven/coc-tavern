@@ -5,6 +5,7 @@ import { Storybook } from '../Book/Storybook';
 import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { OptionResolutionOverlay } from '../Book/OptionResolutionOverlay';
+import { SanityCheckPanel } from '../Book/SanityCheckPanel';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useViewportHeight } from '../../hooks/useViewportHeight';
@@ -205,6 +206,8 @@ export function GameView({ onReturnToMenu }: Props) {
 
       {/* A1.8 — 选项检定 staging 浮层：动画结束后浮出，让玩家选 推骰/幸运/落账。 */}
       <OptionResolutionOverlay />
+      {/* A2 重设 — 玩家点叙事血色气泡后弹的阴森 SAN 检定面板 */}
+      <SanityCheckPanel />
     </div>
   );
 }

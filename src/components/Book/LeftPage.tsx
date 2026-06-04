@@ -1,8 +1,10 @@
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
+import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
-import type { DiceRecord } from '../../types';
+import type { DiceRecord, SanityCheckPrompt } from '../../types';
+import React from 'react';
 
 const RESULT_COLORS: Record<string, { color: string; bg: string }> = {
   'crit-success': { color: '#e8c84a', bg: 'rgba(196,168,85,0.12)' },
@@ -25,9 +27,11 @@ interface Props {
   isFlipping?: boolean;
   summary?: string;
   diceResults?: DiceRecord[];
+  /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目, 用来把 <san id="N"/> 替换成 React 组件。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
-export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults }: Props) {
+export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -88,10 +92,10 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-          <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedContent[0])}</p>
+          <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{renderStringWithBubblesAndBeauty(renderedContent[0], sanityCheckPrompts, 'lp0')}</p>
         ) : (
           renderedContent.map((node, i) => typeof node === 'string'
-            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
+            ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{renderStringWithBubblesAndBeauty(node, sanityCheckPrompts, `lp${i}`)}</p>
             : <span key={i}>{node}</span>)
         )}
         </div>
@@ -99,4 +103,24 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
     </div>
   );
+}
+
+/**
+ * A2 重设: 先用 splitTextWithSanBubbles 把 <san id="N"/> 替换成 SanityBubble 组件,
+ * 再对其中残留的 string 段调 beautifyText(关键词高亮 + 对话橘色)。
+ * 没有 <san> 时退化为单次 beautifyText。
+ */
+function renderStringWithBubblesAndBeauty(
+  text: string,
+  prompts: SanityCheckPrompt[] | undefined,
+  keyPrefix: string,
+): React.ReactNode[] {
+  const parts = splitTextWithSanBubbles(text, prompts, keyPrefix);
+  return parts.flatMap((node, idx) => {
+    if (typeof node !== 'string') return [node];
+    const beautified = beautifyText(node);
+    return beautified.map((n, j) => typeof n === 'string'
+      ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
+      : n);
+  });
 }

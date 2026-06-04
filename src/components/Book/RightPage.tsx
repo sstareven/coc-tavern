@@ -7,6 +7,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
+import { useSanityBubbleStore } from '../../stores/useSanityBubbleStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { enterCombat } from '../../sillytavern/combat-entry';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
@@ -15,10 +16,12 @@ import { itemNarrated } from '../../sillytavern/llm-response-parser';
 import { pushLog } from '../../stores/useLogStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
+import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
+import React from 'react';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
 import { shouldStage, type StagingTrigger } from '../../sillytavern/option-staging';
-import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
+import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 
 interface Props {
   header: string;
@@ -28,6 +31,8 @@ interface Props {
   isFlipping?: boolean;
   rewrite?: RewriteBlock;
   inventoryChanges?: InventoryChange[];
+  /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目, 用来把 <san id="N"/> 替换成 React 组件。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -422,7 +427,7 @@ function openBackpack() {
   });
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -446,10 +451,10 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
           {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{beautifyText(renderedContent[0])}</p>
+            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{renderStringWithBubblesAndBeauty(renderedContent[0], sanityCheckPrompts, 'rp0')}</p>
           ) : (
             renderedContent.map((node, i) => typeof node === 'string'
-              ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{beautifyText(node)}</p>
+              ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{renderStringWithBubblesAndBeauty(node, sanityCheckPrompts, `rp${i}`)}</p>
               : <span key={i}>{node}</span>)
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -641,12 +646,18 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   // 选项锁：本回合已按下一个会推进/掷骰的选项后，全部选项置灰禁用，防止重复点击重掷
+  // A2 重设: 也受未解决 SAN 气泡阻塞——只要本页 pending 含未解决 id, 选项一并置灰锁住,
+  // 强迫玩家先点完所有 <san> 气泡(被动 SAN check 是不可回避的精神冲击)。
   const locked = useChoiceLockStore((s) => s.locked);
+  const sanityPending = useSanityBubbleStore((s) => s.pending);
+  const sanityResolved = useSanityBubbleStore((s) => s.resolved);
+  const sanityBlocked = sanityPending.some((id) => !sanityResolved.has(id));
+  const effectivelyLocked = locked || sanityBlocked;
   // BUG4: 优先解析 action 字段；当 LLM 把检定标记漂移到了 text 字段时回退尝试 text。
   const check = parseCheckAction(ch.action) ?? parseCheckAction(ch.text);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-  const enabled = isLatestPage && !locked;
+  const enabled = isLatestPage && !effectivelyLocked;
   const isHovered = hovered && enabled;
 
   return (
@@ -671,7 +682,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         fillInputBar(buildChoiceInput(ch), ch.action);
       }}
       disabled={!enabled}
-      title={!isLatestPage ? '只有最新一页的选项可以选择' : (locked ? '正在处理上一个选择…' : undefined)}
+      title={!isLatestPage ? '只有最新一页的选项可以选择' : (sanityBlocked ? '请先点亮所有血色理智气泡' : (locked ? '正在处理上一个选择…' : undefined))}
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
@@ -731,4 +742,24 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       })()}
     </button>
   );
+}
+
+/**
+ * A2 重设: 先用 splitTextWithSanBubbles 把 <san id="N"/> 替换成 SanityBubble 组件,
+ * 再对其中残留的 string 段调 beautifyText(关键词高亮 + 对话橘色)。
+ * 没有 <san> 时退化为单次 beautifyText。
+ */
+function renderStringWithBubblesAndBeauty(
+  text: string,
+  prompts: SanityCheckPrompt[] | undefined,
+  keyPrefix: string,
+): React.ReactNode[] {
+  const parts = splitTextWithSanBubbles(text, prompts, keyPrefix);
+  return parts.flatMap((node, idx) => {
+    if (typeof node !== 'string') return [node];
+    const beautified = beautifyText(node);
+    return beautified.map((n, j) => typeof n === 'string'
+      ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
+      : n);
+  });
 }
