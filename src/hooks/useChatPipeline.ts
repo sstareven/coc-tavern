@@ -72,7 +72,7 @@ import { parseLlmResponse, parseRewriteResponse, detectNpcMissing } from '../sil
 import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
-import '../sillytavern/sanity-evaluator'; // A2.4 模块加载即 registerEvaluator('sanity', ...)
+import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
