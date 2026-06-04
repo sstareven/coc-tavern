@@ -188,6 +188,28 @@ export interface DarkThreadData {
   foreshadowing: string;
 }
 
+/**
+ * 理智检定气泡(A2 重设): LLM 在叙事正文嵌内联标记 <san id="N"/> + 在主 JSON 顶层 sanityCheckPrompts
+ * 数组里给出对应条目。玩家点击气泡 → SanityCheckPanel 跑 POW/INT/skill d100 检定 → 按结果掷扣 SAN。
+ *
+ * - id:           唯一标识(与叙事中 <san id="N"/> 的 N 对应);可用 'p1','p2'等任意字符串
+ * - trigger:      检定触发的简短描述(玩家可见,如"目睹同伴被撕碎")
+ * - checkType:    'POW'(理智底层属性) | 'INT'(看清诡异) | 'skill'(需 checkSkill 字段)
+ * - checkSkill:   仅 checkType='skill' 时填(如 '克苏鲁神话')
+ * - difficulty:   d100 难度等级 — normal(原值)/hard(/2)/extreme(/5)
+ * - sanLossSuccess: 通过检定时的 SAN 损失骰表达式("0" / "1D2" / "0/1D6" 取斜杠左侧)
+ * - sanLossFail:    未通过检定时的 SAN 损失骰表达式("1D6" / "1D10" / "0/1D6" 取斜杠右侧)
+ */
+export interface SanityCheckPrompt {
+  id: string;
+  trigger: string;
+  checkType: 'POW' | 'INT' | 'skill';
+  checkSkill?: string;
+  difficulty: 'normal' | 'hard' | 'extreme';
+  sanLossSuccess: string;
+  sanLossFail: string;
+}
+
 // ===== Inventory System =====
 export type ItemCategory = 'weapon' | 'tool' | 'consumable' | 'clue' | 'key_item' | 'misc';
 

@@ -3,7 +3,7 @@ import { pushLog } from '../stores/useLogStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
-import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
+import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem, SanityCheckPrompt } from '../types';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
 import type { NpcUpdate } from '../stores/useNpcStore';
@@ -26,6 +26,8 @@ export interface ParsedLlmResult {
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
+  /** A2 重设: LLM 内联 <san id="N"/> 标签对应的检定条目数组(主 JSON 顶层 sanityCheckPrompts)。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -56,7 +58,9 @@ export function stripMvu(s: string): string {
     .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '{{$1}}')
     .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
     .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
-    .replace(/<[^>]+>/g, '')
+    // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
+    // 用否定先行断言把 san 排除在「strip all tags」之外。
+    .replace(/<(?!san\b)[^>]+>/g, '')
     .replace(/\{\{set:[^}]+\}\}/gi, '')
     // LLM 偶尔把关键词写成单层花括号 {词}（应为 {{词}}），规范化以便高亮、
     // 避免原始花括号直接暴露给玩家。已有的 {{词}} 整体匹配后原样保留，不会被误改。
@@ -546,6 +550,32 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       }
     }
 
+    // ── A2 重设: SAN check 气泡提示数组 ──
+    // 主 JSON 顶层 sanityCheckPrompts: [{id,trigger,checkType,checkSkill?,difficulty,sanLossSuccess,sanLossFail}]
+    // 每条对应叙事正文里嵌的 <san id="N"/> 标签;玩家点气泡 → SanityCheckPanel 跑检定 → 掷扣 SAN。
+    let sanityCheckPrompts: SanityCheckPrompt[] | undefined;
+    const VALID_CHECK_TYPES = new Set(['POW', 'INT', 'skill']);
+    const VALID_DIFFICULTIES = new Set(['normal', 'hard', 'extreme']);
+    if (Array.isArray(parsed.sanityCheckPrompts)) {
+      sanityCheckPrompts = (parsed.sanityCheckPrompts as Record<string, unknown>[])
+        .filter((p) => p && typeof p.id === 'string' && String(p.id).trim())
+        .map((p) => {
+          const checkType = String(p.checkType ?? 'INT');
+          const difficulty = String(p.difficulty ?? 'normal');
+          return {
+            id: String(p.id).trim(),
+            trigger: typeof p.trigger === 'string' ? p.trigger.trim() : '',
+            checkType: (VALID_CHECK_TYPES.has(checkType) ? checkType : 'INT') as SanityCheckPrompt['checkType'],
+            checkSkill: typeof p.checkSkill === 'string' ? p.checkSkill.trim() : undefined,
+            difficulty: (VALID_DIFFICULTIES.has(difficulty) ? difficulty : 'normal') as SanityCheckPrompt['difficulty'],
+            sanLossSuccess: typeof p.sanLossSuccess === 'string' ? p.sanLossSuccess.trim() : '0',
+            sanLossFail: typeof p.sanLossFail === 'string' ? p.sanLossFail.trim() : '0',
+          };
+        });
+      if (sanityCheckPrompts.length === 0) sanityCheckPrompts = undefined;
+      else pushLog('debug', `[parseLlm] SAN检定气泡: ${sanityCheckPrompts.map((p) => `${p.id}(${p.checkType}${p.checkSkill ? ':' + p.checkSkill : ''}/${p.difficulty}, ${p.sanLossSuccess}/${p.sanLossFail})`).join(', ')}`, 'system');
+    }
+
     // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。日志完整记录内容（仅供排错）。
     const badEnding = typeof parsed.badEnding === 'string' && parsed.badEnding.trim()
       ? parsed.badEnding.trim()
@@ -580,6 +610,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       clues,
       npcUpdates,
       mapUpdates,
+      sanityCheckPrompts,
     };
 }
 
