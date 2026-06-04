@@ -117,6 +117,11 @@ export function CombatPanel() {
   const sheet = useCharSheetStore.getState().sheet;
   const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active';
   const resolving = enc.status === 'resolving';
+  // 「忙线」: 骰子动画在播 / 日志未追平 → 锁所有玩家动作按钮。
+  // 否则在 AI 动画中连点"攻击"会触发 playerAttack→advanceUntilPlayerOrEnd 把后续 AI 一次推完,
+  // 表现为"我点攻击,屏幕在给对方投骰",回合彻底乱轴。
+  const animating = tosses !== null || revealed < enc.log.length;
+  const canAct = isPlayerTurn && !animating;
 
   const rangedIdx = player ? player.weapons.findIndex((w) => w.ranged) : -1;
   const rangedWeapon = rangedIdx >= 0 ? player!.weapons[rangedIdx] : undefined;
@@ -135,26 +140,26 @@ export function CombatPanel() {
   /** 结束测试战斗：手动清场（测试战斗不推进正文，由玩家点按关闭，面板不自动消失）。 */
   const endTest = () => { useCombatStore.getState().clearCombat(); persist(); };
   const doReload = () => {
-    if (!isPlayerTurn || rangedIdx < 0) return;
+    if (!canAct || rangedIdx < 0) return;
     const { encounter: next, consumed } = playerReload(enc, rangedIdx, reserve);
     if (consumed > 0 && rangedWeapon?.ammoItemName) {
       useInventoryStore.getState().applyChanges([{ action: 'update', name: rangedWeapon.ammoItemName, quantity: -consumed }]);
     }
     setEncounter(next);
   };
-  const doClearJam = () => { if (isPlayerTurn && rangedIdx >= 0) setEncounter(playerClearJam(enc, rangedIdx)); };
+  const doClearJam = () => { if (canAct && rangedIdx >= 0) setEncounter(playerClearJam(enc, rangedIdx)); };
   const doCallHelp = () => {
     const friendly = enc.bystanders.find((b) => b.friendly);
-    if (isPlayerTurn && friendly) setEncounter(playerCallForHelp(enc, friendly.id));
+    if (canAct && friendly) setEncounter(playerCallForHelp(enc, friendly.id));
   };
-  const doFlee = () => { if (isPlayerTurn) setEncounter(playerFlee(enc)); };
+  const doFlee = () => { if (canAct) setEncounter(playerFlee(enc)); };
   // 用某件【特定武器】发起攻击（按随身武器逐个出按钮）。
-  const attackWith = (idx: number) => { if (isPlayerTurn) setEncounter(playerAttack(enc, idx)); };
+  const attackWith = (idx: number) => { if (canAct) setEncounter(playerAttack(enc, idx)); };
   // 战技（COC7e 6.3）：体格对抗，攻方胜施加 prone/缴械效果。
-  const doManeuver = (kind: ManeuverKind) => { if (isPlayerTurn) setEncounter(playerManeuver(enc, kind)); };
-  const weaponUsable = (w: { ranged: boolean; loadedAmmo?: number }) => isPlayerTurn && (!w.ranged || ((w.loadedAmmo ?? 0) > 0 && !player?.flags.weaponJammed));
+  const doManeuver = (kind: ManeuverKind) => { if (canAct) setEncounter(playerManeuver(enc, kind)); };
+  const weaponUsable = (w: { ranged: boolean; loadedAmmo?: number }) => canAct && (!w.ranged || ((w.loadedAmmo ?? 0) > 0 && !player?.flags.weaponJammed));
 
-  const canReloadNow = isPlayerTurn && rangedIdx >= 0 && !!rangedWeapon && canReload(rangedWeapon, reserve);
+  const canReloadNow = canAct && rangedIdx >= 0 && !!rangedWeapon && canReload(rangedWeapon, reserve);
   const jammed = !!player?.flags.weaponJammed;
   const hasFriendly = enc.bystanders.some((b) => b.friendly);
 
@@ -244,13 +249,13 @@ export function CombatPanel() {
         />
         <ExpandUpMenu
           label="战技"
-          disabled={!isPlayerTurn}
+          disabled={!canAct}
           options={MANEUVERS.map((m) => ({ label: m.label, title: m.title, onClick: () => act(true, () => doManeuver(m.kind)) }))}
         />
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
-        {jammed && <ActionBtn label="排除故障" disabled={!isPlayerTurn} onClick={() => act(false, doClearJam)} />}
-        {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
-        <ActionBtn label="逃跑" disabled={!isPlayerTurn} onClick={() => act(false, doFlee)} />
+        {jammed && <ActionBtn label="排除故障" disabled={!canAct} onClick={() => act(false, doClearJam)} />}
+        {hasFriendly && <ActionBtn label="呼救" disabled={!canAct} onClick={() => act(false, doCallHelp)} />}
+        <ActionBtn label="逃跑" disabled={!canAct} onClick={() => act(false, doFlee)} />
         {enc.test && <ActionBtn label="结束测试" onClick={() => act(false, endTest)} />}
       </div>
       )}

@@ -51,6 +51,18 @@ describe('playerAttack', () => {
     expect(out.status).toBe('resolving');
     expect(out.endReason).toBe('victory');
   });
+  // 回归:多目标战斗中,锁定目标已死时自动切到下一个活敌——否则 performAttack 静默 return,
+  // playerAttack 仍走 advanceUntilPlayerOrEnd 把回合让给 AI,玩家看到"我点攻击,对方在投骰"。
+  it('锁定目标已死 → 自动切到下一个活敌并实际攻击', () => {
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, weapons: [{ name: '徒手', skill: 90, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }] });
+    const deadE = mkC({ id: 'e1', faction: 'enemy', hp: 0, maxHp: 6, flags: { ...mkC({}).flags, dead: true } });
+    const liveE = mkC({ id: 'e2', faction: 'enemy', hp: 10, maxHp: 10, dodge: 20 });
+    const enc = mkEnc([player, deadE, liveE], 'e1'); // 锁的 e1 已死
+    const out = playerAttack(enc, 0, seqRng([0.0, 0.1, 0.0, 0.7, 0.9, 0.9]));
+    expect(out.playerTargetId).toBe('e2'); // 自动切到活敌
+    const e2 = out.combatants.find((c) => c.id === 'e2')!;
+    expect(e2.hp).toBeLessThan(10);        // 攻击实际命中,造成了伤害
+  });
 });
 
 describe('playerFlee', () => {

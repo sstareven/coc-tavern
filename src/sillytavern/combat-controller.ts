@@ -35,6 +35,18 @@ function byId(enc: Encounter, id: string | null): Combatant | undefined {
 function alive(c: Combatant): boolean { return !c.flags.dead && !c.flags.unconscious && !c.flags.fled; }
 function hostileTo(a: Combatant, b: Combatant): boolean { return (a.faction === 'enemy') !== (b.faction === 'enemy'); }
 
+/**
+ * 校准玩家锁定目标:若当前 playerTargetId 指向已倒下/脱离的敌人,自动切到下一个活敌。
+ * 不修则 performAttack 看 target 已死就静默 return,playerAttack 仍走 advanceUntilPlayerOrEnd,
+ * 把回合直接推到 AI——玩家屏幕上就是「我点攻击,对方在投骰」。
+ */
+function reaimPlayerTarget(enc: Encounter): Encounter {
+  const cur = enc.playerTargetId ? byId(enc, enc.playerTargetId) : null;
+  if (cur && alive(cur)) return enc;
+  const next = enc.combatants.find((c) => c.faction === 'enemy' && alive(c));
+  return { ...enc, playerTargetId: next?.id ?? null };
+}
+
 function log(enc: Encounter, text: string, kind: CombatLogEntry['kind'] = 'roll', rolls?: CombatRollViz[]): Encounter {
   return { ...enc, log: [...enc.log, { kind, text, ...(rolls && rolls.length ? { rolls } : {}) }] };
 }
@@ -222,7 +234,7 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
     enc = advanceTurn(enc);
     const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
     if (!cur || !alive(cur)) continue;          // 跳过已倒下者
-    if (cur.controlledBy === 'player') return enc; // 轮到玩家，停
+    if (cur.controlledBy === 'player') return reaimPlayerTarget(enc); // 轮到玩家,顺手把死目标切到下一个活敌
     enc = runAiTurn(enc, cur.id, rng);             // AI 行动
   }
   return enc;
@@ -231,9 +243,10 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
 
 export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
-  const player = enc0.combatants.find((c) => c.faction === 'player');
-  if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performAttack(standUp(enc0, player.id), player.id, enc0.playerTargetId, weaponIdx, rng, preset); // 倒地先起身再近战(COC7e 俯卧规则)
+  const enc1 = reaimPlayerTarget(enc0); // 目标已死/脱离则自动切下一个活敌,避免 performAttack 静默 return 把回合让给 AI
+  const player = enc1.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc1.playerTargetId) return enc1;
+  const enc = performAttack(standUp(enc1, player.id), player.id, enc1.playerTargetId, weaponIdx, rng, preset); // 倒地先起身再近战(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
@@ -302,9 +315,10 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
 
 /** 玩家发起战技：对锁定目标 performManeuver，结算脱战，否则推进 AI 回合。 */
 export function playerManeuver(enc0: Encounter, kind: ManeuverKind, rng: Rng = defaultRng): Encounter {
-  const player = enc0.combatants.find((c) => c.faction === 'player');
-  if (!player || !enc0.playerTargetId) return enc0;
-  const enc = performManeuver(standUp(enc0, player.id), player.id, enc0.playerTargetId, kind, rng); // 倒地先起身再发战技(COC7e 俯卧规则)
+  const enc1 = reaimPlayerTarget(enc0); // 同 playerAttack:防目标已死时 performManeuver 静默 return 让回合让给 AI
+  const player = enc1.combatants.find((c) => c.faction === 'player');
+  if (!player || !enc1.playerTargetId) return enc1;
+  const enc = performManeuver(standUp(enc1, player.id), player.id, enc1.playerTargetId, kind, rng); // 倒地先起身再发战技(COC7e 俯卧规则)
   const end = checkEndReason(enc);
   if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
