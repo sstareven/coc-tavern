@@ -11,10 +11,39 @@ import {
   playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
-import type { Combatant, ManeuverKind } from '../../types';
+import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
+import type { Combatant, ManeuverKind, DiceRecord, DiceResultType } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
+
+/** 成功等级 → 骰子配色（与全屏 DiceAnimation 一致）。 */
+const DICE_COLORS: Record<DiceResultType, string> = {
+  'crit-success': '#69f0ae', 'extreme-success': '#00e676', 'hard-success': '#4fc3f7',
+  'success': '#69f0ae', 'failure': '#ff5252', 'crit-failure': '#d50000',
+};
+const colorFor = (t: DiceResultType): string => DICE_COLORS[t] ?? '#999';
+const isAtkRec = (r: DiceRecord): boolean => !!r.purpose && (r.purpose.startsWith('攻击命中') || r.purpose.startsWith('战技'));
+
+/**
+ * 从本次新增的检定记录里，提取【玩家自身动作】那一组，构建滚骰序列：
+ * ① 检定投掷（攻击骰 + 守方闪避/反击骰，同投）② 伤害投掷（多骰同投）。AI 回合的掷骰不演骰。
+ */
+function buildPlayerTosses(fresh: DiceRecord[]): DiceToss[] {
+  if (fresh.length === 0 || !isAtkRec(fresh[0])) return []; // 首条非玩家攻击/战技(速度检定/排障等) → 不演骰
+  let end = fresh.length;
+  for (let i = 1; i < fresh.length; i++) { if (isAtkRec(fresh[i])) { end = i; break; } } // 到下一次攻击前 = 玩家这一组
+  const seg = fresh.slice(0, end);
+  const checkDice = seg
+    .filter((r) => isAtkRec(r) || r.purpose === '闪避' || r.purpose === '格斗反击')
+    .map((r) => ({ value: Number(r.roll) || 0, faces: 100, color: colorFor(r.type), caption: `${r.skill.split('·').pop()} ≤${r.target}` }));
+  const tosses: DiceToss[] = [{ title: '检定', dice: checkDice }];
+  const dmg = seg.find((r) => r.purpose === '伤害');
+  if (dmg?.dice?.length) {
+    tosses.push({ title: '伤害', dice: dmg.dice.map((d) => ({ value: d.value, faces: d.faces, color: '#ff7043' })), total: Number(dmg.roll) || 0 });
+  }
+  return tosses;
+}
 
 /** 战技目录（COC7e 6.3）：体格对抗，攻方胜施加倒地/缴械效果，不直接致伤。 */
 const MANEUVERS: { kind: ManeuverKind; label: string; title: string }[] = [
@@ -32,57 +61,42 @@ export function CombatPanel() {
   const logRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; });
 
-  // 骰子动画：每当战斗检定记录新增，为【玩家】那条主检定派发 dice-roll-animate(inputText:''→只演出不提交)，
-  // 让玩家清楚看见每次投掷。其余(敌方/对抗)靠日志明细 + 检定记录展开呈现。
-  const lastDiceCount = useRef(0);
-  useEffect(() => {
-    const recs = encounter?.diceRecords ?? [];
-    if (recs.length > lastDiceCount.current) {
-      const pname = encounter?.combatants.find((c) => c.faction === 'player')?.name;
-      const fresh = recs.slice(lastDiceCount.current);
-      const r = (pname ? fresh.find((x) => x.skill.startsWith(pname)) : undefined) ?? fresh[0];
-      if (r) {
-        document.dispatchEvent(new CustomEvent('dice-roll-animate', {
-          detail: { skillName: r.purpose ?? r.skill, target: Number(r.target) || 0, roll: Number(r.roll) || 0, resultType: r.type, inputText: '' },
-        }));
-      }
-    }
-    lastDiceCount.current = recs.length;
-  }, [encounter?.diceRecords, encounter?.combatants]);
-
-  // 日志揭示门控：动作若伴随掷骰，则【暂存】新日志行，待骰子动画结束(dice-animate-done)再揭示并逐字显示；
-  // 纯叙事(换弹/呼救等，无新检定)立即显示；新战斗/清场则重置全显。带 6s 兜底防卡死。
+  // 书页内滚骰 + 日志逐行揭示：玩家动作伴随掷骰时，先播 CombatDiceRoll(攻击/闪避→伤害)，
+  // 结束后逐行揭示该批日志（一行打完再出下一行）；纯叙事(无掷骰)直接逐行揭示。新战斗/清场重置全显。
   const [revealed, setRevealed] = useState(0);
-  const pendingRevealRef = useRef(0);
+  const [tosses, setTosses] = useState<DiceToss[] | null>(null);
+  const revealTargetRef = useRef(0);
   const lastLogLen = useRef(0);
   const lastDiceLen = useRef(0);
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 逐行揭示：当前末行打完 → 揭示下一行，直至追平目标
+  const kickReveal = () => setRevealed((r) => (r < revealTargetRef.current ? r + 1 : r));
   useEffect(() => {
     if (!encounter) { lastLogLen.current = 0; lastDiceLen.current = 0; return; }
     const logLen = encounter.log.length;
     const diceLen = encounter.diceRecords.length;
     if (logLen < lastLogLen.current) {
-      setRevealed(logLen); // 新战斗/清场 → 全显
+      // 新战斗/清场 → 全显，停掉滚骰
+      revealTargetRef.current = logLen; setRevealed(logLen); setTosses(null);
     } else if (logLen > lastLogLen.current) {
-      if (diceLen > lastDiceLen.current) {
-        pendingRevealRef.current = logLen; // 有掷骰 → 暂存，等动画结束
-        if (safetyRef.current) clearTimeout(safetyRef.current);
-        safetyRef.current = setTimeout(() => setRevealed(pendingRevealRef.current), 6000);
+      revealTargetRef.current = logLen;
+      const seq = buildPlayerTosses(encounter.diceRecords.slice(lastDiceLen.current));
+      if (safetyRef.current) clearTimeout(safetyRef.current);
+      if (seq.length > 0) {
+        setTosses(seq); // 先演骰；演完由 onComplete 逐行揭示
+        safetyRef.current = setTimeout(() => { setTosses(null); setRevealed(revealTargetRef.current); }, 8000); // 兜底防卡：全显
       } else {
-        setRevealed(logLen); // 无掷骰 → 立即显示
+        kickReveal(); // 无掷骰 → 立即逐行
       }
     }
     lastLogLen.current = logLen;
     lastDiceLen.current = diceLen;
   }, [encounter?.log, encounter?.diceRecords, encounter]);
-  useEffect(() => {
-    const onDone = () => {
-      if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
-      setRevealed(pendingRevealRef.current);
-    };
-    document.addEventListener('dice-animate-done', onDone);
-    return () => document.removeEventListener('dice-animate-done', onDone);
-  }, []);
+  const onTossComplete = () => {
+    if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
+    setTosses(null);
+    kickReveal();
+  };
 
   if (!encounter) return null;
   const enc = encounter;
@@ -134,7 +148,7 @@ export function CombatPanel() {
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
-      padding: '24px 0 16px', boxSizing: 'border-box',
+      padding: '24px 0 16px', boxSizing: 'border-box', position: 'relative',
       background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
       borderTopRightRadius: 4, borderBottomRightRadius: 4,
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
@@ -162,7 +176,8 @@ export function CombatPanel() {
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
       <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.slice(0, revealed).map((l, i) => (
-          <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'} />
+          <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'}
+            onDone={i === revealed - 1 ? kickReveal : undefined} />
         ))}
         <DiceRecordsExpander records={enc.diceRecords} />
       </div>
@@ -202,15 +217,26 @@ export function CombatPanel() {
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
         <ActionBtn label="逃跑" disabled={!isPlayerTurn} onClick={() => act(false, doFlee)} />
       </div>
+
+      {/* 书页内滚骰动画覆盖层（玩家攻击/战技：攻击+闪避同投 → 命中再投伤害骰） */}
+      <AnimatePresence>
+        {tosses && <CombatDiceRoll key="combat-dice" tosses={tosses} soundOn={soundEnabled} onComplete={onTossComplete} />}
+      </AnimatePresence>
     </div>
   );
 }
 
-function TypewriterLine({ text, narrative }: { text: string; narrative: boolean }) {
+function TypewriterLine({ text, narrative, onDone }: { text: string; narrative: boolean; onDone?: () => void }) {
   const [n, setN] = useState(0);
+  const doneRef = useRef(onDone);
+  useEffect(() => { doneRef.current = onDone; });
   useEffect(() => {
     let i = 0;
-    const id = setInterval(() => { i += 2; setN(i); if (i >= text.length) clearInterval(id); }, 20);
+    setN(0);
+    const id = setInterval(() => {
+      i += 2; setN(i);
+      if (i >= text.length) { clearInterval(id); doneRef.current?.(); }
+    }, 20);
     return () => clearInterval(id);
   }, [text]);
   return (

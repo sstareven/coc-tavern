@@ -82,6 +82,8 @@ export interface BookPage {
   darkThread?: DarkThreadData;
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
+  /** 本回合结束时的 NPC 名册快照（按 id）——供删页快照式回溯人物状态（含战斗结算的昏迷/死亡等）。 */
+  npcSnapshot?: Record<string, NpcProfile>;
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
@@ -355,6 +357,8 @@ export interface DiceRecord {
   context?: 'combat';
   /** 检定用途（战斗用）：攻击命中/伤害骰/闪避/反击/体质对抗/速度检定等。 */
   purpose?: string;
+  /** 本次掷骰的逐颗骰子（供书页内滚骰动画渲染）；伤害记录必填，d100 检定可省。 */
+  dice?: { value: number; faces: number }[];
 }
 
 // ===== Lorebooks =====

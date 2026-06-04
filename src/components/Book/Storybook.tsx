@@ -184,6 +184,11 @@ export function Storybook() {
     const lastSnap = [...remaining].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
     if (lastSnap) useCharSheetStore.getState().setSheet(lastSnap);
 
+    // NPC 名册回溯：优先用剩余末页的整页快照（含战斗结算的昏迷/死亡等，比 npcUpdates 重放更可靠）；
+    // 老存档无快照则保留上面的「clearAll + 重放 npcUpdates」兜底。
+    const lastNpcSnap = [...remaining].reverse().find((p) => p.npcSnapshot)?.npcSnapshot;
+    if (lastNpcSnap) useNpcStore.getState().replaceAll(Object.values(lastNpcSnap));
+
     // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first），并补上页码。
     useDiceStore.getState().setHistory(
       remaining.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),

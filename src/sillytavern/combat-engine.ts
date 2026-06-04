@@ -81,32 +81,58 @@ export function rollDamageFormula(formula: string, rng: Rng = defaultRng): { tot
   return { total: parts.reduce((a, b) => a + b, 0), parts };
 }
 
-/** 骰式的理论最大值（贯穿取满用），支持 +/- 项。 */
-function maxOfFormula(formula: string): number {
-  let max = 0;
+export interface RolledDie { value: number; faces: number; }
+
+/** 逐颗骰子掷骰式（如 "1D6+1D6"、"1D8+1"）：每颗骰子单列(供动画)，平值修正并入 total、不计入 dice。 */
+export function rollDamageDice(formula: string, rng: Rng = defaultRng): { total: number; dice: RolledDie[] } {
+  const dice: RolledDie[] = [];
+  let total = 0;
   const tokens = formula.replace(/\s+/g, '').match(/[+-]?[^+-]+/g) ?? [];
   for (const token of tokens) {
     const m = /^([+-]?\d*)[dD](\d+)$/.exec(token);
     if (m) {
       const count = m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : parseInt(m[1], 10);
-      max += count * parseInt(m[2], 10);
-    } else { const f = parseInt(token, 10); if (!Number.isNaN(f)) max += f; }
+      const faces = parseInt(m[2], 10);
+      const n = Math.abs(count), sign = count < 0 ? -1 : 1;
+      for (let i = 0; i < n; i++) { const v = die(faces, rng); dice.push({ value: v, faces }); total += sign * v; }
+    } else {
+      const flat = parseInt(token, 10);
+      if (!Number.isNaN(flat)) total += flat;
+    }
   }
-  return max;
+  return { total, dice };
 }
 
-/** 武器伤害（含 DB）。impale=true 时贯穿：武器骰+DB 取满，贯穿武器再追加一份武器伤害骰。 */
-export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rng: Rng = defaultRng): { total: number } {
-  if (!impale) {
-    const w = rollDamageFormula(weapon.damage, rng).total;
-    const d = db && db !== '0' ? rollDamageFormula(db, rng).total : 0;
-    return { total: w + d };
+/** 骰式取满（贯穿用）：每颗骰子取最大面，平值修正并入 total。 */
+function maxDiceOfFormula(formula: string): { total: number; dice: RolledDie[] } {
+  const dice: RolledDie[] = [];
+  let total = 0;
+  const tokens = formula.replace(/\s+/g, '').match(/[+-]?[^+-]+/g) ?? [];
+  for (const token of tokens) {
+    const m = /^([+-]?\d*)[dD](\d+)$/.exec(token);
+    if (m) {
+      const count = m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : parseInt(m[1], 10);
+      const faces = parseInt(m[2], 10);
+      const n = Math.abs(count), sign = count < 0 ? -1 : 1;
+      for (let i = 0; i < n; i++) { dice.push({ value: faces, faces }); total += sign * faces; }
+    } else { const f = parseInt(token, 10); if (!Number.isNaN(f)) total += f; }
   }
-  const wMax = maxOfFormula(weapon.damage);
-  const dMax = db && db !== '0' ? maxOfFormula(db) : 0;
-  let total = wMax + dMax;
-  if (weapon.impaling) total += rollDamageFormula(weapon.damage, rng).total; // 追加一份武器骰
-  return { total };
+  return { total, dice };
+}
+
+/** 武器伤害（含 DB）。impale=true 时贯穿：武器骰+DB 取满，贯穿武器再追加一份武器伤害骰。返回逐颗骰子供动画。 */
+export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rng: Rng = defaultRng): { total: number; dice: RolledDie[] } {
+  if (!impale) {
+    const w = rollDamageDice(weapon.damage, rng);
+    const d = db && db !== '0' ? rollDamageDice(db, rng) : { total: 0, dice: [] as RolledDie[] };
+    return { total: w.total + d.total, dice: [...w.dice, ...d.dice] };
+  }
+  const wMax = maxDiceOfFormula(weapon.damage);
+  const dMax = db && db !== '0' ? maxDiceOfFormula(db) : { total: 0, dice: [] as RolledDie[] };
+  let total = wMax.total + dMax.total;
+  const dice = [...wMax.dice, ...dMax.dice];
+  if (weapon.impaling) { const extra = rollDamageDice(weapon.damage, rng); total += extra.total; dice.push(...extra.dice); } // 追加一份武器骰
+  return { total, dice };
 }
 
 /** 成功等级排序（越大越好），用于对抗比较。 */

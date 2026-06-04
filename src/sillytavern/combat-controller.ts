@@ -34,6 +34,10 @@ function log(enc: Encounter, text: string, kind: CombatLogEntry['kind'] = 'roll'
 function rec(enc: Encounter, r: Omit<DiceRecord, 'time'>): Encounter {
   return { ...enc, diceRecords: [...enc.diceRecords, { ...r, time: 0, context: 'combat' }] };
 }
+/** 追加一条伤害记录（携逐颗骰子明细，供书页内滚骰动画演示伤害）。 */
+function recDamage(enc: Encounter, who: string, formula: string, total: number, dice: { value: number; faces: number }[]): Encounter {
+  return rec(enc, { skill: `${who}·伤害`, roll: String(total), target: formula, type: 'failure', purpose: '伤害', dice });
+}
 
 const LEVEL_CN: Record<SuccessLevel, string> = {
   critical: '大成功', extreme: '极难成功', hard: '困难成功', success: '成功', fail: '失败', fumble: '大失败',
@@ -93,11 +97,12 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     }
     if (!r.hit) return log(enc, `${hitLine} → 未命中 ${target.name}`);
     const impale = isImpaleLevel(r.level);
-    const dmg = rollDamage(weapon, '0', impale, rng).total; // 火器不加 DB(COC7e)
+    const dmgRoll = rollDamage(weapon, '0', impale, rng); // 火器不加 DB(COC7e)
+    enc = recDamage(enc, attacker.name, weapon.damage, dmgRoll.total, dmgRoll.dice);
     const hpBefore = target.hp;
-    const dr = applyDamage(target, dmg);
+    const dr = applyDamage(target, dmgRoll.total);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmg}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
+    return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
   }
 
   // 近战对抗：守方默认反击(格斗≥闪避)否则闪避；倾向逃则闪避
@@ -117,19 +122,22 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
     const db = attacker.damageBonus ?? '0';
-    const dmg = rollDamage(weapon, db, impale, rng).total;
+    const dmgRoll = rollDamage(weapon, db, impale, rng);
+    enc = recDamage(enc, attacker.name, dmgFormula(db), dmgRoll.total, dmgRoll.dice);
     const hpBefore = target.hp;
-    const dr = applyDamage(target, dmg);
+    const dr = applyDamage(target, dmgRoll.total);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags, roundDefenses: target.roundDefenses + 1 });
-    return log(enc, `${attacker.name} 命中${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmg}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
+    return log(enc, `${attacker.name} 命中${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`);
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? weapon;
-    const dmg = rollDamage(cw, target.damageBonus ?? '0', false, rng).total; // 反击不贯穿
+    const cdb = target.damageBonus ?? '0';
+    const dmgRoll = rollDamage(cw, cdb, false, rng); // 反击不贯穿
+    enc = recDamage(enc, target.name, cdb && cdb !== '0' ? `${cw.damage}+${cdb}` : cw.damage, dmgRoll.total, dmgRoll.dice);
     const hpBefore = attacker.hp;
-    const dr = applyDamage(attacker, dmg);
+    const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
+    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
   }
   if (op.winner === 'defender') return log(enc, `${attacker.name} 的攻击被 ${target.name} ${defense === 'dodge' ? '躲开' : '挡下'}`);
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
@@ -236,11 +244,13 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? { name: '徒手', skill: target.fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
-    const dmg = rollDamage(cw, target.damageBonus ?? '0', false, rng).total; // 反击不贯穿
+    const cdb = target.damageBonus ?? '0';
+    const dmgRoll = rollDamage(cw, cdb, false, rng); // 反击不贯穿
+    enc = recDamage(enc, target.name, cdb && cdb !== '0' ? `${cw.damage}+${cdb}` : cw.damage, dmgRoll.total, dmgRoll.dice);
     const hpBefore = attacker.hp;
-    const dr = applyDamage(attacker, dmg);
+    const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmg} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
+    return log(enc, `${target.name} 反击得手 → ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`);
   }
   if (op.winner === 'defender') return log(enc, `${attacker.name} 的${cn}被 ${target.name} 化解`);
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);

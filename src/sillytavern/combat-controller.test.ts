@@ -164,4 +164,14 @@ describe('近战日志拆行 + 倒地劣势', () => {
     const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]));
     expect(out.log.some((l) => l.text.includes('倒地·劣势'))).toBe(true);
   });
+
+  it('命中后追加伤害记录(purpose:伤害, 携 dice 逐颗明细)', () => {
+    const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, weapons: [{ name: '消防斧', skill: 90, damage: '2D6', impaling: true, ranged: false, attacksPerRound: 1 }] });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 10, hp: 30, maxHp: 30 });
+    const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.9, 0.5, 0.5, 0.5, 0.5]));
+    const dmgRec = out.diceRecords.find((r) => r.purpose === '伤害');
+    expect(dmgRec).toBeTruthy();
+    expect((dmgRec!.dice ?? []).length).toBeGreaterThan(0);
+    expect(dmgRec!.dice!.every((d) => d.faces === 6)).toBe(true);
+  });
 });

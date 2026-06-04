@@ -906,6 +906,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         newPage.genStats = pageGenStats;
         // 角色卡快照（此刻 statData 已含独立 API 隐含提取 + 自纠后的终值）
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
+        // NPC 名册快照（含战斗结算后的昏迷/死亡等状态）——供删页快照式回溯
+        newPage.npcSnapshot = structuredClone(useNpcStore.getState().profiles);
 
         const bookStore = useBookStore.getState();
         // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。

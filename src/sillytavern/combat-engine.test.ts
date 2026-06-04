@@ -3,7 +3,7 @@ import type { Combatant, CombatWeapon, Encounter } from '../types';
 import {
   d100WithDice, successLevel, type Rng,
   buildAndDamageBonus,
-  rollDamageFormula, rollDamage,
+  rollDamageFormula, rollDamage, rollDamageDice,
   resolveOpposed, resolveRanged,
   applyDamage,
   outnumberBonusDice, nextTurnOrder, decideAiAction, consumeAmmo, canReload,
@@ -95,6 +95,19 @@ describe('rollDamageFormula', () => {
   it('减号分隔项 "1D8-2"（修：不再吞掉减项）', () => {
     const r = rollDamageFormula('1D8-2', seqRng([0.5])); // 1D8: r=0.5→5 ; -2 ⇒ 3
     expect(r.total).toBe(3);
+  });
+});
+
+describe('rollDamageDice（逐颗骰子，供动画）', () => {
+  it('1D6+1D6 → 两颗 d6 单列，平值不计入 dice', () => {
+    const r = rollDamageDice('1D6+1D6', seqRng([0.0, 0.99])); // 1, 6
+    expect(r.total).toBe(7);
+    expect(r.dice).toEqual([{ value: 1, faces: 6 }, { value: 6, faces: 6 }]);
+  });
+  it('1D8+1 → 平值 +1 进 total 不进 dice', () => {
+    const r = rollDamageDice('1D8+1', seqRng([0.0])); // d8=1, +1
+    expect(r.total).toBe(2);
+    expect(r.dice).toEqual([{ value: 1, faces: 8 }]);
   });
 });
 
