@@ -1,11 +1,16 @@
 /**
- * DeepSeek V4 缓存优化器 —— 思维模式指令注入（纯函数层）。
+ * DeepSeek V4 缓存优化器 —— 配置 + 思维模式 marker（纯函数层）。
  *
- * 原理（依据 deepseek_v4_rolepaly_instruct + deepseek-cache-optimizer）：
- * - 在对话上下文里注入一段「思维模式指令 marker」，控制 DeepSeek V4 思考(<think>标签内)的风格（概率性增强）。
- * - 缓存优化：marker 必须【附着到发送 messages 的最后一条用户消息末尾】(尾部高注意力区)，
- *   绝不进 system / 前缀中段——这样 system+格式+世界书 这段可缓存前缀每回合不变，命中 DeepSeek 前缀缓存。
- * - 默认模式不注入（零副作用）。
+ * 历史：早期仅做"思维模式 marker 附着到末条用户消息"。该策略本身正确（不进一步破坏前缀），
+ * 但发现现项目的 system 段(worldInfoBefore/format/worldInfoAfter)每回合都含动态内容(statSnapshot/
+ * anchor/keyword/inventory/NPC/locationElem/pillar 等)，前缀根本不稳定 → marker 尾置救不了。
+ *
+ * 现状：DsCacheConfig 已扩展为 *统一缓存优化器* 配置；真正承担"前缀稳定"工作的是
+ * src/sillytavern/deepseek-cache-restructure.ts 的 restructureMessages —— 把 [system×N, user×1]
+ * 重组为 ONE role:'user'（顶部稳定前缀），让 DeepSeek 前缀缓存按消息边界字节比对真正命中。
+ *
+ * 本文件保留 buildThinkingMarker（沉浸/分析/格式加强/自定义 4 种 marker 文案），由 useChatPipeline
+ * 在重组前附到末条 user 消息末尾——重组时 marker 已是 user 消息内容的一部分。
  */
 
 export type DsThinkingMode = 'default' | 'immersive' | 'analysis' | 'format_enforce' | 'custom';
@@ -34,12 +39,44 @@ export const DS_THINKING_MARKERS: Record<Exclude<DsThinkingMode, 'default' | 'cu
 };
 
 export interface DsCacheConfig {
+  /** "思维模式 marker"开关。默认 false（不注入）。 */
   enabled: boolean;
+  /** 思维模式（控制 <think> 标签内风格的概率性增强）。 */
   mode: DsThinkingMode;
+  /** mode='custom' 时使用的自定义文案。 */
   customText: string;
+  /** —— 以下为消息三区重组（移植自 deepseek-cache-optimizer 插件）—— */
+  /** 消息三区重组（前缀缓存最大化）总开关。默认 false（保守，用户主动开启）。 */
+  restructure?: boolean;
+  /** 合并时给每组加 <role==X> 标签。默认 true。 */
+  roleTags?: boolean;
+  /** 调试日志：把重组前后的 messages 打到 console。默认 false。 */
+  debugLog?: boolean;
+  /** postHistory 末尾若为 assistant（伪思维链/prefill），保留为独立 message。默认 true。 */
+  keepTailAssistant?: boolean;
+  /** 在末尾追加一条自定义 assistant 预填。默认 false。 */
+  customPrefillEnabled?: boolean;
+  /** 自定义预填内容（trim 后非空才生效）。 */
+  customPrefillContent?: string;
+  /** 目标 API 来源，逗号分隔，仅命中时才启用重组。默认 'deepseek,custom'。 */
+  targetSources?: string;
+  /** WI 蓝绿灯分离（绿灯/非常驻 lore 下沉到底部高注意力区）。默认 false。 */
+  separateWiLights?: boolean;
 }
 
-export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = { enabled: false, mode: 'default', customText: '' };
+export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
+  enabled: false,
+  mode: 'default',
+  customText: '',
+  restructure: false,
+  roleTags: true,
+  debugLog: false,
+  keepTailAssistant: true,
+  customPrefillEnabled: false,
+  customPrefillContent: '',
+  targetSources: 'deepseek,custom',
+  separateWiLights: false,
+};
 
 /**
  * 据配置生成要附着到【最后一条用户消息】末尾的思维模式 marker；

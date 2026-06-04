@@ -65,6 +65,7 @@ import { useStatusToastStore } from '../stores/useStatusToastStore';
 import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } from '../constants/presets';
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
+import { restructureMessages, isDeepSeekSource, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -599,20 +600,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         resolvedFormat,
         { before: wbBefore, after: wbAfter },
       );
-      // DeepSeek V4 缓存优化器：把所选思维模式 marker 附着到【最后一条用户消息】末尾(尾部高注意力区)。
-      // 只改最后一条 user 消息，不动 system/格式/世界书前缀 → 保 DeepSeek 前缀缓存；marker 不写入书页正文/历史。
+      // DeepSeek V4 缓存优化器(A) —— 思维模式 marker 附着到【最后一条 user 消息】末尾。
+      // 重组开启后这一步仍发生在重组前，marker 进入"被合并的首条 user"里，等价于"前缀缓存中段插指令"——
+      // 但 marker 是用户主动开启的，且对每回合都是同一段文本，所以仍是稳定字节段，不破坏前缀。
       const dsMarker = buildThinkingMarker(settingsNow.dsCache);
       if (dsMarker) {
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === 'user') { messages[i] = { ...messages[i], content: `${messages[i].content}\n\n${dsMarker}` }; break; }
         }
       }
-      // Store for Prompt Viewer
-      usePromptViewerStore.getState().setPrompt(
-        messages,
-        useSettingsStore.getState().apiModel,
-        activePreset.name,
-      );
 
       // Context budget management — trim if over limit
       const settings = useSettingsStore.getState();
@@ -626,7 +622,40 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         }
       }
 
-      const finalTokens = estimateTokens(JSON.stringify(result.trimmed));
+      // DeepSeek V4 缓存优化器(B) —— 消息三区重组。仅对 isDeepSeekSource(modelId, targetSources) 命中时启用。
+      // 把 [system×N, user×1, assistant×M, user] 合并为顶部稳定 user(缓存区) + 中间对话区 + 末 user 前置高注意力区。
+      // 本项目 history=[]，通常走 isSingleMessage 路径 → 所有 system + 当前 user 合并成一条 user 消息。
+      const dsCfg = settingsNow.dsCache;
+      const dsRestructureEnabled =
+        dsCfg?.restructure === true &&
+        isDeepSeekSource(settings.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
+      let finalMessages = result.trimmed;
+      if (dsRestructureEnabled) {
+        const rsCfg: DsRestructureConfig = {
+          enabled: true,
+          roleTags: dsCfg.roleTags !== false,
+          debugLog: dsCfg.debugLog === true,
+          keepTailAssistant: dsCfg.keepTailAssistant !== false,
+          customPrefillEnabled: dsCfg.customPrefillEnabled === true,
+          customPrefillContent: dsCfg.customPrefillContent ?? '',
+          separateWiLights: dsCfg.separateWiLights === true,
+        };
+        // 绿灯 lore 内容：从 matchedLore 中抽出 constant=false 的渲染后内容（仅当 separateWiLights 开启时）。
+        // 抽取自 processedLore 而非原 buckets，因为后者尚未经 EJS/宏渲染。
+        const greenContents = rsCfg.separateWiLights
+          ? processedLore.filter((e) => !e.constant).map((e) => e.content)
+          : undefined;
+        finalMessages = restructureMessages(result.trimmed, rsCfg, greenContents);
+      }
+
+      // Store for Prompt Viewer —— 显示真实发送的(重组后)消息结构，所见即所得。
+      usePromptViewerStore.getState().setPrompt(
+        finalMessages,
+        useSettingsStore.getState().apiModel,
+        activePreset.name,
+      );
+
+      const finalTokens = estimateTokens(JSON.stringify(finalMessages));
       if (result.trimmedCount > 0) {
         pushLog(
           'warn',
@@ -634,7 +663,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         );
       }
 
-      return { messages: result.trimmed, tokenCount: finalTokens, preset: activePreset, liteSavedTokens };
+      return { messages: finalMessages, tokenCount: finalTokens, preset: activePreset, liteSavedTokens };
     },
     [thHooks],
   );

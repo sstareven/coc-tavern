@@ -830,6 +830,74 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </>
                 )}
 
+                {/* DeepSeek 消息三区重组（核心前缀缓存优化，移植自 deepseek-cache-optimizer 插件） */}
+                <CategoryBar label="DeepSeek 消息重组（前缀缓存）" />
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    启用消息重组
+                    <HelpIcon text={'把发给 API 的 messages 重组成三个区域以最大化 DeepSeek 前缀缓存命中：\n顶部(缓存区) — 所有 system 设定 + 首条 user 合并成一条 user，字节稳定 → 命中缓存\n中间(对话区) — 聊天历史保持原样\n底部(高注意力区) — 内联 system / 绿灯 lore / 作者注塞到最后 user 之前(等效 D1)\n\n本游戏每回合 stateless 重构 prompt(无聊天历史)，重组后通常发送【一条 user 消息】，能让 DeepSeek 前缀缓存命中率从极低跃升到 80%+。\n默认关闭——需自行确认中转站走的是 DeepSeek 通道再开启。'} />
+                  </span>
+                  <Toggle on={dsCache.restructure === true} onChange={() => setDsCache({ restructure: !(dsCache.restructure === true) })} />
+                </div>
+                {dsCache.restructure === true && (
+                  <>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        生效的 API 来源
+                        <HelpIcon text={'逗号分隔。当前模型 ID 经启发式推断后命中其中一个才会启用重组：\n• deepseek — modelId 含 deepseek / ds / volc / ep- 等\n• custom — 中转站统一归类（兜底）\n• openai / openrouter — 自填\n填空 / 不命中 → 不重组（零副作用）'} />
+                      </span>
+                      <input type="text" value={dsCache.targetSources ?? 'deepseek,custom'}
+                        onChange={(e) => setDsCache({ targetSources: e.target.value })}
+                        placeholder="deepseek,custom"
+                        style={{ flex: 1, maxWidth: 220, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: '4px 6px', transition: 'var(--transition-smooth)' }} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        添加角色标签
+                        <HelpIcon text={'合并 system / user / assistant 时给每组加 <role==X>...</role==X> 标签包裹，避免模型混淆原始角色。\n推荐开启——原插件默认 true。'} />
+                      </span>
+                      <Toggle on={dsCache.roleTags !== false} onChange={() => setDsCache({ roleTags: !(dsCache.roleTags !== false) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        保留尾部 assistant
+                        <HelpIcon text={'若 messages 数组末尾(最后 user 之后)有 assistant 消息(伪思维链 prefill)，保留为独立 message，不并入 user。\n本项目通常没有这种结构(每回合 history=[])，对一般场景无影响。'} />
+                      </span>
+                      <Toggle on={dsCache.keepTailAssistant !== false} onChange={() => setDsCache({ keepTailAssistant: !(dsCache.keepTailAssistant !== false) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        自定义预填
+                        <HelpIcon text={'重组后在末尾追加一条 assistant 消息，引导模型以特定格式开始输出(如 "{")。\n慎用 —— 与本项目 FORMAT_INSTRUCTION 的 JSON 输出规范可能冲突。'} />
+                      </span>
+                      <Toggle on={dsCache.customPrefillEnabled === true} onChange={() => setDsCache({ customPrefillEnabled: !(dsCache.customPrefillEnabled === true) })} />
+                    </div>
+                    {dsCache.customPrefillEnabled === true && (
+                      <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
+                        <span style={labelStyle}>预填内容</span>
+                        <textarea rows={2} value={dsCache.customPrefillContent ?? ''}
+                          onChange={(e) => setDsCache({ customPrefillContent: e.target.value })}
+                          placeholder='例如：{'
+                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
+                      </div>
+                    )}
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        世界书蓝绿灯分离
+                        <HelpIcon text={'实验性：把【非常驻】世界书条目(绿灯)从顶部缓存区移到底部高注意力区(最后 user 之前)，让蓝灯(常驻)条目独享缓存。\n本项目世界书匹配每回合都变(matchedKeyword/anchor/keyword/statSnapshot 等动态桶) → 启用后能让前缀更稳定。\n默认关 —— 与原插件保守一致。'} />
+                      </span>
+                      <Toggle on={dsCache.separateWiLights === true} onChange={() => setDsCache({ separateWiLights: !(dsCache.separateWiLights === true) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
+                        调试日志
+                        <HelpIcon text={'在浏览器控制台(F12)打印重组前/后的 messages 结构（含 role + 内容首 80 字）。仅排查时开。'} />
+                      </span>
+                      <Toggle on={dsCache.debugLog === true} onChange={() => setDsCache({ debugLog: !(dsCache.debugLog === true) })} />
+                    </div>
+                  </>
+                )}
+
                 {/* API section */}
                 <div style={{ marginTop: 4 }}>
                   <CategoryBar label="主 API 配置" />
