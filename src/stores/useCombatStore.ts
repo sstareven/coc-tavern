@@ -30,3 +30,15 @@ export const useCombatStore = create<CombatStore>()((set) => ({
   replaceAll: (e) => set({ encounter: e ?? null, seenLogLen: e?.log.length ?? 0 }),
   clearAll: () => set({ encounter: null, seenLogLen: 0 }),
 }));
+
+/**
+ * 战斗是否「悬空孤儿」：encounter 锚定页(anchorPageId)已不在现存 pages 中
+ * （删页/回溯/裁页移除了那一页）。这种战斗非空却任何页都渲染不出面板（面板隐形），
+ * 又会被 enterCombat 守卫(`if(encounter)return`)与主管线 `!encounter` 门控当成「已在战斗中」，
+ * 从而静默堵死所有进战入口（名册攻击/选项格斗/行动补写）。须在删页/读档时识别并清除。
+ * 无 anchorPageId（老存档，按最新页显示）或 encounter 为空 → 非孤儿。
+ */
+export function isOrphanedEncounter(encounter: Encounter | null, pageIds: readonly string[]): boolean {
+  if (!encounter?.anchorPageId) return false;
+  return !pageIds.includes(encounter.anchorPageId);
+}
