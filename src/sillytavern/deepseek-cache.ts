@@ -75,6 +75,11 @@ export interface DsCacheConfig {
   /** 跳过 mvu_var_list：内置 coc_lore 的 mvu_var_list 与 statSnapshot 几乎完全重复，
    *  开启后从匹配里过滤掉它，省 ~400-800 tokens/回合。 */
   experimentalSkipMvuVarList?: boolean;
+  /** 前缀漂移诊断（借鉴 claude-code-best PROMPT_CACHE_BREAK_DETECTION）：
+   *  跨回合对比"理论应稳定"的静态字段(systemPrompt + wbBefore + processedFormat + wbAfter)，
+   *  漂移时写日志告知第一处差异位置 + 上下文 + 启发式定位（systemPrompt/wbBefore/processedFormat/wbAfter）。
+   *  让用户自助排查"为何缓存命中率不达预期"。 */
+  experimentalPrefixDiagnostics?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -93,6 +98,7 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   autoDetectDynamicConstant: true,
   experimentalLeanSnapshot: false,
   experimentalSkipMvuVarList: false,
+  experimentalPrefixDiagnostics: false,
 };
 
 /**

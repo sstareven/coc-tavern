@@ -66,6 +66,7 @@ import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } 
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
 import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
 import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
@@ -677,6 +678,34 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const afterEntries = sortByInsertionStrategy(loreForWb.filter((e) => e.position !== 0), wiStrategy);
       const wbBefore = beforeEntries.map((e) => e.content).join('\n');
       const wbAfter = afterEntries.map((e) => e.content).join('\n');
+
+      // 实验性：跨回合静态前缀漂移诊断（借鉴 claude-code-best PROMPT_CACHE_BREAK_DETECTION）。
+      // 把"理论上应每回合相等"的静态字段(systemPrompt + wbBefore + processedFormat + wbAfter)
+      // 拼成字符串，跨回合对比 → 找出第一处字节差异点 + 启发式定位是哪段污染。
+      // 仅 dsRestructureOn && experimentalPrefixDiagnostics 同时开启时生效，写到 console + pushLog。
+      if (dsRestructureOn && dsCfg.experimentalPrefixDiagnostics === true) {
+        const SEP = '\n--§--\n';
+        const segSystem = processedPreset.systemPrompt;
+        const segWbBefore = wbBefore;
+        const segFormat = resolvedFormat;
+        const segWbAfter = wbAfter;
+        // segment offsets（用于诊断器启发式定位漂移在哪个段）
+        const offsets: Record<string, number> = {
+          systemPrompt: 0,
+          wbBefore: segSystem.length + SEP.length,
+          processedFormat: segSystem.length + SEP.length + segWbBefore.length + SEP.length,
+          wbAfter: segSystem.length + SEP.length + segWbBefore.length + SEP.length + segFormat.length + SEP.length,
+        };
+        const staticPrefix = [segSystem, segWbBefore, segFormat, segWbAfter].join(SEP);
+        const sessionId = useChatStore.getState().activeId ?? '__no_session__';
+        const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
+        const line = formatDiagnosticLine(result);
+        if (dsCfg.debugLog === true) console.log(line);
+        if (!result.prefixStable) {
+          // 命中漂移：在主日志面板写一条 warn，提醒用户排查
+          pushLog('warn', line, 'system');
+        }
+      }
 
       // Assemble prompt messages (variables already resolved by unified macro engine)
       const messages = assemblePrompt(

@@ -929,6 +929,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         </span>
                         <Toggle on={dsCache.experimentalSkipMvuVarList === true} onChange={() => setDsCache({ experimentalSkipMvuVarList: !(dsCache.experimentalSkipMvuVarList === true) })} />
                       </div>
+                      <div style={rowStyle}>
+                        <span style={labelStyle}>
+                          前缀漂移诊断
+                          <HelpIcon text={'借鉴 claude-code-best 的 PROMPT_CACHE_BREAK_DETECTION：跨回合保存"理论应每回合相等"的静态前缀(systemPrompt+wbBefore+processedFormat+wbAfter)，本回合发送前对比，漂移时在日志面板打 warn：\n• 第一处差异字节位置\n• 前后 80 字符上下文(上回合 vs 本回合)\n• 启发式定位是哪段污染(systemPrompt / wbBefore / processedFormat / wbAfter)\n这能让你自助定位"为何命中率不达预期"——找到那段漂移源后改预设/世界书把它静态化。\n副作用：纯诊断，不改 prompt，对生成质量无影响。'} />
+                        </span>
+                        <Toggle on={dsCache.experimentalPrefixDiagnostics === true} onChange={() => setDsCache({ experimentalPrefixDiagnostics: !(dsCache.experimentalPrefixDiagnostics === true) })} />
+                      </div>
                     </div>
                   </>
                 )}
