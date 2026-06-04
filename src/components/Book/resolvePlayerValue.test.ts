@@ -43,6 +43,14 @@ const mockSheet: CharacterSheet = {
   personaDescription: 'A dedicated investigator of the unknown.',
   posture: '站立',
   statusConditions: [],
+  dailySanLoss: 0,
+  temporaryInsanity: { active: false, roundsLeft: 0 },
+  indefiniteInsanity: { active: false },
+  permanentInsanity: { active: false },
+  phobias: [],
+  manias: [],
+  known_spells: [],
+  recovery: { hp: 0, san: 0 },
 };
 
 describe('resolvePlayerValue', () => {

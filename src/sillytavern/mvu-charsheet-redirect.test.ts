@@ -40,9 +40,9 @@ describe('applyCharsheetRedirect — replace', () => {
     const next = applyCharsheetRedirect(sheet(), '调查员.技能.侦查', 'replace', 55);
     expect(next?.skills.侦查.current).toBe(55);
   });
-  it('未知技能 → 新建 skill(current=value, base=0)', () => {
+  it('未知技能 → 新建 skill(current=value, base=0, ticked=false)', () => {
     const next = applyCharsheetRedirect(sheet(), '调查员.技能.攀爬', 'replace', 30);
-    expect(next?.skills.攀爬).toEqual({ base: 0, current: 30 });
+    expect(next?.skills.攀爬).toEqual({ base: 0, current: 30, ticked: false });
   });
 });
 
@@ -118,7 +118,7 @@ describe('applyCharsheetRedirect — MVU 规则对齐(信用评级作技能 / �
 describe('applyCharsheetRedirect — 技能写入键归一(别名/专精)', () => {
   it('别名「手枪」归一为规范键「枪械(手枪)」写入(不造孤儿键)', () => {
     const next = applyCharsheetRedirect(sheet(), '调查员.技能.手枪', 'replace', 50);
-    expect(next?.skills['枪械(手枪)']).toEqual({ base: 0, current: 50 });
+    expect(next?.skills['枪械(手枪)']).toEqual({ base: 0, current: 50, ticked: false });
     expect(next?.skills['手枪']).toBeUndefined();
   });
   it('裸名「格斗」命中角色卡已有专精键「格斗(斗殴)」', () => {
@@ -139,7 +139,7 @@ describe('applyCharsheetRedirect — 技能写入键归一(别名/专精)', () =
       '枪械(步枪/霰弹枪)': { base: 25, current: 30 },
     } } as CharacterSheet;
     const next = applyCharsheetRedirect(base, '调查员.技能.枪械', 'replace', 50);
-    expect(next?.skills['枪械']).toEqual({ base: 0, current: 50 });
+    expect(next?.skills['枪械']).toEqual({ base: 0, current: 50, ticked: false });
     expect(next?.skills['枪械(手枪)'].current).toBe(40); // 既有专精不受影响
   });
 });

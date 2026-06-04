@@ -30,7 +30,7 @@ interface Props {
   treasuredPossessions: string;
   traits: string;
   injuries: string;
-  phobias: string;
+  backgroundFears: string;
   onSavePreset: () => void;
 }
 
@@ -67,7 +67,7 @@ export function StepReview({
   treasuredPossessions,
   traits,
   injuries,
-  phobias,
+  backgroundFears,
   onSavePreset,
 }: Props) {
   const c = (k: COC7Characteristic) => charValues[k] ?? 0;
@@ -209,7 +209,7 @@ export function StepReview({
           {treasuredPossessions && <Row label="珍贵之物" value={treasuredPossessions} />}
           {traits && <Row label="特质" value={traits} />}
           {injuries && <Row label="伤口/伤痕" value={injuries} />}
-          {phobias && <Row label="恐惧症/狂躁症" value={phobias} />}
+          {backgroundFears && <Row label="恐惧症/狂躁症" value={backgroundFears} />}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useChatStore } from './useChatStore';
-import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
+import { useCharSheetStore, defaultSheet, isDefaultSheet, migrateSheet } from './useCharSheetStore';
 import { useInventoryStore, normalizeItems } from './useInventoryStore';
 import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
@@ -341,7 +341,8 @@ async function loadConversationInner(cid: string): Promise<void> {
   rebuildSummariesFromPages(pages);
 
   // 角色卡：P0-1 无条件设置——无行则回退默认卡，杜绝残留上一会话角色。
-  useCharSheetStore.getState().setSheet(charRow?.sheet ?? defaultSheet);
+  // 经 migrateSheet 走唯一升级口，补齐老存档缺失的 A2/A3/B1/C2 预留字段。
+  useCharSheetStore.getState().setSheet(migrateSheet(charRow?.sheet));
 
   // 物品栏（剥离关系键，normalizeItems 由 replaceAll 内部处理）
   const items = inventoryRows.map(({ conversationId: _cid, itemId: _itemId, ...item }) => item);

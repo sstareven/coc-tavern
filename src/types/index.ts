@@ -13,7 +13,8 @@ export interface CharacterSheet {
     db: string;
     build: number;
   };
-  skills: Record<string, { base: number; current: number }>;
+  /** 技能：base = 起始值；current = 当前值；ticked = 本场冒险触发了「成功后打勾」标记（M2 经验提升机制使用）。 */
+  skills: Record<string, { base: number; current: number; ticked?: boolean }>;
   identity: {
     name: string;
     occupation: string;
@@ -37,6 +38,30 @@ export interface CharacterSheet {
   posture: string;
   /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
   statusConditions: StatusCondition[];
+  /**
+   * 一【游戏日】内累计的理智损失（A2 不定性疯狂阈值 = maxSan/5 / 单日）。
+   * 由 A2 post-settle evaluator 在 sceneInfo.date 变更时清零（NOT 每回合）。
+   * 同时 A2.4 评估器读此字段判定 indefinite 触发。
+   */
+  dailySanLoss: number;
+  /** 临时疯狂（COC7e 表 VII/VIII）：active=true 时角色处于发作，roundsLeft 为剩余回合。 */
+  temporaryInsanity: {
+    active: boolean;
+    roundsLeft: number;
+    bout?: { mode: 'realtime' | 'summary'; table: 'VII' | 'VIII'; entry: string };
+  };
+  /** 不定性疯狂（A2.4）：累计达 maxSan/5 / 单日 后触发，需 1d10 个月恢复或经治疗。 */
+  indefiniteInsanity: { active: boolean; cause?: string; triggeredAt?: number };
+  /** 永久性疯狂（SAN 归零）。 */
+  permanentInsanity: { active: boolean; triggeredAt?: number };
+  /** 恐惧症（A2 临时/不定性疯狂获得的长期 phobia 标签）。与 statusConditions 正交。 */
+  phobias: string[];
+  /** 狂躁症（A2 临时/不定性疯狂获得的长期 mania 标签）。与 statusConditions 正交。 */
+  manias: string[];
+  /** 已知法术（B1 法术系统）。仅记法术 id/名，详细 cost/effect 在法术库 / 世界书内。 */
+  known_spells: string[];
+  /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 在静养/治疗下的累积进度。 */
+  recovery: { hp: number; san: number };
 }
 
 /** 角色的持续状态条件（如中毒、着火、极度口渴）。 */

@@ -296,7 +296,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [treasuredPossessions, setTreasuredPossessions] = useState('');
   const [traits, setTraits] = useState('');
   const [injuries, setInjuries] = useState('');
-  const [phobias, setPhobias] = useState('');
+  const [backgroundFears, setBackgroundFears] = useState('');
   const [bgFilling, setBgFilling] = useState(false);
   const [backstoryError, setBackstoryError] = useState('');
   const [backstoryDraft, setBackstoryDraft] = useState('');
@@ -310,15 +310,16 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const prevOccRef = useRef(occupation);
 
   const saveCurrentPreset = useCallback(() => {
-    const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias };
+    const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears };
     savePreset(data);
-  }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias]);
+  }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears]);
 
   const loadPreset = useCallback((preset: CharacterPreset) => {
     const d = preset.data;
     setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setCustomOccupation(d.customOccupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
     setCharValues(d.charValues||DEFAULT_CHARS); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]); setInterestPoints(d.interestPoints||{});
-    setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setPhobias(d.phobias||'');
+    // 兼容老预设：backgroundFears 是新键名（A0.1 重命名），phobias 是 legacy 键；优先读新键，回退老键。
+    setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setBackgroundFears(d.backgroundFears || d.phobias || '');
     // 关键：把 prevOcc 同步为载入的职业，否则下面监听 occupation 的 effect 会判定「换了职业」，
     // 把刚 setOccSkills/setInterestSkills 填入的技能立即清空（表现为载入预设后技能全空）。
     prevOccRef.current = d.occupation||'';
@@ -398,7 +399,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       bgParts.push(`【珍贵之物 Treasured Possessions】\n${treasuredPossessions.trim() || '此人似乎没有任何牵挂之物——或者说，那些珍贵的东西早已失去。'}`);
       bgParts.push(`【特质 Traits】\n${traits.trim() || '沉默寡言，行踪不定。'}`);
       bgParts.push(`【伤口/伤痕 Injuries】\n${injuries.trim() || '表面上看不出明显伤痕，但谁知道衣领下藏着什么。'}`);
-      bgParts.push(`【恐惧症/狂躁症 Phobias】\n${phobias.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
+      bgParts.push(`【恐惧症/狂躁症 Phobias】\n${backgroundFears.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
       const combinedDesc = bgParts.join('\n\n');
 
       const sheet: CharacterSheet = {
@@ -430,6 +431,14 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         personaDescription: '',
         posture: '站立',
         statusConditions: [],
+        dailySanLoss: 0,
+        temporaryInsanity: { active: false, roundsLeft: 0 },
+        indefiniteInsanity: { active: false },
+        permanentInsanity: { active: false },
+        phobias: [],
+        manias: [],
+        known_spells: [],
+        recovery: { hp: 0, san: 0 },
       };
 
     // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
@@ -448,7 +457,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
     luckValue, name, player, occupation, customOccupation, age, sex, residence, birthplace,
     description, beliefs, significantPeople, meaningfulLocations,
-    treasuredPossessions, traits, injuries, phobias,
+    treasuredPossessions, traits, injuries, backgroundFears,
     setSheet, onComplete,
   ]);
 
@@ -548,7 +557,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     { key: 'treasuredPossessions', zh: '珍贵之物', value: treasuredPossessions, setter: setTreasuredPossessions },
     { key: 'traits',               zh: '特质',     value: traits,               setter: setTraits },
     { key: 'injuries',             zh: '伤疤',     value: injuries,             setter: setInjuries },
-    { key: 'phobias',              zh: '恐惧症',   value: phobias,              setter: setPhobias },
+    { key: 'backgroundFears',      zh: '恐惧症（背景）', value: backgroundFears,     setter: setBackgroundFears },
   ];
 
   // 核心：构造统一 prompt（草稿 + 已填字段原文 + 角色档案），让 AI 产出全部 8 格。
@@ -781,7 +790,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             treasuredPossessions={treasuredPossessions} onSetTreasuredPossessions={setTreasuredPossessions}
             traits={traits} onSetTraits={setTraits}
             injuries={injuries} onSetInjuries={setInjuries}
-            phobias={phobias} onSetPhobias={setPhobias}
+            backgroundFears={backgroundFears} onSetBackgroundFears={setBackgroundFears}
             backstoryDraft={backstoryDraft}
             onSetBackstoryDraft={setBackstoryDraft}
             bgFilling={bgFilling}
@@ -821,7 +830,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             treasuredPossessions={treasuredPossessions}
             traits={traits}
             injuries={injuries}
-            phobias={phobias}
+            backgroundFears={backgroundFears}
             onSavePreset={saveCurrentPreset}
           />
         );

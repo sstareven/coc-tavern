@@ -190,7 +190,11 @@ export function applyCharsheetRedirect(
       ...sheet,
       skills: {
         ...sheet.skills,
-        [skillName]: { base: existing?.base ?? 0, current: nextCurrent },
+        [skillName]: {
+          base: existing?.base ?? 0,
+          current: nextCurrent,
+          ticked: existing?.ticked ?? false,
+        },
       },
     };
   }

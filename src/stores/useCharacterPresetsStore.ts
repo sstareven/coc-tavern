@@ -26,7 +26,10 @@ export interface CharacterPresetData {
   treasuredPossessions: string;
   traits: string;
   injuries: string;
-  phobias: string;
+  /** A0.1：从「phobias」重命名而来，避免与 sheet.phobias[] 撞名。老预设里的 phobias 字段由 loadPreset 做一次性回落兼容。 */
+  backgroundFears: string;
+  /** @deprecated 老预设使用此键；loadPreset 仍会读取作为 backgroundFears 的回落。 */
+  phobias?: string;
 }
 
 export interface CharacterPreset {
