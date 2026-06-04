@@ -88,11 +88,13 @@ export function isDeepSeekSource(modelId: string | undefined, targetSources: str
  * - `<%` / `<%=` / `<%-`        — EJS 代码块（含 ejs_san_state/ejs_hp_state/ejs_combat 等）
  * - `{{getvar`/`{{getwi`/`{{setvar`/`{{$`  — 显式 SillyTavern getvar 类宏
  * - `{{xxx.yyy}}` 形态（双花括号含点路径）— 本项目 statData 引用宏（如 `{{调查员.生命值.当前}}`、`{{世界.时间}}`）
+ * - SillyTavern 经典动态宏 `{{time}}/{{date}}/{{isotime}}/{{isodate}}/{{random::..}}/{{roll::..}}/{{newline::N}}/{{format_message_variable::..}}`
+ *   — 这些在 unified-macro-engine 里被解析,每次渲染值不同(time/date 跟系统时钟,random/roll 真随机)。
  *
  * 故意不命中：
- * - `{{user}}` / `{{char}}` / `{{charName}}` / `{{newline}}` 等无点字面宏 — 这些在同一会话内字节稳定。
+ * - `{{user}}` / `{{char}}` / `{{charName}}` / `{{newline}}`(无参) 等无参字面宏 — 这些在同一会话内字节稳定。
  */
-const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|\$)|\{\{[^{}]*[^\s{}|()=+\-]\./;
+const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|\$|time|date|isotime|isodate|random(?:\s*::|\s*\})|roll\s*::|newline\s*::|format_message_variable\s*::)|\{\{[^{}]*[^\s{}|()=+\-]\./;
 
 export function hasDynamicMarker(content: string): boolean {
   if (!content) return false;

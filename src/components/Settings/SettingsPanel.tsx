@@ -811,9 +811,9 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     启用消息重组
                     <HelpIcon text={'把发给 API 的 messages 重组成三个区域以最大化 DeepSeek 前缀缓存命中：\n顶部(缓存区) — 所有 system 设定 + 首条 user 合并成一条 user，字节稳定 → 命中缓存\n中间(对话区) — 聊天历史保持原样\n底部(高注意力区) — 内联 system / 绿灯 lore / 作者注塞到最后 user 之前(等效 D1)\n\n本游戏每回合 stateless 重构 prompt(无聊天历史)，重组后通常发送【一条 user 消息】，能让 DeepSeek 前缀缓存命中率从极低跃升到 80%+。\n默认开启。需自行确认中转站走的是 DeepSeek 通道。'} />
                   </span>
-                  <Toggle on={dsCache.restructure !== false} onChange={() => setDsCache({ restructure: !(dsCache.restructure !== false) })} />
+                  <Toggle on={dsCache.restructure === true} onChange={() => setDsCache({ restructure: !(dsCache.restructure === true) })} />
                 </div>
-                {dsCache.restructure !== false && (
+                {dsCache.restructure === true && (
                   <>
                     <div style={rowStyle}>
                       <span style={labelStyle}>

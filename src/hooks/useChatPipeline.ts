@@ -229,10 +229,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const generateInjects: ScopedEntry[] = [];
       const constantEntries: ScopedEntry[] = [];
       for (const { bookId, book, source } of scopedBooks) {
-        for (const rawEntry of Object.values(book.entries)) {
+        for (const [entryKey, rawEntry] of Object.entries(book.entries)) {
           if (rawEntry.disabled) continue;
           // 实验性：跳过 mvu_var_list（与 statSnapshot 重复，节省 ~400-800 tokens）
-          if (experimentalSkipMvuVarList && rawEntry.name === 'mvu_var_list') continue;
+          // 注:比 entries 的 key 'mvu_var_list',不是 rawEntry.name(那是中文显示名 '变量列表')
+          if (experimentalSkipMvuVarList && entryKey === 'mvu_var_list') continue;
           const entry: ScopedEntry = { ...rawEntry, _source: source };
           const keys = entry.keys.toLowerCase();
           const isGenerate = keys.includes('generate:before') || keys.includes('generate:after');
