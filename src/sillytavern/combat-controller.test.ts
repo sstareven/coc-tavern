@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, playerManeuver, type OpeningPreset } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, type OpeningPreset } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -82,6 +82,39 @@ describe('runAiTurn 逃跑（MOV/速度结算）', () => {
   });
 });
 
+describe('倒地(prone)者须先起身，当回合不可脱离战斗（COC7e 俯卧规则）', () => {
+  const prone = (over: Partial<Combatant>) =>
+    mkC({ ...over, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+
+  it('倒地 AI 选逃 → 本回合只起身(prone清)，不脱离(fled仍false、仍在战斗)', () => {
+    // MOV 占优本会「直接脱离」，但倒地必须先起身 → 不脱离
+    const enemy = prone({ id: 'e', faction: 'enemy', mov: 12, tendency: { attack: 0, flee: 100 } });
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', mov: 7 });
+    const out = runAiTurn(mkEnc([enemy, player], 'p'), 'e', seqRng([0.0]));
+    const e2 = out.combatants.find((c) => c.id === 'e')!;
+    expect(e2.flags.fled).toBe(false);   // 没逃成
+    expect(e2.flags.prone).toBe(false);  // 已起身
+    expect(out.status).not.toBe('resolving');
+  });
+
+  it('倒地 AI 选攻 → 先起身(prone清)随即攻击', () => {
+    const enemy = prone({ id: 'e', faction: 'enemy', fighting: 90, tendency: { attack: 100, flee: 0 } });
+    const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dodge: 10, hp: 12, maxHp: 12 });
+    // roll: decideAiAction(攻) → performAttack(攻击/闪避/伤害)
+    const out = runAiTurn(mkEnc([enemy, player], 'e'), 'e', seqRng([0.9, 0.0, 0.1, 0.9, 0.5, 0.5]));
+    expect(out.combatants.find((c) => c.id === 'e')!.flags.prone).toBe(false); // 起身了
+  });
+
+  it('倒地玩家点逃跑 → 先起身(prone清)，本回合不脱离(非 resolving/flee)', () => {
+    const player = prone({ id: 'p', faction: 'player', controlledBy: 'player', con: 99 }); // CON 极高也不该当回合逃成
+    const enc = mkEnc([player, mkC({ id: 'e', faction: 'enemy', tendency: { attack: 100, flee: 0 } })], 'e');
+    const out = playerFlee(enc, seqRng([0.0, 0.1, 0.9, 0.9, 0.5, 0.5]));
+    const p2 = out.combatants.find((c) => c.id === 'p')!;
+    expect(p2.flags.prone).toBe(false);  // 已起身
+    expect(out.endReason).not.toBe('flee'); // 本回合未脱离
+  });
+});
+
 describe('advanceTurn', () => {
   it('轮内推进 currentIdx；越界则新一轮+清防御计数', () => {
     const enc = mkEnc([mkC({ id: 'a', faction: 'player', controlledBy: 'player', dex: 70 }), mkC({ id: 'b', dex: 40, roundDefenses: 2 })], 'b');
@@ -139,10 +172,11 @@ describe('performManeuver（COC7e 6.3 战技）', () => {
 });
 
 describe('playerManeuver', () => {
-  it('玩家击晕命中 → 目标 prone（回合推进后该效果仍在）', () => {
+  it('玩家击晕命中 → 目标当即 prone（起身发生在其自己的回合，见俯卧规则）', () => {
     const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dex: 90, str: 50, siz: 50, fighting: 90 });
     const enemy = mkC({ id: 'e', faction: 'enemy', str: 50, siz: 50, fighting: 5, dodge: 20, hp: 12, maxHp: 12, tendency: { attack: 0, flee: 0 } });
-    const out = playerManeuver(mkEnc([player, enemy], 'e'), 'knockout', seqRng([0.0, 0.1, 0.5, 0.9, 0.5, 0.5]));
+    // 用 performManeuver 直接看战技结算结果(不推进 AI 回合——倒地者只在轮到自己时才起身)
+    const out = performManeuver(mkEnc([player, enemy], 'e'), 'p', 'e', 'knockout', seqRng([0.0, 0.1, 0.5, 0.9, 0.5, 0.5]));
     expect(out.combatants.find((c) => c.id === 'e')!.flags.prone).toBe(true);
   });
 });
