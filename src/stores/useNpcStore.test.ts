@@ -108,3 +108,51 @@ describe('NPC 记忆折叠', () => {
     expect(inj).toContain('memorySummary');
   });
 });
+
+describe('NPC 当前 HP/SAN/MP 追踪', () => {
+  beforeEach(reset);
+  // CON60+SIZ60→HP=12；POW50→SAN=50、MP=10
+  const chars = { CON: 60, SIZ: 60, POW: 50 };
+
+  it('hpDelta 钳制到 [0, 推算最大值]（缺省当前值=最大值）', () => {
+    const st = useNpcStore.getState();
+    st.applyUpdates([{ name: '伤兵', characteristics: chars }]);
+    st.applyUpdates([{ name: '伤兵', hpDelta: -5 }]);
+    expect(Object.values(useNpcStore.getState().profiles)[0].hpCurrent).toBe(7); // 12-5
+    st.applyUpdates([{ name: '伤兵', hpDelta: -100 }]);
+    expect(Object.values(useNpcStore.getState().profiles)[0].hpCurrent).toBe(0); // 钳到 0
+    st.applyUpdates([{ name: '伤兵', hpDelta: 100 }]);
+    expect(Object.values(useNpcStore.getState().profiles)[0].hpCurrent).toBe(12); // 钳到 max
+  });
+
+  it('sanDelta/mpDelta 各自按最大值钳制', () => {
+    const st = useNpcStore.getState();
+    st.applyUpdates([{ name: '学者', characteristics: chars }]);
+    st.applyUpdates([{ name: '学者', sanDelta: -8, mpDelta: -3 }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.sanCurrent).toBe(42); // 50-8
+    expect(p.mpCurrent).toBe(7);  // 10-3
+  });
+
+  it('applyCombatResult 按 npc-<id> 回写终值HP+状态', () => {
+    const st = useNpcStore.getState();
+    st.applyUpdates([{ name: '匪徒', characteristics: chars }]);
+    const id = Object.keys(useNpcStore.getState().profiles)[0];
+    st.applyCombatResult([{ id: `npc-${id}`, hp: 3, maxHp: 12, flags: { majorWound: true } }]);
+    let p = useNpcStore.getState().profiles[id];
+    expect(p.hpCurrent).toBe(3);
+    expect(p.status).toBe('重伤');
+    st.applyCombatResult([{ id: `npc-${id}`, hp: 0, maxHp: 12, flags: { dead: true } }]);
+    p = useNpcStore.getState().profiles[id];
+    expect(p.hpCurrent).toBe(0);
+    expect(p.status).toBe('已死亡');
+  });
+
+  it('applyCombatResult 忽略非 npc-<id>（LLM建场的通用敌人）与不存在的档案', () => {
+    const st = useNpcStore.getState();
+    st.applyUpdates([{ name: '路人', characteristics: chars }]);
+    const before = useNpcStore.getState().profiles;
+    st.applyCombatResult([{ id: 'enemy-0-邪教徒', hp: 1, maxHp: 10 }, { id: 'npc-不存在', hp: 1, maxHp: 10 }]);
+    expect(useNpcStore.getState().profiles).toEqual(before); // 无变化
+  });
+});

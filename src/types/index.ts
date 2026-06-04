@@ -144,6 +144,10 @@ export interface NpcUpdate {
   possessions?: string[];
   isPresent?: boolean;
   status?: string;
+  /** 当前生命/理智/魔法值增量（受伤/恢复/损失理智时给出，正=增负=减；系统自动钳制到 [0, 推算最大值]）。 */
+  hpDelta?: number;
+  sanDelta?: number;
+  mpDelta?: number;
 }
 
 export interface MapUpdates {
@@ -323,6 +327,10 @@ export interface NpcProfile {
   isPresent: boolean;
   /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
   status?: string;
+  /** 当前生命/理智/魔法值（缺省=按属性推算的最大值；最大值仍由 parseNpcDerived 现算）。受 npcUpdates 的 hp/san/mpDelta 与战斗结算回写更新。 */
+  hpCurrent?: number;
+  sanCurrent?: number;
+  mpCurrent?: number;
   createdAt: number;
   updatedAt: number;
 }

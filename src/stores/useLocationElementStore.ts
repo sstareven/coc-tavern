@@ -78,7 +78,7 @@ export const useLocationElementStore = create<LocationElementStore>()((set, get)
     const list = get().getByLocation(currentLocationName);
     if (list.length === 0) return '';
     const lines = list.map((e) => `- ${e.name}（${e.category}）：${e.description}`);
-    return `[当前地点「${currentLocationName}」的已知元素——请与下列描述保持一致，勿与之矛盾，可在叙事中自然提及/复用]\n${lines.join('\n')}`;
+    return `[当前地点「${currentLocationName}」的已知元素——仅供一致性参考：本回合叙事若自然涉及这些元素，则与下列描述保持一致、勿矛盾；与本回合无关则不必刻意提及或逐条罗列]\n${lines.join('\n')}`;
   },
 
   replaceAll: (list) => set({ elements: list }),

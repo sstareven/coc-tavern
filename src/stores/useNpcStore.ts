@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { NpcProfile, NpcUpdate, COC7Characteristic } from '../types';
 import { useSettingsStore } from './useSettingsStore';
 import { useCharSheetStore } from './useCharSheetStore';
+import { parseNpcDerived } from '../sillytavern/npc-derived';
 
 export type { NpcUpdate };
 
@@ -45,6 +46,8 @@ interface NpcStore {
 
   profiles: Record<string, NpcProfile>; // by id
   applyUpdates: (updates: NpcUpdate[]) => void;
+  /** 战斗结算回写：把以 npc-<id> 为 id 的战斗员终值 hp 与昏迷/死亡/重伤状态写回对应 NPC 档案的 hpCurrent/status。 */
+  applyCombatResult: (combatants: { id: string; hp: number; maxHp: number; flags?: { dead?: boolean; unconscious?: boolean; majorWound?: boolean } }[]) => void;
   getPresent: () => NpcProfile[];
   getAbsent: () => NpcProfile[];
   buildContextInjection: () => string;
@@ -128,9 +131,43 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         // 安全兜底：即便 AI 未提供梗概，也绝不无限增长
         if (p.memories.length > MEMORY_HARD_CAP) p.memories = p.memories.slice(-MEMORY_HARD_CAP);
         p.updatedAt = now;
-        profiles[id] = withDefaultChars(p); // 确保有基础属性
+        const finalP = withDefaultChars(p); // 确保有基础属性
+        // 当前 HP/SAN/MP 增量：max 由 parseNpcDerived 现算，钳制到 [0, max]（缺省当前值=max）。
+        if (typeof u.hpDelta === 'number' || typeof u.sanDelta === 'number' || typeof u.mpDelta === 'number') {
+          const d = parseNpcDerived(finalP);
+          const clamp = (cur: number | undefined, max: number | undefined, delta: number): number => {
+            const m = max ?? 0;
+            const base = cur ?? m;
+            return m > 0 ? Math.max(0, Math.min(m, base + delta)) : Math.max(0, base + delta);
+          };
+          if (typeof u.hpDelta === 'number') finalP.hpCurrent = clamp(finalP.hpCurrent, d.hp, u.hpDelta);
+          if (typeof u.sanDelta === 'number') finalP.sanCurrent = clamp(finalP.sanCurrent, d.san, u.sanDelta);
+          if (typeof u.mpDelta === 'number') finalP.mpCurrent = clamp(finalP.mpCurrent, d.mp, u.mpDelta);
+        }
+        profiles[id] = finalP;
       }
       return { profiles };
+    });
+  },
+
+  applyCombatResult: (combatants) => {
+    set((s) => {
+      const profiles = { ...s.profiles };
+      let changed = false;
+      for (const c of combatants) {
+        const m = /^npc-(.+)$/.exec(c.id); // 仅回写由名册 NPC 建场的战斗员(buildCombatantFromNpc 用 npc-<id>)
+        if (!m) continue;
+        const id = m[1];
+        const p = profiles[id];
+        if (!p) continue;
+        const np: NpcProfile = { ...p, hpCurrent: Math.max(0, Math.min(c.maxHp, c.hp)), updatedAt: Date.now() };
+        if (c.flags?.dead) np.status = '已死亡';
+        else if (c.flags?.unconscious) np.status = '昏迷';
+        else if (c.flags?.majorWound) np.status = '重伤';
+        profiles[id] = np;
+        changed = true;
+      }
+      return changed ? { profiles } : {};
     });
   },
 

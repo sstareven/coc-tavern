@@ -67,8 +67,10 @@ function StatCell({ label, sub, value }: { label: string; sub?: string; value: s
 function NpcRecordSheet({ npc }: { npc: NpcProfile }) {
   const ch = npc.characteristics ?? {};
   const d = parseNpcDerived(npc);
+  // HP/SAN/MP 显示「当前/最大」：当前缺省=最大值(parseNpcDerived 现算)；战斗结算/npcUpdates 的 delta 会更新当前值。
+  const cm = (cur: number | undefined, max: number | undefined): string => (max == null ? '未知' : `${cur ?? max}/${max}`);
   const derived: { label: string; value: string | number | undefined }[] = [
-    { label: 'HP', value: d.hp }, { label: 'SAN', value: d.san }, { label: 'MP', value: d.mp },
+    { label: 'HP', value: cm(npc.hpCurrent, d.hp) }, { label: 'SAN', value: cm(npc.sanCurrent, d.san) }, { label: 'MP', value: cm(npc.mpCurrent, d.mp) },
     { label: 'DB', value: d.db }, { label: 'MOV', value: d.mov }, { label: '体格', value: d.build },
   ];
   return (

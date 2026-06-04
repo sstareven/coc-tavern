@@ -62,6 +62,7 @@ export function CharSheetOverlay() {
       case 'luck': return String(sec.luck);
       case 'mov': return String(sec.mov);
       case 'db': return sec.db;
+      case 'build': return (sec.build > 0 ? '+' : '') + String(sec.build);
       default: return '';
     }
   };
@@ -184,9 +185,10 @@ export function CharSheetOverlay() {
           <div style={sectionLabel}>衍生属性 · SECONDARY</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {SECONDARY_STATS.map((s) => (
-              <div key={s.key} style={{
+              <div key={s.key} title={s.tip} style={{
                 padding: '8px 6px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 3,
                 background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                cursor: s.tip ? 'help' : 'default',
               }}>
                 <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{s.zh}</div>
                 <div style={{ fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>{renderSecValue(s.key)}</div>

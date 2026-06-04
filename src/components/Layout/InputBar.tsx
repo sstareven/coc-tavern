@@ -4,6 +4,7 @@ import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCombatStore } from '../../stores/useCombatStore';
+import { useNpcStore } from '../../stores/useNpcStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { useMapStore } from '../../stores/useMapStore';
@@ -73,6 +74,7 @@ export function InputBar() {
             useBookStore.getState().setPageCombatLog(pages.length - 1, { entries: enc.log, endReason: reason });
             useChatStore.getState().savePages(useBookStore.getState().pages);
           }
+          useNpcStore.getState().applyCombatResult(enc.combatants); // 把名册NPC战斗员终值HP/状态回写档案
           useCombatStore.getState().clearCombat();
           const id = useChatStore.getState().activeId;
           if (id) void saveConversation(id);
