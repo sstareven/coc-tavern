@@ -12,6 +12,7 @@ import {
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
+import { IconLuck, IconPush } from '../Layout/TabIcons';
 import type { Combatant, Encounter, ManeuverKind, DiceResultType, CombatRollViz } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
@@ -399,7 +400,7 @@ function ExpandUpMenu({ label, primary, disabled, options }: {
   );
 }
 
-function DiceRecordsExpander({ records }: { records: { skill: string; roll: string; target: string; purpose?: string; page?: number }[] }) {
+export function DiceRecordsExpander({ records }: { records: { skill: string; roll: string; target: string; purpose?: string; page?: number; pushed?: boolean; luckSpent?: number }[] }) {
   const [open, setOpen] = useState(false);
   if (records.length === 0) return null;
   return (
@@ -409,17 +410,40 @@ function DiceRecordsExpander({ records }: { records: { skill: string; roll: stri
       </div>
       {open && (
         <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${FAINTER}` }}>
-          {records.map((r, i) => (
-            <div key={i} style={{ fontSize: 11, color: 'var(--ink-faded)', lineHeight: 1.7 }}>
-              {r.purpose === '伤害'
-                ? `[伤害] ${r.skill.split('·')[0]} ${r.target}=${r.roll}`
-                : `${r.purpose ? `[${r.purpose}] ` : ''}${r.skill} d100=${r.roll}/${r.target}`}
-            </div>
-          ))}
+          {records.map((r, i) => {
+            const text = r.purpose === '伤害'
+              ? `[伤害] ${r.skill.split('·')[0]} ${r.target}=${r.roll}`
+              : `${r.purpose ? `[${r.purpose}] ` : ''}${r.skill} d100=${r.roll}/${r.target}`;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-faded)', lineHeight: 1.7 }}>
+                <span>{text}</span>
+                {r.pushed && (
+                  <span data-testid="badge-push" style={badgeStyle('rgba(204,51,51,0.12)', 'var(--blood)')}>
+                    <IconPush size={10} /> 推
+                  </span>
+                )}
+                {typeof r.luckSpent === 'number' && r.luckSpent > 0 && (
+                  <span data-testid="badge-luck" style={badgeStyle('rgba(232,200,101,0.12)', 'var(--gold)')}>
+                    <IconLuck size={10} /> 幸-{r.luckSpent}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+/** A1.6 — 检定记录徽章统一样式 (推 / 幸-N)。 */
+function badgeStyle(bg: string, fg: string): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 3,
+    padding: '0 6px', borderRadius: 8,
+    border: `1px solid ${fg}`, background: bg, color: fg,
+    fontSize: 9, letterSpacing: 1, whiteSpace: 'nowrap', lineHeight: 1.6,
+  };
 }
 
 const MANEUVER_EFFECT_CN: Record<ManeuverKind, string> = { disarm: '武器被打落(暂不可用)', grapple: '被擒抱压制在地', shove: '被推倒在地', knockout: '被击晕,瘫倒在地' };
