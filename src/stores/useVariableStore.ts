@@ -10,7 +10,7 @@ import {
   buildSubstitutionMap,
 } from '../sillytavern/variables';
 import { applyMvuPatch, extractJsonPatchBlocks, type MvuOpError } from '../sillytavern/mvu-jsonpatch';
-import { isCharsheetPath, isNumericCharsheetTarget, applyCharsheetRedirect } from '../sillytavern/mvu-charsheet-redirect';
+import { isCharsheetPath, isNumericCharsheetTarget, applyCharsheetRedirect, isKnownOptionalCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { COC_MVU_SCHEMA } from '../sillytavern/mvu-schema';
 import { flattenStatData } from '../sillytavern/mvu-flatten';
 
@@ -65,14 +65,28 @@ function applyMvuOpsToTree(tree: Record<string, unknown>, ops: unknown[]): MvuOp
       if (updated) {
         sheet = updated;
         sheetChanged = true;
-      } else if (isNumericCharsheetTarget(dotPath) && (op === 'replace' || op === 'delta')) {
+        return true;
+      }
+      // applyCharsheetRedirect 返回 null 的两种语义：
+      //   (a) 数值字段收到非数字 → 真实失败，已分支报错；
+      //   (b) 不被支持的子路径（身份字段等）→ 良性「不写入」。
+      // G2 修复：把 (b) 中【非白名单】的子路径也视作真实失败上报，
+      // 防止 LLM 写错路径(`调查员.xxx.yyy`)被静默吞掉。
+      if (isNumericCharsheetTarget(dotPath) && (op === 'replace' || op === 'delta')) {
         // 数值目标(HP/SAN/MP/幸运/技能)收到非数字值——真实失败，上报供自纠；
-        // 其余 调查员.* 子路径(身份字段等)的 null 是良性「不消费」，不报错。
         errors.push({
           op,
           path: dotPath,
           value,
           reason: `角色卡数值字段 ${dotPath} 拒绝非数字值: ${JSON.stringify(value)}`,
+          rawOp: { op, path: dotPath, value },
+        });
+      } else if (!isKnownOptionalCharsheetPath(dotPath)) {
+        errors.push({
+          op,
+          path: dotPath,
+          value,
+          reason: `unknown charsheet path: ${dotPath}`,
           rawOp: { op, path: dotPath, value },
         });
       }

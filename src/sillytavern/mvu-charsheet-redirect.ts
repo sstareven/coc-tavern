@@ -36,6 +36,26 @@ export function isNumericCharsheetTarget(dotPath: string): boolean {
   );
 }
 
+/**
+ * 「已知但不写入」的 调查员.* 路径白名单：身份字段(姓名/职业/年龄/性别)等。
+ * applyCharsheetRedirect 返回 null 不报错；不在此白名单且未被 redirect 消费的视为未知路径(G2)。
+ *
+ * 故意 NOT 包含的 path:
+ *  - '调查员' (裸根): 全树替换在 MVU 语义里没有合理用途, 应报错防 LLM 误用整树覆盖.
+ */
+const KNOWN_OPTIONAL_CHARSHEET_PATHS: ReadonlySet<string> = new Set([
+  '调查员.姓名',
+  '调查员.职业',
+  '调查员.年龄',
+  '调查员.性别',
+  // C2/M4 法术名册(本里程碑仅占位,redirect 不写,但不报 unknown)
+  '调查员.已知法术',
+]);
+
+export function isKnownOptionalCharsheetPath(dotPath: string): boolean {
+  return KNOWN_OPTIONAL_CHARSHEET_PATHS.has(dotPath);
+}
+
 /** Map a 调查员.* secondary path to its sheet location. Returns null if unrecognized. */
 function secondaryTarget(dotPath: string): { stat: 'hp' | 'san' | 'mp'; field: 'current' | 'max' } | 'luck' | null {
   const map: Record<string, { stat: 'hp' | 'san' | 'mp'; field: 'current' | 'max' }> = {
