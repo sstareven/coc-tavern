@@ -109,10 +109,8 @@ describe('AI 近战攻击玩家时挂起 pendingDefense,玩家选 dodge/fightbac
     const player = mkC({ id: 'p', faction: 'player', controlledBy: 'player', dodge: 99, hp: 20, maxHp: 20 });
     const gunner = mkC({
       id: 'e', faction: 'enemy', tendency: { attack: 100, flee: 0 },
-      weapons: [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: false === true ? true : true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }] as Combatant['weapons'],
+      weapons: [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
     });
-    // 修正 weapons[0].ranged=true
-    gunner.weapons = [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }];
     const enc = mkEnc([player, gunner], 'e');
     const out = runAiTurn(enc, 'e', seqRng([0.5, 0.01, 0.9, 0.9])); // 不逃,攻击命中=1,伤害=6
     expect(out.pendingDefense).toBeFalsy(); // 远程不挂起

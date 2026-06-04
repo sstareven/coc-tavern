@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.10.0';
+export const CURRENT_VERSION = 'v1.10.1';
 
 interface Release {
   version: string;
@@ -13,6 +13,14 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.10.1',
+    label: '热修：Vercel 构建失败 — erasableSyntaxOnly 语法 + 测试笔误',
+    items: [
+      '【构建·修复】DsSubagentHttpError 用了 TS parameter properties 糖(`constructor(public readonly ...)`)，tsconfig 的 `erasableSyntaxOnly` 禁此语法 — 拆成显式字段声明 + 构造函数赋值，Vercel 编译恢复',
+      '【测试·修复】combat-controller.test 里一行远程武器初始化写成 `ranged: false === true ? true : true`（恒为 true 但 TS narrows 后等式恒假报错），下面还跟着一行冗余的"修正 weapons[0].ranged" — 合并为一次正确的 `ranged: true` 赋值',
+    ],
+  },
   {
     version: 'v1.10.0',
     label: '战斗：玩家选反击/闪避 · 多目标自动切活敌 · DS 缓存大批修复',
