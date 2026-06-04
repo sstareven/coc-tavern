@@ -57,6 +57,17 @@ export const useMapStore = create<MapStore>()((set) => ({
         if (nl?.name?.trim()) ensureLoc(nl.name, nl.description);
       }
 
+      // BUG3: 二次遍历 newLocations —— 对带描述的条目，无条件覆盖现有节点的空/旧描述。
+      // ensureLoc 仅在「现描述为空」时写入(first-writer-wins)；当 LLM 之后给了更详细的
+      // 描述时，原 ensureLoc 不会更新。这里补一道：只要新描述非空就刷新。
+      for (const nl of u.newLocations ?? []) {
+        const t = nl?.name?.trim();
+        const desc = nl?.description?.trim();
+        if (!t || !desc) continue;
+        const existing = findLocByName(locations, t);
+        if (existing) existing.description = desc;
+      }
+
       for (const ne of u.newEdges ?? []) {
         if (!ne?.from?.trim() || !ne?.to?.trim()) continue;
         const from = ensureLoc(ne.from);

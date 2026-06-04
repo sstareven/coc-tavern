@@ -1425,9 +1425,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 兜底:无论 LLM 是否给 mapUpdates,都把本回合场景地点登记为地图当前地点——
         // 否则开局/原地不动时地图全空、无当前地点节点(地图只靠 LLM mapUpdates 时常缺位)。
         // 仅当 mapUpdates 未自带 current 时补,避免覆盖 LLM 给的当前地点。
+        // BUG3:不再用 applyUpdates({ newLocations: [{ name: sceneLoc }] }) 兜底——
+        // 那会建一个空描述节点,后续即便 LLM 给了真实描述也只能写入「首次为空」分支。
+        // 改为只 setCurrentByName:若同名节点已存在(LLM 在某轮给过真实描述),指向之;
+        // 否则不强行建空节点,等待 LLM 真正命名+描述时由 applyUpdates 的 newLocations 路径建。
         const sceneLoc = result.page.sceneInfo?.location?.trim();
         if (sceneLoc && sceneLoc !== '未知' && !result.mapUpdates?.current) {
-          useMapStore.getState().applyUpdates({ current: sceneLoc, newLocations: [{ name: sceneLoc }] });
+          useMapStore.getState().setCurrentByName(sceneLoc);
         }
 
         // 地点元素抽取：对【当前地点】用独立 LLM 调用从本回合叙事抽取新环境元素，与主输出解耦、不阻塞翻页。
