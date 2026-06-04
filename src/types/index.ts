@@ -397,6 +397,16 @@ export interface DiceRecord {
   purpose?: string;
   /** 本次掷骰的逐颗骰子（供书页内滚骰动画渲染）；伤害记录必填，d100 检定可省。 */
   dice?: { value: number; faces: number }[];
+  /** R4 推动检定：本次记录系推动检定后的二次结果（pushedFrom 含原失败信息）。 */
+  pushed?: boolean;
+  /** R7 幸运消耗：本次检定消耗的幸运点数（达成升级所用）。 */
+  luckSpent?: number;
+  /** 推动理由（玩家/AI 填写，用于历史回顾）。 */
+  pushReason?: string;
+  /** 推动检定的原始失败记录（仅 pushed=true 时存在）。 */
+  pushedFrom?: { roll: number; type: DiceResultType };
+  /** R6 成长打钩：本次成功是否计入下次成长检定（用于 ticked 标记落地）。 */
+  growthTickEligible?: boolean;
 }
 
 // ===== Lorebooks =====
