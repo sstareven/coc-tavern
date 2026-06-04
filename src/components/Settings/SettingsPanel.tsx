@@ -359,6 +359,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMvuRpmLimit = useSettingsStore((s) => s.setMvuRpmLimit);
   const rewriteRpmLimit = useSettingsStore((s) => s.rewriteRpmLimit);
   const setRewriteRpmLimit = useSettingsStore((s) => s.setRewriteRpmLimit);
+  const rpmMaxQueueAttempts = useSettingsStore((s) => s.rpmMaxQueueAttempts);
+  const setRpmMaxQueueAttempts = useSettingsStore((s) => s.setRpmMaxQueueAttempts);
   const globalCaseSensitive = useSettingsStore((s) => s.globalCaseSensitive);
   const setGlobalCaseSensitive = useSettingsStore((s) => s.setGlobalCaseSensitive);
   const globalMatchWholeWord = useSettingsStore((s) => s.globalMatchWholeWord);
@@ -746,6 +748,21 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     />
                   </>
                 )}
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    排队上限（单次调用最多等待轮次）
+                    <HelpIcon text={'单次 API 调用在排队等 RPM 窗口腾位时最多等待的轮次（每轮 ≤5s）。\n\n达到此次数即抛 RpmQueueExhaustedError，由调用方 fail-open（静默降级丢这次请求），防 setTimeout 死循环卡住整条管线。\n\n硬上限 10，最低 0（=不排队，撞限即抛）。默认 10。'} />
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" min={0} max={10} step={1}
+                      value={rpmMaxQueueAttempts}
+                      onChange={(e) => setRpmMaxQueueAttempts(Number(e.target.value) || 0)}
+                      style={numInputStyle}
+                    />
+                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmMaxQueueAttempts === 0 ? '不排队' : `最多 ${rpmMaxQueueAttempts} 轮`}</span>
+                  </div>
+                </div>
 
                 <CategoryBar label="世界书匹配" />
                 <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>

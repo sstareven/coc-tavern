@@ -126,6 +126,27 @@ export function SanityCheckPanel() {
     if (ops.length > 0) {
       useVariableStore.getState().applyCorrectiveOps(ops);
     }
+    // 立即触发 post-settle evaluators(boutEvaluator)，让 Bout/不定/永久判定与本次扣 SAN 同回合落账，
+    // 而不是等到下回 LLM 主回复时才补判 —— 用户体验上"点完就出 Bout"。
+    // 用 dynamic import 避免循环依赖（evaluator 模块自己也 import useVariableStore）。
+    // 失败被吞（evaluator 内部已 try/catch + warn），不阻塞关 panel/markResolved 流程。
+    (async () => {
+      try {
+        const { runPostSettleEvaluators } = await import('../../sillytavern/post-settle-evaluators');
+        runPostSettleEvaluators({
+          sheet: useCharSheetStore.getState().sheet,
+          statData: useVariableStore.getState().statData,
+          patchReport: {
+            applied: 1,
+            failed: [],
+            charSheetDeltas: { sanDelta: -loss, episodeId: 'bubble:' + Date.now() },
+          },
+          applyCorrectiveOps: (corrOps) => useVariableStore.getState().applyCorrectiveOps(corrOps),
+        });
+      } catch (err) {
+        console.warn('[SanityCheckPanel] runPostSettleEvaluators 失败被吞:', err);
+      }
+    })();
     useSanityBubbleStore.getState().markResolved(prompt.id);
     closeStore();
   }, [prompt, loss, closeStore]);
@@ -262,7 +283,7 @@ export function SanityCheckPanel() {
             <div style={{ textAlign: 'center', marginBottom: 14 }}>
               <div style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 60, color: '#ff4040',
+                fontSize: 60,
                 letterSpacing: 4,
                 lineHeight: 1,
                 marginBottom: 8,

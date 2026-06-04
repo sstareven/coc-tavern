@@ -20,7 +20,7 @@ import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import React from 'react';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
-import { shouldStage, type StagingTrigger } from '../../sillytavern/option-staging';
+import { type StagingTrigger } from '../../sillytavern/option-staging';
 import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 
 interface Props {

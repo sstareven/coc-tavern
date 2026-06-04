@@ -74,11 +74,13 @@ export function Storybook() {
   }, [inventoryOpen, charSheetOpen, npcOpen, mapOpen, showToc]);
 
   const page = pages[pageIndex];
-  if (!page) return null;
 
   // A2 重设: 当前页 SAN 气泡 id 喂进 useSanityBubbleStore.pending — 决定本页选项是否被阻塞。
   // 仅最新页(玩家正待选择的页)的气泡才阻塞选项; 翻回老页面看到的气泡只是已解决态视觉。
-  useSanityBubbleEffect(page.sanityCheckPrompts, pageIndex === pages.length - 1);
+  // ⚠ 必须在所有早返之前调用（React Hooks 规则: 不可在条件后才调）。!page guard 移进 hook 内部。
+  useSanityBubbleEffect(page?.sanityCheckPrompts, !!page && pageIndex === pages.length - 1);
+
+  if (!page) return null;
 
   // 战斗面板只在「战斗所属页」显示：翻去别页见正常左右页，翻回战斗页才显示面板。
   // 老存档/在途战斗无 anchorPageId 时回退为「在最新页显示」，不破坏在途战斗。

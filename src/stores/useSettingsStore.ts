@@ -61,6 +61,12 @@ interface SettingsState {
   perApiRpmEnabled: boolean;
   mvuRpmLimit: number;
   rewriteRpmLimit: number;
+  /**
+   * 单次 rpmAcquire 调用允许的最大「排队等待轮次」：达到即抛 RpmQueueExhaustedError，
+   * 由调用方 fail-open（静默降级丢这次请求），防 setTimeout 死循环卡住整条管线。
+   * 硬上限 10，超 10 一律截到 10。默认 10。
+   */
+  rpmMaxQueueAttempts: number;
   // MVU 失败回灌自纠：默认关闭；开启后最多额外 N 次 mvu 桶往返让 AI 修正非法变量更新。
   mvuSelfCorrectEnabled: boolean;
   mvuSelfCorrectRetries: number;
@@ -114,6 +120,7 @@ interface SettingsStore extends SettingsState {
   setPerApiRpmEnabled: (v: boolean) => void;
   setMvuRpmLimit: (n: number) => void;
   setRewriteRpmLimit: (n: number) => void;
+  setRpmMaxQueueAttempts: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
   setUiScale: (v: number) => void;
@@ -164,6 +171,7 @@ const defaults: SettingsState = {
   perApiRpmEnabled: false,
   mvuRpmLimit: 10,
   rewriteRpmLimit: 10,
+  rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
   uiScale: 1,
@@ -218,6 +226,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setPerApiRpmEnabled: (v) => set({ perApiRpmEnabled: v }),
       setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
       setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
       setUiScale: (v) => set({ uiScale: clampUiScale(v) }),

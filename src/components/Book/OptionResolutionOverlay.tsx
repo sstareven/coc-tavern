@@ -49,7 +49,6 @@ function commitToTextarea(inputText: string) {
 export function OptionResolutionOverlay() {
   const pending = useOptionStagingStore((s) => s.pending);
   const resolveStore = useOptionStagingStore((s) => s.resolve);
-  const cancelStore = useOptionStagingStore((s) => s.cancel);
   const luck = useCharSheetStore((s) => s.sheet.secondary.luck);
 
   const [luckSpend, setLuckSpend] = useState(0);

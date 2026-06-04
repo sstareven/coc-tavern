@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { rpmEvaluate, resolveBucket } from './rpm-limiter';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  rpmEvaluate,
+  resolveBucket,
+  rpmAcquire,
+  _resetRpm,
+  clampQueueAttempts,
+  RpmQueueExhaustedError,
+  RPM_QUEUE_ATTEMPTS_HARD_CAP,
+} from './rpm-limiter';
 import { useSettingsStore } from '../stores/useSettingsStore';
 
 const MIN = 60_000;
@@ -53,5 +61,90 @@ describe('resolveBucket — 每个API独立RPM分桶', () => {
     expect(resolveBucket('main')).toEqual({ bucket: 'main', limit: 7 });
     expect(resolveBucket('mvu')).toEqual({ bucket: 'mvu', limit: 3 });
     expect(resolveBucket('rewrite')).toEqual({ bucket: 'rewrite', limit: 2 });
+  });
+});
+
+describe('clampQueueAttempts — 硬上限 10 钳子', () => {
+  it('非数字/非有限值回落硬上限 10', () => {
+    expect(clampQueueAttempts(undefined)).toBe(RPM_QUEUE_ATTEMPTS_HARD_CAP);
+    expect(clampQueueAttempts(null)).toBe(RPM_QUEUE_ATTEMPTS_HARD_CAP);
+    expect(clampQueueAttempts(Number.NaN)).toBe(RPM_QUEUE_ATTEMPTS_HARD_CAP);
+    expect(clampQueueAttempts(Number.POSITIVE_INFINITY)).toBe(RPM_QUEUE_ATTEMPTS_HARD_CAP);
+  });
+  it('>10 一律截到 10（设置 UI 也再做一次 clamp 但这里是最终防线）', () => {
+    expect(clampQueueAttempts(11)).toBe(10);
+    expect(clampQueueAttempts(9999)).toBe(10);
+  });
+  it('<0 截到 0', () => {
+    expect(clampQueueAttempts(-1)).toBe(0);
+    expect(clampQueueAttempts(-9999)).toBe(0);
+  });
+  it('[0,10] 中按 Math.floor 透传', () => {
+    expect(clampQueueAttempts(0)).toBe(0);
+    expect(clampQueueAttempts(3)).toBe(3);
+    expect(clampQueueAttempts(7.9)).toBe(7);
+    expect(clampQueueAttempts(10)).toBe(10);
+  });
+});
+
+describe('setRpmMaxQueueAttempts — store 写入也 clamp 到 [0,10]', () => {
+  it('>10 一律截到 10', () => {
+    useSettingsStore.getState().setRpmMaxQueueAttempts(99);
+    expect(useSettingsStore.getState().rpmMaxQueueAttempts).toBe(10);
+  });
+  it('<0 截到 0', () => {
+    useSettingsStore.getState().setRpmMaxQueueAttempts(-5);
+    expect(useSettingsStore.getState().rpmMaxQueueAttempts).toBe(0);
+  });
+  it('合法值透传', () => {
+    useSettingsStore.getState().setRpmMaxQueueAttempts(7);
+    expect(useSettingsStore.getState().rpmMaxQueueAttempts).toBe(7);
+  });
+});
+
+describe('rpmAcquire — 排队上限抛 RpmQueueExhaustedError', () => {
+  beforeEach(() => {
+    _resetRpm();
+    vi.useFakeTimers();
+    useSettingsStore.setState({
+      perApiRpmEnabled: false,
+      rpmLimit: 1, // 极小窗口让排队必发生
+      rpmMaxQueueAttempts: 3, // 排队 3 次即抛
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    _resetRpm();
+  });
+
+  it('窗口内连发 1 次后，第 2 次最多排队 N 次即抛 RpmQueueExhaustedError', async () => {
+    // 第一次必通过（窗口空）
+    await rpmAcquire('main');
+    // 第二次撞限：vi.useFakeTimers 下 setTimeout 不会自动推进，需 vi.advanceTimersByTimeAsync
+    const acquirePromise = rpmAcquire('main').catch((e) => e);
+    // 推进 3 轮 setTimeout（每轮 5s 上限），第 4 轮进入循环时 attempts=3>=3 抛错
+    for (let i = 0; i < 4; i++) await vi.advanceTimersByTimeAsync(5_000);
+    const err = await acquirePromise;
+    expect(err).toBeInstanceOf(RpmQueueExhaustedError);
+    expect((err as RpmQueueExhaustedError).bucket).toBe('main');
+    expect((err as RpmQueueExhaustedError).attempts).toBe(3);
+    expect((err as RpmQueueExhaustedError).limit).toBe(1);
+  });
+
+  it('用户设 maxAttempts=15 被 clamp 到 10（不能超 10）', async () => {
+    useSettingsStore.setState({ rpmMaxQueueAttempts: 15, rpmLimit: 1 });
+    await rpmAcquire('main');
+    const acquirePromise = rpmAcquire('main').catch((e) => e);
+    // 推进 11 轮（每轮 5s）— 第 11 轮 attempts=10>=10 抛
+    for (let i = 0; i < 11; i++) await vi.advanceTimersByTimeAsync(5_000);
+    const err = await acquirePromise;
+    expect(err).toBeInstanceOf(RpmQueueExhaustedError);
+    expect((err as RpmQueueExhaustedError).attempts).toBe(10);
+  });
+
+  it('limit=0 不限制：不进入排队循环，立即返回', async () => {
+    useSettingsStore.setState({ rpmLimit: 0 });
+    // 无需推进定时器，立即 resolve
+    await expect(rpmAcquire('main')).resolves.toBeUndefined();
   });
 });
