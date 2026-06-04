@@ -12,6 +12,7 @@ import type { CharacterSheet, COC7Characteristic } from '../../types';
 import {
   CHAR_ROLL, resolveSkillBase, deriveSecondaryStats,
   applyAgeModifiers, rollEduImprovement, roll3D6,
+  clampSkillPointAlloc,
 } from '../../sillytavern/coc-rules';
 import {
   STEPS, CHAR_ORDER, type SkillCat, ALL_SKILLS, SKILL_DESC, COC_OCCUPATIONS,
@@ -273,6 +274,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ---- Lifted callbacks for StepSkills ---- */
 
+  // Refs to read the *other* pool's allocation without stale closures
+  // (adjOccPoint needs interestPoints[skill]; adjIntPoint needs occPoints[skill]).
+  const occPointsRef = useRef(occPoints);
+  const intPointsRef = useRef(interestPoints);
+  useEffect(() => { occPointsRef.current = occPoints; }, [occPoints]);
+  useEffect(() => { intPointsRef.current = interestPoints; }, [interestPoints]);
+
   const adjOccPoint = (skillName: string, delta: number) => {
     setOccPoints((p) => {
       const cur = p[skillName] ?? 0;
@@ -280,9 +288,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const remaining = occPointPool - used;
       const sk = ALL_SKILLS.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
-      const maxBySkill = 99 - base;
-      const target = cur + delta;
-      const newVal = Math.max(0, Math.min(Math.min(cur + remaining, maxBySkill), target));
+      const otherAlloc = intPointsRef.current[skillName] ?? 0;
+      const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
       return { ...p, [skillName]: newVal };
     });
   };
@@ -294,9 +301,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const remaining = intPointPool - used;
       const sk = ALL_SKILLS.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
-      const maxBySkill = 99 - base;
-      const target = cur + delta;
-      const newVal = Math.max(0, Math.min(Math.min(cur + remaining, maxBySkill), target));
+      const otherAlloc = occPointsRef.current[skillName] ?? 0;
+      const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
       return { ...p, [skillName]: newVal };
     });
   };
@@ -315,7 +321,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const intTotalAllocated = Object.values(interestPoints).reduce((a, b) => a + b, 0);
   const occRemaining = occPointPool - occTotalAllocated;
   const intRemaining = intPointPool - intTotalAllocated;
-  const canProceedStep4 = occRemaining === 0 && intRemaining === 0 && occSkills.length > 0;
+  // Invariant guard (BUG1): no single skill may exceed base+occ+int ≤ 99 — final defense before Step5.
+  const allSkillsUnderCap = ALL_SKILLS.every((sk) => {
+    const occ = occPoints[sk.name] ?? 0;
+    const int = interestPoints[sk.name] ?? 0;
+    if (occ === 0 && int === 0) return true;
+    const base = getBaseForSkill(sk, charValues);
+    return base + occ + int <= 99;
+  });
+  const canProceedStep4 = occRemaining === 0 && intRemaining === 0 && occSkills.length > 0 && allSkillsUnderCap;
 
   /* ---- Step 5: Background ---- */
   const [description, setDescription] = useState('');

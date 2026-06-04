@@ -226,3 +226,33 @@ export function rollSkillImprovement(
   }
   return { roll, improved: false, gain: 0, finalValue: currentValue };
 }
+
+/* ============================== Skill point cap (creator) ============================== */
+
+/**
+ * 计算技能加点后允许的新值。
+ *
+ * 规则：base + occ + int <= 99；且不超过当前池剩余可分配点数。
+ * 既适用职业加点（otherAlloc=该技能已分配的兴趣点），
+ * 也适用兴趣加点（otherAlloc=该技能已分配的职业点）。
+ *
+ * @param cur          该技能在「正被编辑的那一池」里当前已分配点数
+ * @param delta        本次按下 +1 / +5 / -1 / -5 的增量
+ * @param base         技能基础值（与 charValues 相关，例如 闪避 = DEX_HALF）
+ * @param otherAlloc   该技能在另一池里已分配的点数（联动钳的关键）
+ * @param remaining    当前池子还剩多少点（即 pool - 已用）
+ * @returns 钳制后的新分配值（≥ 0；base + 新值 + otherAlloc ≤ 99）
+ */
+export function clampSkillPointAlloc(
+  cur: number,
+  delta: number,
+  base: number,
+  otherAlloc: number,
+  remaining: number,
+): number {
+  const maxBySkill = Math.max(0, 99 - base - otherAlloc);
+  const target = cur + delta;
+  const capByPool = Math.min(cur + remaining, maxBySkill);
+  return Math.max(0, Math.min(capByPool, target));
+}
+
