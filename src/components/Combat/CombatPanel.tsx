@@ -128,6 +128,8 @@ export function CombatPanel() {
   };
 
   const setTarget = (id: string) => setEncounter({ ...enc, playerTargetId: id });
+  /** 结束测试战斗：手动清场（测试战斗不推进正文，由玩家点按关闭，面板不自动消失）。 */
+  const endTest = () => { useCombatStore.getState().clearCombat(); persist(); };
   const doReload = () => {
     if (!isPlayerTurn || rangedIdx < 0) return;
     const { encounter: next, consumed } = playerReload(enc, rangedIdx, reserve);
@@ -202,8 +204,12 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* 动作栏：战斗中=攻击/战技/换弹…；脱战后=「推进剧情」按钮(玩家先回看战斗记录，点了才生成右页叙事) */}
-      {resolving && !enc.test ? (
+      {/* 动作栏：测试战斗结束=「结束测试」(手动关闭)；真实战斗结束=「推进剧情」；战斗中=攻击/战技/…(测试战斗附带「结束测试」) */}
+      {resolving && enc.test ? (
+        <div style={{ display: 'flex', justifyContent: 'center', borderTop: `1px solid ${FAINTER}`, padding: '12px 24px 2px', marginTop: 8, flexShrink: 0 }}>
+          <ActionBtn label="结束测试 ✕" primary onClick={() => act(true, endTest)} />
+        </div>
+      ) : resolving && !enc.test ? (
         <div style={{ display: 'flex', justifyContent: 'center', borderTop: `1px solid ${FAINTER}`, padding: '12px 24px 2px', marginTop: 8, flexShrink: 0 }}>
           <button
             onClick={() => { if (advancing) return; setAdvancing(true); if (soundEnabled) { try { sfxClickPrimary(); } catch { /* audio 不可用 */ } } document.dispatchEvent(new Event('combat-advance')); }}
@@ -240,6 +246,7 @@ export function CombatPanel() {
         {jammed && <ActionBtn label="排除故障" disabled={!isPlayerTurn} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
         <ActionBtn label="逃跑" disabled={!isPlayerTurn} onClick={() => act(false, doFlee)} />
+        {enc.test && <ActionBtn label="结束测试" onClick={() => act(false, endTest)} />}
       </div>
       )}
 

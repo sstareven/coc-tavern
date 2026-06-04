@@ -79,15 +79,8 @@ export function InputBar() {
     };
     document.addEventListener('combat-advance', doAdvance);
     const unsub = useCombatStore.subscribe((s) => {
-      const enc = s.encounter;
-      if (!enc) { resolvingRef.current = false; return; }
-      // 测试战斗：脱战直接清场，无需推进按钮。
-      if (enc.status === 'resolving' && enc.test && !resolvingRef.current) {
-        resolvingRef.current = true;
-        useCombatStore.getState().clearCombat();
-        const id = useChatStore.getState().activeId;
-        if (id) void saveConversation(id);
-      }
+      // 仅重置一次性守卫；测试战斗的结束改由战斗面板「结束测试」按钮手动 clearCombat（不再自动清场，避免面板凭空消失）。
+      if (!s.encounter) resolvingRef.current = false;
     });
     return () => { document.removeEventListener('combat-advance', doAdvance); unsub(); };
   }, []);
