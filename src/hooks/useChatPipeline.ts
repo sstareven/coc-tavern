@@ -24,6 +24,7 @@ import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
+import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
 import { reconcileMap } from '../sillytavern/map-reconciler';
@@ -67,7 +68,7 @@ import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_G
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
-import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
+import { parseLlmResponse, parseRewriteResponse, detectNpcMissing } from '../sillytavern/llm-response-parser';
 import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
@@ -1117,6 +1118,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } else {
           pushLog('debug', '[Pipeline] 本回合无 NPC 更新(result.npcUpdates 为空)', 'system');
         }
+        // BUG2 Part 2: 检测「叙事里出现 NPC、但 npcUpdates 缺失/为空」→ 用【补写 API】fire-and-forget 重纠。
+        // 触发条件：parsed.npcUpdates 缺失或空数组，且 leftContent+rightContent 含称谓/对话标记。
+        // 走 'rewrite' RPM 桶——撞上限自动排队 1 分钟（rpm-limiter 实现），不报错；
+        // 含会话守卫；穷尽 retries 失败 → 静默放弃（fail-open，绝不阻塞翻页）。
+        const investigatorNameForRectify = useCharSheetStore.getState().sheet?.identity?.name?.trim() ?? '';
+        const npcMissingDetected = detectNpcMissing(
+          `${newPage.leftContent}\n${newPage.rightContent}`,
+          !!(result.npcUpdates && result.npcUpdates.length > 0),
+          investigatorNameForRectify,
+        );
         // 角色卡快照（此刻 statData 已含独立 API 隐含提取 + 自纠后的终值）
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
         // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
@@ -1177,6 +1188,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               pushLog('warn', `[暗线] 定向补生成失败（已穷尽重试）: ${e instanceof Error ? e.message : String(e)}`, 'api');
             }
           })();
+        }
+
+        // BUG2 Part 2: NPC 缺失「补写 API 重纠」——detectNpcMissing 命中且独立补写 API 配置齐全时，
+        // fire-and-forget 走 'rewrite' RPM 桶（撞上限自动排队 1 分钟）拉出叙事里被遗漏的 NPC、回灌入名册并写回页面。
+        // 与暗线补生成同模式：会话守卫、abort 守卫、失败静默 fail-open。
+        if (npcMissingDetected) {
+          const useIndepRW = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey?.trim();
+          const rwBase = useIndepRW ? settings.rewriteApiBaseUrl : settings.apiBaseUrl;
+          const rwKey  = useIndepRW ? settings.rewriteApiKey  : settings.apiKey;
+          const rwModel = useIndepRW ? settings.rewriteApiModel : settings.apiModel;
+          if (rwBase?.trim() && rwKey?.trim() && rwModel?.trim()) {
+            const aidNR = useChatStore.getState().activeId;
+            const nrPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+            const narrativeForRectify = `${newPage.leftContent}\n${newPage.rightContent}`;
+            pushLog('info', `[NPC缺失] 检测到叙事里有 NPC 但 npcUpdates 缺失/空，已启动补写 API 重纠…`, 'system');
+            void (async () => {
+              try {
+                const rectified = await rectifyMissingNpcs(
+                  narrativeForRectify, investigatorNameForRectify,
+                  rwBase, rwKey, rwModel, controller.signal,
+                );
+                if (!rectified || rectified.npcUpdates.length === 0) return;
+                if (useChatStore.getState().activeId !== aidNR) return; // 切档放弃
+                if (controller.signal.aborted) return;
+                useNpcStore.getState().applyUpdates(rectified.npcUpdates);
+                // 写回该页 npcUpdates + 刷新 npcSnapshot——保证删页快照回溯不丢补写出来的 NPC。
+                const snap = structuredClone(useNpcStore.getState().profiles);
+                useBookStore.getState().setPageNpcRectification(nrPageIdx, rectified.npcUpdates, snap);
+                useChatStore.getState().savePages(useBookStore.getState().pages);
+                if (aidNR) await saveConversation(aidNR);
+                pushLog('info', `[NPC缺失] 补写 API 已重纠 ${rectified.npcUpdates.length} 个 NPC：${rectified.npcUpdates.map((n) => n.name).join('、')}`, 'system');
+              } catch (e) {
+                if (controller.signal.aborted) return;
+                pushLog('warn', `[NPC缺失] 补写 API 重纠失败（已穷尽重试）：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。

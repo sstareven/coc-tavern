@@ -586,6 +586,48 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
 const REWRITE_NUMERALS = ['V', 'VI', 'VII', 'VIII'];
 
 /**
+ * NPC 缺失检测（BUG2 Part 2）：当 parsed.npcUpdates 缺失或为空数组，但叙事文本里【明显】出现
+ * 人物称谓/对话标记时，提示 pipeline 该走「补写 API 重纠 npcUpdates」路径。
+ *
+ * 判据（任一命中即认为「叙事里有 NPC、但模型没列出」）：
+ *  1. 中文敬称/职衔后缀（先生/女士/小姐/医生/牧师/教授/警官/侦探/博士/夫人/老爷/管家/船长/中尉…）
+ *  2. 对话冒号「: 」「: 」或中文引号开头（「『」『…』）出现 2 处以上 → 多角色对话场景的强指标
+ *
+ * 调查员名传入用于排除「玩家就是这个先生」误检；缺省可不传。
+ * 返回 true 表示「应该用补写 API 重纠」。
+ */
+export function detectNpcMissing(
+  narrative: string,
+  hasNpcUpdates: boolean,
+  investigatorName?: string,
+): boolean {
+  if (hasNpcUpdates) return false;
+  const text = (narrative || '').trim();
+  if (text.length < 20) return false; // 叙事过短不触发
+
+  // 1) 敬称/职衔——中文姓后跟一组常见称谓
+  // CJK 1-4 字 + (称谓)；称谓须紧接 CJK 名字，避免「先生」单字符匹配到「先生病了」
+  const honorific = /[一-鿿]{1,4}(先生|女士|小姐|医生|大夫|牧师|教授|警官|侦探|博士|夫人|老爷|管家|船长|中尉|上尉|少校|队长|院长|经理|老板|警长|神父|修女|讲师|学者|店主|老者|老妇|青年|少女|男子|女子)/;
+  if (honorific.test(text)) {
+    // 排除调查员自己（玩家就叫「XX 先生」）——把命中片段挖出，若全部命中都是调查员，则不算
+    const matches = text.match(new RegExp(honorific.source, 'g')) ?? [];
+    const others = investigatorName?.trim()
+      ? matches.filter((m) => !m.includes(investigatorName.trim()))
+      : matches;
+    if (others.length > 0) return true;
+  }
+
+  // 2) 对话标记密度：「：」「: 」「「」「『」 — 至少 2 处对话才视为多角色场景
+  const dialogueMarkers = (text.match(/[：:]\s*[「『"]/g) ?? []).length
+    + (text.match(/^[「『]/gm) ?? []).length;
+  if (dialogueMarkers >= 2) return true;
+
+  return false;
+}
+
+
+
+/**
  * 解析「行动补写」返回的精简 JSON：{ text, choices[] }。
  * 选项强制重编号为 V–VIII，截断/补足到恰好 4 个。失败返回 null。
  * sourceInput 由调用方填充。

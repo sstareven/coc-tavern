@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse, coerceJsonObject, cleanChoiceField, stripVarTagsLoose, unescapeLiteralNewlines } from './llm-response-parser';
+import { stripMvu, escapeStrayInnerQuotes, parseRewriteResponse, parseLlmResponse, coerceJsonObject, cleanChoiceField, stripVarTagsLoose, unescapeLiteralNewlines, detectNpcMissing } from './llm-response-parser';
 
 describe('unescapeLiteralNewlines — 双重转义 JSON 残留的字面换行还原', () => {
   it('字面 \\n\\n 还原为真实换行', () => {
@@ -439,5 +439,48 @@ describe('cleanHeader — 标题清理尖括号/花括号', () => {
   });
   it('正常标题不变', () => {
     expect(cleanHeader('雾夜中的奥恩楼')).toBe('雾夜中的奥恩楼');
+  });
+});
+
+// ============================================================
+// detectNpcMissing — 叙事含 NPC 但 npcUpdates 缺失/空 → 触发补写 API 重纠（BUG2 Part 2）
+// ============================================================
+describe('detectNpcMissing — 叙事-vs-npcUpdates 不一致检测', () => {
+  it('已有 npcUpdates → 直接返回 false（无论叙事如何）', () => {
+    expect(detectNpcMissing('霍尔姆斯先生走了进来：「你好。」', true)).toBe(false);
+  });
+
+  it('叙事过短（<20字）→ false（信号不足）', () => {
+    expect(detectNpcMissing('谁来了', false)).toBe(false);
+  });
+
+  it('叙事含「先生」称谓且 npcUpdates 缺失 → true', () => {
+    const t = '你推门进入大厅，霍尔姆斯先生正坐在火炉旁，他抬起头望着你。这场雾夜的相遇令人难忘。';
+    expect(detectNpcMissing(t, false)).toBe(true);
+  });
+
+  it('叙事含「医生」「教授」等职衔 → true', () => {
+    expect(detectNpcMissing('米尔顿教授翻开那本古旧的笔记，告诉你一些关于此地的秘闻轶事。', false)).toBe(true);
+  });
+
+  it('对话冒号 + 中文引号开头 ≥2 处 → true（多角色对话场景）', () => {
+    const t = '管家说：「请这边走。」\n书记员答：「先生稍候。」';
+    expect(detectNpcMissing(t, false)).toBe(true);
+  });
+
+  it('调查员名字本身被「先生」修饰 → 排除后不触发', () => {
+    // 仅命中的「玛丽先生」是调查员，无其它 NPC
+    const t = '玛丽先生缓缓走入屋内，环顾着这间陌生的客厅，心中满是不安和警觉。';
+    expect(detectNpcMissing(t, false, '玛丽')).toBe(false);
+  });
+
+  it('调查员之外仍有其它 NPC 被称呼 → 仍触发', () => {
+    const t = '玛丽先生迎面遇到霍尔姆斯先生，对方礼貌地点头致意，然后转身离开了大厅。';
+    expect(detectNpcMissing(t, false, '玛丽')).toBe(true);
+  });
+
+  it('纯环境/动作叙事无 NPC 称谓 → false', () => {
+    const t = '你蹒跚走过湿漉漉的石板路，远处的灯塔在浓雾中若隐若现，空气中弥漫着海腥味。';
+    expect(detectNpcMissing(t, false)).toBe(false);
   });
 });
