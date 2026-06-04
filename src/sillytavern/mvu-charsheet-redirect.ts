@@ -277,6 +277,26 @@ export function applyCharsheetRedirect(
     return { sheet: { ...sheet, dailySanLoss: next } };
   }
 
+  // ── Skill ticked flag (调查员.技能.XXX.ticked → skills.XXX.ticked) ──
+  // A3.3：成功+ 检定通过 useDiceStore.emitTickOp 走 op='replace' value=true 落标。
+  // 必须在 numeric guard 之前判定，因为 ticked 走布尔不走数字。
+  if (dotPath.startsWith('调查员.技能.') && dotPath.endsWith('.ticked')) {
+    if (op !== 'replace') return null;
+    const v = value === true || value === 'true' ? true : value === false || value === 'false' ? false : null;
+    if (v === null) return null;
+    const rawName = dotPath.slice('调查员.技能.'.length, -'.ticked'.length);
+    if (!rawName) return null;
+    const skillName = canonicalSkillKey(rawName, sheet);
+    const existing = sheet.skills[skillName];
+    if (!existing) return null;  // 未知技能不落 ticked（避免造孤儿条目）
+    return {
+      sheet: {
+        ...sheet,
+        skills: { ...sheet.skills, [skillName]: { ...existing, ticked: v } },
+      },
+    };
+  }
+
   if (op !== 'replace' && op !== 'delta') return null;
 
   // ── Secondary stats (HP/SAN/MP current|max) + luck ──

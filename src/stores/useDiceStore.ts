@@ -98,6 +98,39 @@ export function canStartPush(ctx: {
 }
 
 /**
+ * A3.3 — 该记录是否触发「成长打钩」（写 /调查员/技能/XXX/ticked）：
+ *  - 必须是成功档（success/hard-success/extreme-success/crit-success）
+ *  - growthTickEligible 不能被显式置 false（R7：luck-spent 改写失败为成功的不计成长）
+ *  - 不是 SAN 检定（SAN 不走技能成长通路）
+ *  - skill 必须是真实技能名（非裸标签「检定/奖励骰/惩罚骰」）
+ *  - 排除 信用评级 + 克苏鲁神话（COC7e R5：发展阶段豁免）
+ */
+const SUCCESS_TIERS: ReadonlySet<DiceResultType> = new Set([
+  'success', 'hard-success', 'extreme-success', 'crit-success',
+] as const);
+const NON_TICKABLE_LABELS: ReadonlySet<string> = new Set(['检定', '奖励骰', '惩罚骰', 'SAN', '理智检定']);
+const NON_TICKABLE_SKILLS: ReadonlySet<string> = new Set(['信用评级', '克苏鲁神话']);
+
+export function shouldTickSkill(rec: DiceRecord): boolean {
+  if (!SUCCESS_TIERS.has(rec.type)) return false;
+  if (rec.growthTickEligible === false) return false;
+  // SAN 检定的 skill 通常被 UI 设为 '理智检定' 或 'SAN'；走标签集合排除即可。
+  if (NON_TICKABLE_LABELS.has(rec.skill)) return false;
+  if (NON_TICKABLE_SKILLS.has(rec.skill)) return false;
+  return true;
+}
+
+/** A3.3 — 把 record 转成 ticked JSON Patch op，供 commit 路径 fire-and-forget 写入。 */
+function emitTickOp(rec: DiceRecord): void {
+  if (!shouldTickSkill(rec)) return;
+  // 经 canonicalSkillKey 在 redirect 内归一；这里直接传 rec.skill。
+  // 未知技能名（!sheet.skills[name]）由 redirect 静默返回 null（不入 statData，不报错）。
+  useVariableStore.getState().applyCorrectiveOps([
+    { op: 'replace', path: `/调查员/技能/${rec.skill}/ticked`, value: true },
+  ]);
+}
+
+/**
  * 从面板状态滚一次骰，得到 tens/ones/finalTens/bonusTens/originalRoll/finalRoll/resultType/对抗骰。
  * 由 roll()/rollStaged()/commitAsPush() 共用，集中处理奖励/惩罚骰与对抗骰的选骰逻辑。
  */
@@ -246,7 +279,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       ]);
     }
     set({ finalRoll, resultType });
-    get().addRecord({
+    const rec: DiceRecord = {
       skill: ctx.skill,
       roll: String(finalRoll).padStart(2, '0'),
       target: String(ctx.target),
@@ -256,7 +289,10 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       luckSpent: safeSpend,
       // R7：用 luck 改写后的成功不算成长打钩。
       growthTickEligible: false,
-    });
+    };
+    get().addRecord(rec);
+    // R7: growthTickEligible=false → shouldTickSkill 短路，不写 ticked。
+    emitTickOp(rec);
     set({ isStaged: false, lastRollContext: null });
   },
 
@@ -280,7 +316,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       oppTens: snap.oppTens, oppOnes: snap.oppOnes,
       originalRoll: snap.originalRoll, finalRoll: snap.finalRoll, resultType: snap.resultType,
     });
-    get().addRecord({
+    const rec: DiceRecord = {
       skill: ctx.skill,
       roll: String(snap.finalRoll).padStart(2, '0'),
       target: String(ctx.target),
@@ -290,7 +326,10 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
       pushed: true,
       pushReason: reason,
       pushedFrom: { roll: ctx.originalRoll, type: ctx.originalResult },
-    });
+    };
+    get().addRecord(rec);
+    // R6：推骰的成功仍可触发成长打钩。
+    emitTickOp(rec);
     set({ isStaged: false, lastRollContext: null });
   },
 
@@ -298,14 +337,16 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
     const ctx = get().lastRollContext;
     if (!ctx) return;
     const s = get();
-    get().addRecord({
+    const rec: DiceRecord = {
       skill: ctx.skill,
       roll: String(s.finalRoll).padStart(2, '0'),
       target: String(ctx.target),
       type: s.resultType ?? ctx.originalResult,
       time: Date.now(),
       page: ctx.page,
-    });
+    };
+    get().addRecord(rec);
+    emitTickOp(rec);
     set({ isStaged: false, lastRollContext: null });
   },
 }));
