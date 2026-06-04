@@ -44,16 +44,16 @@ function proneMods(target: Combatant): { atkBonus: number; defPenalty: number; n
   return target.flags.prone ? { atkBonus: 1, defPenalty: 1, note: '(倒地·劣势)' } : { atkBonus: 0, defPenalty: 0, note: '' };
 }
 
-/** 检定滚骰演示：攻击骰 + 守方闪避/反击骰（同投，按成功等级配色）。 */
-function checkViz(atkLabel: string, atkRoll: number, atkLevel: SuccessLevel, atkTarget: number, defLabel: string, defRoll: number, defLevel: SuccessLevel, defTarget: number): CombatRollViz {
-  return { title: '检定', dice: [
+/** 检定滚骰演示：攻击骰 + 守方闪避/反击骰（同投，按成功等级配色）。actor=行动者 id。 */
+function checkViz(actor: string, atkLabel: string, atkRoll: number, atkLevel: SuccessLevel, atkTarget: number, defLabel: string, defRoll: number, defLevel: SuccessLevel, defTarget: number): CombatRollViz {
+  return { title: '检定', actor, dice: [
     { value: atkRoll, faces: 100, type: LEVEL_TO_DICE_TYPE[atkLevel], caption: `${atkLabel} ≤${atkTarget}` },
     { value: defRoll, faces: 100, type: LEVEL_TO_DICE_TYPE[defLevel], caption: `${defLabel} ≤${defTarget}` },
   ] };
 }
-/** 单骰检定演示（火器射击，无对抗守骰）。 */
-function singleViz(label: string, roll: number, level: SuccessLevel, target: number): CombatRollViz {
-  return { title: '射击', dice: [{ value: roll, faces: 100, type: LEVEL_TO_DICE_TYPE[level], caption: `${label} ≤${target}` }] };
+/** 单骰检定演示（火器射击，无对抗守骰）。actor=行动者 id。 */
+function singleViz(actor: string, label: string, roll: number, level: SuccessLevel, target: number): CombatRollViz {
+  return { title: '射击', actor, dice: [{ value: roll, faces: 100, type: LEVEL_TO_DICE_TYPE[level], caption: `${label} ≤${target}` }] };
 }
 /** 伤害滚骰演示（多骰同投）；hp=该伤害造成的掉血过渡(血条延后到骰子滚定才下降)。 */
 function dmgViz(total: number, dice: { value: number; faces: number }[], hp?: { id: string; from: number; to: number; max: number }): CombatRollViz {
@@ -107,7 +107,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const r = resolveRanged(weapon.skill, 'normal', rng);
     enc = patchCombatant(enc, attackerId, { weapons: attacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
     enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(r.roll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
-    const aViz = singleViz(weapon.name, r.roll.finalRoll, r.level, weapon.skill);
+    const aViz = singleViz(attackerId, weapon.name, r.roll.finalRoll, r.level, weapon.skill);
     const hitLine = `${attacker.name} 用${weapon.name}射击 d100=${r.roll.finalRoll}/${weapon.skill}（${LEVEL_CN[r.level]}）`;
     if (r.jam) {
       enc = patchCombatant(enc, attackerId, { flags: { ...attacker.flags, weaponJammed: true } });
@@ -135,7 +135,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
   const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${weapon.skill}（${LEVEL_CN[op.attackerLevel]}）`;
   const defLine = `${target.name} ${defLabel}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
-  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, weapon.skill, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
+  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, weapon.skill, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
 
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
@@ -247,7 +247,7 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
   enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
   const atkLine = `${attacker.name} ${cn} d100=${op.attackerRoll.finalRoll}/${attacker.fighting}（${LEVEL_CN[op.attackerLevel]}）`;
   const defLine = `${target.name} ${defLabel}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
-  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(cn, op.attackerRoll.finalRoll, op.attackerLevel, attacker.fighting, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断
+  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, cn, op.attackerRoll.finalRoll, op.attackerLevel, attacker.fighting, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断
 
   // ③ 效果
   if (op.winner === 'attacker') {

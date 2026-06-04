@@ -109,7 +109,8 @@ export function CombatDiceRoll({ tosses, soundOn, onComplete }: { tosses: DiceTo
       style={{
         position: 'absolute', inset: 0, zIndex: 30, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 14, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at center, rgba(20,14,8,0.32) 0%, rgba(20,14,8,0.12) 60%, transparent 100%)',
+        background: 'radial-gradient(ellipse at center, rgba(5,3,1,0.9) 0%, rgba(5,3,1,0.72) 50%, rgba(5,3,1,0.4) 100%)',
+        backdropFilter: 'blur(2px)',
       }}
     >
       <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', letterSpacing: 4, color: 'var(--parchment)', opacity: 0.85 }}>

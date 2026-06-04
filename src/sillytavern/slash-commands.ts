@@ -343,13 +343,13 @@ export function initBuiltinCommands(): void {
     },
   });
 
-  // /战斗测试 (别名 /combattest) — 开一场测试战斗：训练假人(MOV1, 不逃, 耐打)，脱战不推进正文、手动结束。
+  // /战斗测试 (别名 /combattest) — 开一场测试战斗：2 个敌方木头人 + 1 个友方木头人助战(均 MOV1, 不逃, 耐打)，脱战不推进正文、手动结束。
   const startTestCombat = (): string => {
     try {
       const sheet = useCharSheetStore.getState().sheet;
       const player = buildPlayerCombatant(sheet, useInventoryStore.getState().items);
-      const dummy: Combatant = {
-        id: 'enemy-0-木头人', name: '木头人', faction: 'enemy', controlledBy: 'ai',
+      const dummy = (id: string, name: string, faction: 'enemy' | 'ally'): Combatant => ({
+        id, name, faction, controlledBy: 'ai',
         dex: 30, str: 50, siz: 80, con: 60, mov: 1,
         fighting: 40, dodge: 20, damageBonus: '0',
         hp: 60, maxHp: 60, armor: 2,
@@ -357,20 +357,23 @@ export function initBuiltinCommands(): void {
         flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
         tendency: { attack: 100, flee: 0 }, // 训练假人：只挨打/还手，绝不逃跑(避免战斗自行结束)
         roundDefenses: 0,
-      };
-      const combatants = [player, dummy];
+      });
+      const enemy1 = dummy('enemy-0-木头人甲', '木头人·甲', 'enemy');
+      const enemy2 = dummy('enemy-1-木头人乙', '木头人·乙', 'enemy');
+      const ally = dummy('ally-0-木头人丙', '木头人·丙(友方)', 'ally');
+      const combatants = [player, ally, enemy1, enemy2];
       const enc: Encounter = {
         active: true, round: 1, turnOrder: nextTurnOrder(combatants), currentIdx: 0,
-        combatants, bystanders: [], playerTargetId: dummy.id,
-        log: [{ kind: 'narrative', text: '【测试】木头人凭空出现，摆出迟钝的架势' }],
+        combatants, bystanders: [], playerTargetId: enemy1.id,
+        log: [{ kind: 'narrative', text: '【测试】两个木头人凭空出现，一个友方木头人站到你这边' }],
         diceRecords: [], status: 'active', test: true,
       };
       useCombatStore.getState().start(enc);
-      return '[战斗测试：训练假人登场（MOV1 · 不逃 · HP60）。脱战后不推进正文，点面板「结束测试」手动关闭]';
+      return '[战斗测试：2 敌方木头人 + 1 友方木头人助战（均 MOV1 · 不逃 · HP60）。脱战后不推进正文，点面板「结束测试」手动关闭]';
     } catch (e) {
       return `[战斗测试启动失败：${e instanceof Error ? e.message : String(e)}]`;
     }
   };
-  registerCommand({ name: '战斗测试', description: '开一场测试战斗(训练假人,脱战不推进正文,手动结束)。用法: /战斗测试', execute: startTestCombat });
-  registerCommand({ name: 'combattest', description: '开一场测试战斗(训练假人,脱战不推进正文,手动结束)。用法: /combattest', execute: startTestCombat });
+  registerCommand({ name: '战斗测试', description: '开一场测试战斗(2敌+1友木头人,脱战不推进正文,手动结束)。用法: /战斗测试', execute: startTestCombat });
+  registerCommand({ name: 'combattest', description: '开一场测试战斗(2敌+1友木头人,脱战不推进正文,手动结束)。用法: /combattest', execute: startTestCombat });
 }

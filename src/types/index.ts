@@ -711,6 +711,8 @@ export interface CombatRollViz {
   total?: number;
   /** 伤害骰滚定后要演出的掉血过渡（血条延后到此刻才下降）。 */
   hp?: { id: string; from: number; to: number; max: number };
+  /** 本次检定的行动者 combatant id（供面板高亮「轮到谁」）。 */
+  actor?: string;
 }
 
 export interface CombatLogEntry {

@@ -55,6 +55,7 @@ export function CombatPanel() {
   const [tosses, setTosses] = useState<DiceToss[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [displayHp, setDisplayHp] = useState<Record<string, number>>({});
+  const [activeActorId, setActiveActorId] = useState<string | null>(null); // 「轮到谁」高亮的 combatant
   const revealedRef = useRef(0);
   const logLenRef = useRef(0);
   const runningRef = useRef(false);
@@ -65,9 +66,12 @@ export function CombatPanel() {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     const log = useCombatStore.getState().encounter?.log ?? [];
     const n = revealedRef.current;
-    if (n >= log.length) { runningRef.current = false; setTosses(null); return; }
+    if (n >= log.length) { runningRef.current = false; setTosses(null); setActiveActorId(null); return; }
     runningRef.current = true;
     const rolls = log[n].rolls;
+    const actor = rolls?.map((rv) => rv.actor).find(Boolean);
+    if (actor) setActiveActorId(actor);                         // 检定行带行动者 → 更新高亮
+    else if (!rolls?.length) setActiveActorId(null);            // 纯叙事行 → 清除高亮(结果行无 actor 则沿用)
     if (rolls && rolls.length) {
       setTosses(buildTossesFromViz(rolls));
       safetyRef.current = setTimeout(() => { setTosses(null); applyHpAndReveal(); }, 8000); // 兜底防卡
@@ -88,7 +92,7 @@ export function CombatPanel() {
     applyHpAndReveal();
   };
   useEffect(() => {
-    if (!encounter) { logLenRef.current = 0; runningRef.current = false; setTosses(null); setDisplayHp({}); return; }
+    if (!encounter) { logLenRef.current = 0; runningRef.current = false; setTosses(null); setDisplayHp({}); setActiveActorId(null); return; }
     const logLen = encounter.log.length;
     if (logLenRef.current === 0) {
       seedHp(encounter.combatants); // 进场/读档：显示血量种子=当前各人血量
@@ -174,15 +178,16 @@ export function CombatPanel() {
       {/* 敌人 / 友方 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, padding: '0 24px 10px', borderBottom: `1px solid ${FAINTER}` }}>
         {enemies.map((e) => (
-          <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
+          <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} active={activeActorId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
         ))}
-        {allies.map((a) => <CombatantRow key={a.id} c={a} hp={displayHp[a.id] ?? a.hp} hostile={false} target={false} />)}
+        {allies.map((a) => <CombatantRow key={a.id} c={a} hp={displayHp[a.id] ?? a.hp} hostile={false} target={false} active={activeActorId === a.id} />)}
       </div>
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
       <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.slice(0, revealed).map((l, i) => (
           <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'}
+            dim={!!l.rolls?.length && l.rolls.every((rv) => !rv.damage)}
             onDone={i === revealed - 1 ? advance : undefined} />
         ))}
         <DiceRecordsExpander records={enc.diceRecords} />
@@ -255,7 +260,7 @@ export function CombatPanel() {
   );
 }
 
-function TypewriterLine({ text, narrative, onDone }: { text: string; narrative: boolean; onDone?: () => void }) {
+function TypewriterLine({ text, narrative, dim, onDone }: { text: string; narrative: boolean; dim?: boolean; onDone?: () => void }) {
   const [n, setN] = useState(0);
   const doneRef = useRef(onDone);
   useEffect(() => { doneRef.current = onDone; });
@@ -269,13 +274,18 @@ function TypewriterLine({ text, narrative, onDone }: { text: string; narrative: 
     return () => clearInterval(id);
   }, [text]);
   return (
-    <div style={{ color: narrative ? 'var(--ink-subtle)' : 'var(--ink)', fontStyle: narrative ? 'italic' : 'normal', marginBottom: 2 }}>
+    <div style={{
+      color: dim ? 'var(--ink-faded)' : narrative ? 'var(--ink-subtle)' : 'var(--ink)',
+      fontStyle: narrative ? 'italic' : 'normal',
+      fontSize: dim ? 11.5 : undefined, opacity: dim ? 0.78 : 1,
+      marginBottom: dim ? 1 : 2,
+    }}>
       {text.slice(0, n)}
     </div>
   );
 }
 
-function CombatantRow({ c, hp, hostile, target, onClick }: { c: Combatant; hp?: number; hostile: boolean; target: boolean; onClick?: () => void }) {
+function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatant; hp?: number; hostile: boolean; target: boolean; active?: boolean; onClick?: () => void }) {
   const fled = c.flags.fled;
   const down = c.flags.dead || c.flags.unconscious || fled;
   const stateLabel = fled ? '（脱离）' : (c.flags.dead || c.flags.unconscious) ? '（倒下）' : c.flags.dying ? '·濒死' : c.flags.majorWound ? '·重伤' : '';
@@ -284,15 +294,26 @@ function CombatantRow({ c, hp, hostile, target, onClick }: { c: Combatant; hp?: 
   return (
     <div onClick={down ? undefined : onClick}
       style={{
+        position: 'relative',
         display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4,
-        border: target ? '1px solid var(--blood)' : '1px solid rgba(var(--ink-faded-rgb),0.18)',
-        background: target ? 'rgba(176,58,46,0.06)' : 'rgba(0,0,0,0.02)',
+        border: active ? '1px solid var(--gold)' : target ? '1px solid var(--blood)' : '1px solid rgba(var(--ink-faded-rgb),0.18)',
+        background: active ? 'rgba(196,168,85,0.12)' : target ? 'rgba(176,58,46,0.06)' : 'rgba(0,0,0,0.02)',
+        boxShadow: active ? '0 0 0 1px var(--gold), 0 0 12px rgba(196,168,85,0.45)' : 'none',
         opacity: down ? 0.45 : 1, cursor: onClick && !down ? 'pointer' : 'default',
         transition: 'var(--transition-smooth)', fontFamily: 'var(--font-ui)',
       }}>
+      {active && (
+        <motion.span
+          aria-hidden
+          initial={{ opacity: 0, x: 4 }} animate={{ opacity: 1, x: [0, -3, 0] }}
+          transition={{ x: { duration: 0.9, repeat: Infinity, ease: 'easeInOut' }, opacity: { duration: 0.2 } }}
+          style={{ position: 'absolute', left: -16, color: 'var(--gold)', fontSize: 13, fontWeight: 700 }}
+        >▶</motion.span>
+      )}
       <span style={{ flex: 1, fontSize: 13, color: hostile ? 'var(--ink)' : 'var(--success)' }}>
         {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}
       </span>
+      {active && <span style={{ fontSize: 9, color: 'var(--gold)', border: '1px solid rgba(196,168,85,0.6)', borderRadius: 8, padding: '0 6px', flexShrink: 0, letterSpacing: 1 }}>行动中</span>}
       {!down && (c.flags.prone || c.flags.weaponJammed) && (
         <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
           {c.flags.prone && <StatusChip label="倒地" />}
