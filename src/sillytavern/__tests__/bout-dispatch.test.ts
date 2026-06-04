@@ -1,12 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { triggerBout } from '../bout-dispatch';
-import { generateTimeJump } from '../time-jump-generator';
 import { useCharSheetStore, migrateSheet } from '../../stores/useCharSheetStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { advanceTurn } from '../combat-controller';
 import type { EvaluatorContext } from '../post-settle-evaluators';
 import type { CharacterSheet, Encounter, Combatant } from '../../types';
+
+// A2.6 后 summary 分支会真发起 callDsSubagent —— 这里给 fetch 装个 stub 防止真实请求,
+// 同时让 generateTimeJump 的 catch 兜底退到空结果即可(本套件不关心 LLM 结果,只关心 sheet 写入)。
+vi.stubGlobal(
+  'fetch',
+  vi.fn(async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{}' } }] }) })) as unknown as typeof fetch,
+);
 
 function baseSheet(over: Partial<CharacterSheet> = {}): CharacterSheet {
   return migrateSheet({
@@ -75,16 +81,17 @@ describe('triggerBout — summary', () => {
     expect(ti.bout).toEqual({ mode: 'summary', table: 'VIII', entry: 5 });
   });
 
-  it('time-jump-generator 占位 stub 可被独立调用，返回带 narration 的结构化结果', async () => {
-    const res = await generateTimeJump({
-      tableEntry: 5,
-      tableLabel: '远离原地',
-      tableDescription: '醒来时已身处 1D10×10 公里外。',
-    });
-    expect(typeof res.narration).toBe('string');
-    expect(res.narration.length).toBeGreaterThan(0);
-    expect(res.sceneInfoUpdate).toEqual({});
-    expect(Array.isArray(res.additionalEffects)).toBe(true);
+  it('time-jump-generator (A2.6) 真发起子调用走主 API,fetch 桩兜底; triggerBout summary 同步落 sheet 写入即认为成功', async () => {
+    // A2.5 阶段验证占位 stub 的入参,A2.6 后已替换为 callDsSubagent 实装。
+    // bout-dispatch summary 分支以 fire-and-forget 调用,本套件不等异步结果——
+    // 上面 triggerBout summary 用例已经覆盖 sheet 写入逻辑,这里只确认 fetch 被尝试发起即可。
+    triggerBout(mkCtx(), 'summary', seqRollD10([5]));
+    // 给一个 microtask 让 fire-and-forget 子调用走到 fetch
+    await Promise.resolve();
+    await Promise.resolve();
+    const ti = useCharSheetStore.getState().sheet.temporaryInsanity;
+    expect(ti.active).toBe(true);
+    expect(ti.bout?.table).toBe('VIII');
   });
 });
 

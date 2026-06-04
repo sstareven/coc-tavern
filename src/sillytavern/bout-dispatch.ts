@@ -6,9 +6,9 @@
  *    emit op 写 `调查员.临时疯狂 = {active:true, roundsLeft, bout:{mode,table:'VII',entry}}`。
  *    战斗中由 advanceTurn 倒计时回合，roundsLeft 到 0 自动清 active。
  *  - summary（独行/同伴皆疯）：roll 1d10 → Table VIII (BOUT_SUMMARY_TABLE) 命中条目；
- *    调 timeJumpGenerator（A2.6 LLM stub）生成跳跃叙事；
+ *    调 timeJumpGenerator（A2.6 LLM 真实实现）异步生成跳跃叙事；
  *    emit op 写 `调查员.临时疯狂 = {active:true, roundsLeft:0, bout:{mode,table:'VIII',entry}}`。
- *    sceneInfoUpdate 由 A2.6 完整接驳到 useBookStore；A2.5 暂留挂在返回值上层消费。
+ *    sceneInfoUpdate 由后续 ticket 接驳到 useBookStore；本函数 fire-and-forget 不等结果。
  *
  * 不使用主管线 MVU 通道——evaluator 已在 G3 相位外，直接走 ctx.applyCorrectiveOps（同评估器写永久疯狂的路径），
  * 避免 LLM 看见这次 emit 当作"本回合 LLM 输出"做二次纠错。
@@ -60,7 +60,7 @@ export function triggerBout(
     return { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
   }
 
-  // summary：投 Table VIII，发起 LLM 时间跳跃（A2.6 stub）。
+  // summary：投 Table VIII，发起 LLM 时间跳跃（A2.6 真发起子调用）。
   const entry = rollD10();
   const row = BOUT_SUMMARY_TABLE[entry - 1];
   ctx.applyCorrectiveOps([
@@ -68,12 +68,14 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: 0 },
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
-  // A2.5 占位：触发时间跳跃 LLM 调用（A2.6 接驳真正实现 + sceneInfoUpdate 写回 useBookStore）。
+  // A2.6 时间跳跃 LLM 调用 + sceneInfoUpdate 写回 useBookStore 由后续 ticket 接驳。
   // fire-and-forget：本相位评估器同步收口，叙事结果由 A2.6 异步写回当前页 leftContent。
+  // 用 Table VIII 的中文 label 作 tableEntry（generateTimeJump 把它放进 user 消息动态后置）。
   void generateTimeJump({
-    tableEntry: entry,
-    tableLabel: row?.label ?? '',
-    tableDescription: row?.description ?? '',
+    reason: 'bout_summary',
+    durationHint: '',
+    sceneSnapshot: {},
+    tableEntry: row?.label ?? `Table VIII #${entry}`,
   });
   return { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
 }
