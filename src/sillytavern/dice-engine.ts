@@ -89,3 +89,67 @@ export function rollDiceExpr(expr: string): DiceExprResult | null {
   if (!matched || consumed !== clean.length) return null;
   return { expr: clean, total, rolls };
 }
+
+/** 推动检定不可用的技能门类（R4：战斗类与对抗反应类不许推动）。 */
+export type PushSkillCategory =
+  | 'fighting' | 'firearms' | 'dodge'
+  | 'general' | 'knowledge' | 'investigation' | 'social'
+  | 'language' | 'art' | 'science' | 'craft' | 'physical';
+
+const PUSH_FORBIDDEN_CATEGORIES: ReadonlySet<PushSkillCategory> = new Set(['fighting', 'firearms', 'dodge']);
+
+/**
+ * R4 — 推动检定资格判定。仅当满足全部条件时允许推动：
+ *   1) 技能门类不在战斗/射击/闪避禁用集
+ *   2) 非 SAN 检定
+ *   3) 非伤害骰
+ *   4) 当前结果为 plain failure（成功类与大失败均不可推）
+ */
+export function isPushEligible(
+  skillCategory: PushSkillCategory | string,
+  resultType: DiceResultType,
+  sanCheck: boolean,
+  isDamageRoll: boolean,
+): boolean {
+  if (sanCheck) return false;
+  if (isDamageRoll) return false;
+  if (PUSH_FORBIDDEN_CATEGORIES.has(skillCategory as PushSkillCategory)) return false;
+  return resultType === 'failure';
+}
+
+export interface LuckApplyResult {
+  finalRoll: number;
+  appliedSpend: number;
+  reason?: string;
+}
+
+/** 01 大成功 / 96-100 范围视为无法靠幸运扭转的极端骰点。 */
+function isFumbleOrCrit(roll: number): boolean {
+  return roll === 1 || roll >= 96;
+}
+
+/**
+ * R7 — 把消耗的幸运点应用到一次普通检定上：
+ *   - SAN/伤害/幸运自检：直接拒绝
+ *   - 01 或 96–100：无法救援（无论目标值）
+ *   - 否则 finalRoll = max(1, roll - spend)
+ * 拒绝路径不扣点数（appliedSpend=0），调用方据此决定是否真正扣幸运。
+ */
+export function applyLuckToRoll(
+  roll: number,
+  _target: number,
+  spend: number,
+  sanCheck: boolean,
+  isDamageRoll: boolean,
+  isLuckRoll: boolean,
+): LuckApplyResult {
+  if (isLuckRoll) return { finalRoll: roll, appliedSpend: 0, reason: '幸运检定本身不可消耗幸运' };
+  if (isDamageRoll) return { finalRoll: roll, appliedSpend: 0, reason: '伤害骰不可消耗幸运' };
+  if (sanCheck) return { finalRoll: roll, appliedSpend: 0, reason: 'SAN 检定不可消耗幸运' };
+  if (isFumbleOrCrit(roll)) {
+    return { finalRoll: roll, appliedSpend: 0, reason: `01/96-100 不可被幸运扭转（roll=${roll}）` };
+  }
+  if (spend <= 0) return { finalRoll: roll, appliedSpend: 0 };
+  const finalRoll = Math.max(1, roll - spend);
+  return { finalRoll, appliedSpend: spend };
+}
