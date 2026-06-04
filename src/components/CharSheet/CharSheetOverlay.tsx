@@ -30,10 +30,10 @@ function parseSections(text: string): { title: string; body: string }[] | null {
 }
 
 const DOSSIER_FIELDS = [
-  { key: 'description' as const, label: '个人描述', en: 'Physical Description' },
-  { key: 'personality' as const, label: '性格特征', en: 'Personality Profile' },
-  { key: 'scenario' as const, label: '场景设定', en: 'Case File / Scenario' },
-  { key: 'personaDescription' as const, label: '角色设定', en: 'Persona Directive' },
+  { key: 'description' as const, label: '个人描述' },
+  { key: 'personality' as const, label: '性格特征' },
+  { key: 'scenario' as const, label: '场景设定' },
+  { key: 'personaDescription' as const, label: '角色设定' },
 ];
 
 const sectionLabel: React.CSSProperties = {
@@ -314,7 +314,7 @@ export function CharSheetOverlay() {
                 暂无档案记录
               </div>
             ) : (
-              DOSSIER_FIELDS.map(({ key, label, en }, i) => {
+              DOSSIER_FIELDS.map(({ key, label }, i) => {
                 const content = (sheet[key] as string)?.trim();
                 if (!content) return null;
                 const open = !!dossierOpen[key];
@@ -329,7 +329,6 @@ export function CharSheetOverlay() {
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: 12, textAlign: 'center', flexShrink: 0 }}>▸</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
-                        <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>{en}</div>
                       </div>
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{open ? '收起' : '展开'}</span>
                     </div>

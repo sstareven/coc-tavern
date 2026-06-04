@@ -9,7 +9,7 @@ describe('buildCharacterVariables', () => {
       sheet: {
         ...useCharSheetStore.getState().sheet,
         skills: {
-          '快速交谈': { base: 5, current: 5 },
+          '话术': { base: 5, current: 5 },
           '侦查': { base: 25, current: 40 },
           '图书馆使用': { base: 20, current: 60 },
         },
@@ -20,7 +20,7 @@ describe('buildCharacterVariables', () => {
   describe('skill variables', () => {
     it('includes skill entries with 调查员.技能 prefix', () => {
       const vars = buildCharacterVariables();
-      expect(vars['调查员.技能.快速交谈']).toBe('5');
+      expect(vars['调查员.技能.话术']).toBe('5');
       expect(vars['调查员.技能.侦查']).toBe('40');
       expect(vars['调查员.技能.图书馆使用']).toBe('60');
     });

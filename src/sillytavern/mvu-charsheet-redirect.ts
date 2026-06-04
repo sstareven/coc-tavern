@@ -8,8 +8,8 @@ export function isCharsheetPath(dotPath: string): boolean {
 
 /**
  * 把 LLM 写入用的技能名归一到角色卡「读取时」会查的同一个键，避免写入键与掷骰/显示键不一致
- * 而在 sheet.skills 里造出永不被读的「孤儿技能」（如写 手枪/闪避，读时归一为 枪械(手枪)/躲闪）。
- *  1. 别名 + 全角括号归一（normalizeSkillKey）。
+ * 而在 sheet.skills 里造出永不被读的「孤儿技能」（如裸名/全角括号差异）。
+ *  1. 全角括号归一（normalizeSkillKey；SKILL_ALIASES 已清空，技能名一刀切规则书 canonical）。
  *  2. 若归一后键已存在则用之；否则按裸名↔专精做唯一前缀匹配（对齐 resolvePlayerValue 的读取容错）。
  *  3. 仍无命中＝全新技能，用归一后的规范名作键。
  */

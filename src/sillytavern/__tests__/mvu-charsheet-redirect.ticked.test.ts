@@ -12,7 +12,7 @@ function baseSheet(): CharacterSheet {
   return {
     characteristics: { 力量: 50 },
     secondary: { hp: { current: 10, max: 12 }, san: { current: 60, max: 80 }, mp: { current: 8, max: 8 }, luck: 55, mov: 7, db: '0', build: 0 },
-    skills: { 侦查: { base: 25, current: 40, ticked: false }, '枪械(手枪)': { base: 20, current: 50, ticked: false } },
+    skills: { 侦查: { base: 25, current: 40, ticked: false }, '射击(手枪)': { base: 20, current: 50, ticked: false } },
     identity: { name: '调查员', occupation: '记者', age: 30, gender: '男', residence: '', birthplace: '', id: '' },
     greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
     posture: '站立', statusConditions: [],
@@ -44,11 +44,11 @@ describe('A3.3 applyCharsheetRedirect — 调查员.技能.X.ticked 分支', () 
     expect(applyCharsheetRedirect(baseSheet(), '调查员.技能.不存在的技能.ticked', 'replace', true)).toBeNull();
   });
 
-  it('别名「手枪.ticked」归一到「枪械(手枪)」', () => {
-    const next = applyCharsheetRedirect(baseSheet(), '调查员.技能.手枪.ticked', 'replace', true);
-    expect(next?.sheet.skills['枪械(手枪)'].ticked).toBe(true);
-    // 没造出孤儿 '手枪' 键
-    expect(next?.sheet.skills['手枪']).toBeUndefined();
+  it('全角括号「射击（手枪）.ticked」归一到半角「射击(手枪)」', () => {
+    const next = applyCharsheetRedirect(baseSheet(), '调查员.技能.射击（手枪）.ticked', 'replace', true);
+    expect(next?.sheet.skills['射击(手枪)'].ticked).toBe(true);
+    // 没造出孤儿 '射击（手枪）' 键
+    expect(next?.sheet.skills['射击（手枪）']).toBeUndefined();
   });
 
   it('delta/remove/insert op 不接受（ticked 只走 replace）', () => {

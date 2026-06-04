@@ -78,6 +78,27 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     };
   }
 
+  // ── BUG5：一次性把老存档孤儿技能键 rename 到规则书 canonical 名 ──
+  // 策略：若新名已存在则保留新名值（更新更近）；旧名一律 delete。
+  // 「枪械(步枪/霰弹枪)」拆为「射击(步枪)」与「射击(霰弹枪)」两条相同值。
+  const renameSingle = (oldName: string, newName: string) => {
+    const oldEntry = skills[oldName];
+    if (!oldEntry) return;
+    if (!skills[newName]) skills[newName] = oldEntry;
+    delete skills[oldName];
+  };
+  renameSingle('躲闪', '闪避');
+  renameSingle('会计学', '会计');
+  renameSingle('枪械(手枪)', '射击(手枪)');
+  renameSingle('快速交谈', '话术');
+  // 拆分：「枪械(步枪/霰弹枪)」→ 「射击(步枪)」+「射击(霰弹枪)」（同值复制）
+  const rifleShotgunOld = skills['枪械(步枪/霰弹枪)'];
+  if (rifleShotgunOld) {
+    if (!skills['射击(步枪)']) skills['射击(步枪)'] = { ...rifleShotgunOld };
+    if (!skills['射击(霰弹枪)']) skills['射击(霰弹枪)'] = { ...rifleShotgunOld };
+    delete skills['枪械(步枪/霰弹枪)'];
+  }
+
   // ── identity：浅合并 + per-field fallback ──
   const rawId = (r.identity ?? {}) as Partial<CharacterSheet['identity']>;
   const identity: CharacterSheet['identity'] = {

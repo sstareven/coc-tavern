@@ -50,9 +50,9 @@ export function mapInventoryToWeapons(items: InventoryItem[], sheet: CharacterSh
     // 无表匹配：粗略启发式兜底。
     const isGun = /枪|铳/.test(it.name);
     if (isGun) {
-      out.push({ name: it.name, skill: skill(sheet, ['枪械(手枪)', '射击'], 20), damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, loadedAmmo: 6, magazine: 6, ammoItemName: '子弹' });
+      out.push({ name: it.name, skill: skill(sheet, ['射击(手枪)'], 20), damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, loadedAmmo: 6, magazine: 6, ammoItemName: '子弹' });
     } else {
-      out.push({ name: it.name, skill: skill(sheet, ['格斗(斗殴)', '格斗'], 25), damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 });
+      out.push({ name: it.name, skill: skill(sheet, ['格斗(斗殴)'], 25), damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 });
     }
   }
   return out;
@@ -61,9 +61,9 @@ export function mapInventoryToWeapons(items: InventoryItem[], sheet: CharacterSh
 /** 据角色卡 + 随身物品构建玩家 Combatant（玩家操控；徒手恒可用 + 映射的武器）。 */
 export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem[]): Combatant {
   const c = sheet.characteristics;
-  const fighting = skill(sheet, ['格斗(斗殴)', '格斗', '斗殴', '近战'], 25);
-  const dodge = skill(sheet, ['躲闪', '闪避'], Math.floor(c.DEX / 2));
-  const firearm = skill(sheet, ['枪械(手枪)', '枪械', '射击'], 20);
+  const fighting = skill(sheet, ['格斗(斗殴)'], 25);
+  const dodge = skill(sheet, ['闪避'], Math.floor(c.DEX / 2));
+  const firearm = skill(sheet, ['射击(手枪)'], 20);
   const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
   return {
     id: 'player',
@@ -106,7 +106,7 @@ export function mapNamesToWeapons(names: string[], resolveSkill: (keys: string[]
   return out;
 }
 
-const FIREARM_KEYS = ['枪械(手枪)', '枪械(步枪/霰弹枪)', '枪械', '射击'];
+const FIREARM_KEYS = ['射击(手枪)', '射击(步枪)', '射击(霰弹枪)'];
 
 /**
  * 据名册 NPC 构建【敌方】Combatant（玩家主动攻击/战技时建场用，AI 操控）。
@@ -124,8 +124,8 @@ export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
     return fallback;
   };
   const STR = num(ch.STR, 50), SIZ = num(ch.SIZ, 50), CON = num(ch.CON, 50), DEX = num(ch.DEX, 50);
-  const fighting = resolve(['格斗(斗殴)', '格斗', '斗殴', '近战'], 40);
-  const dodge = resolve(['躲闪', '闪避'], 25);
+  const fighting = resolve(['格斗(斗殴)'], 40);
+  const dodge = resolve(['闪避'], 25);
   const firearm = FIREARM_KEYS.some((k) => typeof npc.skills?.[k] === 'number') ? resolve(FIREARM_KEYS, 40) : undefined;
   const hp = derived.hp && derived.hp > 0 ? derived.hp : Math.max(1, Math.floor((CON + SIZ) / 10));
   const db = derived.db ?? buildAndDamageBonus(STR, SIZ).db;

@@ -79,8 +79,6 @@ export function isKnownCheckTarget(rawName: string, sheet: CharacterSheet): bool
   if (CHAR_MAP[name]) return true;
   if (name === '幸运' || name === '幸运值' || name === 'LUCK' || name === 'Luck') return true;
   if (name === '理智' || name === '理智值' || name === '理智检定' || name === 'SAN' || name === 'san') return true;
-  // 信用评级是 COC 核心副技能但未列入 ALL_SKILLS；角色卡通常含该技能，但 defaultSheet/旧卡可能缺，显式放行避免误伤其检定。
-  if (name === '信用评级') return true;
   if (sheet.skills[name]) return true;
   const bare = name.replace(/\(.*\)$/, '');
   if (bare !== name && sheet.skills[bare]) return true;

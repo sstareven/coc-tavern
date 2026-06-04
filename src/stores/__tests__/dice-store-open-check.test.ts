@@ -46,12 +46,12 @@ describe('useDiceStore.openCheck (A1.7)', () => {
     rng.mockReturnValueOnce(0.1).mockReturnValueOnce(0.5);
     const resolve = vi.fn();
     useDiceStore.getState().openCheck({
-      skill: '近战', target: 70, context: 'combat', onResolve: resolve,
+      skill: '格斗(斗殴)', target: 70, context: 'combat', onResolve: resolve,
     });
     useDiceStore.getState().roll();
     const hist = useDiceStore.getState().history;
     expect(hist.length).toBe(1);
-    expect(hist[0].skill).toBe('近战');
+    expect(hist[0].skill).toBe('格斗(斗殴)');
     expect(hist[0].context).toBe('combat');
     expect(hist[0].target).toBe('70');
     rng.mockRestore();
@@ -63,7 +63,7 @@ describe('useDiceStore.openCheck (A1.7)', () => {
        .mockReturnValueOnce(0.2) // ones=2
        .mockReturnValueOnce(0.1); // bonus tens=1 -> min(7,1)=1, d100=12
     const resolve = vi.fn();
-    useDiceStore.getState().openCheck({ skill: '侦察', target: 50, bonus: true, onResolve: resolve });
+    useDiceStore.getState().openCheck({ skill: '侦查', target: 50, bonus: true, onResolve: resolve });
     useDiceStore.getState().roll();
     const [, roll] = resolve.mock.calls[0];
     expect(roll).toBe(12);

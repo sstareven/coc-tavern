@@ -22,7 +22,7 @@ export interface NpcAction {
 export const NPC_ACTIONS: NpcAction[] = [
   // —— 快捷 ——
   { id: 'attack', label: '攻击', group: '快捷', kind: 'combat' },
-  { id: 'talk', label: '快速交谈', group: '快捷', kind: 'check', skill: '话术' },
+  { id: 'talk', label: '话术', group: '快捷', kind: 'check', skill: '话术' },
   { id: 'steal', label: '偷窃', group: '快捷', kind: 'check', skill: '妙手' },
   // —— 社交 ——
   { id: 'persuade', label: '说服', group: '社交', kind: 'check', skill: '说服' },
