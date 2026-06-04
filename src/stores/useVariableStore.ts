@@ -242,6 +242,27 @@ export const useVariableStore = create<VariableStore>((set, get) => ({
         ? sheet.statusConditions.map((c) => `${c.name}(${c.severity})：${c.description}`).join('；')
         : '无';
     }
+    // ── Insanity state (A2.7 lore EJS reads via getvar) ──
+    // 临时疯狂 / 不定性疯狂 / 永久疯狂:angular paths 暴露给世界书 EJS 模板与状态栏 stat 显示。
+    if (!st.variables['调查员.临时疯狂.active']?.locked) {
+      map['调查员.临时疯狂.active'] = sheet.temporaryInsanity?.active ? 'true' : 'false';
+    }
+    if (!st.variables['调查员.临时疯狂.roundsLeft']?.locked) {
+      map['调查员.临时疯狂.roundsLeft'] = String(sheet.temporaryInsanity?.roundsLeft ?? 0);
+    }
+    if (!st.variables['调查员.临时疯狂.bout.entry']?.locked) {
+      const entry = sheet.temporaryInsanity?.bout?.entry;
+      map['调查员.临时疯狂.bout.entry'] = entry === undefined || entry === null ? '' : String(entry);
+    }
+    if (!st.variables['调查员.不定性疯狂.active']?.locked) {
+      map['调查员.不定性疯狂.active'] = sheet.indefiniteInsanity?.active ? 'true' : 'false';
+    }
+    if (!st.variables['调查员.不定性疯狂.daysLeft']?.locked) {
+      map['调查员.不定性疯狂.daysLeft'] = String(sheet.indefiniteInsanity?.daysLeft ?? 0);
+    }
+    if (!st.variables['调查员.永久疯狂']?.locked) {
+      map['调查员.永久疯狂'] = sheet.permanentInsanity ? 'true' : 'false';
+    }
     // ── Skill entries ──
     for (const [name, skill] of Object.entries(sheet.skills)) {
       const key = `调查员.技能.${name}`;
