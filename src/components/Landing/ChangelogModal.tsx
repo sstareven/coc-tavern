@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.9.0';
+export const CURRENT_VERSION = 'v1.9.1';
 
 interface Release {
   version: string;
@@ -13,6 +13,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.9.1',
+    label: '热修：放弃本回合后顶部进度条不停',
+    items: [
+      '修复 — 当 AI 连续两次未按格式返回、提示"已放弃本回合（输入已保留，可重试）"之后，顶部的"正在窥探深渊…"进度条会卡住不消失的问题。现在错误提示出现的同时，顶部状态条也会同步切换到错误态并自动淡出',
+    ],
+  },
   {
     version: 'v1.9.0',
     label: 'DeepSeek 缓存优化大改 · 通用子调用前缀共享 · 数值脱戏防护',
