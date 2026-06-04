@@ -864,6 +864,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (!result) {
           // 所有尝试均失败 → 不生成书页（各次解析报错已记入调试日志）
           pushLog('error', `[生成失败] 共 ${attempt + 1} 次尝试均未返回合法JSON，已放弃本回合。原因见上方 [parseLlm] 报错。`, 'system');
+          // 顶部 processing toast 是 persistent 的——需主动 showError/hide 才会清，否则进度条会一直转。
+          useStatusToastStore.getState().showError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合`);
           setError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合（输入已保留，可重试）。`);
           return false;
         }
