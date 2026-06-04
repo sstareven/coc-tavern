@@ -40,9 +40,13 @@ export interface DsSubagentResponse {
 
 /** HTTP 非 2xx 时抛出,带原 status code 与 label。各 generator 可 catch 后写日志/重试。 */
 export class DsSubagentHttpError extends Error {
-  constructor(public readonly label: string, public readonly status: number) {
+  readonly label: string;
+  readonly status: number;
+  constructor(label: string, status: number) {
     super(`${label} API 错误 ${status}`);
     this.name = 'DsSubagentHttpError';
+    this.label = label;
+    this.status = status;
   }
 }
 
