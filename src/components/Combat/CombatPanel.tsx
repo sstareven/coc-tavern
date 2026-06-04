@@ -26,21 +26,27 @@ const colorFor = (t: DiceResultType): string => DICE_COLORS[t] ?? '#999';
 const isAtkRec = (r: DiceRecord): boolean => !!r.purpose && (r.purpose.startsWith('攻击命中') || r.purpose.startsWith('战技'));
 
 /**
- * 从本次新增的检定记录里，提取【玩家自身动作】那一组，构建滚骰序列：
- * ① 检定投掷（攻击骰 + 守方闪避/反击骰，同投）② 伤害投掷（多骰同投）。AI 回合的掷骰不演骰。
+ * 从本次新增的检定记录里，把【每一次攻击/战技】(玩家与敌方都算)切成一组，依次构建滚骰序列：
+ * 每组 ① 检定投掷（攻击骰 + 守方闪避/反击骰，同投）② 伤害投掷（多骰同投）。
+ * 速度检定/排障/呼救等非攻击记录不演骰。
  */
-function buildPlayerTosses(fresh: DiceRecord[]): DiceToss[] {
-  if (fresh.length === 0 || !isAtkRec(fresh[0])) return []; // 首条非玩家攻击/战技(速度检定/排障等) → 不演骰
-  let end = fresh.length;
-  for (let i = 1; i < fresh.length; i++) { if (isAtkRec(fresh[i])) { end = i; break; } } // 到下一次攻击前 = 玩家这一组
-  const seg = fresh.slice(0, end);
-  const checkDice = seg
-    .filter((r) => isAtkRec(r) || r.purpose === '闪避' || r.purpose === '格斗反击')
-    .map((r) => ({ value: Number(r.roll) || 0, faces: 100, color: colorFor(r.type), caption: `${r.skill.split('·').pop()} ≤${r.target}` }));
-  const tosses: DiceToss[] = [{ title: '检定', dice: checkDice }];
-  const dmg = seg.find((r) => r.purpose === '伤害');
-  if (dmg?.dice?.length) {
-    tosses.push({ title: '伤害', dice: dmg.dice.map((d) => ({ value: d.value, faces: d.faces, color: '#ff7043' })), total: Number(dmg.roll) || 0 });
+function buildTosses(fresh: DiceRecord[]): DiceToss[] {
+  const tosses: DiceToss[] = [];
+  let i = 0;
+  while (i < fresh.length && !isAtkRec(fresh[i])) i++; // 跳过开头的非攻击记录
+  while (i < fresh.length) {
+    const start = i; i++;
+    while (i < fresh.length && !isAtkRec(fresh[i])) i++; // 本组 = 这条攻击 + 其后非攻击记录(守方/伤害)
+    const seg = fresh.slice(start, i);
+    const who = seg[0].skill.split('·')[0];
+    const checkDice = seg
+      .filter((r) => isAtkRec(r) || r.purpose === '闪避' || r.purpose === '格斗反击')
+      .map((r) => ({ value: Number(r.roll) || 0, faces: 100, color: colorFor(r.type), caption: `${r.skill.split('·').pop()} ≤${r.target}` }));
+    tosses.push({ title: `${who} · 攻击`, dice: checkDice });
+    const dmg = seg.find((r) => r.purpose === '伤害');
+    if (dmg?.dice?.length) {
+      tosses.push({ title: `${dmg.skill.split('·')[0]} · 伤害`, dice: dmg.dice.map((d) => ({ value: d.value, faces: d.faces, color: '#ff7043' })), total: Number(dmg.roll) || 0 });
+    }
   }
   return tosses;
 }
@@ -65,6 +71,7 @@ export function CombatPanel() {
   // 结束后逐行揭示该批日志（一行打完再出下一行）；纯叙事(无掷骰)直接逐行揭示。新战斗/清场重置全显。
   const [revealed, setRevealed] = useState(0);
   const [tosses, setTosses] = useState<DiceToss[] | null>(null);
+  const [advancing, setAdvancing] = useState(false);
   const revealTargetRef = useRef(0);
   const lastLogLen = useRef(0);
   const lastDiceLen = useRef(0);
@@ -80,7 +87,7 @@ export function CombatPanel() {
       revealTargetRef.current = logLen; setRevealed(logLen); setTosses(null);
     } else if (logLen > lastLogLen.current) {
       revealTargetRef.current = logLen;
-      const seq = buildPlayerTosses(encounter.diceRecords.slice(lastDiceLen.current));
+      const seq = buildTosses(encounter.diceRecords.slice(lastDiceLen.current));
       if (safetyRef.current) clearTimeout(safetyRef.current);
       if (seq.length > 0) {
         setTosses(seq); // 先演骰；演完由 onComplete 逐行揭示
@@ -195,7 +202,24 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* 动作按钮：攻击▴ 向上展开武器菜单（徒手/各随身武器）· 战技▴ 展开缴械/擒抱/推倒/击晕 · 换弹/排障/呼救/逃跑 */}
+      {/* 动作栏：战斗中=攻击/战技/换弹…；脱战后=「推进剧情」按钮(玩家先回看战斗记录，点了才生成右页叙事) */}
+      {resolving && !enc.test ? (
+        <div style={{ display: 'flex', justifyContent: 'center', borderTop: `1px solid ${FAINTER}`, padding: '12px 24px 2px', marginTop: 8, flexShrink: 0 }}>
+          <button
+            onClick={() => { if (advancing) return; setAdvancing(true); if (soundEnabled) { try { sfxClickPrimary(); } catch { /* audio 不可用 */ } } document.dispatchEvent(new Event('combat-advance')); }}
+            disabled={advancing}
+            style={{
+              fontSize: 14, fontFamily: 'var(--font-display)', letterSpacing: 3,
+              padding: '9px 28px', borderRadius: 5, cursor: advancing ? 'wait' : 'pointer',
+              border: '1px solid var(--brass)', background: advancing ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.16)',
+              color: 'var(--gold)', transition: 'var(--transition-smooth)', transform: 'scale(1)',
+              boxShadow: '0 2px 14px rgba(196,168,85,0.18)',
+            }}
+            onMouseEnter={(e) => { if (!advancing) { e.currentTarget.style.background = 'rgba(196,168,85,0.28)'; e.currentTarget.style.transform = 'scale(1.04)'; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = advancing ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.16)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >{advancing ? '推进中…' : '推进剧情 ▶'}</button>
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'flex-end', borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
         <ExpandUpMenu
           label="攻击" primary
@@ -217,6 +241,7 @@ export function CombatPanel() {
         {hasFriendly && <ActionBtn label="呼救" disabled={!isPlayerTurn} onClick={() => act(false, doCallHelp)} />}
         <ActionBtn label="逃跑" disabled={!isPlayerTurn} onClick={() => act(false, doFlee)} />
       </div>
+      )}
 
       {/* 书页内滚骰动画覆盖层（玩家攻击/战技：攻击+闪避同投 → 命中再投伤害骰） */}
       <AnimatePresence>

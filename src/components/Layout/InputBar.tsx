@@ -44,24 +44,17 @@ export function InputBar() {
     return () => document.removeEventListener('auto-submit-input', handler);
   }, []);
 
-  // ── 脱战结算：战斗 status 转 'resolving' 时，把战斗日志交主管线生成右页(承接战斗结果+后续选项)，
-  // 完成后把日志固化进新页 combatLog 并 clearCombat（右页自动回正常叙事页）。一次性触发(resolvingRef 守卫)。──
+  // ── 脱战结算：真实战斗 status 转 'resolving' 后【不自动推进】，等玩家在战斗面板点「推进」(combat-advance 事件)
+  // 再把战斗日志交主管线生成右页(承接战斗结果+后续选项)，好让玩家先回看战斗记录。
+  // 测试战斗(/战斗测试)不推进正文，脱战直接清场。一次性触发(resolvingRef 守卫)。──
   const resolvingRef = useRef(false);
   const pipelineRef = useRef(pipeline);
   useEffect(() => { pipelineRef.current = pipeline; });
   useEffect(() => {
-    return useCombatStore.subscribe((s) => {
-      const enc = s.encounter;
-      if (!enc) { resolvingRef.current = false; return; }
-      if (enc.status !== 'resolving' || resolvingRef.current) return;
+    const doAdvance = () => {
+      const enc = useCombatStore.getState().encounter;
+      if (!enc || enc.status !== 'resolving' || enc.test || resolvingRef.current) return;
       resolvingRef.current = true;
-      // 测试战斗(/战斗测试)：脱战不推进正文，直接清场。
-      if (enc.test) {
-        useCombatStore.getState().clearCombat();
-        const id = useChatStore.getState().activeId;
-        if (id) void saveConversation(id);
-        return;
-      }
       const reason = enc.endReason ?? 'disengage';
       const outcomeText: Record<string, string> = {
         victory: '调查员获胜', defeat: '调查员落败/倒下', flee: '调查员逃离战斗',
@@ -83,7 +76,20 @@ export function InputBar() {
           if (id) void saveConversation(id);
         }
       })();
+    };
+    document.addEventListener('combat-advance', doAdvance);
+    const unsub = useCombatStore.subscribe((s) => {
+      const enc = s.encounter;
+      if (!enc) { resolvingRef.current = false; return; }
+      // 测试战斗：脱战直接清场，无需推进按钮。
+      if (enc.status === 'resolving' && enc.test && !resolvingRef.current) {
+        resolvingRef.current = true;
+        useCombatStore.getState().clearCombat();
+        const id = useChatStore.getState().activeId;
+        if (id) void saveConversation(id);
+      }
     });
+    return () => { document.removeEventListener('combat-advance', doAdvance); unsub(); };
   }, []);
 
   // ── Click outside to close wand menu ──
