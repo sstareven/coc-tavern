@@ -17,16 +17,16 @@ import { PromptTemplateContent } from './PromptTemplateContent';
 import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
 
 const PP_OPTIONS = [
-  { label: '未选择', value: '' },
+  { label: '未选择 (DS 推荐)', value: '' },
   { label: 'With Tools', value: '__sep_with_tools' },
   { label: '合并相同角色连续的发言(含工具)', value: 'merge_with_tools' },
-  { label: '半严格 (强制对话角色交替) (含工具)', value: 'semi_strict_with_tools' },
-  { label: '严格 (强制对话角色交替、用户最先)(含工具)', value: 'strict_with_tools' },
+  { label: '半严格 (强制对话角色交替) (含工具) (Claude/Gemini 推荐)', value: 'semi_strict_with_tools' },
+  { label: '严格 (强制对话角色交替、用户最先)(含工具) (Claude/Gemini 推荐)', value: 'strict_with_tools' },
   { label: 'No Tools', value: '__sep_no_tools' },
   { label: '合并相同角色连续的发言', value: 'merge' },
-  { label: '半严格 (强制对话角色交替)', value: 'semi_strict' },
-  { label: '严格(强制对话角色交替、用户最先)', value: 'strict' },
-  { label: '单一用户消息 (无工具)', value: 'single_user' },
+  { label: '半严格 (强制对话角色交替) (Claude/Gemini 推荐)', value: 'semi_strict' },
+  { label: '严格(强制对话角色交替、用户最先) (Claude/Gemini 推荐)', value: 'strict' },
+  { label: '单一用户消息 (无工具) (Claude/Gemini 推荐)', value: 'single_user' },
 ];
 
 // ── Section type ──
@@ -1090,11 +1090,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     提示词后处理
-                    <HelpIcon text={`None — 不进行显式处理，除非 API 严格要求
-合并相同角色连续的发言
-半严格 — 合并角色并只允许一条可选系统消息
-严格 — 合并角色、只允许一条可选系统消息、要求用户消息在最前
-单一用户消息 — 将所有角色的所有消息合并为一条用户消息`} />
+                    <HelpIcon text={`未选择 — 原样发送,不动 messages(DS 推荐:前缀缓存按字面前缀匹配,任何重排/合并都会破坏命中)
+合并相同角色连续的发言 — 多半无效,仅在预设乱拼出大量同 role 碎片时考虑
+半严格 — 合并角色 + 只允许一条系统消息(Claude/Gemini 等需要严格交替的 API 推荐)
+严格 — 半严格 + 强制用户消息在最前(Claude/Gemini 推荐)
+单一用户消息 — 所有消息合并成一条 user(仅特殊严格 API 用,DS 上会让缓存几乎全 miss)`} />
                   </span>
                   <div style={{ position: 'relative', width: 240, maxWidth: '100%' }}>
                     <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
