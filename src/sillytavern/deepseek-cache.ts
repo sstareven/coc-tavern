@@ -87,6 +87,18 @@ export interface DsCacheConfig {
    *  收益：开局/战斗后等多子调用密集回合可省 ~600-1000 tokens cache write。
    *  副作用：原 system 通用化，LLM 任务理解能力可能略下降——任务说明置于 user 头部部分抵消。 */
   experimentalSubagentSharedSystem?: boolean;
+  /**
+   * 自动下沉含动态宏的 system 类 promptItem 到 dynamicTail。默认开。
+   *
+   * 用户预设里若有 promptItem 含 {{setvar}}/{{getvar}}/{{lastusermessage}} 等 ST 宏,
+   * 渲染结果每回合不同会污染 system 前缀缓存（典型场景：双人成行 / 杀八股类重型预设）。
+   * 该开关让重组器：
+   *   1) 扫描所有 role='system' 类 promptItem 的【原始内容】是否含动态宏
+   *   2) 含则在 macro batch 渲染完毕后,把它【渲染后的内容】从 system 区剥离,追加到 dynamicTail
+   *   3) 渲染顺序不变（仍按 itemTexts 序列）,setvar/getvar 跨条目链不破坏
+   * 仅作用于 role='system' 类（user/assistant 类是对话结构,保持原位以免破坏 mock 对话）。
+   */
+  autoSinkDynamicPromptItem?: boolean;
 }
 
 export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
@@ -114,6 +126,8 @@ export const DEFAULT_DS_CACHE_CONFIG: DsCacheConfig = {
   // UI 文案已去掉"实验性"前缀，分组中移到正式区。
   experimentalPrefixDiagnostics: true,
   experimentalSubagentSharedSystem: true,
+  // 自动下沉含动态宏的 system 类 promptItem（默认开，解决双人成行类预设污染前缀缓存的问题）。
+  autoSinkDynamicPromptItem: true,
 };
 
 /**

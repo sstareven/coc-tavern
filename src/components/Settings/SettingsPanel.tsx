@@ -890,6 +890,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
+                        自动下沉动态预设条目
+                        <HelpIcon text={'扫描预设里所有 role="system" 的 promptItem,含 {{setvar}}/{{getvar}}/{{lastusermessage}} 等 ST 宏的自动从主前缀剥离、追加到动态尾段(dynamicTail)。\n\n这是修复"双人成行 / 杀八股"类重型预设把 Pro 缓存命中率压到 5% 的关键——这类预设的 promptItem 大量含动态宏,渲染结果每回合都变,毫无缓存可言。下沉后渲染顺序不变(走同一 macro batch,setvar/getvar 跨段链不破坏),只是 LLM 看到的注意力位置从中间区移到末尾区,实测对生成质量无明显影响。\n\n仅作用于 role="system" 类。user/assistant 类是对话结构(预设里的 mock 对话),不能下沉,会在日志里另行提示需要手动改。\n\n默认开。如果你发现某个特定预设下沉后行为变怪,可临时关掉。'} />
+                      </span>
+                      <Toggle on={dsCache.autoSinkDynamicPromptItem !== false} onChange={() => setDsCache({ autoSinkDynamicPromptItem: !(dsCache.autoSinkDynamicPromptItem !== false) })} />
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={labelStyle}>
                         前缀漂移诊断
                         <HelpIcon text={'借鉴 claude-code-best 的 PROMPT_CACHE_BREAK_DETECTION：跨回合保存"理论应每回合相等"的静态前缀(systemPrompt+wbBefore+processedFormat+wbAfter)，本回合发送前对比，漂移时在日志面板打 warn：\n• 第一处差异字节位置\n• 前后 80 字符上下文(上回合 vs 本回合)\n• 启发式定位是哪段污染(systemPrompt / wbBefore / processedFormat / wbAfter)\n让你自助定位"为何命中率不达预期"——找到漂移源后改预设/世界书把它静态化。\n纯诊断，不改 prompt，对生成质量无影响。默认开启。'} />
                       </span>

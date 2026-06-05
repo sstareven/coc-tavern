@@ -596,32 +596,55 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const sortedItems = [...processedPreset.promptItems].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
       const macroItemPositions: number[] = []; // sortedItems 中需跑宏的下标
       const itemTexts: string[] = [];
+      // 自动下沉：扫描 role='system' 且含动态宏的 promptItem,渲染后剥离到 dynamicTail。
+      // 渲染阶段所有字符串走同一 batch（共享 macroCtx.macroVars）→ 渲染顺序与组装位置完全解耦,
+      // setvar/getvar 跨条目链不破坏。仅作用于 system 类（user/assistant 是对话结构,保持原位）。
+      const autoSinkDynamicPromptItem =
+        dsRestructureOn && dsCfg.autoSinkDynamicPromptItem !== false;
       sortedItems.forEach((it, idx) => {
         if (it.enabled !== false && it.content && it.content.trim()) {
           macroItemPositions.push(idx);
           itemTexts.push(it.content);
+          const isSystemRole = (it.role || 'system') === 'system';
+          if (autoSinkDynamicPromptItem && isSystemRole && hasDynamicMarker(it.content)) {
+            (it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail = true;
+          }
         }
       });
 
       // DS 缓存优化器诊断（debugLog 模式）：扫描【会进入静态前缀】的预设字段是否含动态宏。
-      // 这些字段虽是预设作者编写的静态文本，但若含 {{xxx.yyy}}/<% %>/{{getvar}} 等，
-      // 经 macro batch 解析后输出值会随 statData 变化，污染前缀缓存。无法自动下沉(会破坏 setvar/getvar
-      // 跨条目链)，只能让用户自己改预设——所以列出来给用户排查。
+      // - role='system' 类 promptItem 若含动态宏 → 已自动下沉到 dynamicTail（autoSinkDynamicPromptItem
+      //   默认开）,宏链不破坏（因为渲染走同一 macro batch,组装位置改变与宏副作用无关）。
+      // - role='user'/'assistant' 类不能下沉（会破坏对话结构）→ 仍报给用户排查。
+      // - preset.systemPrompt 也走静态前缀,含动态宏会污染（用户需要自己改）。
       if (dsRestructureOn && dsCfg.debugLog === true) {
-        const presetWarnings: string[] = [];
+        const sunkWarnings: string[] = [];
+        const userActionableWarnings: string[] = [];
         if (hasDynamicMarker(processedPreset.systemPrompt)) {
-          presetWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
+          userActionableWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
         }
         sortedItems.forEach((it) => {
           if (it.enabled !== false && it.content && hasDynamicMarker(it.content)) {
-            presetWarnings.push(`promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`);
+            const isSystemRole = (it.role || 'system') === 'system';
+            const label = `promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`;
+            if (autoSinkDynamicPromptItem && isSystemRole) {
+              sunkWarnings.push(label);
+            } else {
+              userActionableWarnings.push(`(role=${it.role || 'system'}) ${label}`);
+            }
           }
         });
-        if (presetWarnings.length > 0) {
+        if (sunkWarnings.length > 0) {
           console.log(
-            '[ds-cache-restructure] ⚠️ 预设含动态宏(每回合渲染结果可能变化，污染前缀缓存)：\n  ' +
-              presetWarnings.join('\n  ') +
-              '\n  建议：把这些条目的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
+            `[ds-cache-restructure] ✅ 已自动下沉 ${sunkWarnings.length} 个 system 类含动态宏的 promptItem 到 dynamicTail（前缀缓存保护）：\n  ` +
+              sunkWarnings.join('\n  '),
+          );
+        }
+        if (userActionableWarnings.length > 0) {
+          console.log(
+            '[ds-cache-restructure] ⚠️ 以下字段含动态宏会污染前缀缓存（user/assistant 类与 systemPrompt 不能自动下沉，需手动改）：\n  ' +
+              userActionableWarnings.join('\n  ') +
+              '\n  建议：把这些字段的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
               '或在世界书里用 entry.constant=true 的形式注入(已自动下沉到 dynamicTail)。',
           );
         }
@@ -640,7 +663,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // 写回宏处理后的 promptItems content
       const newItems = sortedItems.map((it) => ({ ...it }));
       macroItemPositions.forEach((pos, k) => { newItems[pos].content = macroResults[k].text; });
-      processedPreset.promptItems = newItems;
+
+      // 自动下沉：把标记了 _sinkToDynamicTail 的 promptItem 从主 messages 剔除,
+      // 渲染后内容收集到 sunkPromptContents,稍后注入到 dynamicTail。
+      const sunkPromptContents: string[] = [];
+      if (autoSinkDynamicPromptItem) {
+        const kept: typeof newItems = [];
+        for (const it of newItems) {
+          if ((it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail) {
+            sunkPromptContents.push(it.content);
+          } else {
+            kept.push(it);
+          }
+        }
+        processedPreset.promptItems = kept;
+      } else {
+        processedPreset.promptItems = newItems;
+      }
 
       const base = itemTexts.length;
       processedPreset.systemPrompt = macroResults[base].text;
@@ -737,9 +776,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           (e) => (e as { _isDynamic?: boolean })._isDynamic,
         );
         const sortedDynamic = sortByInsertionStrategy(dynamicProcessedLore, wiStrategy);
+        // sunkPromptContents（从 system 区剥离的含动态宏 promptItem 渲染后内容）放在
+        // dynamicFormatParts 最前面——保持与原 system 区相对靠前的注意力位置;
+        // 后接项目的 dynamicFormatParts（调查员能力概览/物品/NPC 等）。
         const dynamicTail = buildDynamicTail({
           dynamicLoreContents: sortedDynamic.map((e) => e.content),
-          dynamicFormatParts: resolvedDynamicFormat ? [resolvedDynamicFormat] : [],
+          dynamicFormatParts: [
+            ...sunkPromptContents,
+            ...(resolvedDynamicFormat ? [resolvedDynamicFormat] : []),
+          ],
         });
         if (dynamicTail) {
           for (let i = messages.length - 1; i >= 0; i--) {
