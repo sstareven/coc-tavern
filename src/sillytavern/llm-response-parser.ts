@@ -3,6 +3,7 @@ import { pushLog } from '../stores/useLogStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
+import { patchOrphanSanityTags } from './sanity-prompt-engine';
 import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem, SanityCheckPrompt } from '../types';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
@@ -486,7 +487,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     const leftHeader = cleanHeader(String(parsed.leftHeader ?? '探索')) || '探索';
-    const leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
+    let leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
     const rightHeader = cleanHeader(String(parsed.rightHeader ?? '行动')) || '行动';
     const rightContent = stripMvu(unescapeLiteralNewlines(String(parsed.rightContent ?? '接下来你打算怎么做？')));
 
@@ -656,6 +657,23 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
         });
       if (sanityCheckPrompts.length === 0) sanityCheckPrompts = undefined;
       else pushLog('debug', `[parseLlm] SAN检定气泡: ${sanityCheckPrompts.map((p) => `${p.id}(${p.checkType}${p.checkSkill ? ':' + p.checkSkill : ''}/${p.difficulty}, ${p.sanLossSuccess}/${p.sanLossFail})`).join(', ')}`, 'system');
+    }
+
+    // 孤儿 SAN prompt 自动补标签：避免出现 `sanityCheckPrompts` 非空但叙事里无对应
+    // `<san id="N"/>` 内联标签 → useSanityBubbleEffect 喂全部 id 给 setPending → 选项被锁
+    // 而 SanityBubble 因无内联标签永远渲染不出来 → 玩家死锁的 2026-06-05 失败现场。
+    // 补在 leftContent 末尾（叙事高潮通常收在左页末尾）以维持气泡渲染入口。
+    if (sanityCheckPrompts && sanityCheckPrompts.length > 0) {
+      const patched = patchOrphanSanityTags(leftContent, rightContent, sanityCheckPrompts);
+      if (patched.orphanIds.length > 0) {
+        pushLog(
+          'warn',
+          `[parseLlm] SAN 孤儿气泡补标签: ${patched.orphanIds.join(', ')} ` +
+          `(LLM 漏插 <san id> 内联标签，已自动追加到左页末尾防选项死锁)`,
+          'system',
+        );
+        leftContent = patched.leftContent;
+      }
     }
 
     // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。日志完整记录内容（仅供排错）。

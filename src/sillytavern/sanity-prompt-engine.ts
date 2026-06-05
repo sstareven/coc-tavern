@@ -43,6 +43,46 @@ export function parseSanInlineTags(text: string): SanInlineTag[] {
   return tags;
 }
 
+/** 正则元字符转义——把 id 字面化进 RegExp 避免 . / * / ? 等被当成元字符。 */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 孤儿 SAN prompt 自动补标签：每条 prompt 的 id 必须在 leftContent 或 rightContent
+ * 里有对应的 `<san id="N"/>` 内联标签；缺失则在 leftContent 末尾追加。
+ *
+ * 设计动机（见 2026-06-05 真实失败现场）：
+ *   模型偶发把 sanityCheckPrompts 写进顶层 JSON 但忘了在叙事里插内联标签。
+ *   `useSanityBubbleEffect` 把全部 prompt id 喂给 setPending → `ChoiceButton`
+ *   的 sanityBlocked 永远 true → 选项被锁；而 SanityBubble 因找不到内联标签
+ *   永远渲染不出来 → 玩家无气泡可点解锁 → 死锁。
+ *
+ * 修复取「补标签」而非「丢弃 prompt」：丢弃会让 SAN 检定无声蒸发；补标签
+ * 至少保住 SAN 机制完整性，气泡渲染在 leftContent 末尾（叙事高潮通常收在
+ * 左页尾），玩家点击 → SanityCheckPanel → SAN loss 落账，与 LLM 本意一致。
+ */
+export function patchOrphanSanityTags(
+  leftContent: string,
+  rightContent: string,
+  prompts: SanityCheckPrompt[],
+): { leftContent: string; rightContent: string; orphanIds: string[] } {
+  if (prompts.length === 0) return { leftContent, rightContent, orphanIds: [] };
+  const hasTag = (id: string, text: string): boolean => {
+    if (!text) return false;
+    const re = new RegExp(`<san\\s+id\\s*=\\s*['"]${escapeRegExp(id)}['"]\\s*/?>`, 'i');
+    return re.test(text);
+  };
+  const orphanIds: string[] = [];
+  let newLeft = leftContent;
+  for (const p of prompts) {
+    if (hasTag(p.id, leftContent) || hasTag(p.id, rightContent)) continue;
+    orphanIds.push(p.id);
+    newLeft += `<san id="${p.id}"/>`;
+  }
+  return { leftContent: newLeft, rightContent, orphanIds };
+}
+
 // ─── 二. d100 SAN check (POW / INT / skill) ───
 
 export type RollD100 = () => number;
