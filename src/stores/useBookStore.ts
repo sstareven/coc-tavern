@@ -116,6 +116,8 @@ interface BookStore {
   setPageLocationElements: (index: number, elements: LocationElementInput[]) => void;
   /** 按 index 覆写某页的 genStats（供 MVU 变量结算延后到页面提交之后时，回填本页 token 用量统计）。 */
   setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
+  /** 给某页追加一条子调用统计（MVU/起始物品/坏结局/...等，按时间顺序累积）。供 CacheStatsPanel 按子调用细分显示。 */
+  addPageSubCallStat: (index: number, stat: import('../types').PageSubCallStat) => void;
   /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
   setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
   /** 按 index 覆写某页的 npcUpdates 与 npcSnapshot（供 BUG2 Part 2 补写 API 重纠后页锚定写回；删页快照式回溯据 npcSnapshot 恢复）。 */
@@ -373,6 +375,20 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], genStats };
+    return { pages };
+  }),
+  addPageSubCallStat: (index, stat) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    const page = pages[index];
+    const existing = page.genStats?.subCalls ?? [];
+    pages[index] = {
+      ...page,
+      genStats: page.genStats
+        ? { ...page.genStats, subCalls: [...existing, stat] }
+        // 极少数情况主回合 genStats 还没写就有子调用：占位 genStats 让数据不丢
+        : { totalTokens: 0, durationMs: 0, estimated: true, subCalls: [stat] },
+    };
     return { pages };
   }),
   setPageDarkThread: (index, darkThread) => set((s) => {

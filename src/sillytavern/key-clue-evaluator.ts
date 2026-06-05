@@ -77,7 +77,7 @@ export async function evaluateKeyClues(
     let resp;
     try {
       resp = await callDsSubagent({
-        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'mvu',
         label: '关键线索评估',
         messages: [
           { role: 'system', content: KEY_CLUE_PROMPT },

@@ -145,10 +145,144 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
               暂无缓存数据——当前模型未返回缓存信息（DeepSeek 等支持），或尚未生成新页面。
             </div>
           ) : (
-            <RateChart points={points} xLabel={mode === 'page' ? '页' : '日'} />
+            <>
+              <RateChart points={points} xLabel={mode === 'page' ? '页' : '日'} />
+              <PageDetailList pages={pages} />
+            </>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 按页明细：每页一个卡片，展示主回合 + 所有子调用的命中/未命中/输出/费用细分。 */
+function PageDetailList({ pages }: { pages: import('../../types').BookPage[] }) {
+  const pagesWithStats = pages
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.genStats);
+  if (pagesWithStats.length === 0) return null;
+  // 倒序：最新页在前
+  const ordered = [...pagesWithStats].reverse();
+
+  return (
+    <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(196,168,85,0.2)' }}>
+      <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 3, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
+        按页明细 / PER-PAGE DETAIL
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {ordered.map(({ p, i }) => <PageDetailCard key={p.id ?? i} page={p} pageIdx={i} />)}
+      </div>
+    </div>
+  );
+}
+
+function PageDetailCard({ page, pageIdx }: { page: import('../../types').BookPage; pageIdx: number }) {
+  const gs = page.genStats!;
+  const mainTier: ModelTier = inferModelTier(gs.model);
+  const mainHit = gs.cacheHitTokens ?? 0;
+  const mainMiss = gs.cacheMissTokens ?? 0;
+  const mainOut = gs.completionTokens ?? 0;
+  const mainCost = estimateCostCNY(mainHit, mainMiss, mainOut, gs.model);
+  const mainRate = mainHit + mainMiss > 0 ? (mainHit / (mainHit + mainMiss)) * 100 : 0;
+
+  const subs = gs.subCalls ?? [];
+
+  // 累计本页总费用：主 + 所有 subCalls。subCalls 用 promptTokens 当未命中兜底（没 hit/miss 拆分时）。
+  let pageTotalCost = mainCost;
+  for (const s of subs) {
+    const sHit = s.hit ?? 0;
+    const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+    const sOut = s.output ?? 0;
+    pageTotalCost += estimateCostCNY(sHit, sMiss, sOut, s.model);
+  }
+
+  return (
+    <div style={{
+      border: `1px solid ${TIER_COLORS[mainTier]}55`,
+      borderRadius: 5,
+      padding: '8px 12px',
+      background: 'rgba(0,0,0,0.18)',
+      fontFamily: 'var(--font-ui)',
+      fontSize: 11,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ color: 'var(--gold)', fontWeight: 700 }}>
+          {page.rightPage || page.leftPage || `第 ${pageIdx + 1} 页`} · {page.leftHeader || '（未命名）'}
+        </span>
+        <span style={{ color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+          ¥{pageTotalCost < 0.01 ? pageTotalCost.toFixed(4) : pageTotalCost.toFixed(2)}（合计 {1 + subs.length} 次调用）
+        </span>
+      </div>
+
+      {/* 主回合 */}
+      <SubCallRow
+        label="主回合"
+        tier={mainTier}
+        model={gs.model}
+        hit={mainHit}
+        miss={mainMiss}
+        output={mainOut}
+        rate={mainRate}
+        cost={mainCost}
+      />
+
+      {/* 子调用 */}
+      {subs.map((s, idx) => {
+        const sTier = inferModelTier(s.model);
+        const sHit = s.hit ?? 0;
+        const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+        const sOut = s.output ?? 0;
+        const sRate = sHit + sMiss > 0 ? (sHit / (sHit + sMiss)) * 100 : 0;
+        const sCost = estimateCostCNY(sHit, sMiss, sOut, s.model);
+        return (
+          <SubCallRow
+            key={idx}
+            label={s.label}
+            tier={sTier}
+            model={s.model}
+            hit={sHit}
+            miss={sMiss}
+            output={sOut}
+            rate={sRate}
+            cost={sCost}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function SubCallRow({
+  label, tier, model, hit, miss, output, rate, cost,
+}: {
+  label: string; tier: ModelTier; model?: string;
+  hit: number; miss: number; output: number; rate: number; cost: number;
+}) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'minmax(80px, 1fr) auto minmax(120px, auto)',
+      alignItems: 'baseline',
+      gap: 10,
+      padding: '3px 0',
+      borderTop: '1px dashed rgba(196,168,85,0.08)',
+      fontSize: 10,
+      color: 'var(--text-light)',
+    }}>
+      <span>
+        <span style={{ color: TIER_COLORS[tier], fontWeight: 600 }}>{label}</span>
+        {model && <span style={{ color: 'var(--ink-faded)', marginLeft: 6, fontSize: 9 }}>· {model}</span>}
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)' }}>
+        {hit + miss > 0 ? `${rate.toFixed(0)}%` : '—'}
+        <span style={{ marginLeft: 6, color: '#69f0ae' }}>↓{hit.toLocaleString()}</span>
+        <span style={{ marginLeft: 4, color: '#ff7043' }}>↑{miss.toLocaleString()}</span>
+        <span style={{ marginLeft: 4, color: '#7b9fc1' }}>↗{output.toLocaleString()}</span>
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--gold)', textAlign: 'right' }}>
+        ¥{cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}
+      </span>
     </div>
   );
 }

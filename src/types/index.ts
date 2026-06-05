@@ -141,6 +141,32 @@ export interface PageGenStats {
    * 走对应费率算 cost、并把曲线按模型分双线显示。老存档为 undefined → 用默认 pro 价。
    */
   model?: string;
+  /**
+   * 本页所有 LLM 子调用的累积统计（按时间顺序追加）——主回合之外的所有 LLM 请求都
+   * 在这里留账：MVU 提取、起始物品、坏结局、关键线索、线索整合、NPC 补写、地点元素、
+   * 地图自检、时间跳跃、战斗探测、行动补写 #1/#2/...。每条记 label / model / 命中 /
+   * 未命中 / 输出 / 时刻，让缓存面板能按子调用细分显示。
+   */
+  subCalls?: PageSubCallStat[];
+}
+
+/** 单次子调用的统计（细分缓存命中、按页归档）。 */
+export interface PageSubCallStat {
+  /** 任务标识：「MVU」/「起始物品」/「坏结局」/「关键线索」/「线索整合」/「NPC 补写」/
+   *  「地点元素」/「地图自检」/「时间跳跃」/「战斗探测」/「行动补写 #N」等。 */
+  label: string;
+  /** 该次调用使用的模型名（决定缓存费率 tier）。 */
+  model?: string;
+  /** 输入命中 token 数（DeepSeek prompt_cache_hit_tokens）。 */
+  hit?: number;
+  /** 输入未命中 token 数（DeepSeek prompt_cache_miss_tokens）。 */
+  miss?: number;
+  /** 输入 token 总数（hit + miss 的兜底；某些端点不返回 hit/miss 拆分时填 prompt_tokens 全量）。 */
+  promptTokens?: number;
+  /** 输出 token 数。 */
+  output?: number;
+  /** 调用结束时刻（epoch ms），用于排序与按天分组。 */
+  at?: number;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====

@@ -1158,6 +1158,33 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           // 本回合使用的模型名快照——CacheStatsPanel 按 model tier 走对应费率算 cost，
           // 并把曲线按 flash/pro 分双线展示。
           model: useSettingsStore.getState().apiModel,
+          // 子调用历史日志：主回合内部的 MVU 提取 + MVU 自纠各算一条；fire-and-forget 子调用
+          // （起始物品/坏结局/关键线索/线索整合/NPC补写/地点元素/地图自检/时间跳跃/战斗探测/
+          // 行动补写）由各自调用点完成后用 addPageSubCallStat 追加。
+          subCalls: (() => {
+            const subs: import('../types').PageSubCallStat[] = [];
+            if (mvuUsage) {
+              subs.push({
+                label: 'MVU 提取',
+                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                hit: mvuUsage.prompt_cache_hit_tokens,
+                miss: mvuUsage.prompt_cache_miss_tokens,
+                promptTokens: mvuUsage.prompt_tokens,
+                output: mvuUsage.completion_tokens,
+                at: Date.now(),
+              });
+            }
+            if (selfCorrectUsage) {
+              subs.push({
+                label: 'MVU 自纠',
+                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                promptTokens: selfCorrectUsage.prompt_tokens,
+                output: selfCorrectUsage.completion_tokens,
+                at: Date.now(),
+              });
+            }
+            return subs.length > 0 ? subs : undefined;
+          })(),
         };
         pushLog(
           'info',
@@ -1299,7 +1326,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
           void (async () => {
             try {
-              const { changes } = await generateStartingItems(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              // 走 MVU API（若已配置）/ 主 API（fallback）+ mvu RPM 桶 —— 起始物品是
+              // 短 JSON 子调用，无需主回合的 Pro 大模型，走 Flash 更快更便宜。
+              const useMvuSI = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+              const siBase = (useMvuSI ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+              const siKey = (useMvuSI ? settings.mvuApiKey : settings.apiKey) ?? '';
+              const siModel = (useMvuSI ? settings.mvuApiModel : settings.apiModel) ?? '';
+              const { changes, usage: siUsage } = await generateStartingItems(ctx, siBase, siKey, siModel);
+              // 缓存命中历史：起始物品调用统计追加进 page.genStats.subCalls
+              if (siUsage && useChatStore.getState().activeId === aidSI) {
+                useBookStore.getState().addPageSubCallStat(siPageIdx, {
+                  label: '起始物品',
+                  model: siModel,
+                  hit: siUsage.prompt_cache_hit_tokens,
+                  miss: siUsage.prompt_cache_miss_tokens,
+                  promptTokens: siUsage.prompt_tokens,
+                  output: siUsage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               if (changes.length === 0 || useChatStore.getState().activeId !== aidSI) return;
               useBookStore.getState().setPageInventoryChanges(siPageIdx, changes);
               useInventoryStore.getState().applyChanges(changes);
@@ -1361,8 +1406,26 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           void (async () => {
             try {
               // 一次产出：坏结局（灾厄终点）+ 3 真相支柱（破局所需，守秘人机密）。
-              const { description, pillars } = await generateBadEnding(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              // 走 MVU API（若已配置）/ 主 API（fallback）—— 短 JSON 子调用走 Flash 更快。
+              const useMvuBE = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+              const beBase = (useMvuBE ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+              const beKey = (useMvuBE ? settings.mvuApiKey : settings.apiKey) ?? '';
+              const beModel = (useMvuBE ? settings.mvuApiModel : settings.apiModel) ?? '';
+              const { description, pillars, usage: beUsage } = await generateBadEnding(ctx, beBase, beKey, beModel);
               if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
+              // 缓存命中历史：坏结局调用统计追加进 page.genStats.subCalls
+              if (beUsage) {
+                const bePageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                useBookStore.getState().addPageSubCallStat(bePageIdx, {
+                  label: '坏结局',
+                  model: beModel,
+                  hit: beUsage.prompt_cache_hit_tokens,
+                  miss: beUsage.prompt_cache_miss_tokens,
+                  promptTokens: beUsage.prompt_tokens,
+                  output: beUsage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               let changed = false;
               if (description && !useDarkThreadStore.getState().badEnding) {
                 useDarkThreadStore.getState().setBadEnding({ description, createdAt: Date.now() });
@@ -1468,7 +1531,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const pillarsForEval = unsolved.map((p) => ({ id: p.id, title: p.title, secret: p.secret }));
             void (async () => {
               try {
-                const { matches } = await evaluateKeyClues(pillarsForEval, newClues, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+                // 走 MVU API（若已配置）—— 关键线索评估也是短 JSON 子调用，走 Flash 更快。
+                const useMvuKC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+                const kcBase = (useMvuKC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+                const kcKey = (useMvuKC ? settings.mvuApiKey : settings.apiKey) ?? '';
+                const kcModel = (useMvuKC ? settings.mvuApiModel : settings.apiModel) ?? '';
+                const { matches, usage: kcUsage } = await evaluateKeyClues(pillarsForEval, newClues, kcBase, kcKey, kcModel);
+                // 缓存命中历史：关键线索调用统计追加进 page.genStats.subCalls
+                if (kcUsage) {
+                  const kcPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                  useBookStore.getState().addPageSubCallStat(kcPageIdx, {
+                    label: '关键线索',
+                    model: kcModel,
+                    hit: kcUsage.prompt_cache_hit_tokens,
+                    miss: kcUsage.prompt_cache_miss_tokens,
+                    promptTokens: kcUsage.prompt_tokens,
+                    output: kcUsage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 if (matches.length === 0 || useChatStore.getState().activeId !== aidKC) return;
                 const wasSaveWorld = useKeyClueStore.getState().saveWorldMode;
                 for (const m of matches) {
