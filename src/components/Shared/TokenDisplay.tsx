@@ -44,7 +44,7 @@ export function TokenDisplay() {
   const sec = (durationMs / 1000).toFixed(1);
   const tilde = estimated ? '~' : '';
   const hasSplit = promptTokens != null && completionTokens != null;
-  const rpmTail = typeof rpm === 'number' ? ` · RPM=${rpm}` : '';
+  const rpmTail = typeof rpm === 'number' ? ` · ${rpm}RPM` : '';
   const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s${typeof rpm === 'number' ? ` · 当时主桶 60s 窗口内 ${rpm} 次请求` : ''}`;
 
   return (
