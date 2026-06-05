@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.2';
+export const CURRENT_VERSION = 'v1.11.3';
 
 interface Release {
   version: string;
@@ -13,6 +13,18 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.3',
+    label: '关键词高亮换语法：{{}} → <kw></kw> · 修 DS 缓存命中暴跌',
+    items: [
+      '【缓存·重大修复】用户实测 DS 缓存命中率从应有的 80%+ 跌到 16.2%，控制台 [cache-diag] 直指根因——`FORMAT_INSTRUCTION` 静态示例里的 `{{阿卡姆}}` 被 unified-macro-engine 当成变量替换。上一回合 LLM 写过的 `<var name="阿卡姆" value="马萨诸塞州北部城镇…"/>` 灌入 gameVars，下一回合 `resolveFallbackVars` 用裸 `{{X}}` 兜底命中 gameVars，把示例 `{{阿卡姆}}` 替换成「马萨诸塞州北部城镇，密斯卡塔尼克大学所在地…」一大长串，每回合 keywords 不同就漂移、静态前缀崩塌',
+      '【根治方案】关键词高亮语法从 `{{阿卡姆}}` 改为 `<kw>阿卡姆</kw>`，彻底脱离宏引擎双花括号语法空间。`{{xxx.yyy}}` MVU 变量宏（如 `{{调查员.生命值.当前}}` `{{世界.日期}}`）与 `{{char}}`/`{{user}}` 等 SillyTavern 内置宏不变，仍走 `{{}}`，不冲突',
+      '【生成端】FORMAT_INSTRUCTION 行 33-37 指令文字、行 78 leftContent 示例、行 94 clues.discoveryNarrative 示例：所有 `{{xxx}}` 改为 `<kw>xxx</kw>`，并加硬约束「严禁用旧 `{{}}` 双花括号语法包裹关键词」让 LLM 锁定新语法',
+      '【渲染端】TextBeautifier 的 BARE_MACRO_RE / TOKEN_RE 改成识别 `<kw>([^<]+)</kw>`，stripMvu 的 HTML `<strong>/<b>/<em>/<i>` 现在转成 `<kw>$2</kw>`（之前转 `{{$2}}`），并在「strip all tags」否定先行断言里同时保留 `<san>` 与 `<kw>`',
+      '【清洗端】cleanChoiceField 选项剥 `<kw>词</kw>` → 词（双兜底剥老 `{{}}` 防字面外露），normForMatch 物品名匹配剥 `<kw>` 标签',
+      '【取舍·老存档】按用户决策「仅保留新语法，丢弃老语法高亮」——老存档 leftContent 里的 `{{阿卡姆}}` 不再被识别为关键词，会按字面 `{{阿卡姆}}` 显示。新内容全用 `<kw></kw>`、前缀完全静态、缓存命中率回正',
+    ],
+  },
   {
     version: 'v1.11.2',
     label: 'Token 显示：RPM 改回真实频率（请求数 × 60 / 耗时秒数）',

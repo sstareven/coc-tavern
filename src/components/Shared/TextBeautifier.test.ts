@@ -55,7 +55,7 @@ describe('beautifyText — 对话橘色高亮', () => {
   });
 
   it('对话内部关键词以红色变体(tone=red)渲染', () => {
-    const spans = findDialogueSpans(nodes('他说「去过{{阿卡姆}}吗」'));
+    const spans = findDialogueSpans(nodes('他说「去过<kw>阿卡姆</kw>吗」'));
     expect(spans).toHaveLength(1);
     const children = spans[0].props.children as KeywordEl[];
     const kw = children.find(
@@ -65,9 +65,16 @@ describe('beautifyText — 对话橘色高亮', () => {
     expect(kw!.props.keyword).toBe('阿卡姆');
   });
 
-  it('对话外的 {{keyword}} 不受影响仍生成 tooltip', () => {
-    const out = nodes('我走向{{密斯卡塔尼克大学}}');
+  it('对话外的 <kw>keyword</kw> 不受影响仍生成 tooltip', () => {
+    const out = nodes('我走向<kw>密斯卡塔尼克大学</kw>');
     expect(findDialogueSpans(out)).toHaveLength(0);
     expect(out.some((n) => typeof n === 'object' && n !== null)).toBe(true);
+  });
+
+  it('老 {{keyword}} 语法不再被识别为关键词（v1.11.3 起按字面显示）', () => {
+    const out = nodes('我走向{{密斯卡塔尼克大学}}');
+    // 不应产生 KeywordTooltip 元素；该段保持纯字符串
+    const hasKeywordEl = out.some((n) => typeof n === 'object' && n !== null && (n as ReactElement).type !== 'span');
+    expect(hasKeywordEl).toBe(false);
   });
 });
