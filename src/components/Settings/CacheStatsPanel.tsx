@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef } from 'react';
 import { useBookStore } from '../../stores/useBookStore';
-import { estimateCostCNY, inferModelTier, type ModelTier } from '../../sillytavern/deepseek-cache';
+import { useSettingsStore, getEffectiveDsCache } from '../../stores/useSettingsStore';
+import { estimateCostCNY, inferModelTier, type ModelTier, type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../../sillytavern/deepseek-cache';
+import { CURRENT_VERSION } from '../Landing/ChangelogModal';
 
 /** 一个数据点：X 轴标签 + 命中/未命中/输出 token + 命中率(%) + 估算费用(¥)。tier 用于双线分组。 */
 interface Point { label: string; hit: number; miss: number; output: number; rate: number; cost: number; tier: ModelTier; }
@@ -21,6 +23,89 @@ const TIER_COLORS: Record<ModelTier, string> = {
 };
 const TIER_LABELS: Record<ModelTier, string> = { flash: 'Flash', pro: 'Pro' };
 
+/** 从 baseUrl 安全提取 host(只暴露域名,不带路径/key/查询参数)。失败兜底为 '(未配置)'。 */
+function safeHost(url: string | undefined): string {
+  if (!url || !url.trim()) return '(未配置)';
+  try {
+    return new URL(url).host;
+  } catch {
+    // 老配置可能直接是 host 字符串,简单清洗
+    return url.replace(/^https?:\/\//, '').split('/')[0] || '(未识别)';
+  }
+}
+
+const ON = '✓';
+const OFF = '✗';
+function flag(b: boolean | undefined): string { return b === true ? ON : OFF; }
+/** 推荐开关:实际状态前面会带"建议开"标签,提醒用户它默认关但开了能省 token。 */
+function flagRec(b: boolean | undefined, recommended: boolean): string {
+  return `${flag(b)}${b === true ? '' : (recommended ? ' (建议开)' : '')}`;
+}
+
+function nowYmdHms(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function isMobileUa(): string {
+  if (typeof navigator === 'undefined') return '未知';
+  return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '移动' : '桌面';
+}
+
+/**
+ * 排错诊断段：用户复制后贴给我们/社区时,这段帮助快速定位"为什么命中率不达预期"。
+ * 严格脱敏:不带 API key/会话 ID/本地路径/详细 UA;baseUrl 只截 host。
+ */
+function buildDiagnosticsBlock(
+  ds: DsCacheConfig,
+  apiHost: string,
+  apiModel: string,
+  mvuIndep: boolean,
+  mvuHost: string,
+  mvuModel: string,
+  promptPP: string,
+  pageCount: number,
+  pagesWithStats: number,
+  totalCalls: number,
+  presetLabel: string,
+): string[] {
+  const lines: string[] = [];
+  const ppLabel = promptPP === '' ? '未选择 (DS 推荐)' : promptPP;
+  lines.push('=== 系统诊断 ===');
+  lines.push(`导出: ${nowYmdHms()} · 版本: ${CURRENT_VERSION} · 设备: ${isMobileUa()}`);
+  lines.push(`API host: ${apiHost} · 主模型: ${apiModel || '(未配置)'}`);
+  lines.push(mvuIndep
+    ? `MVU API: 独立 (host=${mvuHost} 模型=${mvuModel || '(未配置)'})`
+    : 'MVU API: 与主同源',
+  );
+  lines.push(`提示词后处理: ${ppLabel}`);
+  if (presetLabel) lines.push(`当前预设: ${presetLabel}`);
+  lines.push('');
+  lines.push('DS 缓存开关:');
+  lines.push(`  restructure ${flag(ds.restructure)} · roleTags ${flag(ds.roleTags)} · keepTailAssistant ${flag(ds.keepTailAssistant)}`);
+  lines.push(`  autoDetectDynamicConstant ${flag(ds.autoDetectDynamicConstant)} · autoSinkDynamicPromptItem ${flag(ds.autoSinkDynamicPromptItem)}`);
+  lines.push(`  experimentalPrefixDiagnostics ${flag(ds.experimentalPrefixDiagnostics)} · experimentalSubagentSharedSystem ${flag(ds.experimentalSubagentSharedSystem)}`);
+  lines.push(`  experimentalLeanSnapshot ${flagRec(ds.experimentalLeanSnapshot, true)} · experimentalSkipMvuVarList ${flagRec(ds.experimentalSkipMvuVarList, true)}`);
+  lines.push(`  separateWiLights ${flag(ds.separateWiLights)} · treatConstantAsDynamic ${flag(ds.treatConstantAsDynamic)}`);
+  lines.push(`  customPrefill ${flag(ds.customPrefillEnabled)} · thinking marker: ${ds.enabled ? ds.mode : '关闭'}`);
+  lines.push('');
+  lines.push(`会话规模: 本档 ${pageCount} 页 (其中 ${pagesWithStats} 页有缓存数据) · 累计 ${totalCalls} 次 LLM 调用`);
+  return lines;
+}
+
+function buildTroubleshootBlock(): string[] {
+  return [
+    '=== 排错指南 ===',
+    '1. 命中率 < 70%: 检查"提示词后处理"——DS 上选 strict/semi_strict/single_user 会重排消息破坏前缀缓存,改"未选择"',
+    '2. 命中率逐页衰减: 开 experimentalPrefixDiagnostics,看 console [cache-diag] 输出哪段在漂移(systemPrompt/wbBefore/processedFormat/wbAfter)',
+    '3. 子调用命中率 < 50%: 多半正常 —— 子调用 prompt 短、新数据占比天然高;若 < 30% 查 experimentalSubagentSharedSystem 是否开',
+    '4. 想榨干缓存: 开 experimentalLeanSnapshot + experimentalSkipMvuVarList,主回合 dynamicTail 省 ~1-2k tokens/回合',
+    '5. 第 1-2 页命中率特低: 正常,前 2 回合是 cache write;含动态宏的 promptItem 也要第 2 回合才被识别为"稳定下沉项"前置静态前缀',
+    '6. 切换会话/预设/上下文裁剪边界 → 缓存重写,预期行为,不可避免',
+  ];
+}
+
 /**
  * 把缓存面板的全部数据序列化成 Markdown 表格（含总览 + 按页明细 + 子调用细分），
  * 供「复制表格」按钮一键写入剪贴板,方便用户直接贴给排错。
@@ -35,8 +120,13 @@ function buildCopyText(
   saved: number,
   byTier: { flash: { count: number; hit: number; miss: number; output: number; cost: number };
             pro:   { count: number; hit: number; miss: number; output: number; cost: number } },
+  diagnostics: string[],
+  troubleshoot: string[],
 ): string {
   const lines: string[] = [];
+  // 诊断段最先 —— 用户在群里贴 issue 时通常只复制前 N 行,排错信息要靠前
+  lines.push(...diagnostics);
+  lines.push('');
   const yuanS = (n: number) => `¥${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
   lines.push('=== 缓存命中统计 ===');
   lines.push('');
@@ -77,6 +167,8 @@ function buildCopyText(
       lines.push(`|  | ${s.label} | ${s.model ?? '-'} | ${sRate.toFixed(1)}% | ${sHit.toLocaleString()} | ${sMiss.toLocaleString()} | ${sOut.toLocaleString()} | ${yuanS(sCost)} |`);
     }
   }
+  lines.push('');
+  lines.push(...troubleshoot);
   return lines.join('\n');
 }
 
@@ -176,8 +268,40 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   const saved = (costNoCacheFlash + costNoCachePro) - totalCost;
 
   // 复制全部数据成 Markdown 表格,贴给排错用。失败时降级为 alert(让用户手动复制)。
+  // 头部带「系统诊断」段(脱敏:无 API key/会话 ID/详细 UA;baseUrl 只截 host),
+  // 尾部带「排错指南」段 —— 用户直接贴群里就能让别人对照配置定位问题。
   const handleCopy = async () => {
-    const text = buildCopyText(pages, totalRate, totalCost, totalHit, totalMiss, totalOut, saved, byTier);
+    const settings = useSettingsStore.getState();
+    const ds = getEffectiveDsCache(settings) ?? DEFAULT_DS_CACHE_CONFIG;
+    const pagesWithStats = pages.filter((p) => p.genStats).length;
+    let totalCalls = 0;
+    for (const p of pages) {
+      const gs = p.genStats;
+      if (!gs) continue;
+      const mainHasData = (gs.cacheHitTokens ?? 0) + (gs.cacheMissTokens ?? 0) > 0;
+      if (mainHasData) totalCalls += 1;
+      for (const s of gs.subCalls ?? []) {
+        const sHit = s.hit ?? 0;
+        const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+        const sOut = s.output ?? 0;
+        if (sHit > 0 || sMiss > 0 || sOut > 0) totalCalls += 1;
+      }
+    }
+    const diagnostics = buildDiagnosticsBlock(
+      ds,
+      safeHost(settings.apiBaseUrl),
+      settings.apiModel ?? '',
+      !!settings.mvuUseIndependentApi,
+      safeHost(settings.mvuApiBaseUrl),
+      settings.mvuApiModel ?? '',
+      settings.promptPostProcessing ?? '',
+      pages.length,
+      pagesWithStats,
+      totalCalls,
+      '', // presetLabel 当前不易稳定取(presetId 在 sessions,name 在 useChatStore.presetStore),先留空避免引入耦合
+    );
+    const troubleshoot = buildTroubleshootBlock();
+    const text = buildCopyText(pages, totalRate, totalCost, totalHit, totalMiss, totalOut, saved, byTier, diagnostics, troubleshoot);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
