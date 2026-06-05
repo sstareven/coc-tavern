@@ -1030,13 +1030,20 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               settings.mvuSelfCorrectRetries,
               {
                 // send 显式走 'mvu' RPM 桶 + 传中止信号 —— RPM 死线在此落实。
+                // v1.11.6: API 选择对齐 MVU 提取——优先用 MVU 独立 API（若已配置），
+                // 否则回退主 API。之前硬编码主 API 致 MVU 自纠走 Pro 模型,与 MVU 提取(Flash)
+                // 路径不一致、单次自纠开销远高于必要(用户实测 4163 tokens × Pro 单价)。
                 send: async (msgs) => {
+                  const useMvuSC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+                  const scBase = (useMvuSC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+                  const scKey = (useMvuSC ? settings.mvuApiKey : settings.apiKey) ?? '';
+                  const scModel = (useMvuSC ? settings.mvuApiModel : settings.apiModel) ?? '';
                   const r = await sendChatCompletion(
                     applyPostProcessing(msgs, settings.promptPostProcessing),
                     presetForApi,
-                    settings.apiBaseUrl,
-                    settings.apiKey,
-                    settings.apiModel,
+                    scBase,
+                    scKey,
+                    scModel,
                     false,
                     undefined,
                     controller.signal,
@@ -1175,9 +1182,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               });
             }
             if (selfCorrectUsage) {
+              // v1.11.6: model 标签条件对齐自纠 send 内部 useMvuSC 逻辑——不依赖 useIndependentMvu
+              // (那个还 AND 了 needLlmExtraction,会让"主 JSON 已带 patch + 配了独立 MVU API"
+              // 的场景下自纠走独立 API 但 stat label 误标主 model)。
+              const selfCorrectUsedMvuApi = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey?.trim());
               subs.push({
                 label: 'MVU 自纠',
-                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                model: selfCorrectUsedMvuApi ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
                 promptTokens: selfCorrectUsage.prompt_tokens,
                 output: selfCorrectUsage.completion_tokens,
                 at: Date.now(),
