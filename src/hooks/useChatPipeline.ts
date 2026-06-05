@@ -68,6 +68,7 @@ import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } 
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { isRenderStable } from '../sillytavern/deepseek-cache-stable-sink';
 import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
 import { parseLlmResponse, parseRewriteResponse, detectNpcMissing } from '../sillytavern/llm-response-parser';
 import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
@@ -667,13 +668,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       macroItemPositions.forEach((pos, k) => { newItems[pos].content = macroResults[k].text; });
 
       // 自动下沉：把标记了 _sinkToDynamicTail 的 promptItem 从主 messages 剔除,
-      // 渲染后内容收集到 sunkPromptContents,稍后注入到 dynamicTail。
-      const sunkPromptContents: string[] = [];
+      // 渲染后内容按"跨回合稳定性"分桶:
+      //   - 稳定项(setvar 渲染后空 / getvar 未赋值 / 注释类) → 追加到 resolvedFormat 末尾回到静态前缀
+      //   - 不稳定项(含 lastusermessage / 跨回合变化的 var) → 留在 dynamicTail
+      // 首回合 hash 无样本 → 全部保守视为不稳定(留 dynamicTail);第 2 回合起开始享受命中。
+      // 不动用户预设内容,纯运行时基于渲染结果检测。
+      const stableSunkContents: string[] = [];
+      const unstableSunkContents: string[] = [];
+      const sessionIdForHash = useChatStore.getState().activeId ?? '__no_session__';
       if (autoSinkDynamicPromptItem) {
         const kept: typeof newItems = [];
         for (const it of newItems) {
           if ((it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail) {
-            sunkPromptContents.push(it.content);
+            const itemId = it.id ?? `${it.role ?? 'system'}_${it.kind ?? 'unknown'}`;
+            if (isRenderStable(sessionIdForHash, 'pi', itemId, it.content)) {
+              stableSunkContents.push(it.content);
+            } else {
+              unstableSunkContents.push(it.content);
+            }
           } else {
             kept.push(it);
           }
@@ -691,6 +703,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       macroProcessedInput = macroResults[base + 1 + processedLore.length].text;
       const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
       const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
+
+      // 稳定 sunk 追加到 resolvedFormat 末尾 → 进入静态前缀缓存。trim 后非空才追加,
+      // 避免 setvar 渲染后空字符串拼接成大段空行污染观感。
+      const stableSunkAppendix = stableSunkContents
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .join('\n\n');
+      const finalFormat = stableSunkAppendix
+        ? `${resolvedFormat}\n\n${stableSunkAppendix}`
+        : resolvedFormat;
+
+      if (dsCfg.debugLog === true && (stableSunkContents.length > 0 || unstableSunkContents.length > 0)) {
+        const stableNonEmpty = stableSunkContents.filter((s) => s && s.trim()).length;
+        const unstableNonEmpty = unstableSunkContents.filter((s) => s && s.trim()).length;
+        console.log(
+          `[ds-cache-stable-sink] 下沉项稳定性: ${stableNonEmpty} 稳定项前置静态前缀 / ${unstableNonEmpty} 不稳定项留 dynamicTail ` +
+          `(空内容自动过滤; 首回合无 hash 样本时所有项均视为不稳定,第 2 回合起开始命中)`,
+        );
+      }
 
       // Persist macro var mutations back to store
       const mutationStore = useTavernHelperStore.getState();
@@ -733,7 +764,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const SEP = '\n--§--\n';
         const segSystem = processedPreset.systemPrompt;
         const segWbBefore = wbBefore;
-        const segFormat = resolvedFormat;
+        const segFormat = finalFormat;
         const segWbAfter = wbAfter;
         // segment offsets — 跳过零长度段:它们与下个段差距仅 SEP.length,会让 inferSegment 把缝隙处误判为空段
         const offsets: Record<string, number> = { systemPrompt: 0 };
@@ -765,7 +796,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         processedPreset,
         loreForAssemble,
         {},
-        resolvedFormat,
+        finalFormat,
         { before: wbBefore, after: wbAfter },
       );
 
@@ -781,10 +812,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // sunkPromptContents（从 system 区剥离的含动态宏 promptItem 渲染后内容）放在
         // dynamicFormatParts 最前面——保持与原 system 区相对靠前的注意力位置;
         // 后接项目的 dynamicFormatParts（调查员能力概览/物品/NPC 等）。
+        // 优化(C): 仅"不稳定"的 sunk 项进 dynamicTail; 稳定项已前置到 finalFormat 静态前缀。
         const dynamicTail = buildDynamicTail({
           dynamicLoreContents: sortedDynamic.map((e) => e.content),
           dynamicFormatParts: [
-            ...sunkPromptContents,
+            ...unstableSunkContents,
             ...(resolvedDynamicFormat ? [resolvedDynamicFormat] : []),
           ],
         });
