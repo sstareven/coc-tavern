@@ -227,6 +227,74 @@ export interface JsonCoercion {
 }
 
 /**
+ * 已知主回合 JSON 顶层字段——用于「缺最外层 `{`」畸形识别。
+ * 模型偶发直接以 `"sceneInfo": {...}` 之类的成员开头、忘了最外层 `{`，旧 brace walker
+ * 会把第一个内部 `{`（sceneInfo）当成最外层、只提取出 sceneInfo 子对象当 parsed，
+ * 沉默错误模式导致右页所有字段全走兜底（继续探索×4）。见 repairMissingOuterBrace。
+ */
+const KNOWN_TOP_FIELDS = [
+  'sceneInfo', 'leftHeader', 'leftContent', 'rightHeader', 'rightContent',
+  'choices', 'keywords', 'summary', 'darkThread', 'inventoryChanges',
+  'clues', 'npcUpdates', 'mapUpdates', 'sanityCheckPrompts', 'badEnding',
+] as const;
+
+/**
+ * 检测「缺最外层 `{`」畸形并修复：
+ *   - 扫描第一个出现的顶层字段标记（行首 `"<knownField>":`）。
+ *   - 若它的位置在第一个 `{` 之前（或全文没 `{`），判定为缺外层 `{`：
+ *       裁掉前缀垃圾（思维链/前置叙事），前置补一个 `{`。
+ *   - 已有外层 `{` 时不动。
+ * 该函数仅做"补 `{`"，外层 `}` 是否需要补由后续 brace walker 兜底处理。
+ */
+export function repairMissingOuterBrace(s: string): string {
+  const fieldRe = new RegExp(
+    `(?:^|\\n)[\\t ]*"(?:${KNOWN_TOP_FIELDS.join('|')})"[\\t ]*:`,
+    'm',
+  );
+  const fieldMatch = fieldRe.exec(s);
+  if (!fieldMatch) return s;
+  // 行首匹配位置：若首字符是 \n，正文从下一字符开始
+  const matched = fieldMatch[0];
+  const fieldPos = matched.startsWith('\n') ? fieldMatch.index + 1 : fieldMatch.index;
+  const firstBrace = s.indexOf('{');
+  if (firstBrace >= 0 && firstBrace < fieldPos) return s; // 已有外层 {，无需修复
+  // 缺外层 {：裁掉 fieldPos 前的前缀（思维链/前置叙事/markdown 分隔等），前置 {。
+  return '{' + s.substring(fieldPos);
+}
+
+/**
+ * 把 JSON 字符串值内的真实控制字符（LF/CR/Tab）转义为 `\n`/`\r`/`\t`。
+ * 字符串外（结构区）的换行/空白原样保留（用于代码格式化）。
+ *
+ * 根因：LLM 多段叙事常以真实换行排版（"line1\\nline2" 写成两行），违反 JSON
+ * 字符串不得含未转义控制字符的规则。旧路径在 attempt-0 的 `[…control…]` 兼容
+ * 替换里**把它们直接抹掉**（沉默数据损失），不是「炸」——比炸更糟。
+ *
+ * 状态机模板与 normalizeStructuralPunct / escapeStrayInnerQuotes 一致。
+ */
+export function escapeControlCharsInStrings(s: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (!inString) {
+      out += c;
+      if (c === '"') inString = true;
+      continue;
+    }
+    if (escaped) { out += c; escaped = false; continue; }
+    if (c === '\\') { out += c; escaped = true; continue; }
+    if (c === '"') { out += c; inString = false; continue; }
+    if (c === '\n') { out += '\\n'; continue; }
+    if (c === '\r') { out += '\\r'; continue; }
+    if (c === '\t') { out += '\\t'; continue; }
+    out += c;
+  }
+  return out;
+}
+
+/**
  * 将"脏" LLM 文本强制解析为 JSON 对象。容错管线提炼自 parseLlmResponse 的清洗步骤，
  * 供整页解析与行动补写共用，避免两条路径的清洗能力分叉（行动补写曾因缺这些清洗而解析失败）。
  * 处理：代码块包裹、外层引号、大括号深度配对提取、中文全角标点/弯引号归一化、
@@ -247,6 +315,11 @@ export function coerceJsonObject(raw: string): JsonCoercion {
   if (jsonStr.startsWith('"') && /^\s*\{/.test(jsonStr.slice(1))) jsonStr = jsonStr.slice(1);
   if (jsonStr.endsWith('"') && /\}\s*$/.test(jsonStr.slice(0, -1))) jsonStr = jsonStr.slice(0, -1);
 
+  // 修复「缺最外层 `{`」畸形：模型偶发以 `"sceneInfo": {...}` 之类的成员直接开头，
+  // 旧 brace walker 会把第一个内部 `{` 当作最外层、只提取 sceneInfo 子对象当顶层返回，
+  // 沉默错误模式导致右页所有字段全走兜底。详见 repairMissingOuterBrace 注释。
+  jsonStr = repairMissingOuterBrace(jsonStr);
+
   const braceStart = jsonStr.indexOf('{');
   if (braceStart >= 0) {
     let depth = 0, inString = false, escaped = false, braceEnd = -1;
@@ -263,6 +336,10 @@ export function coerceJsonObject(raw: string): JsonCoercion {
       else if (c === '}') { depth--; if (depth === 0) { braceEnd = i; break; } }
     }
     if (braceEnd > 0) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
+    else if (depth > 0) {
+      // 走到末尾仍有未闭合的 `{`（典型：模型同时漏了最外层 `}`）——补齐 depth 个 `}`
+      jsonStr = jsonStr.substring(braceStart) + '}'.repeat(depth);
+    }
   }
 
   // 顺序要求（见 Oracle 复核）：先把弯引号归一化掉，使分隔符只剩 ASCII "，
@@ -277,6 +354,11 @@ export function coerceJsonObject(raw: string): JsonCoercion {
   jsonStr = normalizeStructuralPunct(jsonStr);
 
   jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
+
+  // 字符串值内真实 LF/CR/Tab 转义为 \n/\r/\t——LLM 多段叙事常以真实换行排版，
+  // 旧 attempt-0 的兼容替换会把它们当不可见控制字符直接抹掉（沉默数据损失），
+  // 这里在 parse 前提前做正确转义以保留叙事换行。详见 escapeControlCharsInStrings。
+  jsonStr = escapeControlCharsInStrings(jsonStr);
 
   let lastErr = '';
   for (let attempt = 0; attempt < 3; attempt++) {
