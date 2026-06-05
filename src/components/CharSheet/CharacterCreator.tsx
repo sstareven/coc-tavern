@@ -718,7 +718,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       const response = await sendChatCompletion(
         [{ role: 'user', content: prompt }],
-        { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 1600 },
+        // v1.11.6: maxTokens 1600 → 20000 —— 思考型模型(deepseek-v4-pro/reasoner)先在
+        // <think> 里花掉几千 token,1600 不够装 8 个字段(每段 2-4 句 × 80 字 ≈ 1500 输出),
+        // 实测被截断导致 markdown ### 标题不全 → 解析 applied=0 → 报「AI 返回的内容无法解析」。
+        { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 20000 },
         settings.apiBaseUrl, settings.apiKey, settings.apiModel,
       );
 
