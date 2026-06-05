@@ -877,57 +877,100 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                 {/* DeepSeek 消息三区重组（前缀缓存）—— 合并思维模式 + 漂移诊断（升正式） */}
                 <CategoryBar label="DeepSeek 消息重组（前缀缓存）" />
-                {/* v1.11.6: 一键 DeepSeek 终极适配 —— 把所有跟缓存/上下文/MVU 健康相关的设置
-                    一次性覆盖到最优组合。不动 API 凭证 / UI 偏好 / 思维模式偏好。 */}
-                <div style={{ ...rowStyle, marginBottom: 10 }}>
-                  <button
-                    onClick={() => {
-                      const apply = useSettingsStore.getState().applyDeepSeekUltraPreset;
-                      apply();
-                      useStatusToastStore.getState().markDone('已应用 DeepSeek 终极适配（缓存最大化 + 无限长上下文 + MVU 保健）');
-                    }}
-                    title={[
-                      '一键覆盖所有与缓存命中相关的设置：',
-                      '• DS 缓存重组 + 所有自动下沉机制全开（最大化前缀缓存）',
-                      '• 静态前缀稳定 + statSnapshot 减肥 + 跳过重复条目',
-                      '• 子调用共享前缀 + 漂移诊断',
-                      '• 上下文：剧情回顾上限拉满 50 + 关闭历史 page 裁剪（无限长）',
-                      '• MVU 保健：自纠开启 + 重试 2 次 + 严格 JSON 模式',
-                      '',
-                      '不动：API 凭证 / 思维模式偏好 / UI 缩放/音量 / MVU 独立 API 凭证。',
-                    ].join('\n')}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: 6,
-                      border: '1px solid var(--gold)',
-                      background: 'linear-gradient(180deg, rgba(196,168,85,0.25) 0%, rgba(196,168,85,0.12) 100%)',
-                      color: 'var(--gold-bright)',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 12,
-                      letterSpacing: 2,
-                      cursor: 'pointer',
-                      transition: 'var(--transition-smooth)',
-                      boxShadow: '0 0 0 1px rgba(196,168,85,0.1) inset, 0 2px 6px rgba(0,0,0,0.4)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(196,168,85,0.4) 0%, rgba(196,168,85,0.2) 100%)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(196,168,85,0.2) inset, 0 4px 10px rgba(0,0,0,0.5)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(180deg, rgba(196,168,85,0.25) 0%, rgba(196,168,85,0.12) 100%)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(196,168,85,0.1) inset, 0 2px 6px rgba(0,0,0,0.4)';
-                    }}
-                    onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-                  >
-                    ★ 一键 DeepSeek 终极适配
-                    <span style={{ display: 'block', fontSize: 9, letterSpacing: 1, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', marginTop: 3, fontWeight: 400 }}>
-                      缓存最大化 · 无限长上下文 · MVU 保健（不动凭证 / UI / 思维模式）
-                    </span>
-                  </button>
-                </div>
+                {/* v1.11.6: 一键 DeepSeek 终极适配 —— 切换式按钮（基于 dsUltraSnapshot）：
+                    未应用 → 金色「★ 一键应用」；已应用 → 暗色「↩ 撤销并恢复原设置」。
+                    snapshot 持久化于 settings 里,重启游戏后仍能撤销。 */}
+                {(() => {
+                  const snapshot = useSettingsStore((s) => s.dsUltraSnapshot);
+                  const isApplied = !!snapshot;
+                  const apply = useSettingsStore.getState().applyDeepSeekUltraPreset;
+                  const revert = useSettingsStore.getState().revertDeepSeekUltraPreset;
+                  return (
+                    <div style={{ ...rowStyle, marginBottom: 10 }}>
+                      <button
+                        onClick={() => {
+                          if (isApplied) {
+                            revert();
+                            useStatusToastStore.getState().markDone('已撤销 DeepSeek 终极适配，所有设置恢复到应用前状态');
+                          } else {
+                            apply();
+                            useStatusToastStore.getState().markDone('已应用 DeepSeek 终极适配（缓存最大化 + 无限长上下文 + MVU 保健）');
+                          }
+                        }}
+                        title={isApplied
+                          ? [
+                            '当前已应用 DeepSeek 终极适配。',
+                            '',
+                            '点击「撤销」会把以下字段恢复到应用前的原值：',
+                            '• DS 缓存配置全段（含思维模式以外的所有子项）',
+                            '• forceJsonObject / maxSummaryEntries',
+                            '• mvuSelfCorrectEnabled / mvuSelfCorrectRetries / mvuForceAlways',
+                            '• tavernHelper.optimizeMessageLoad',
+                          ].join('\n')
+                          : [
+                            '一键覆盖所有与缓存命中相关的设置：',
+                            '• DS 缓存重组 + 所有自动下沉机制全开（最大化前缀缓存）',
+                            '• 静态前缀稳定 + statSnapshot 减肥 + 跳过重复条目',
+                            '• 子调用共享前缀 + 漂移诊断',
+                            '• 上下文：剧情回顾上限拉满 50 + 关闭历史 page 裁剪（无限长）',
+                            '• MVU 保健：自纠开启 + 重试 2 次 + 严格 JSON 模式',
+                            '',
+                            '应用前会 snapshot 所有被覆盖字段的原值，随时可一键撤销。',
+                            '不动：API 凭证 / 思维模式偏好 / UI 缩放/音量 / MVU 独立 API 凭证。',
+                          ].join('\n')}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: 6,
+                          border: isApplied ? '1px solid rgba(196,168,85,0.4)' : '1px solid var(--gold)',
+                          background: isApplied
+                            ? 'linear-gradient(180deg, rgba(60,40,20,0.5) 0%, rgba(30,20,10,0.3) 100%)'
+                            : 'linear-gradient(180deg, rgba(196,168,85,0.25) 0%, rgba(196,168,85,0.12) 100%)',
+                          color: isApplied ? 'var(--ink-subtle)' : 'var(--gold-bright)',
+                          fontFamily: 'var(--font-display)',
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          cursor: 'pointer',
+                          transition: 'var(--transition-smooth)',
+                          boxShadow: isApplied
+                            ? '0 0 0 1px rgba(196,168,85,0.05) inset, 0 1px 3px rgba(0,0,0,0.3)'
+                            : '0 0 0 1px rgba(196,168,85,0.1) inset, 0 2px 6px rgba(0,0,0,0.4)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (isApplied) {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, rgba(80,55,30,0.6) 0%, rgba(40,28,15,0.4) 100%)';
+                            e.currentTarget.style.color = 'var(--gold)';
+                            e.currentTarget.style.borderColor = 'var(--gold)';
+                          } else {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, rgba(196,168,85,0.4) 0%, rgba(196,168,85,0.2) 100%)';
+                          }
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.boxShadow = '0 0 0 1px rgba(196,168,85,0.2) inset, 0 4px 10px rgba(0,0,0,0.5)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (isApplied) {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, rgba(60,40,20,0.5) 0%, rgba(30,20,10,0.3) 100%)';
+                            e.currentTarget.style.color = 'var(--ink-subtle)';
+                            e.currentTarget.style.borderColor = 'rgba(196,168,85,0.4)';
+                            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(196,168,85,0.05) inset, 0 1px 3px rgba(0,0,0,0.3)';
+                          } else {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, rgba(196,168,85,0.25) 0%, rgba(196,168,85,0.12) 100%)';
+                            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(196,168,85,0.1) inset, 0 2px 6px rgba(0,0,0,0.4)';
+                          }
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                        onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        {isApplied ? '↩ 撤销 DeepSeek 终极适配' : '★ 一键 DeepSeek 终极适配'}
+                        <span style={{ display: 'block', fontSize: 9, letterSpacing: 1, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', marginTop: 3, fontWeight: 400 }}>
+                          {isApplied
+                            ? '当前已生效 · 点击恢复到应用前的所有设置'
+                            : '缓存最大化 · 无限长上下文 · MVU 保健（不动凭证 / UI / 思维模式）'}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })()}
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     启用消息重组

@@ -88,6 +88,26 @@ interface SettingsState {
    * 块，与 json_object 模式互斥）。默认开。
    */
   forceJsonObject: boolean;
+  /**
+   * 一键 DeepSeek 终极适配 snapshot —— 应用 ultra preset 时保存的「被覆盖字段的原值」，
+   * 撤销时按此恢复。未应用时为 undefined。持久化于 settings 一起（用户重启游戏后仍能撤销）。
+   */
+  dsUltraSnapshot?: DsUltraSnapshot;
+}
+
+/**
+ * applyDeepSeekUltraPreset 触发时被覆盖的所有字段的快照形状。
+ * revert 时按此恢复（dsCache 整段替换，跨 store 的 tavernOptimizeMessageLoad 也带）。
+ */
+export interface DsUltraSnapshot {
+  forceJsonObject: boolean;
+  maxSummaryEntries: number;
+  mvuSelfCorrectEnabled: boolean;
+  mvuSelfCorrectRetries: number;
+  mvuForceAlways: boolean;
+  dsCache: DsCacheConfig;
+  /** 跨 store: useTavernHelperStore.optimize.optimizeMessageLoad 的原值。 */
+  tavernOptimizeMessageLoad: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -148,6 +168,11 @@ interface SettingsStore extends SettingsState {
    * 覆盖项见 useSettingsStore action 实现注释。
    */
   applyDeepSeekUltraPreset: () => void;
+  /**
+   * 撤销一键 DeepSeek 终极适配 —— 从 dsUltraSnapshot 恢复所有被覆盖的字段，
+   * 清 snapshot。snapshot 为 undefined 时是 no-op。
+   */
+  revertDeepSeekUltraPreset: () => void;
 }
 
 const defaults: SettingsState = {
@@ -290,31 +315,59 @@ export const useSettingsStore = create<SettingsStore>()(
        * UI 偏好（uiScale/音量/颜色）/ mvuApi 三件套（用户的独立 MVU API 凭证）。
        */
       applyDeepSeekUltraPreset: () => {
-        set((s) => ({
-          forceJsonObject: true,
-          maxSummaryEntries: 50,
-          mvuSelfCorrectEnabled: true,
-          mvuSelfCorrectRetries: 2,
-          mvuForceAlways: false,
-          dsCache: {
-            ...s.dsCache,
-            restructure: true,
-            roleTags: true,
-            keepTailAssistant: true,
-            targetSources: 'deepseek,custom',
-            separateWiLights: true,
-            autoDetectDynamicConstant: true,
-            experimentalLeanSnapshot: true,
-            experimentalSkipMvuVarList: true,
-            experimentalPrefixDiagnostics: true,
-            experimentalSubagentSharedSystem: true,
-            autoSinkDynamicPromptItem: true,
-            // 思维模式（enabled/mode/customText）不动 —— 那是用户偏好
-            // treatConstantAsDynamic 不开 —— autoDetectDynamicConstant 已够，开了过激不必要
-          },
-        }));
+        set((s) => {
+          // 已应用则不重复 snapshot（防止「应用 → 应用」让 snapshot 变成 ultra 自身值致撤销失效）
+          const snapshot: DsUltraSnapshot = s.dsUltraSnapshot ?? {
+            forceJsonObject: s.forceJsonObject,
+            maxSummaryEntries: s.maxSummaryEntries,
+            mvuSelfCorrectEnabled: s.mvuSelfCorrectEnabled,
+            mvuSelfCorrectRetries: s.mvuSelfCorrectRetries,
+            mvuForceAlways: s.mvuForceAlways,
+            dsCache: { ...s.dsCache },
+            tavernOptimizeMessageLoad: useTavernHelperStore.getState().optimize.optimizeMessageLoad,
+          };
+          return {
+            forceJsonObject: true,
+            maxSummaryEntries: 50,
+            mvuSelfCorrectEnabled: true,
+            mvuSelfCorrectRetries: 2,
+            mvuForceAlways: false,
+            dsCache: {
+              ...s.dsCache,
+              restructure: true,
+              roleTags: true,
+              keepTailAssistant: true,
+              targetSources: 'deepseek,custom',
+              separateWiLights: true,
+              autoDetectDynamicConstant: true,
+              experimentalLeanSnapshot: true,
+              experimentalSkipMvuVarList: true,
+              experimentalPrefixDiagnostics: true,
+              experimentalSubagentSharedSystem: true,
+              autoSinkDynamicPromptItem: true,
+              // 思维模式（enabled/mode/customText）不动 —— 那是用户偏好
+              // treatConstantAsDynamic 不开 —— autoDetectDynamicConstant 已够，开了过激不必要
+            },
+            dsUltraSnapshot: snapshot,
+          };
+        });
         // 跨 store：关 optimizeMessageLoad 让 chatHistory 永久增长。
         useTavernHelperStore.getState().setOptimize({ optimizeMessageLoad: false });
+      },
+      revertDeepSeekUltraPreset: () => {
+        const snap = useSettingsStore.getState().dsUltraSnapshot;
+        if (!snap) return; // 未应用过 → no-op
+        set({
+          forceJsonObject: snap.forceJsonObject,
+          maxSummaryEntries: snap.maxSummaryEntries,
+          mvuSelfCorrectEnabled: snap.mvuSelfCorrectEnabled,
+          mvuSelfCorrectRetries: snap.mvuSelfCorrectRetries,
+          mvuForceAlways: snap.mvuForceAlways,
+          dsCache: { ...snap.dsCache },
+          dsUltraSnapshot: undefined,
+        });
+        // 跨 store：恢复 optimizeMessageLoad
+        useTavernHelperStore.getState().setOptimize({ optimizeMessageLoad: snap.tavernOptimizeMessageLoad });
       },
     }),
     {
