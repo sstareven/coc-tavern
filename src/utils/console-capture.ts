@@ -27,6 +27,7 @@ let scheduled = false;
 // 当前任务范围只统计不消费。
 let flushCount = 0;
 const PER_SESSION_LIMIT = 5000;
+const retentionInFlight = new Set<string>();
 
 /** 写入入口：被 Task 3 的 console 拦截器在生产中调用,也供测试直接驱动。
  *  签名是同步 void——内部 schedule()/flush() 走 dexie,但 caller 不需要 await
@@ -69,19 +70,24 @@ async function flush(): Promise<void> {
 }
 
 async function enforceRetention(sessionId: string): Promise<void> {
+  if (retentionInFlight.has(sessionId)) return;
+  retentionInFlight.add(sessionId);
   try {
     const count = await db.consoleLogs.where('sessionId').equals(sessionId).count();
     if (count <= PER_SESSION_LIMIT) return;
     const removeN = Math.ceil(count / 2);
-    // 按 id 升序删最旧 removeN 条（id 自增 ≈ 时间序）
-    const ids = await db.consoleLogs
-      .where('sessionId')
-      .equals(sessionId)
-      .primaryKeys();
-    const toDelete = (ids as number[]).slice(0, removeN);
-    await db.consoleLogs.bulkDelete(toDelete);
+    // 按 id 升序找出第 removeN 条的 id 作为 cutoff,然后一次 filter 删除 id ≤ cutoff 的本会话行。
+    // 用 cursor filter 而非 bulkDelete([id...]) — 后者在 fake-indexeddb 和大批量下都慢得多。
+    const ids = await db.consoleLogs.where('sessionId').equals(sessionId).primaryKeys();
+    const cutoffId = (ids as number[])[removeN - 1];
+    await db.consoleLogs
+      .where('sessionId').equals(sessionId)
+      .filter((row) => (row.id ?? Number.MAX_SAFE_INTEGER) <= cutoffId)
+      .delete();
   } catch {
     // swallow
+  } finally {
+    retentionInFlight.delete(sessionId);
   }
 }
 
@@ -139,6 +145,7 @@ export function _resetForTests(): void {
   pending.length = 0;
   scheduled = false;
   flushCount = 0;
+  retentionInFlight.clear();
   uninstallForTests();
 }
 

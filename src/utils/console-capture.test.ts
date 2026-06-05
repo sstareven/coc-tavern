@@ -228,9 +228,10 @@ describe('console-capture: retention', () => {
     });
     installConsoleCapture();
     console.log('[cache-diag] trigger');
-    // 等 flush + retention 完成: fake-indexeddb 下 bulkDelete 2501 条慢(~10s),
-    // 真实 IndexedDB 远快于此。用 polling 等 retention 落地以避免硬编码长 sleep。
-    const deadline = Date.now() + 25000;
+    // cursor filter delete 比 N-key bulkDelete 在真实 IndexedDB 下快得多,
+    // 但 fake-indexeddb 仍是纯 JS 实现,5001 行 cursor 迭代仍需十几秒。
+    // 用 polling 兜底,deadline 20s。
+    const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       const c = await db.consoleLogs.where('sessionId').equals('s1').count();
       if (c <= 2502) break;
@@ -241,5 +242,27 @@ describe('console-capture: retention', () => {
     // 5001 + 1 = 5002 → 删一半(约 2501) → 应 ≤ 2502
     expect(after).toBeLessThanOrEqual(2502);
     expect(after).toBeGreaterThan(0);
-  }, 30000);
+  }, 25000);
+
+  it('count ≤ 上限时不删', async () => {
+    // 100 条远低于 5000 上限
+    const rows = Array.from({ length: 100 }, (_, i) => ({
+      sessionId: 's1',
+      pageIndex: 1,
+      ts: i,
+      level: 'log' as const,
+      message: `m${i}`,
+    }));
+    await db.consoleLogs.bulkAdd(rows);
+    useChatStore.setState({ activeId: 's1' });
+    useBookStore.setState({
+      pages: [{ id: 'p', leftHeader: '', rightContent: '', leftContent: '', rightHeader: '' }] as unknown as ReturnType<typeof useBookStore.getState>['pages'],
+    });
+    installConsoleCapture();
+    console.log('[cache-diag] tick');
+    await new Promise((r) => setTimeout(r, 200));
+    // 100 + 1 = 101，远低于 5000 → 不应有删除
+    const after = await db.consoleLogs.where('sessionId').equals('s1').count();
+    expect(after).toBe(101);
+  });
 });
