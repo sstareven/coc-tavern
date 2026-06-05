@@ -30,8 +30,8 @@ const DIALOGUE_STYLE: React.CSSProperties = {
   textShadow: "0 0 1px rgba(0,0,0,0.45), 0 1px 1px rgba(0,0,0,0.2)",
 };
 
-/** 仅解析 {{keyword}}（用于对话内部的嵌套关键词）。 */
-function beautifyKeywords(text: string): React.ReactNode[] {
+/** 仅解析 {{keyword}}（用于对话内部的嵌套关键词）。keyPrefix 让多段调用产生的 key 不撞车。 */
+function beautifyKeywords(text: string, keyPrefix = 'dlg'): React.ReactNode[] {
   if (!text) return [];
   const result: React.ReactNode[] = [];
   let lastIdx = 0;
@@ -40,12 +40,12 @@ function beautifyKeywords(text: string): React.ReactNode[] {
   BARE_MACRO_RE.lastIndex = 0;
   while ((match = BARE_MACRO_RE.exec(text)) !== null) {
     if (match.index > lastIdx) {
-      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `dlg-md-${lastIdx}`));
+      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `${keyPrefix}-md-${lastIdx}`));
     }
     const keyword = match[1].trim();
     if (keyword) {
       result.push(
-        <KeywordTooltip key={`mk-${match.index}`} keyword={keyword} tone="red">
+        <KeywordTooltip key={`${keyPrefix}-mk-${match.index}`} keyword={keyword} tone="red">
           {keyword}
         </KeywordTooltip>,
       );
@@ -53,7 +53,7 @@ function beautifyKeywords(text: string): React.ReactNode[] {
     lastIdx = BARE_MACRO_RE.lastIndex;
   }
   if (lastIdx < text.length) {
-    result.push(...parseInlineMarkdown(text.slice(lastIdx), `dlg-md-${lastIdx}`));
+    result.push(...parseInlineMarkdown(text.slice(lastIdx), `${keyPrefix}-md-${lastIdx}`));
   }
   return result;
 }
@@ -62,7 +62,17 @@ function beautifyKeywords(text: string): React.ReactNode[] {
  * 解析 {{keyword}} 加粗标记与对话橘色高亮。
  * 返回字符串与 ReactElement 混合的数组。
  */
-export function beautifyText(text: string): React.ReactNode[] {
+/**
+ * 解析 {{keyword}} 加粗标记与对话橘色高亮。
+ * 返回字符串与 ReactElement 混合的数组。
+ *
+ * @param text       原文
+ * @param keyPrefix  React key 前缀——splitTextWithSanBubbles 把 text 拆成多段时,
+ *                   每段都从 match.index=0 开始扫描,若不区分前缀,多段同 index 的
+ *                   <span>/keyword 节点会撞 key（2026-06-05 bug：dlg-118 同 key）。
+ *                   默认 'btx',独立调用场景下足以保证段内 key 唯一。
+ */
+export function beautifyText(text: string, keyPrefix = 'btx'): React.ReactNode[] {
   if (!text) return [];
 
   const result: React.ReactNode[] = [];
@@ -73,7 +83,7 @@ export function beautifyText(text: string): React.ReactNode[] {
   while ((match = TOKEN_RE.exec(text)) !== null) {
     // 标记前的纯文本 → 走 inline markdown 解析（**bold** / *italic* / ~~strike~~ / `code`）
     if (match.index > lastIdx) {
-      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `md-${lastIdx}`));
+      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `${keyPrefix}-md-${lastIdx}`));
     }
 
     if (match[1] !== undefined) {
@@ -81,16 +91,16 @@ export function beautifyText(text: string): React.ReactNode[] {
       const keyword = match[1].slice(2, -2).trim();
       if (keyword) {
         result.push(
-          <KeywordTooltip key={`mk-${match.index}`} keyword={keyword}>
+          <KeywordTooltip key={`${keyPrefix}-mk-${match.index}`} keyword={keyword}>
             {keyword}
           </KeywordTooltip>,
         );
       }
     } else {
-      // 对话 → 橘色 span（内部仍解析 {{keyword}} 与 markdown）
+      // 对话 → 橘色 span（内部仍解析 {{keyword}} 与 markdown，并把 keyPrefix 传下去）
       result.push(
-        <span key={`dlg-${match.index}`} style={DIALOGUE_STYLE}>
-          {beautifyKeywords(match[2])}
+        <span key={`${keyPrefix}-dlg-${match.index}`} style={DIALOGUE_STYLE}>
+          {beautifyKeywords(match[2], `${keyPrefix}-dlg-${match.index}`)}
         </span>,
       );
     }
@@ -100,7 +110,7 @@ export function beautifyText(text: string): React.ReactNode[] {
 
   // 最后一个标记之后的剩余文本 → 同样走 inline markdown
   if (lastIdx < text.length) {
-    result.push(...parseInlineMarkdown(text.slice(lastIdx), `md-${lastIdx}`));
+    result.push(...parseInlineMarkdown(text.slice(lastIdx), `${keyPrefix}-md-${lastIdx}`));
   }
 
   // 没有任何标记时，原样返回单个字符串（向后兼容 beautifyText 旧契约）

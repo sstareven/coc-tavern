@@ -80,6 +80,7 @@ export function StepDerivedStats({
         {luckValue != null && (
           <input
             type="number"
+            name="charsheet-derived-luck"
             value={luckValue}
             onChange={(e) => onSetLuckValue(Number(e.target.value) || 0)}
             style={{ ...inputStyle, width: 80, padding: '4px 8px' }}

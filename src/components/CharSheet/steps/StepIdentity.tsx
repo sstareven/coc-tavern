@@ -97,17 +97,17 @@ export function StepIdentity({
         {/* Name */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={labelStyle}>姓名 Name</span>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="调查员姓名" />
+          <input type="text" name="charsheet-identity-name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="调查员姓名" />
         </div>
         {/* Player */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={labelStyle}>玩家 Player</span>
-          <input type="text" value={player} onChange={(e) => setPlayer(e.target.value)} style={inputStyle} placeholder="玩家名称" />
+          <input type="text" name="charsheet-identity-player" value={player} onChange={(e) => setPlayer(e.target.value)} style={inputStyle} placeholder="玩家名称" />
         </div>
         {/* Age */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={labelStyle}>年龄 Age</span>
-          <input type="number" value={age} onChange={(e) => setAge(Number(e.target.value) || 0)}
+          <input type="number" name="charsheet-identity-age" value={age} onChange={(e) => setAge(Number(e.target.value) || 0)}
             style={inputStyle} min={15} max={99} placeholder="25" />
         </div>
         {/* Sex */}
@@ -119,12 +119,12 @@ export function StepIdentity({
         {/* Residence */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={labelStyle}>居住地 Residence</span>
-          <input type="text" value={residence} onChange={(e) => setResidence(e.target.value)} style={inputStyle} placeholder="例如：阿卡姆" />
+          <input type="text" name="charsheet-identity-residence" value={residence} onChange={(e) => setResidence(e.target.value)} style={inputStyle} placeholder="例如：阿卡姆" />
         </div>
         {/* Birthplace */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={labelStyle}>出生地 Birthplace</span>
-          <input type="text" value={birthplace} onChange={(e) => setBirthplace(e.target.value)} style={inputStyle} placeholder="例如：马萨诸塞州" />
+          <input type="text" name="charsheet-identity-birthplace" value={birthplace} onChange={(e) => setBirthplace(e.target.value)} style={inputStyle} placeholder="例如：马萨诸塞州" />
         </div>
       </div>
     </div>

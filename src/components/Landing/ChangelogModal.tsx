@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.0';
+export const CURRENT_VERSION = 'v1.11.1';
 
 interface Release {
   version: string;
@@ -13,6 +13,20 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.1',
+    label: 'Token 显示重做 · 统计与缓存面板修复 · 可访问性 · 多项管线修复',
+    items: [
+      '【Token 显示·重做】RPM 60s 滑动窗口对 Pro 主回合（>60s）语义崩坏——主回合自己的 timestamp 会被滑出窗口导致显示「0 RPM」。现改为直接显示「本页请求次数」（主回合 + 所有子调用），hover 展开子调用名称明细。格式：`12,575 ↑3,445 ↓ · 191.4s · 4请求`',
+      '【统计·修复】byTier.count 语义修正——此前统计口径不一致；RPM 累加改为三桶（main/mvu/rewrite）分别计数；子调用统计走 MVU 通道，按页记录缓存命中明细',
+      '【MVU·修复】shouldUseLlmExtraction 现在能识别正文中的 `<UpdateVariable>` 标签，跳过冗余的 LLM 变量提取调用——减少不必要的 API 开销',
+      '【缓存面板·增强】新增「复制表格」按钮一键导出排错数据为 TSV；折线图汇入 subCalls 子调用数据；明细面板加滚动条、不被 uiScale 缩放影响',
+      '【可访问性·修复】全局 polyfill 兜底自动给 `<form>` 内 field 加 `name` 属性——补齐剩余设置面板（预设编辑器 / 世界书 / 扩展管理等）的缺失 name；HTML 加 CSP meta 标签 + 关键 form fields 补齐 name 消除浏览器 F12 控制台警告',
+      '【管线·修复】submit 入口同步设 `setLoading(true)`——修推进按钮「假等待」（按钮不变灰、看起来像没反应）；GameView.onDiceComplete 修 setState updater 内副作用（React 严格模式双重调用下的状态错乱）',
+      '【DS 缓存·修复】自动识别含动态宏（EJS marker / `{{getvar}}` / `{{xxx.yyy}}` 等）的 system 类 promptItem，自动下沉到 dynamicTail——避免一条含变量的常驻条目污染整段静态前缀、拉低缓存命中率',
+      '【渲染·修复】beautifyText 接 `keyPrefix` 参数修 `dlg-N` React key 重复——此前多段落对话的 key 会碰撞导致渲染异常',
+    ],
+  },
   {
     version: 'v1.11.0',
     label: '理智气泡重设 · 孤注一掷三选 · DeepSeek V4 价格表 · 多项 bug 修复',

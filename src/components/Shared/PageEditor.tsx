@@ -121,6 +121,7 @@ export function PageEditor({ onClose }: Props) {
           </label>
           <input
             type="text"
+            name="page-editor-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="页面标题..."
@@ -154,6 +155,7 @@ export function PageEditor({ onClose }: Props) {
             正文
           </label>
           <textarea
+            name="page-editor-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="左侧页面正文内容..."

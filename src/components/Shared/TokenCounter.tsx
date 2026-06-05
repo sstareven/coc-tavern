@@ -148,6 +148,7 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
             手动计数
           </div>
           <textarea
+            name="token-counter-manual"
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
             placeholder="粘贴文本以计算 token 数量..."

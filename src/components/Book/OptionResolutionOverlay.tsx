@@ -285,6 +285,7 @@ export function OptionResolutionOverlay() {
                 <span>剩余幸运 {luck - luckSpend} / {luck}</span>
               </div>
               <input
+                name="option-resolution-luck-spend"
                 type="range"
                 min={0}
                 max={sliderMax}

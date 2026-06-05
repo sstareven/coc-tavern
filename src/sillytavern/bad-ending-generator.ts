@@ -47,7 +47,7 @@ export async function generateBadEnding(
   for (let attempt = 0; attempt < retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
     const { parsed, usage } = await callDsSubagent({
-      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'mvu',
       label: '坏结局生成',
       messages: [
         { role: 'system', content: BAD_ENDING_PROMPT },

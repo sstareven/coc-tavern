@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { TopBar } from './TopBar';
 import { InputBar } from './InputBar';
 import { Storybook } from '../Book/Storybook';
@@ -27,6 +27,12 @@ export function GameView({ onReturnToMenu }: Props) {
     /** A1.8 — fillInputBar 把 staging 触发器挂到事件 payload；动画结束后由 onDiceComplete 决定 stage 或直接落账。 */
     stagingTrigger: StagingTrigger | null;
   }>({ visible: false, skillName: '', target: 0, roll: 0, resultType: '', inputText: '', bonus: 'none', bonusTens: 0, opposed: false, opponentRoll: 0, opponentTarget: 0, opponentResultType: 'failure', opposedOutcome: 'draw', kind: 'check', polyTheme: 'damage', polyLabel: '', polyExpr: '', polyTotal: 0, polySub: '', hidden: false, stagingTrigger: null });
+  // ref 镜像 diceAnim,供 onDiceComplete callback 读取当前 state 而不写在 setDiceAnim updater 里
+  // —— React 18+ 严格检测 setState updater 的 purity,updater 内调 zustand setter 会触发其他
+  // 组件(如 OptionResolutionOverlay)在 GameView render 期间 rerender,触发警告
+  // "Cannot update a component while rendering a different component"。
+  const diceAnimRef = useRef(diceAnim);
+  diceAnimRef.current = diceAnim;
   // Listen for dice animation events from RightPage choices
   useEffect(() => {
     const handler = (e: Event) => {
@@ -46,34 +52,36 @@ export function GameView({ onReturnToMenu }: Props) {
   const onDiceComplete = useCallback(() => {
     // 通知战斗面板：骰子动画已结束，可揭示此前暂存的战斗日志文字。
     document.dispatchEvent(new Event('dice-animate-done'));
-    setDiceAnim((prev) => {
-      if (!prev.visible) return prev; // Already hidden by newer animation
+    const prev = diceAnimRef.current;
+    if (!prev.visible) return;
+    // 先 setState 隐藏动画（updater 保持 pure：只返回新 state，不做副作用）
+    setDiceAnim({ ...prev, visible: false });
 
-      // A1.8 — 若 fillInputBar 标记了 stagingTrigger，动画结束后把它推给 OptionResolutionOverlay；
-      // 不写 textarea、不 stashRecord 由浮层 commit/cancel 路径接管。
-      if (prev.stagingTrigger && shouldStage({
-        kind: prev.stagingTrigger.kind,
-        sanCheck: prev.stagingTrigger.sanCheck,
-        opposed: prev.stagingTrigger.kind === 'opposed',
-      })) {
-        useOptionStagingStore.getState().open(prev.stagingTrigger);
-        return { ...prev, visible: false };
-      }
+    // 副作用在 setState 之外完成——避免在 GameView reconciliation 阶段同步触发
+    // OptionResolutionOverlay 的 rerender（React 18+ 严格检测）。
+    // A1.8 — 若 fillInputBar 标记了 stagingTrigger，动画结束后把它推给 OptionResolutionOverlay；
+    // 不写 textarea、不 stashRecord 由浮层 commit/cancel 路径接管。
+    if (prev.stagingTrigger && shouldStage({
+      kind: prev.stagingTrigger.kind,
+      sanCheck: prev.stagingTrigger.sanCheck,
+      opposed: prev.stagingTrigger.kind === 'opposed',
+    })) {
+      useOptionStagingStore.getState().open(prev.stagingTrigger);
+      return;
+    }
 
-      // 非 staging 路径（poly/hidden/opposed/sanCheck）保持原行为：写 textarea + auto-submit。
-      // 这些类别 fillInputBar 已经 stashRecord 完毕，这里只补 textarea/dispatch。
-      const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
-      if (textarea && prev.inputText) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-        nativeInputValueSetter?.call(textarea, prev.inputText);
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.focus();
-        if (useSettingsStore.getState().autoSubmitChoice) {
-          setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
-        }
+    // 非 staging 路径（poly/hidden/opposed/sanCheck）保持原行为：写 textarea + auto-submit。
+    // 这些类别 fillInputBar 已经 stashRecord 完毕，这里只补 textarea/dispatch。
+    const textarea = document.querySelector<HTMLTextAreaElement>('footer textarea');
+    if (textarea && prev.inputText) {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      nativeInputValueSetter?.call(textarea, prev.inputText);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.focus();
+      if (useSettingsStore.getState().autoSubmitChoice) {
+        setTimeout(() => document.dispatchEvent(new Event('auto-submit-input')), 100);
       }
-      return { ...prev, visible: false };
-    });
+    }
   }, []);
 
   // A1.8 — 切换/读取会话时把任何挂着的 staging 浮层一并清掉，避免跨档残留。

@@ -79,7 +79,6 @@ import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/chara
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
-import { getCurrentRpm } from '../sillytavern/rpm-limiter';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -596,32 +595,55 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const sortedItems = [...processedPreset.promptItems].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
       const macroItemPositions: number[] = []; // sortedItems 中需跑宏的下标
       const itemTexts: string[] = [];
+      // 自动下沉：扫描 role='system' 且含动态宏的 promptItem,渲染后剥离到 dynamicTail。
+      // 渲染阶段所有字符串走同一 batch（共享 macroCtx.macroVars）→ 渲染顺序与组装位置完全解耦,
+      // setvar/getvar 跨条目链不破坏。仅作用于 system 类（user/assistant 是对话结构,保持原位）。
+      const autoSinkDynamicPromptItem =
+        dsRestructureOn && dsCfg.autoSinkDynamicPromptItem !== false;
       sortedItems.forEach((it, idx) => {
         if (it.enabled !== false && it.content && it.content.trim()) {
           macroItemPositions.push(idx);
           itemTexts.push(it.content);
+          const isSystemRole = (it.role || 'system') === 'system';
+          if (autoSinkDynamicPromptItem && isSystemRole && hasDynamicMarker(it.content)) {
+            (it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail = true;
+          }
         }
       });
 
       // DS 缓存优化器诊断（debugLog 模式）：扫描【会进入静态前缀】的预设字段是否含动态宏。
-      // 这些字段虽是预设作者编写的静态文本，但若含 {{xxx.yyy}}/<% %>/{{getvar}} 等，
-      // 经 macro batch 解析后输出值会随 statData 变化，污染前缀缓存。无法自动下沉(会破坏 setvar/getvar
-      // 跨条目链)，只能让用户自己改预设——所以列出来给用户排查。
+      // - role='system' 类 promptItem 若含动态宏 → 已自动下沉到 dynamicTail（autoSinkDynamicPromptItem
+      //   默认开）,宏链不破坏（因为渲染走同一 macro batch,组装位置改变与宏副作用无关）。
+      // - role='user'/'assistant' 类不能下沉（会破坏对话结构）→ 仍报给用户排查。
+      // - preset.systemPrompt 也走静态前缀,含动态宏会污染（用户需要自己改）。
       if (dsRestructureOn && dsCfg.debugLog === true) {
-        const presetWarnings: string[] = [];
+        const sunkWarnings: string[] = [];
+        const userActionableWarnings: string[] = [];
         if (hasDynamicMarker(processedPreset.systemPrompt)) {
-          presetWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
+          userActionableWarnings.push(`preset.systemPrompt: ${processedPreset.systemPrompt.slice(0, 80)}...`);
         }
         sortedItems.forEach((it) => {
           if (it.enabled !== false && it.content && hasDynamicMarker(it.content)) {
-            presetWarnings.push(`promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`);
+            const isSystemRole = (it.role || 'system') === 'system';
+            const label = `promptItem[${it.id ?? it.role}/${it.kind ?? 'unknown'}]: ${it.content.slice(0, 80)}...`;
+            if (autoSinkDynamicPromptItem && isSystemRole) {
+              sunkWarnings.push(label);
+            } else {
+              userActionableWarnings.push(`(role=${it.role || 'system'}) ${label}`);
+            }
           }
         });
-        if (presetWarnings.length > 0) {
+        if (sunkWarnings.length > 0) {
           console.log(
-            '[ds-cache-restructure] ⚠️ 预设含动态宏(每回合渲染结果可能变化，污染前缀缓存)：\n  ' +
-              presetWarnings.join('\n  ') +
-              '\n  建议：把这些条目的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
+            `[ds-cache-restructure] ✅ 已自动下沉 ${sunkWarnings.length} 个 system 类含动态宏的 promptItem 到 dynamicTail（前缀缓存保护）：\n  ` +
+              sunkWarnings.join('\n  '),
+          );
+        }
+        if (userActionableWarnings.length > 0) {
+          console.log(
+            '[ds-cache-restructure] ⚠️ 以下字段含动态宏会污染前缀缓存（user/assistant 类与 systemPrompt 不能自动下沉，需手动改）：\n  ' +
+              userActionableWarnings.join('\n  ') +
+              '\n  建议：把这些字段的内容改为不含 {{xxx.yyy}}/<%%>/{{getvar}} 的静态文本，' +
               '或在世界书里用 entry.constant=true 的形式注入(已自动下沉到 dynamicTail)。',
           );
         }
@@ -640,7 +662,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // 写回宏处理后的 promptItems content
       const newItems = sortedItems.map((it) => ({ ...it }));
       macroItemPositions.forEach((pos, k) => { newItems[pos].content = macroResults[k].text; });
-      processedPreset.promptItems = newItems;
+
+      // 自动下沉：把标记了 _sinkToDynamicTail 的 promptItem 从主 messages 剔除,
+      // 渲染后内容收集到 sunkPromptContents,稍后注入到 dynamicTail。
+      const sunkPromptContents: string[] = [];
+      if (autoSinkDynamicPromptItem) {
+        const kept: typeof newItems = [];
+        for (const it of newItems) {
+          if ((it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail) {
+            sunkPromptContents.push(it.content);
+          } else {
+            kept.push(it);
+          }
+        }
+        processedPreset.promptItems = kept;
+      } else {
+        processedPreset.promptItems = newItems;
+      }
 
       const base = itemTexts.length;
       processedPreset.systemPrompt = macroResults[base].text;
@@ -737,9 +775,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           (e) => (e as { _isDynamic?: boolean })._isDynamic,
         );
         const sortedDynamic = sortByInsertionStrategy(dynamicProcessedLore, wiStrategy);
+        // sunkPromptContents（从 system 区剥离的含动态宏 promptItem 渲染后内容）放在
+        // dynamicFormatParts 最前面——保持与原 system 区相对靠前的注意力位置;
+        // 后接项目的 dynamicFormatParts（调查员能力概览/物品/NPC 等）。
         const dynamicTail = buildDynamicTail({
           dynamicLoreContents: sortedDynamic.map((e) => e.content),
-          dynamicFormatParts: resolvedDynamicFormat ? [resolvedDynamicFormat] : [],
+          dynamicFormatParts: [
+            ...sunkPromptContents,
+            ...(resolvedDynamicFormat ? [resolvedDynamicFormat] : []),
+          ],
         });
         if (dynamicTail) {
           for (let i = messages.length - 1; i >= 0; i--) {
@@ -1107,12 +1151,39 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
           cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
           at: Date.now(),
-          // 主 RPM 桶 60s 窗口内已发出的请求数实测值——TokenDisplay 在右下角显示「当时
-          // 发了 N 次请求」, 反映系统真实繁忙度（含本页主回合 + 同窗口内子调用累积）。
-          rpm: getCurrentRpm('main'),
+          // 注: PageGenStats.rpm 字段保留(老存档兼容),但不再写入新值——rpm-limiter 的 60s
+          // 滑动窗口对 Pro 主回合(>60s)毫无意义,响应回来时主回合自己的 timestamp 已被
+          // 滑出窗口,永远是 0。TokenDisplay 改用 subCalls.length + 1 实时算「本页请求次数」。
           // 本回合使用的模型名快照——CacheStatsPanel 按 model tier 走对应费率算 cost，
           // 并把曲线按 flash/pro 分双线展示。
           model: useSettingsStore.getState().apiModel,
+          // 子调用历史日志：主回合内部的 MVU 提取 + MVU 自纠各算一条；fire-and-forget 子调用
+          // （起始物品/坏结局/关键线索/线索整合/NPC补写/地点元素/地图自检/时间跳跃/战斗探测/
+          // 行动补写）由各自调用点完成后用 addPageSubCallStat 追加。
+          subCalls: (() => {
+            const subs: import('../types').PageSubCallStat[] = [];
+            if (mvuUsage) {
+              subs.push({
+                label: 'MVU 提取',
+                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                hit: mvuUsage.prompt_cache_hit_tokens,
+                miss: mvuUsage.prompt_cache_miss_tokens,
+                promptTokens: mvuUsage.prompt_tokens,
+                output: mvuUsage.completion_tokens,
+                at: Date.now(),
+              });
+            }
+            if (selfCorrectUsage) {
+              subs.push({
+                label: 'MVU 自纠',
+                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                promptTokens: selfCorrectUsage.prompt_tokens,
+                output: selfCorrectUsage.completion_tokens,
+                at: Date.now(),
+              });
+            }
+            return subs.length > 0 ? subs : undefined;
+          })(),
         };
         pushLog(
           'info',
@@ -1254,7 +1325,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
           void (async () => {
             try {
-              const { changes } = await generateStartingItems(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              // 走 MVU API（若已配置）/ 主 API（fallback）+ mvu RPM 桶 —— 起始物品是
+              // 短 JSON 子调用，无需主回合的 Pro 大模型，走 Flash 更快更便宜。
+              const useMvuSI = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+              const siBase = (useMvuSI ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+              const siKey = (useMvuSI ? settings.mvuApiKey : settings.apiKey) ?? '';
+              const siModel = (useMvuSI ? settings.mvuApiModel : settings.apiModel) ?? '';
+              const { changes, usage: siUsage } = await generateStartingItems(ctx, siBase, siKey, siModel);
+              // 缓存命中历史：起始物品调用统计追加进 page.genStats.subCalls
+              if (siUsage && useChatStore.getState().activeId === aidSI) {
+                useBookStore.getState().addPageSubCallStat(siPageIdx, {
+                  label: '起始物品',
+                  model: siModel,
+                  hit: siUsage.prompt_cache_hit_tokens,
+                  miss: siUsage.prompt_cache_miss_tokens,
+                  promptTokens: siUsage.prompt_tokens,
+                  output: siUsage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               if (changes.length === 0 || useChatStore.getState().activeId !== aidSI) return;
               useBookStore.getState().setPageInventoryChanges(siPageIdx, changes);
               useInventoryStore.getState().applyChanges(changes);
@@ -1316,8 +1405,26 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           void (async () => {
             try {
               // 一次产出：坏结局（灾厄终点）+ 3 真相支柱（破局所需，守秘人机密）。
-              const { description, pillars } = await generateBadEnding(ctx, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+              // 走 MVU API（若已配置）/ 主 API（fallback）—— 短 JSON 子调用走 Flash 更快。
+              const useMvuBE = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+              const beBase = (useMvuBE ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+              const beKey = (useMvuBE ? settings.mvuApiKey : settings.apiKey) ?? '';
+              const beModel = (useMvuBE ? settings.mvuApiModel : settings.apiModel) ?? '';
+              const { description, pillars, usage: beUsage } = await generateBadEnding(ctx, beBase, beKey, beModel);
               if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
+              // 缓存命中历史：坏结局调用统计追加进 page.genStats.subCalls
+              if (beUsage) {
+                const bePageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                useBookStore.getState().addPageSubCallStat(bePageIdx, {
+                  label: '坏结局',
+                  model: beModel,
+                  hit: beUsage.prompt_cache_hit_tokens,
+                  miss: beUsage.prompt_cache_miss_tokens,
+                  promptTokens: beUsage.prompt_tokens,
+                  output: beUsage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               let changed = false;
               if (description && !useDarkThreadStore.getState().badEnding) {
                 useDarkThreadStore.getState().setBadEnding({ description, createdAt: Date.now() });
@@ -1423,7 +1530,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const pillarsForEval = unsolved.map((p) => ({ id: p.id, title: p.title, secret: p.secret }));
             void (async () => {
               try {
-                const { matches } = await evaluateKeyClues(pillarsForEval, newClues, settings.apiBaseUrl, settings.apiKey, settings.apiModel);
+                // 走 MVU API（若已配置）—— 关键线索评估也是短 JSON 子调用，走 Flash 更快。
+                const useMvuKC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+                const kcBase = (useMvuKC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+                const kcKey = (useMvuKC ? settings.mvuApiKey : settings.apiKey) ?? '';
+                const kcModel = (useMvuKC ? settings.mvuApiModel : settings.apiModel) ?? '';
+                const { matches, usage: kcUsage } = await evaluateKeyClues(pillarsForEval, newClues, kcBase, kcKey, kcModel);
+                // 缓存命中历史：关键线索调用统计追加进 page.genStats.subCalls
+                if (kcUsage) {
+                  const kcPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                  useBookStore.getState().addPageSubCallStat(kcPageIdx, {
+                    label: '关键线索',
+                    model: kcModel,
+                    hit: kcUsage.prompt_cache_hit_tokens,
+                    miss: kcUsage.prompt_cache_miss_tokens,
+                    promptTokens: kcUsage.prompt_tokens,
+                    output: kcUsage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 if (matches.length === 0 || useChatStore.getState().activeId !== aidKC) return;
                 const wasSaveWorld = useKeyClueStore.getState().saveWorldMode;
                 for (const m of matches) {
@@ -1664,6 +1789,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         else cooldownStateRef.current.set(k, v - 1);
       }
       loadingRef.current = true;
+      // 同时设 React state，让 InputBar.pipeline.loading 立即变 true → 推进按钮 disabled
+      // —— 之前只设 loadingRef（防并发用的非响应式 ref），React state 完全靠下游 handleSendFromPreview
+      // 的 setLoading 兜底，若下游异步路径有任何延迟/中断会让按钮在 167s 主回合期间一直可点。
+      setLoading(true);
       useChoiceLockStore.getState().lock(); // 提交开始即锁灰选项，防止生成中连点重掷/二次推进
 
       try {
@@ -1695,6 +1824,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return ok ? '' : processedInput;
       } finally {
         loadingRef.current = false;
+        setLoading(false); // 兜底解锁,无论 handleSendFromPreview 是否走到了它自己的 setLoading(false)
         useChoiceLockStore.getState().unlock(); // 解锁选项（本次提交已结束：成功/失败/中止）
       }
     },

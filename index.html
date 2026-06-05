@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP: 必须允许 'unsafe-eval' —— EJS 模板渲染 (ejs-template.ts) / 扩展脚本沙箱
+      (extension-runtime.ts) / TH 脚本引擎 (th-script-engine.ts) 均用 new Function
+      编译用户自定义模板与脚本,这是 SillyTavern 兼容架构的核心,无法静态化替代。
+      'unsafe-inline' 给 Vite 注入的开发期内联 script + 大量 React 内联 style 用。
+      connect-src * 让用户配置的任意 OpenAI 兼容端点(DeepSeek/Claude/中转站/本地)都能访问。
+      该应用纯前端 SPA、无服务端、无用户数据回传——攻击面有限,这样的宽松 CSP 可接受。
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src *;" />
     <title>深渊档案馆</title>
   </head>
   <body>

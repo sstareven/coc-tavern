@@ -92,6 +92,7 @@ export function StepBackground({
         flexShrink: 0,
       }}>
         <textarea
+          name="charsheet-background-draft"
           value={backstoryDraft}
           onChange={(e) => onSetBackstoryDraft(e.target.value)}
           disabled={bgFilling}
@@ -217,6 +218,7 @@ export function StepBackground({
                 const f = fields.find((x) => x.label === openField)!;
                 return (
                   <textarea
+                    name={`charsheet-background-${f.label}`}
                     value={f.value}
                     onChange={(e) => f.set(e.target.value)}
                     className="bg-input"

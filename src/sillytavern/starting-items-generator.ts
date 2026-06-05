@@ -54,7 +54,7 @@ export async function generateStartingItems(
     let resp;
     try {
       resp = await callDsSubagent({
-        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+        apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'mvu',
         label: '起始物品生成',
         messages: [
           { role: 'system', content: STARTING_ITEMS_PROMPT },

@@ -387,6 +387,7 @@ export function InputBar() {
             )}
 
             <textarea
+              name="coc-input"
               ref={textareaRef}
               value={input}
               onChange={(e) => {
