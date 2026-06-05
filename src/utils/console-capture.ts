@@ -55,8 +55,6 @@ async function flush(): Promise<void> {
   } catch {
     // 不让 console 拦截链抛错：静默 swallow。
     // TODO(task-6): IDB 失败时降级 in-memory ring buffer (本任务范围外,留 hookpoint)
-    // TODO(task-3): Task 3 装上 console patch 后,这里若 console.error 报错会无限递归 ——
-    //   必须用 originals[level] 而不是 console.error
   }
 }
 
@@ -106,7 +104,6 @@ export async function deleteLogsForSession(sessionId: string): Promise<void> {
     await db.consoleLogs.where('sessionId').equals(sessionId).delete();
   } catch {
     // swallow：被调时通常在 dexie 事务内,失败不阻断会话删除主流程。
-    // TODO(task-3): 同 flush — 用 originals[level] 而非 console.error,避免拦截器装上后递归
   }
 }
 
@@ -119,6 +116,13 @@ export function _resetForTests(): void {
 }
 
 // ===== 拦截器 =====
+/**
+ * 命名空间前缀正则：第一字符必须小写字母,后跟一个以上 [a-z0-9-]。
+ * 大小写是刻意的——排除 React DevTools、Vercel inject、Font preload 等带方括号的三方
+ * noise (它们通常大写起 e.g. [Vercel] [HMR] [Fast Refresh])。
+ * 代价：项目里用大写命名空间的日志(如 [TH] / [MVU])收不到——需要改用小写 (e.g. [th] / [mvu])
+ * 才会被捕获。新增日志命名空间时请保持小写。
+ */
 const NAMESPACE_RE = /^\[[a-z][a-z0-9-]+\]/;
 const LEVELS: LogLevel[] = ['log', 'warn', 'error', 'info'];
 
@@ -169,6 +173,9 @@ function captureIfMatches(level: LogLevel, args: unknown[]): void {
 
 function serializeArg(arg: unknown): string {
   if (typeof arg === 'string') return arg;
+  if (arg instanceof Error) {
+    return arg.stack ? `${arg.name}: ${arg.message}\n${arg.stack}` : `${arg.name}: ${arg.message}`;
+  }
   try {
     return JSON.stringify(arg);
   } catch {
