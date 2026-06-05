@@ -406,6 +406,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setMvuMaxTokens = useSettingsStore((s) => s.setMvuMaxTokens);
   const mvuSelfCorrectEnabled = useSettingsStore((s) => s.mvuSelfCorrectEnabled);
   const setMvuSelfCorrectEnabled = useSettingsStore((s) => s.setMvuSelfCorrectEnabled);
+  const forceJsonObject = useSettingsStore((s) => s.forceJsonObject);
+  const setForceJsonObject = useSettingsStore((s) => s.setForceJsonObject);
   const mvuSelfCorrectRetries = useSettingsStore((s) => s.mvuSelfCorrectRetries);
   const setMvuSelfCorrectRetries = useSettingsStore((s) => s.setMvuSelfCorrectRetries);
 
@@ -1069,6 +1071,19 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       </div>
                     </div>
                   )}
+
+                  {/* 严格 JSON Object 模式：子调用 API 请求附加 response_format: { type: 'json_object' },
+                      让模型严格返回单一 JSON 对象,降低解析失败率。仅作用于 callDsSubagent 通路
+                      (起始物品/地点元素/线索整合/坏结局/NPC 补写/时间跳跃/战斗探测),不动主回合。
+                      若模型不支持该参数(API 报错含 response_format/json_object 不支持类字样),自动
+                      探测后切回常规模式,该 model 本会话剩余子调用不再尝试。 */}
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>
+                      严格 JSON 模式
+                      <HelpIcon text={'开启(默认):为所有子调用 API 请求附加 response_format: { type: "json_object" } 参数,让模型严格返回单一合法 JSON 对象,降低解析失败率。\n\n关闭:不附加该参数,子调用解析走启发式兜底修复(coerceJsonObject)。\n\n自动 fallback:若模型不支持该参数,首次探测失败后自动切回常规模式,该 model 本会话剩余子调用直接跳过(避免重复浪费 RTT)。'} />
+                    </span>
+                    <Toggle on={forceJsonObject} onChange={() => setForceJsonObject(!forceJsonObject)} onLabel="开启" offLabel="关闭" />
+                  </div>
 
                   {mvuUseIndependentApi && (
                     <>

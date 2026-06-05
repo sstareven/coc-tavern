@@ -74,6 +74,15 @@ interface SettingsState {
   uiScale: number;
   /** DeepSeek V4 缓存优化器：思维模式指令注入（附着到末条用户消息，保前缀缓存）。 */
   dsCache: DsCacheConfig;
+  /**
+   * 子调用 LLM 请求附加 response_format: { type: 'json_object' } —— 强制模型返回
+   * 单一合法 JSON 对象，配合 strictJsonParse 降低子调用 JSON 解析失败率。
+   * 仅作用于 callDsSubagent 通路（generateStartingItems / extractLocationElements /
+   * integrateClues / generateBadEnding / rectifyMissingNpcs / time-jump-generator
+   * / combat-detector 等子调用），不动主回合（主回合输出含 <UpdateVariable> 补丁
+   * 块，与 json_object 模式互斥）。默认开。
+   */
+  forceJsonObject: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -125,6 +134,7 @@ interface SettingsStore extends SettingsState {
   setMvuSelfCorrectRetries: (n: number) => void;
   setUiScale: (v: number) => void;
   setDsCache: (c: Partial<DsCacheConfig>) => void;
+  setForceJsonObject: (v: boolean) => void;
 }
 
 const defaults: SettingsState = {
@@ -176,6 +186,7 @@ const defaults: SettingsState = {
   mvuSelfCorrectRetries: 1,
   uiScale: 1,
   dsCache: DEFAULT_DS_CACHE_CONFIG,
+  forceJsonObject: true,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -231,6 +242,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
       setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
       setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
+      setForceJsonObject: (v) => set({ forceJsonObject: v }),
     }),
     {
       name: 'coc_settings_v2',
