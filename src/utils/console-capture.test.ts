@@ -276,7 +276,7 @@ describe('console-capture: in-memory fallback', () => {
   it('dexie write 失败时降级 in-memory,仍可读回', async () => {
     // 替换 bulkAdd 让它抛错(模拟隐私模式 / quota)
     const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
-    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb unavailable'); }) as typeof db.consoleLogs.bulkAdd;
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb unavailable'); }) as unknown as typeof db.consoleLogs.bulkAdd;
 
     try {
       useChatStore.setState({ activeId: 'sx' });
@@ -296,7 +296,7 @@ describe('console-capture: in-memory fallback', () => {
 
   it('in-memory ring buffer 上限 2000', async () => {
     const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
-    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as typeof db.consoleLogs.bulkAdd;
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as unknown as typeof db.consoleLogs.bulkAdd;
     try {
       // 直接调 appendLog 跑 2100 次
       for (let i = 0; i < 2100; i++) {
@@ -321,7 +321,7 @@ describe('console-capture: in-memory fallback', () => {
 
   it('deleteLogsForSession 同时清 in-memory', async () => {
     const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
-    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as typeof db.consoleLogs.bulkAdd;
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as unknown as typeof db.consoleLogs.bulkAdd;
     try {
       appendLog({ sessionId: 'a', pageIndex: 1, ts: 1, level: 'log', message: 'a-1' });
       appendLog({ sessionId: 'b', pageIndex: 1, ts: 2, level: 'log', message: 'b-1' });
