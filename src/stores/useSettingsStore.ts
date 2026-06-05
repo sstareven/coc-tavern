@@ -113,7 +113,10 @@ export const DS_ULTRA_PRESET = {
   maxSummaryEntries: 50,
   mvuSelfCorrectEnabled: true,
   mvuSelfCorrectRetries: 2,
-  mvuForceAlways: false,
+  // v1.11.10 修复:ULTRA 不能抹除 MVU 更新的重要性。强制总是跑 MVU 提取(不走「主回合带
+  // <UpdateVariable> 就跳过」的省钱优化),保证状态变量(NPC/物品/姿态/线索等)一定被更新。
+  // 用户反馈:「一键超级适配的功能要根据优化思路来,但是又不能抹除 mvu 需要更新的重要性。」
+  mvuForceAlways: true,
   tavernOptimizeMessageLoad: false,
   /** ULTRA 模式下 dsCache 的覆盖项(其余字段从用户当前 dsCache 透传:思维模式 enabled/mode/customText)。 */
   dsCacheOverride: {

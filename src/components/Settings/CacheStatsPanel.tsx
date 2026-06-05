@@ -95,7 +95,8 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
     pages.forEach((p, i) => {
       const gs = p.genStats;
       if (!gs) return;
-      const label = p.rightPage || p.leftPage || String(i + 1);
+      // v1.11.10: X 轴 label 用纯页码(第N页)代替原 rightPage/leftPage 的 "— N —" 带 em dash 格式
+      const label = `第${i + 1}页`;
       const at = gs.at ?? 0;
       const byTier = new Map<ModelTier, { hit: number; miss: number; output: number }>();
 
@@ -220,8 +221,8 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
       <div style={{
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
-        width: 'calc(min(720px, 94vw) / var(--auto-zoom, 1))',
-        minWidth: 'calc(min(540px, 94vw) / var(--auto-zoom, 1))',
+        width: 'calc(min(1100px, 96vw) / var(--auto-zoom, 1))',
+        minWidth: 'calc(min(820px, 96vw) / var(--auto-zoom, 1))',
         maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
       }}>
@@ -291,7 +292,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 折线图 / 空态 */}
-        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <div className="cachestats-scroll" style={{ flex: 1, minHeight: 0, overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.15)' }}>
           {points.length === 0 ? (
             <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
               暂无缓存数据——当前模型未返回缓存信息（DeepSeek 等支持），或尚未生成新页面。
@@ -323,10 +324,11 @@ function PageDetailList({ pages }: { pages: import('../../types').BookPage[] }) 
         按页明细 / PER-PAGE DETAIL
       </div>
       {/* 内层独立滚动:页数多时不让外层面板被撑长。 */}
-      <div style={{
+      <style>{`.cachestats-scroll::-webkit-scrollbar{width:6px}.cachestats-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.cachestats-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px;transition:background 0.25s cubic-bezier(0.4,0,0.2,1)}.cachestats-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+      <div className="cachestats-scroll" style={{
         display: 'flex', flexDirection: 'column', gap: 8,
         maxHeight: 360, overflowY: 'auto', paddingRight: 6,
-        scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)',
+        scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.15)',
       }}>
         {ordered.map(({ p, i }) => <PageDetailCard key={p.id ?? i} page={p} pageIdx={i} />)}
       </div>
@@ -365,7 +367,7 @@ function PageDetailCard({ page, pageIdx }: { page: import('../../types').BookPag
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ color: 'var(--gold)', fontWeight: 700 }}>
-          {page.rightPage || page.leftPage || `第 ${pageIdx + 1} 页`} · {page.leftHeader || '（未命名）'}
+          {`第 ${pageIdx + 1} 页`} · {page.leftHeader || '（未命名）'}
         </span>
         <span style={{ color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
           ¥{pageTotalCost < 0.01 ? pageTotalCost.toFixed(4) : pageTotalCost.toFixed(2)}（合计 {1 + subs.length} 次调用）
@@ -469,7 +471,7 @@ function TierStat({ tier, hit, miss, output, cost, count }: { tier: ModelTier; h
 }
 
 /** 命中率折线图——按 tier 分双线（flash 蓝 / pro 金）；鼠标移到图上显示最近点的明细。自绘 SVG。 */
-function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
+function RateChart({ points }: { points: Point[]; xLabel?: string }) {
   const W = 600, H = 220, padL = 36, padR = 12, padT = 14, padB = 28;
   const innerW = W - padL - padR, innerH = H - padT - padB;
   const svgRef = useRef<SVGSVGElement>(null);
@@ -593,7 +595,7 @@ function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
           padding: '7px 10px', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', whiteSpace: 'nowrap',
           boxShadow: '0 4px 16px rgba(0,0,0,0.6)', lineHeight: 1.7, zIndex: 2,
         }}>
-          <div style={{ color: TIER_COLORS[hp.tier], fontWeight: 700, marginBottom: 2 }}>{TIER_LABELS[hp.tier]} · {xLabel} {hp.label}</div>
+          <div style={{ color: TIER_COLORS[hp.tier], fontWeight: 700, marginBottom: 2 }}>{TIER_LABELS[hp.tier]} {hp.label}</div>
           <div>命中率 <b style={{ color: TIER_COLORS[hp.tier] }}>{hp.rate.toFixed(1)}%</b></div>
           <div><span style={{ color: '#69f0ae' }}>命中</span> {hp.hit.toLocaleString()} · <span style={{ color: '#ff7043' }}>未命中</span> {hp.miss.toLocaleString()}</div>
           <div><span style={{ color: '#7b9fc1' }}>输出</span> {hp.output.toLocaleString()} tokens</div>
