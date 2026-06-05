@@ -28,7 +28,7 @@
 | 角色卡数据深度 | 完整 `CharacterSheet`（八围/halfFifth/derived/技能 base+current）+ `npcAttrs`（身份/态度/位置/公开简历/隐藏简历） |
 | 导入导出 | 单 JSON 文件 `*.scenario.json` |
 | 内置剧本 | 多个，从 `C:\Users\USER\Downloads\Documents\COCExtends.pdf` 抽取；外加「自由探索」兜底 |
-| 老存档迁移 | **不迁移**，剧本仅对新游戏（`startNewConversation`）生效 |
+| 老存档兼容 | **不兼容**，本次改动太大无所谓老存档；进老会话强制套 `__free` 剧本，玩家应开新游戏 |
 | 剧本卡预览 | 名 / 类型 / 时长 / 难度 / 人数 / 一句话背景 / 推荐职业 chips / 必要人物 chips / SAN 损耗 |
 | 调试 | GameView 加「当前剧本」胶囊；DebugConsole 加 `:scenario` 命令查暗线/解锁/坏结局 |
 | PDF 抽取实施 | 与代码实现同一轮 Workflow 并行，互不阻塞；PDF 工作流产 JSON 后回填 `builtin-scenarios.ts` |
@@ -351,6 +351,8 @@ CompanionChat 是一个对话框 + 输入框：
 | `decideCachePolicy(entries)` | 「📊 优化缓存」按钮 | 全部条目；扫 EJS 动态 marker (`getvar / parseInt / <% if %>`) | `setCachePolicies: [{id, cachePolicy}]` |
 | `generateDarkTimeline(meta, entries)` | 暗线时间线 tab「✨ 生成」 | 剧本背景 + 现有 hint | `upsertDarkTimeline: DarkPhase[]` |
 | `generateBadEndings(darkTimeline, entries)` | 坏结局矩阵 tab「✨ 生成」 | 暗线 + 现有线索 | `upsertBadEndings: BadEnding[]` |
+| `rewriteEntry(entryId, instruction)` | 条目右键「✍ 重写文案」 | 单条目 + 指令（更阴森/更轻描淡写/转第三人称等） | `upsertEntries: [rewritten]` |
+| `injectEjsUnlock(entryId, unlockKeys?)` | 条目右键「🔒 加解锁条件」 | 单条目 + 可选 unlockKeys | `upsertEntries: [带 `<% if (getvar('剧情.已解锁.X')==='true') { %>...<% } %>` 的版本]` |
 
 所有子调用共用 settings.apiModel；命中 cacheStats subCalls 统计（label 前缀 `scenario:`）。
 
@@ -549,7 +551,7 @@ useScenarioStore 在首装 hydrate 时把 BUILTIN_SCENARIOS 合并入 store.scen
 | 大量条目挂载导致首次匹配卡顿 | 复用 worldbook 现有索引；剧本卸载时清掉 book |
 | 单 JSON 文件包含完整 sheet 字段，导出体积大 | 单剧本平均 100KB～500KB；超 2MB 时弹窗确认 |
 | LLM 辅助返回的 ScenarioPatch 字段缺失/越界 | scenario-patch.ts 严格 zod 校验；越界 → 全屏 ErrorModal，patch 不应用 |
-| 老存档无 scenarioId 进游戏 | sessionLifecycle 跳过 activateScenario，所有路径回退 v1（resetToPrologue / defaultPages） |
+| 老存档无 scenarioId 进游戏 | **不兼容**：检测到 sessions[i].meta.scenarioId 为 undefined → 自动套 `__free` 剧本并 toast 提示「此版本机制已重写，老存档可能行为异常，建议新建游戏」 |
 | CharacterCreator 内部状态太长（已 700+ 行） | 不重构；仅 2 处小插入（Step 4 顶部 chip 行 / Step 5 textarea），保持改动最小 |
 
 ---
@@ -605,6 +607,8 @@ useScenarioStore 在首装 hydrate 时把 BUILTIN_SCENARIOS 合并入 store.scen
 - G5 scenario-llm.decideCachePolicy
 - G6 scenario-llm.generateDarkTimeline
 - G7 scenario-llm.generateBadEndings
+- G8 scenario-llm.rewriteEntry
+- G9 scenario-llm.injectEjsUnlock
 
 **桶 H：导入导出**
 - H1 scenario-io.exportScenario + Blob 下载
