@@ -29,6 +29,14 @@ let flushCount = 0;
 const PER_SESSION_LIMIT = 5000;
 const retentionInFlight = new Set<string>();
 
+// ===== in-memory 降级（IDB 不可用：隐私模式 / quota / db open 失败） =====
+// 一旦 dexie 抛错就翻 false 并固定走 memoryBuffer；
+// 不再尝试回到 dexie。reload 后会重新置 true。
+const MEMORY_LIMIT = 2000;
+let dexieAvailable = true;
+const memoryBuffer: LogRecord[] = [];
+let memoryNextId = 1;
+
 /** 写入入口：被 Task 3 的 console 拦截器在生产中调用,也供测试直接驱动。
  *  签名是同步 void——内部 schedule()/flush() 走 dexie,但 caller 不需要 await
  *  (logger 不能阻塞 console.log)。 */
@@ -53,19 +61,28 @@ async function flush(): Promise<void> {
   scheduled = false;
   if (pending.length === 0) return;
   const batch = pending.splice(0, pending.length);
-  try {
-    await db.consoleLogs.bulkAdd(batch as ConsoleLogRow[]);
-    flushCount += 1;
-  } catch {
-    // 不让 console 拦截链抛错：静默 swallow。
-    // TODO(task-6): IDB 失败时降级 in-memory ring buffer (本任务范围外,留 hookpoint)
-    return;
+  if (dexieAvailable) {
+    try {
+      await db.consoleLogs.bulkAdd(batch as ConsoleLogRow[]);
+      flushCount += 1;
+      // retention: 仅检查本次 flush 涉及的 sessionId (lazy & narrow scope)
+      const writtenSessions = new Set<string>();
+      for (const r of batch) writtenSessions.add(r.sessionId);
+      for (const sid of writtenSessions) {
+        void enforceRetention(sid);
+      }
+      return;
+    } catch {
+      // dexie 不可用 — 标记后 fall through 到 in-memory
+      dexieAvailable = false;
+    }
   }
-  // retention: 仅检查本次 flush 涉及的 sessionId (lazy & narrow scope)
-  const writtenSessions = new Set<string>();
-  for (const r of batch) writtenSessions.add(r.sessionId);
-  for (const sid of writtenSessions) {
-    void enforceRetention(sid);
+  // in-memory fallback：ring buffer，溢出从头丢
+  for (const row of batch) {
+    memoryBuffer.push({ ...row, id: memoryNextId++ });
+  }
+  while (memoryBuffer.length > MEMORY_LIMIT) {
+    memoryBuffer.shift();
   }
 }
 
@@ -96,47 +113,62 @@ export async function getLogsForSession(
   sessionId: string,
   lastNPages: number,
 ): Promise<LogsForSessionResult> {
-  try {
-    const rows = await db.consoleLogs
-      .where('sessionId')
-      .equals(sessionId)
-      .toArray();
-    if (rows.length === 0) {
-      return { records: [], omittedPages: 0, omittedRecords: 0 };
+  let allRows: LogRecord[] = [];
+  if (dexieAvailable) {
+    try {
+      const dexieRows = await db.consoleLogs
+        .where('sessionId')
+        .equals(sessionId)
+        .toArray();
+      allRows = dexieRows as LogRecord[];
+    } catch {
+      dexieAvailable = false;
     }
-    const allPages = new Set<number>();
-    for (const r of rows) allPages.add(r.pageIndex);
-    const maxPage = Math.max(...allPages);
-    const keepFrom = Math.max(maxPage - (lastNPages - 1), 1);
-
-    const omittedPagesSet = new Set<number>();
-    let omittedRecords = 0;
-    const kept: LogRecord[] = [];
-    for (const r of rows) {
-      if (r.pageIndex < keepFrom) {
-        omittedPagesSet.add(r.pageIndex);
-        omittedRecords += 1;
-      } else {
-        kept.push(r as LogRecord);
-      }
-    }
-    // 按 pageIndex 倒序，同页内按 id 升序（bulkAdd 顺序 = 插入顺序 = ts 升序）
-    kept.sort((a, b) => {
-      if (b.pageIndex !== a.pageIndex) return b.pageIndex - a.pageIndex;
-      return a.id - b.id;
-    });
-    return { records: kept, omittedPages: omittedPagesSet.size, omittedRecords };
-  } catch {
+  }
+  // 合并 in-memory：dexie 不可用时 memoryBuffer 是唯一源；可用时通常为空。
+  for (const r of memoryBuffer) {
+    if (r.sessionId === sessionId) allRows.push(r);
+  }
+  if (allRows.length === 0) {
     return { records: [], omittedPages: 0, omittedRecords: 0 };
   }
+  const allPages = new Set<number>();
+  for (const r of allRows) allPages.add(r.pageIndex);
+  const maxPage = Math.max(...allPages);
+  const keepFrom = Math.max(maxPage - (lastNPages - 1), 1);
+
+  const omittedPagesSet = new Set<number>();
+  let omittedRecords = 0;
+  const kept: LogRecord[] = [];
+  for (const r of allRows) {
+    if (r.pageIndex < keepFrom) {
+      omittedPagesSet.add(r.pageIndex);
+      omittedRecords += 1;
+    } else {
+      kept.push(r);
+    }
+  }
+  // 按 pageIndex 倒序，同页内按 id 升序（bulkAdd 顺序 = 插入顺序 = ts 升序）
+  kept.sort((a, b) => {
+    if (b.pageIndex !== a.pageIndex) return b.pageIndex - a.pageIndex;
+    return a.id - b.id;
+  });
+  return { records: kept, omittedPages: omittedPagesSet.size, omittedRecords };
 }
 
 // ===== 删除（供 sessionLifecycle deleteConversationInner 调用） =====
 export async function deleteLogsForSession(sessionId: string): Promise<void> {
-  try {
-    await db.consoleLogs.where('sessionId').equals(sessionId).delete();
-  } catch {
-    // swallow：被调时通常在 dexie 事务内,失败不阻断会话删除主流程。
+  if (dexieAvailable) {
+    try {
+      await db.consoleLogs.where('sessionId').equals(sessionId).delete();
+    } catch {
+      // swallow：被调时通常在 dexie 事务内,失败不阻断会话删除主流程。
+      dexieAvailable = false;
+    }
+  }
+  // 同步清 in-memory：降级模式下用户仍期望删会话能抹掉日志。
+  for (let i = memoryBuffer.length - 1; i >= 0; i--) {
+    if (memoryBuffer[i].sessionId === sessionId) memoryBuffer.splice(i, 1);
   }
 }
 
@@ -146,6 +178,9 @@ export function _resetForTests(): void {
   scheduled = false;
   flushCount = 0;
   retentionInFlight.clear();
+  dexieAvailable = true;
+  memoryBuffer.length = 0;
+  memoryNextId = 1;
   uninstallForTests();
 }
 

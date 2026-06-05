@@ -266,3 +266,74 @@ describe('console-capture: retention', () => {
     expect(after).toBe(101);
   });
 });
+
+describe('console-capture: in-memory fallback', () => {
+  beforeEach(async () => {
+    await db.consoleLogs.clear();
+    _resetForTests();
+  });
+
+  it('dexie write 失败时降级 in-memory,仍可读回', async () => {
+    // 替换 bulkAdd 让它抛错(模拟隐私模式 / quota)
+    const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb unavailable'); }) as typeof db.consoleLogs.bulkAdd;
+
+    try {
+      useChatStore.setState({ activeId: 'sx' });
+      useBookStore.setState({
+        pages: [{ id: 'p', leftHeader: '', rightContent: '', leftContent: '', rightHeader: '' }] as unknown as ReturnType<typeof useBookStore.getState>['pages'],
+      });
+      installConsoleCapture();
+      console.log('[cache-diag] fallback line');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const result = await getLogsForSession('sx', 10);
+      expect(result.records.map((r) => r.message)).toContain('[cache-diag] fallback line');
+    } finally {
+      db.consoleLogs.bulkAdd = origBulkAdd;
+    }
+  });
+
+  it('in-memory ring buffer 上限 2000', async () => {
+    const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as typeof db.consoleLogs.bulkAdd;
+    try {
+      // 直接调 appendLog 跑 2100 次
+      for (let i = 0; i < 2100; i++) {
+        appendLog({
+          sessionId: 'mem',
+          pageIndex: 1,
+          ts: i,
+          level: 'log',
+          message: `m${i}`,
+        });
+      }
+      await new Promise((r) => setTimeout(r, 200));
+      const result = await getLogsForSession('mem', 10);
+      expect(result.records.length).toBeLessThanOrEqual(2000);
+      // 最旧的被丢,最新的还在
+      expect(result.records.some((r) => r.message === 'm2099')).toBe(true);
+      expect(result.records.some((r) => r.message === 'm0')).toBe(false);
+    } finally {
+      db.consoleLogs.bulkAdd = origBulkAdd;
+    }
+  });
+
+  it('deleteLogsForSession 同时清 in-memory', async () => {
+    const origBulkAdd = db.consoleLogs.bulkAdd.bind(db.consoleLogs);
+    db.consoleLogs.bulkAdd = (async () => { throw new Error('idb down'); }) as typeof db.consoleLogs.bulkAdd;
+    try {
+      appendLog({ sessionId: 'a', pageIndex: 1, ts: 1, level: 'log', message: 'a-1' });
+      appendLog({ sessionId: 'b', pageIndex: 1, ts: 2, level: 'log', message: 'b-1' });
+      await new Promise((r) => setTimeout(r, 100));
+
+      await deleteLogsForSession('a');
+      const a = await getLogsForSession('a', 10);
+      const b = await getLogsForSession('b', 10);
+      expect(a.records).toHaveLength(0);
+      expect(b.records.map((r) => r.message)).toContain('b-1');
+    } finally {
+      db.consoleLogs.bulkAdd = origBulkAdd;
+    }
+  });
+});
