@@ -44,6 +44,21 @@ export const COC_MVU_SCHEMA: MvuSchema = {
     // ── 战斗 ──
     '战斗.是否战斗中': { kind: 'boolean' },
     '战斗.回合数': { kind: 'number', min: 0 },
+    // ── 调查员.* 理智/疯狂受控路径（A2.1）──
+    //
+    // 这些路径在 applyCharsheetRedirect 处会被 REDIRECT 改道到 CharacterSheet（永不落 statData），
+    // 但 LLM 写入值仍需 schema 在 redirect 调度前做一层取值约束（与 secondaryTarget/skill 数值字段
+    // 的「写前校验」语义对齐）。恐惧症/狂躁症是 string[]，由 redirect 内部 add/remove 语义守门，
+    // 不在 schema 声明（避免误报「值不是 string」吞掉合法的数组语义）。
+    '调查员.临时疯狂.active': { kind: 'boolean' },
+    '调查员.临时疯狂.roundsLeft': { kind: 'number', min: 0 },
+    '调查员.临时疯狂.bout.mode': { kind: 'enum', values: ['summary', 'realtime'] },
+    '调查员.临时疯狂.bout.table': { kind: 'enum', values: ['VII', 'VIII'] },
+    '调查员.临时疯狂.bout.entry': { kind: 'number', min: 1, max: 10 },
+    '调查员.不定性疯狂.active': { kind: 'boolean' },
+    '调查员.不定性疯狂.daysLeft': { kind: 'number', min: 0 },
+    '调查员.永久疯狂': { kind: 'boolean' },
+    '调查员.每日理智损失': { kind: 'number', min: 0 },
   },
 };
 

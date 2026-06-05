@@ -19,6 +19,19 @@ interface Props {
   onShufflePool: () => void;
   onSwitchToFreeMode: () => void;
   onSwitchToPoolMode: () => void;
+  // A3.2: 年龄修正提示与扣点分配（可选；不传则不显示分配面板，兼容旧调用方）
+  ageBand?: {
+    strSizGroup: number;
+    strConDexGroup: number;
+    appDeduct: number;
+    mov: number;
+    eduImprovementCount: number;
+    luckRollAgain: boolean;
+  };
+  scdAlloc?: { STR: number; CON: number; DEX: number };
+  ssAlloc?: { STR: number; SIZ: number };
+  onScdAlloc?: (key: 'STR' | 'CON' | 'DEX', value: number) => void;
+  onSsAlloc?: (key: 'STR' | 'SIZ', value: number) => void;
 }
 
 // Drag payload: either a die from the tray (carry numeric value) or from a slot (carry source key).
@@ -50,6 +63,11 @@ export function StepCharacteristics({
   onShufflePool,
   onSwitchToFreeMode,
   onSwitchToPoolMode,
+  ageBand,
+  scdAlloc,
+  ssAlloc,
+  onScdAlloc,
+  onSsAlloc,
 }: Props) {
   // Local drag-UI state ONLY. All allocation state lives in the parent.
   const [dragging, setDragging] = useState(false);
@@ -337,6 +355,80 @@ export function StepCharacteristics({
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* A3.2 年龄修正：STR/CON/DEX 组扣点分配（40+ 段） */}
+      {ageBand && ageBand.strConDexGroup > 0 && (
+        <div style={{
+          padding: '12px 14px', border: '1px solid var(--gold)', borderRadius: 6,
+          background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 8,
+          transition: 'var(--transition-smooth)',
+        }}>
+          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 11 }}>
+            你已年长 — 需在 STR / CON / DEX 中合计扣除 {ageBand.strConDexGroup} 点
+          </div>
+          {(['STR', 'CON', 'DEX'] as const).map((k) => {
+            const cur = scdAlloc?.[k] ?? 0;
+            const others = (['STR','CON','DEX'] as const).filter(x => x !== k).reduce((s, x) => s + (scdAlloc?.[x] ?? 0), 0);
+            const maxFor = Math.min(ageBand.strConDexGroup - others, charValues[k] - 1);
+            return (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 40, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{k}</span>
+                <input type="range" min={0} max={Math.max(0, maxFor)} value={cur}
+                  onChange={(e) => onScdAlloc?.(k, Number(e.target.value))}
+                  style={{ flex: 1, accentColor: 'var(--gold)' }} />
+                <span style={{ width: 28, textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-light)' }}>-{cur}</span>
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+            已分配 {(scdAlloc?.STR ?? 0) + (scdAlloc?.CON ?? 0) + (scdAlloc?.DEX ?? 0)} / {ageBand.strConDexGroup}
+          </div>
+        </div>
+      )}
+
+      {/* A3.2 年龄修正：STR/SIZ 组扣点分配（15-19 段） */}
+      {ageBand && ageBand.strSizGroup > 0 && (
+        <div style={{
+          padding: '12px 14px', border: '1px solid var(--gold)', borderRadius: 6,
+          background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 8,
+          transition: 'var(--transition-smooth)',
+        }}>
+          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 11 }}>
+            你尚年轻 — 需在 STR / SIZ 中合计扣除 {ageBand.strSizGroup} 点
+          </div>
+          {(['STR', 'SIZ'] as const).map((k) => {
+            const cur = ssAlloc?.[k] ?? 0;
+            const others = (['STR','SIZ'] as const).filter(x => x !== k).reduce((s, x) => s + (ssAlloc?.[x] ?? 0), 0);
+            const maxFor = Math.min(ageBand.strSizGroup - others, charValues[k] - 1);
+            return (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 40, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{k}</span>
+                <input type="range" min={0} max={Math.max(0, maxFor)} value={cur}
+                  onChange={(e) => onSsAlloc?.(k, Number(e.target.value))}
+                  style={{ flex: 1, accentColor: 'var(--gold)' }} />
+                <span style={{ width: 28, textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-light)' }}>-{cur}</span>
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+            已分配 {(ssAlloc?.STR ?? 0) + (ssAlloc?.SIZ ?? 0)} / {ageBand.strSizGroup}
+          </div>
+        </div>
+      )}
+
+      {/* A3.2 年龄修正：信息摘要（APP/MOV/EDU 提升次数/幸运重投） */}
+      {ageBand && (ageBand.appDeduct > 0 || ageBand.mov !== 8 || ageBand.eduImprovementCount > 0 || ageBand.luckRollAgain) && (
+        <div style={{
+          padding: '8px 12px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 4,
+          background: 'rgba(0,0,0,0.12)', fontSize: 11, color: 'var(--ink-subtle)',
+          fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+        }}>
+          {ageBand.appDeduct > 0 && <div>APP 已自动 -{ageBand.appDeduct}</div>}
+          {ageBand.mov !== 8 && <div>MOV {ageBand.mov} ({ageBand.mov > 8 ? '+' : ''}{ageBand.mov - 8})</div>}
+          {ageBand.eduImprovementCount > 0 && <div>EDU 将做 {ageBand.eduImprovementCount} 次提升检定（确认创建时执行）</div>}
+          {ageBand.luckRollAgain && <div>幸运将掷两次取较高（确认创建时执行）</div>}
         </div>
       )}
 

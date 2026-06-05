@@ -7,6 +7,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
+import { useSanityBubbleStore } from '../../stores/useSanityBubbleStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { enterCombat } from '../../sillytavern/combat-entry';
 import { rollDiceExpr, determineResult } from '../../sillytavern/dice-engine';
@@ -15,9 +16,13 @@ import { itemNarrated } from '../../sillytavern/llm-response-parser';
 import { pushLog } from '../../stores/useLogStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
+import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
+import React from 'react';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
-import type { ChoiceItem, DiceResultType, RewriteBlock, InventoryChange } from '../../types';
+import { cleanChoiceText, buildChoiceInput } from './choice-input-builder';
+import { type StagingTrigger } from '../../sillytavern/option-staging';
+import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 
 interface Props {
   header: string;
@@ -27,6 +32,8 @@ interface Props {
   isFlipping?: boolean;
   rewrite?: RewriteBlock;
   inventoryChanges?: InventoryChange[];
+  /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目, 用来把 <san id="N"/> 替换成 React 组件。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -40,7 +47,7 @@ interface CheckInfo {
   opponentTarget: number;
 }
 
-function parseCheckAction(text: string): CheckInfo | null {
+export function parseCheckAction(text: string): CheckInfo | null {
   // 技能名校验所需的角色卡：把「魔法值消耗」这类非技能词挡在检定之外（详见 isKnownCheckTarget）。
   const sheet = useCharSheetStore.getState().sheet;
   // Format: 对抗检定 "进行力量对抗(对手目标值:45)" or legacy "进行力量对抗(玩家目标值:60, 对手目标值:45)"
@@ -80,6 +87,16 @@ function parseCheckAction(text: string): CheckInfo | null {
     const skillName = normalizeSkillName(m3[1]);
     if (!isKnownCheckTarget(skillName, sheet)) return null;
     return { skillName, target: 0, difficulty: m3[2], bonus: 'none', opposed: false, opponentTarget: 0 };
+  }
+  // Format 4 (BUG4 catch-all): 兜底兼容 cleanChoiceField 没归一化掉的漂移格式。
+  // 同时支持「进行<难度>XX检定」、「进行XX的<难度>检定」、「进行XX检定」（无括号），
+  // 仍排除 "对抗" 防误伤格斗对抗。
+  const m4 = text.match(/进行(?:(普通|困难|极难))?([^()（）对]+?)(?:的(普通|困难|极难))?检定(?![(（])/);
+  if (m4) {
+    const skillName = normalizeSkillName(m4[2]);
+    if (!isKnownCheckTarget(skillName, sheet)) return null;
+    const difficulty = m4[1] || m4[3] || '普通';
+    return { skillName, target: 0, difficulty, bonus: 'none', opposed: false, opponentTarget: 0 };
   }
   return null;
 }
@@ -285,6 +302,7 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
+    // 对抗检定不进 staging（shouldStage 排除 opposed）→ 立即 stashRecord，保持旧行为
     useDiceStore.getState().stashRecord(diceRec);
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
@@ -305,7 +323,7 @@ function fillInputBar(text: string, checkText: string = text) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName} d100=${rollStr}/${parsed.target}${bonusLabel} ${result.label}]\n`;
 
-    const diceRec2 = {
+    const diceRec2: DiceRecord = {
       skill: parsed.bonus === 'bonus' ? `${parsed.skillName}(奖励骰)` : parsed.bonus === 'penalty' ? `${parsed.skillName}(惩罚骰)` : parsed.skillName,
       roll: String(result.raw),
       target: String(parsed.target),
@@ -313,7 +331,21 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().stashRecord(diceRec2);
+    // A1.8 — 普通 check 走 staging：动画结束后由 OptionResolutionOverlay 接管 stashRecord + textarea 写入。
+    // SAN/opposed 已被前面分支拦掉，这里 staging 条件天然成立（kind=check）；GameView 端再用 shouldStage 复核一次。
+    const stagingTrigger: StagingTrigger = {
+      kind: 'check',
+      skill: parsed.skillName,
+      target: parsed.target,
+      originalRoll: result.raw,
+      originalResult: result.resultType as DiceResultType,
+      sanCheck: false,
+      inputText: resultLine + text,
+      resultLine,
+      baseText: text,
+      page,
+      record: diceRec2,
+    };
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -322,6 +354,7 @@ function fillInputBar(text: string, checkText: string = text) {
         inputText: resultLine + text,
         bonus: parsed.bonus, bonusTens: result.bonusTens,
         tensUsed: result.tensUsed, tensAlt: result.tensAlt, ones: result.ones,
+        stagingTrigger,
       },
     }));
   } else if (parsed && parsed.target === 0) {
@@ -332,7 +365,7 @@ function fillInputBar(text: string, checkText: string = text) {
     const bonusLabel = parsed.bonus === 'bonus' ? ' 奖励骰' : parsed.bonus === 'penalty' ? ' 惩罚骰' : '';
     const resultLine = `[${parsed.skillName}${diffLabel} d100=${rollStr}/${resolvedTarget}${bonusLabel} ${result.label}]\n`;
 
-    const diceRec3 = {
+    const diceRec3: DiceRecord = {
       skill: `${parsed.skillName}${diffLabel}${bonusLabel}`,
       roll: String(result.raw),
       target: String(resolvedTarget),
@@ -340,7 +373,20 @@ function fillInputBar(text: string, checkText: string = text) {
       time: Date.now(),
       page,
     };
-    useDiceStore.getState().stashRecord(diceRec3);
+    // A1.8 — 同上：difficulty-based 普通 check 也走 staging。
+    const stagingTrigger: StagingTrigger = {
+      kind: 'check',
+      skill: parsed.skillName,
+      target: resolvedTarget,
+      originalRoll: result.raw,
+      originalResult: result.resultType as DiceResultType,
+      sanCheck: false,
+      inputText: resultLine + text,
+      resultLine,
+      baseText: text,
+      page,
+      record: diceRec3,
+    };
 
     document.dispatchEvent(new CustomEvent('dice-roll-animate', {
       detail: {
@@ -348,6 +394,7 @@ function fillInputBar(text: string, checkText: string = text) {
         roll: result.raw, resultType: result.resultType,
         inputText: resultLine + text,
         bonus: parsed.bonus, bonusTens: result.bonusTens,
+        stagingTrigger,
       },
     }));
   } else {
@@ -381,7 +428,7 @@ function openBackpack() {
   });
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -405,10 +452,10 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
           {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
-            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{beautifyText(renderedContent[0])}</p>
+            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>{renderStringWithBubblesAndBeauty(renderedContent[0], sanityCheckPrompts, 'rp0')}</p>
           ) : (
             renderedContent.map((node, i) => typeof node === 'string'
-              ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{beautifyText(node)}</p>
+              ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{renderStringWithBubblesAndBeauty(node, sanityCheckPrompts, `rp${i}`)}</p>
               : <span key={i}>{node}</span>)
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -466,30 +513,6 @@ const BONUS_COLORS = {
   none: { color: 'var(--neutral-text)', bg: 'rgba(var(--ink-faded-rgb),0.08)', border: '1px solid rgba(var(--ink-faded-rgb),0.3)' },
   opposed: { color: 'var(--opposed-text)', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
 };
-
-function cleanChoiceText(text: string): string {
-  return text
-    .replace(/\[检定\s*[:：][^\]]*\]\s*/g, '')
-    .replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '')
-    // 显示层兜底：剥除残留 var 标签（含畸形写法）与裸露的难度文字
-    .replace(/<\s*var[A-Za-z]*\b[^<>]*?\/?>/gi, '')
-    .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-/**
- * 选中选项时提交给 LLM 的内容：把玩家可见的叙事文字(text)与机制动作(action)合并，
- * 让 LLM 拿到完整意图与上下文，而不只是 action。若 action 已含该叙事则不重复。
- */
-function buildChoiceInput(ch: ChoiceItem): string {
-  const t = cleanChoiceText(ch.text || '').trim();
-  const a = (ch.action || '').trim();
-  if (!t) return a;
-  if (!a) return t;
-  if (a.includes(t)) return a;
-  return `${t}。${a}`;
-}
 
 /**
  * 行动补写拾取提交：当玩家点选带 itemGain 的补写选项时，
@@ -600,11 +623,18 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   // 仅最新一页（最后一页）的选项可点击；翻回历史页面时选项禁用并置灰
   const isLatestPage = useBookStore((s) => s.pageIndex === s.pages.length - 1);
   // 选项锁：本回合已按下一个会推进/掷骰的选项后，全部选项置灰禁用，防止重复点击重掷
+  // A2 重设: 也受未解决 SAN 气泡阻塞——只要本页 pending 含未解决 id, 选项一并置灰锁住,
+  // 强迫玩家先点完所有 <san> 气泡(被动 SAN check 是不可回避的精神冲击)。
   const locked = useChoiceLockStore((s) => s.locked);
-  const check = parseCheckAction(ch.action);
+  const sanityPending = useSanityBubbleStore((s) => s.pending);
+  const sanityResolved = useSanityBubbleStore((s) => s.resolved);
+  const sanityBlocked = sanityPending.some((id) => !sanityResolved.has(id));
+  const effectivelyLocked = locked || sanityBlocked;
+  // BUG4: 优先解析 action 字段；当 LLM 把检定标记漂移到了 text 字段时回退尝试 text。
+  const check = parseCheckAction(ch.action) ?? parseCheckAction(ch.text);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-  const enabled = isLatestPage && !locked;
+  const enabled = isLatestPage && !effectivelyLocked;
   const isHovered = hovered && enabled;
 
   return (
@@ -629,7 +659,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         fillInputBar(buildChoiceInput(ch), ch.action);
       }}
       disabled={!enabled}
-      title={!isLatestPage ? '只有最新一页的选项可以选择' : (locked ? '正在处理上一个选择…' : undefined)}
+      title={!isLatestPage ? '只有最新一页的选项可以选择' : (sanityBlocked ? '请先点亮所有血色理智气泡' : (locked ? '正在处理上一个选择…' : undefined))}
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
@@ -689,4 +719,24 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       })()}
     </button>
   );
+}
+
+/**
+ * A2 重设: 先用 splitTextWithSanBubbles 把 <san id="N"/> 替换成 SanityBubble 组件,
+ * 再对其中残留的 string 段调 beautifyText(关键词高亮 + 对话橘色)。
+ * 没有 <san> 时退化为单次 beautifyText。
+ */
+function renderStringWithBubblesAndBeauty(
+  text: string,
+  prompts: SanityCheckPrompt[] | undefined,
+  keyPrefix: string,
+): React.ReactNode[] {
+  const parts = splitTextWithSanBubbles(text, prompts, keyPrefix);
+  return parts.flatMap((node, idx) => {
+    if (typeof node !== 'string') return [node];
+    const beautified = beautifyText(node);
+    return beautified.map((n, j) => typeof n === 'string'
+      ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
+      : n);
+  });
 }

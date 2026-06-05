@@ -4,6 +4,8 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { CHAR_ORDER, DEFAULT_CHARS, SECONDARY_STATS } from '../../sillytavern/coc-data';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
+import { DevelopmentPhaseModal } from './DevelopmentPhaseModal';
+import { hasTickedDevelopmentSkill } from '../../sillytavern/skill-improvement';
 
 /** 状态条件严重度配色（金→血红渐进）。 */
 const SEVERITY_TONE: Record<string, { color: string; bg: string }> = {
@@ -28,10 +30,10 @@ function parseSections(text: string): { title: string; body: string }[] | null {
 }
 
 const DOSSIER_FIELDS = [
-  { key: 'description' as const, label: '个人描述', en: 'Physical Description' },
-  { key: 'personality' as const, label: '性格特征', en: 'Personality Profile' },
-  { key: 'scenario' as const, label: '场景设定', en: 'Case File / Scenario' },
-  { key: 'personaDescription' as const, label: '角色设定', en: 'Persona Directive' },
+  { key: 'description' as const, label: '个人描述' },
+  { key: 'personality' as const, label: '性格特征' },
+  { key: 'scenario' as const, label: '场景设定' },
+  { key: 'personaDescription' as const, label: '角色设定' },
 ];
 
 const sectionLabel: React.CSSProperties = {
@@ -49,6 +51,8 @@ export function CharSheetOverlay() {
 
   const [dossierOpen, setDossierOpen] = useState<Record<string, boolean>>({});
   const [subOpen, setSubOpen] = useState<Record<string, boolean>>({});
+  const [devOpen, setDevOpen] = useState(false);
+  const hasTicked = hasTickedDevelopmentSkill(sheet);
   const isMobile = useIsMobile();
   const [side, setSide] = useState<Side>('left');
   const toggleDossier = (k: string) => setDossierOpen((p) => ({ ...p, [k]: !p[k] }));
@@ -310,7 +314,7 @@ export function CharSheetOverlay() {
                 暂无档案记录
               </div>
             ) : (
-              DOSSIER_FIELDS.map(({ key, label, en }, i) => {
+              DOSSIER_FIELDS.map(({ key, label }, i) => {
                 const content = (sheet[key] as string)?.trim();
                 if (!content) return null;
                 const open = !!dossierOpen[key];
@@ -325,7 +329,6 @@ export function CharSheetOverlay() {
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: 12, textAlign: 'center', flexShrink: 0 }}>▸</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
-                        <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>{en}</div>
                       </div>
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{open ? '收起' : '展开'}</span>
                     </div>
@@ -349,11 +352,44 @@ export function CharSheetOverlay() {
 
         <div style={{
           borderTop: '1px solid rgba(196,168,85,0.15)', paddingTop: 8, marginTop: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2,
         }}>
-          技能 {skillEntries.length} 项
+          <span>技能 {skillEntries.length} 项</span>
+          <button
+            type="button"
+            onClick={() => hasTicked && setDevOpen(true)}
+            disabled={!hasTicked}
+            title={hasTicked ? '本章结算技能成长' : '尚无触发成长检定的技能'}
+            style={{
+              padding: '5px 14px',
+              border: `1px solid ${hasTicked ? 'var(--brass)' : 'rgba(196,168,85,0.25)'}`,
+              borderRadius: 4,
+              background: hasTicked ? 'rgba(196,168,85,0.10)' : 'transparent',
+              color: hasTicked ? 'var(--gold)' : 'var(--ink-faded)',
+              fontSize: 11, fontFamily: 'var(--font-ui)',
+              cursor: hasTicked ? 'pointer' : 'not-allowed',
+              transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+              letterSpacing: 2,
+            }}
+            onMouseEnter={(e) => {
+              if (!hasTicked) return;
+              e.currentTarget.style.background = 'rgba(196,168,85,0.22)';
+              e.currentTarget.style.transform = 'scale(1.04)';
+            }}
+            onMouseLeave={(e) => {
+              if (!hasTicked) return;
+              e.currentTarget.style.background = 'rgba(196,168,85,0.10)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => { if (hasTicked) e.currentTarget.style.transform = 'scale(0.97)'; }}
+            onMouseUp={(e) => { if (hasTicked) e.currentTarget.style.transform = 'scale(1.04)'; }}
+          >
+            结束本章·发展期
+          </button>
         </div>
       </motion.div>
+      <DevelopmentPhaseModal open={devOpen} onClose={() => setDevOpen(false)} />
     </motion.div>
   );
 }

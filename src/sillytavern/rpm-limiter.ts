@@ -2,10 +2,33 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 
 const WINDOW_MS = 60_000;
 
+/** 单次 rpmAcquire 调用允许的最大排队重试次数硬上限：用户设置可在 [0,10] 内调，超 10 一律截到 10。 */
+export const RPM_QUEUE_ATTEMPTS_HARD_CAP = 10;
+
 /** 限流桶标识：按 API 用途分桶（开启「每个API独立RPM」时各自独立计窗）。 */
 export type RpmKind = 'main' | 'mvu' | 'rewrite';
 
 const histories: Record<RpmKind, number[]> = { main: [], mvu: [], rewrite: [] };
+
+/**
+ * 结构化错误：rpmAcquire 排队等待次数达到 settings.rpmMaxQueueAttempts（硬上限 10）后抛出。
+ * 调用方可用 `err instanceof RpmQueueExhaustedError` 捕获并选择 fail-open（静默降级、丢弃这次请求）。
+ */
+export class RpmQueueExhaustedError extends Error {
+  /** 触发的桶（main/mvu/rewrite）—便于日志定位是哪条管线被卡爆。 */
+  readonly bucket: RpmKind;
+  /** 实际等待的次数（达到此数即抛）。 */
+  readonly attempts: number;
+  /** 当时所属桶的 limit，便于日志显示。 */
+  readonly limit: number;
+  constructor(bucket: RpmKind, attempts: number, limit: number) {
+    super(`RPM 排队上限：bucket=${bucket} 已等待 ${attempts} 次（limit=${limit}/分钟）`);
+    this.name = 'RpmQueueExhaustedError';
+    this.bucket = bucket;
+    this.attempts = attempts;
+    this.limit = limit;
+  }
+}
 
 /**
  * 纯函数核心：给定历史发送时间戳、当前时间、每分钟上限，
@@ -37,12 +60,26 @@ export function resolveBucket(kind: RpmKind): { bucket: RpmKind; limit: number }
 }
 
 /**
+ * 把任意输入钳到 [0, RPM_QUEUE_ATTEMPTS_HARD_CAP]；非有限值回落硬上限。
+ * 用户设置/外部传入都走这里 — 单一来源，避免「设了 15 却以为生效」。
+ */
+export function clampQueueAttempts(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return RPM_QUEUE_ATTEMPTS_HARD_CAP;
+  return Math.max(0, Math.min(RPM_QUEUE_ATTEMPTS_HARD_CAP, Math.floor(v)));
+}
+
+/**
  * RPM 限流：在允许发送前 await。kind 指明调用用途（默认主 API）。
  * 达到上限时排队等待，直到所属桶的滑动窗口腾出名额。
+ *
+ * 排队上限：每次调用累计的「等待轮次」最多 `settings.rpmMaxQueueAttempts`（硬上限 10）；
+ * 超过即抛 `RpmQueueExhaustedError`。调用方可 catch 后 fail-open（静默降级丢这次请求）。
  */
 export async function rpmAcquire(kind: RpmKind = 'main'): Promise<void> {
   const { bucket, limit } = resolveBucket(kind);
   if (limit <= 0) return;
+  const maxAttempts = clampQueueAttempts(useSettingsStore.getState().rpmMaxQueueAttempts);
+  let attempts = 0;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const now = Date.now();
@@ -52,6 +89,10 @@ export async function rpmAcquire(kind: RpmKind = 'main'): Promise<void> {
       histories[bucket].push(now);
       return;
     }
+    if (attempts >= maxAttempts) {
+      throw new RpmQueueExhaustedError(bucket, attempts, limit);
+    }
+    attempts += 1;
     await new Promise((r) => setTimeout(r, Math.min(waitMs + 20, 5000)));
   }
 }
@@ -61,4 +102,18 @@ export function _resetRpm(): void {
   histories.main = [];
   histories.mvu = [];
   histories.rewrite = [];
+}
+
+/**
+ * 取「现在 60 秒滑动窗口内」某桶已发出的请求数（实际 Request-Per-Minute 实测值）。
+ * 用于 TokenDisplay 在右页右下角显示「当时发出了多少次请求」，与 settings.rpmLimit
+ * 配置上限是两回事——一个反映系统真实繁忙度（受多页/多子调用累积影响）, 一个反映
+ * 用户设置的上限。
+ *
+ * @param kind 默认 'main'。perApiRpmEnabled 关闭时所有 kind 统一归 main 桶。
+ */
+export function getCurrentRpm(kind: RpmKind = 'main'): number {
+  const { bucket } = resolveBucket(kind);
+  const now = Date.now();
+  return histories[bucket].filter((t) => now - t < WINDOW_MS).length;
 }

@@ -24,6 +24,7 @@ import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
 import { generateStartingItems } from '../sillytavern/starting-items-generator';
+import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
 import { reconcileMap } from '../sillytavern/map-reconciler';
@@ -67,15 +68,18 @@ import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_G
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
 import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
-import { parseLlmResponse, parseRewriteResponse } from '../sillytavern/llm-response-parser';
-import { type MvuOpError, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
+import { parseLlmResponse, parseRewriteResponse, detectNpcMissing } from '../sillytavern/llm-response-parser';
+import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
+import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
+import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
+import { getCurrentRpm } from '../sillytavern/rpm-limiter';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -908,7 +912,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 由此落地，供下方 newPage.sheetSnapshot 与阶段校验取到最新值。独立 MVU API 的「隐含数值」LLM 提取较慢，
         // 连同失败回灌自纠一起【挪到页面+物品提交之后】再 await（见 settleVariables 及其调用点），
         // 让书页/背包/NPC/地图立即可见、不被 MVU 往返拖在后面。
-        const patchReport: { applied: number; failed: MvuOpError[] } =
+        const patchReport: MvuPatchReport =
           useVariableStore.getState().processResponse(hookProcessedContent).patchReport;
 
         // ── MVU 补丁块静默失败嗅探 ──
@@ -1005,6 +1009,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               selfCorrectUsage = sc.usage;
             }
           }
+
+          // ── G3: post-settle 评估器相位 ──
+          // MVU drain + corrective 已结束的此刻才跑 evaluator——它们 emit 的 ops 走【独立的】
+          // applyCorrectiveOps 通道,不被 MVU 快照体系视为"本回合 LLM 写入"而回滚.
+          // A2(SAN-loss→临疯) / A3(成功检定→ticked) 在后续 ticket 通过 registerEvaluator 接入.
+          runPostSettleEvaluators({
+            sheet: useCharSheetStore.getState().sheet,
+            statData: useVariableStore.getState().statData,
+            patchReport,
+            applyCorrectiveOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
+          });
         };
 
         const newPage = result.page;
@@ -1024,6 +1039,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
+        // A2 重设: 本页 SAN check 气泡数组(随页持久化, 删页时一并随页移除, 不污染剩余页面)
+        if (result.sanityCheckPrompts) newPage.sanityCheckPrompts = result.sanityCheckPrompts;
 
         const chatStore = useChatStore.getState();
         chatStore.addMessage('user', lastInputRef.current);
@@ -1090,6 +1107,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
           cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
           at: Date.now(),
+          // 主 RPM 桶 60s 窗口内已发出的请求数实测值——TokenDisplay 在右下角显示「当时
+          // 发了 N 次请求」, 反映系统真实繁忙度（含本页主回合 + 同窗口内子调用累积）。
+          rpm: getCurrentRpm('main'),
+          // 本回合使用的模型名快照——CacheStatsPanel 按 model tier 走对应费率算 cost，
+          // 并把曲线按 flash/pro 分双线展示。
+          model: useSettingsStore.getState().apiModel,
         };
         pushLog(
           'info',
@@ -1104,6 +1127,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } else {
           pushLog('debug', '[Pipeline] 本回合无 NPC 更新(result.npcUpdates 为空)', 'system');
         }
+        // BUG2 Part 2: 检测「叙事里出现 NPC、但 npcUpdates 缺失/为空」→ 用【补写 API】fire-and-forget 重纠。
+        // 触发条件：parsed.npcUpdates 缺失或空数组，且 leftContent+rightContent 含称谓/对话标记。
+        // 走 'rewrite' RPM 桶——撞上限自动排队 1 分钟（rpm-limiter 实现），不报错；
+        // 含会话守卫；穷尽 retries 失败 → 静默放弃（fail-open，绝不阻塞翻页）。
+        const investigatorNameForRectify = useCharSheetStore.getState().sheet?.identity?.name?.trim() ?? '';
+        const npcMissingDetected = detectNpcMissing(
+          `${newPage.leftContent}\n${newPage.rightContent}`,
+          !!(result.npcUpdates && result.npcUpdates.length > 0),
+          investigatorNameForRectify,
+        );
         // 角色卡快照（此刻 statData 已含独立 API 隐含提取 + 自纠后的终值）
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
         // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
@@ -1164,6 +1197,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               pushLog('warn', `[暗线] 定向补生成失败（已穷尽重试）: ${e instanceof Error ? e.message : String(e)}`, 'api');
             }
           })();
+        }
+
+        // BUG2 Part 2: NPC 缺失「补写 API 重纠」——detectNpcMissing 命中且独立补写 API 配置齐全时，
+        // fire-and-forget 走 'rewrite' RPM 桶（撞上限自动排队 1 分钟）拉出叙事里被遗漏的 NPC、回灌入名册并写回页面。
+        // 与暗线补生成同模式：会话守卫、abort 守卫、失败静默 fail-open。
+        if (npcMissingDetected) {
+          const useIndepRW = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey?.trim();
+          const rwBase = useIndepRW ? settings.rewriteApiBaseUrl : settings.apiBaseUrl;
+          const rwKey  = useIndepRW ? settings.rewriteApiKey  : settings.apiKey;
+          const rwModel = useIndepRW ? settings.rewriteApiModel : settings.apiModel;
+          if (rwBase?.trim() && rwKey?.trim() && rwModel?.trim()) {
+            const aidNR = useChatStore.getState().activeId;
+            const nrPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+            const narrativeForRectify = `${newPage.leftContent}\n${newPage.rightContent}`;
+            pushLog('info', `[NPC缺失] 检测到叙事里有 NPC 但 npcUpdates 缺失/空，已启动补写 API 重纠…`, 'system');
+            void (async () => {
+              try {
+                const rectified = await rectifyMissingNpcs(
+                  narrativeForRectify, investigatorNameForRectify,
+                  rwBase, rwKey, rwModel, controller.signal,
+                );
+                if (!rectified || rectified.npcUpdates.length === 0) return;
+                if (useChatStore.getState().activeId !== aidNR) return; // 切档放弃
+                if (controller.signal.aborted) return;
+                useNpcStore.getState().applyUpdates(rectified.npcUpdates);
+                // 写回该页 npcUpdates + 刷新 npcSnapshot——保证删页快照回溯不丢补写出来的 NPC。
+                const snap = structuredClone(useNpcStore.getState().profiles);
+                useBookStore.getState().setPageNpcRectification(nrPageIdx, rectified.npcUpdates, snap);
+                useChatStore.getState().savePages(useBookStore.getState().pages);
+                if (aidNR) await saveConversation(aidNR);
+                pushLog('info', `[NPC缺失] 补写 API 已重纠 ${rectified.npcUpdates.length} 个 NPC：${rectified.npcUpdates.map((n) => n.name).join('、')}`, 'system');
+              } catch (e) {
+                if (controller.signal.aborted) return;
+                pushLog('warn', `[NPC缺失] 补写 API 重纠失败（已穷尽重试）：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
         }
 
         // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。
@@ -1412,9 +1482,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 兜底:无论 LLM 是否给 mapUpdates,都把本回合场景地点登记为地图当前地点——
         // 否则开局/原地不动时地图全空、无当前地点节点(地图只靠 LLM mapUpdates 时常缺位)。
         // 仅当 mapUpdates 未自带 current 时补,避免覆盖 LLM 给的当前地点。
+        // BUG3:不再用 applyUpdates({ newLocations: [{ name: sceneLoc }] }) 兜底——
+        // 那会建一个空描述节点,后续即便 LLM 给了真实描述也只能写入「首次为空」分支。
+        // 改为只 setCurrentByName:若同名节点已存在(LLM 在某轮给过真实描述),指向之;
+        // 否则不强行建空节点,等待 LLM 真正命名+描述时由 applyUpdates 的 newLocations 路径建。
         const sceneLoc = result.page.sceneInfo?.location?.trim();
         if (sceneLoc && sceneLoc !== '未知' && !result.mapUpdates?.current) {
-          useMapStore.getState().applyUpdates({ current: sceneLoc, newLocations: [{ name: sceneLoc }] });
+          useMapStore.getState().setCurrentByName(sceneLoc);
         }
 
         // 地点元素抽取：对【当前地点】用独立 LLM 调用从本回合叙事抽取新环境元素，与主输出解耦、不阻塞翻页。

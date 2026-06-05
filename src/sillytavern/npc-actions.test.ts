@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { NPC_ACTIONS, NPC_ACTION_GROUPS, NPC_QUICK_ACTIONS, npcActionsByGroup } from './npc-actions';
 
 describe('NPC_ACTIONS 目录', () => {
-  it('快捷行=攻击/快速交谈/偷窃', () => {
+  it('快捷行=攻击/话术/偷窃', () => {
     expect(NPC_QUICK_ACTIONS.map((a) => a.id)).toEqual(['attack', 'talk', 'steal']);
   });
   it('攻击与 4 个战技为 combat，战技带 maneuver', () => {

@@ -1,5 +1,6 @@
 import React from "react";
 import { KeywordTooltip } from "./KeywordTooltip";
+import { parseInlineMarkdown } from "./InlineMarkdown";
 
 /* ──────────────────────────────────────────────
  * 文本美化：{{keyword}} 加粗 + 对话橘色高亮
@@ -38,7 +39,9 @@ function beautifyKeywords(text: string): React.ReactNode[] {
 
   BARE_MACRO_RE.lastIndex = 0;
   while ((match = BARE_MACRO_RE.exec(text)) !== null) {
-    if (match.index > lastIdx) result.push(text.slice(lastIdx, match.index));
+    if (match.index > lastIdx) {
+      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `dlg-md-${lastIdx}`));
+    }
     const keyword = match[1].trim();
     if (keyword) {
       result.push(
@@ -49,7 +52,9 @@ function beautifyKeywords(text: string): React.ReactNode[] {
     }
     lastIdx = BARE_MACRO_RE.lastIndex;
   }
-  if (lastIdx < text.length) result.push(text.slice(lastIdx));
+  if (lastIdx < text.length) {
+    result.push(...parseInlineMarkdown(text.slice(lastIdx), `dlg-md-${lastIdx}`));
+  }
   return result;
 }
 
@@ -66,9 +71,9 @@ export function beautifyText(text: string): React.ReactNode[] {
 
   TOKEN_RE.lastIndex = 0;
   while ((match = TOKEN_RE.exec(text)) !== null) {
-    // 标记前的纯文本
+    // 标记前的纯文本 → 走 inline markdown 解析（**bold** / *italic* / ~~strike~~ / `code`）
     if (match.index > lastIdx) {
-      result.push(text.slice(lastIdx, match.index));
+      result.push(...parseInlineMarkdown(text.slice(lastIdx, match.index), `md-${lastIdx}`));
     }
 
     if (match[1] !== undefined) {
@@ -82,7 +87,7 @@ export function beautifyText(text: string): React.ReactNode[] {
         );
       }
     } else {
-      // 对话 → 橘色 span（内部仍解析 {{keyword}}）
+      // 对话 → 橘色 span（内部仍解析 {{keyword}} 与 markdown）
       result.push(
         <span key={`dlg-${match.index}`} style={DIALOGUE_STYLE}>
           {beautifyKeywords(match[2])}
@@ -93,12 +98,12 @@ export function beautifyText(text: string): React.ReactNode[] {
     lastIdx = TOKEN_RE.lastIndex;
   }
 
-  // 最后一个标记之后的剩余文本
+  // 最后一个标记之后的剩余文本 → 同样走 inline markdown
   if (lastIdx < text.length) {
-    result.push(text.slice(lastIdx));
+    result.push(...parseInlineMarkdown(text.slice(lastIdx), `md-${lastIdx}`));
   }
 
-  // 没有任何标记时，原样返回单个字符串
+  // 没有任何标记时，原样返回单个字符串（向后兼容 beautifyText 旧契约）
   return result.length > 0 ? result : [text];
 }
 

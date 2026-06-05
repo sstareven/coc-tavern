@@ -3,7 +3,8 @@ import { pushLog } from '../stores/useLogStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
-import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem } from '../types';
+import { patchOrphanSanityTags } from './sanity-prompt-engine';
+import type { BookPage, SceneInfo, InventoryChange, InventoryAction, ItemCategory, RewriteBlock, ChoiceItem, SanityCheckPrompt } from '../types';
 import { CLUE_TAGS } from '../types';
 import type { ClueInput } from '../stores/useClueStore';
 import type { NpcUpdate } from '../stores/useNpcStore';
@@ -26,6 +27,8 @@ export interface ParsedLlmResult {
   clues?: ClueInput[];
   npcUpdates?: NpcUpdate[];
   mapUpdates?: MapUpdates;
+  /** A2 重设: LLM 内联 <san id="N"/> 标签对应的检定条目数组(主 JSON 顶层 sanityCheckPrompts)。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -56,7 +59,9 @@ export function stripMvu(s: string): string {
     .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '{{$1}}')
     .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
     .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
-    .replace(/<[^>]+>/g, '')
+    // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
+    // 用否定先行断言把 san 排除在「strip all tags」之外。
+    .replace(/<(?!san\b)[^>]+>/g, '')
     .replace(/\{\{set:[^}]+\}\}/gi, '')
     // LLM 偶尔把关键词写成单层花括号 {词}（应为 {{词}}），规范化以便高亮、
     // 避免原始花括号直接暴露给玩家。已有的 {{词}} 整体匹配后原样保留，不会被误改。
@@ -86,10 +91,34 @@ export function stripVarTagsLoose(s: string): string {
  *
  * 注意：合法检定标记 `进行XX检定(普通)` 不带「难度」二字，故不会被难度清理误删，
  * 掷骰判定（parseCheckAction）依旧正常工作。
+ *
+ * BUG4 漂移格式归一化：LLM 偶尔输出非标准形态，统一改写成 parseCheckAction 能识别的
+ * `进行<技能>检定(<难度>)`：
+ *   - "进行<难度>XX检定"        → "进行XX检定(<难度>)"      （前缀难度，无括号）
+ *   - "进行XX的<难度>检定"       → "进行XX检定(<难度>)"
+ *   - "进行XX检定（<难度>...）" → "进行XX检定(<难度>...)" （全角括号归一化）
+ * 必须在 stripMvu 等其它清理之前做归一化，否则全角括号与「难度」前缀会被其它路径破坏。
  */
 export function cleanChoiceField(s: string): string {
+  // BUG4：先做检定标记的形态归一化（在 stripMvu / 难度文字清理之前）。
+  const DIFF = '(?:普通|困难|极难)';
+  const normalized = s
+    // 全角括号 → 半角：仅对 "进行XX检定（...）" 内的全角括号转换，避免误改正文中其它中文。
+    .replace(/(进行[^()（）]{1,40}?检定)\s*（([^）]*?)）/g, '$1($2)')
+    // "进行<难度>XX检定" → "进行XX检定(<难度>)"（无括号前缀难度）
+    // 用零宽断言保护 "进行XX对抗"：require 后续以「检定」结尾，且 XX 不含括号 / 对抗 关键词。
+    .replace(
+      new RegExp(`进行(${DIFF})([^()（）对]{1,20}?)检定(?![(（])`, 'g'),
+      (_full, diff: string, skill: string) => `进行${skill}检定(${diff})`,
+    )
+    // "进行XX的<难度>检定" → "进行XX检定(<难度>)"
+    .replace(
+      new RegExp(`进行([^()（）对]{1,20}?)的(${DIFF})检定`, 'g'),
+      (_full, skill: string, diff: string) => `进行${skill}检定(${diff})`,
+    );
+
   return stripMvu(
-    stripVarTagsLoose(s)
+    stripVarTagsLoose(normalized)
       // LLM 误写到叙事里的裸难度文字（非检定标记）。仅匹配带「难度」后缀者，保护 检定(普通) 标记。
       .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, ''),
   )
@@ -199,6 +228,74 @@ export interface JsonCoercion {
 }
 
 /**
+ * 已知主回合 JSON 顶层字段——用于「缺最外层 `{`」畸形识别。
+ * 模型偶发直接以 `"sceneInfo": {...}` 之类的成员开头、忘了最外层 `{`，旧 brace walker
+ * 会把第一个内部 `{`（sceneInfo）当成最外层、只提取出 sceneInfo 子对象当 parsed，
+ * 沉默错误模式导致右页所有字段全走兜底（继续探索×4）。见 repairMissingOuterBrace。
+ */
+const KNOWN_TOP_FIELDS = [
+  'sceneInfo', 'leftHeader', 'leftContent', 'rightHeader', 'rightContent',
+  'choices', 'keywords', 'summary', 'darkThread', 'inventoryChanges',
+  'clues', 'npcUpdates', 'mapUpdates', 'sanityCheckPrompts', 'badEnding',
+] as const;
+
+/**
+ * 检测「缺最外层 `{`」畸形并修复：
+ *   - 扫描第一个出现的顶层字段标记（行首 `"<knownField>":`）。
+ *   - 若它的位置在第一个 `{` 之前（或全文没 `{`），判定为缺外层 `{`：
+ *       裁掉前缀垃圾（思维链/前置叙事），前置补一个 `{`。
+ *   - 已有外层 `{` 时不动。
+ * 该函数仅做"补 `{`"，外层 `}` 是否需要补由后续 brace walker 兜底处理。
+ */
+export function repairMissingOuterBrace(s: string): string {
+  const fieldRe = new RegExp(
+    `(?:^|\\n)[\\t ]*"(?:${KNOWN_TOP_FIELDS.join('|')})"[\\t ]*:`,
+    'm',
+  );
+  const fieldMatch = fieldRe.exec(s);
+  if (!fieldMatch) return s;
+  // 行首匹配位置：若首字符是 \n，正文从下一字符开始
+  const matched = fieldMatch[0];
+  const fieldPos = matched.startsWith('\n') ? fieldMatch.index + 1 : fieldMatch.index;
+  const firstBrace = s.indexOf('{');
+  if (firstBrace >= 0 && firstBrace < fieldPos) return s; // 已有外层 {，无需修复
+  // 缺外层 {：裁掉 fieldPos 前的前缀（思维链/前置叙事/markdown 分隔等），前置 {。
+  return '{' + s.substring(fieldPos);
+}
+
+/**
+ * 把 JSON 字符串值内的真实控制字符（LF/CR/Tab）转义为 `\n`/`\r`/`\t`。
+ * 字符串外（结构区）的换行/空白原样保留（用于代码格式化）。
+ *
+ * 根因：LLM 多段叙事常以真实换行排版（"line1\\nline2" 写成两行），违反 JSON
+ * 字符串不得含未转义控制字符的规则。旧路径在 attempt-0 的 `[…control…]` 兼容
+ * 替换里**把它们直接抹掉**（沉默数据损失），不是「炸」——比炸更糟。
+ *
+ * 状态机模板与 normalizeStructuralPunct / escapeStrayInnerQuotes 一致。
+ */
+export function escapeControlCharsInStrings(s: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (!inString) {
+      out += c;
+      if (c === '"') inString = true;
+      continue;
+    }
+    if (escaped) { out += c; escaped = false; continue; }
+    if (c === '\\') { out += c; escaped = true; continue; }
+    if (c === '"') { out += c; inString = false; continue; }
+    if (c === '\n') { out += '\\n'; continue; }
+    if (c === '\r') { out += '\\r'; continue; }
+    if (c === '\t') { out += '\\t'; continue; }
+    out += c;
+  }
+  return out;
+}
+
+/**
  * 将"脏" LLM 文本强制解析为 JSON 对象。容错管线提炼自 parseLlmResponse 的清洗步骤，
  * 供整页解析与行动补写共用，避免两条路径的清洗能力分叉（行动补写曾因缺这些清洗而解析失败）。
  * 处理：代码块包裹、外层引号、大括号深度配对提取、中文全角标点/弯引号归一化、
@@ -219,6 +316,11 @@ export function coerceJsonObject(raw: string): JsonCoercion {
   if (jsonStr.startsWith('"') && /^\s*\{/.test(jsonStr.slice(1))) jsonStr = jsonStr.slice(1);
   if (jsonStr.endsWith('"') && /\}\s*$/.test(jsonStr.slice(0, -1))) jsonStr = jsonStr.slice(0, -1);
 
+  // 修复「缺最外层 `{`」畸形：模型偶发以 `"sceneInfo": {...}` 之类的成员直接开头，
+  // 旧 brace walker 会把第一个内部 `{` 当作最外层、只提取 sceneInfo 子对象当顶层返回，
+  // 沉默错误模式导致右页所有字段全走兜底。详见 repairMissingOuterBrace 注释。
+  jsonStr = repairMissingOuterBrace(jsonStr);
+
   const braceStart = jsonStr.indexOf('{');
   if (braceStart >= 0) {
     let depth = 0, inString = false, escaped = false, braceEnd = -1;
@@ -235,6 +337,10 @@ export function coerceJsonObject(raw: string): JsonCoercion {
       else if (c === '}') { depth--; if (depth === 0) { braceEnd = i; break; } }
     }
     if (braceEnd > 0) jsonStr = jsonStr.substring(braceStart, braceEnd + 1);
+    else if (depth > 0) {
+      // 走到末尾仍有未闭合的 `{`（典型：模型同时漏了最外层 `}`）——补齐 depth 个 `}`
+      jsonStr = jsonStr.substring(braceStart) + '}'.repeat(depth);
+    }
   }
 
   // 顺序要求（见 Oracle 复核）：先把弯引号归一化掉，使分隔符只剩 ASCII "，
@@ -249,6 +355,11 @@ export function coerceJsonObject(raw: string): JsonCoercion {
   jsonStr = normalizeStructuralPunct(jsonStr);
 
   jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
+
+  // 字符串值内真实 LF/CR/Tab 转义为 \n/\r/\t——LLM 多段叙事常以真实换行排版，
+  // 旧 attempt-0 的兼容替换会把它们当不可见控制字符直接抹掉（沉默数据损失），
+  // 这里在 parse 前提前做正确转义以保留叙事换行。详见 escapeControlCharsInStrings。
+  jsonStr = escapeControlCharsInStrings(jsonStr);
 
   let lastErr = '';
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -376,7 +487,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     const leftHeader = cleanHeader(String(parsed.leftHeader ?? '探索')) || '探索';
-    const leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
+    let leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
     const rightHeader = cleanHeader(String(parsed.rightHeader ?? '行动')) || '行动';
     const rightContent = stripMvu(unescapeLiteralNewlines(String(parsed.rightContent ?? '接下来你打算怎么做？')));
 
@@ -522,6 +633,49 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       }
     }
 
+    // ── A2 重设: SAN check 气泡提示数组 ──
+    // 主 JSON 顶层 sanityCheckPrompts: [{id,trigger,checkType,checkSkill?,difficulty,sanLossSuccess,sanLossFail}]
+    // 每条对应叙事正文里嵌的 <san id="N"/> 标签;玩家点气泡 → SanityCheckPanel 跑检定 → 掷扣 SAN。
+    let sanityCheckPrompts: SanityCheckPrompt[] | undefined;
+    const VALID_CHECK_TYPES = new Set(['POW', 'INT', 'skill']);
+    const VALID_DIFFICULTIES = new Set(['normal', 'hard', 'extreme']);
+    if (Array.isArray(parsed.sanityCheckPrompts)) {
+      sanityCheckPrompts = (parsed.sanityCheckPrompts as Record<string, unknown>[])
+        .filter((p) => p && typeof p.id === 'string' && String(p.id).trim())
+        .map((p) => {
+          const checkType = String(p.checkType ?? 'INT');
+          const difficulty = String(p.difficulty ?? 'normal');
+          return {
+            id: String(p.id).trim(),
+            trigger: typeof p.trigger === 'string' ? p.trigger.trim() : '',
+            checkType: (VALID_CHECK_TYPES.has(checkType) ? checkType : 'INT') as SanityCheckPrompt['checkType'],
+            checkSkill: typeof p.checkSkill === 'string' ? p.checkSkill.trim() : undefined,
+            difficulty: (VALID_DIFFICULTIES.has(difficulty) ? difficulty : 'normal') as SanityCheckPrompt['difficulty'],
+            sanLossSuccess: typeof p.sanLossSuccess === 'string' ? p.sanLossSuccess.trim() : '0',
+            sanLossFail: typeof p.sanLossFail === 'string' ? p.sanLossFail.trim() : '0',
+          };
+        });
+      if (sanityCheckPrompts.length === 0) sanityCheckPrompts = undefined;
+      else pushLog('debug', `[parseLlm] SAN检定气泡: ${sanityCheckPrompts.map((p) => `${p.id}(${p.checkType}${p.checkSkill ? ':' + p.checkSkill : ''}/${p.difficulty}, ${p.sanLossSuccess}/${p.sanLossFail})`).join(', ')}`, 'system');
+    }
+
+    // 孤儿 SAN prompt 自动补标签：避免出现 `sanityCheckPrompts` 非空但叙事里无对应
+    // `<san id="N"/>` 内联标签 → useSanityBubbleEffect 喂全部 id 给 setPending → 选项被锁
+    // 而 SanityBubble 因无内联标签永远渲染不出来 → 玩家死锁的 2026-06-05 失败现场。
+    // 补在 leftContent 末尾（叙事高潮通常收在左页末尾）以维持气泡渲染入口。
+    if (sanityCheckPrompts && sanityCheckPrompts.length > 0) {
+      const patched = patchOrphanSanityTags(leftContent, rightContent, sanityCheckPrompts);
+      if (patched.orphanIds.length > 0) {
+        pushLog(
+          'warn',
+          `[parseLlm] SAN 孤儿气泡补标签: ${patched.orphanIds.join(', ')} ` +
+          `(LLM 漏插 <san id> 内联标签，已自动追加到左页末尾防选项死锁)`,
+          'system',
+        );
+        leftContent = patched.leftContent;
+      }
+    }
+
     // 开局一次性「坏结局」（守秘人机密）：仅取非空字符串。日志完整记录内容（仅供排错）。
     const badEnding = typeof parsed.badEnding === 'string' && parsed.badEnding.trim()
       ? parsed.badEnding.trim()
@@ -556,10 +710,53 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       clues,
       npcUpdates,
       mapUpdates,
+      sanityCheckPrompts,
     };
 }
 
 const REWRITE_NUMERALS = ['V', 'VI', 'VII', 'VIII'];
+
+/**
+ * NPC 缺失检测（BUG2 Part 2）：当 parsed.npcUpdates 缺失或为空数组，但叙事文本里【明显】出现
+ * 人物称谓/对话标记时，提示 pipeline 该走「补写 API 重纠 npcUpdates」路径。
+ *
+ * 判据（任一命中即认为「叙事里有 NPC、但模型没列出」）：
+ *  1. 中文敬称/职衔后缀（先生/女士/小姐/医生/牧师/教授/警官/侦探/博士/夫人/老爷/管家/船长/中尉…）
+ *  2. 对话冒号「: 」「: 」或中文引号开头（「『」『…』）出现 2 处以上 → 多角色对话场景的强指标
+ *
+ * 调查员名传入用于排除「玩家就是这个先生」误检；缺省可不传。
+ * 返回 true 表示「应该用补写 API 重纠」。
+ */
+export function detectNpcMissing(
+  narrative: string,
+  hasNpcUpdates: boolean,
+  investigatorName?: string,
+): boolean {
+  if (hasNpcUpdates) return false;
+  const text = (narrative || '').trim();
+  if (text.length < 20) return false; // 叙事过短不触发
+
+  // 1) 敬称/职衔——中文姓后跟一组常见称谓
+  // CJK 1-4 字 + (称谓)；称谓须紧接 CJK 名字，避免「先生」单字符匹配到「先生病了」
+  const honorific = /[一-鿿]{1,4}(先生|女士|小姐|医生|大夫|牧师|教授|警官|侦探|博士|夫人|老爷|管家|船长|中尉|上尉|少校|队长|院长|经理|老板|警长|神父|修女|讲师|学者|店主|老者|老妇|青年|少女|男子|女子)/;
+  if (honorific.test(text)) {
+    // 排除调查员自己（玩家就叫「XX 先生」）——把命中片段挖出，若全部命中都是调查员，则不算
+    const matches = text.match(new RegExp(honorific.source, 'g')) ?? [];
+    const others = investigatorName?.trim()
+      ? matches.filter((m) => !m.includes(investigatorName.trim()))
+      : matches;
+    if (others.length > 0) return true;
+  }
+
+  // 2) 对话标记密度：「：」「: 」「「」「『」 — 至少 2 处对话才视为多角色场景
+  const dialogueMarkers = (text.match(/[：:]\s*[「『"]/g) ?? []).length
+    + (text.match(/^[「『]/gm) ?? []).length;
+  if (dialogueMarkers >= 2) return true;
+
+  return false;
+}
+
+
 
 /**
  * 解析「行动补写」返回的精简 JSON：{ text, choices[] }。

@@ -11,6 +11,8 @@ import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
 import type { CharacterSheet, COC7Characteristic } from '../../types';
 import {
   CHAR_ROLL, resolveSkillBase, deriveSecondaryStats,
+  applyAgeModifiers, rollEduImprovement, roll3D6,
+  clampSkillPointAlloc,
 } from '../../sillytavern/coc-rules';
 import {
   STEPS, CHAR_ORDER, type SkillCat, ALL_SKILLS, SKILL_DESC, COC_OCCUPATIONS,
@@ -194,6 +196,34 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   const [luckValue, setLuckValue] = useState<number | null>(null);
 
+  /* ---- A3.2: Age modifiers (R8) ---- */
+  // previewAgeMod 是 reactive：随 charValues / age 变化重算，用于实时显示扣点分组要求。
+  // ageDeductSCD/ageDeductSS 由玩家在 StepCharacteristics 手动分配。
+  // appliedAgeMod / eduImprovementsLog 在 handleConfirm 时定格，供 StepReview 展示。
+  const [ageDeductSCD, setAgeDeductSCD] = useState<{ STR: number; CON: number; DEX: number }>({ STR: 0, CON: 0, DEX: 0 });
+  const [ageDeductSS, setAgeDeductSS] = useState<{ STR: number; SIZ: number }>({ STR: 0, SIZ: 0 });
+  const [eduImprovementsLog, setEduImprovementsLog] = useState<Array<{ roll: number; improved: boolean; gain: number }>>([]);
+  const [appliedAgeMod, setAppliedAgeMod] = useState<ReturnType<typeof applyAgeModifiers> | null>(null);
+
+  const previewAgeMod = useMemo(() => applyAgeModifiers(charValues, age), [charValues, age]);
+  // 当玩家改属性/年龄导致 previewAgeMod 变化、之前的分配可能超额时，自动复位为 0（不强制等额）。
+  useEffect(() => {
+    const scdTotal = ageDeductSCD.STR + ageDeductSCD.CON + ageDeductSCD.DEX;
+    if (scdTotal > previewAgeMod.deductRemaining.strConDexGroup) {
+      setAgeDeductSCD({ STR: 0, CON: 0, DEX: 0 });
+    }
+    const ssTotal = ageDeductSS.STR + ageDeductSS.SIZ;
+    if (ssTotal > previewAgeMod.deductRemaining.strSizGroup) {
+      setAgeDeductSS({ STR: 0, SIZ: 0 });
+    }
+  }, [previewAgeMod, ageDeductSCD, ageDeductSS]);
+
+  const scdAllocatedSum = ageDeductSCD.STR + ageDeductSCD.CON + ageDeductSCD.DEX;
+  const ssAllocatedSum = ageDeductSS.STR + ageDeductSS.SIZ;
+  const scdReady = scdAllocatedSum === previewAgeMod.deductRemaining.strConDexGroup;
+  const ssReady = ssAllocatedSum === previewAgeMod.deductRemaining.strSizGroup;
+  const canBuildSheet = scdReady && ssReady;
+
   /* ---- Step 3: Derived (auto-calc) ---- */
   const derived = useMemo(() => deriveSecondaryStats(charValues), [charValues]);
 
@@ -244,6 +274,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ---- Lifted callbacks for StepSkills ---- */
 
+  // Refs to read the *other* pool's allocation without stale closures
+  // (adjOccPoint needs interestPoints[skill]; adjIntPoint needs occPoints[skill]).
+  const occPointsRef = useRef(occPoints);
+  const intPointsRef = useRef(interestPoints);
+  useEffect(() => { occPointsRef.current = occPoints; }, [occPoints]);
+  useEffect(() => { intPointsRef.current = interestPoints; }, [interestPoints]);
+
   const adjOccPoint = (skillName: string, delta: number) => {
     setOccPoints((p) => {
       const cur = p[skillName] ?? 0;
@@ -251,9 +288,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const remaining = occPointPool - used;
       const sk = ALL_SKILLS.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
-      const maxBySkill = 99 - base;
-      const target = cur + delta;
-      const newVal = Math.max(0, Math.min(Math.min(cur + remaining, maxBySkill), target));
+      const otherAlloc = intPointsRef.current[skillName] ?? 0;
+      const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
       return { ...p, [skillName]: newVal };
     });
   };
@@ -265,9 +301,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const remaining = intPointPool - used;
       const sk = ALL_SKILLS.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
-      const maxBySkill = 99 - base;
-      const target = cur + delta;
-      const newVal = Math.max(0, Math.min(Math.min(cur + remaining, maxBySkill), target));
+      const otherAlloc = occPointsRef.current[skillName] ?? 0;
+      const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
       return { ...p, [skillName]: newVal };
     });
   };
@@ -286,7 +321,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const intTotalAllocated = Object.values(interestPoints).reduce((a, b) => a + b, 0);
   const occRemaining = occPointPool - occTotalAllocated;
   const intRemaining = intPointPool - intTotalAllocated;
-  const canProceedStep4 = occRemaining === 0 && intRemaining === 0 && occSkills.length > 0;
+  // Invariant guard (BUG1): no single skill may exceed base+occ+int ≤ 99 — final defense before Step5.
+  const allSkillsUnderCap = ALL_SKILLS.every((sk) => {
+    const occ = occPoints[sk.name] ?? 0;
+    const int = interestPoints[sk.name] ?? 0;
+    if (occ === 0 && int === 0) return true;
+    const base = getBaseForSkill(sk, charValues);
+    return base + occ + int <= 99;
+  });
+  const canProceedStep4 = occRemaining === 0 && intRemaining === 0 && occSkills.length > 0 && allSkillsUnderCap;
 
   /* ---- Step 5: Background ---- */
   const [description, setDescription] = useState('');
@@ -296,7 +339,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [treasuredPossessions, setTreasuredPossessions] = useState('');
   const [traits, setTraits] = useState('');
   const [injuries, setInjuries] = useState('');
-  const [phobias, setPhobias] = useState('');
+  const [backgroundFears, setBackgroundFears] = useState('');
   const [bgFilling, setBgFilling] = useState(false);
   const [backstoryError, setBackstoryError] = useState('');
   const [backstoryDraft, setBackstoryDraft] = useState('');
@@ -310,15 +353,16 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const prevOccRef = useRef(occupation);
 
   const saveCurrentPreset = useCallback(() => {
-    const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias };
+    const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears };
     savePreset(data);
-  }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, phobias]);
+  }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears]);
 
   const loadPreset = useCallback((preset: CharacterPreset) => {
     const d = preset.data;
     setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setCustomOccupation(d.customOccupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
     setCharValues(d.charValues||DEFAULT_CHARS); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]); setInterestPoints(d.interestPoints||{});
-    setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setPhobias(d.phobias||'');
+    // 兼容老预设：backgroundFears 是新键名（A0.1 重命名），phobias 是 legacy 键；优先读新键，回退老键。
+    setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setBackgroundFears(d.backgroundFears || d.phobias || '');
     // 关键：把 prevOcc 同步为载入的职业，否则下面监听 occupation 的 effect 会判定「换了职业」，
     // 把刚 setOccSkills/setInterestSkills 填入的技能立即清空（表现为载入预设后技能全空）。
     prevOccRef.current = d.occupation||'';
@@ -341,10 +385,34 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   /* ---- Confirm ---- */
   const handleConfirm = useCallback(() => {
-    const chars = Object.fromEntries(
+    // 1) 起点：玩家分配的原始 charValues
+    const rawChars = Object.fromEntries(
       CHAR_ORDER.map((c) => [c.key, charValues[c.key] ?? 50]),
     ) as Record<COC7Characteristic, number>;
 
+    // 2) 应用 R8 年龄修正：APP + EDU 直扣已在 ageMod.chars 中完成
+    const ageMod = applyAgeModifiers(rawChars, age);
+    const postAge = { ...ageMod.chars };
+
+    // 3) 玩家分配的 STR/CON/DEX 与 STR/SIZ 组扣点（下限 1）
+    postAge.STR = Math.max(1, postAge.STR - ageDeductSCD.STR - ageDeductSS.STR);
+    postAge.CON = Math.max(1, postAge.CON - ageDeductSCD.CON);
+    postAge.DEX = Math.max(1, postAge.DEX - ageDeductSCD.DEX);
+    postAge.SIZ = Math.max(1, postAge.SIZ - ageDeductSS.SIZ);
+
+    // 4) R5 EDU 提升轮（次数由年龄段决定）
+    let edu = postAge.EDU;
+    const eduLog: Array<{ roll: number; improved: boolean; gain: number }> = [];
+    for (let n = 0; n < ageMod.eduImprovementCount; n++) {
+      const er = rollEduImprovement(edu);
+      eduLog.push({ roll: er.roll, improved: er.improved, gain: er.gain });
+      edu = er.newEdu;
+    }
+    postAge.EDU = edu;
+    setEduImprovementsLog(eduLog);
+    setAppliedAgeMod(ageMod);
+
+    const chars = postAge;
     const { hpMax, sanMax, mpMax, db, build } = deriveSecondaryStats(chars);
 
     const halfFifth = Object.fromEntries(
@@ -354,7 +422,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       }),
     ) as Record<COC7Characteristic, { half: number; fifth: number }>;
 
-    const luck = luckValue ?? 50;
+    // 5) 幸运：15-19 段重投取大，其他段按玩家已掷的 luckValue（或现掷一次）
+    const luck = ageMod.luckRollAgain
+      ? Math.max(roll3D6() * 5, roll3D6() * 5)
+      : (luckValue ?? roll3D6() * 5);
 
     // Build skills record
     const skills: Record<string, { base: number; current: number }> = {};
@@ -398,7 +469,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       bgParts.push(`【珍贵之物 Treasured Possessions】\n${treasuredPossessions.trim() || '此人似乎没有任何牵挂之物——或者说，那些珍贵的东西早已失去。'}`);
       bgParts.push(`【特质 Traits】\n${traits.trim() || '沉默寡言，行踪不定。'}`);
       bgParts.push(`【伤口/伤痕 Injuries】\n${injuries.trim() || '表面上看不出明显伤痕，但谁知道衣领下藏着什么。'}`);
-      bgParts.push(`【恐惧症/狂躁症 Phobias】\n${phobias.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
+      bgParts.push(`【恐惧症/狂躁症 Phobias】\n${backgroundFears.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
       const combinedDesc = bgParts.join('\n\n');
 
       const sheet: CharacterSheet = {
@@ -409,7 +480,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           san: { current: sanMax, max: sanMax },
           mp: { current: mpMax, max: mpMax },
           luck,
-          mov: 8,
+          mov: ageMod.mov,
           db,
           build,
         },
@@ -430,6 +501,14 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         personaDescription: '',
         posture: '站立',
         statusConditions: [],
+        dailySanLoss: 0,
+        temporaryInsanity: { active: false, roundsLeft: 0 },
+        indefiniteInsanity: { active: false, daysLeft: 0 },
+        permanentInsanity: false,
+        phobias: [],
+        manias: [],
+        known_spells: [],
+        recovery: {},
       };
 
     // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
@@ -448,7 +527,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
     luckValue, name, player, occupation, customOccupation, age, sex, residence, birthplace,
     description, beliefs, significantPeople, meaningfulLocations,
-    treasuredPossessions, traits, injuries, phobias,
+    treasuredPossessions, traits, injuries, backgroundFears,
+    ageDeductSCD, ageDeductSS,
     setSheet, onComplete,
   ]);
 
@@ -456,7 +536,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const canGoNext = () => {
     switch (step) {
       case 0: return name.trim().length > 0;
-      case 1: return allCharsAssigned;
+      case 1: return allCharsAssigned && canBuildSheet;
       case 2: return luckValue !== null;
       case 3: return canProceedStep4;
       case 4: return true;
@@ -548,7 +628,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     { key: 'treasuredPossessions', zh: '珍贵之物', value: treasuredPossessions, setter: setTreasuredPossessions },
     { key: 'traits',               zh: '特质',     value: traits,               setter: setTraits },
     { key: 'injuries',             zh: '伤疤',     value: injuries,             setter: setInjuries },
-    { key: 'phobias',              zh: '恐惧症',   value: phobias,              setter: setPhobias },
+    { key: 'backgroundFears',      zh: '恐惧症（背景）', value: backgroundFears,     setter: setBackgroundFears },
   ];
 
   // 核心：构造统一 prompt（草稿 + 已填字段原文 + 角色档案），让 AI 产出全部 8 格。
@@ -727,6 +807,18 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             onShufflePool={shufflePool}
             onSwitchToFreeMode={switchToFreeMode}
             onSwitchToPoolMode={switchToPoolMode}
+            ageBand={{
+              strSizGroup: previewAgeMod.deductRemaining.strSizGroup,
+              strConDexGroup: previewAgeMod.deductRemaining.strConDexGroup,
+              appDeduct: previewAgeMod.appDeduct,
+              mov: previewAgeMod.mov,
+              eduImprovementCount: previewAgeMod.eduImprovementCount,
+              luckRollAgain: previewAgeMod.luckRollAgain,
+            }}
+            scdAlloc={ageDeductSCD}
+            ssAlloc={ageDeductSS}
+            onScdAlloc={(k, v) => setAgeDeductSCD((p) => ({ ...p, [k]: v }))}
+            onSsAlloc={(k, v) => setAgeDeductSS((p) => ({ ...p, [k]: v }))}
           />
         );
       case 2:
@@ -781,7 +873,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             treasuredPossessions={treasuredPossessions} onSetTreasuredPossessions={setTreasuredPossessions}
             traits={traits} onSetTraits={setTraits}
             injuries={injuries} onSetInjuries={setInjuries}
-            phobias={phobias} onSetPhobias={setPhobias}
+            backgroundFears={backgroundFears} onSetBackgroundFears={setBackgroundFears}
             backstoryDraft={backstoryDraft}
             onSetBackstoryDraft={setBackstoryDraft}
             bgFilling={bgFilling}
@@ -821,8 +913,28 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             treasuredPossessions={treasuredPossessions}
             traits={traits}
             injuries={injuries}
-            phobias={phobias}
+            backgroundFears={backgroundFears}
             onSavePreset={saveCurrentPreset}
+            ageModSummary={appliedAgeMod ? {
+              age,
+              scdGroup: appliedAgeMod.deductRemaining.strConDexGroup,
+              scdAlloc: ageDeductSCD,
+              ssGroup: appliedAgeMod.deductRemaining.strSizGroup,
+              ssAlloc: ageDeductSS,
+              appDeduct: appliedAgeMod.appDeduct,
+              movDelta: appliedAgeMod.mov - 8,
+              eduImprovements: eduImprovementsLog,
+            } : {
+              // 进入审阅页时还未"确认创建"，appliedAgeMod 为 null：展示预览（基于 previewAgeMod）。
+              age,
+              scdGroup: previewAgeMod.deductRemaining.strConDexGroup,
+              scdAlloc: ageDeductSCD,
+              ssGroup: previewAgeMod.deductRemaining.strSizGroup,
+              ssAlloc: ageDeductSS,
+              appDeduct: previewAgeMod.appDeduct,
+              movDelta: previewAgeMod.mov - 8,
+              eduImprovements: [],
+            }}
           />
         );
       default:
@@ -1029,8 +1141,11 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           ) : (
             <button
               onClick={handleConfirm}
-              className="sk-btn"
-              style={{ ...btnBase, background: 'rgba(139,58,58,0.25)', borderColor: 'rgba(204,51,51,0.4)', color: 'var(--blood-bright)' }}
+              disabled={!canBuildSheet}
+              className={canBuildSheet ? 'sk-btn' : undefined}
+              style={canBuildSheet
+                ? { ...btnBase, background: 'rgba(139,58,58,0.25)', borderColor: 'rgba(204,51,51,0.4)', color: 'var(--blood-bright)' }
+                : btnDisabled}
             >
               确认创建
             </button>

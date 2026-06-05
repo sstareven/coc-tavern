@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog } from '../types';
+import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog, NpcProfile } from '../types';
+import type { NpcUpdate } from './useNpcStore';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 import { useCombatStore } from './useCombatStore';
+import { useSanityBubbleStore } from './useSanityBubbleStore';
 
 const defaultPages: BookPage[] = [
   // ▸▸▸ 序章：降生之梦 + 命运歧路 ◂◂◂
@@ -116,6 +118,8 @@ interface BookStore {
   setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
   /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
   setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
+  /** 按 index 覆写某页的 npcUpdates 与 npcSnapshot（供 BUG2 Part 2 补写 API 重纠后页锚定写回；删页快照式回溯据 npcSnapshot 恢复）。 */
+  setPageNpcRectification: (index: number, npcUpdates: NpcUpdate[], npcSnapshot: Record<string, NpcProfile>) => void;
   /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
   setPageCombatLog: (index: number, combatLog: CombatLog) => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
@@ -184,6 +188,11 @@ export const useBookStore = create<BookStore>((set, get) => ({
         // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。
         const enc = useCombatStore.getState().encounter;
         if (enc?.anchorPageId && removedIds.includes(enc.anchorPageId)) useCombatStore.getState().clearCombat();
+        // useSanityBubbleStore.resolved 是 in-memory 解决态(按 page.sanityCheckPrompts.id 标记)。
+        // 删页清掉气泡列表对应页 → resolved 也必须清，防新页 LLM 生成同 id(p1/p2/p3 是常见模板) 时
+        // 被误判为"已触发"(SanityBubble 渲染为灰圆点、玩家点不开/不掉 SAN)。注释期望见 useSanityBubbleStore
+        // 顶部 page-delete-rollback-snapshot-pattern 段；此处兑现该不变量。
+        useSanityBubbleStore.getState().reset();
       }, 0);
     }
     return { pages: fixed, pageIndex };
@@ -370,6 +379,23 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], darkThread };
+    return { pages };
+  }),
+  setPageNpcRectification: (index, npcUpdates, npcSnapshot) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    const prevPage = pages[index];
+    // 合并：保留原 npcUpdates，追加补写出来的（按 name 去重，原项优先——主回合若有同名则不被补写覆盖）。
+    const prevUpdates = prevPage.npcUpdates ?? [];
+    const seen = new Set(prevUpdates.map((n) => n.name.trim()));
+    const merged = [...prevUpdates];
+    for (const u of npcUpdates) {
+      const key = u.name.trim();
+      if (!key || seen.has(key)) continue;
+      merged.push(u);
+      seen.add(key);
+    }
+    pages[index] = { ...prevPage, npcUpdates: merged, npcSnapshot };
     return { pages };
   }),
   setPageCombatLog: (index, combatLog) => set((s) => {

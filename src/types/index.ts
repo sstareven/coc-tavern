@@ -13,7 +13,8 @@ export interface CharacterSheet {
     db: string;
     build: number;
   };
-  skills: Record<string, { base: number; current: number }>;
+  /** 技能：base = 起始值；current = 当前值；ticked = 本场冒险触发了「成功后打勾」标记（M2 经验提升机制使用）。 */
+  skills: Record<string, { base: number; current: number; ticked?: boolean }>;
   identity: {
     name: string;
     occupation: string;
@@ -37,6 +38,30 @@ export interface CharacterSheet {
   posture: string;
   /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
   statusConditions: StatusCondition[];
+  /**
+   * 一【游戏日】内累计的理智损失（A2 不定性疯狂阈值 = maxSan/5 / 单日）。
+   * 由 A2 post-settle evaluator 在 sceneInfo.date 变更时清零（NOT 每回合）。
+   * 同时 A2.4 评估器读此字段判定 indefinite 触发。
+   */
+  dailySanLoss: number;
+  /** 临时疯狂（COC7e 表 VII/VIII）：active=true 时角色处于发作，roundsLeft 为剩余回合。entry 是表内 1..10 的命中点数（A2.3 起统一存数字，对齐 schema/redirect 的 number 校验）。 */
+  temporaryInsanity: {
+    active: boolean;
+    roundsLeft: number;
+    bout?: { mode: 'realtime' | 'summary'; table: 'VII' | 'VIII'; entry: number };
+  };
+  /** 不定性疯狂（A2.4）：累计达 maxSan/5 / 单日 后触发，需 1d10 个月恢复或经治疗。daysLeft 为剩余恢复天数。 */
+  indefiniteInsanity: { active: boolean; daysLeft: number };
+  /** 永久性疯狂（SAN 归零）。布尔标志即可：触发即终局，没有阶段或残量。 */
+  permanentInsanity: boolean;
+  /** 恐惧症（A2 临时/不定性疯狂获得的长期 phobia 标签）。与 statusConditions 正交。 */
+  phobias: string[];
+  /** 狂躁症（A2 临时/不定性疯狂获得的长期 mania 标签）。与 statusConditions 正交。 */
+  manias: string[];
+  /** 已知法术（B1 法术系统）。仅记法术 id/名，详细 cost/effect 在法术库 / 世界书内。 */
+  known_spells: string[];
+  /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
+  recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
 }
 
 /** 角色的持续状态条件（如中毒、着火、极度口渴）。 */
@@ -88,6 +113,9 @@ export interface BookPage {
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
   combatLog?: CombatLog;
+  /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目(对应叙事正文里嵌的 <san id="N"/> 标签)。
+   *  随页持久化, 删页/翻页时 SanityBubble 列表据此重建; 玩家点击解决态在 useSanityBubbleStore.resolved。 */
+  sanityCheckPrompts?: SanityCheckPrompt[];
 }
 
 /** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */
@@ -102,6 +130,17 @@ export interface PageGenStats {
   cacheMissTokens?: number;
   /** 本页生成时刻(epoch ms)——供缓存面板按天分组 X 轴。 */
   at?: number;
+  /**
+   * 生成完成那一刻，主 RPM 桶 60 秒滑动窗口内已发出的请求数（实测 Request-Per-Minute，
+   * 非 settings.rpmLimit 配置上限）。供 TokenDisplay 右下角显示「当时发了 N 次请求」。
+   * 老存档/老页为 undefined → 跳过显示。
+   */
+  rpm?: number;
+  /**
+   * 生成时使用的模型名（settings.apiModel 快照）——CacheStatsPanel 据此区分 flash/pro
+   * 走对应费率算 cost、并把曲线按模型分双线显示。老存档为 undefined → 用默认 pro 价。
+   */
+  model?: string;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
@@ -161,6 +200,28 @@ export interface DarkThreadData {
   progress: number;
   threatLevel: string;
   foreshadowing: string;
+}
+
+/**
+ * 理智检定气泡(A2 重设): LLM 在叙事正文嵌内联标记 <san id="N"/> + 在主 JSON 顶层 sanityCheckPrompts
+ * 数组里给出对应条目。玩家点击气泡 → SanityCheckPanel 跑 POW/INT/skill d100 检定 → 按结果掷扣 SAN。
+ *
+ * - id:           唯一标识(与叙事中 <san id="N"/> 的 N 对应);可用 'p1','p2'等任意字符串
+ * - trigger:      检定触发的简短描述(玩家可见,如"目睹同伴被撕碎")
+ * - checkType:    'POW'(理智底层属性) | 'INT'(看清诡异) | 'skill'(需 checkSkill 字段)
+ * - checkSkill:   仅 checkType='skill' 时填(如 '克苏鲁神话')
+ * - difficulty:   d100 难度等级 — normal(原值)/hard(/2)/extreme(/5)
+ * - sanLossSuccess: 通过检定时的 SAN 损失骰表达式("0" / "1D2" / "0/1D6" 取斜杠左侧)
+ * - sanLossFail:    未通过检定时的 SAN 损失骰表达式("1D6" / "1D10" / "0/1D6" 取斜杠右侧)
+ */
+export interface SanityCheckPrompt {
+  id: string;
+  trigger: string;
+  checkType: 'POW' | 'INT' | 'skill';
+  checkSkill?: string;
+  difficulty: 'normal' | 'hard' | 'extreme';
+  sanLossSuccess: string;
+  sanLossFail: string;
 }
 
 // ===== Inventory System =====
@@ -372,6 +433,16 @@ export interface DiceRecord {
   purpose?: string;
   /** 本次掷骰的逐颗骰子（供书页内滚骰动画渲染）；伤害记录必填，d100 检定可省。 */
   dice?: { value: number; faces: number }[];
+  /** R4 推动检定：本次记录系推动检定后的二次结果（pushedFrom 含原失败信息）。 */
+  pushed?: boolean;
+  /** R7 幸运消耗：本次检定消耗的幸运点数（达成升级所用）。 */
+  luckSpent?: number;
+  /** 推动理由（玩家/AI 填写，用于历史回顾）。 */
+  pushReason?: string;
+  /** 推动检定的原始失败记录（仅 pushed=true 时存在）。 */
+  pushedFrom?: { roll: number; type: DiceResultType };
+  /** R6 成长打钩：本次成功是否计入下次成长检定（用于 ticked 标记落地）。 */
+  growthTickEligible?: boolean;
 }
 
 // ===== Lorebooks =====

@@ -127,17 +127,45 @@ export function buildThinkingMarker(cfg: DsCacheConfig | undefined): string {
 }
 
 /**
- * DeepSeek 标准计价（deepseek-chat，人民币/百万 token；list 价，可按需调整）：
- * 输入(缓存命中) ¥0.5 · 输入(缓存未命中) ¥2 · 输出 ¥8。
- * 注：DeepSeek 偶有错峰/促销折扣，此处用标准价估算，仅供参考。
+ * DeepSeek 价格表（人民币 / 百万 token，2026 标准价；DeepSeek 偶有错峰/促销折扣，此处用标准价估算，仅供参考）。
+ *
+ * - flash: deepseek-v4-flash 类（输入命中 ¥0.02 / 未命中 ¥1 / 输出 ¥2）—— 便宜
+ * - pro:   deepseek-v4-pro / deepseek-chat / deepseek-reasoner 等（输入命中 ¥0.025 / 未命中 ¥3 / 输出 ¥6）
+ *
+ * 注：未知模型走 pro 价（保守，避免少报费用让用户惊到）。
  */
-export const DEEPSEEK_PRICE_CNY = { cacheHit: 0.5, cacheMiss: 2, output: 8 } as const;
+export const DEEPSEEK_PRICES = {
+  flash: { cacheHit: 0.02, cacheMiss: 1, output: 2 },
+  pro: { cacheHit: 0.025, cacheMiss: 3, output: 6 },
+} as const;
 
-/** 据 token 用量估算人民币费用（命中输入/未命中输入/输出）。 */
-export function estimateCostCNY(cacheHitTokens: number, cacheMissTokens: number, outputTokens: number): number {
+export type ModelTier = keyof typeof DEEPSEEK_PRICES;
+
+/**
+ * 从模型名识别 tier。
+ *   - 名字含 "flash"（大小写不敏感）→ flash
+ *   - 其余（含 pro/chat/reasoner/未知/空）→ pro（保守计价）
+ */
+export function inferModelTier(model: string | undefined | null): ModelTier {
+  if (!model) return 'pro';
+  return /flash/i.test(model) ? 'flash' : 'pro';
+}
+
+/**
+ * 据 token 用量估算人民币费用（命中输入/未命中输入/输出），按 model 走对应 tier 费率。
+ * model 不传 / 不认识 → 默认 pro 价。
+ */
+export function estimateCostCNY(
+  cacheHitTokens: number,
+  cacheMissTokens: number,
+  outputTokens: number,
+  model?: string,
+): number {
+  const tier = inferModelTier(model);
+  const p = DEEPSEEK_PRICES[tier];
   return (
-    (cacheHitTokens * DEEPSEEK_PRICE_CNY.cacheHit +
-      cacheMissTokens * DEEPSEEK_PRICE_CNY.cacheMiss +
-      outputTokens * DEEPSEEK_PRICE_CNY.output) / 1_000_000
+    (cacheHitTokens * p.cacheHit +
+      cacheMissTokens * p.cacheMiss +
+      outputTokens * p.output) / 1_000_000
   );
 }

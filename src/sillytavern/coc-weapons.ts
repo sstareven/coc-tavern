@@ -16,12 +16,12 @@ export interface WeaponTemplate {
   magazine?: number;
 }
 
-const HANDGUN = ['枪械(手枪)', '射击(手枪)', '枪械', '射击'];
-const RIFLE = ['枪械(步枪/霰弹枪)', '枪械(步枪)', '射击(步枪)', '枪械', '射击'];
-const SHOTGUN = ['枪械(步枪/霰弹枪)', '枪械(霰弹枪)', '射击(霰弹枪)', '枪械', '射击'];
-const SMG = ['枪械(冲锋枪)', '射击(冲锋枪)', '枪械', '射击'];
-const BOW = ['射击(弓)', '弓术', '射击'];
-const BRAWL = ['格斗(斗殴)', '格斗', '斗殴', '近战'];
+const HANDGUN = ['射击(手枪)'];
+const RIFLE = ['射击(步枪)'];
+const SHOTGUN = ['射击(霰弹枪)'];
+const SMG = ['射击(冲锋枪)'];
+const BOW = ['射击(弓)'];
+const BRAWL = ['格斗(斗殴)'];
 
 /** 顺序敏感：specific → generic（先匹配到的胜出）。 */
 const TABLE: WeaponTemplate[] = [

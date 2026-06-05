@@ -101,3 +101,51 @@ describe('useMapStore.mergeLocations', () => {
     expect(s.locations.find((l) => l.id === s.currentLocationId)?.name).toBe('印斯茅斯·码头区');
   });
 });
+
+describe('BUG3 — 地点描述兜底', () => {
+  beforeEach(reset);
+
+  it('setCurrentByName 在节点不存在时不建空描述节点', () => {
+    // 模拟 useChatPipeline 的兜底逻辑：sceneLoc 未在 mapUpdates 中，只调用 setCurrentByName。
+    useMapStore.getState().setCurrentByName('未存在的客厅');
+    const s = useMapStore.getState();
+    expect(s.locations).toHaveLength(0);              // 不创建节点
+    expect(s.currentLocationId).toBeNull();           // 无现存节点 → current 保持 null
+  });
+
+  it('setCurrentByName 在节点已存在时正常切换', () => {
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '客厅', description: '吊灯摇晃' }] });
+    useMapStore.getState().setCurrentByName('客厅');
+    const s = useMapStore.getState();
+    expect(s.locations).toHaveLength(1);
+    expect(s.currentLocationId).toBe(s.locations[0].id);
+  });
+
+  it('applyUpdates 的 newLocations 带描述时覆盖现有空描述节点', () => {
+    // 第一回合：先建空描述节点（模拟早期 LLM 只给了名字）
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '书房' }] });
+    expect(useMapStore.getState().locations[0].description).toBe('');
+    // 第二回合：LLM 终于给出描述，applyUpdates 必须刷新进去
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '书房', description: '书架上落满灰尘' }] });
+    const s = useMapStore.getState();
+    expect(s.locations).toHaveLength(1);
+    expect(s.locations[0].description).toBe('书架上落满灰尘');
+  });
+
+  it('applyUpdates 后续描述无条件覆盖更新（不止首次写入）', () => {
+    // 第一次：给描述 A
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '阁楼', description: '陈旧的木板地' }] });
+    // 第二次：LLM 提供更丰富的描述，应当被采纳（BUG3 修复前 ensureLoc 不会更新非空描述）
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '阁楼', description: '陈旧的木板地，散落着泛黄的家书' }] });
+    const s = useMapStore.getState();
+    expect(s.locations[0].description).toBe('陈旧的木板地，散落着泛黄的家书');
+  });
+
+  it('newLocations 不带描述时不抹掉已有描述', () => {
+    // 已有描述
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '客厅', description: '陈旧的沙发' }] });
+    // 后续无描述的同名条目不应抹掉
+    useMapStore.getState().applyUpdates({ newLocations: [{ name: '客厅' }] });
+    expect(useMapStore.getState().locations[0].description).toBe('陈旧的沙发');
+  });
+});

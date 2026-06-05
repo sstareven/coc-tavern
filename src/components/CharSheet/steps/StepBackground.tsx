@@ -17,8 +17,8 @@ interface Props {
   onSetTraits: (v: string) => void;
   injuries: string;
   onSetInjuries: (v: string) => void;
-  phobias: string;
-  onSetPhobias: (v: string) => void;
+  backgroundFears: string;
+  onSetBackgroundFears: (v: string) => void;
   backstoryDraft: string;
   onSetBackstoryDraft: (v: string) => void;
   bgFilling: boolean;
@@ -47,7 +47,7 @@ export function StepBackground({
   treasuredPossessions, onSetTreasuredPossessions,
   traits, onSetTraits,
   injuries, onSetInjuries,
-  phobias, onSetPhobias,
+  backgroundFears, onSetBackgroundFears,
   backstoryDraft, onSetBackstoryDraft,
   bgFilling,
   backstoryError,
@@ -78,7 +78,7 @@ export function StepBackground({
     { label: '珍贵之物 Treasured Possessions', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
     { label: '特质 Traits', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
     { label: '伤口/伤痕 Injuries', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
-    { label: '恐惧症/狂躁症 Phobias', value: phobias, set: onSetPhobias, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
+    { label: '恐惧症/狂躁症 Phobias', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
   ];
 
   return (

@@ -63,7 +63,7 @@ describe('mapNamesToWeapons', () => {
     expect(knife.impaling).toBe(true);
   });
   it('解析器命中→武器 skill 用 NPC 技能值', () => {
-    const ws = mapNamesToWeapons(['左轮手枪'], (keys) => (keys.includes('枪械(手枪)') ? 65 : 20));
+    const ws = mapNamesToWeapons(['左轮手枪'], (keys) => (keys.includes('射击(手枪)') ? 65 : 20));
     expect(ws[0].skill).toBe(65);
   });
 });
@@ -73,7 +73,7 @@ describe('buildCombatantFromNpc', () => {
     const c = buildCombatantFromNpc(npc({
       id: 'cult', name: '邪教徒',
       characteristics: { STR: 60, SIZ: 60, CON: 60, DEX: 55, POW: 50 },
-      derived: 'HP 12 / DB +1D4', skills: { '格斗(斗殴)': 55, '躲闪': 30 },
+      derived: 'HP 12 / DB +1D4', skills: { '格斗(斗殴)': 55, '闪避': 30 },
       possessions: ['匕首', '怀表'], favorability: -50,
     }));
     expect(c.faction).toBe('enemy');

@@ -10,7 +10,7 @@ export interface NpcActionRequest {
 
 /** 各 check 动作的叙事措辞（{n}=NPC 名）；缺省回落「对{n}{label}」。 */
 const PHRASING: Record<string, (n: string) => string> = {
-  talk: (n) => `与${n}快速交谈，试探其口风`,
+  talk: (n) => `与${n}话术周旋，试探其口风`,
   steal: (n) => `趁${n}不备，试图偷走其随身的财物`,
   persuade: (n) => `试图以言语说服${n}`,
   charm: (n) => `试图取悦、博取${n}的好感`,
@@ -26,7 +26,7 @@ const PHRASING: Record<string, (n: string) => string> = {
 
 /**
  * 据 NPC 名 + check 动作构造【提交文本】与【检定标记文本】（纯函数，便于测试）。
- * checkText 形如「进行话术检定(普通)，与XX快速交谈」，可被 RightPage.parseCheckAction(Format2) 识别；
+ * checkText 形如「进行话术检定(普通)，与XX话术周旋」，可被 RightPage.parseCheckAction(Format2) 识别；
  * 提交给 LLM 的 text 保持纯叙事（不含检定标记，符合 format-instruction 约定）。
  */
 export function buildNpcActionRequest(npcName: string, action: NpcAction): NpcActionRequest {

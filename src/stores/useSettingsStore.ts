@@ -61,6 +61,12 @@ interface SettingsState {
   perApiRpmEnabled: boolean;
   mvuRpmLimit: number;
   rewriteRpmLimit: number;
+  /**
+   * 单次 rpmAcquire 调用允许的最大「排队等待轮次」：达到即抛 RpmQueueExhaustedError，
+   * 由调用方 fail-open（静默降级丢这次请求），防 setTimeout 死循环卡住整条管线。
+   * 硬上限 10，超 10 一律截到 10。默认 10。
+   */
+  rpmMaxQueueAttempts: number;
   // MVU 失败回灌自纠：默认关闭；开启后最多额外 N 次 mvu 桶往返让 AI 修正非法变量更新。
   mvuSelfCorrectEnabled: boolean;
   mvuSelfCorrectRetries: number;
@@ -68,6 +74,15 @@ interface SettingsState {
   uiScale: number;
   /** DeepSeek V4 缓存优化器：思维模式指令注入（附着到末条用户消息，保前缀缓存）。 */
   dsCache: DsCacheConfig;
+  /**
+   * 子调用 LLM 请求附加 response_format: { type: 'json_object' } —— 强制模型返回
+   * 单一合法 JSON 对象，配合 strictJsonParse 降低子调用 JSON 解析失败率。
+   * 仅作用于 callDsSubagent 通路（generateStartingItems / extractLocationElements /
+   * integrateClues / generateBadEnding / rectifyMissingNpcs / time-jump-generator
+   * / combat-detector 等子调用），不动主回合（主回合输出含 <UpdateVariable> 补丁
+   * 块，与 json_object 模式互斥）。默认开。
+   */
+  forceJsonObject: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -114,10 +129,12 @@ interface SettingsStore extends SettingsState {
   setPerApiRpmEnabled: (v: boolean) => void;
   setMvuRpmLimit: (n: number) => void;
   setRewriteRpmLimit: (n: number) => void;
+  setRpmMaxQueueAttempts: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
   setUiScale: (v: number) => void;
   setDsCache: (c: Partial<DsCacheConfig>) => void;
+  setForceJsonObject: (v: boolean) => void;
 }
 
 const defaults: SettingsState = {
@@ -164,10 +181,12 @@ const defaults: SettingsState = {
   perApiRpmEnabled: false,
   mvuRpmLimit: 10,
   rewriteRpmLimit: 10,
+  rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
   uiScale: 1,
   dsCache: DEFAULT_DS_CACHE_CONFIG,
+  forceJsonObject: true,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -218,10 +237,12 @@ export const useSettingsStore = create<SettingsStore>()(
       setPerApiRpmEnabled: (v) => set({ perApiRpmEnabled: v }),
       setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
       setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
       setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
       setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
+      setForceJsonObject: (v) => set({ forceJsonObject: v }),
     }),
     {
       name: 'coc_settings_v2',

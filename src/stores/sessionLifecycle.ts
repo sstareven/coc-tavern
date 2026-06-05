@@ -1,5 +1,5 @@
 import { useChatStore } from './useChatStore';
-import { useCharSheetStore, defaultSheet, isDefaultSheet } from './useCharSheetStore';
+import { useCharSheetStore, defaultSheet, isDefaultSheet, migrateSheet } from './useCharSheetStore';
 import { useInventoryStore, normalizeItems } from './useInventoryStore';
 import { useClueStore } from './useClueStore';
 import { useNpcStore } from './useNpcStore';
@@ -13,6 +13,7 @@ import { useChoiceLockStore } from './useChoiceLockStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
+import { useSanityBubbleStore } from './useSanityBubbleStore';
 import { useVariableStore } from './useVariableStore';
 import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
@@ -65,6 +66,7 @@ export function clearAllGameState() {
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
+  useSanityBubbleStore.getState().reset();
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
   useBookStore.getState().resetToPrologue();
@@ -341,7 +343,8 @@ async function loadConversationInner(cid: string): Promise<void> {
   rebuildSummariesFromPages(pages);
 
   // 角色卡：P0-1 无条件设置——无行则回退默认卡，杜绝残留上一会话角色。
-  useCharSheetStore.getState().setSheet(charRow?.sheet ?? defaultSheet);
+  // 经 migrateSheet 走唯一升级口，补齐老存档缺失的 A2/A3/B1/C2 预留字段。
+  useCharSheetStore.getState().setSheet(migrateSheet(charRow?.sheet));
 
   // 物品栏（剥离关系键，normalizeItems 由 replaceAll 内部处理）
   const items = inventoryRows.map(({ conversationId: _cid, itemId: _itemId, ...item }) => item);

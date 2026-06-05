@@ -92,7 +92,7 @@ export function StepSkills({
           <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业 OCCUPATION</span>
           <DarkSelect value={occValue} onChange={onSetOccupation}
             options={[
-              ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `${o.en} · 信用 ${o.crMin}–${o.crMax}%` })),
+              ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
               { value: '__custom__', label: '自定义职业...', sub: '' },
             ]} />
         </div>
@@ -113,7 +113,7 @@ export function StepSkills({
       }}>
         {selectedOcc && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{selectedOcc.name} ({selectedOcc.en})</span>
+            <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{selectedOcc.name}</span>
             <span style={{ color: 'var(--ink-subtle)' }}>信用 {crMin}–{crMax}%</span>
           </div>
         )}
@@ -252,10 +252,22 @@ export function StepSkills({
                   }}>
                     {/* +/- row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <button onClick={(e) => { e.stopPropagation(); editingType === 'occ' ? onAdjOccPoint(sk.name, 5) : onAdjIntPoint(sk.name, 5); }}
-                        className="sk-btn" style={editBtn}>+5</button>
-                      <button onClick={(e) => { e.stopPropagation(); editingType === 'occ' ? onAdjOccPoint(sk.name, 1) : onAdjIntPoint(sk.name, 1); }}
-                        className="sk-btn" style={editBtn}>+1</button>
+                      {(() => {
+                        // BUG1: atCap = 当前编辑池+另一池+基础值 已经顶到 99；此时 +1/+5 应灰显并禁用。
+                        const atCap = total >= 99;
+                        const disabledStyle = atCap
+                          ? { ...editBtn, opacity: 0.32, cursor: 'not-allowed' as const, color: 'rgba(255,255,255,0.25)' }
+                          : editBtn;
+                        const tip = atCap ? '已达 99 上限' : undefined;
+                        return <>
+                          <button onClick={(e) => { e.stopPropagation(); if (atCap) return; editingType === 'occ' ? onAdjOccPoint(sk.name, 5) : onAdjIntPoint(sk.name, 5); }}
+                            disabled={atCap} title={tip}
+                            className="sk-btn" style={disabledStyle}>+5</button>
+                          <button onClick={(e) => { e.stopPropagation(); if (atCap) return; editingType === 'occ' ? onAdjOccPoint(sk.name, 1) : onAdjIntPoint(sk.name, 1); }}
+                            disabled={atCap} title={tip}
+                            className="sk-btn" style={disabledStyle}>+1</button>
+                        </>;
+                      })()}
                       <button onClick={(e) => { e.stopPropagation(); editingType === 'occ' ? onAdjOccPoint(sk.name, -1) : onAdjIntPoint(sk.name, -1); }}
                         className="sk-btn" style={editBtn}>-1</button>
                       <button onClick={(e) => { e.stopPropagation(); editingType === 'occ' ? onAdjOccPoint(sk.name, -5) : onAdjIntPoint(sk.name, -5); }}
