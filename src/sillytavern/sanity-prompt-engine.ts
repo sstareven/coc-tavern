@@ -49,18 +49,34 @@ function escapeRegExp(s: string): string {
 }
 
 /**
+ * 文本末尾「句末标点 + 闭引号 + 破折号/省略号 + 空白」段的正则——用来定位
+ * 「叙事正文」与「收尾标点」的边界，把 `<san id>` 气泡嵌进收尾标点之前。
+ *   - 中文句末：。！？，；：、
+ *   - 中文闭引号/括号：」』）》〉〕】
+ *   - 西文句末：.!?,;:
+ *   - 西文闭括号/引号：)]}'"
+ *   - 破折号 — / 省略号 …
+ *   - 末尾空白（防 stripMvu 漏 trim）
+ * 不包含开引号（「『（《）——它们出现在末尾通常表示语句被截断，不该被视为可剥离的尾段。
+ */
+const TRAILING_PUNCT_RE = /[。！？，；：、」』）》〉〕】.,!?;:)\]}'"…—\s—…]+$/;
+
+/**
  * 孤儿 SAN prompt 自动补标签：每条 prompt 的 id 必须在 leftContent 或 rightContent
- * 里有对应的 `<san id="N"/>` 内联标签；缺失则在 leftContent 末尾追加。
+ * 里有对应的 `<san id="N"/>` 内联标签；缺失则在 leftContent 末尾的「叙事正文与
+ * 收尾标点的边界」之前追加，让气泡嵌进句末标点 / 闭引号之内（视觉自然）。
  *
  * 设计动机（见 2026-06-05 真实失败现场）：
- *   模型偶发把 sanityCheckPrompts 写进顶层 JSON 但忘了在叙事里插内联标签。
- *   `useSanityBubbleEffect` 把全部 prompt id 喂给 setPending → `ChoiceButton`
- *   的 sanityBlocked 永远 true → 选项被锁；而 SanityBubble 因找不到内联标签
- *   永远渲染不出来 → 玩家无气泡可点解锁 → 死锁。
+ *   1) 模型偶发把 sanityCheckPrompts 写进顶层 JSON 但忘了在叙事里插内联标签。
+ *      `useSanityBubbleEffect` 把全部 prompt id 喂给 setPending → `ChoiceButton`
+ *      的 sanityBlocked 永远 true → 选项被锁；而 SanityBubble 因找不到内联标签
+ *      永远渲染不出来 → 玩家无气泡可点解锁 → 死锁。
+ *   2) 早期版本直接 append 到 leftContent 末尾——若末尾是 `「来。」` 这种引号收尾，
+ *      气泡会被甩在 `」` 后面像个"挂在外面的尾巴"。改进版用 TRAILING_PUNCT_RE 把
+ *      尾标点段剥开，气泡插在叙事正文之后、收尾标点之前。
  *
- * 修复取「补标签」而非「丢弃 prompt」：丢弃会让 SAN 检定无声蒸发；补标签
- * 至少保住 SAN 机制完整性，气泡渲染在 leftContent 末尾（叙事高潮通常收在
- * 左页尾），玩家点击 → SanityCheckPanel → SAN loss 落账，与 LLM 本意一致。
+ * 取「补标签」而非「丢弃 prompt」：丢弃会让 SAN 检定无声蒸发；补标签至少保住
+ * SAN 机制完整性，玩家点击 → SanityCheckPanel → SAN loss 落账，与 LLM 本意一致。
  */
 export function patchOrphanSanityTags(
   leftContent: string,
@@ -73,12 +89,19 @@ export function patchOrphanSanityTags(
     const re = new RegExp(`<san\\s+id\\s*=\\s*['"]${escapeRegExp(id)}['"]\\s*/?>`, 'i');
     return re.test(text);
   };
+  // 把 tag 插入文本末尾「叙事正文 / 收尾标点段」的边界之前。
+  // 末尾无标点段：直接 append（行为兼容原版）。
+  const insertBeforeTrailingPunct = (text: string, tag: string): string => {
+    const m = text.match(TRAILING_PUNCT_RE);
+    if (!m || m.index === undefined) return text + tag;
+    return text.substring(0, m.index) + tag + text.substring(m.index);
+  };
   const orphanIds: string[] = [];
   let newLeft = leftContent;
   for (const p of prompts) {
     if (hasTag(p.id, leftContent) || hasTag(p.id, rightContent)) continue;
     orphanIds.push(p.id);
-    newLeft += `<san id="${p.id}"/>`;
+    newLeft = insertBeforeTrailingPunct(newLeft, `<san id="${p.id}"/>`);
   }
   return { leftContent: newLeft, rightContent, orphanIds };
 }

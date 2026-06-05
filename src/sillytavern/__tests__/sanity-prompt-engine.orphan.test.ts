@@ -87,3 +87,67 @@ describe('patchOrphanSanityTags', () => {
     expect(r.leftContent).toContain('<san id="a.b"/>');
   });
 });
+
+describe('patchOrphanSanityTags - 气泡插入位置避开末尾标点', () => {
+  it('末尾是中文句号 → 气泡插在句号前', () => {
+    const left = '他停下了脚步。';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('他停下了脚步<san id="p1"/>。');
+  });
+
+  it('末尾是「。」引号段 → 气泡插在引号段前（嵌进引号内）', () => {
+    const left = '只有最后两个字你听懂了——「来。」';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('只有最后两个字你听懂了——「来<san id="p1"/>。」');
+  });
+
+  it('末尾是英文句号 → 气泡插在句号前', () => {
+    const left = 'He stopped.';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('He stopped<san id="p1"/>.');
+  });
+
+  it('末尾是感叹号/问号 → 气泡插在标点前', () => {
+    const r1 = patchOrphanSanityTags('真的吗？', '', [makePrompt('p1')]);
+    expect(r1.leftContent).toBe('真的吗<san id="p1"/>？');
+    const r2 = patchOrphanSanityTags('天啊！', '', [makePrompt('p1')]);
+    expect(r2.leftContent).toBe('天啊<san id="p1"/>！');
+  });
+
+  it('末尾是破折号 —— → 气泡插在破折号前', () => {
+    const left = '他想说什么——';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('他想说什么<san id="p1"/>——');
+  });
+
+  it('末尾是省略号 …… → 气泡插在省略号前', () => {
+    const left = '他迟疑着……';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('他迟疑着<san id="p1"/>……');
+  });
+
+  it('末尾无标点 → 直接 append（行为不变）', () => {
+    const left = '他停下了脚步';
+    const r = patchOrphanSanityTags(left, '', [makePrompt('p1')]);
+    expect(r.leftContent).toBe('他停下了脚步<san id="p1"/>');
+  });
+
+  it('末尾是闭引号「『（《"\' 多种组合 → 都插在引号段前', () => {
+    const r1 = patchOrphanSanityTags('他说：「我来。」', '', [makePrompt('p1')]);
+    expect(r1.leftContent).toBe('他说：「我来<san id="p1"/>。」');
+    const r2 = patchOrphanSanityTags('他说：『不行』', '', [makePrompt('p1')]);
+    expect(r2.leftContent).toBe('他说：『不行<san id="p1"/>』');
+    const r3 = patchOrphanSanityTags('（他离开了）', '', [makePrompt('p1')]);
+    expect(r3.leftContent).toBe('（他离开了<san id="p1"/>）');
+  });
+
+  it('多个孤儿 + 末尾有标点 → 连续插入都在标点前', () => {
+    const left = '震耳欲聋的轰鸣。';
+    const r = patchOrphanSanityTags(left, '', [
+      makePrompt('p1'),
+      makePrompt('p2'),
+    ]);
+    expect(r.leftContent).toBe('震耳欲聋的轰鸣<san id="p1"/><san id="p2"/>。');
+    expect(r.orphanIds).toEqual(['p1', 'p2']);
+  });
+});
