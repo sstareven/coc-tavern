@@ -21,10 +21,71 @@ const TIER_COLORS: Record<ModelTier, string> = {
 };
 const TIER_LABELS: Record<ModelTier, string> = { flash: 'Flash', pro: 'Pro' };
 
+/**
+ * 把缓存面板的全部数据序列化成 Markdown 表格（含总览 + 按页明细 + 子调用细分），
+ * 供「复制表格」按钮一键写入剪贴板,方便用户直接贴给排错。
+ */
+function buildCopyText(
+  pages: import('../../types').BookPage[],
+  totalRate: number,
+  totalCost: number,
+  totalHit: number,
+  totalMiss: number,
+  totalOut: number,
+  saved: number,
+  byTier: { flash: { count: number; hit: number; miss: number; output: number; cost: number };
+            pro:   { count: number; hit: number; miss: number; output: number; cost: number } },
+): string {
+  const lines: string[] = [];
+  const yuanS = (n: number) => `¥${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
+  lines.push('=== 缓存命中统计 ===');
+  lines.push('');
+  lines.push(`总命中率: ${totalRate.toFixed(1)}% · 总费用: ${yuanS(totalCost)} · 缓存省下: ${yuanS(saved)}`);
+  lines.push(`Tokens: 命中 ${totalHit.toLocaleString()} / 未命中 ${totalMiss.toLocaleString()} / 输出 ${totalOut.toLocaleString()}`);
+  if (byTier.flash.count > 0) {
+    const r = byTier.flash.hit + byTier.flash.miss > 0
+      ? (byTier.flash.hit / (byTier.flash.hit + byTier.flash.miss)) * 100 : 0;
+    lines.push(`Flash: ${byTier.flash.count} 条 · 命中 ${r.toFixed(1)}% · ${yuanS(byTier.flash.cost)} · ↓${byTier.flash.hit.toLocaleString()} ↑${byTier.flash.miss.toLocaleString()} ↗${byTier.flash.output.toLocaleString()}`);
+  }
+  if (byTier.pro.count > 0) {
+    const r = byTier.pro.hit + byTier.pro.miss > 0
+      ? (byTier.pro.hit / (byTier.pro.hit + byTier.pro.miss)) * 100 : 0;
+    lines.push(`Pro:   ${byTier.pro.count} 条 · 命中 ${r.toFixed(1)}% · ${yuanS(byTier.pro.cost)} · ↓${byTier.pro.hit.toLocaleString()} ↑${byTier.pro.miss.toLocaleString()} ↗${byTier.pro.output.toLocaleString()}`);
+  }
+  lines.push('');
+  lines.push('| 页 | 调用 | 模型 | 命中率 | 命中 | 未命中 | 输出 | 费用 |');
+  lines.push('|---|---|---|---:|---:|---:|---:|---:|');
+
+  // 倒序：最新页在前
+  const ordered = pages.map((p, i) => ({ p, i })).filter(({ p }) => p.genStats).reverse();
+  for (const { p, i } of ordered) {
+    const gs = p.genStats!;
+    const pageLabel = `第 ${i + 1} 页 · ${p.leftHeader || ''}`.trim();
+    const mainHit = gs.cacheHitTokens ?? 0;
+    const mainMiss = gs.cacheMissTokens ?? 0;
+    const mainOut = gs.completionTokens ?? 0;
+    const mainRate = mainHit + mainMiss > 0 ? (mainHit / (mainHit + mainMiss)) * 100 : 0;
+    const mainCost = estimateCostCNY(mainHit, mainMiss, mainOut, gs.model);
+    lines.push(`| ${pageLabel} | 主回合 | ${gs.model ?? '-'} | ${mainRate.toFixed(1)}% | ${mainHit.toLocaleString()} | ${mainMiss.toLocaleString()} | ${mainOut.toLocaleString()} | ${yuanS(mainCost)} |`);
+
+    for (const s of gs.subCalls ?? []) {
+      const sHit = s.hit ?? 0;
+      const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+      const sOut = s.output ?? 0;
+      const sRate = sHit + sMiss > 0 ? (sHit / (sHit + sMiss)) * 100 : 0;
+      const sCost = estimateCostCNY(sHit, sMiss, sOut, s.model);
+      lines.push(`|  | ${s.label} | ${s.model ?? '-'} | ${sRate.toFixed(1)}% | ${sHit.toLocaleString()} | ${sMiss.toLocaleString()} | ${sOut.toLocaleString()} | ${yuanS(sCost)} |`);
+    }
+  }
+  return lines.join('\n');
+}
+
 /** 缓存命中面板：读各书页 genStats 的缓存命中/未命中(删页自动排除、随页持久化)，按页或按天看命中率折线 + 总览 + 估算费用。 */
 export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   const pages = useBookStore((s) => s.pages);
   const [mode, setMode] = useState<'page' | 'day'>('page');
+  // 复制反馈：点了按钮 → 2 秒内显示「已复制 ✓」
+  const [copied, setCopied] = useState(false);
 
   // 把每页拆成「(主回合 model_tier 1 个) + (subCalls 按 tier 聚合 1 个 per tier)」的 Rec 数组。
   // 同页同 tier 会被合并(比如主回合是 Pro,Pro 子调用很罕见但会合进同一页 Pro 点)。
@@ -89,6 +150,19 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   const costNoCachePro   = estimateCostCNY(0, byTier.pro.hit   + byTier.pro.miss,   byTier.pro.output,   'deepseek-v4-pro');
   const saved = (costNoCacheFlash + costNoCachePro) - totalCost;
 
+  // 复制全部数据成 Markdown 表格,贴给排错用。失败时降级为 alert(让用户手动复制)。
+  const handleCopy = async () => {
+    const text = buildCopyText(pages, totalRate, totalCost, totalHit, totalMiss, totalOut, saved, byTier);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 浏览器拒绝(非 https / 无权限) → 用 prompt 让用户手动 Ctrl+C
+      window.prompt('复制下面的内容(Ctrl+C):', text);
+    }
+  };
+
   // 折线图数据：保持 tier 分组，让 RateChart 画双线
   const points: Point[] = useMemo(() => {
     const mk = (label: string, hit: number, miss: number, output: number, tier: ModelTier): Point => ({
@@ -119,9 +193,25 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
         {/* 标题栏 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 10, flexShrink: 0 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>缓存命中 / CACHE HITS</h3>
-          <button onClick={onClose} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={handleCopy}
+              title="把全部缓存命中数据(总览 + 按页明细 + 子调用)复制成 Markdown 表格,方便贴给排错"
+              style={{
+                padding: '4px 10px', border: `1px solid ${copied ? 'var(--gold)' : 'rgba(196,168,85,0.4)'}`,
+                borderRadius: 3, background: copied ? 'rgba(196,168,85,0.2)' : 'transparent',
+                color: copied ? 'var(--gold)' : 'var(--ink-subtle)',
+                fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 2, cursor: 'pointer',
+                transition: 'var(--transition-smooth)',
+              }}
+              onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; } }}
+              onMouseLeave={(e) => { if (!copied) { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'rgba(196,168,85,0.4)'; } }}
+            >
+              {copied ? '已复制 ✓' : '复制表格'}
+            </button>
+            <button onClick={onClose} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}>✕</button>
+          </div>
         </div>
 
         {/* 总览 — 全局合计 */}
