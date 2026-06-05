@@ -29,6 +29,18 @@ function apply(): void {
 }
 
 /**
+ * 当前自动 zoom 值(>0,默认 1)。供 portal 到 body 的 position:fixed 浮层
+ * (HelpIcon/DarkSelect/KeywordTooltip) 把 getBoundingClientRect / clientX/Y
+ * 的可视坐标【除以它】换回布局坐标——否则浮层在根 zoom 内会被二次缩放而错位。
+ */
+export function getAutoZoom(): number {
+  if (typeof document === 'undefined') return 1;
+  const v = document.documentElement.style.getPropertyValue('--auto-zoom').trim();
+  const n = v ? parseFloat(v) : 1;
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/**
  * 响应式 zoom —— 整页根据浏览器窗口大小自动缩放,无需用户手动调。
  *
  * v1.11.8 起：取代旧 uiScale 档位选择(那是用户控制),改为「窗口越大、UI 越大,反之亦然」

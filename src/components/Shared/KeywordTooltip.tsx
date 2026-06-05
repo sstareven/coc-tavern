@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
 import { useKeywordStore } from '../../stores/useKeywordStore';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 
 interface Props {
   keyword: string;
@@ -137,16 +138,20 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const meaning = getMeaning(keyword);
   const red = tone === 'red';
-  // v1.11.7: 不再有 zoom 整页缩放,坐标直接用 clientX/Y。
+  // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
+  // 把可视坐标除以 auto-zoom 换回布局坐标,否则 tooltip 跑右下角。
   const TOOLTIP_W = 340; // max-width of tooltip
 
   const calcPos = useCallback((clientX: number, clientY: number) => {
+    const s = getAutoZoom();
+    const cx = clientX / s;
+    const cy = clientY / s;
     const gap = 14;
-    const vw = window.innerWidth;
+    const vw = window.innerWidth / s;
     // Default: right of cursor. If too close to right edge, flip to left
-    const x = clientX + gap + TOOLTIP_W > vw ? clientX - TOOLTIP_W - gap : clientX + gap;
+    const x = cx + gap + TOOLTIP_W > vw ? cx - TOOLTIP_W - gap : cx + gap;
     // Clamp y: don't go above viewport, fall below cursor if needed
-    const y = Math.max(4, clientY - 10);
+    const y = Math.max(4, cy - 10);
     setTpPos({ x: Math.max(0, x), y });
   }, []);
 

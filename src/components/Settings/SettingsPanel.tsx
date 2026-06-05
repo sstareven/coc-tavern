@@ -9,6 +9,7 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -1429,15 +1430,17 @@ function HelpIcon({ text }: { text: string }) {
   const onEnter = () => {
     const el = ref.current;
     if (el) {
-      // v1.11.7: 不再有 zoom 整页缩放,fixed 坐标直接用,不需除以 uiScale。
+      // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
+      // 把可视坐标除以 auto-zoom 换回布局坐标,否则问号 tooltip 跑右下角。
+      const s = getAutoZoom();
       const r = el.getBoundingClientRect();
-      const W = 300;
+      const W = 300 * s;
       let x = r.left;
       if (x + W > window.innerWidth - 8) x = window.innerWidth - W - 8;
       x = Math.max(8, x);
       const below = r.bottom < window.innerHeight * 0.55;
       const yRaw = below ? r.bottom + 6 : r.top - 6;
-      setPos({ x, y: yRaw, below });
+      setPos({ x: x / s, y: yRaw / s, below });
     }
     setShow(true);
   };

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { inputStyle } from '../CharSheet/styles';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 
 const selectTriggerBase: React.CSSProperties = {
   ...inputStyle,
@@ -56,12 +57,14 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
   const menuItemFont = compact ? 'var(--font-ui)' : 'var(--font-body)';
 
   const menu = (open && rect) ? (() => {
-    // v1.11.7: 不再有 zoom 整页缩放,fixed 坐标直接用,无需除以 uiScale。
+    // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
+    // 把可视坐标除以 auto-zoom 换回布局坐标,否则被根 zoom 二次缩放后位移到右下角。
+    const s = getAutoZoom();
     return createPortal(
     <div className="darkselect-menu" style={{
       position: 'fixed',
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
-      top: rect.bottom + 2, minWidth: rect.width, maxWidth: 'calc(100vw - 16px)', zIndex: 9999,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)) / s,
+      top: (rect.bottom + 2) / s, minWidth: rect.width / s, maxWidth: 'calc(100vw - 16px)', zIndex: 9999,
       background: 'linear-gradient(180deg, rgba(26,20,14,0.99) 0%, rgba(18,14,10,0.99) 100%)',
       border: '1px solid var(--gold)', borderRadius: 4,
       boxShadow: '0 6px 24px rgba(0,0,0,0.7)',
