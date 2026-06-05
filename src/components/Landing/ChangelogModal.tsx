@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.8';
+export const CURRENT_VERSION = 'v1.11.9';
 
 interface Release {
   version: string;
@@ -12,6 +12,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.9',
+    label: '更新日志面板加宽',
+    items: [
+      '【UI·修复】更新日志(本面板)宽度 480→800px(响应式 min(800px, 92vw)),v1.11.8 条目内容多每条又长(覆盖 24 commit 累积),480px 太挤了不利阅读,800px 给条目足够横向空间不必频繁换行;小屏仍自适应 92vw',
+    ],
+  },
   {
     version: 'v1.11.8',
     label: 'UI 大重构：响应式 + 文字倍率 · DS 终极适配 runtime override · 缓存深挖 · 人物创建重打磨',
@@ -465,7 +472,7 @@ export function ChangelogModal() {
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
         borderRadius: 6, padding: '32px 40px',
-        width: 'calc(min(480px, 90vw) / var(--auto-zoom, 1))',
+        width: 'calc(min(800px, 92vw) / var(--auto-zoom, 1))',
         maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
