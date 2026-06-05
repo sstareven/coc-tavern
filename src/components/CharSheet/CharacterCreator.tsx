@@ -1071,7 +1071,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                     onClick={() => { if (done) setStep(i); }}
                     className={done ? 'sk-btn' : undefined}
                     style={{
-                      width: 28, height: 28, borderRadius: '50%',
+                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       border: active ? '1px solid var(--gold)' : done ? '1px solid rgba(196,168,85,0.35)' : '1px solid rgba(255,255,255,0.1)',
                       background: active ? 'var(--gold)' : done ? 'rgba(196,168,85,0.15)' : 'transparent',
                       color: active ? 'var(--void)' : done ? 'var(--gold)' : 'var(--ink-subtle)',

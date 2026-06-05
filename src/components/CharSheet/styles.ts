@@ -51,7 +51,7 @@ export const editBtn: CSSProperties = {
 };
 
 export const btnBase: CSSProperties = {
-  padding: '8px 24px',
+  padding: '7px 18px',
   borderWidth: '1px',
   borderStyle: 'solid',
   borderColor: 'rgba(196,168,85,0.3)',
@@ -59,9 +59,11 @@ export const btnBase: CSSProperties = {
   background: 'rgba(196,168,85,0.08)',
   color: 'var(--gold)',
   fontFamily: 'var(--font-ui)',
-  fontSize: 13,
-  letterSpacing: 2,
+  fontSize: 12,
+  letterSpacing: 1,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
   transition: 'var(--transition-smooth)',
 };
 

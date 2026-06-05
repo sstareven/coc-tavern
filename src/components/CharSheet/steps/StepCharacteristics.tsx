@@ -433,9 +433,9 @@ export function StepCharacteristics({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-        {/* v1.11.8: auto-fit minmax(220px, 1fr) —— 窄屏 1 列、宽屏 2-3 列自适应,
-            字体放大后属性卡片需要的宽度变大,grid 自动减少列数让内容完整可见。 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
+        {/* v1.11.8: 强制左右两栏(用户偏好):'minmax(0, 1fr) minmax(0, 1fr)' 让每列最小宽 0、
+            最大平均分,内容(长属性名/数值)可正常 shrink 不溢出。点数池/自由调整两种模式都两栏。 */}
         {CHAR_ORDER.map(({ key, zh }) => {
           const val = charValues[key] || 50;
           const half = Math.floor(val / 2);
@@ -462,8 +462,8 @@ export function StepCharacteristics({
                   transition: 'var(--transition-smooth)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zh} ({key})</span>
                   {assignedPool != null && (
                     <button onClick={() => onPoolAssign(key, null)} style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
