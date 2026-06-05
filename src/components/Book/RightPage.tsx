@@ -20,6 +20,7 @@ import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import React from 'react';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
+import { cleanChoiceText, buildChoiceInput } from './choice-input-builder';
 import { type StagingTrigger } from '../../sillytavern/option-staging';
 import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 
@@ -512,30 +513,6 @@ const BONUS_COLORS = {
   none: { color: 'var(--neutral-text)', bg: 'rgba(var(--ink-faded-rgb),0.08)', border: '1px solid rgba(var(--ink-faded-rgb),0.3)' },
   opposed: { color: 'var(--opposed-text)', bg: 'rgba(92,46,139,0.1)', border: '1px solid rgba(92,46,139,0.35)' },
 };
-
-function cleanChoiceText(text: string): string {
-  return text
-    .replace(/\[检定\s*[:：][^\]]*\]\s*/g, '')
-    .replace(/\[对抗\s*[:：][^\]]*\]\s*/g, '')
-    // 显示层兜底：剥除残留 var 标签（含畸形写法）与裸露的难度文字
-    .replace(/<\s*var[A-Za-z]*\b[^<>]*?\/?>/gi, '')
-    .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-/**
- * 选中选项时提交给 LLM 的内容：把玩家可见的叙事文字(text)与机制动作(action)合并，
- * 让 LLM 拿到完整意图与上下文，而不只是 action。若 action 已含该叙事则不重复。
- */
-function buildChoiceInput(ch: ChoiceItem): string {
-  const t = cleanChoiceText(ch.text || '').trim();
-  const a = (ch.action || '').trim();
-  if (!t) return a;
-  if (!a) return t;
-  if (a.includes(t)) return a;
-  return `${t}。${a}`;
-}
 
 /**
  * 行动补写拾取提交：当玩家点选带 itemGain 的补写选项时，
