@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.3';
+export const CURRENT_VERSION = 'v1.11.4';
 
 interface Release {
   version: string;
@@ -13,6 +13,17 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.4',
+    label: '翻页时序：等齐 6 个可见 UI 子调用再翻页 + 兜底剥孤立 <kw> 标签',
+    items: [
+      '【翻页时序·改造】之前主回合 60s 返回后立即翻页，玩家进入新页时地点元素抽取(5s)/地图自检(7s)/暗线/NPC/起始装备/线索整合都还在异步路上，看到的是「破布条」缺失、地图边少一条的中间态。现改为收集这 6 个【影响玩家可见 UI】的子调用 promise，await Promise.allSettled 等齐后才 autoFlipForward 翻页——玩家看到的每一页都是完整状态',
+      '【翻页时序·中止兜底】用户在等齐期间点「中止」(controller.signal.aborted)，立即跳过 await 翻页——abort=放弃等齐、马上显示已生成内容，避免「点了中止反而更卡」的反预期。Promise.race([allSettled, abortPromise]) 实现',
+      '【保持异步·守秘人机密】坏结局生成 / 关键线索 3 真相支柱 / 真相支柱命中 — 纯守秘人机密玩家不可见，无需等齐继续 fire-and-forget',
+      '【保持异步·战斗检测】战斗进场检测在生成好的页面上做判定，逻辑独立、不影响首屏 UI，继续 fire-and-forget',
+      '【关键词标签·孤立兜底】v1.11.3 新语法 <kw></kw> 上线第一回合 LLM 偶发漏写开标签产出孤立 </kw>（实测：「灰白的虚空。</kw>指尖触上门板时」）。stripMvu 新加 stripOrphanKwTags 兜底——PUA 私用区 sentinel 临时遮蔽成对标签、剥除孤立、还原。同时 FORMAT_INSTRUCTION 加「<kw> 与 </kw> 必须严格成对」硬约束',
+    ],
+  },
   {
     version: 'v1.11.3',
     label: '关键词高亮换语法：{{}} → <kw></kw> · 修 DS 缓存命中暴跌',
