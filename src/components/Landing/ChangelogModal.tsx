@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.4';
+export const CURRENT_VERSION = 'v1.11.5';
 
 interface Release {
   version: string;
@@ -13,6 +13,16 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.5',
+    label: '关键词释义补全 · 独立子调用 + 强化 <kw> 标签指令',
+    items: [
+      '【关键词释义·补全·独立子调用】用户实测 <kw>X</kw> 标签后没有自动给新词写描述，KeywordTooltip 查不到 meaning 就只渲染粗体不显示 tooltip——根因是主回合长 prompt 下 LLM 容易漏写末尾的 keywords 字段（即便有硬约束）。新增 src/sillytavern/keyword-meaning-extractor.ts，扫 leftContent+rightContent 里所有 <kw>X</kw> 标签的关键词，比对 useKeywordStore 已知 + 通用 KEYWORD_MEANINGS，把未知的交给独立 Flash 调用补 10-30 字释义，addKeywords 入 store + 持久化。走 v1.11.4 pendingVisibleSubcalls 队列阻塞翻页，玩家进入新页时 tooltip 全齐',
+      '【关键词指令·强化】FORMAT_INSTRUCTION 关键词高亮段从「负面惩罚导向」（严禁/绝不允许）翻转为「正向硬约束 + 清单」：(a) 首句「每段必须 2-5 个、不得低于 2 个」+ 明令「即使 chatHistory 老回合没标或用旧 {{xxx}}，本回合也必须立刻开始用 <kw></kw>」打断 in-context learning 模仿；(b) 加 5 类「应该标的词」清单（地名/人名+家族/物品+线索/超自然+邪教/可疑环境特征）+ 每类配真实 <kw> 示例；(c) 配对硬约束浓缩成一行',
+      '【开场白·迁移】useBookStore.ts defaultPages[0] 序章页里 9 个独立关键词、18 处 {{xxx}} 全部改成 <kw>xxx</kw>，严格成对。老存档不受影响（pages 是 persist 字段，首次创建后已固化为副本，需新开局或删档才能看到新版）',
+      '【孤立标签·兜底】v1.11.3 起 LLM 偶发漏写开标签产出孤立 </kw>。stripMvu 新加 stripOrphanKwTags helper——用 PUA 私用区 \\uE001/\\uE002 sentinel 临时遮蔽成对标签、剥除剩余孤立、还原。6 个新测试覆盖：成对保留/孤立剥除/混排/多孤立全剥/多成对全保留',
+    ],
+  },
   {
     version: 'v1.11.4',
     label: '翻页时序：等齐 6 个可见 UI 子调用再翻页 + 兜底剥孤立 <kw> 标签',

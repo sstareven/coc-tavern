@@ -27,6 +27,7 @@ import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
+import { extractKeywordMeanings, extractKwTaggedKeywords } from '../sillytavern/keyword-meaning-extractor';
 import { reconcileMap } from '../sillytavern/map-reconciler';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
@@ -1372,6 +1373,40 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 随后的 saveConversation 会把 keywords 持久化进 Dexie keywords 表。
         if (newPage.keywords) {
           useKeywordStore.getState().addKeywords(newPage.keywords);
+        }
+
+        // v1.11.5: 关键词释义补全·独立子调用 —— 扫 leftContent+rightContent 里所有 <kw>X</kw>
+        // 标签的关键词，比对 useKeywordStore（含本回合刚 addKeywords 进去的 page.keywords） + 通用
+        // KEYWORD_MEANINGS 表，把未知的交给独立 Flash 调用补 10-30 字释义。这解决了主回合长 prompt
+        // 下 keywords 字段易被截断/省略致 tooltip 显示不出的问题；与主回合解耦，不占主输出 token 预算。
+        // 走 v1.11.4 pendingVisibleSubcalls 队列阻塞翻页，玩家进入新页时 tooltip 已全齐。
+        {
+          const narrative = `${newPage.leftContent}\n${newPage.rightContent}`;
+          const taggedKws = extractKwTaggedKeywords(narrative);
+          if (taggedKws.length > 0) {
+            const knownSet = new Set(Object.keys(useKeywordStore.getState().keywords));
+            const unknown = taggedKws.filter((k) => !knownSet.has(k));
+            const useMvuKM = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+            const kmBase = (useMvuKM ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+            const kmKey = (useMvuKM ? settings.mvuApiKey : settings.apiKey) ?? '';
+            const kmModel = (useMvuKM ? settings.mvuApiModel : settings.apiModel) ?? '';
+            if (unknown.length > 0 && kmBase.trim() && kmKey.trim() && kmModel.trim()) {
+              const aidKM = useChatStore.getState().activeId;
+              pendingVisibleSubcalls.push((async () => {
+                try {
+                  const { meanings } = await extractKeywordMeanings(narrative, unknown, kmBase, kmKey, kmModel);
+                  if (Object.keys(meanings).length === 0 || useChatStore.getState().activeId !== aidKM) return;
+                  useKeywordStore.getState().addKeywords(meanings);
+                  if (aidKM && useChatStore.getState().activeId === aidKM) await saveConversation(aidKM);
+                  pushLog('info', `[关键词释义] 已为 ${Object.keys(meanings).length}/${unknown.length} 个未知关键词补释义：${Object.keys(meanings).join('、')}`, 'system');
+                } catch (e) {
+                  pushLog('warn', `[关键词释义] 补全失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+                }
+              })());
+            } else if (unknown.length === 0) {
+              pushLog('debug', `[关键词释义] 本回合 ${taggedKws.length} 个 <kw> 标签关键词全在 store 中，无需补释义`, 'system');
+            }
+          }
         }
 
         if (newPage.summary && newPage.id) {
