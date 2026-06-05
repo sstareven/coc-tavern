@@ -380,14 +380,14 @@ export function LorebookEditor({ bookId, onClose }: Props) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => usePanelStore.getState().open('worldbook')} style={backBtn}>← 返回</button>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>
               {book.name} — {entries.length} 条
             </h3>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={openNew} style={addBtnStyle}>+ 新建</button>
-            <button onClick={handleImportEntries} style={{ ...actionBtnStyle, fontSize: 10 }} title="从 JSON 导入条目">📥 导入</button>
-            <button onClick={handleExportEntries} style={{ ...actionBtnStyle, fontSize: 10 }} title="导出选中条目为 JSON">📤 导出</button>
+            <button onClick={handleImportEntries} style={{ ...actionBtnStyle, fontSize: 'calc(10px * var(--system-ratio, 1))' }} title="从 JSON 导入条目">📥 导入</button>
+            <button onClick={handleExportEntries} style={{ ...actionBtnStyle, fontSize: 'calc(10px * var(--system-ratio, 1))' }} title="导出选中条目为 JSON">📤 导出</button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileSelected} />
             <button onClick={onClose} style={closeBtnStyle}>✕</button>
           </div>
@@ -403,7 +403,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             .entry-row-btn { padding: 0; border: none; border-radius: 2px; background: transparent; font-size: 12px; cursor: pointer; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; opacity: 0.45; transition: opacity 0.15s; }
             .entry-row-btn:hover { opacity: 0.85; }
           `}</style>
-          <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 11 }}>
+          <table className="entry-table-scroll" style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(196,168,85,0.15)', position: 'sticky', top: 0, background: 'var(--leather)', zIndex: 1 }}>
                 <th style={{ ...thStyle, width: 24 }}></th>
@@ -439,26 +439,26 @@ export function LorebookEditor({ bookId, onClose }: Props) {
                       borderColor: entry.disabled ? 'var(--blood)' : 'var(--success)',
                       background: entry.disabled ? 'rgba(139,58,58,0.1)' : 'rgba(58,107,90,0.1)',
                       color: entry.disabled ? 'var(--blood)' : 'var(--success)',
-                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', cursor: 'pointer',
                     }}>{entry.disabled ? 'OFF' : 'ON'}</button>
                   </td>
                   <td style={{ ...tdStyle, fontWeight: 'bold', color: 'var(--text-light)' }}>
                     {entry.name || '(未命名)'}
-                    <span style={{ color: entry.constant ? '#5b9bd5' : 'var(--success)', marginLeft: 5, fontSize: 11 }}>●</span>
+                    <span style={{ color: entry.constant ? '#5b9bd5' : 'var(--success)', marginLeft: 5, fontSize: 'calc(11px * var(--system-ratio, 1))' }}>●</span>
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td style={{ ...tdStyle, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.keys || '—'}
                   </td>
-                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 9 }}>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(9px * var(--system-ratio, 1))' }}>
                     {POSITION_LABELS[entry.position] ?? '—'}
                   </td>
-                  <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                  <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>
                     <span style={{ color: entry.logic.startsWith('AND') ? 'var(--gold)' : 'var(--blood)' }}>
                       {entry.logic === 'AND_ANY' ? '与任意' : entry.logic === 'AND_ALL' ? '与所有' : entry.logic === 'NOT_ANY' ? '非任何' : entry.logic === 'NOT_ALL' ? '非所有' : entry.logic}
                     </span>
                   </td>
-                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.priority}</td>
-                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{entry.probability}%</td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>{entry.priority}</td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>{entry.probability}%</td>
                   <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 2 }}>
                       <button onClick={() => openDetail(id)} title="编辑" className="entry-row-btn" style={{ color: 'var(--ink-subtle)' }}>✎</button>
@@ -478,13 +478,13 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             </tbody>
           </table>
           {entryList.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 12 }}>暂无词条，点击"+ 新建"创建</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))' }}>暂无词条，点击"+ 新建"创建</div>
           )}
         </div>
 
         {/* Move/Copy between books */}
         <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,168,85,0.12)', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
             {selected.size > 0 ? `已选 ${selected.size} 条 →` : '勾选条目 →'}
           </span>
           <Dropdown value={moveTarget} onChange={(v) => setMoveTarget(v)}
@@ -504,7 +504,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             });
             setSelected(new Set()); setMoveTarget('');
           }} disabled={selected.size === 0 || moveTarget === bookId}
-            style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: (selected.size === 0 || moveTarget === bookId) ? 0.4 : 1 }}>移动已选</button>
+            style={{ ...saveBtnStyle, fontSize: 'calc(10px * var(--system-ratio, 1))', padding: '4px 10px', opacity: (selected.size === 0 || moveTarget === bookId) ? 0.4 : 1 }}>移动已选</button>
           <button onClick={() => {
             if (selected.size === 0 || !moveTarget) return;
             useLorebookStore.setState((s) => {
@@ -520,7 +520,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
             });
             setSelected(new Set()); setMoveTarget('');
           }} disabled={selected.size === 0}
-            style={{ ...saveBtnStyle, fontSize: 10, padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>复制已选</button>
+            style={{ ...saveBtnStyle, fontSize: 'calc(10px * var(--system-ratio, 1))', padding: '4px 10px', opacity: selected.size === 0 ? 0.4 : 1 }}>复制已选</button>
         </div>
       </div>
 
@@ -561,7 +561,7 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
         boxShadow: '0 0 60px rgba(0,0,0,0.7)',
       }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.15)', paddingBottom: 10 }}>
-          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: 'var(--gold)', letterSpacing: 2, margin: 0 }}>
+          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(14px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2, margin: 0 }}>
             {isNew ? '新建词条' : '编辑词条'}
           </h4>
           <button onClick={onClose} style={closeBtnStyle}>✕</button>
@@ -569,20 +569,20 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {readOnly && (
-            <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--gold)', background: 'rgba(196,168,85,0.08)', border: '1px solid rgba(196,168,85,0.25)', borderRadius: 4, padding: '8px 10px' }}>
+            <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', lineHeight: 1.5, color: 'var(--gold)', background: 'rgba(196,168,85,0.08)', border: '1px solid rgba(196,168,85,0.25)', borderRadius: 4, padding: '8px 10px' }}>
               内置条目随应用版本更新，内容不可编辑。启用 / 禁用请用列表中的 ON/OFF 开关；如需自定义，请点下方「复制」生成可编辑副本。
             </div>
           )}
           <div style={readOnly ? { pointerEvents: 'none', opacity: 0.55, display: 'flex', flexDirection: 'column', gap: 10 } : { display: 'contents' }}>
           {/* Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontWeight: 'bold' }}>状态</span>
+            <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontWeight: 'bold' }}>状态</span>
             <button onClick={() => onChange({ ...form, disabled: !form.disabled })} style={{
               padding: '3px 14px', borderRadius: 2, border: '1px solid',
               borderColor: form.disabled ? 'var(--blood)' : 'var(--success)',
               background: form.disabled ? 'rgba(139,58,58,0.1)' : 'rgba(58,107,90,0.1)',
               color: form.disabled ? 'var(--blood)' : 'var(--success)',
-              fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
             }}>{form.disabled ? '禁用' : '激活'}</button>
             <Dropdown value={form.constant ? 'constant' : 'keyword'} onChange={(v) => onChange({ ...form, constant: v === 'constant' })}
               options={[{ label: '关键词匹配', value: 'keyword' }, { label: '永久激活', value: 'constant' }]} />
@@ -626,7 +626,7 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
 
           {/* Advanced settings collapsible */}
           <details style={{ marginTop: 4, borderTop: '1px solid rgba(196,168,85,0.1)', paddingTop: 8 }}>
-            <summary style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', cursor: 'pointer', letterSpacing: 1 }}>高级设置</summary>
+            <summary style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', cursor: 'pointer', letterSpacing: 1 }}>高级设置</summary>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
               <FieldGroup label="可选过滤器">
                 <input value={form.secondaryKeys || ''} onChange={(e) => onChange({ ...form, secondaryKeys: e.target.value })} placeholder="逗号分隔列表，为空则忽略" style={fieldInputStyle} />
@@ -673,19 +673,19 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
                 </FieldGroup>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.prioritizeInclusion || false} onChange={(e) => onChange({ ...form, prioritizeInclusion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />确定优先级
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.preventRecursion || false} onChange={(e) => onChange({ ...form, preventRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />不可递归
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.delayUntilRecursion || false} onChange={(e) => onChange({ ...form, delayUntilRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />延迟到递归
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.excludeRecursion || false} onChange={(e) => onChange({ ...form, excludeRecursion: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />防止进一步递归
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                   <input type="checkbox" checked={form.ignoreReplyLimit || false} onChange={(e) => onChange({ ...form, ignoreReplyLimit: e.target.checked })} style={{ accentColor: 'var(--gold)' }} />无视回复限额
                 </label>
               </div>
@@ -760,7 +760,7 @@ function EntryDetail({ form, onChange, onSave, onClose, onDelete, onCopy, isNew,
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-      <label style={{ fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold' }}>{label}</label>
+      <label style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold' }}>{label}</label>
       {children}
     </div>
   );
@@ -774,11 +774,11 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
       <button onClick={() => setOpen(!open)} style={{
         width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
         background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
       }}>
         <span>{selected}</span>
-        <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+        <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--brass)' }}>▼</span>
       </button>
       {open && (
         <>
@@ -793,7 +793,7 @@ function Dropdown({ value, onChange, options }: { value: string; onChange: (v: s
                 padding: '6px 8px', cursor: 'pointer',
                 background: opt.value === value ? 'rgba(196,168,85,0.15)' : 'transparent',
                 color: opt.value === value ? 'var(--gold)' : 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 11,
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))',
                 borderBottom: '1px solid rgba(196,168,85,0.06)',
               }}
                 onMouseEnter={(e) => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
@@ -815,7 +815,7 @@ function SpinField({ value, onChange, min, max }: { value: number; onChange: (v:
     <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--brass)', borderRadius: 3, overflow: 'hidden', background: 'rgba(0,0,0,0.3)' }}>
       <button onClick={dec} style={{
         border: 'none', background: 'transparent', color: 'var(--gold)',
-        fontFamily: 'var(--font-mono)', fontSize: 13, cursor: 'pointer',
+        fontFamily: 'var(--font-mono)', fontSize: 'calc(13px * var(--system-ratio, 1))', cursor: 'pointer',
         padding: '4px 8px', borderRight: '1px solid var(--brass)',
       }}>−</button>
       <input type="number" value={value}
@@ -823,14 +823,14 @@ function SpinField({ value, onChange, min, max }: { value: number; onChange: (v:
         min={min} max={max}
         style={{
           flex: 1, minWidth: 36, width: 44, border: 'none', background: 'transparent',
-          color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 12,
+          color: 'var(--parchment)', fontFamily: 'var(--font-mono)', fontSize: 'calc(12px * var(--system-ratio, 1))',
           textAlign: 'center', outline: 'none',
           MozAppearance: 'textfield', WebkitAppearance: 'none', margin: 0,
         }} />
       <style>{`input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }`}</style>
       <button onClick={inc} style={{
         border: 'none', background: 'transparent', color: 'var(--gold)',
-        fontFamily: 'var(--font-mono)', fontSize: 13, cursor: 'pointer',
+        fontFamily: 'var(--font-mono)', fontSize: 'calc(13px * var(--system-ratio, 1))', cursor: 'pointer',
         padding: '4px 8px', borderLeft: '1px solid var(--brass)',
       }}>+</button>
     </div>
@@ -854,48 +854,48 @@ const panelStyle: React.CSSProperties = {
 const backBtn: React.CSSProperties = {
   padding: '4px 12px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'transparent', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
 };
 
 const addBtnStyle: React.CSSProperties = {
   padding: '5px 14px', border: '1px solid var(--gold)', borderRadius: 3,
   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
 };
 
 const actionBtnStyle: React.CSSProperties = {
   padding: '5px 12px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(196,168,85,0.06)', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
   transition: 'var(--transition-smooth)',
 };
 
 const thStyle: React.CSSProperties = {
-  padding: '8px 8px', textAlign: 'left', fontSize: 9, fontWeight: 'normal',
+  padding: '8px 8px', textAlign: 'left', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'normal',
   color: 'var(--ink-faded)', letterSpacing: 1, fontFamily: 'var(--font-ui)',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: '7px 8px', fontSize: 11, color: 'var(--ink-subtle)',
+  padding: '7px 8px', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
 };
 
 const fieldInputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)',
   borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
 };
 
 const groupLabelStyle: React.CSSProperties = {
-  fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold',
+  fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 'bold',
 };
 
 const checkboxLabelStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 4, fontSize: 10,
+  display: 'flex', alignItems: 'center', gap: 4, fontSize: 'calc(10px * var(--system-ratio, 1))',
   color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
 };
 
 const saveBtnStyle: React.CSSProperties = {
   padding: '8px 24px', border: '1px solid var(--gold)', borderRadius: 3,
   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2, cursor: 'pointer',
 };

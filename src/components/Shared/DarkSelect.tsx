@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { inputStyle } from '../CharSheet/styles';
-import { getUiScale } from '../../hooks/useUiScale';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 
 const selectTriggerBase: React.CSSProperties = {
   ...inputStyle,
@@ -11,7 +11,7 @@ const selectTriggerBase: React.CSSProperties = {
 };
 
 const compactOverride: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 'calc(11px * var(--system-ratio, 1))',
   padding: '6px 9px',
   textAlign: 'left',
   fontFamily: 'var(--font-ui)',
@@ -57,8 +57,9 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
   const menuItemFont = compact ? 'var(--font-ui)' : 'var(--font-body)';
 
   const menu = (open && rect) ? (() => {
-    // s=界面缩放：portal 到 body(在 zoom 内)，fixed 坐标需除以 s 换回布局空间，否则被二次缩放错位。
-    const s = getUiScale();
+    // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
+    // 把可视坐标除以 auto-zoom 换回布局坐标,否则被根 zoom 二次缩放后位移到右下角。
+    const s = getAutoZoom();
     return createPortal(
     <div className="darkselect-menu" style={{
       position: 'fixed',
@@ -72,7 +73,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
     }}>
       {options.map((o) => {
         if (o.separator || o.value.startsWith('__sep')) {
-          return <div key={o.value} style={{ padding: '4px 12px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{o.label}</div>;
+          return <div key={o.value} style={{ padding: '4px 12px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{o.label}</div>;
         }
         return (
           <div key={o.value}
@@ -87,7 +88,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
             onMouseLeave={(e) => { e.currentTarget.style.background = o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent'; }}
           >
             <div>{o.label}</div>
-            {o.sub && <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
+            {o.sub && <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
           </div>
         );
       })}
@@ -113,7 +114,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
         <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
           {selected ? selected.label : '选择…'}
         </span>
-        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 10, transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
+        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 'calc(10px * var(--system-ratio, 1))', transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
       </div>
       {menu}
     </div>

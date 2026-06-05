@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
 import { useKeywordStore } from '../../stores/useKeywordStore';
-import { useSettingsStore } from '../../stores/useSettingsStore';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 
 interface Props {
   keyword: string;
@@ -138,25 +138,22 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const meaning = getMeaning(keyword);
   const red = tone === 'red';
-  // 桌面端「界面缩放」把 zoom:S 施加在 <html>。本浮层用 position:fixed + createPortal(document.body)，
-  // 仍处于 zoom 上下文内，故 left/top 会被根 zoom 再乘一次；而鼠标 clientX/Y 以未缩放 CSS 像素上报。
-  // 修法：把坐标除以 scale —— (clientX/S)*S = clientX 恰好落回光标。clamp 的 vw 同步除以 S 保持同一坐标空间。
-  const uiScale = useSettingsStore((s) => s.uiScale);
-
+  // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
+  // 把可视坐标除以 auto-zoom 换回布局坐标,否则 tooltip 跑右下角。
   const TOOLTIP_W = 340; // max-width of tooltip
 
   const calcPos = useCallback((clientX: number, clientY: number) => {
-    const scale = uiScale || 1;
-    const cx = clientX / scale;
-    const cy = clientY / scale;
+    const s = getAutoZoom();
+    const cx = clientX / s;
+    const cy = clientY / s;
     const gap = 14;
-    const vw = window.innerWidth / scale;
+    const vw = window.innerWidth / s;
     // Default: right of cursor. If too close to right edge, flip to left
     const x = cx + gap + TOOLTIP_W > vw ? cx - TOOLTIP_W - gap : cx + gap;
     // Clamp y: don't go above viewport, fall below cursor if needed
     const y = Math.max(4, cy - 10);
     setTpPos({ x: Math.max(0, x), y });
-  }, [uiScale]);
+  }, []);
 
   const onEnter = useCallback((e: React.MouseEvent) => {
     calcPos(e.clientX, e.clientY);
@@ -241,10 +238,10 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
                 backdropFilter: 'blur(4px)',
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 0.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontWeight: 700, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 0.5, marginBottom: 4 }}>
                 {keyword}
               </div>
-              <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 'calc(12px * var(--text-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.6 }}>
                 {meaning}
               </div>
             </div>

@@ -54,6 +54,12 @@ describe('cleanChoiceField — 选项字段清理（真实 bug 回归）', () =>
     expect(out).not.toContain('{');
     expect(out).not.toContain('}');
   });
+  it('剥除新语法 <kw>词</kw> → 词（v1.11.3 起选项不展示 <kw> 标签）', () => {
+    const out = cleanChoiceField('喝下那摊<kw>粘液</kw>，无视<kw>调查员</kw>的迟疑');
+    expect(out).toBe('喝下那摊粘液，无视调查员的迟疑');
+    expect(out).not.toContain('<kw>');
+    expect(out).not.toContain('</kw>');
+  });
   it('清掉残留的孤立花括号，且不误伤检定括号', () => {
     const out = cleanChoiceField('进行体质检定(普通)，强行咽下{{毒液}');
     expect(out).toContain('进行体质检定(普通)');
@@ -101,36 +107,36 @@ describe('coerceJsonObject — 结构标点归一化保护字符串内容', () =
 // stripMvu — HTML tag conversion and stripping
 // ============================================================
 describe('stripMvu', () => {
-  // HTML emphasis tags → {{keyword}} conversion
-  describe('HTML emphasis → {{keyword}} conversion', () => {
-    it('<strong>text</strong> → {{text}}', () => {
-      expect(stripMvu('<strong>text</strong>')).toBe('{{text}}');
+  // HTML emphasis tags → <kw>keyword</kw> conversion (v1.11.3：改 <kw></kw> 标签替代旧 {{}})
+  describe('HTML emphasis → <kw>keyword</kw> conversion', () => {
+    it('<strong>text</strong> → <kw>text</kw>', () => {
+      expect(stripMvu('<strong>text</strong>')).toBe('<kw>text</kw>');
     });
 
-    it('<b>text</b> → {{text}}', () => {
-      expect(stripMvu('<b>text</b>')).toBe('{{text}}');
+    it('<b>text</b> → <kw>text</kw>', () => {
+      expect(stripMvu('<b>text</b>')).toBe('<kw>text</kw>');
     });
 
-    it('<em>text</em> → {{text}}', () => {
-      expect(stripMvu('<em>text</em>')).toBe('{{text}}');
+    it('<em>text</em> → <kw>text</kw>', () => {
+      expect(stripMvu('<em>text</em>')).toBe('<kw>text</kw>');
     });
 
-    it('<i>text</i> (plain, no data-* attrs) → {{text}}', () => {
-      expect(stripMvu('<i>text</i>')).toBe('{{text}}');
+    it('<i>text</i> (plain, no data-* attrs) → <kw>text</kw>', () => {
+      expect(stripMvu('<i>text</i>')).toBe('<kw>text</kw>');
     });
 
-    it('nested tags: <strong><em>text</em></strong> → {{text}}', () => {
-      // Nested tags are converted sequentially: <em>text</em> → {{text}}, then <strong>{{text}}</strong> → {{{{text}}}}
-      // This is acceptable - the outer tags add extra {{}} but content is still visible
+    it('nested tags: <strong><em>text</em></strong> → 含 text', () => {
+      // 嵌套被顺序转换：<em>text</em> → <kw>text</kw>，再 <strong><kw>text</kw></strong> → <kw><kw>text</kw></kw>
+      // 内部 <kw> 被「保留 kw 标签」的否定先行断言保护下来，外层 strong 才被剥；最终至少 text 仍可见。
       expect(stripMvu('<strong><em>text</em></strong>')).toContain('text');
     });
 
     it('mixed content: before <strong>bold</strong> after', () => {
-      expect(stripMvu('before <strong>bold</strong> after')).toBe('before {{bold}} after');
+      expect(stripMvu('before <strong>bold</strong> after')).toBe('before <kw>bold</kw> after');
     });
 
     it('multiple tags: <strong>a</strong> and <strong>b</strong>', () => {
-      expect(stripMvu('<strong>a</strong> and <strong>b</strong>')).toBe('{{a}} and {{b}}');
+      expect(stripMvu('<strong>a</strong> and <strong>b</strong>')).toBe('<kw>a</kw> and <kw>b</kw>');
     });
   });
 
@@ -415,18 +421,39 @@ describe('parseLlmResponse', () => {
 // ============================================================
 import { cleanHeader } from './llm-response-parser';
 
-describe('stripMvu — 单层花括号关键词规范化', () => {
-  it('单层 {词} → 双层 {{词}}（高亮、不暴露花括号）', () => {
-    expect(stripMvu('一团{不可名状之物}在蠕动')).toBe('一团{{不可名状之物}}在蠕动');
+describe('stripMvu — 老花括号语法（v1.11.3 起不再自动规范化为高亮）', () => {
+  it('单层 {词} → 原样保留（新关键词语法是 <kw></kw>，老 {} 不再被自动包装）', () => {
+    expect(stripMvu('一团{不可名状之物}在蠕动')).toBe('一团{不可名状之物}在蠕动');
   });
-  it('已是 {{词}} 的不被改坏', () => {
+  it('老存档 {{词}} 原样保留（渲染端 TextBeautifier 不再识别为关键词，会按字面显示）', () => {
     expect(stripMvu('走进{{阿卡姆}}')).toBe('走进{{阿卡姆}}');
   });
-  it('混排单层与双层各自正确', () => {
-    expect(stripMvu('{单层}与{{双层}}')).toBe('{{单层}}与{{双层}}');
+  it('混排单层与双层均原样保留', () => {
+    expect(stripMvu('{单层}与{{双层}}')).toBe('{单层}与{{双层}}');
   });
-  it('含冒号的类宏 {set:x} 不被当关键词转换', () => {
+  it('含冒号的类宏 {set:x} 不被当关键词转换（行为不变）', () => {
     expect(stripMvu('{set:x}')).toBe('{set:x}');
+  });
+});
+
+describe('stripMvu — 孤立 <kw>/</kw> 兜底剥除（LLM 偶发漏写开/闭标签）', () => {
+  it('成对 <kw>X</kw> 完整保留', () => {
+    expect(stripMvu('走进<kw>阿卡姆</kw>的街道')).toBe('走进<kw>阿卡姆</kw>的街道');
+  });
+  it('孤立 </kw>（漏开标签，实测 LLM bug）剥除', () => {
+    expect(stripMvu('灰白的虚空。</kw>指尖触上门板时')).toBe('灰白的虚空。指尖触上门板时');
+  });
+  it('孤立 <kw>（漏闭标签）剥除', () => {
+    expect(stripMvu('调查员<kw>报出姓氏时')).toBe('调查员报出姓氏时');
+  });
+  it('成对与孤立混排：保留成对、剥孤立', () => {
+    expect(stripMvu('走进<kw>阿卡姆</kw>。</kw>然后开门')).toBe('走进<kw>阿卡姆</kw>。然后开门');
+  });
+  it('多个孤立 </kw> 全剥', () => {
+    expect(stripMvu('A</kw>B</kw>C</kw>D')).toBe('ABCD');
+  });
+  it('多个成对全保留', () => {
+    expect(stripMvu('<kw>A</kw>X<kw>B</kw>Y<kw>C</kw>')).toBe('<kw>A</kw>X<kw>B</kw>Y<kw>C</kw>');
   });
 });
 

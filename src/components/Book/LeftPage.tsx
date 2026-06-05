@@ -58,10 +58,10 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       borderTopLeftRadius: 4, borderBottomLeftRadius: 4,
       boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
-      fontSize: 15, lineHeight: 1.75, position: 'relative',
+      fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative',
     }}>
       <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, ...fadeStyle }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
         {diceResults && diceResults.length > 0 && diceResults.slice(0, 2).map((d, i) => {
           const rc = RESULT_COLORS[d.type] || RESULT_COLORS['failure'];
           return (
@@ -70,7 +70,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
             }}>
               <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${rc.color}55)` }} />
               <span style={{
-                fontSize: 9, fontFamily: 'var(--font-ui)', color: rc.color,
+                fontSize: 'calc(9px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', color: rc.color,
                 letterSpacing: 1.5, whiteSpace: 'nowrap',
               }}>
                 {d.skill} {RESULT_LABELS[d.type] || d.type}
@@ -81,7 +81,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         })}
         {summary && (
           <p style={{
-            fontSize: 10, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)',
+            fontSize: 'calc(10px * var(--text-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)',
             fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.6,
             margin: '6px 0 0', textIndent: '2em',
           }}>{summary}</p>
@@ -100,7 +100,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         )}
         </div>
       </div>
-      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
+      <div style={{ textAlign: 'center', fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
     </div>
   );
 }

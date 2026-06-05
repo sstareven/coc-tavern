@@ -214,10 +214,10 @@ export function OptionResolutionOverlay() {
             display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
           }}>
             <h3 style={{
-              fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)',
+              fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--text-ratio, 1))', color: 'var(--gold)',
               letterSpacing: 3, margin: 0,
             }}>检定结果</h3>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-subtle)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--ink-subtle)' }}>
               {pending.skill} · d100={String(pending.originalRoll).padStart(2, '0')}/{pending.target}
             </div>
           </div>
@@ -229,7 +229,7 @@ export function OptionResolutionOverlay() {
             background: 'rgba(0,0,0,0.22)',
           }}>
             <span style={{
-              fontSize: 22, fontWeight: 600, letterSpacing: 6,
+              fontSize: 'calc(22px * var(--text-ratio, 1))', fontWeight: 600, letterSpacing: 6,
               fontFamily: 'var(--font-display)',
               color: RESULT_COLOR[pending.originalResult] || 'var(--ink-subtle)',
               textShadow: `0 0 18px ${RESULT_COLOR[pending.originalResult] || 'rgba(255,255,255,0.1)'}66`,
@@ -266,7 +266,7 @@ export function OptionResolutionOverlay() {
                 tone="neutral"
               />
               <div style={{
-                marginTop: 4, textAlign: 'center', fontSize: 10, color: 'var(--ink-subtle)',
+                marginTop: 4, textAlign: 'center', fontSize: 'calc(10px * var(--text-ratio, 1))', color: 'var(--ink-subtle)',
                 letterSpacing: 2, opacity: 0.6,
               }}>
                 Esc / 点击背景 = 直接落账
@@ -279,9 +279,9 @@ export function OptionResolutionOverlay() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                fontSize: 12, color: 'var(--ink-subtle)', letterSpacing: 2,
+                fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2,
               }}>
-                <span>扣点：<span style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 14 }}>{luckSpend}</span></span>
+                <span>扣点：<span style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'calc(14px * var(--text-ratio, 1))' }}>{luckSpend}</span></span>
                 <span>剩余幸运 {luck - luckSpend} / {luck}</span>
               </div>
               <input
@@ -299,7 +299,7 @@ export function OptionResolutionOverlay() {
                   background: 'rgba(196,168,85,0.08)',
                   border: '1px solid rgba(196,168,85,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                  fontSize: 12, color: 'var(--text-light)',
+                  fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--text-light)',
                 }}>
                   <span>预览：</span>
                   <span style={{ fontFamily: 'var(--font-mono)' }}>
@@ -366,7 +366,7 @@ function ActionButton({ icon, label, hint, onClick, tone, compact }: ActionButto
         borderRadius: 4,
         background: palette.bg,
         color: palette.color,
-        fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 2,
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(13px * var(--text-ratio, 1))', letterSpacing: 2,
         cursor: 'pointer', textAlign: 'left',
         transition: 'background 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s cubic-bezier(0.4,0,0.2,1)',
       }}
@@ -374,7 +374,7 @@ function ActionButton({ icon, label, hint, onClick, tone, compact }: ActionButto
       {icon && <span style={{ display: 'inline-flex', alignItems: 'center', color: palette.color }}>{icon}</span>}
       <span style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <span style={{ fontWeight: 600 }}>{label}</span>
-        {hint && <span style={{ fontSize: 10, opacity: 0.6, letterSpacing: 1, marginTop: 2 }}>{hint}</span>}
+        {hint && <span style={{ fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.6, letterSpacing: 1, marginTop: 2 }}>{hint}</span>}
       </span>
     </motion.button>
   );

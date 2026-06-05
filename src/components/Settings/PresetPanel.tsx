@@ -160,7 +160,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             预设管理 / PRESETS
           </h3>
           <button onClick={onClose} style={closeBtnStyle}
@@ -187,21 +187,21 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleRename(id); if (e.key === 'Escape') setRenamingId(null); }}
-                        autoFocus style={{ fontSize: 13, fontFamily: 'var(--font-display)', letterSpacing: 2, padding: '3px 6px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--gold)', width: 180, outline: 'none' }} />
-                      <button onClick={() => handleRename(id)} style={{ ...actionBtnStyle, color: 'var(--success)', padding: '2px 8px', fontSize: 11 }}>✓</button>
-                      <button onClick={() => setRenamingId(null)} style={{ ...actionBtnStyle, color: 'var(--ink-subtle)', padding: '2px 8px', fontSize: 11 }}>✕</button>
+                        autoFocus style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', letterSpacing: 2, padding: '3px 6px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--gold)', width: 180, outline: 'none' }} />
+                      <button onClick={() => handleRename(id)} style={{ ...actionBtnStyle, color: 'var(--success)', padding: '2px 8px', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>✓</button>
+                      <button onClick={() => setRenamingId(null)} style={{ ...actionBtnStyle, color: 'var(--ink-subtle)', padding: '2px 8px', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>✕</button>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 14, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: (BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) ? 'default' : 'pointer' }}
+                    <span style={{ fontSize: 'calc(14px * var(--system-ratio, 1))', color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: (BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) ? 'default' : 'pointer' }}
                       onClick={(e) => { if (BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) return; e.stopPropagation(); setRenamingId(id); setRenameValue(preset.name); }}
                       title={(BUILTIN_PRESET_IDS.has(id) || PROTECTED_PRESET_IDS.has(id)) ? undefined : '点击重命名'}>
                       {preset.name}
-                      {isActive && <span style={{ fontSize: 10, color: 'var(--success)', marginLeft: 8 }}>当前</span>}
+                      {isActive && <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--success)', marginLeft: 8 }}>当前</span>}
                     </span>
                   )}
-                  <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
+                  <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                     T={preset.temperature} · P={preset.topP} · max={preset.maxTokens}
-                    {!BUILTIN_PRESET_IDS.has(id) && <span style={{ marginLeft: 6, fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>{id.slice(-8)}</span>}
+                    {!BUILTIN_PRESET_IDS.has(id) && <span style={{ marginLeft: 6, fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)' }}>{id.slice(-8)}</span>}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -231,7 +231,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--success)', borderRadius: 4,
           background: 'transparent', color: 'var(--success)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
           transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
@@ -259,7 +259,7 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
           width: '100%', marginTop: 16, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.color = 'var(--ink-subtle)'; }}
@@ -274,5 +274,5 @@ export function PresetPanel({ onClose, onEditPreset }: Props) {
 const actionBtnStyle: React.CSSProperties = {
   padding: '5px 14px', border: '1px solid rgba(196,168,85,0.2)',
   borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1, cursor: 'pointer',
 };

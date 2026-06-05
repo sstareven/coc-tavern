@@ -70,7 +70,7 @@ export function ExtManager({ onClose }: Props) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             扩展管理 / EXTENSIONS
           </h3>
           <button onClick={onClose} style={closeBtnStyle}
@@ -106,16 +106,16 @@ export function ExtManager({ onClose }: Props) {
                       }}
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+                      <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
                         {ext.name}
                       </span>
-                      <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+                      <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
                         v{ext.version} · {ext.author}
                       </span>
                     </div>
                   </div>
                   <span style={{
-                    fontSize: 10, color: 'var(--ink-subtle)',
+                    fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
                     transition: 'transform 0.3s',
                     transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
                   }}>
@@ -128,50 +128,50 @@ export function ExtManager({ onClose }: Props) {
                   <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(196,168,85,0.08)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', margin: '10px 0' }}>
                       <div>
-                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>名称</label>
+                        <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>名称</label>
                         <input name={`ext-${ext.id}-name`} value={ext.name} onChange={(e) => updateExtParam(ext.id, 'name', e.target.value)}
-                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none' }} />
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>版本</label>
+                        <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>版本</label>
                         <input name={`ext-${ext.id}-version`} value={ext.version} onChange={(e) => updateExtParam(ext.id, 'version', e.target.value)}
-                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none' }} />
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>作者</label>
+                        <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>作者</label>
                         <input name={`ext-${ext.id}-author`} value={ext.author} onChange={(e) => updateExtParam(ext.id, 'author', e.target.value)}
-                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, outline: 'none' }} />
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>入口文件（仅元数据）</label>
+                        <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>入口文件（仅元数据）</label>
                         <input name={`ext-${ext.id}-entry`} value={ext.entryPoint} onChange={(e) => updateExtParam(ext.id, 'entryPoint', e.target.value)}
-                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none' }} />
+                          style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none' }} />
                       </div>
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>描述</label>
+                      <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>描述</label>
                       <textarea name={`ext-${ext.id}-description`} value={ext.description} onChange={(e) => updateExtParam(ext.id, 'description', e.target.value)}
-                        rows={2} style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 10, outline: 'none', resize: 'vertical' }} />
+                        rows={2} style={{ width: '100%', padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', resize: 'vertical' }} />
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>脚本代码（沙箱执行，可定义 onSend / onReceive / init）</label>
+                      <label style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, display: 'block', marginBottom: 2 }}>脚本代码（沙箱执行，可定义 onSend / onReceive / init）</label>
                       <textarea name={`ext-${ext.id}-code`} value={ext.code ?? ''} onChange={(e) => updateExtParam(ext.id, 'code', e.target.value)}
                         rows={5} spellCheck={false} placeholder={'function onReceive(text){\n  return text;\n}'}
-                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 9, color: ext.enabled ? 'var(--success)' : 'var(--ink-faded)', letterSpacing: 1 }}>
+                      <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: ext.enabled ? 'var(--success)' : 'var(--ink-faded)', letterSpacing: 1 }}>
                         {ext.enabled ? '已启用' : '已禁用'}
                       </span>
                       {deleteConfirm === ext.id ? (
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <span style={{ fontSize: 10, color: 'var(--blood)' }}>确认删除？</span>
-                          <button onClick={() => deleteExt(ext.id)} style={{ padding: '2px 10px', border: '1px solid var(--blood)', borderRadius: 3, background: 'rgba(139,58,58,0.15)', color: 'var(--blood)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}>确认</button>
-                          <button onClick={() => setDeleteConfirm(null)} style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}>取消</button>
+                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--blood)' }}>确认删除？</span>
+                          <button onClick={() => deleteExt(ext.id)} style={{ padding: '2px 10px', border: '1px solid var(--blood)', borderRadius: 3, background: 'rgba(139,58,58,0.15)', color: 'var(--blood)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' }}>确认</button>
+                          <button onClick={() => setDeleteConfirm(null)} style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' }}>取消</button>
                         </div>
                       ) : (
                         <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(ext.id); }}
-                          style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' }}
+                          style={{ padding: '2px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' }}
                           onMouseEnter={(e2) => { e2.currentTarget.style.borderColor = 'var(--blood)'; e2.currentTarget.style.color = 'var(--blood)'; }}
                           onMouseLeave={(e2) => { e2.currentTarget.style.borderColor = 'var(--brass)'; e2.currentTarget.style.color = 'var(--ink-subtle)'; }}
                         >删除扩展</button>
@@ -189,7 +189,7 @@ export function ExtManager({ onClose }: Props) {
           width: '100%', padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.color = 'var(--ink-subtle)'; }}
@@ -208,7 +208,7 @@ export function ExtManager({ onClose }: Props) {
               background: 'var(--leather)', border: '1px solid var(--gold)',
               borderRadius: 6, padding: '20px 24px', maxWidth: 400, width: '90%',
             }} onClick={(e) => e.stopPropagation()}>
-              <h4 style={{ fontSize: 14, color: 'var(--gold)', fontFamily: 'var(--font-display)', letterSpacing: 3, margin: '0 0 16px' }}>
+              <h4 style={{ fontSize: 'calc(14px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-display)', letterSpacing: 3, margin: '0 0 16px' }}>
                 导入扩展
               </h4>
               <input name="ext-import-path" value={importPath} onChange={(e) => setImportPath(e.target.value)}
@@ -216,7 +216,7 @@ export function ExtManager({ onClose }: Props) {
                 style={{
                   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
                   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-                  fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
                   marginBottom: 10,
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
@@ -228,7 +228,7 @@ export function ExtManager({ onClose }: Props) {
                 style={{
                   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
                   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
+                  fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
                   resize: 'vertical', lineHeight: 1.5, marginBottom: 14,
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
@@ -238,12 +238,12 @@ export function ExtManager({ onClose }: Props) {
                 <button onClick={() => setShowImport(false)} style={{
                   padding: '6px 16px', border: '1px solid var(--brass)', borderRadius: 3,
                   background: 'transparent', color: 'var(--ink-subtle)',
-                  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
                 }}>取消</button>
                 <button onClick={handleImport} style={{
                   padding: '6px 16px', border: '1px solid var(--gold)', borderRadius: 3,
                   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-                  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
                 }}>导入</button>
               </div>
             </div>

@@ -97,7 +97,7 @@ export function CharSheetOverlay() {
                 paddingTop: open ? 4 : 0,
                 paddingBottom: open ? 6 : 0,
               }}>
-                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   {sectionItem.body}
                 </div>
               </div>
@@ -128,7 +128,7 @@ export function CharSheetOverlay() {
         overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(196,168,85,0.25)', paddingBottom: 8, marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             调查员记录
           </h3>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>
@@ -146,10 +146,10 @@ export function CharSheetOverlay() {
               width: 44, height: 56, border: '1px solid rgba(196,168,85,0.3)', borderRadius: 3,
               background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <span style={{ fontSize: 16, color: 'var(--gold)' }}>&#9733;</span>
+              <span style={{ fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--gold)' }}>&#9733;</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2 }}>
+              <div style={{ fontSize: 'calc(16px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2 }}>
                 {identity.name || '未命名'}
               </div>
               <div style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 1 }}>
@@ -162,7 +162,7 @@ export function CharSheetOverlay() {
           </div>
 
           {/* Characteristics */}
-          <div style={sectionLabel}>基础属性 · CHARACTERISTICS</div>
+          <div style={sectionLabel}>基础属性</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
             {CHAR_ORDER.map(({ key, zh, en }) => {
               const val = chars[key] ?? DEFAULT_CHARS[key];
@@ -174,7 +174,7 @@ export function CharSheetOverlay() {
                   background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 3,
                 }}>
                   <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{zh}</div>
-                  <div style={{ fontSize: 22, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--gold)', lineHeight: 1 }}>{val}</div>
+                  <div style={{ fontSize: 'calc(22px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--gold)', lineHeight: 1 }}>{val}</div>
                   <div style={{ display: 'flex', gap: 6, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
                     <span>1/2 {half}</span>
                     <span>1/5 {fifth}</span>
@@ -186,7 +186,7 @@ export function CharSheetOverlay() {
           </div>
 
           {/* Secondary stats */}
-          <div style={sectionLabel}>衍生属性 · SECONDARY</div>
+          <div style={sectionLabel}>衍生属性</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {SECONDARY_STATS.map((s) => (
               <div key={s.key} title={s.tip} style={{
@@ -195,7 +195,7 @@ export function CharSheetOverlay() {
                 cursor: s.tip ? 'help' : 'default',
               }}>
                 <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>{s.zh}</div>
-                <div style={{ fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>{renderSecValue(s.key)}</div>
+                <div style={{ fontSize: 'calc(16px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>{renderSecValue(s.key)}</div>
               </div>
             ))}
           </div>
@@ -203,11 +203,11 @@ export function CharSheetOverlay() {
 
         {/* 当前姿态 + 状态条件 */}
         <div style={{ marginBottom: 14 }}>
-          <div style={sectionLabel}>状态 · CONDITION</div>
+          <div style={sectionLabel}>状态</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>当前姿态</span>
             <span style={{
-              fontSize: 13, fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2,
+              fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', color: 'var(--gold)', letterSpacing: 2,
               padding: '2px 10px', borderRadius: 3, border: '1px solid rgba(196,168,85,0.3)', background: 'rgba(196,168,85,0.08)',
             }}>{sheet.posture || '站立'}</span>
           </div>
@@ -264,7 +264,7 @@ export function CharSheetOverlay() {
           overflow: 'hidden',
         }}>
         <div style={{ borderBottom: '1px solid rgba(196,168,85,0.25)', paddingBottom: 8, marginBottom: 8 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             技能 · 档案
           </h3>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>
@@ -277,9 +277,9 @@ export function CharSheetOverlay() {
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
         }}>
           {/* Skills */}
-          <div style={sectionLabel}>已习得技能 · SKILLS ({skillEntries.length})</div>
+          <div style={sectionLabel}>已习得技能 ({skillEntries.length})</div>
           {skillEntries.length === 0 ? (
-            <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+            <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               暂无已习得技能
             </div>
           ) : (
@@ -296,9 +296,9 @@ export function CharSheetOverlay() {
                 const fifth = Math.floor(skill.current / 5);
                 return (
                   <div key={name} className="cv-row" style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(196,168,85,0.08)' }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                     <span style={{ width: 40, textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>{skill.base}</span>
-                    <span style={{ width: 44, textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--gold)', fontWeight: 700 }}>{skill.current}</span>
+                    <span style={{ width: 44, textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', fontWeight: 700 }}>{skill.current}</span>
                     <span style={{ width: 56, textAlign: 'center', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>{half}/{fifth}</span>
                   </div>
                 );
@@ -307,10 +307,10 @@ export function CharSheetOverlay() {
           )}
 
           {/* Dossier */}
-          <div style={sectionLabel}>个人档案 · DOSSIER</div>
+          <div style={sectionLabel}>个人档案</div>
           <div style={{ border: '1px solid rgba(196,168,85,0.15)', borderRadius: 3, overflow: 'hidden' }}>
             {DOSSIER_FIELDS.every(({ key }) => !(sheet[key] as string)?.trim()) ? (
-              <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+              <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
                 暂无档案记录
               </div>
             ) : (
@@ -328,7 +328,7 @@ export function CharSheetOverlay() {
                     >
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', width: 12, textAlign: 'center', flexShrink: 0 }}>▸</span>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', fontWeight: 600, letterSpacing: 1 }}>{label}</div>
                       </div>
                       <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{open ? '收起' : '展开'}</span>
                     </div>
@@ -339,7 +339,7 @@ export function CharSheetOverlay() {
                       transition: 'max-height 0.4s ease, opacity 0.3s ease',
                       borderTop: open ? '1px dashed rgba(196,168,85,0.12)' : 'none',
                     }}>
-                      <div style={{ padding: '4px 14px 14px 34px', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+                      <div style={{ padding: '4px 14px 14px 34px', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
                         {renderDossierContent(content, key)}
                       </div>
                     </div>

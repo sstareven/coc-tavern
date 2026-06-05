@@ -18,7 +18,7 @@ export function BackgroundSettings() {
       <div style={fieldStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>开场白 (Greeting)</span>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
             角色发送的第一条消息
           </span>
         </div>
@@ -30,7 +30,7 @@ export function BackgroundSettings() {
       <div style={fieldStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>角色描述 (Description)</span>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
             注入提示词的 Char Description
           </span>
         </div>
@@ -42,7 +42,7 @@ export function BackgroundSettings() {
       <div style={fieldStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>角色性格 (Personality)</span>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
             注入提示词的 Char Personality
           </span>
         </div>
@@ -54,7 +54,7 @@ export function BackgroundSettings() {
       <div style={fieldStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>场景设定 (Scenario)</span>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
             注入提示词的 Scenario 场景描述
           </span>
         </div>
@@ -66,7 +66,7 @@ export function BackgroundSettings() {
       <div style={fieldStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>用户设定描述 (Persona)</span>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
             注入提示词的 Persona Description
           </span>
         </div>
@@ -82,11 +82,11 @@ const fieldStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1, marginBottom: 6, display: 'block',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1, marginBottom: 6, display: 'block',
 };
 
 const textareaStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)',
-  fontSize: 11, minHeight: 60, resize: 'vertical', outline: 'none', caretColor: 'var(--gold)',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', minHeight: 60, resize: 'vertical', outline: 'none', caretColor: 'var(--gold)',
 };

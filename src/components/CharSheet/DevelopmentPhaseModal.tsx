@@ -44,7 +44,7 @@ const panelStyle: React.CSSProperties = {
 
 const headerStyle: React.CSSProperties = {
   fontFamily: 'var(--font-display)',
-  fontSize: 18,
+  fontSize: 'calc(18px * var(--system-ratio, 1))',
   color: 'var(--gold)',
   letterSpacing: 4,
   marginBottom: 4,
@@ -77,7 +77,7 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 4,
   background: 'rgba(196,168,85,0.10)',
   color: 'var(--text-light)',
-  fontSize: 12,
+  fontSize: 'calc(12px * var(--system-ratio, 1))',
   fontFamily: 'var(--font-ui)',
   cursor: 'pointer',
   transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
@@ -125,7 +125,7 @@ export function DevelopmentPhaseModal({ open, onClose, rng }: Props) {
 
         {rows.length === 0 ? (
           <div style={{
-            padding: '36px 0', textAlign: 'center', fontSize: 12,
+            padding: '36px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))',
             fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic',
           }}>
             本章未触发任何技能成长检定
@@ -144,7 +144,7 @@ export function DevelopmentPhaseModal({ open, onClose, rng }: Props) {
             <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginBottom: 16 }}>
               {rows.map((r) => (
                 <div key={r.name} style={rowStyle}>
-                  <span style={{ fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+                  <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
                     {r.name}
                   </span>
                   <span style={{ textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>

@@ -46,10 +46,10 @@ export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
         }}
       >
         <div style={{ width: 120, height: 1, background: 'rgba(196,168,85,0.15)', marginBottom: 28 }} />
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: 'var(--gold)', letterSpacing: 10, margin: 0 }}>目录</h2>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'rgba(196,168,85,0.4)', letterSpacing: 5, marginTop: 6 }}>TABLE OF CONTENTS</p>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(26px * var(--text-ratio, 1))', color: 'var(--gold)', letterSpacing: 10, margin: 0 }}>目录</h2>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--text-ratio, 1))', color: 'rgba(196,168,85,0.4)', letterSpacing: 5, marginTop: 6 }}>TABLE OF CONTENTS</p>
         <div style={{ width: 120, height: 1, background: 'rgba(196,168,85,0.15)', marginTop: 28 }} />
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(196,168,85,0.25)', marginTop: 32, letterSpacing: 2 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--text-ratio, 1))', color: 'rgba(196,168,85,0.25)', marginTop: 32, letterSpacing: 2 }}>
           共 {pages.length * 2 + 2} 页
         </p>
       </motion.div>
@@ -110,7 +110,7 @@ export function TocOverlay({ pages, pageIndex, selectedToc, onSelect }: Props) {
                   </div>
                   {p.summary && (
                     <div style={{
-                      fontFamily: 'var(--font-body)', fontSize: 11,
+                      fontFamily: 'var(--font-body)', fontSize: 'calc(11px * var(--text-ratio, 1))',
                       color: isSelected ? 'rgba(196,168,85,0.55)' : 'rgba(196,168,85,0.25)',
                       marginTop: 3, lineHeight: 1.5,
                       overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative',

@@ -63,7 +63,7 @@ export function TokenDisplay() {
         bottom: 8,
         right: 12,
         fontFamily: 'var(--font-mono)',
-        fontSize: 9,
+        fontSize: 'calc(9px * var(--system-ratio, 1))',
         color: 'var(--ink-faded)',
         letterSpacing: 0.5,
         opacity: 0.5,

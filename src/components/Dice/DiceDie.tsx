@@ -61,7 +61,7 @@ export function DiceDie({ value, color = 'player', label, large }: Props) {
         {displayValue}
       </div>
       {label && (
-        <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 1 }}>
+        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', letterSpacing: 1 }}>
           {label}
         </span>
       )}

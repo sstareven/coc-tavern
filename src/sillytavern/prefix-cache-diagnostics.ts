@@ -32,6 +32,12 @@ export interface PrefixDiagnosticResult {
   currSnippet?: string;
   /** 启发式定位漂移源：根据 driftPosition 落在哪个 segment marker 范围 */
   suspectedSegment?: 'systemPrompt' | 'wbBefore' | 'processedFormat' | 'wbAfter' | 'unknown';
+  /**
+   * 累计每个段的漂移次数（按 suspectedSegment 分桶）。让用户/排查者在每条日志里都能
+   * 看到「累计漂移 1/6（wbBefore=1）」之类的细化分布，下次再漂时知道针对哪段排查。
+   * 稳定日志里也有（沿用上次状态），方便长会话累积观察。
+   */
+  driftBySegment: Record<string, number>;
 }
 
 interface DiagnosticState {
@@ -43,6 +49,11 @@ interface DiagnosticState {
   driftCount: number;
   /** 用于 suspectedSegment 启发式定位：调用方提供的 segment offset 表 */
   segmentOffsets?: Record<string, number>;
+  /**
+   * 累计每个段的漂移次数。给 formatDiagnosticLine 加段分布，让用户/排查者一眼看出
+   * 「累计漂移 1/6」里那 1 次是哪段污染。键来自 PrefixDiagnosticResult.suspectedSegment。
+   */
+  driftBySegment: Record<string, number>;
 }
 
 const stateBySession = new Map<string, DiagnosticState>();
@@ -63,8 +74,9 @@ export function diagnosePrefixDrift(
       sendCount: 1,
       driftCount: 0,
       segmentOffsets,
+      driftBySegment: {},
     });
-    return { isFirstSend: true, prefixStable: true, driftCount: 0, sendCount: 1 };
+    return { isFirstSend: true, prefixStable: true, driftCount: 0, sendCount: 1, driftBySegment: {} };
   }
 
   const nextSendCount = prev.sendCount + 1;
@@ -74,12 +86,14 @@ export function diagnosePrefixDrift(
       sendCount: nextSendCount,
       driftCount: prev.driftCount,
       segmentOffsets,
+      driftBySegment: prev.driftBySegment,
     });
     return {
       isFirstSend: false,
       prefixStable: true,
       driftCount: prev.driftCount,
       sendCount: nextSendCount,
+      driftBySegment: prev.driftBySegment,
     };
   }
 
@@ -101,11 +115,15 @@ export function diagnosePrefixDrift(
   const suspectedSegment = inferSegment(i, segmentOffsets);
 
   const nextDriftCount = prev.driftCount + 1;
+  // 累加按段分布：让 formatDiagnosticLine 在稳定/漂移日志里都能输出 driftBySegment={wbBefore:1, ...}
+  const segKey = suspectedSegment ?? 'unknown';
+  const nextDriftBySegment = { ...prev.driftBySegment, [segKey]: (prev.driftBySegment[segKey] ?? 0) + 1 };
   stateBySession.set(sessionId, {
     prefix: staticPrefix,
     sendCount: nextSendCount,
     driftCount: nextDriftCount,
     segmentOffsets,
+    driftBySegment: nextDriftBySegment,
   });
 
   return {
@@ -117,6 +135,7 @@ export function diagnosePrefixDrift(
     prevSnippet,
     currSnippet,
     suspectedSegment,
+    driftBySegment: nextDriftBySegment,
   };
 }
 
@@ -151,6 +170,7 @@ export function getDiagnosticsSnapshot(sessionId: string): {
   sendCount: number;
   driftCount: number;
   hitRate: number; // 1 - drift/send
+  driftBySegment: Record<string, number>;
 } | null {
   const s = stateBySession.get(sessionId);
   if (!s) return null;
@@ -158,17 +178,22 @@ export function getDiagnosticsSnapshot(sessionId: string): {
     sendCount: s.sendCount,
     driftCount: s.driftCount,
     hitRate: s.sendCount > 0 ? 1 - s.driftCount / s.sendCount : 1,
+    driftBySegment: s.driftBySegment,
   };
 }
 
 /** 格式化诊断结果为可读单行（适合 pushLog/console.log）。 */
 export function formatDiagnosticLine(r: PrefixDiagnosticResult): string {
+  // 把 driftBySegment 渲染成 「wbBefore=1, wbAfter=0」 简洁后缀。空 map 时不显示。
+  const segDist = Object.keys(r.driftBySegment).length > 0
+    ? `，按段分布 {${Object.entries(r.driftBySegment).map(([k, v]) => `${k}=${v}`).join(', ')}}`
+    : '';
   if (r.isFirstSend) return `[cache-diag] 首次发送，记录基线 (会话内 #${r.sendCount})`;
   if (r.prefixStable) {
-    return `[cache-diag] 静态前缀稳定 ✓ (会话内 #${r.sendCount}，累计漂移 ${r.driftCount}/${r.sendCount - 1})`;
+    return `[cache-diag] 静态前缀稳定 ✓ (会话内 #${r.sendCount}，累计漂移 ${r.driftCount}/${r.sendCount - 1}${segDist})`;
   }
   return (
-    `[cache-diag] ⚠️ 静态前缀漂移 (会话内 #${r.sendCount}，累计 ${r.driftCount}/${r.sendCount - 1})\n` +
+    `[cache-diag] ⚠️ 静态前缀漂移 (会话内 #${r.sendCount}，累计 ${r.driftCount}/${r.sendCount - 1}${segDist})\n` +
     `  位置: 字节 ${r.driftPosition} (疑似来自 ${r.suspectedSegment ?? 'unknown'} 段)\n` +
     `  上回合: ...${(r.prevSnippet ?? '').replace(/\n/g, '⏎')}...\n` +
     `  本回合: ...${(r.currSnippet ?? '').replace(/\n/g, '⏎')}...`

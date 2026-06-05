@@ -43,8 +43,9 @@ interface Props {
 export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
-  // 人物创建面板不随「界面缩放」放大（太大）——反向 zoom 抵消根元素 zoom。
-  const uiScale = useSettingsStore((s) => s.uiScale);
+  // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 ...
+  // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
+  // 不再订阅 uiScale ——CSS 变量 --ui-scale 直接由 applyUiScale 维护，组件不需要 React state。
   const [step, setStep] = useState(0);
 
   /* ---- Step 1: Identity ---- */
@@ -637,7 +638,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setBgConfirm(false);
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) {
-      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
+      setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }
     setBackstoryError('');
@@ -718,7 +719,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       const response = await sendChatCompletion(
         [{ role: 'user', content: prompt }],
-        { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 1600 },
+        // v1.11.6: maxTokens 1600 → 20000 —— 思考型模型(deepseek-v4-pro/reasoner)先在
+        // <think> 里花掉几千 token,1600 不够装 8 个字段(每段 2-4 句 × 80 字 ≈ 1500 输出),
+        // 实测被截断导致 markdown ### 标题不全 → 解析 applied=0 → 报「AI 返回的内容无法解析」。
+        { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 20000 },
         settings.apiBaseUrl, settings.apiKey, settings.apiModel,
       );
 
@@ -760,7 +764,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   // 点「背景补写」入口：无 apiKey 报错；若已有手填字段→弹确认条让用户选覆盖/仅填空格；否则直接整理。
   const handleBackstoryFill = () => {
     if (!useSettingsStore.getState().apiKey) {
-      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
+      setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }
     setBackstoryError('');
@@ -964,12 +968,14 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
 .bg-input::-webkit-scrollbar-thumb{background:rgba(196,168,85,0.22);border-radius:3px;transition:background 0.25s cubic-bezier(0.4,0,0.2,1)}
 .bg-input::-webkit-scrollbar-thumb:hover{background:rgba(196,168,85,0.45)}
 `}</style>
-      {/* Backdrop */}
+      {/* Backdrop —— v1.11.6: 不再用 inset:0(那会被根 zoom 拉到 150vw 致子元素居中漂移)。
+          改用 vw/vh ÷ uiScale 让 layout 算出来后渲染正好 100vw × 100vh 不超出。 */}
       <div
         onClick={() => {}}
         style={{
-          position: 'fixed',
-          inset: 0,
+          position: 'fixed', top: 0, left: 0,
+          width: 'calc(100vw / var(--auto-zoom, 1))',
+          height: 'calc(100vh / var(--auto-zoom, 1))',
           zIndex: 800,
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
@@ -980,20 +986,24 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
       <div style={{
         position: 'fixed',
         zIndex: 850,
-        zoom: uiScale === 1 ? undefined : 1 / uiScale,
+        // v1.11.6: 不再用 zoom: 1/uiScale 反向抵消（那是旧 hack）。
+        // 改成「自适应屏幕大小」：layout 维度 ÷ uiScale，让 zoom 后的实际渲染尺寸
+        // = layout × uiScale → 永远在 vw/vh 范围内，不会溢出，跟主体一起放大。
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         overflow: 'hidden',
         ...(isMobile
-          ? { inset: 0, width: '100vw', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none' }
+          ? { inset: 0, width: 'calc(100vw / var(--auto-zoom, 1))', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none' }
           : {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 560,
-              maxWidth: '94vw',
-              ...(step === 4 ? { height: '55vh' } : { maxHeight: '88vh' }),
+              width: 'calc(min(720px, 94vw) / var(--auto-zoom, 1))',
+              // v1.11.8: 所有 step 统一 maxHeight 88vh,背景故事不再用 55vh(用户反馈太矮)
+              // 让面板自适应填满屏幕上下,内容多时自动滚动。
+              maxHeight: 'calc(88vh / var(--auto-zoom, 1))',
+              minHeight: step === 4 ? 'calc(70vh / var(--auto-zoom, 1))' : undefined,
               border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 6,
               boxShadow: '0 8px 60px rgba(0,0,0,0.7)',
@@ -1012,7 +1022,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
             <div>
               <h2 style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 18,
+                fontSize: 'calc(18px * var(--system-ratio, 1))',
                 color: 'var(--gold)',
                 letterSpacing: 4,
                 margin: 0,
@@ -1034,7 +1044,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid transparent', borderRadius: 3,
-              background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16,
+              background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))',
               fontFamily: 'var(--font-ui)',
             }}>
               ✕
@@ -1044,16 +1054,16 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           {/* Step indicator */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14,
-            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8,
+            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8, width: '100%',
           }}>
             {STEPS.map((label, i) => {
               const active = i === step;
               const done = i < step;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i > 0 ? 1 : 'none', minWidth: 0 }}>
                   {i > 0 && (
                     <div style={{
-                      width: 20, height: 1,
+                      flex: 1, minWidth: 16, maxWidth: 80, height: 1,
                       background: i <= step ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
                       transition: 'var(--transition-smooth)',
                     }} />
@@ -1062,11 +1072,11 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                     onClick={() => { if (done) setStep(i); }}
                     className={done ? 'sk-btn' : undefined}
                     style={{
-                      width: 28, height: 28, borderRadius: '50%',
+                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       border: active ? '1px solid var(--gold)' : done ? '1px solid rgba(196,168,85,0.35)' : '1px solid rgba(255,255,255,0.1)',
                       background: active ? 'var(--gold)' : done ? 'rgba(196,168,85,0.15)' : 'transparent',
                       color: active ? 'var(--void)' : done ? 'var(--gold)' : 'var(--ink-subtle)',
-                      fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                      fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700,
                       cursor: done ? 'pointer' : 'default',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}

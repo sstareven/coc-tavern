@@ -209,14 +209,25 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   }, [recs, mode]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+    <div style={{
+      // v1.11.6: backdrop 用 vw/vh ÷ uiScale 替代 inset:0 + 内层反向 zoom。
+      position: 'fixed', top: 0, left: 0,
+      width: 'calc(100vw / var(--auto-zoom, 1))',
+      height: 'calc(100vh / var(--auto-zoom, 1))',
+      zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      {/* zoom 反向抵消界面缩放(uiScale)：用户开 1.15/1.3/1.5 时数据面板保持 100% 显示,
-          否则图表 + 明细被放大反而看着信息密度变低。calc(1/var(...)) 让面板回到自然尺寸。 */}
-      <div style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', minWidth: 540, maxWidth: 720, width: '94%', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)', zoom: 'calc(1 / var(--ui-scale, 1))' as React.CSSProperties['zoom'] }}>
+      <div style={{
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
+        width: 'calc(min(720px, 94vw) / var(--auto-zoom, 1))',
+        minWidth: 'calc(min(540px, 94vw) / var(--auto-zoom, 1))',
+        maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
+        display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+      }}>
         {/* 标题栏 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 10, flexShrink: 0 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>缓存命中 / CACHE HITS</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>缓存命中 / CACHE HITS</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={handleCopy}
               title="把全部缓存命中数据(总览 + 按页明细 + 子调用)复制成 Markdown 表格,方便贴给排错"
@@ -224,7 +235,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
                 padding: '4px 10px', border: `1px solid ${copied ? 'var(--gold)' : 'rgba(196,168,85,0.4)'}`,
                 borderRadius: 3, background: copied ? 'rgba(196,168,85,0.2)' : 'transparent',
                 color: copied ? 'var(--gold)' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 2, cursor: 'pointer',
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 2, cursor: 'pointer',
                 transition: 'var(--transition-smooth)',
               }}
               onMouseEnter={(e) => { if (!copied) { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; } }}
@@ -232,7 +243,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
             >
               {copied ? '已复制 ✓' : '复制表格'}
             </button>
-            <button onClick={onClose} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
+            <button onClick={onClose} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
               onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'transparent'; }}>✕</button>
           </div>
@@ -260,7 +271,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 12, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 12, lineHeight: 1.7 }}>
           按 DeepSeek 2026 标准价估算（每百万 token，单位 ¥）：
           <span style={{ color: TIER_COLORS.flash, marginLeft: 4 }}>Flash 命中 0.02 / 未命中 1 / 输出 2</span>
           <span style={{ margin: '0 6px', color: 'var(--ink-faded)' }}>·</span>
@@ -272,7 +283,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           {([['page', '按页'], ['day', '按天']] as const).map(([m, label]) => (
             <button key={m} onClick={() => setMode(m)}
-              style={{ fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 1, padding: '4px 14px', borderRadius: 3, cursor: 'pointer',
+              style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1, padding: '4px 14px', borderRadius: 3, cursor: 'pointer',
                 border: `1px solid ${mode === m ? 'var(--gold)' : 'rgba(196,168,85,0.3)'}`,
                 background: mode === m ? 'rgba(196,168,85,0.18)' : 'transparent', color: mode === m ? 'var(--gold)' : 'var(--ink-subtle)',
                 transition: 'var(--transition-smooth)' }}>{label}</button>
@@ -282,7 +293,7 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
         {/* 折线图 / 空态 */}
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {points.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
+            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
               暂无缓存数据——当前模型未返回缓存信息（DeepSeek 等支持），或尚未生成新页面。
             </div>
           ) : (
@@ -308,7 +319,7 @@ function PageDetailList({ pages }: { pages: import('../../types').BookPage[] }) 
 
   return (
     <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(196,168,85,0.2)' }}>
-      <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 3, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
+      <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 3, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
         按页明细 / PER-PAGE DETAIL
       </div>
       {/* 内层独立滚动:页数多时不让外层面板被撑长。 */}
@@ -350,7 +361,7 @@ function PageDetailCard({ page, pageIdx }: { page: import('../../types').BookPag
       padding: '8px 12px',
       background: 'rgba(0,0,0,0.18)',
       fontFamily: 'var(--font-ui)',
-      fontSize: 11,
+      fontSize: 'calc(11px * var(--system-ratio, 1))',
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ color: 'var(--gold)', fontWeight: 700 }}>
@@ -413,12 +424,12 @@ function SubCallRow({
       gap: 10,
       padding: '3px 0',
       borderTop: '1px dashed rgba(196,168,85,0.08)',
-      fontSize: 10,
+      fontSize: 'calc(10px * var(--system-ratio, 1))',
       color: 'var(--text-light)',
     }}>
       <span>
         <span style={{ color: TIER_COLORS[tier], fontWeight: 600 }}>{label}</span>
-        {model && <span style={{ color: 'var(--ink-faded)', marginLeft: 6, fontSize: 9 }}>· {model}</span>}
+        {model && <span style={{ color: 'var(--ink-faded)', marginLeft: 6, fontSize: 'calc(9px * var(--system-ratio, 1))' }}>· {model}</span>}
       </span>
       <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)' }}>
         {hit + miss > 0 ? `${rate.toFixed(0)}%` : '—'}
@@ -436,7 +447,7 @@ function SubCallRow({
 function Stat({ label, value, color, big }: { label: string; value: string; color: string; big?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 12px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 5, background: 'rgba(0,0,0,0.15)', minWidth: 80 }}>
-      <span style={{ fontSize: 9, color: 'var(--ink-faded)', letterSpacing: 1 }}>{label}</span>
+      <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 1 }}>{label}</span>
       <span style={{ fontSize: big ? 19 : 14, fontWeight: 700, color, fontFamily: 'var(--font-display)' }}>{value}</span>
     </div>
   );
@@ -447,10 +458,10 @@ function TierStat({ tier, hit, miss, output, cost, count }: { tier: ModelTier; h
   const rate = hit + miss > 0 ? (hit / (hit + miss)) * 100 : 0;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 12px', border: `1px solid ${TIER_COLORS[tier]}66`, borderRadius: 5, background: `${TIER_COLORS[tier]}10`, minWidth: 180 }}>
-      <span style={{ fontSize: 10, color: TIER_COLORS[tier], letterSpacing: 1.5, fontWeight: 700 }}>
+      <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: TIER_COLORS[tier], letterSpacing: 1.5, fontWeight: 700 }}>
         {TIER_LABELS[tier]} · {count} 页 · 命中 {rate.toFixed(1)}%
       </span>
-      <span style={{ fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+      <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
         ↓{hit.toLocaleString()} ↑{miss.toLocaleString()} ↗{output.toLocaleString()} · {`¥${cost < 1 ? cost.toFixed(4) : cost.toFixed(2)}`}
       </span>
     </div>
@@ -519,7 +530,7 @@ function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 6, fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)' }}>
+      <div style={{ display: 'flex', gap: 14, marginBottom: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)' }}>
         {flashPoints.length > 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 14, height: 2, background: TIER_COLORS.flash, display: 'inline-block' }} />
@@ -579,7 +590,7 @@ function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
         <div style={{
           position: 'absolute', left: `${(hx / W) * 100}%`, top: 18, transform: `translateX(${hx > W * 0.6 ? '-105%' : '8px'})`,
           pointerEvents: 'none', background: 'rgba(20,14,8,0.97)', border: `1px solid ${TIER_COLORS[hp.tier]}`, borderRadius: 5,
-          padding: '7px 10px', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-light)', whiteSpace: 'nowrap',
+          padding: '7px 10px', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', whiteSpace: 'nowrap',
           boxShadow: '0 4px 16px rgba(0,0,0,0.6)', lineHeight: 1.7, zIndex: 2,
         }}>
           <div style={{ color: TIER_COLORS[hp.tier], fontWeight: 700, marginBottom: 2 }}>{TIER_LABELS[hp.tier]} · {xLabel} {hp.label}</div>

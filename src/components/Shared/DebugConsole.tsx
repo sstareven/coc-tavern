@@ -102,7 +102,7 @@ export function DebugConsole() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             backdropFilter: 'blur(8px)',
             padding: '8px 12px',
-            fontFamily: 'var(--font-mono)', fontSize: 11,
+            fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))',
           }}
         >
           {log.length > 0 && (
@@ -113,7 +113,7 @@ export function DebugConsole() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ color: 'var(--gold)', fontSize: 10 }}>{'>'}</span>
+            <span style={{ color: 'var(--gold)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>{'>'}</span>
             <input
               name="debug-console-cmd"
               ref={ref}
@@ -123,7 +123,7 @@ export function DebugConsole() {
               placeholder="输入命令 (help 查看可用命令)"
               style={{
                 flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 11,
+                color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))',
                 caretColor: 'var(--gold)',
               }}
             />

@@ -100,18 +100,18 @@ export function MobileNoteView() {
             margin: 10, padding: '16px 16px 12px', borderRadius: 8,
             background: 'linear-gradient(160deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
-            color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75,
+            color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75,
           }}
         >
           {/* 标题 + 骰子记录 */}
           <div style={{ flexShrink: 0, marginBottom: 10, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 3, margin: 0 }}>{page.leftHeader}</h3>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 3, margin: 0 }}>{page.leftHeader}</h3>
             {dice.slice(0, 2).map((d, i) => {
               const c = RESULT_COLORS[d.type] || RESULT_COLORS.failure;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                   <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${c}55)` }} />
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: c, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 'calc(9px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', color: c, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>
                     {d.skill} {RESULT_LABELS[d.type] || d.type}
                   </span>
                   <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${c}55)` }} />
@@ -120,7 +120,7 @@ export function MobileNoteView() {
             })}
             {/* 小总结（剧情回顾）—— 与检定结果一起冻结在顶部 */}
             {page.summary && (
-              <p style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
+              <p style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
                 {page.summary}
               </p>
             )}
@@ -139,7 +139,7 @@ export function MobileNoteView() {
                 {/* 抉择时刻 —— 左右页正文分割线（仅手机端） */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
                 {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
@@ -154,7 +154,7 @@ export function MobileNoteView() {
                 {/* 行动补写过渡叙述 —— 移动端置于卷轴最底部，单独成段，不混入右页正文 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
                 <p style={{ textIndent: '2em', marginBottom: 12, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
@@ -162,7 +162,7 @@ export function MobileNoteView() {
             )}
           </div>
           {page.leftPage && (
-            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{page.leftPage}</div>
+            <div style={{ textAlign: 'center', fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{page.leftPage}</div>
           )}
         </motion.div>
       </AnimatePresence>
@@ -174,7 +174,7 @@ export function MobileNoteView() {
         transition={{ delay: 1.8, duration: 1.4, ease: [0.4, 0, 0.2, 1] }}
         style={{
           position: 'absolute', top: 0, left: 16, zIndex: 6, pointerEvents: 'none',
-          fontSize: 9.5, letterSpacing: 1.5, whiteSpace: 'nowrap',
+          fontSize: 'calc(9.5px * var(--text-ratio, 1))', letterSpacing: 1.5, whiteSpace: 'nowrap',
           color: 'rgba(196,168,85,0.7)', fontFamily: 'var(--font-ui)',
         }}
       >

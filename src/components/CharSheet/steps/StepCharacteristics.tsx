@@ -232,7 +232,7 @@ export function StepCharacteristics({
           color: 'var(--gold)',
           fontFamily: 'var(--font-display)',
           fontWeight: 700,
-          fontSize: 20,
+          fontSize: 'calc(20px * var(--system-ratio, 1))',
           cursor: dragging ? 'grabbing' : 'grab',
           boxShadow: '0 2px 6px rgba(0,0,0,0.45), inset 0 0 8px rgba(196,168,85,0.08)',
           userSelect: 'none',
@@ -274,11 +274,12 @@ export function StepCharacteristics({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+      {/* v1.11.8: minWidth:0 让 flex 子项能正确收缩;不再裁切横向溢出,改让 grid 自适应列数 */}
       {/* Stable header: title on its own line, controls in a wrapping left-aligned row below.
           Same arrangement in BOTH modes so buttons never jump to the far right. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={sectionTitle}>基础属性 CHARACTERISTICS</div>
+        <div style={sectionTitle}>基础属性</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Mode toggle */}
           <div style={{
@@ -418,7 +419,7 @@ export function StepCharacteristics({
         </div>
       )}
 
-      {/* A3.2 年龄修正：信息摘要（APP/MOV/EDU 提升次数/幸运重投） */}
+      {/* A3.2 年龄修正：信息摘要（APP//EDU 提升次数/幸运重投） */}
       {ageBand && (ageBand.appDeduct > 0 || ageBand.mov !== 8 || ageBand.eduImprovementCount > 0 || ageBand.luckRollAgain) && (
         <div style={{
           padding: '8px 12px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 4,
@@ -432,7 +433,9 @@ export function StepCharacteristics({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
+        {/* v1.11.8: 强制左右两栏(用户偏好):'minmax(0, 1fr) minmax(0, 1fr)' 让每列最小宽 0、
+            最大平均分,内容(长属性名/数值)可正常 shrink 不溢出。点数池/自由调整两种模式都两栏。 */}
         {CHAR_ORDER.map(({ key, zh }) => {
           const val = charValues[key] || 50;
           const half = Math.floor(val / 2);
@@ -459,8 +462,8 @@ export function StepCharacteristics({
                   transition: 'var(--transition-smooth)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zh} ({key})</span>
                   {assignedPool != null && (
                     <button onClick={() => onPoolAssign(key, null)} style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
@@ -500,13 +503,13 @@ export function StepCharacteristics({
           return (
             <div key={key} style={{ padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
+                <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
                 <button onClick={() => onRollChar(key)} style={{ padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer' }}>ROLL</button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <button onClick={() => onAdjChar(key, -5)} style={plusMinusBtn}>-5</button>
                 <button onClick={() => onAdjChar(key, -1)} style={plusMinusBtn}>-1</button>
-                <span style={{ fontSize: 22, fontFamily: 'var(--font-mono)', color: 'var(--text-light)', fontWeight: 700, minWidth: 40, textAlign: 'center' }}>{val}</span>
+                <span style={{ fontSize: 'calc(22px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--text-light)', fontWeight: 700, minWidth: 40, textAlign: 'center' }}>{val}</span>
                 <button onClick={() => onAdjChar(key, +1)} style={plusMinusBtn}>+1</button>
                 <button onClick={() => onAdjChar(key, +5)} style={plusMinusBtn}>+5</button>
               </div>
@@ -539,7 +542,7 @@ export function StepCharacteristics({
             color: 'var(--gold)',
             fontFamily: 'var(--font-display)',
             fontWeight: 700,
-            fontSize: 20,
+            fontSize: 'calc(20px * var(--system-ratio, 1))',
             boxShadow: '0 4px 14px rgba(0,0,0,0.6), inset 0 0 8px rgba(196,168,85,0.12)',
             opacity: 0.92,
           }}

@@ -82,7 +82,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
           <h3
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 18,
+              fontSize: 'calc(18px * var(--system-ratio, 1))',
               color: 'var(--gold)',
               letterSpacing: 4,
               margin: 0,
@@ -102,7 +102,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
               borderRadius: 3,
               background: 'transparent',
               color: 'var(--ink-subtle)',
-              fontSize: 16,
+              fontSize: 'calc(16px * var(--system-ratio, 1))',
               cursor: 'pointer',
               fontFamily: 'var(--font-ui)',
             }}
@@ -137,7 +137,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                     style={{
                       padding: '8px 12px',
                       textAlign: 'left',
-                      fontSize: 11,
+                      fontSize: 'calc(11px * var(--system-ratio, 1))',
                       color: 'var(--ink-subtle)',
                       letterSpacing: 2,
                       borderBottom: '1px solid rgba(196,168,85,0.18)',
@@ -159,7 +159,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       padding: '40px 0',
                       textAlign: 'center',
                       color: 'var(--ink-subtle)',
-                      fontSize: 13,
+                      fontSize: 'calc(13px * var(--system-ratio, 1))',
                       letterSpacing: 2,
                     }}
                   >
@@ -182,7 +182,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 12,
+                          fontSize: 'calc(12px * var(--system-ratio, 1))',
                           color: 'var(--text-light)',
                           letterSpacing: 1,
                           borderLeft: `3px solid ${colors.border}`,
@@ -193,7 +193,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 14,
+                          fontSize: 'calc(14px * var(--system-ratio, 1))',
                           fontFamily: 'var(--font-mono)',
                           color: 'var(--gold)',
                           fontWeight: 700,
@@ -204,7 +204,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 12,
+                          fontSize: 'calc(12px * var(--system-ratio, 1))',
                           fontFamily: 'var(--font-mono)',
                           color: 'var(--text-light)',
                         }}
@@ -214,7 +214,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 11,
+                          fontSize: 'calc(11px * var(--system-ratio, 1))',
                           fontWeight: 600,
                           color: colors.border,
                           letterSpacing: 1,
@@ -225,7 +225,7 @@ export function DiceHistory({ onClose }: { onClose: () => void }) {
                       <td
                         style={{
                           padding: '9px 12px',
-                          fontSize: 11,
+                          fontSize: 'calc(11px * var(--system-ratio, 1))',
                           color: 'var(--ink-subtle)',
                           fontFamily: 'var(--font-mono)',
                         }}

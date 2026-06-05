@@ -48,7 +48,7 @@ export function ActionSheet() {
             flexShrink: 0, margin: '0 10px 8px', padding: '10px',
             borderRadius: 8, border: 'none',
             background: 'linear-gradient(180deg, #c4a855, #a8893f)',
-            color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, letterSpacing: 3,
+            color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'calc(16px * var(--text-ratio, 1))', letterSpacing: 3,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             boxShadow: '0 3px 9px rgba(0,0,0,0.4)', cursor: 'pointer',
             transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1), filter 0.2s cubic-bezier(0.4,0,0.2,1)',
@@ -82,8 +82,8 @@ export function ActionSheet() {
               onMouseDown={(e) => { e.currentTarget.style.transform = 'scaleX(1.15) scaleY(0.8)'; }}
               onMouseUp={(e) => { e.currentTarget.style.transform = 'scaleX(1.15)'; }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7,
-              fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, color: 'var(--gold)' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: 3 }}>选择行动</span>
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--text-ratio, 1))', letterSpacing: 1, color: 'var(--gold)' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(15px * var(--text-ratio, 1))', letterSpacing: 3 }}>选择行动</span>
               <span
                 style={{ color: 'var(--ink-subtle)', cursor: 'pointer', transition: 'var(--transition-smooth)', display: 'inline-block' }}
                 onClick={() => setOpen(false)}
@@ -109,7 +109,7 @@ export function ActionSheet() {
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, pointerEvents: 'none',
                     background: 'linear-gradient(180deg, rgba(13,10,7,0), rgba(13,10,7,0.96))' }} />
                   <div style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)',
-                    color: 'var(--gold)', fontSize: 14, pointerEvents: 'none', animation: 'asBob 1.3s ease-in-out infinite' }}>⌄</div>
+                    color: 'var(--gold)', fontSize: 'calc(14px * var(--text-ratio, 1))', pointerEvents: 'none', animation: 'asBob 1.3s ease-in-out infinite' }}>⌄</div>
                 </>
               )}
             </div>

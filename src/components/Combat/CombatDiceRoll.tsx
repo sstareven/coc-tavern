@@ -45,7 +45,7 @@ function DieCube({ die, rolling, soundOn }: { die: TossDie; rolling: boolean; so
           : { duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
           width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 30, fontWeight: 700, fontFamily: 'var(--font-mono)',
+          fontSize: 'calc(30px * var(--system-ratio, 1))', fontWeight: 700, fontFamily: 'var(--font-mono)',
           color: rolling ? 'var(--gold)' : die.color,
           background: 'linear-gradient(155deg, rgba(40,28,18,0.97) 0%, rgba(22,15,9,0.98) 100%)',
           border: `2.5px solid ${rolling ? '#7a6a4a' : die.color}`,
@@ -55,7 +55,7 @@ function DieCube({ die, rolling, soundOn }: { die: TossDie; rolling: boolean; so
         }}
       >{shown}</motion.div>
       {die.caption && (
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 1, color: rolling ? 'var(--ink-faded)' : die.color, opacity: rolling ? 0.5 : 1, transition: 'opacity 0.3s, color 0.3s', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1, color: rolling ? 'var(--ink-faded)' : die.color, opacity: rolling ? 0.5 : 1, transition: 'opacity 0.3s, color 0.3s', whiteSpace: 'nowrap' }}>
           {die.caption}
         </span>
       )}
@@ -113,7 +113,7 @@ export function CombatDiceRoll({ tosses, soundOn, onComplete }: { tosses: DiceTo
         backdropFilter: 'blur(2px)',
       }}
     >
-      <span style={{ fontSize: 13, fontFamily: 'var(--font-display)', letterSpacing: 4, color: 'var(--parchment)', opacity: 0.85 }}>
+      <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', letterSpacing: 4, color: 'var(--parchment)', opacity: 0.85 }}>
         {toss.title}{tosses.length > 1 ? `（${idx + 1}/${tosses.length}）` : ''}
       </span>
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
@@ -122,7 +122,7 @@ export function CombatDiceRoll({ tosses, soundOn, onComplete }: { tosses: DiceTo
       {!rolling && toss.total != null && (
         <motion.span
           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
-          style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 2, color: '#ff7043' }}
+          style={{ fontSize: 'calc(18px * var(--system-ratio, 1))', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 2, color: '#ff7043' }}
         >合计 {toss.total}</motion.span>
       )}
     </motion.div>

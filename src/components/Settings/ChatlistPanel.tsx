@@ -40,7 +40,7 @@ export function ChatlistPanel({ onClose }: Props) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             对话管理 / SESSIONS
           </h3>
           <button onClick={onClose} style={closeBtnStyle}
@@ -57,7 +57,7 @@ export function ChatlistPanel({ onClose }: Props) {
             style={{
               flex: 1, padding: '8px 12px', border: '1px solid var(--brass)', borderRadius: 3,
               background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-              fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
@@ -65,7 +65,7 @@ export function ChatlistPanel({ onClose }: Props) {
           <button onClick={handleCreate} style={{
             padding: '8px 16px', border: '1px solid var(--gold)', borderRadius: 3,
             background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-            fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2, cursor: 'pointer',
             whiteSpace: 'nowrap',
           }}>
             + 新建
@@ -75,7 +75,7 @@ export function ChatlistPanel({ onClose }: Props) {
         {/* Session list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--ink-faded) transparent' }}>
           {sessions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13, letterSpacing: 2 }}>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 'calc(13px * var(--system-ratio, 1))', letterSpacing: 2 }}>
               暂无对话记录
             </div>
           ) : (
@@ -112,14 +112,14 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+          <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: isActive ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
             {sess.name}
           </span>
           {isActive && (
-            <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--gold)', background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2, letterSpacing: 1 }}>当前</span>
+            <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2, letterSpacing: 1 }}>当前</span>
           )}
         </div>
-        <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
           {sess.pageCount ?? sess.pages.length} 页 · {new Date(sess.updatedAt).toLocaleDateString('zh-CN')}
         </span>
       </div>
@@ -128,13 +128,13 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
           <button onClick={onDelete} style={{
             padding: '3px 10px', border: '1px solid var(--blood)', borderRadius: 3,
             background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
-            fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
             transition: 'var(--transition-smooth)',
           }}>确认</button>
           <button onClick={() => setConfirmDelete(false)} style={{
             padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3,
             background: 'transparent', color: 'var(--ink-subtle)',
-            fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
             transition: 'var(--transition-smooth)',
           }}>取消</button>
         </div>
@@ -142,7 +142,7 @@ function SessionItem({ sess, isActive, onSelect, onDelete }: {
         <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
           padding: '4px 10px', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 3,
           background: 'transparent', color: 'var(--blood)', fontFamily: 'var(--font-ui)',
-          fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+          fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1, cursor: 'pointer',
           transition: 'var(--transition-smooth)', transform: 'scale(1)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.borderColor = 'var(--blood)'; }}

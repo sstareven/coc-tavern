@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useBookStore } from '../stores/useBookStore';
 import { usePanelStore } from '../stores/usePanelStore';
-import { useSettingsStore } from '../stores/useSettingsStore';
+import { useSettingsStore, getEffectiveDsCache, getEffectiveSetting } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
@@ -27,6 +27,7 @@ import { generateStartingItems } from '../sillytavern/starting-items-generator';
 import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
+import { extractKeywordMeanings, extractKwTaggedKeywords } from '../sillytavern/keyword-meaning-extractor';
 import { reconcileMap } from '../sillytavern/map-reconciler';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
 import { useTavernHelperStore } from '../stores/useTavernHelperStore';
@@ -224,7 +225,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const sessionLorebookIds = chatNow.sessions.find((s) => s.id === chatNow.activeId)?.lorebookIds ?? [];
       const scopedBooks = resolveActiveBooks(allBooks, sessionLorebookIds, thOptimize.forceWorldbookSettings);
       // 早期取 DS 缓存配置：experimentalSkipMvuVarList 在 buckets 收集阶段就要用
-      const earlyDsCache = useSettingsStore.getState().dsCache;
+      // v1.11.8: 走 effective —— DS ULTRA active 时返回 override 后的 dsCache,否则返回用户原值。
+      // 用户底下 Toggle 显示状态完全不动,实际生效的是 effective。
+      const earlyDsCache = getEffectiveDsCache(useSettingsStore.getState());
       const experimentalSkipMvuVarList = earlyDsCache?.experimentalSkipMvuVarList === true;
       type ScopedEntry = LoreEntry & { _source?: WorldInfoSource };
       let otherEntries: ScopedEntry[] = [];
@@ -283,7 +286,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Probability filter: entries with probability < 100 have a chance of being skipped
       matchedKeyword = matchedKeyword.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
       let matchedSummary = matchLoreEntries(matchCtx, summaryEntries, matchSettings);
-      const maxSummary = useSettingsStore.getState().maxSummaryEntries;
+      const maxSummary = getEffectiveSetting(useSettingsStore.getState(), 'maxSummaryEntries');
       if (matchedSummary.length > maxSummary) {
         matchedSummary = matchedSummary.slice(-maxSummary);
       }
@@ -421,7 +424,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // 静态桶 = constant/generateInjects/inverted；用户可通过 treatConstantAsDynamic 把 constant 也下沉。
       // 自动检测(默认开)：constantBucket 里【含 EJS/动态宏】的条目(如 coc_lore 的 ejs_san_state/mvu_var_list 等)
       //   会自动加入 dynamicEntriesByRef——它们 entry.constant=true 但渲染结果随 statData 变，曾是命中率衰减元凶。
-      const dsCfg = settingsNow.dsCache;
+      const dsCfg = getEffectiveDsCache(settingsNow);
       const dsRestructureOn =
         !liteMode &&
         dsCfg?.restructure === true &&
@@ -1015,7 +1018,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               );
             }
           }
-          if (patchReport.failed.length > 0 && settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
+          // v1.11.8: 走 effective —— ULTRA active 时返回 preset 值,否则用户值。
+          const mvuSelfCorrectEnabled = getEffectiveSetting(settings, 'mvuSelfCorrectEnabled');
+          const mvuSelfCorrectRetries = getEffectiveSetting(settings, 'mvuSelfCorrectRetries');
+          if (patchReport.failed.length > 0 && mvuSelfCorrectEnabled && (mvuSelfCorrectRetries ?? 0) > 0) {
             useStatusToastStore.getState().updateProcessing('正在校正状态变量…');
             // 自纠瘦上下文：不再重发整份主 prompt(editedMessages，最大上下文冗余)，只给本回合叙事 + 当前状态快照。
             const rawStat = useVariableStore.getState().statData;
@@ -1026,16 +1032,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const statSnapshotYaml = Object.keys(visibleStat).length > 0 ? formatStatDataYaml(visibleStat) : '';
             const sc = await runMvuSelfCorrect(
               patchReport.failed,
-              settings.mvuSelfCorrectRetries,
+              mvuSelfCorrectRetries,
               {
                 // send 显式走 'mvu' RPM 桶 + 传中止信号 —— RPM 死线在此落实。
+                // v1.11.6: API 选择对齐 MVU 提取——优先用 MVU 独立 API（若已配置），
+                // 否则回退主 API。之前硬编码主 API 致 MVU 自纠走 Pro 模型,与 MVU 提取(Flash)
+                // 路径不一致、单次自纠开销远高于必要(用户实测 4163 tokens × Pro 单价)。
                 send: async (msgs) => {
+                  const useMvuSC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+                  const scBase = (useMvuSC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+                  const scKey = (useMvuSC ? settings.mvuApiKey : settings.apiKey) ?? '';
+                  const scModel = (useMvuSC ? settings.mvuApiModel : settings.apiModel) ?? '';
                   const r = await sendChatCompletion(
                     applyPostProcessing(msgs, settings.promptPostProcessing),
                     presetForApi,
-                    settings.apiBaseUrl,
-                    settings.apiKey,
-                    settings.apiModel,
+                    scBase,
+                    scKey,
+                    scModel,
                     false,
                     undefined,
                     controller.signal,
@@ -1174,9 +1187,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               });
             }
             if (selfCorrectUsage) {
+              // v1.11.6: model 标签条件对齐自纠 send 内部 useMvuSC 逻辑——不依赖 useIndependentMvu
+              // (那个还 AND 了 needLlmExtraction,会让"主 JSON 已带 patch + 配了独立 MVU API"
+              // 的场景下自纠走独立 API 但 stat label 误标主 model)。
+              const selfCorrectUsedMvuApi = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey?.trim());
               subs.push({
                 label: 'MVU 自纠',
-                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                model: selfCorrectUsedMvuApi ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
                 promptTokens: selfCorrectUsage.prompt_tokens,
                 output: selfCorrectUsage.completion_tokens,
                 at: Date.now(),
@@ -1232,15 +1249,27 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             `[页面内容] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}\n选项: ${newPage.rightChoices.map((c: { text: string }) => c.text).join(' | ')}`,
             'system',
           );
-          bookStore.autoFlipForward();
+          // v1.11.4: 不立即翻页——延后到 pendingVisibleSubcalls 等齐（见下方 await Promise.race）。
+          // appendPage 把页数据入 store 是【必须立即做】的，下面 6 个可见子调用要靠 pages.length-1 定位写回。
           const thOptimize2 = useTavernHelperStore.getState().optimize;
           const thRender = useTavernHelperStore.getState().render;
-          if (thOptimize2.optimizeMessageLoad) {
+          // v1.11.8: ULTRA active 时强制 optimizeMessageLoad: false (chatHistory 永久增长保缓存)
+          // 即便 tavern store 字段为 true。
+          const optimizeMessageLoadEffective = useSettingsStore.getState().dsUltraActive
+            ? false
+            : thOptimize2.optimizeMessageLoad;
+          if (optimizeMessageLoadEffective) {
             const limit = thRender.renderDepth > 0 ? thRender.renderDepth : 10;
             bookStore.trimPages(limit);
           }
         }
         chatStore.savePages(useBookStore.getState().pages);
+
+        // v1.11.4: 收集 6 个【影响玩家可见 UI】的子调用 promise，在所有可见子调用 settled 后才
+        // autoFlipForward 翻页。守秘人机密 3 个（坏结局/关键线索/真相支柱命中）+ 战斗检测仍 fire-and-forget。
+        // 用户中止（controller.signal.aborted）则跳过 await 直接翻页——abort=放弃等齐、立刻显示已生成内容。
+        const pendingVisibleSubcalls: Promise<unknown>[] = [];
+        const willAutoFlip = !replace;
 
         // 暗线定向补生成：剧情本应推进暗线、但主 JSON 遗漏 darkThread 时（darkThreadMissing），
         // 不弹框打断、改为【fire-and-forget 独立调用】补出本回合暗线。走 'mvu' RPM 桶——撞上限自动排队
@@ -1253,7 +1282,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const progressLine = latest ? `当前暗线进度: ${latest.progress}/100（${latest.threatLevel}）` : '当前暗线进度: 0/100（潜伏）';
           const secretLine = badEnding ? `本局注定坏结局（守秘人机密，绝不泄露玩家）: ${badEnding.description}` : '';
           const dtCtx = [`近期叙事:\n${newPage.leftContent}`, progressLine, secretLine].filter(Boolean).join('\n');
-          void (async () => {
+          pendingVisibleSubcalls.push((async () => {
             try {
               const dt = await generateDarkThread(dtCtx, settings.apiBaseUrl, settings.apiKey, settings.apiModel, controller.signal);
               if (!dt || useChatStore.getState().activeId !== aidDT) return; // 穷尽失败或切档 → 放弃
@@ -1267,7 +1296,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               if (controller.signal.aborted) return;
               pushLog('warn', `[暗线] 定向补生成失败（已穷尽重试）: ${e instanceof Error ? e.message : String(e)}`, 'api');
             }
-          })();
+          })());
         }
 
         // BUG2 Part 2: NPC 缺失「补写 API 重纠」——detectNpcMissing 命中且独立补写 API 配置齐全时，
@@ -1283,7 +1312,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const nrPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
             const narrativeForRectify = `${newPage.leftContent}\n${newPage.rightContent}`;
             pushLog('info', `[NPC缺失] 检测到叙事里有 NPC 但 npcUpdates 缺失/空，已启动补写 API 重纠…`, 'system');
-            void (async () => {
+            pendingVisibleSubcalls.push((async () => {
               try {
                 const rectified = await rectifyMissingNpcs(
                   narrativeForRectify, investigatorNameForRectify,
@@ -1303,7 +1332,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 if (controller.signal.aborted) return;
                 pushLog('warn', `[NPC缺失] 补写 API 重纠失败（已穷尽重试）：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
-            })();
+            })());
           }
         }
 
@@ -1323,7 +1352,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const prologue = useBookStore.getState().pages[0];
           const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
           const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
-          void (async () => {
+          pendingVisibleSubcalls.push((async () => {
             try {
               // 走 MVU API（若已配置）/ 主 API（fallback）+ mvu RPM 桶 —— 起始物品是
               // 短 JSON 子调用，无需主回合的 Pro 大模型，走 Flash 更快更便宜。
@@ -1353,7 +1382,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             } catch (e) {
               pushLog('warn', `[起始物品] 生成失败（本局无起始装备）：${e instanceof Error ? e.message : String(e)}`, 'api');
             }
-          })();
+          })());
         }
 
         // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
@@ -1365,6 +1394,40 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 随后的 saveConversation 会把 keywords 持久化进 Dexie keywords 表。
         if (newPage.keywords) {
           useKeywordStore.getState().addKeywords(newPage.keywords);
+        }
+
+        // v1.11.5: 关键词释义补全·独立子调用 —— 扫 leftContent+rightContent 里所有 <kw>X</kw>
+        // 标签的关键词，比对 useKeywordStore（含本回合刚 addKeywords 进去的 page.keywords） + 通用
+        // KEYWORD_MEANINGS 表，把未知的交给独立 Flash 调用补 10-30 字释义。这解决了主回合长 prompt
+        // 下 keywords 字段易被截断/省略致 tooltip 显示不出的问题；与主回合解耦，不占主输出 token 预算。
+        // 走 v1.11.4 pendingVisibleSubcalls 队列阻塞翻页，玩家进入新页时 tooltip 已全齐。
+        {
+          const narrative = `${newPage.leftContent}\n${newPage.rightContent}`;
+          const taggedKws = extractKwTaggedKeywords(narrative);
+          if (taggedKws.length > 0) {
+            const knownSet = new Set(Object.keys(useKeywordStore.getState().keywords));
+            const unknown = taggedKws.filter((k) => !knownSet.has(k));
+            const useMvuKM = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
+            const kmBase = (useMvuKM ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
+            const kmKey = (useMvuKM ? settings.mvuApiKey : settings.apiKey) ?? '';
+            const kmModel = (useMvuKM ? settings.mvuApiModel : settings.apiModel) ?? '';
+            if (unknown.length > 0 && kmBase.trim() && kmKey.trim() && kmModel.trim()) {
+              const aidKM = useChatStore.getState().activeId;
+              pendingVisibleSubcalls.push((async () => {
+                try {
+                  const { meanings } = await extractKeywordMeanings(narrative, unknown, kmBase, kmKey, kmModel);
+                  if (Object.keys(meanings).length === 0 || useChatStore.getState().activeId !== aidKM) return;
+                  useKeywordStore.getState().addKeywords(meanings);
+                  if (aidKM && useChatStore.getState().activeId === aidKM) await saveConversation(aidKM);
+                  pushLog('info', `[关键词释义] 已为 ${Object.keys(meanings).length}/${unknown.length} 个未知关键词补释义：${Object.keys(meanings).join('、')}`, 'system');
+                } catch (e) {
+                  pushLog('warn', `[关键词释义] 补全失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+                }
+              })());
+            } else if (unknown.length === 0) {
+              pushLog('debug', `[关键词释义] 本回合 ${taggedKws.length} 个 <kw> 标签关键词全在 store 中，无需补释义`, 'system');
+            }
+          }
         }
 
         if (newPage.summary && newPage.id) {
@@ -1573,7 +1636,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const activeClues = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
         if (activeClues.length > CLUE_ACTIVE_CAP && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
           const aidAtTrigger = useChatStore.getState().activeId;
-          void (async () => {
+          pendingVisibleSubcalls.push((async () => {
             try {
               const { clues: summaries } = await integrateClues(
                 activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
@@ -1592,7 +1655,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             } catch (e) {
               pushLog('warn', `[线索整合] 自动归并失败：${e instanceof Error ? e.message : String(e)}`, 'api');
             }
-          })();
+          })());
         }
 
         // NPC 档案更新已在快照前(见上)落库；此处不再重复 applyUpdates。
@@ -1633,7 +1696,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const locName = curLoc.name;
             const existingNames = useLocationElementStore.getState().getByLocation(locName).map((e) => e.name);
             const narrative = `${newPage.leftContent}\n${newPage.rightContent}`;
-            void (async () => {
+            pendingVisibleSubcalls.push((async () => {
               try {
                 const { elements } = await extractLocationElements(locName, existingNames, narrative, leBase, leKey, leModel);
                 if (elements.length === 0 || useChatStore.getState().activeId !== aidLE) return;
@@ -1663,7 +1726,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               } catch (e) {
                 pushLog('warn', `[地点元素] 抽取失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
-            })();
+            })());
           }
         }
 
@@ -1683,7 +1746,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             if (rcBase.trim() && rcKey.trim() && rcModel.trim()) {
               const aidRC = useChatStore.getState().activeId;
               const ms0 = useMapStore.getState();
-              void (async () => {
+              pendingVisibleSubcalls.push((async () => {
                 try {
                   const rc = await reconcileMap(ms0.locations, ms0.edges, rcBase, rcKey, rcModel);
                   if (useChatStore.getState().activeId !== aidRC) return; // 校对期间切了会话，放弃
@@ -1711,7 +1774,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 } catch (e) {
                   pushLog('warn', `[地图自检] 失败：${e instanceof Error ? e.message : String(e)}`, 'api');
                 }
-              })();
+              })());
             }
           }
         }
@@ -1729,6 +1792,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           if (dedupedChanges.length < newPage.inventoryChanges.length) {
             pushLog('debug', `[物品] 已过滤 ${newPage.inventoryChanges.length - dedupedChanges.length} 项补写已入库的重复物品`, 'system');
           }
+        }
+
+        // v1.11.4: 等齐【影响玩家可见 UI】的子调用后再翻页，让玩家进入新页时看到完整的
+        // 地点元素 / 地图节点 / NPC / 物品等。用户中止（abort）则跳过 await 立即翻页，
+        // 避免「点了中止还卡住等子调用」的反预期。守秘人机密 3 个 + 战斗检测仍 fire-and-forget。
+        if (willAutoFlip) {
+          if (pendingVisibleSubcalls.length > 0) {
+            const abortPromise = new Promise<void>((resolve) => {
+              if (controller.signal.aborted) { resolve(); return; }
+              controller.signal.addEventListener('abort', () => resolve(), { once: true });
+            });
+            await Promise.race([
+              Promise.allSettled(pendingVisibleSubcalls),
+              abortPromise,
+            ]);
+          }
+          useBookStore.getState().autoFlipForward();
         }
 
         // Persist full game state for this conversation into Dexie v2 relational

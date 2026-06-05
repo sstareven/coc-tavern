@@ -72,7 +72,7 @@ export function DebugLog() {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: '1px solid rgba(196,168,85,0.12)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 2 }}>日志查看器 ({logs.length})</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2 }}>日志查看器 ({logs.length})</span>
               <select name="debug-log-level" value={filter.level} onChange={(e) => setFilter({ level: e.target.value as LogLevel | 'all' })} style={miniSelect}>
                 <option value="all">全部级别</option>
                 <option value="info">INFO</option><option value="warn">WARN</option><option value="error">ERROR</option><option value="debug">DEBUG</option>
@@ -84,7 +84,7 @@ export function DebugLog() {
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input name="debug-log-search" value={filter.search} onChange={(e) => setFilter({ search: e.target.value })} placeholder="搜索..." onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
-                style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }} />
+                style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)' }} />
               <button onClick={selectAll} style={headerBtn}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.transform = 'scale(1)'; }}
@@ -120,20 +120,20 @@ export function DebugLog() {
 
           <div ref={scrollRef} className="dl-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
             {filtered.length === 0 ? (
-              <div style={{ padding: 30, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 11 }}>{logs.length === 0 ? '暂无日志' : '无匹配日志'}</div>
+              <div style={{ padding: 30, textAlign: 'center', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>{logs.length === 0 ? '暂无日志' : '无匹配日志'}</div>
             ) : (
               filtered.map((entry) => {
                 const isSel = selected.has(entry.id);
                 return (
                   <div key={entry.id} onClick={() => toggleSelect(entry.id)} style={{
-                    display: 'flex', gap: 6, padding: '2px 12px 2px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '20px', alignItems: 'baseline',
+                    display: 'flex', gap: 6, padding: '2px 12px 2px 8px', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', lineHeight: '20px', alignItems: 'baseline',
                     borderBottom: '1px solid rgba(255,255,255,0.01)', cursor: 'pointer',
                     background: isSel ? 'rgba(196,168,85,0.1)' : 'transparent',
                   }}>
-                    <span style={{ fontSize: 10, width: 14, color: isSel ? 'var(--gold)' : 'transparent', flexShrink: 0 }}>{isSel ? '✓' : ''}</span>
-                    <span style={{ color: 'var(--ink-faded)', flexShrink: 0, fontSize: 10 }}>{entry.time}</span>
-                    <span style={{ color: levelColors[entry.level], flexShrink: 0, width: 30, fontSize: 9, fontWeight: 'bold' }}>{levelLabels[entry.level]}</span>
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', flexShrink: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 2, padding: '0 4px', lineHeight: '16px' }}>{categoryLabels[entry.category] || entry.category}</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', width: 14, color: isSel ? 'var(--gold)' : 'transparent', flexShrink: 0 }}>{isSel ? '✓' : ''}</span>
+                    <span style={{ color: 'var(--ink-faded)', flexShrink: 0, fontSize: 'calc(10px * var(--system-ratio, 1))' }}>{entry.time}</span>
+                    <span style={{ color: levelColors[entry.level], flexShrink: 0, width: 30, fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold' }}>{levelLabels[entry.level]}</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', flexShrink: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 2, padding: '0 4px', lineHeight: '16px' }}>{categoryLabels[entry.category] || entry.category}</span>
                     <span style={{ color: 'var(--text-light)', wordBreak: 'break-all' }}>{entry.message}</span>
                   </div>
                 );
@@ -146,5 +146,5 @@ export function DebugLog() {
   );
 }
 
-const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', cursor: 'pointer' };
-const headerBtn: React.CSSProperties = { padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', transition: 'var(--transition-smooth)' };
+const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer' };
+const headerBtn: React.CSSProperties = { padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', transition: 'var(--transition-smooth)' };

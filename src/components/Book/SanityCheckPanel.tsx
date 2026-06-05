@@ -233,7 +233,7 @@ export function SanityCheckPanel() {
           <h3 style={{
             margin: 0, marginBottom: 18,
             fontFamily: 'var(--font-display)',
-            fontSize: 17, letterSpacing: 8,
+            fontSize: 'calc(17px * var(--text-ratio, 1))', letterSpacing: 8,
             color: '#ff7a7a',
             textAlign: 'center',
             textShadow: '0 0 12px rgba(180,0,0,0.7), 0 1px 1px rgba(0,0,0,0.8)',
@@ -246,7 +246,7 @@ export function SanityCheckPanel() {
           {/* 触发描述 */}
           <p style={{
             margin: '0 0 18px',
-            fontSize: 13, lineHeight: 1.8,
+            fontSize: 'calc(13px * var(--text-ratio, 1))', lineHeight: 1.8,
             color: '#c8b0b0', fontStyle: 'italic',
             textAlign: 'center', letterSpacing: 0.8,
             textShadow: '0 1px 1px rgba(0,0,0,0.6)',
@@ -261,14 +261,14 @@ export function SanityCheckPanel() {
             border: '1px solid rgba(140,16,16,0.35)',
             background: 'rgba(40,0,0,0.4)',
             borderRadius: 4,
-            fontSize: 11, fontFamily: 'var(--font-mono)',
+            fontSize: 'calc(11px * var(--text-ratio, 1))', fontFamily: 'var(--font-mono)',
             color: '#a07070', letterSpacing: 1.5,
           }}>
             <span>项目: <span style={{ color: '#ff9090' }}>{checkLabel}</span></span>
             <span>难度: <span style={{ color: '#ff9090' }}>{DIFFICULTY_LABEL[prompt.difficulty]}</span></span>
             <span>目标: <span style={{ color: '#ff9090' }}>{effectiveTarget}</span>
               {prompt.difficulty !== 'normal' && (
-                <span style={{ marginLeft: 4, opacity: 0.45, fontSize: 10, textDecoration: 'line-through' }}>{baseTarget}</span>
+                <span style={{ marginLeft: 4, opacity: 0.45, fontSize: 'calc(10px * var(--text-ratio, 1))', textDecoration: 'line-through' }}>{baseTarget}</span>
               )}
             </span>
           </div>
@@ -283,7 +283,7 @@ export function SanityCheckPanel() {
             <div style={{ textAlign: 'center', marginBottom: 14 }}>
               <div style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 60,
+                fontSize: 'calc(60px * var(--text-ratio, 1))',
                 letterSpacing: 4,
                 lineHeight: 1,
                 marginBottom: 8,
@@ -299,7 +299,7 @@ export function SanityCheckPanel() {
                 {String(phase === 'rolling' ? rollDisplay : d100).padStart(2, '0')}
               </div>
               <div style={{
-                fontSize: 11, color: '#806060',
+                fontSize: 'calc(11px * var(--text-ratio, 1))', color: '#806060',
                 letterSpacing: 3, fontFamily: 'var(--font-ui)',
               }}>
                 d100 / {target || effectiveTarget}
@@ -312,7 +312,7 @@ export function SanityCheckPanel() {
               <div style={{
                 textAlign: 'center', marginBottom: 16,
                 fontFamily: 'var(--font-display)',
-                fontSize: 22, letterSpacing: 6,
+                fontSize: 'calc(22px * var(--text-ratio, 1))', letterSpacing: 6,
                 color: passed ? '#a0f0a0' : '#ff5050',
                 textShadow: passed ? '0 0 14px rgba(120,255,160,0.5)' : '0 0 18px rgba(255,30,30,0.8)',
               }}>
@@ -332,12 +332,12 @@ export function SanityCheckPanel() {
                 borderRadius: 4,
                 background: 'rgba(70,0,0,0.45)',
               }}>
-                <div style={{ fontSize: 10, color: '#806060', letterSpacing: 3, marginBottom: 6 }}>
+                <div style={{ fontSize: 'calc(10px * var(--text-ratio, 1))', color: '#806060', letterSpacing: 3, marginBottom: 6 }}>
                   理 智 损 失
                 </div>
                 <div style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 38,
+                  fontSize: 'calc(38px * var(--text-ratio, 1))',
                   color: loss > 0 ? '#ff4040' : '#a0f0a0',
                   letterSpacing: 3,
                   textShadow: loss > 0 ? '0 0 18px rgba(255,30,30,0.8)' : '0 0 8px rgba(120,255,160,0.4)',
@@ -346,7 +346,7 @@ export function SanityCheckPanel() {
                 </div>
                 {loss >= 5 && (
                   <div style={{
-                    marginTop: 8, fontSize: 11, color: '#ff9090',
+                    marginTop: 8, fontSize: 'calc(11px * var(--text-ratio, 1))', color: '#ff9090',
                     letterSpacing: 2, fontStyle: 'italic',
                   }}>
                     意识开始扭曲...
@@ -386,7 +386,7 @@ function ActionButton({
           : (isCommit ? 'rgba(100,10,10,0.45)' : 'rgba(40,5,5,0.55)'),
         color: hover ? '#ffd0d0' : '#e0b8b8',
         fontFamily: 'var(--font-display)',
-        fontSize: 14, letterSpacing: 6,
+        fontSize: 'calc(14px * var(--text-ratio, 1))', letterSpacing: 6,
         cursor: 'pointer',
         borderRadius: 4,
         boxShadow: isCommit

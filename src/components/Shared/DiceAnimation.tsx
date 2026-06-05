@@ -348,7 +348,7 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
           {opposed && (
             <>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#888', fontFamily: 'var(--font-display)', letterSpacing: 2, opacity: 0.6 }}>VS</span>
+              <span style={{ fontSize: 'calc(16px * var(--system-ratio, 1))', fontWeight: 700, color: '#888', fontFamily: 'var(--font-display)', letterSpacing: 2, opacity: 0.6 }}>VS</span>
               <motion.div
                 initial={{ opacity: 0, scale: 0.3, x: entrance.alt.x * 0.5, y: entrance.alt.y * 0.5 }}
                 animate={{
@@ -379,11 +379,11 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           )}
         </div>
 
-        <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
+        <div style={{ fontSize: 'calc(20px * var(--system-ratio, 1))', color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
           {opposed ? `${skillName}对抗` : `${skillName}检定`}
-          {!opposed && isDual && <span style={{ fontSize: 12, marginLeft: 8, color: bonus === 'bonus' ? '#69f0ae' : '#ef5350', opacity: 0.8 }}>{bonus === 'bonus' ? '奖励骰' : '惩罚骰'}</span>}
+          {!opposed && isDual && <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', marginLeft: 8, color: bonus === 'bonus' ? '#69f0ae' : '#ef5350', opacity: 0.8 }}>{bonus === 'bonus' ? '奖励骰' : '惩罚骰'}</span>}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
+        <div style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
           {opposed ? `${target} vs ${opponentTarget}` : `目标 ${target}`}
         </div>
 
@@ -391,14 +391,14 @@ export function DiceAnimation({ visible, skillName, target, roll, resultType, on
           {phase === 'result' && !opposed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${baseColor}88`, borderRadius: 6, boxShadow: `0 0 24px ${baseColor}22` }}>
-                <span style={{ fontSize: 22, fontWeight: 600, color: baseColor, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>{LABELS[resultType]}</span>
+                <span style={{ fontSize: 'calc(22px * var(--system-ratio, 1))', fontWeight: 600, color: baseColor, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>{LABELS[resultType]}</span>
               </div>
             </motion.div>
           )}
           {phase === 'result' && opposed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <div style={{ padding: '8px 36px', background: isSuccess ? 'rgba(58,107,90,0.12)' : 'rgba(139,58,58,0.12)', border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
-                <span style={{ fontSize: 22, fontWeight: 600, color, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>
+                <span style={{ fontSize: 'calc(22px * var(--system-ratio, 1))', fontWeight: 600, color, letterSpacing: 8, fontFamily: 'var(--font-display)' }}>
                   {opposedOutcome === 'win' ? '胜 利' : opposedOutcome === 'lose' ? '败 北' : '平 局'}
                 </span>
               </div>
@@ -431,7 +431,7 @@ function RollingBlock({ phase, rollStr, color, glowColor }: { phase: string; rol
   const faceS: React.CSSProperties = {
     position: 'absolute', width: size, height: size,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 58, fontWeight: 'bold', fontFamily: 'var(--font-mono)', color: faceColor,
+    fontSize: 'calc(58px * var(--system-ratio, 1))', fontWeight: 'bold', fontFamily: 'var(--font-mono)', color: faceColor,
     background: 'linear-gradient(155deg, rgba(35,24,16,0.96) 0%, rgba(18,12,8,0.98) 100%)',
     border: `3px solid ${glowColor}`, borderRadius: 12,
     boxShadow: `inset 0 2px 0 rgba(255,255,255,0.04), inset 0 -4px 12px rgba(0,0,0,0.4), 0 0 20px ${glowColor}66, 0 0 40px ${glowColor}33`,
@@ -555,10 +555,10 @@ export function PolyRollAnimation({ visible, theme, label, expr, total, sub, hid
           <RollingBlock phase={phase} rollStr={rollStr} color={color} glowColor={glowColor} />
         </div>
 
-        <div style={{ fontSize: 20, color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
+        <div style={{ fontSize: 'calc(20px * var(--system-ratio, 1))', color: 'var(--parchment)', letterSpacing: 4, fontWeight: 600, marginBottom: 4 }}>
           {label}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
+        <div style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: 2, opacity: 0.7, marginBottom: 20 }}>
           {expr}{sub ? ` · ${sub}` : ''}
         </div>
 
@@ -566,7 +566,7 @@ export function PolyRollAnimation({ visible, theme, label, expr, total, sub, hid
           {phase === 'result' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
               <div style={{ padding: '8px 36px', background: `${color}1f`, border: `1px solid ${color}88`, borderRadius: 6, boxShadow: `0 0 24px ${color}22` }}>
-                <span style={{ fontSize: 24, fontWeight: 700, color, letterSpacing: 6, fontFamily: 'var(--font-display)' }}>
+                <span style={{ fontSize: 'calc(24px * var(--system-ratio, 1))', fontWeight: 700, color, letterSpacing: 6, fontFamily: 'var(--font-display)' }}>
                   {hidden ? '暗 骰' : (theme === 'sanity' ? `−${total}` : total) + ' 点'}
                 </span>
               </div>

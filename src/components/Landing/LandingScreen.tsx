@@ -34,14 +34,14 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 0 40px rgba(196,168,85,0.12)'
           }}>
-            <span style={{ fontSize: 36, color: 'var(--gold)' }}>&#9733;</span>
+            <span style={{ fontSize: 'calc(36px * var(--system-ratio, 1))', color: 'var(--gold)' }}>&#9733;</span>
           </div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, color: 'var(--gold)', letterSpacing: 12, marginBottom: 8 }}>深渊档案馆</h1>
-          <p style={{ fontSize: 12, color: 'var(--ink-subtle)', letterSpacing: 6, marginBottom: 48 }}>ABYSSAL ARCHIVE</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(36px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 12, marginBottom: 8 }}>深渊档案馆</h1>
+          <p style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 6, marginBottom: 48 }}>ABYSSAL ARCHIVE</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}>
             <button onClick={handleStart} style={{
               width: 280, padding: '14px 0', border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-              fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(15px * var(--system-ratio, 1))', letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
               transition: 'var(--transition-smooth)', transform: 'scale(1)', filter: 'brightness(1)',
             }}
               onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.4)'; e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(196,168,85,0.15)'; }}
@@ -51,7 +51,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
             >开 始 游 戏</button>
             <button onClick={() => setShowLoad(true)} style={{
               width: 280, padding: '14px 0', border: '1px solid var(--brass)', background: 'rgba(42,31,20,0.5)', color: 'var(--text-light)',
-              fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(15px * var(--system-ratio, 1))', letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
               transition: 'var(--transition-smooth)', transform: 'scale(1)', filter: 'brightness(1)',
             }}
               onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
@@ -61,7 +61,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
             >读 取 游 戏</button>
             <button onClick={() => setShowSettings(true)} style={{
               width: 280, padding: '14px 0', border: '1px solid var(--brass)', background: 'rgba(42,31,20,0.5)', color: 'var(--text-light)',
-              fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(15px * var(--system-ratio, 1))', letterSpacing: 6, borderRadius: 3, cursor: 'pointer',
               transition: 'var(--transition-smooth)', transform: 'scale(1)', filter: 'brightness(1)',
             }}
               onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
@@ -70,7 +70,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
               onMouseUp={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.03)'; }}
             >设 置</button>
           </div>
-          <p style={{ marginTop: 64, fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 3, opacity: 0.5 }}>
+          <p style={{ marginTop: 64, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 3, opacity: 0.5 }}>
             {CURRENT_VERSION} · COC 7th Edition · <span onClick={() => document.dispatchEvent(new CustomEvent('show-changelog'))} style={{ cursor: 'pointer', borderBottom: '1px dotted var(--ink-subtle)' }}>更新日志</span>
           </p>
         </div>
@@ -106,9 +106,9 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: 30, color: 'var(--gold)', marginBottom: 14 }}>&#9888;</div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--gold)', letterSpacing: 4, margin: '0 0 14px' }}>尚未配置 AI 接口</h2>
-            <p style={{ fontSize: 13, lineHeight: 1.8, color: 'var(--text-light)', fontFamily: 'var(--font-body)', margin: '0 0 24px' }}>
+            <div style={{ fontSize: 'calc(30px * var(--system-ratio, 1))', color: 'var(--gold)', marginBottom: 14 }}>&#9888;</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(20px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: '0 0 14px' }}>尚未配置 AI 接口</h2>
+            <p style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', lineHeight: 1.8, color: 'var(--text-light)', fontFamily: 'var(--font-body)', margin: '0 0 24px' }}>
               深渊档案馆需要你自备的大模型接口来生成叙事。请先在「设置」里填入 API 密钥与接口地址，再开始游戏。
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
@@ -117,7 +117,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
                 style={{
                   flex: 1, maxWidth: 160, padding: '11px 0', border: '1px solid var(--gold)',
                   background: 'rgba(196,168,85,0.12)', color: 'var(--gold)',
-                  fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 3, borderRadius: 3, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(14px * var(--system-ratio, 1))', letterSpacing: 3, borderRadius: 3, cursor: 'pointer',
                   transition: 'var(--transition-smooth)', transform: 'scale(1)', filter: 'brightness(1)',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.4)'; e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 0 18px rgba(196,168,85,0.18)'; }}
@@ -130,7 +130,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
                 style={{
                   flex: 1, maxWidth: 160, padding: '11px 0', border: '1px solid var(--brass)',
                   background: 'rgba(42,31,20,0.5)', color: 'var(--text-light)',
-                  fontFamily: 'var(--font-ui)', fontSize: 14, letterSpacing: 3, borderRadius: 3, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(14px * var(--system-ratio, 1))', letterSpacing: 3, borderRadius: 3, cursor: 'pointer',
                   transition: 'var(--transition-smooth)', transform: 'scale(1)', filter: 'brightness(1)',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}

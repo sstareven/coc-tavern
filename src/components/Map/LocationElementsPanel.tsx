@@ -34,11 +34,11 @@ export function LocationElementsPanel({ locationName }: Props) {
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid rgba(196,168,85,0.2)', paddingTop: 8, marginTop: 8, display: 'flex', flexDirection: 'column', maxHeight: 190 }}>
       <div style={{ flexShrink: 0, marginBottom: 6, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>地点元素</h4>
+        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(14px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 3, margin: 0 }}>地点元素</h4>
         {locationName.trim() && (
-          <span style={{ fontSize: 11, color: 'var(--ink-faded)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {locationName}</span>
+          <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {locationName}</span>
         )}
-        <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{items.length}</span>
+        <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{items.length}</span>
       </div>
 
       <div
@@ -46,7 +46,7 @@ export function LocationElementsPanel({ locationName }: Props) {
         style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)' }}
       >
         {items.length === 0 ? (
-          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: 11, color: 'var(--ink-subtle)', fontStyle: 'italic' }}>
+          <div style={{ padding: '14px 0', textAlign: 'center', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic' }}>
             {locationName.trim() ? '此地暂无记录的元素……' : '点击地点查看其元素'}
           </div>
         ) : (
@@ -57,7 +57,7 @@ export function LocationElementsPanel({ locationName }: Props) {
             >
               <span
                 style={{
-                  flexShrink: 0, marginTop: 1, fontSize: 9, lineHeight: '16px', height: 16, padding: '0 6px',
+                  flexShrink: 0, marginTop: 1, fontSize: 'calc(9px * var(--system-ratio, 1))', lineHeight: '16px', height: 16, padding: '0 6px',
                   borderRadius: 8, fontFamily: 'var(--font-ui)', letterSpacing: 1,
                   color: CATEGORY_COLOR[el.category], border: `1px solid ${CATEGORY_COLOR[el.category]}`,
                   background: 'rgba(0,0,0,0.2)',
@@ -66,9 +66,9 @@ export function LocationElementsPanel({ locationName }: Props) {
                 {el.category}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: 'var(--parchment)', fontFamily: 'var(--font-body)' }}>{el.name}</div>
+                <div style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--parchment)', fontFamily: 'var(--font-body)' }}>{el.name}</div>
                 {el.description && (
-                  <div style={{ fontSize: 11, color: 'var(--parchment)', opacity: 0.7, marginTop: 2, lineHeight: 1.55 }}>{el.description}</div>
+                  <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--parchment)', opacity: 0.7, marginTop: 2, lineHeight: 1.55 }}>{el.description}</div>
                 )}
               </div>
             </div>

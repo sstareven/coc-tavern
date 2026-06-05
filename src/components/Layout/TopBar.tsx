@@ -20,12 +20,12 @@ export function TopBar({ onReturnToMenu }: Props) {
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        color: 'var(--gold)', fontSize: 13, letterSpacing: 3,
+        color: 'var(--gold)', fontSize: 'calc(13px * var(--system-ratio, 1))', letterSpacing: 3,
       }}>
-        <span style={{ fontSize: 14 }}>&#9733;</span>
+        <span style={{ fontSize: 'calc(14px * var(--system-ratio, 1))' }}>&#9733;</span>
         <span style={{ fontFamily: 'var(--font-display)' }}>深渊档案馆</span>
         {!isMobile && (
-          <span style={{ color: 'var(--ink-subtle)', fontSize: 10, letterSpacing: 2 }}>ABYSSAL ARCHIVE</span>
+          <span style={{ color: 'var(--ink-subtle)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 2 }}>ABYSSAL ARCHIVE</span>
         )}
       </div>
       {isMobile ? (
@@ -34,7 +34,7 @@ export function TopBar({ onReturnToMenu }: Props) {
             onClick={() => setMenuOpen(true)}
             aria-label="菜单"
             style={{ background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-              borderRadius: 4, padding: '6px 12px', fontSize: 16, cursor: 'pointer', lineHeight: 1,
+              borderRadius: 4, padding: '6px 12px', fontSize: 'calc(16px * var(--system-ratio, 1))', cursor: 'pointer', lineHeight: 1,
               transition: 'var(--transition-smooth)' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1)'; }}
@@ -49,10 +49,10 @@ export function TopBar({ onReturnToMenu }: Props) {
               fontFamily: 'var(--font-ui)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <span style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 18, letterSpacing: 4 }}>菜 单</span>
+                <span style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'calc(18px * var(--system-ratio, 1))', letterSpacing: 4 }}>菜 单</span>
                 <button onClick={() => setMenuOpen(false)} aria-label="关闭"
                   style={{ background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-                    borderRadius: 4, width: 36, height: 36, fontSize: 18, cursor: 'pointer', lineHeight: 1,
+                    borderRadius: 4, width: 36, height: 36, fontSize: 'calc(18px * var(--system-ratio, 1))', cursor: 'pointer', lineHeight: 1,
                     transition: 'var(--transition-smooth)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1)'; }}
@@ -93,7 +93,7 @@ function NavButton({ label, onClick }: { label: string; onClick: () => void }) {
     <button onClick={onClick} style={{
       padding: '6px 14px', border: '1px solid transparent',
       background: 'transparent', color: 'var(--ink-subtle)',
-      fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2,
+      fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2,
       borderRadius: 3, cursor: 'pointer', transition: 'var(--transition-smooth)',
     }}
       onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
@@ -113,7 +113,7 @@ function FullMenuItem({ label, onClick, accent }: { label: string; onClick: () =
       borderRadius: 8,
       background: accent ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.04)',
       color: accent ? 'var(--gold)' : 'var(--parchment)',
-      fontFamily: 'var(--font-ui)', fontSize: 15, letterSpacing: 2,
+      fontFamily: 'var(--font-ui)', fontSize: 'calc(15px * var(--system-ratio, 1))', letterSpacing: 2,
       cursor: 'pointer', transition: 'transform 0.15s cubic-bezier(0.4,0,0.2,1), background 0.2s cubic-bezier(0.4,0,0.2,1)',
     }}
       onTouchStart={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; }}

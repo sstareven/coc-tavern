@@ -21,8 +21,8 @@ export function PromptTemplateContent() {
     <div>
       {/* Title bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12 }}>
-        <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 3 }}>提示词模板</h3>
-        <button onClick={handleReset} title="重置为默认值" style={{ background: 'transparent', border: '1px solid var(--brass)', borderRadius: 3, color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 14, padding: '4px 10px' }}>↻</button>
+        <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', letterSpacing: 3 }}>提示词模板</h3>
+        <button onClick={handleReset} title="重置为默认值" style={{ background: 'transparent', border: '1px solid var(--brass)', borderRadius: 3, color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 'calc(14px * var(--system-ratio, 1))', padding: '4px 10px' }}>↻</button>
       </div>
 
       {/* Extension & Generation */}
@@ -88,7 +88,7 @@ export function PromptTemplateContent() {
 
       {/* Cache */}
       <SectionTitle>缓存设置（实验性）</SectionTitle>
-      <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 8 }}>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 8 }}>
         模板编译缓存，可以提速。目前存在一些问题。
       </div>
       <div style={rowStyle}>
@@ -136,7 +136,7 @@ export function PromptTemplateContent() {
 
 function SectionTitle({ children }: { children: string }) {
   return (
-    <div style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginTop: 16, marginBottom: 8, textTransform: 'uppercase' }}>{children}</div>
+    <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginTop: 16, marginBottom: 8, textTransform: 'uppercase' }}>{children}</div>
   );
 }
 
@@ -156,7 +156,7 @@ function Checkbox({ checked, onChange, label, help }: { id: string; checked: boo
         border: checked ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
         background: checked ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
         color: checked ? 'var(--success)' : 'var(--ink-faded)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2,
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2,
       }}>{checked ? 'ON' : 'OFF'}</button>
     </div>
   );
@@ -167,13 +167,13 @@ function HelpIcon({ content }: { content: string }) {
     <span title={content} style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: 14, height: 14, borderRadius: '50%', border: '1px solid var(--brass)',
-      color: 'var(--ink-subtle)', cursor: 'help', fontSize: 9, fontWeight: 'bold',
+      color: 'var(--ink-subtle)', cursor: 'help', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
       fontFamily: 'var(--font-ui)', marginLeft: 4, flexShrink: 0,
     }}>?</span>
   );
 }
 
 const rowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)' };
-const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 };
-const numInput: React.CSSProperties = { width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center', outline: 'none' };
-const miniSelect: React.CSSProperties = { padding: '4px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, outline: 'none', cursor: 'pointer' };
+const labelStyle: React.CSSProperties = { fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 };
+const numInput: React.CSSProperties = { width: 60, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', outline: 'none' };
+const miniSelect: React.CSSProperties = { padding: '4px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer' };

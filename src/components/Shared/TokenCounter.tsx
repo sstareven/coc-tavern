@@ -79,7 +79,7 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             Token 计数器
           </h3>
           <button onClick={onClose} style={closeBtn}
@@ -93,17 +93,17 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
         {/* Context Breakdown */}
         {breakdown && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>
               当前上下文用量
             </div>
 
             {/* Total bar */}
             <div style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
                 <span style={{ color: 'var(--text-light)' }}>
-                  总计 <strong style={{ color: barColor(breakdown.total), fontFamily: 'var(--font-mono)', fontSize: 15 }}>{breakdown.total}</strong>
+                  总计 <strong style={{ color: barColor(breakdown.total), fontFamily: 'var(--font-mono)', fontSize: 'calc(15px * var(--system-ratio, 1))' }}>{breakdown.total}</strong>
                 </span>
-                <span style={{ color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                <span style={{ color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>
                   / {limit.toLocaleString()} ({(breakdown.total / limit * 100).toFixed(1)}%)
                 </span>
               </div>
@@ -131,7 +131,7 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
               <div key={row.label} style={{
                 display: 'flex', justifyContent: 'space-between',
                 padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.02)',
-                fontSize: 11,
+                fontSize: 'calc(11px * var(--system-ratio, 1))',
               }}>
                 <span style={{ color: 'var(--ink-subtle)' }}>{row.label}</span>
                 <span style={{ color: 'var(--text-light)', fontFamily: 'var(--font-mono)' }}>
@@ -144,7 +144,7 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
 
         {/* Manual count */}
         <div>
-          <div style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>
             手动计数
           </div>
           <textarea
@@ -157,20 +157,20 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
               width: '100%', padding: '10px', borderRadius: 4,
               border: '1px solid var(--brass)', background: 'rgba(0,0,0,0.3)',
               color: 'var(--text-light)', fontFamily: 'var(--font-body)',
-              fontSize: 12, lineHeight: 1.6, outline: 'none', resize: 'vertical',
+              fontSize: 'calc(12px * var(--system-ratio, 1))', lineHeight: 1.6, outline: 'none', resize: 'vertical',
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-mono)' }}>
-              {manualTokens > 0 ? <><strong style={{ color: 'var(--gold)', fontSize: 15 }}>{manualTokens}</strong> tokens</> : ''}
+            <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-mono)' }}>
+              {manualTokens > 0 ? <><strong style={{ color: 'var(--gold)', fontSize: 'calc(15px * var(--system-ratio, 1))' }}>{manualTokens}</strong> tokens</> : ''}
             </span>
             <button onClick={handleManualCount}
               style={{
                 padding: '5px 16px', border: '1px solid var(--brass)', borderRadius: 3,
                 background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
                 transition: 'var(--transition-smooth)',
               }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.35)'; e.currentTarget.style.filter = 'brightness(1.12)'; }}
@@ -190,6 +190,6 @@ export function TokenCounter({ visible, onClose, contextBreakdown, model }: Prop
 const closeBtn: React.CSSProperties = {
   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
   border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+  color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)',
   transition: 'var(--transition-smooth)',
 };

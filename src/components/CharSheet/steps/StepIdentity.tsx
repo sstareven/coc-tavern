@@ -92,7 +92,7 @@ export function StepIdentity({
           )}
         </div>
       </div>
-      <div style={sectionTitle}>身份信息 IDENTITY</div>
+      <div style={sectionTitle}>身份信息</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {/* Name */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

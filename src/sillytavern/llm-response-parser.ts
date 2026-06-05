@@ -52,21 +52,39 @@ export function unescapeLiteralNewlines(s: string): string {
     .replace(/\\t/g, '\t');
 }
 
+/**
+ * 剥除孤立的 <kw> / </kw> 标签——LLM 用 v1.11.3 新语法时偶发漏写开/闭标签,
+ * 导致正文出现孤立 `</kw>` 字面（实测：「灰白的虚空。</kw>指尖触上门板时...」）。
+ *
+ * 算法：用私有区(PUA)字符当 sentinel 临时遮蔽成对的 `<kw>X</kw>`，剥除剩余
+ * 所有孤立 `<kw>` 或 `</kw>` 字面，再还原 sentinel 为标准标签。
+ *
+ * 不处理嵌套 `<kw>X<kw>Y</kw>Z</kw>`（KW_TAG 内部禁 `<` 字符）——遇上只保留
+ * 内层成对，外层视为孤立剥除；这是预期行为，比留下错误嵌套体验更好。
+ */
+function stripOrphanKwTags(s: string): string {
+  const OPEN_S = '\uE001'; // PUA sentinel — 不可能出现在 LLM 正文
+  const CLOSE_S = '\uE002';
+  let temp = s.replace(/<kw>([^<]+)<\/kw>/g, (_m, k: string) => OPEN_S + k + CLOSE_S);
+  temp = temp.replace(/<\/?kw>/g, '');
+  temp = temp.replace(new RegExp(OPEN_S + '([\\s\\S]*?)' + CLOSE_S, 'g'), '<kw>$1</kw>');
+  return temp;
+}
+
 export function stripMvu(s: string): string {
-  return s
-    .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, '{{$2}}')
-    .replace(/<(em)>([\s\S]*?)<\/\1>/gi, '{{$2}}')
-    .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '{{$1}}')
-    .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
-    .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
-    // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
-    // 用否定先行断言把 san 排除在「strip all tags」之外。
-    .replace(/<(?!san\b)[^>]+>/g, '')
-    .replace(/\{\{set:[^}]+\}\}/gi, '')
-    // LLM 偶尔把关键词写成单层花括号 {词}（应为 {{词}}），规范化以便高亮、
-    // 避免原始花括号直接暴露给玩家。已有的 {{词}} 整体匹配后原样保留，不会被误改。
-    .replace(/\{\{[^{}]*\}\}|\{([^{}:=,]+)\}/g, (m, kw) => (kw ? `{{${kw}}}` : m))
-    .trim();
+  return stripOrphanKwTags(
+    s
+      .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
+      .replace(/<(em)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
+      .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '<kw>$1</kw>')
+      .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
+      .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
+      // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
+      // v1.11.3: 同时保留 <kw>...</kw> 关键词标签 —— TextBeautifier 渲染时识别它显示 tooltip。
+      // 用否定先行断言把 san 和 kw 都排除在「strip all tags」之外。
+      .replace(/<(?!san\b)(?!\/?kw\b)[^>]+>/g, '')
+      .replace(/\{\{set:[^}]+\}\}/gi, ''),
+  ).trim();
 }
 
 /**
@@ -122,8 +140,9 @@ export function cleanChoiceField(s: string): string {
       // LLM 误写到叙事里的裸难度文字（非检定标记）。仅匹配带「难度」后缀者，保护 检定(普通) 标记。
       .replace(/[(（]\s*(?:普通|困难|极难)难度\s*[)）]/g, ''),
   )
-    // 选项不展示关键词高亮花括号：{{梦}} → 梦（仅正文保留 {{}} 做悬停关键词）。
-    // stripMvu 会把粗体转成 {{}}，故须在其之后剥除；再清掉任何残留的孤立花括号。
+    // 选项不展示关键词高亮标签：<kw>梦</kw> → 梦（仅正文保留 <kw></kw> 做悬停关键词）。
+    // stripMvu 会把粗体转成 <kw></kw>，故须在其之后剥除；再清掉任何残留的孤立花括号（防老存档 {{}} 字面外露到选项）。
+    .replace(/<kw>\s*([^<]*?)\s*<\/kw>/g, '$1')
     .replace(/\{\{\s*([^{}]*?)\s*\}\}/g, '$1')
     .replace(/[{}]/g, '')
     // 清理标签/文字删除后遗留的连续空白与孤立标点
@@ -382,11 +401,13 @@ export function coerceJsonObject(raw: string): JsonCoercion {
 }
 
 /**
- * 归一化用于「物品名 ↔ 叙事」匹配：去除 {{}} 关键词括号、空白与标点/符号，转小写。
+ * 归一化用于「物品名 ↔ 叙事」匹配：去除 <kw></kw> 关键词标签、空白与标点/符号，转小写。
+ * 同时兜底剥老存档 {{}} 花括号（防老存档物品名带括号导致 includes 失败）。
  * CJK 安全（无词边界依赖）。
  */
 function normForMatch(s: string): string {
   return s
+    .replace(/<\/?kw>/g, '')
     .replace(/\{\{|\}\}/g, '')
     .replace(/[\s\p{P}\p{S}]/gu, '')
     .toLowerCase();

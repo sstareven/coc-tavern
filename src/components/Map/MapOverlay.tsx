@@ -36,13 +36,13 @@ export function MapOverlay() {
         padding: '28px 20px 16px 28px', overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(196,168,85,0.2)', paddingBottom: 8, marginBottom: 8, flexShrink: 0 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>地点清单</h3>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>LOCATIONS</span>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>地点清单</h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 2 }}>LOCATIONS</span>
         </div>
 
         <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.3)' }}>
           {empty ? (
-            <div style={{ padding: '40px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-subtle)', fontStyle: 'italic' }}>尚未探索任何地点……</div>
+            <div style={{ padding: '40px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic' }}>尚未探索任何地点……</div>
           ) : (
             locations.map((l) => {
               const isCur = l.id === currentLocationId;
@@ -58,8 +58,8 @@ export function MapOverlay() {
                   onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = 'rgba(196,168,85,0.05)'; }}
                   onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'var(--font-body)', color: isCur ? 'var(--gold)' : 'var(--parchment)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
-                  {isCur && <span style={{ flexShrink: 0, fontSize: 9, color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 8, padding: '0 6px' }}>所在</span>}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: isCur ? 'var(--gold)' : 'var(--parchment)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                  {isCur && <span style={{ flexShrink: 0, fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 8, padding: '0 6px' }}>所在</span>}
                 </div>
               );
             })
@@ -71,12 +71,12 @@ export function MapOverlay() {
           {sel ? (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, color: 'var(--gold)', letterSpacing: 2 }}>{sel.name}</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(15px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2 }}>{sel.name}</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--parchment)', opacity: 0.85, marginTop: 3, lineHeight: 1.55 }}>{sel.description || '（无描述）'}</div>
+              <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--parchment)', opacity: 0.85, marginTop: 3, lineHeight: 1.55 }}>{sel.description || '（无描述）'}</div>
             </>
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--ink-subtle)', fontStyle: 'italic' }}>点击地点查看详情</div>
+            <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic' }}>点击地点查看详情</div>
           )}
         </div>
       </motion.div>
@@ -94,11 +94,11 @@ export function MapOverlay() {
           padding: '18px 20px 10px', transformOrigin: '0% 50%', backfaceVisibility: 'hidden', overflow: 'hidden',
         }}>
         <div style={{ flexShrink: 0, marginBottom: 6 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>地图</h3>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>实线=可往返　虚线箭头=单向不可逆</span>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>地图</h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 2 }}>实线=可往返　虚线箭头=单向不可逆</span>
         </div>
         {empty ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-subtle)', fontStyle: 'italic', fontSize: 13 }}>尚无地点</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-subtle)', fontStyle: 'italic', fontSize: 'calc(13px * var(--system-ratio, 1))' }}>尚无地点</div>
         ) : (
           <>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

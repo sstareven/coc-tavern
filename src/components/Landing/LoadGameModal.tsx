@@ -41,13 +41,13 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
           padding: '18px 20px', borderBottom: '1px solid rgba(196,168,85,0.15)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>读取存档</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>读取存档</h3>
           <button
             onClick={onClose}
             style={{
               width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-              color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+              color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)',
               transition: 'var(--transition-smooth)', transform: 'scale(1)',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--brass)'; e.currentTarget.style.transform = 'scale(1.15)'; }}
@@ -60,7 +60,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
         {/* List */}
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
           {sorted.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 13, fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
               暂无存档，请开始新游戏
             </div>
           ) : (
@@ -93,19 +93,19 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
-            fontSize: 14, fontFamily: 'var(--font-ui)', fontWeight: 600, letterSpacing: 1,
+            fontSize: 'calc(14px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', fontWeight: 600, letterSpacing: 1,
             color: isLatest ? 'var(--gold)' : 'var(--text-light)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{s.name}</span>
           {isLatest && (
             <span style={{
-              fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--gold)',
+              fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)',
               background: 'rgba(196,168,85,0.12)', padding: '1px 6px', borderRadius: 2,
               letterSpacing: 1, flexShrink: 0,
             }}>最新</span>
           )}
         </div>
-        <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
+        <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
           {fmtDate(s.updatedAt)} · {s.pageCount ?? s.pages.length} 页
         </div>
       </div>
@@ -116,7 +116,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
             style={{
               padding: '3px 10px', border: '1px solid var(--blood)', borderRadius: 3,
               background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
-              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
               transition: 'var(--transition-smooth)',
             }}
           >确认</button>
@@ -125,7 +125,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
             style={{
               padding: '3px 10px', border: '1px solid var(--brass)', borderRadius: 3,
               background: 'transparent', color: 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
               transition: 'var(--transition-smooth)',
             }}
           >取消</button>
@@ -135,7 +135,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
           onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
           style={{
             background: 'none', border: '1px solid transparent', borderRadius: 3,
-            color: 'var(--ink-faded)', fontSize: 14, cursor: 'pointer', padding: '4px 8px',
+            color: 'var(--ink-faded)', fontSize: 'calc(14px * var(--system-ratio, 1))', cursor: 'pointer', padding: '4px 8px',
             fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 12,
             transition: 'var(--transition-smooth)', transform: 'scale(1)',
           }}

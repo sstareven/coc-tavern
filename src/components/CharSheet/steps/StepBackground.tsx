@@ -71,19 +71,19 @@ export function StepBackground({
   }, [openField]);
 
   const fields: FieldDef[] = [
-    { label: '个人描述 Description', value: description, set: onSetDescription, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
-    { label: '思想/信念 Beliefs', value: beliefs, set: onSetBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
-    { label: '重要之人 Significant People', value: significantPeople, set: onSetSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
-    { label: '重要场所 Meaningful Locations', value: meaningfulLocations, set: onSetMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
-    { label: '珍贵之物 Treasured Possessions', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
-    { label: '特质 Traits', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
-    { label: '伤口/伤痕 Injuries', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
-    { label: '恐惧症/狂躁症 Phobias', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
+    { label: '个人描述', value: description, set: onSetDescription, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
+    { label: '思想/信念', value: beliefs, set: onSetBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
+    { label: '重要之人', value: significantPeople, set: onSetSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
+    { label: '重要场所', value: meaningfulLocations, set: onSetMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
+    { label: '珍贵之物', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
+    { label: '特质', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
+    { label: '伤口/伤痕', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
+    { label: '恐惧症/狂躁症', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
-      <div style={sectionTitle}>背景故事 BACKGROUND</div>
+      <div style={sectionTitle}>背景故事</div>
 
       {/* AI 背景补写：草稿框 + 工具栏（提示在左、按钮在右） */}
       <div style={{
@@ -120,13 +120,13 @@ export function StepBackground({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
             paddingTop: 8, borderTop: '1px solid rgba(196,168,85,0.15)',
           }}>
-            <span style={{ fontSize: 10.5, color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+            <span style={{ fontSize: 'calc(10.5px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
               检测到已填写的背景，AI 整理如何处理？
             </span>
             <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button onClick={onConfirmOverwrite} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>覆盖整理</button>
-              <button onClick={onConfirmFillEmpty} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>仅填空格</button>
-              <button onClick={onConfirmCancel} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px', opacity: 0.7 }}>取消</button>
+              <button onClick={onConfirmOverwrite} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px' }}>覆盖整理</button>
+              <button onClick={onConfirmFillEmpty} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px' }}>仅填空格</button>
+              <button onClick={onConfirmCancel} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px', opacity: 0.7 }}>取消</button>
             </span>
           </div>
         )}

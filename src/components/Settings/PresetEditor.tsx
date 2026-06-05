@@ -147,7 +147,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 disabled={maxContextLocked}
                 style={{ accentColor: 'var(--gold)' }} />
               解除上下文上限
-              {maxContextLocked && <span style={{ fontSize: 9, color: 'var(--gold)', marginLeft: 4 }}>（已由酒馆助手锁定）</span>}
+              {maxContextLocked && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', marginLeft: 4 }}>（已由酒馆助手锁定）</span>}
             </label>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -192,7 +192,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                 style={{ accentColor: 'var(--gold)' }} />
               流式传输 (Stream)
             </label>
-            <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginTop: 2, marginLeft: 22, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginTop: 2, marginLeft: 22, lineHeight: 1.5 }}>
               随着回复生成逐字显示结果
             </div>
           </div>
@@ -281,7 +281,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                     <button onClick={() => set(item.k, DEFAULT_EDITOR_PRESET[item.k] as string)} title="重置为默认值" style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'transparent', color: 'var(--ink-subtle)',
-                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
                     }}>重置</button>
                   </div>
                   {item.k === 'emptyMessagePrompt' ? (
@@ -303,7 +303,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--ink-subtle)', textDecoration: 'none', lineHeight: '15px',
-              fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold', position: 'relative', top: -5,
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold', position: 'relative', top: -5,
             }}>?</a>
           </div>
           <DarkSelect compact value={form.reasoningEffort} onChange={(v) => set('reasoningEffort', v)} options={[
@@ -318,7 +318,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         {/* Response length */}
         <div style={s.section}>
           <div style={s.sectionTitle}>长度</div>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>限制模型回复的长度</span>
           <DarkSelect compact value={form.responseLength} onChange={(v) => set('responseLength', v)} options={[
             { label: '自动', value: 'auto' },
             { label: '短', value: 'short' },
@@ -330,7 +330,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         {/* Seed */}
         <div style={s.section}>
           <div style={s.sectionTitle}>种子</div>
-          <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>设置此值以获得确定性结果。使用-1代表随机种子。</span>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', display: 'block', marginBottom: 4 }}>设置此值以获得确定性结果。使用-1代表随机种子。</span>
           <input type="number" value={form.seed} onChange={(e) => set('seed', Number(e.target.value) || -1)} style={{ ...s.numInput, width: 100 }} />
         </div>
 
@@ -365,14 +365,14 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         <div style={s.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={s.sectionTitle}>提示词列表</div>
-            <span style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>
               Token: ~{activeItems.filter((p: PromptItem) => (p.kind === 'marker' ? moduleEnabled[p.id] !== false : p.enabled)).reduce((sum: number, p: PromptItem) => sum + Math.round((p.content || '').length / 2.5), 0)}
             </span>
           </div>
 
           {/* Prompt library — dropdown + action buttons outside */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
+            <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>提示词缓存区</span>
             <div style={{ flex: 1 }}>
               <DarkSelect compact value={selectedLibId} onChange={(v) => setSelectedLibId(v)}
                 options={[
@@ -416,32 +416,32 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
             <div style={{ border: '1px solid var(--gold)', borderRadius: 4, padding: 10, marginBottom: 8, background: 'rgba(0,0,0,0.2)' }}>
               <><div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: 'var(--gold)' }}>名称</span>
-                  <input value={editingPrompt.name} onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })} style={{ ...s.input, fontSize: 10 }} />
+                  <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>名称</span>
+                  <input value={editingPrompt.name} onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })} style={{ ...s.input, fontSize: 'calc(10px * var(--system-ratio, 1))' }} />
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: 'var(--gold)' }}>身份</span>
+                  <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>身份</span>
                   <DarkSelect compact value={editingPrompt.role} onChange={(v) => setEditingPrompt({ ...editingPrompt, role: v as PromptItem['role'] })}
                     options={[{ label: '系统', value: 'system' }, { label: '用户', value: 'user' }, { label: 'AI助手', value: 'assistant' }]} />
                 </div>
                 <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: 'var(--gold)' }}>触发器</span>
+                  <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>触发器</span>
                   <div style={{ position: 'relative' }}>
                     <button onClick={() => setTriggerDropdownOpen(!triggerDropdownOpen)} style={{
                       width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
-                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
                     }}>
                       <span>{editingPrompt.trigger.length === 0 ? '全部' : editingPrompt.trigger.map((t: string) => TRIGGER_OPTIONS.find(o => o.value === t)?.label ?? t).join(', ')}</span>
-                      <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+                      <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--brass)' }}>▼</span>
                     </button>
                     {triggerDropdownOpen && (
                       <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setTriggerDropdownOpen(false)} />
                         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, padding: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
                           {TRIGGER_OPTIONS.map(opt => (
-                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }}>
+                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)' }}>
                               <input type="checkbox" checked={editingPrompt.trigger.includes(opt.value)}
                                 onChange={(e) => {
                                   const next = e.target.checked
@@ -459,7 +459,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   </div>
                 </div>
                 <div style={{ flex: '1 1 80px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: 'var(--gold)' }}>位置</span>
+                  <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>位置</span>
                   <DarkSelect compact value={editingPrompt.position} onChange={(v) => setEditingPrompt({ ...editingPrompt, position: v as 'relative' | 'depth' })}
                     options={[{ label: '相对', value: 'relative' }, { label: '插入深度', value: 'depth' }]} />
                 </div>
@@ -467,21 +467,21 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
               {editingPrompt.position === 'depth' && (
                 <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                   <div style={{ width: 80 }}>
-                    <span style={{ fontSize: 9, color: 'var(--gold)' }}>深度</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>深度</span>
                     <input type="number" value={editingPrompt.depth} onChange={(e) => setEditingPrompt({ ...editingPrompt, depth: Number(e.target.value) || 0 })} min={0} style={{ ...s.numInput, width: '100%' }} />
-                    <div style={{ fontSize: 7, color: 'var(--ink-faded)' }}>"0"在最后一条消息之后,"1"在最后一条消息之前,等等</div>
+                    <div style={{ fontSize: 'calc(7px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>"0"在最后一条消息之后,"1"在最后一条消息之前,等等</div>
                   </div>
                   <div style={{ width: 80 }}>
-                    <span style={{ fontSize: 9, color: 'var(--gold)' }}>排序</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>排序</span>
                     <input type="number" value={editingPrompt.order} onChange={(e) => setEditingPrompt({ ...editingPrompt, order: Number(e.target.value) || 100 })} min={0} style={{ ...s.numInput, width: '100%' }} />
-                    <div style={{ fontSize: 7, color: 'var(--ink-faded)' }}>从低到高排序,相同顺序:助手→用户→系统,默认100</div>
+                    <div style={{ fontSize: 'calc(7px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>从低到高排序,相同顺序:助手→用户→系统,默认100</div>
                   </div>
                 </div>
               )}
               <div style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: 9, color: 'var(--gold)' }}>提示词内容</span>
+                <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)' }}>提示词内容</span>
                 {editingPrompt._contentReadOnly && (
-                  <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>
+                  <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>
                     {CONTENT_SOURCE[editingPrompt.id] || '内容由其他来源自动填充'}
                   </div>
                 )}
@@ -538,27 +538,27 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                     background: dragId === item.id ? 'rgba(196,168,85,0.12)'
                       : isMarker ? 'rgba(0,0,0,0.08)' : 'rgba(196,168,85,0.03)',
                     opacity: enabled ? (dragId === item.id ? 0.6 : 1) : 0.4 }}>
-                  <span style={{ fontSize: 8, color: isMarker ? 'var(--gold)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>
+                  <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: isMarker ? 'var(--gold)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', width: 42, flexShrink: 0 }}>
                     {isMarker ? '标记' : '提示词'}
                   </span>
-                  <span style={{ flex: 1, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <span style={{ flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     {item.name || '(未命名)'}
-                    <span style={{ fontSize: 8, color: item.role === 'assistant' ? 'var(--success)' : item.role === 'user' ? 'var(--brass)' : 'var(--ink-faded)', marginLeft: 4 }}>[{item.role === 'user' ? '用户' : item.role === 'assistant' ? 'AI' : '系统'}]</span>
+                    <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: item.role === 'assistant' ? 'var(--success)' : item.role === 'user' ? 'var(--brass)' : 'var(--ink-faded)', marginLeft: 4 }}>[{item.role === 'user' ? '用户' : item.role === 'assistant' ? 'AI' : '系统'}]</span>
                   </span>
                   {!isMarker && (
-                    <button onClick={() => { set('promptItems', allItems.filter((_: PromptItem, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                    <button onClick={() => { set('promptItems', allItems.filter((_: PromptItem, i: number) => i !== allItems.indexOf(item)) as unknown as string); }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>✕</button>
                   )}
                   {!isReadOnly && (
                     <button onClick={() => {
                       setEditingPrompt({ ...item, _originalName: item._originalName || item.name, _contentReadOnly: isContentReadOnly });
-                    }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 10 }}>✎</button>
+                    }} title="编辑" style={{ ...s.iconBtn, color: 'var(--ink-subtle)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>✎</button>
                   )}
                   <button onClick={() => {
                     if (isMarker) { setModuleEnabled((p) => ({ ...p, [item.id]: !(p[item.id] !== false) })); return; }
                     const items: PromptItem[] = [...allItems]; const targetIdx = items.findIndex((p: PromptItem) => p.id === item.id); items[targetIdx] = { ...items[targetIdx], enabled: !items[targetIdx].enabled };
                     set('promptItems', items as unknown as string);
-                  }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 8, cursor: 'pointer' }}>{enabled ? 'ON' : 'OFF'}</button>
-                  <span style={{ fontSize: 8, color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
+                  }} style={{ minWidth: 30, padding: '1px 0', borderRadius: 2, border: '1px solid', textAlign: 'center', lineHeight: '14px', borderColor: enabled ? 'var(--success)' : 'var(--ink-faded)', background: enabled ? 'rgba(58,107,90,0.1)' : 'rgba(0,0,0,0.2)', color: enabled ? 'var(--success)' : 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 'calc(8px * var(--system-ratio, 1))', cursor: 'pointer' }}>{enabled ? 'ON' : 'OFF'}</button>
+                  <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 }}>
                     {isMarker ? '-' : ((item.content || '').length > 0 ? `~${Math.round(item.content.length / 2.5)}t` : '-')}
                   </span>
                 </div>
@@ -582,7 +582,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   const n = thNewName.trim(); if (!n) return;
                   setForm((p) => ({ ...p, tavernHelperVars: { ...p.tavernHelperVars, [n]: { name: n, value: thNewValue, updatedAt: Date.now() } } }));
                   setThNewName(''); setThNewValue('');
-                }} style={{ ...s.btn, padding: '3px 10px', fontSize: 10 }}>+</button>
+                }} style={{ ...s.btn, padding: '3px 10px', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>+</button>
               </div>
               {Object.entries(form.tavernHelperVars || {}).map(([vName, v]: [string, THVariable]) => (
                 <div key={vName} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0' }}>
@@ -592,11 +592,11 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
                   }} style={s.input} />
                   <button onClick={() => {
                     setForm((p) => { const nv = { ...p.tavernHelperVars }; delete nv[vName]; return { ...p, tavernHelperVars: nv }; });
-                  }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 10 }}>✕</button>
+                  }} title="删除" style={{ ...s.iconBtn, color: 'var(--blood)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>✕</button>
                 </div>
               ))}
               {Object.keys(form.tavernHelperVars || {}).length === 0 && (
-                <span style={{ fontSize: 10, color: 'var(--ink-faded)', fontStyle: 'italic' }}>无预设变量</span>
+                <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontStyle: 'italic' }}>无预设变量</span>
               )}
             </div>
           )}
@@ -605,7 +605,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
         <div style={{
           width: '100%', marginTop: 20, padding: '8px 0',
           textAlign: 'center',
-          fontSize: 10, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 2,
+          fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 2,
         }}>所有更改已自动保存</div>
       </div>
     </div>
@@ -622,7 +622,7 @@ function Collapse({ title, children }: { title: string; children: React.ReactNod
         width: '100%', textAlign: 'left', padding: '6px 10px',
         border: '1px solid rgba(196,168,85,0.12)', borderRadius: 3,
         background: 'rgba(0,0,0,0.15)', color: 'var(--text-light)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
         display: 'flex', justifyContent: 'space-between',
       }}>{title} <span>{open ? '▲' : '▼'}</span></button>
       {open && <div style={{ marginTop: 8 }}>{children}</div>}
@@ -632,38 +632,38 @@ function Collapse({ title, children }: { title: string; children: React.ReactNod
 
 const s = {
   header: { display: 'flex' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12 },
-  title: { fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', letterSpacing: 3, margin: 0 },
-  closeBtn: { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-ui)' } as React.CSSProperties,
+  title: { fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 3, margin: 0 },
+  closeBtn: { width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)' } as React.CSSProperties,
   section: { border: '1px solid rgba(196,168,85,0.1)', borderRadius: 4, padding: 12, marginBottom: 10, background: 'rgba(0,0,0,0.08)' },
-  sectionTitle: { fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' as const },
+  sectionTitle: { fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' as const },
   row: { display: 'flex' as const, alignItems: 'center' as const, gap: 8 },
   rowWrap: { display: 'flex' as const, gap: 10, flexWrap: 'wrap' as const, marginTop: 8 },
   fieldCol: { flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 4, minWidth: 120 },
-  label: { fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' },
-  checkLabel: { fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' },
+  label: { fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' },
+  checkLabel: { fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' },
   sliderRow: { display: 'flex' as const, gap: 8, alignItems: 'center' as const },
   slider: { flex: 1, accentColor: 'var(--gold)' },
-  numInput: { width: 70, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center' as const, outline: 'none' },
-  input: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, outline: 'none' },
-  select: { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, outline: 'none', cursor: 'pointer', minWidth: 100 },
-  textarea: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 11, minHeight: 50, resize: 'vertical' as const, outline: 'none' },
-  btn: { padding: '6px 14px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer' },
-  miniBtn: { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' },
-  iconBtn: { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', fontSize: 12, cursor: 'pointer', opacity: 0.5 } as React.CSSProperties,
+  numInput: { width: 70, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center' as const, outline: 'none' },
+  input: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none' },
+  select: { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer', minWidth: 100 },
+  textarea: { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-body)', fontSize: 'calc(11px * var(--system-ratio, 1))', minHeight: 50, resize: 'vertical' as const, outline: 'none' },
+  btn: { padding: '6px 14px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer' },
+  miniBtn: { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' },
+  iconBtn: { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer', opacity: 0.5 } as React.CSSProperties,
 } as const;
 
 const helpLinkStyle: React.CSSProperties = {
   width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   color: 'var(--ink-subtle)', textDecoration: 'none', lineHeight: '15px',
-  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 'bold',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
   position: 'relative', top: -5,
 };
 
 const resetBtn: React.CSSProperties = {
   padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'transparent', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
 };
 
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' };

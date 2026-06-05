@@ -38,7 +38,7 @@ export function MobileTabBar({ active, onTab }: Props) {
               borderRight: '1px solid rgba(61,43,19,0.5)',
               boxShadow: isActive ? 'inset 0 -2px 0 var(--gold)' : 'none',
               color: isActive ? 'var(--gold)' : 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
               cursor: 'pointer', transition: 'color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
             }}
             onTouchStart={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; }}

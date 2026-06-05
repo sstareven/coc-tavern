@@ -84,12 +84,12 @@ export function StepSkills({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={sectionTitle}>职业与技能 OCCUPATION & SKILLS</div>
+      <div style={sectionTitle}>职业与技能</div>
 
       {/* Occupation selector */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业 OCCUPATION</span>
+          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业</span>
           <DarkSelect value={occValue} onChange={onSetOccupation}
             options={[
               ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
@@ -133,11 +133,11 @@ export function StepSkills({
 
       {/* Credit Rating slider */}
       <div style={{ padding: '8px 12px', border: '1px solid rgba(196,168,85,0.12)', borderRadius: 4, background: 'rgba(0,0,0,0.06)', position: 'relative' }}>
-        <span style={{ fontSize: 12, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 700 }}>信用评级</span>
+        <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontWeight: 700 }}>信用评级</span>
         <span style={{
           position: 'absolute', right: 8, top: '50%', zIndex: 1,
           transform: 'translateY(calc(-50% - 10px))',
-          fontSize: 14 + (creditRating - crMin) / Math.max(1, crMax - crMin) * 6,
+          fontSize: 'calc(14px * var(--system-ratio, 1))' + (creditRating - crMin) / Math.max(1, crMax - crMin) * 6,
           fontFamily: 'var(--font-display)', fontWeight: 900, color: 'rgba(255,255,255,0.30)',
           transition: 'font-size 0.25s cubic-bezier(0.4,0,0.2,1)',
           lineHeight: 1, pointerEvents: 'none', userSelect: 'none',
