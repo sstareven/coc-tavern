@@ -32,6 +32,17 @@ interface SanityBubbleStore {
   pending: string[];
   /** 把当前页未解决的气泡 id 喂进来(每次切页 / 渲染时主动同步)。 */
   setPending: (ids: string[]) => void;
+  /**
+   * 新页加载原子化：先 reset resolved + 再 setPending(ids)。
+   *
+   * 用于 useSanityBubbleEffect 在「切到最新页 / 新页刚生成」时调用,
+   * 防止旧页 resolved={p1} 让新页 LLM 又用 id=p1 (p1/p2/p3 是模板常用 id)
+   * 时 SanityBubble 渲染成已触发的灰圆点、点不开 / 不掉 SAN (2026-06-05 复现)。
+   *
+   * 与历史页翻看的语义无冲突——历史页只 setPending([]) (不动 resolved),
+   * 切回最新页时才走 loadPage 重置。SAN check 是非自愿冲击,翻回历史本不应再触发。
+   */
+  loadPage: (ids: string[]) => void;
   /** 玩家点完一个气泡 → SAN check 已落账 → 标记已解决。 */
   markResolved: (id: string) => void;
   /** 是否所有 pending 气泡都已 resolved(供 useChoiceLockStore 判断解锁)。 */
@@ -44,6 +55,7 @@ export const useSanityBubbleStore = create<SanityBubbleStore>()((set, get) => ({
   resolved: new Set<string>(),
   pending: [],
   setPending: (ids) => set({ pending: ids }),
+  loadPage: (ids) => set({ resolved: new Set(), pending: ids }),
   markResolved: (id) => set((s) => {
     if (s.resolved.has(id)) return s; // 幂等
     const next = new Set(s.resolved);

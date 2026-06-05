@@ -682,7 +682,10 @@ function useSanityBubbleEffect(prompts: import('../../types').SanityCheckPrompt[
       return;
     }
     const ids = (prompts ?? []).map((p) => p.id);
-    useSanityBubbleStore.getState().setPending(ids);
+    // loadPage 原子化「reset resolved + setPending(ids)」——每次新页生成 / 切回最新页都重置,
+    // 防止上页 resolved={p1} 让新页同 id (p1/p2/p3 是模板常用 id) 被 SanityBubble 误判为
+    // 已触发的灰圆点、点不开 / 不掉 SAN (2026-06-05 用户复现的延伸场景)。
+    useSanityBubbleStore.getState().loadPage(ids);
     return () => {
       // 离开最新页 → 清空 pending(不影响 resolved 集合)
       useSanityBubbleStore.getState().setPending([]);
