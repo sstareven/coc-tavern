@@ -14,6 +14,7 @@ import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
 import { PromptTemplateContent } from './PromptTemplateContent';
+import { BlessingContent } from './BlessingContent';
 import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
 
 const PP_OPTIONS = [
@@ -30,7 +31,7 @@ const PP_OPTIONS = [
 ];
 
 // ── Section type ──
-type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate';
+type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate' | 'blessing';
 
 interface Props {
   visible: boolean;
@@ -322,6 +323,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'tavernHelper', label: '酒馆助手', icon: '🍶' },
   { key: 'background', label: '背景设定', icon: '📜' },
   { key: 'promptTemplate', label: '提示词模板', icon: '📝' },
+  { key: 'blessing', label: '领受赐福', icon: '✨' },
 ];
 
 // ── Main Settings Panel ──
@@ -1329,6 +1331,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             {section === 'promptTemplate' && (
               <motion.div key="promptTemplate" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
                 <PromptTemplateContent />
+              </motion.div>
+            )}
+            {section === 'blessing' && (
+              <motion.div key="blessing" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <BlessingContent />
               </motion.div>
             )}
           </AnimatePresence>
