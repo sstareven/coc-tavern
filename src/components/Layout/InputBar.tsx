@@ -155,7 +155,7 @@ export function InputBar() {
           <div
             style={{
               padding: '6px 24px',
-              fontSize: 12,
+              fontSize: 'calc(12px * var(--system-ratio, 1))',
               color: '#e8815b',
               fontFamily: 'var(--font-ui)',
               letterSpacing: 1,
@@ -167,7 +167,7 @@ export function InputBar() {
             <span>{pipeline.error}</span>
             <span
               onClick={pipeline.clearError}
-              style={{ cursor: 'pointer', opacity: 0.7, fontSize: 16 }}
+              style={{ cursor: 'pointer', opacity: 0.7, fontSize: 'calc(16px * var(--system-ratio, 1))' }}
               title="关闭"
             >
               ×
@@ -228,7 +228,7 @@ export function InputBar() {
                       width: '100%',
                       borderCollapse: 'collapse',
                       fontFamily: 'var(--font-ui)',
-                      fontSize: 11,
+                      fontSize: 'calc(11px * var(--system-ratio, 1))',
                     }}
                   >
                     <tbody>
@@ -358,7 +358,7 @@ export function InputBar() {
                         padding: '6px 12px',
                         cursor: 'pointer',
                         fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
+                        fontSize: 'calc(11px * var(--system-ratio, 1))',
                         color: 'var(--text-light)',
                         borderBottom: '1px solid rgba(196,168,85,0.06)',
                       }}
@@ -376,7 +376,7 @@ export function InputBar() {
                         style={{
                           color: 'var(--ink-subtle)',
                           marginLeft: 8,
-                          fontSize: 10,
+                          fontSize: 'calc(10px * var(--system-ratio, 1))',
                         }}
                       >
                         {c.description}
@@ -547,7 +547,7 @@ function WandRow({ icon, label, iconColor, iconMono, divider, onClick }: WandRow
                 fontWeight: 'bold' as const,
                 fontSize: isGear ? 10 : 11,
               }
-            : { fontSize: 14 }),
+            : { fontSize: 'calc(14px * var(--system-ratio, 1))' }),
         }}
       >
         {icon}
@@ -572,7 +572,7 @@ function dualBtnStyle(active: boolean, loading: boolean): React.CSSProperties {
     background: active ? 'rgba(196,168,85,0.18)' : 'transparent',
     color: active ? 'var(--gold)' : 'rgba(196,168,85,0.35)',
     fontFamily: 'var(--font-ui)',
-    fontSize: 13,
+    fontSize: 'calc(13px * var(--system-ratio, 1))',
     letterSpacing: 3,
     cursor: active && !loading ? 'pointer' : 'default',
     pointerEvents: active && !loading ? 'auto' : 'none',
@@ -592,7 +592,7 @@ const wandBtnStyle: React.CSSProperties = {
   background: 'rgba(0,0,0,0.2)',
   color: 'var(--ink-subtle)',
   fontFamily: 'var(--font-ui)',
-  fontSize: 14,
+  fontSize: 'calc(14px * var(--system-ratio, 1))',
   borderRadius: 3,
   cursor: 'pointer',
   transition: 'var(--transition-smooth)',

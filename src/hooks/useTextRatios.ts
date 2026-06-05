@@ -19,10 +19,7 @@ export function applyTextRatios(
   el: HTMLElement | null = typeof document !== 'undefined' ? document.documentElement : null,
 ): void {
   if (!el) return;
-  // v1.11.7: 清除 v1.11.6 及之前老 useUiScale 在 :root 上残留的 zoom 内联样式与
-  // 老 --ui-scale CSS 变量。dev HMR 切换 hook 时不会自动撤销之前 setProperty 的值,
-  // 老 zoom 留着会让整页继续按老倍率渲染 → 输入栏被推出屏幕、书本错位。
-  el.style.removeProperty('zoom');
+  // 老 --ui-scale 兼容:有则清(v1.11.6 残留);zoom 不动 —— v1.11.8 起由 useResponsiveZoom 独占管理。
   el.style.removeProperty('--ui-scale');
   if (textRatio === 1) el.style.removeProperty('--text-ratio');
   else el.style.setProperty('--text-ratio', String(textRatio));

@@ -233,10 +233,10 @@ export function KeywordTooltip({ keyword, children, tone = 'default' }: Props) {
                 backdropFilter: 'blur(4px)',
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 0.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontWeight: 700, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 0.5, marginBottom: 4 }}>
                 {keyword}
               </div>
-              <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 'calc(12px * var(--text-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--text-light)', lineHeight: 1.6 }}>
                 {meaning}
               </div>
             </div>

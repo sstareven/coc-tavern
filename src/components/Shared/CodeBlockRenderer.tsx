@@ -173,12 +173,12 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
             padding: '6px 12px', cursor: 'pointer',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             background: 'rgba(58,107,90,0.15)', borderLeft: '3px solid var(--success)',
-            fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
             transition: 'var(--transition-smooth)',
           }}
         >
           <span>📄 HTML 渲染块</span>
-          <span style={{ fontSize: 9 }}>点击展开</span>
+          <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))' }}>点击展开</span>
         </div>
       </div>
     );
@@ -192,7 +192,7 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
       <div style={{
         padding: '4px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'rgba(58,107,90,0.15)', borderLeft: '3px solid var(--success)',
-        fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
       }}>
         <span>📄 HTML 渲染块</span>
         <button
@@ -203,7 +203,7 @@ function RenderedIframe({ code, collapsed }: { code: string; collapsed: boolean 
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           style={{
             background: 'transparent', border: 'none', color: 'var(--ink-subtle)',
-            cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)',
+            cursor: 'pointer', fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
             transition: 'var(--transition-smooth)',
           }}
         >收起</button>
@@ -238,17 +238,17 @@ function CodeBlock({ code, lang, collapsed }: { code: string; lang: string; coll
         style={{
           padding: '4px 12px', cursor: 'pointer',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--ink-subtle)',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
           background: 'rgba(196,168,85,0.08)',
           transition: 'var(--transition-smooth)',
         }}
       >
         <span>{'```' + lang}</span>
-        <span style={{ fontSize: 9 }}>{expanded ? '收起' : '展开'}</span>
+        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))' }}>{expanded ? '收起' : '展开'}</span>
       </div>
       {expanded && (
         <pre style={{
-          margin: 0, padding: '8px 12px', fontSize: 11, fontFamily: 'var(--font-mono)',
+          margin: 0, padding: '8px 12px', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)',
           color: 'var(--text-light)', lineHeight: 1.5, overflowX: 'auto',
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
         }}>

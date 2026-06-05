@@ -173,7 +173,7 @@ export function PresetSwitchOverlay() {
   const pill = (o: FusionOption, onClick: () => void, on: boolean) => (
     <button key={o.name} onClick={onClick} aria-pressed={on} title={o.hint ?? o.displayName ?? o.name}
       style={{
-        fontSize: 11, padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
+        fontSize: 'calc(11px * var(--system-ratio, 1))', padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
         maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
         background: on ? 'rgba(196,168,85,0.28)' : 'rgba(0,0,0,0.22)',
@@ -206,25 +206,25 @@ export function PresetSwitchOverlay() {
         <div style={{ padding: '16px 18px 10px', borderBottom: '1px solid rgba(196,168,85,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div>
-              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 2 }}>双人成行</div>
-              <div style={{ color: 'var(--ink-subtle)', fontSize: 10.5, marginTop: 3 }}>{presetName} · 已开 {totalOn}/{totalExist}</div>
+              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', letterSpacing: 2 }}>双人成行</div>
+              <div style={{ color: 'var(--ink-subtle)', fontSize: 'calc(10.5px * var(--system-ratio, 1))', marginTop: 3 }}>{presetName} · 已开 {totalOn}/{totalExist}</div>
             </div>
             <button onClick={closeAll} aria-label="关闭" style={{
               background: 'transparent', border: '1px solid var(--brass)', color: 'var(--gold)',
-              borderRadius: 4, width: 30, height: 30, fontSize: 15, cursor: 'pointer', lineHeight: 1,
+              borderRadius: 4, width: 30, height: 30, fontSize: 'calc(15px * var(--system-ratio, 1))', cursor: 'pointer', lineHeight: 1,
             }}>✕</button>
           </div>
 
           {!q && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 10.5, color: 'var(--ink-subtle)', marginBottom: 5 }}>核心驱动模型 · 切到该模型最适配的预设</div>
+              <div style={{ fontSize: 'calc(10.5px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 5 }}>核心驱动模型 · 切到该模型最适配的预设</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {PRESET_BAR.map((m) => {
                   const on = m.chain ? (presetId === FUSION_XY_ID && isOnId(m.chain)) : (presetId === FUSION_DS_ID);
                   return (
                     <button key={m.label} onClick={() => void switchPreset(m.presetId, m.chain)} aria-pressed={on}
                       style={{
-                        fontSize: 11, padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
+                        fontSize: 'calc(11px * var(--system-ratio, 1))', padding: '5px 12px', borderRadius: 14, cursor: 'pointer',
                         border: '1px solid ' + (on ? 'var(--gold)' : 'rgba(196,168,85,0.22)'),
                         background: on ? 'rgba(196,168,85,0.3)' : 'rgba(0,0,0,0.22)',
                         color: on ? 'var(--gold)' : '#e0d6b8',
@@ -243,7 +243,7 @@ export function PresetSwitchOverlay() {
             style={{
               marginTop: 10, width: '100%', boxSizing: 'border-box', padding: '7px 10px',
               background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(196,168,85,0.25)', borderRadius: 4,
-              color: 'var(--parchment)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+              color: 'var(--parchment)', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', outline: 'none',
             }}
           />
         </div>
@@ -251,24 +251,24 @@ export function PresetSwitchOverlay() {
         <div style={{ overflowY: 'auto', padding: '8px 12px 14px' }}>
           {!q && (
             <div style={{ margin: '2px 0 10px', padding: '10px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 6, background: 'rgba(196,168,85,0.04)' }}>
-              <div style={{ fontSize: 10, color: '#b5aa86', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
+              <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: '#b5aa86', marginBottom: 7, lineHeight: 1.5 }}>{PREVIEW_HINT}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ fontSize: 12.5 }}>
+                <div style={{ fontSize: 'calc(12.5px * var(--system-ratio, 1))' }}>
                   <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>驱动模型</span> <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{modelLabel}</span>
                 </div>
                 {effectSummary.map((s) => (
-                  <div key={s.label} style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                  <div key={s.label} style={{ fontSize: 'calc(12.5px * var(--system-ratio, 1))', lineHeight: 1.55 }}>
                     <span style={{ color: '#cdbf95', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{s.label}</span>{' '}
                     <span style={{ color: 'var(--gold-bright)', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: 0.5 }}>{s.value}</span>
-                    {s.effect && <span style={{ color: '#b5aa86', fontSize: 10, marginLeft: 6 }}>· {s.effect}</span>}
+                    {s.effect && <span style={{ color: '#b5aa86', fontSize: 'calc(10px * var(--system-ratio, 1))', marginLeft: 6 }}>· {s.effect}</span>}
                   </div>
                 ))}
-                {effectSummary.length === 0 && <div style={{ fontSize: 11, color: '#b5aa86' }}>暂未开启任何功能泡泡</div>}
+                {effectSummary.length === 0 && <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: '#b5aa86' }}>暂未开启任何功能泡泡</div>}
               </div>
             </div>
           )}
           {visibleGroups.length === 0 && (
-            <div style={{ color: 'var(--ink-subtle)', fontSize: 12, textAlign: 'center', padding: 24 }}>无匹配项</div>
+            <div style={{ color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))', textAlign: 'center', padding: 24 }}>无匹配项</div>
           )}
           {visibleGroups.map(({ g, subs }) => {
             const isCollapsed = !q && collapsed.has(g.title);
@@ -280,24 +280,24 @@ export function PresetSwitchOverlay() {
                   onClick={() => { if (q) return; setCollapsed((prev) => { const n = new Set(prev); n.has(g.title) ? n.delete(g.title) : n.add(g.title); saveCollapsed(n); return n; }); }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: q ? 'default' : 'pointer',
-                    padding: '7px 8px', marginTop: 8, color: 'var(--gold)', fontSize: 12, letterSpacing: 1,
+                    padding: '7px 8px', marginTop: 8, color: 'var(--gold)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 1,
                     background: 'rgba(196,168,85,0.06)', borderRadius: 4, userSelect: 'none',
                   }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <span style={{ fontSize: 9.5, color: 'var(--ink-subtle)' }}>{onCount}/{total}</span>
-                    {!q && <span style={{ fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>}
+                    <span style={{ fontSize: 'calc(9.5px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>{onCount}/{total}</span>
+                    {!q && <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isCollapsed ? 'rotate(-90deg)' : 'none' }}>▼</span>}
                   </span>
                 </div>
                 {!isCollapsed && (
                   <div style={{ padding: '2px 4px 4px' }}>
-                    {g.desc && <div style={{ fontSize: 10, color: 'var(--ink-subtle)', lineHeight: 1.6, margin: '4px 2px 8px', fontFamily: 'var(--font-body)' }}>{g.desc}</div>}
+                    {g.desc && <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', lineHeight: 1.6, margin: '4px 2px 8px', fontFamily: 'var(--font-body)' }}>{g.desc}</div>}
                     {subs.map(({ s, opts }, si) => (
                       <div key={si} style={{ marginBottom: 8 }}>
                         {s.title && (
-                          <div style={{ fontSize: 11, color: 'var(--gold-bright)', fontWeight: 600, margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
-                            {s.title}{s.single && <span style={{ fontSize: 9, marginLeft: 5 }}>（单选）</span>}
+                          <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold-bright)', fontWeight: 600, margin: '2px 2px 5px', fontFamily: 'var(--font-body)' }}>
+                            {s.title}{s.single && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', marginLeft: 5 }}>（单选）</span>}
                           </div>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -318,7 +318,7 @@ export function PresetSwitchOverlay() {
           })}
         </div>
 
-        <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(196,168,85,0.12)', color: 'var(--ink-subtle)', fontSize: 10, fontFamily: 'var(--font-body)' }}>
+        <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(196,168,85,0.12)', color: 'var(--ink-subtle)', fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)' }}>
           开关即时生效并保存，下一回合起作用。单选项互斥。
         </div>
       </div>

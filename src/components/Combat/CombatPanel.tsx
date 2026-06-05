@@ -178,8 +178,8 @@ export function CombatPanel() {
         fontFamily: 'var(--font-display)', letterSpacing: 2, flexShrink: 0,
         borderBottom: `1px solid ${FAINT}`, padding: '0 24px 10px', marginBottom: 12,
       }}>
-        <span style={{ fontSize: 17, color: 'var(--ink)' }}>战斗 · 第 {enc.round} 轮</span>
-        <span style={{ fontSize: 12, letterSpacing: 1, color: resolving ? 'var(--gold)' : isPlayerTurn ? 'var(--success)' : 'var(--ink-subtle)' }}>
+        <span style={{ fontSize: 'calc(17px * var(--system-ratio, 1))', color: 'var(--ink)' }}>战斗 · 第 {enc.round} 轮</span>
+        <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 1, color: resolving ? 'var(--gold)' : isPlayerTurn ? 'var(--success)' : 'var(--ink-subtle)' }}>
           {resolving ? '结算中…' : isPlayerTurn ? '你的回合' : '对方行动'}
         </span>
       </div>
@@ -193,7 +193,7 @@ export function CombatPanel() {
       </div>
 
       {/* 战斗日志（滚动累计）+ 检定记录展开 */}
-      <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 14, lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
+      <div ref={logRef} className="rp-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 20px 10px 24px', fontSize: 'calc(14px * var(--system-ratio, 1))', lineHeight: 1.75, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
         {enc.log.slice(0, revealed).map((l, i) => (
           <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'}
             dim={!!l.rolls?.length && l.rolls.every((rv) => !rv.damage)}
@@ -204,7 +204,7 @@ export function CombatPanel() {
 
       {/* 玩家状态条 */}
       {player && (
-        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, padding: '8px 24px 0', flexWrap: 'wrap', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 14, fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', borderTop: `1px solid ${FAINTER}`, padding: '8px 24px 0', flexWrap: 'wrap', flexShrink: 0 }}>
           <span>HP <b style={{ color: 'var(--blood)' }}>{displayHp[player.id] ?? player.hp}/{player.maxHp}</b></span>
           <span>SAN <b style={{ color: 'var(--ink)' }}>{sheet.secondary.san.current}</b></span>
           <span>MP <b style={{ color: 'var(--ink)' }}>{sheet.secondary.mp.current}</b></span>
@@ -229,7 +229,7 @@ export function CombatPanel() {
             onClick={() => { if (advancing) return; setAdvancing(true); if (soundEnabled) { try { sfxClickPrimary(); } catch { /* audio 不可用 */ } } document.dispatchEvent(new Event('combat-advance')); }}
             disabled={advancing}
             style={{
-              fontSize: 14, fontFamily: 'var(--font-display)', letterSpacing: 3,
+              fontSize: 'calc(14px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', letterSpacing: 3,
               padding: '9px 28px', borderRadius: 5, cursor: advancing ? 'wait' : 'pointer',
               border: '1px solid var(--brass)', background: advancing ? 'rgba(196,168,85,0.12)' : 'rgba(196,168,85,0.16)',
               color: 'var(--gold)', transition: 'var(--transition-smooth)', transform: 'scale(1)',
@@ -319,13 +319,13 @@ function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatan
           aria-hidden
           initial={{ opacity: 0, x: 4 }} animate={{ opacity: 1, x: [0, -3, 0] }}
           transition={{ x: { duration: 0.9, repeat: Infinity, ease: 'easeInOut' }, opacity: { duration: 0.2 } }}
-          style={{ position: 'absolute', left: -16, color: 'var(--gold)', fontSize: 13, fontWeight: 700 }}
+          style={{ position: 'absolute', left: -16, color: 'var(--gold)', fontSize: 'calc(13px * var(--system-ratio, 1))', fontWeight: 700 }}
         >▶</motion.span>
       )}
-      <span style={{ flex: 1, fontSize: 13, color: hostile ? 'var(--ink)' : 'var(--success)' }}>
+      <span style={{ flex: 1, fontSize: 'calc(13px * var(--system-ratio, 1))', color: hostile ? 'var(--ink)' : 'var(--success)' }}>
         {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}
       </span>
-      {active && <span style={{ fontSize: 9, color: 'var(--gold)', border: '1px solid rgba(196,168,85,0.6)', borderRadius: 8, padding: '0 6px', flexShrink: 0, letterSpacing: 1 }}>行动中</span>}
+      {active && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', border: '1px solid rgba(196,168,85,0.6)', borderRadius: 8, padding: '0 6px', flexShrink: 0, letterSpacing: 1 }}>行动中</span>}
       {!down && (c.flags.prone || c.flags.weaponJammed) && (
         <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
           {c.flags.prone && <StatusChip label="倒地" />}
@@ -335,7 +335,7 @@ function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatan
       <div style={{ width: 72, height: 7, background: 'rgba(0,0,0,0.1)', borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: hostile ? 'var(--blood)' : 'var(--success)', transition: 'var(--transition-smooth)' }} />
       </div>
-      <span style={{ fontSize: 11, color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{shownHp}/{c.maxHp}</span>
+      <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-faded)', minWidth: 36, textAlign: 'right' }}>{shownHp}/{c.maxHp}</span>
     </div>
   );
 }
@@ -343,7 +343,7 @@ function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatan
 /** 战斗状态小标签（倒地/已缴械等，血红描边）。 */
 function StatusChip({ label }: { label: string }) {
   return (
-    <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid rgba(176,58,46,0.45)', background: 'rgba(176,58,46,0.06)', borderRadius: 8, padding: '0 6px', whiteSpace: 'nowrap', lineHeight: 1.6 }}>{label}</span>
+    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid rgba(176,58,46,0.45)', background: 'rgba(176,58,46,0.06)', borderRadius: 8, padding: '0 6px', whiteSpace: 'nowrap', lineHeight: 1.6 }}>{label}</span>
   );
 }
 
@@ -353,7 +353,7 @@ function ActionBtn({ label, primary, disabled, title, onClick }: { label: string
   return (
     <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title}
       style={{
-        fontSize: 12, padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: 'calc(12px * var(--system-ratio, 1))', padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
         border: '1px solid ' + border, background: disabled ? 'transparent' : 'rgba(196,168,85,0.08)', color,
         fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'var(--transition-smooth)', transform: 'scale(1)',
       }}
@@ -405,7 +405,7 @@ export function DiceRecordsExpander({ records }: { records: { skill: string; rol
   if (records.length === 0) return null;
   return (
     <div style={{ marginTop: 8, fontFamily: 'var(--font-ui)' }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ color: 'var(--ink-subtle)', fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
+      <div onClick={() => setOpen((o) => !o)} style={{ color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer', userSelect: 'none' }}>
         {open ? '▾' : '▸'} 检定记录（{records.length} 条）
       </div>
       {open && (
@@ -415,7 +415,7 @@ export function DiceRecordsExpander({ records }: { records: { skill: string; rol
               ? `[伤害] ${r.skill.split('·')[0]} ${r.target}=${r.roll}`
               : `${r.purpose ? `[${r.purpose}] ` : ''}${r.skill} d100=${r.roll}/${r.target}`;
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-faded)', lineHeight: 1.7 }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-faded)', lineHeight: 1.7 }}>
                 <span>{text}</span>
                 {r.pushed && (
                   <span data-testid="badge-push" style={badgeStyle('rgba(204,51,51,0.12)', 'var(--blood)')}>
@@ -442,7 +442,7 @@ function badgeStyle(bg: string, fg: string): React.CSSProperties {
     display: 'inline-flex', alignItems: 'center', gap: 3,
     padding: '0 6px', borderRadius: 8,
     border: `1px solid ${fg}`, background: bg, color: fg,
-    fontSize: 9, letterSpacing: 1, whiteSpace: 'nowrap', lineHeight: 1.6,
+    fontSize: 'calc(9px * var(--system-ratio, 1))', letterSpacing: 1, whiteSpace: 'nowrap', lineHeight: 1.6,
   };
 }
 
@@ -480,7 +480,7 @@ function DefensePanel({ pendingDefense, enc, animating, onChoose }: {
 
   return (
     <div style={{ borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0 }}>
-      <div style={{ fontSize: 12, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1, marginBottom: 8, textAlign: 'center' }}>
+      <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1, marginBottom: 8, textAlign: 'center' }}>
         ▸ {atkLabel} — 选择应对
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>

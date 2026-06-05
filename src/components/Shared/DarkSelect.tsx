@@ -10,7 +10,7 @@ const selectTriggerBase: React.CSSProperties = {
 };
 
 const compactOverride: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 'calc(11px * var(--system-ratio, 1))',
   padding: '6px 9px',
   textAlign: 'left',
   fontFamily: 'var(--font-ui)',
@@ -70,7 +70,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
     }}>
       {options.map((o) => {
         if (o.separator || o.value.startsWith('__sep')) {
-          return <div key={o.value} style={{ padding: '4px 12px', fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{o.label}</div>;
+          return <div key={o.value} style={{ padding: '4px 12px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', borderBottom: '1px solid rgba(196,168,85,0.08)', cursor: 'default' }}>{o.label}</div>;
         }
         return (
           <div key={o.value}
@@ -85,7 +85,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
             onMouseLeave={(e) => { e.currentTarget.style.background = o.value === value ? 'rgba(196,168,85,0.1)' : 'transparent'; }}
           >
             <div>{o.label}</div>
-            {o.sub && <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
+            {o.sub && <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)' }}>{o.sub}</div>}
           </div>
         );
       })}
@@ -111,7 +111,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
         <span style={{ color: value ? 'var(--text-light)' : 'var(--ink-subtle)' }}>
           {selected ? selected.label : '选择…'}
         </span>
-        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 10, transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
+        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--gold)', fontSize: 'calc(10px * var(--system-ratio, 1))', transition: '0.2s' }}>{open ? '▲' : '▼'}</span>
       </div>
       {menu}
     </div>

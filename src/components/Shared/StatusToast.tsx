@@ -63,7 +63,7 @@ export function StatusToast() {
               boxShadow: `0 4px 24px rgba(0,0,0,0.45), 0 0 16px ${a.glow}`,
               color: a.color,
               fontFamily: 'var(--font-display)',
-              fontSize: 13,
+              fontSize: 'calc(13px * var(--system-ratio, 1))',
               letterSpacing: 1.5,
               whiteSpace: 'nowrap',
               userSelect: 'none',
@@ -101,7 +101,7 @@ export function StatusToast() {
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
+                  fontSize: 'calc(11px * var(--system-ratio, 1))',
                   opacity: 0.7,
                   fontVariantNumeric: 'tabular-nums',
                   minWidth: 38,

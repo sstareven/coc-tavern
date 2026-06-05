@@ -135,14 +135,14 @@ export function RegexEditor() {
         {/* Title bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 3 }}>正则脚本编辑器</h3>
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>({editingType === 'global' ? '全局' : '预设'})</span>
+            <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', letterSpacing: 3 }}>正则脚本编辑器</h3>
+            <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>({editingType === 'global' ? '全局' : '预设'})</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setTestMode(!testMode)} style={{ ...headerBtn, color: testMode ? 'var(--gold)' : 'var(--ink-subtle)' }}>
               {testMode ? '关闭测试' : '测试'}
             </button>
-            <button onClick={closeEditor} style={{ ...headerBtn, fontSize: 16, border: 'none' }}>✕</button>
+            <button onClick={closeEditor} style={{ ...headerBtn, fontSize: 'calc(16px * var(--system-ratio, 1))', border: 'none' }}>✕</button>
           </div>
         </div>
 
@@ -158,7 +158,7 @@ export function RegexEditor() {
         <div style={fieldGroup}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={labelStyle}>查找正则表达式</label>
-            {regexInfo && <span style={{ fontSize: 9, color: regexInfo.startsWith('⚠') ? 'var(--blood)' : 'var(--success)', fontFamily: 'var(--font-mono)' }}>{regexInfo}</span>}
+            {regexInfo && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: regexInfo.startsWith('⚠') ? 'var(--blood)' : 'var(--success)', fontFamily: 'var(--font-mono)' }}>{regexInfo}</span>}
           </div>
           <textarea value={findRegex} onChange={(e) => setFindRegex(e.target.value)}
             placeholder="/pattern/flags 或 直接输入正则表达式…" rows={2}
@@ -169,7 +169,7 @@ export function RegexEditor() {
 
         {/* Replace with */}
         <div style={fieldGroup}>
-          <label style={labelStyle}>替换为 <span style={{ fontWeight: 'normal', fontSize: 9, color: 'var(--ink-faded)' }}>($1 $2 捕获组, $&amp; 全匹配)</span></label>
+          <label style={labelStyle}>替换为 <span style={{ fontWeight: 'normal', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>($1 $2 捕获组, $&amp; 全匹配)</span></label>
           <textarea value={replaceString} onChange={(e) => setReplaceString(e.target.value)}
             placeholder="替换内容…" rows={2} style={textareaStyle}
             onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'}
@@ -178,7 +178,7 @@ export function RegexEditor() {
 
         {/* Trim strings */}
         <div style={fieldGroup}>
-          <label style={labelStyle}>修剪字符串 <span style={{ fontWeight: 'normal', fontSize: 9, color: 'var(--ink-faded)' }}>(每行一个，在替换后全局修剪匹配项)</span></label>
+          <label style={labelStyle}>修剪字符串 <span style={{ fontWeight: 'normal', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>(每行一个，在替换后全局修剪匹配项)</span></label>
           <textarea value={trimStrings} onChange={(e) => setTrimStrings(e.target.value)}
             placeholder="要移除的前后文本…" rows={2} style={textareaStyle}
             onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'}
@@ -190,7 +190,7 @@ export function RegexEditor() {
           <label style={{ ...labelStyle, marginBottom: 6 }}>作用范围</label>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {PLACEMENT_OPTIONS.map((opt) => (
-              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-light)', cursor: 'pointer' }}>
+              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={placement.includes(opt.value)} onChange={() => togglePlacement(opt.value)} style={{ accentColor: 'var(--gold)' }} />
                 {opt.label}
               </label>
@@ -202,10 +202,10 @@ export function RegexEditor() {
         <div style={{ ...fieldGroup, marginBottom: 12 }}>
           <label style={{ ...labelStyle, marginBottom: 6 }}>深度范围</label>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>最小:</span>
+            <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>最小:</span>
             <input type="number" value={minDepth} onChange={(e) => setMinDepth(e.target.value)}
               placeholder="无限" style={numInput} />
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>最大:</span>
+            <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>最大:</span>
             <input type="number" value={maxDepth} onChange={(e) => setMaxDepth(e.target.value)}
               placeholder="无限" style={numInput} />
           </div>
@@ -246,10 +246,10 @@ export function RegexEditor() {
             <label style={{ ...labelStyle, marginBottom: 8 }}>测试正则</label>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <input value={testInput} onChange={(e) => setTestInput(e.target.value)} placeholder="测试输入…" style={{ ...inputStyle, fontSize: 11 }} />
+                <input value={testInput} onChange={(e) => setTestInput(e.target.value)} placeholder="测试输入…" style={{ ...inputStyle, fontSize: 'calc(11px * var(--system-ratio, 1))' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <input value={testOutput} readOnly placeholder="测试输出…" style={{ ...inputStyle, fontSize: 11, color: 'var(--gold)', background: 'rgba(196,168,85,0.05)' }} />
+                <input value={testOutput} readOnly placeholder="测试输出…" style={{ ...inputStyle, fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', background: 'rgba(196,168,85,0.05)' }} />
               </div>
             </div>
             <button onClick={updateTest} style={{ marginTop: 8, ...headerBtn, color: 'var(--gold)', borderColor: 'var(--gold)' }}>运行测试</button>
@@ -271,7 +271,7 @@ export function RegexEditor() {
 
 function CheckLabel({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-light)', cursor: 'pointer' }}>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', cursor: 'pointer' }}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
       {label}
     </label>
@@ -281,14 +281,14 @@ function CheckLabel({ checked, onChange, label }: { checked: boolean; onChange: 
 const fieldGroup: React.CSSProperties = { marginBottom: 14 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
   letterSpacing: 1, display: 'block', marginBottom: 4,
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '7px 10px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
-  fontSize: 12, outline: 'none', caretColor: 'var(--gold)',
+  fontSize: 'calc(12px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
 };
 
 const textareaStyle: React.CSSProperties = {
@@ -298,11 +298,11 @@ const textareaStyle: React.CSSProperties = {
 const numInput: React.CSSProperties = {
   width: 70, padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 11, textAlign: 'center', outline: 'none',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', outline: 'none',
 };
 
 const headerBtn: React.CSSProperties = {
   padding: '4px 12px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'transparent', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
 };

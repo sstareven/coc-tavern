@@ -43,7 +43,7 @@ export function StepIdentity({
               padding: '4px 12px', border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 3, background: 'rgba(196,168,85,0.08)',
               color: 'var(--gold)', fontFamily: 'var(--font-ui)',
-              fontSize: 10, cursor: 'pointer', letterSpacing: 1,
+              fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', letterSpacing: 1,
               whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >加载预设 {presets.length > 0 ? `(${presets.length})` : ''}</button>
@@ -56,7 +56,7 @@ export function StepIdentity({
               boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             }}>
               {presets.length === 0 ? (
-                <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)' }}>
+                <div style={{ padding: '8px 12px', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)' }}>
                   暂无预设
                 </div>
               ) : (
@@ -72,7 +72,7 @@ export function StepIdentity({
                     <span
                       onClick={() => onLoadPreset(p)}
                       style={{
-                        flex: 1, fontSize: 11, color: 'var(--text-light)',
+                        flex: 1, fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)',
                         fontFamily: 'var(--font-body)',
                       }}
                     >{p.name}</span>
@@ -82,7 +82,7 @@ export function StepIdentity({
                         width: 18, height: 18, display: 'flex', alignItems: 'center',
                         justifyContent: 'center', border: 'none', borderRadius: 2,
                         background: 'transparent', color: 'var(--ink-subtle)',
-                        fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+                        fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)',
                       }}
                     >x</button>
                   </div>

@@ -61,4 +61,9 @@ describe('applyTextRatios', () => {
   it('el 为 null 时安全无操作', () => {
     expect(() => applyTextRatios(1.2, 1.3, null)).not.toThrow();
   });
+  it('不再清除 zoom (v1.11.8: zoom 由 useResponsiveZoom 独占)', () => {
+    const { el, calls } = fakeEl();
+    applyTextRatios(1.2, 1, el);
+    expect(calls.find((c) => c[1] === 'zoom')).toBeUndefined();
+  });
 });

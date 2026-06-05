@@ -46,10 +46,10 @@ export function StepDerivedStats({
             alignItems: 'center',
             gap: 4,
           }}>
-            <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
+            <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
               {s.label}
             </div>
-            <div style={{ fontSize: 20, fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>
+            <div style={{ fontSize: 'calc(20px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>
               {s.value}
             </div>
           </div>
@@ -64,15 +64,15 @@ export function StepDerivedStats({
         borderRadius: 4,
         background: 'rgba(0,0,0,0.1)',
       }}>
-        <span style={{ fontSize: 12, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+        <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
           幸运值 (3D6 x 5):
         </span>
         {luckValue != null ? (
-          <span style={{ fontSize: 18, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--gold-bright)' }}>
+          <span style={{ fontSize: 'calc(18px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--gold-bright)' }}>
             {luckValue}
           </span>
         ) : (
-          <span style={{ fontSize: 12, color: 'var(--ink-subtle)' }}>--</span>
+          <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>--</span>
         )}
         <button onClick={onRollLuck} style={btnBase}>
           投掷
@@ -100,14 +100,14 @@ export function StepDerivedStats({
         <div style={{
           padding: '8px 12px',
           background: 'rgba(196,168,85,0.06)',
-          fontSize: 11,
+          fontSize: 'calc(11px * var(--system-ratio, 1))',
           color: 'var(--ink-subtle)',
           fontFamily: 'var(--font-ui)',
           letterSpacing: 2,
         }}>
           DB / Build 对照表 (STR + SIZ = {strPlusSiz})
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
           <thead>
             <tr style={{ background: 'rgba(0,0,0,0.12)' }}>
               <th style={{ ...thSmall, textAlign: 'left' }}>STR+SIZ</th>

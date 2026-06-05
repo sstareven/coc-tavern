@@ -20,7 +20,7 @@ const panelStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 15,
+  fontSize: 'calc(15px * var(--system-ratio, 1))',
   fontWeight: 700,
   color: '#e8c06a',
   marginBottom: 14,
@@ -28,7 +28,7 @@ const titleStyle: React.CSSProperties = {
 };
 
 const messageStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 'calc(12px * var(--system-ratio, 1))',
   color: 'var(--text-light)',
   lineHeight: 1.8,
   whiteSpace: 'pre-line',
@@ -36,7 +36,7 @@ const messageStyle: React.CSSProperties = {
 };
 
 const hintStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 'calc(10px * var(--system-ratio, 1))',
   color: 'var(--ink-subtle, rgba(255,255,255,0.35))',
   marginBottom: 18,
 };
@@ -49,7 +49,7 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 4,
   background: 'rgba(255,255,255,0.06)',
   color: 'var(--text-light)',
-  fontSize: 12,
+  fontSize: 'calc(12px * var(--system-ratio, 1))',
   fontFamily: 'var(--font-ui)',
   cursor: 'pointer',
   transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',

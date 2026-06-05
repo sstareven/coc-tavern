@@ -73,7 +73,7 @@ export function PageEditor({ onClose }: Props) {
           <h3
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 16,
+              fontSize: 'calc(16px * var(--system-ratio, 1))',
               color: 'var(--gold)',
               letterSpacing: 3,
               margin: 0,
@@ -93,7 +93,7 @@ export function PageEditor({ onClose }: Props) {
               borderRadius: 3,
               background: 'transparent',
               color: 'var(--ink-subtle)',
-              fontSize: 16,
+              fontSize: 'calc(16px * var(--system-ratio, 1))',
               cursor: 'pointer',
               fontFamily: 'var(--font-ui)',
               transition: 'var(--transition-smooth)',
@@ -111,7 +111,7 @@ export function PageEditor({ onClose }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
           <label
             style={{
-              fontSize: 10,
+              fontSize: 'calc(10px * var(--system-ratio, 1))',
               color: 'var(--ink-subtle)',
               fontFamily: 'var(--font-ui)',
               letterSpacing: 2,
@@ -133,7 +133,7 @@ export function PageEditor({ onClose }: Props) {
               background: 'rgba(0,0,0,0.3)',
               color: 'var(--text-light)',
               fontFamily: 'var(--font-display)',
-              fontSize: 14,
+              fontSize: 'calc(14px * var(--system-ratio, 1))',
               outline: 'none',
               caretColor: 'var(--gold)',
             }}
@@ -146,7 +146,7 @@ export function PageEditor({ onClose }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 20 }}>
           <label
             style={{
-              fontSize: 10,
+              fontSize: 'calc(10px * var(--system-ratio, 1))',
               color: 'var(--ink-subtle)',
               fontFamily: 'var(--font-ui)',
               letterSpacing: 2,
@@ -168,7 +168,7 @@ export function PageEditor({ onClose }: Props) {
               background: 'rgba(0,0,0,0.3)',
               color: 'var(--text-light)',
               fontFamily: 'var(--font-body)',
-              fontSize: 14,
+              fontSize: 'calc(14px * var(--system-ratio, 1))',
               lineHeight: 1.7,
               outline: 'none',
               caretColor: 'var(--gold)',
@@ -190,7 +190,7 @@ export function PageEditor({ onClose }: Props) {
             background: 'rgba(196,168,85,0.1)',
             color: 'var(--gold)',
             fontFamily: 'var(--font-ui)',
-            fontSize: 14,
+            fontSize: 'calc(14px * var(--system-ratio, 1))',
             letterSpacing: 4,
             cursor: 'pointer',
             transition: 'var(--transition-smooth)',

@@ -26,7 +26,7 @@ export function MobilePageToggle({ left, right, side, onSide }: {
               border: `1px solid ${active ? 'var(--gold)' : 'rgba(196,168,85,0.3)'}`,
               background: active ? '#3a2f18' : '#1f1810',
               color: active ? 'var(--gold)' : 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 13, letterSpacing: 2,
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(13px * var(--text-ratio, 1))', letterSpacing: 2,
               cursor: 'pointer', transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
             }}
             onTouchStart={(e) => { if (!active) e.currentTarget.style.background = '#2a2113'; }}

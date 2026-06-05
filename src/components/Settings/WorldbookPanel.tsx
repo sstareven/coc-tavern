@@ -97,7 +97,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 20, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             世界书 / WORLDBOOKS
           </h3>
           <button onClick={onClose} style={closeBtnStyle}
@@ -127,12 +127,12 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                     <button onClick={() => setRenameId(null)} style={miniBtn}>✕</button>
                   </div>
                 ) : (
-                  <span style={{ fontSize: 14, color: isAutoSummary ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: isAutoSummary ? 'default' : 'pointer' }}
+                  <span style={{ fontSize: 'calc(14px * var(--system-ratio, 1))', color: isAutoSummary ? 'var(--gold)' : 'var(--text-light)', fontFamily: 'var(--font-display)', letterSpacing: 2, cursor: isAutoSummary ? 'default' : 'pointer' }}
                     onClick={() => !isAutoSummary && startRename(id)} title={isAutoSummary ? '自动管理，不可编辑' : '点击修改标题'}>
                     {book.name}
                   </span>
                 )}
-                <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
+                <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
                   {Object.keys(book.entries).length} 条词条{isAutoSummary ? ' · 自动生成' : ''}
                 </span>
                 {!isAutoSummary && (
@@ -145,7 +145,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                     {(book.scope ?? 'global') === 'chat' && (
                       activeSession ? (
                         <label style={{
-                          display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 3, fontSize: 'calc(9px * var(--system-ratio, 1))', cursor: 'pointer',
                           color: sessionLorebookIds.includes(id) ? 'var(--success)' : 'var(--ink-subtle)',
                           fontFamily: 'var(--font-ui)',
                         }}>
@@ -153,7 +153,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                           绑定当前会话
                         </label>
                       ) : (
-                        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>无活动会话</span>
+                        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>无活动会话</span>
                       )
                     )}
                   </div>
@@ -175,18 +175,18 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
                     padding: '4px 8px', border: 'none', cursor: forceWorldbook ? 'default' : book.enabled === false ? 'pointer' : 'default',
                     background: forceWorldbook || book.enabled !== false ? 'var(--success)' : 'transparent',
                     color: forceWorldbook || book.enabled !== false ? '#fff' : 'var(--ink-subtle)',
-                    fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+                    fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
                     transition: 'background 0.15s',
                   }}>开</button>
                   <button onClick={() => { if (!forceWorldbook && book.enabled !== false) toggleBook(id); }} style={{
                     padding: '4px 8px', border: 'none', cursor: forceWorldbook ? 'default' : book.enabled !== false ? 'pointer' : 'default',
                     background: !forceWorldbook && book.enabled === false ? 'var(--blood)' : 'transparent',
                     color: !forceWorldbook && book.enabled === false ? '#fff' : 'var(--ink-subtle)',
-                    fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+                    fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
                     transition: 'background 0.15s',
                   }}>关</button>
                 </div>
-                {forceWorldbook && <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)' }}>已锁定</span>}
+                {forceWorldbook && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)' }}>已锁定</span>}
               </div>
             </div>
             );
@@ -199,7 +199,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--success)', borderRadius: 4,
           background: 'transparent', color: 'var(--success)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
           transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--success-bright)'; e.currentTarget.style.color = 'var(--success-bright)'; }}
@@ -215,7 +215,7 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
           width: '100%', marginTop: 8, padding: '10px 0',
           border: '1px dashed var(--brass)', borderRadius: 4,
           background: 'transparent', color: 'var(--ink-subtle)',
-          fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+          fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
           transition: 'var(--transition-smooth)',
         }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
@@ -231,23 +231,23 @@ export function WorldbookPanel({ onClose, onEditBook }: Props) {
 const actionBtnStyle: React.CSSProperties = {
   padding: '4px 10px', border: '1px solid rgba(196,168,85,0.2)',
   borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1, cursor: 'pointer',
 };
 
 const miniBtn: React.CSSProperties = {
   padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-  fontFamily: 'var(--font-ui)', fontSize: 11, cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', cursor: 'pointer',
 };
 
 const inputStyle: React.CSSProperties = {
   padding: '4px 8px', borderRadius: 3, border: '1px solid var(--brass)',
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, outline: 'none',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', outline: 'none',
 };
 
 const scopeSelectStyle: React.CSSProperties = {
   padding: '1px 4px', borderRadius: 3, border: '1px solid rgba(196,168,85,0.3)',
   background: 'rgba(0,0,0,0.3)', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 9, outline: 'none', cursor: 'pointer',
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer',
 };

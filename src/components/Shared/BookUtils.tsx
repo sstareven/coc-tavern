@@ -44,7 +44,7 @@ export function BookUtils({ onDeletePage, affectedItems = [] }: Props) {
         <button
           onClick={() => setConfirmDelete(true)}
           title="删除页面"
-          style={{ ...buttonStyle, fontSize: 10 }}
+          style={{ ...buttonStyle, fontSize: 'calc(10px * var(--system-ratio, 1))' }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'var(--blood)';
             e.currentTarget.style.borderColor = 'var(--blood)';
@@ -92,10 +92,10 @@ function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
         padding: '22px 26px', minWidth: 360, maxWidth: 460, width: '90%',
         boxShadow: '0 0 80px rgba(0,0,0,0.6)',
       }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--blood)', letterSpacing: 3, margin: '0 0 12px' }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--blood)', letterSpacing: 3, margin: '0 0 12px' }}>
           删除本页及之后？
         </h3>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text-light)', lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.7, margin: 0 }}>
           为保持剧情连续，本页及其之后的所有页面将一并永久删除，且无法恢复。
           {affectedItems.length > 0 && (
             <>
@@ -110,7 +110,7 @@ function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
             style={{
               padding: '6px 16px', border: '1px solid var(--brass)', borderRadius: 4,
               background: 'transparent', color: 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer',
               transition: 'var(--transition-smooth)',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'var(--gold)'; }}
@@ -121,7 +121,7 @@ function DeleteConfirm({ affectedItems, onConfirm, onCancel }: {
             style={{
               padding: '6px 16px', border: '1px solid var(--blood)', borderRadius: 4,
               background: 'rgba(255,82,82,0.12)', color: 'var(--blood)',
-              fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer',
               transition: 'var(--transition-smooth)', transform: 'scale(1)',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,82,82,0.22)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
@@ -145,7 +145,7 @@ const buttonStyle: React.CSSProperties = {
   borderRadius: 3,
   background: 'rgba(13,10,7,0.7)',
   color: 'var(--ink-subtle)',
-  fontSize: 11,
+  fontSize: 'calc(11px * var(--system-ratio, 1))',
   cursor: 'pointer',
   fontFamily: 'var(--font-ui)',
   padding: 0,

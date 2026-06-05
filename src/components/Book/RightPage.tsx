@@ -446,7 +446,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative' }}>
-      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <InventoryChangesBar inventoryChanges={inventoryChanges ?? []} fadeStyle={fadeStyle} />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
@@ -497,7 +497,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
         </div>
       </div>
       {pageNum && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
+        <div style={{ textAlign: 'center', fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0, ...fadeStyle }}>{pageNum}</div>
       )}
     </div>
   );
@@ -549,8 +549,8 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
   const inner = (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
-        {interactive && <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>}
+        <span style={{ fontSize: 'calc(10px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', color: dark ? '#d8c8a8' : 'var(--ink-faded)', letterSpacing: 2 }}>物品变化</span>
+        {interactive && <span style={{ fontSize: 'calc(10px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>打开背包 ›</span>}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {inventoryChanges.map((c, i) => {
@@ -575,13 +575,13 @@ export function InventoryChangesBar({ inventoryChanges, fadeStyle, variant = 'li
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '2px 8px', borderRadius: 3,
-              fontSize: 11, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
+              fontSize: 'calc(11px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
               color: dark ? '#ece0c8' : tone.color,
               background: dark ? 'rgba(196,168,85,0.12)' : tone.bg,
               border: dark ? '1px solid rgba(196,168,85,0.25)' : tone.border,
             }}>
               <span>{prefix}{c.name}{qtyLabel}</span>
-              {cat && <span style={{ fontSize: 9, opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
+              {cat && <span style={{ fontSize: 'calc(9px * var(--text-ratio, 1))', opacity: 0.55, letterSpacing: 0.5 }}>{cat}</span>}
             </span>
           );
         })}
@@ -673,7 +673,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         ? (isHovered ? '0 4px 20px rgba(196,168,85,0.15), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 2px 12px rgba(196,168,85,0.08), inset 0 1px 0 rgba(255,255,255,0.04)')
         : 'none',
       borderColor: isHovered ? 'var(--gold)' : (dark ? 'rgba(196,168,85,0.4)' : (isCheck ? 'rgba(196,168,85,0.5)' : 'rgba(var(--ink-faded-rgb),0.2)')),
-      color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 14,
+      color: dark ? (isCheck ? 'var(--parchment)' : '#ece0c8') : (isCheck ? 'var(--ink-deep, #1a1510)' : 'var(--ink)'), fontFamily: 'var(--font-body)', fontSize: 'calc(14px * var(--text-ratio, 1))',
       textAlign: 'left', cursor: enabled ? 'pointer' : 'not-allowed', transition: 'var(--transition-smooth)',
       opacity: enabled ? 1 : 0.45,
       filter: enabled ? 'none' : 'grayscale(0.6)',
@@ -681,7 +681,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 11, fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--gold)', color: 'var(--gold)', fontSize: 'calc(11px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', fontWeight: 600, flexShrink: 0 }}>{ch.num}</span>
       <span style={{ flex: 1, fontWeight: isCheck ? 600 : 400 }}>{cleanChoiceText(ch.text)}</span>
       {isCheck && check && (() => {
         const val = playerSkill?.current ?? 0;
@@ -697,7 +697,7 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         <span style={{
           marginLeft: 'auto', display: 'inline-flex', alignItems: 'center',
           padding: '2px 8px', borderRadius: 3,
-          fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0,
+          fontFamily: 'var(--font-mono)', fontWeight: 400, fontSize: 'calc(11px * var(--text-ratio, 1))', whiteSpace: 'nowrap', flexShrink: 0,
           color: tag.color, background: tag.bg, border: tag.border,
           transition: 'border-color 0.35s cubic-bezier(0.4,0,0.2,1), background 0.35s cubic-bezier(0.4,0,0.2,1)',
         }}>

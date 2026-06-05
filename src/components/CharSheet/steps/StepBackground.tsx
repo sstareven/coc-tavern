@@ -102,12 +102,12 @@ export function StepBackground({
           placeholder={'用一段话随意描述你的调查员——身世、性格、在意的人或物、心结、伤痛……\n点「背景补写」，AI 会自动理解并整理分配到下方各栏，空着的栏也会帮你补全。'}
         />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
             写一段话或先手填几栏均可；全部留空则按职业与属性为你生成完整背景。
           </span>
           <button onClick={onBackstoryFill} disabled={bgFilling} className="sk-btn"
             style={{
-              ...btnBase, fontSize: 11, padding: '6px 16px', whiteSpace: 'nowrap', flexShrink: 0,
+              ...btnBase, fontSize: 'calc(11px * var(--system-ratio, 1))', padding: '6px 16px', whiteSpace: 'nowrap', flexShrink: 0,
               opacity: bgFilling ? 0.5 : 1, cursor: bgFilling ? 'wait' : 'pointer',
             }}>
             {bgFilling ? '整理中...' : '✦ 背景补写'}
@@ -120,13 +120,13 @@ export function StepBackground({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
             paddingTop: 8, borderTop: '1px solid rgba(196,168,85,0.15)',
           }}>
-            <span style={{ fontSize: 10.5, color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+            <span style={{ fontSize: 'calc(10.5px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
               检测到已填写的背景，AI 整理如何处理？
             </span>
             <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button onClick={onConfirmOverwrite} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>覆盖整理</button>
-              <button onClick={onConfirmFillEmpty} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px' }}>仅填空格</button>
-              <button onClick={onConfirmCancel} className="sk-btn" style={{ ...btnBase, fontSize: 10.5, padding: '5px 12px', opacity: 0.7 }}>取消</button>
+              <button onClick={onConfirmOverwrite} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px' }}>覆盖整理</button>
+              <button onClick={onConfirmFillEmpty} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px' }}>仅填空格</button>
+              <button onClick={onConfirmCancel} className="sk-btn" style={{ ...btnBase, fontSize: 'calc(10.5px * var(--system-ratio, 1))', padding: '5px 12px', opacity: 0.7 }}>取消</button>
             </span>
           </div>
         )}
@@ -135,7 +135,7 @@ export function StepBackground({
       {backstoryError && (
         <div style={{
           padding: '8px 12px', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 4,
-          background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 11,
+          background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 'calc(11px * var(--system-ratio, 1))',
           fontFamily: 'var(--font-body)', flexShrink: 0,
           whiteSpace: 'pre-line', lineHeight: 1.6,
         }}>
@@ -189,12 +189,12 @@ export function StepBackground({
                   transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s cubic-bezier(0.4,0,0.2,1), margin-bottom 0.4s cubic-bezier(0.4,0,0.2,1), padding 0.4s cubic-bezier(0.4,0,0.2,1), min-height 0.4s cubic-bezier(0.4,0,0.2,1), border-width 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.15s cubic-bezier(0.4,0,0.2,1), background 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s cubic-bezier(0.4,0,0.2,1)',
                 }}
               >
-                <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
+                <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {hasContent ? (
-                    <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                   ) : null}
-                  <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'▼'}</span>
+                  <span style={{ color: 'var(--gold)', fontSize: 'calc(10px * var(--system-ratio, 1))', transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'▼'}</span>
                 </span>
               </div>
             );

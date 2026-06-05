@@ -83,7 +83,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   if (compact) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap',
-        fontFamily: 'var(--font-display)', fontSize: 11, color: 'var(--parchment)', userSelect: 'none' }}>
+        fontFamily: 'var(--font-display)', fontSize: 'calc(11px * var(--text-ratio, 1))', color: 'var(--parchment)', userSelect: 'none' }}>
         <span style={{ color: 'var(--gold)', letterSpacing: 1 }}>{location}</span>
         <span style={{ opacity: 0.5 }}>·</span>
         <span>{date}</span>
@@ -128,7 +128,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
           justifyContent: 'center',
           gap: 2,
           fontFamily: 'var(--font-display)',
-          fontSize: 13,
+          fontSize: 'calc(13px * var(--text-ratio, 1))',
           color: 'var(--parchment)',
           letterSpacing: 2,
         }}
@@ -154,7 +154,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
         <span style={{
           ...itemStyle,
           color: 'var(--gold)',
-          fontSize: 14,
+          fontSize: 'calc(14px * var(--text-ratio, 1))',
           letterSpacing: 3,
         }}>
           {location}
@@ -185,7 +185,7 @@ function StatPill({ label, stat, color }: { label: string; stat: { current: numb
       padding: '2px 10px', borderRadius: 10,
       background: 'rgba(0,0,0,0.25)',
       border: `1px solid ${color}`,
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 0.5,
+      fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--text-ratio, 1))', letterSpacing: 0.5,
       boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
     }}>
       <span style={{ color, fontWeight: 700, letterSpacing: 1 }}>{label}</span>
@@ -198,7 +198,7 @@ function StatPill({ label, stat, color }: { label: string; stat: { current: numb
 
 function CompactStat({ label, stat, color }: { label: string; stat: { current: number; max: number }; color: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--text-ratio, 1))' }}>
       <span style={{ color, fontWeight: 700 }}>{label}</span>
       <span style={{ color: 'var(--parchment)' }}>{stat.current}/{stat.max}</span>
     </span>

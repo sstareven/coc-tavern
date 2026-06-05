@@ -38,10 +38,10 @@ export class ErrorBoundary extends Component<Props, State> {
           justifyContent: 'center',
           gap: 16,
         }}>
-          <div style={{ fontSize: 18, fontFamily: 'var(--font-heading, Georgia)' }}>
+          <div style={{ fontSize: 'calc(18px * var(--system-ratio, 1))', fontFamily: 'var(--font-heading, Georgia)' }}>
             Something went wrong
           </div>
-          <div style={{ fontSize: 12, color: 'var(--ink-subtle, #888)', maxWidth: 500, wordBreak: 'break-word' }}>
+          <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--ink-subtle, #888)', maxWidth: 500, wordBreak: 'break-word' }}>
             {this.state.error.message}
           </div>
           <button
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
               borderRadius: 4,
               cursor: 'pointer',
               fontFamily: 'var(--font-ui, sans-serif)',
-              fontSize: 12,
+              fontSize: 'calc(12px * var(--system-ratio, 1))',
             }}
           >
             Retry

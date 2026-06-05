@@ -29,12 +29,12 @@ function FavBar({ value }: { value: number }) {
   const color = value > 30 ? 'var(--success)' : value < -30 ? 'var(--blood)' : 'var(--gold)';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', flexShrink: 0 }}>好感</span>
+      <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)', flexShrink: 0 }}>好感</span>
       <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(var(--ink-faded-rgb),0.18)', overflow: 'hidden', position: 'relative' }}>
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: color, transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)' }} />
         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(var(--ink-faded-rgb),0.4)' }} />
       </div>
-      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color, flexShrink: 0, width: 30, textAlign: 'right' }}>{value > 0 ? '+' : ''}{value}</span>
+      <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color, flexShrink: 0, width: 30, textAlign: 'right' }}>{value > 0 ? '+' : ''}{value}</span>
     </div>
   );
 }
@@ -43,8 +43,8 @@ function Section({ title, body }: { title: string; body: string }) {
   if (!body?.trim()) return null;
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>{title}</div>
-      <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{body}</div>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>{title}</div>
+      <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{body}</div>
     </div>
   );
 }
@@ -57,8 +57,8 @@ const CHAR_KEYS: { k: COC7Characteristic; label: string }[] = [
 function StatCell({ label, sub, value }: { label: string; sub?: string; value: string | number }) {
   return (
     <div style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.18)', borderRadius: 4, padding: '4px 6px', textAlign: 'center', background: 'rgba(0,0,0,0.015)' }}>
-      <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{label}{sub ? ` ${sub}` : ''}</div>
-      <div style={{ fontSize: 14, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{value}</div>
+      <div style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1 }}>{label}{sub ? ` ${sub}` : ''}</div>
+      <div style={{ fontSize: 'calc(14px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{value}</div>
     </div>
   );
 }
@@ -75,11 +75,11 @@ function NpcRecordSheet({ npc }: { npc: NpcProfile }) {
   ];
   return (
     <>
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>基础属性</div>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>基础属性</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8 }}>
         {CHAR_KEYS.map(({ k, label }) => <StatCell key={k} label={k} sub={label} value={ch[k] ?? '—'} />)}
       </div>
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>衍生属性</div>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>衍生属性</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
         {derived.map((it) => <StatCell key={it.label} label={it.label} value={it.value ?? '未知'} />)}
       </div>
@@ -98,7 +98,7 @@ function NpcActionChip({ action, onClick }: { action: { label: string; kind?: st
       onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
       onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
       style={{
-        fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 1, padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
+        fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1, padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
         border: `1px solid ${combat ? 'rgba(176,58,46,0.5)' : 'rgba(196,168,85,0.5)'}`,
         background: h ? (combat ? 'rgba(176,58,46,0.16)' : 'rgba(196,168,85,0.18)') : (combat ? 'rgba(176,58,46,0.06)' : 'rgba(196,168,85,0.06)'),
         color: combat ? 'var(--blood)' : 'var(--ink)',
@@ -131,7 +131,7 @@ function InteractionMenu({ npc }: { npc: NpcProfile }) {
       </div>
       {moreOpen && NPC_ACTION_GROUPS.map((g) => (
         <div key={g} style={{ marginTop: 7 }}>
-          <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 3 }}>{g}</div>
+          <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 3 }}>{g}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {npcActionsByGroup(g).map((a) => <NpcActionChip key={a.id} action={a} onClick={() => run(a)} />)}
           </div>
@@ -149,14 +149,14 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
     <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>
-          <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>{npc.identity || '身份不明'}</span>
-          {npc.status && <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--blood)', border: '1px solid rgba(139,58,58,0.4)', borderRadius: 8, padding: '1px 7px' }}>{npc.status}</span>}
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>
+          <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>{npc.identity || '身份不明'}</span>
+          {npc.status && <span style={{ marginLeft: 'auto', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--blood)', border: '1px solid rgba(139,58,58,0.4)', borderRadius: 8, padding: '1px 7px' }}>{npc.status}</span>}
           {npc.isPresent && (
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen((m) => !m); }}
               style={{
-                marginLeft: npc.status ? 8 : 'auto', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 1,
+                marginLeft: npc.status ? 8 : 'auto', fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1,
                 color: 'var(--gold)', background: menuOpen ? 'rgba(196,168,85,0.18)' : 'transparent',
                 border: '1px solid rgba(196,168,85,0.5)', borderRadius: 3, padding: '2px 9px', cursor: 'pointer',
                 transition: 'var(--transition-smooth)',
@@ -165,9 +165,9 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
               onMouseLeave={(e) => { e.currentTarget.style.background = menuOpen ? 'rgba(196,168,85,0.18)' : 'transparent'; }}
             >{menuOpen ? '收起' : '互动'}</button>
           )}
-          <span style={{ fontSize: 10, color: 'var(--ink-faded)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', marginLeft: (npc.status || npc.isPresent) ? 0 : 'auto' }}>▸</span>
+          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-faded)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', marginLeft: (npc.status || npc.isPresent) ? 0 : 'auto' }}>▸</span>
         </div>
-        {npc.appearance && <div style={{ fontSize: 11.5, color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.5, ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{npc.appearance}</div>}
+        {npc.appearance && <div style={{ fontSize: 'calc(11.5px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.5, ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{npc.appearance}</div>}
         <div style={{ marginTop: 7 }}><FavBar value={npc.favorability} /></div>
       </div>
       {npc.isPresent && menuOpen && <InteractionMenu npc={npc} />}
@@ -182,14 +182,14 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
           {npc.possessions.length > 0 && <Section title="随身物品" body={npc.possessions.join('、')} />}
           {(npc.memorySummary || npc.memories.length > 0) && (
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>互动记忆</div>
+              <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>互动记忆</div>
               {npc.memorySummary && (
-                <div style={{ fontSize: 11.5, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 4, paddingBottom: 4, borderBottom: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
+                <div style={{ fontSize: 'calc(11.5px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 4, paddingBottom: 4, borderBottom: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
                   梗概：{npc.memorySummary}
                 </div>
               )}
               {npc.memories.length > 0 && (
-                <div style={{ fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
                   {npc.memories.join('\n')}
                 </div>
               )}
@@ -205,12 +205,12 @@ function NpcColumn({ npcs, emptyText, header, sub }: { npcs: NpcProfile[]; empty
   return (
     <>
       <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 10 }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>{sub}</span>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 2 }}>{sub}</span>
       </div>
       <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.06)' }}>
         {npcs.length === 0 ? (
-          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>{emptyText}</div>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>{emptyText}</div>
         ) : (
           npcs.map((n) => <NpcCard key={n.id} npc={n} />)
         )}

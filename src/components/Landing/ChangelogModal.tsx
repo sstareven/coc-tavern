@@ -449,7 +449,7 @@ export function ChangelogModal() {
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}>
         <h2 style={{
-          fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--gold)',
+          fontFamily: 'var(--font-display)', fontSize: 'calc(22px * var(--system-ratio, 1))', color: 'var(--gold)',
           letterSpacing: 6, textAlign: 'center', marginBottom: 20, flexShrink: 0,
         }}>
           更新日志
@@ -462,7 +462,7 @@ export function ChangelogModal() {
           {RELEASES.map((rel, ri) => (
             <div key={rel.version} style={{ marginBottom: ri === RELEASES.length - 1 ? 0 : 26 }}>
               <p style={{
-                fontSize: 11, textAlign: 'center', letterSpacing: 4,
+                fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', letterSpacing: 4,
                 color: ri === 0 ? 'var(--gold)' : 'var(--ink-subtle)',
                 opacity: ri === 0 ? 1 : 0.7,
                 marginTop: 0, marginBottom: 14,
@@ -477,13 +477,13 @@ export function ChangelogModal() {
               }}>
                 {rel.items.map((f, i) => (
                   <li key={i} style={{
-                    fontSize: 13, color: 'var(--text-light)',
+                    fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--text-light)',
                     fontFamily: 'var(--font-ui)', lineHeight: 1.55,
                     paddingLeft: 18, position: 'relative',
                   }}>
                     <span style={{
                       position: 'absolute', left: 0, color: 'var(--gold)',
-                      fontSize: 10, lineHeight: '20px',
+                      fontSize: 'calc(10px * var(--system-ratio, 1))', lineHeight: '20px',
                     }}>&#9733;</span>
                     {f}
                   </li>
@@ -496,7 +496,7 @@ export function ChangelogModal() {
         <button onClick={close} style={{
           display: 'block', margin: '24px auto 0', padding: '12px 48px', flexShrink: 0,
           border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.1)',
-          color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 14,
+          color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 'calc(14px * var(--system-ratio, 1))',
           letterSpacing: 4, borderRadius: 3, cursor: 'pointer',
         }}>
           开 始 探 索

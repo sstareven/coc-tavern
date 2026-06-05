@@ -21,7 +21,7 @@ export function TavernHelperContent() {
             border: tab === t.key ? '1px solid var(--gold)' : '1px solid rgba(196,168,85,0.12)',
             background: tab === t.key ? 'rgba(196,168,85,0.12)' : 'rgba(0,0,0,0.15)',
             color: tab === t.key ? 'var(--gold)' : 'var(--ink-subtle)',
-            fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
           }}>{t.label}</button>
         ))}
       </div>
@@ -41,7 +41,7 @@ function HelpPopup({ content }: { content: string }) {
       <span onClick={() => setShow(!show)} style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
-        color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 9, fontWeight: 'bold',
+        color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
         fontFamily: 'var(--font-ui)', marginLeft: 4, flexShrink: 0,
       }}>?</span>
       {show && (
@@ -52,7 +52,7 @@ function HelpPopup({ content }: { content: string }) {
             background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
             padding: '10px 14px', minWidth: 280, maxWidth: 360,
             boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-            fontSize: 10, color: 'var(--text-light)', lineHeight: 1.6,
+            fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.6,
             fontFamily: 'var(--font-ui)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
             {content}
@@ -67,7 +67,7 @@ function HelpPopup({ content }: { content: string }) {
 function ToggleRow({ label, enabled, onChange, help }: { label: string; enabled: boolean; onChange: (v: boolean) => void; help?: string }) {
   return (
     <div style={rowStyle}>
-      <span style={{ fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+      <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
         {label}
         {help && <HelpPopup content={help} />}
       </span>
@@ -76,7 +76,7 @@ function ToggleRow({ label, enabled, onChange, help }: { label: string; enabled:
         border: enabled ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
         background: enabled ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
         color: enabled ? 'var(--success)' : 'var(--ink-faded)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2,
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2,
       }}>{enabled ? 'ON' : 'OFF'}</button>
     </div>
   );
@@ -172,8 +172,8 @@ function ScriptTab() {
       return (
         <div key={item.id} style={{ padding: '6px 8px', marginLeft: depth * 16, border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', marginBottom: 2 }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-            <input value={editForm.name || ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="名称" style={{ ...inputStyle, flex: 1, fontSize: 10 }} />
-            {item.type === 'script' && <input value={editForm.info || ''} onChange={(e) => setEditForm({ ...editForm, info: e.target.value })} placeholder="描述" style={{ ...inputStyle, flex: 1, fontSize: 10 }} />}
+            <input value={editForm.name || ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="名称" style={{ ...inputStyle, flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))' }} />
+            {item.type === 'script' && <input value={editForm.info || ''} onChange={(e) => setEditForm({ ...editForm, info: e.target.value })} placeholder="描述" style={{ ...inputStyle, flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))' }} />}
             <button onClick={saveEdit} style={miniBtnGreen}>✓</button>
             <button onClick={() => setEditingId(null)} style={miniBtn}>✕</button>
           </div>
@@ -184,12 +184,12 @@ function ScriptTab() {
     return (
       <div key={item.id}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', marginLeft: depth * 16, borderBottom: '1px solid rgba(196,168,85,0.06)', opacity: (item.type === 'script' ? item.enabled : true) ? 1 : 0.4 }}>
-          <span style={{ fontSize: 12, width: 18, textAlign: 'center', color: isFolder ? (item as THScriptFolder).color : 'var(--ink-faded)' }}>{isFolder ? '📁' : '📄'}</span>
-          <span style={{ flex: 1, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--text-light)', cursor: 'pointer' }} onClick={() => startEdit(item)}>
+          <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', width: 18, textAlign: 'center', color: isFolder ? (item as THScriptFolder).color : 'var(--ink-faded)' }}>{isFolder ? '📁' : '📄'}</span>
+          <span style={{ flex: 1, fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--text-light)', cursor: 'pointer' }} onClick={() => startEdit(item)}>
             {item.name}
-            {item.type === 'script' && item.enabled && <span style={{ fontSize: 8, color: 'var(--success)', marginLeft: 6 }}>ON</span>}
+            {item.type === 'script' && item.enabled && <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--success)', marginLeft: 6 }}>ON</span>}
           </span>
-          {item.type === 'script' && <button onClick={() => handleToggle(item)} style={{ ...miniBtn, padding: '1px 8px', fontSize: 9, color: item.enabled ? 'var(--success)' : 'var(--ink-faded)' }}>{item.enabled ? 'ON' : 'OFF'}</button>}
+          {item.type === 'script' && <button onClick={() => handleToggle(item)} style={{ ...miniBtn, padding: '1px 8px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)' }}>{item.enabled ? 'ON' : 'OFF'}</button>}
           <button onClick={() => startEdit(item)} style={iconBtn} title="编辑">✎</button>
           {!BUILTIN_TH_IDS.has(item.id) && (
             <button onClick={() => { if (confirm(`删除 "${item.name}"？`)) deleteItem(item.id); }} style={{ ...iconBtn, color: 'var(--blood)' }} title="删除">✕</button>
@@ -216,12 +216,12 @@ function ScriptTab() {
       </div>
       {/* Search */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={searchRegex ? '正则搜索...' : '搜索...'} style={{ ...inputStyle, flex: 1, fontSize: 10 }} onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'} />
-        <button onClick={() => setSearchRegex(!searchRegex)} style={{ ...toolBtn, color: searchRegex ? 'var(--gold)' : 'var(--ink-subtle)', borderColor: searchRegex ? 'var(--gold)' : 'var(--brass)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 0 }}>.*</button>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={searchRegex ? '正则搜索...' : '搜索...'} style={{ ...inputStyle, flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))' }} onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'} />
+        <button onClick={() => setSearchRegex(!searchRegex)} style={{ ...toolBtn, color: searchRegex ? 'var(--gold)' : 'var(--ink-subtle)', borderColor: searchRegex ? 'var(--gold)' : 'var(--brass)', fontFamily: 'var(--font-mono)', fontSize: 'calc(9px * var(--system-ratio, 1))', letterSpacing: 0 }}>.*</button>
       </div>
       {/* Tree */}
       <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-        {filteredTree.length === 0 ? <div style={{ fontSize: 11, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', textAlign: 'center', padding: 30 }}>{search ? '无匹配结果' : '暂无脚本，点击上方按钮添加'}</div> : filteredTree.map((item) => renderItem(item, 0))}
+        {filteredTree.length === 0 ? <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', textAlign: 'center', padding: 30 }}>{search ? '无匹配结果' : '暂无脚本，点击上方按钮添加'}</div> : filteredTree.map((item) => renderItem(item, 0))}
       </div>
     </div>
   );
@@ -236,13 +236,13 @@ function RenderTab() {
     <div>
       <ToggleRow label="启用渲染器" enabled={render.renderEnabled} onChange={(v) => setRender({ renderEnabled: v })}
         help="启用后，符合条件的代码块将被渲染" />
-      <div style={{ marginTop: 12, fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>渲染优化</div>
+      <div style={{ marginTop: 12, fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>渲染优化</div>
       <div style={rowStyle}>
         <span style={labelStyle}>渲染深度</span>
         <input type="number" value={render.renderDepth} onChange={(e) => setRender({ renderDepth: Number(e.target.value) || 0 })} min={0}
           style={{ ...numInput, width: 60 }} />
       </div>
-      <div style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 8, marginTop: 2 }}>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 8, marginTop: 2 }}>
         限制书本保留的页数，从最新页开始计数。为0时保留全部。需配合优化→消息加载优化启用
       </div>
       <div style={rowStyle}>
@@ -258,7 +258,7 @@ function RenderTab() {
         help="使用Blob URL渲染前端界面，更方便F12调试；某些浏览器可能不支持" />
       <ToggleRow label="取消前端代码高亮" enabled={render.disableCodeHighlight} onChange={(v) => setRender({ disableCodeHighlight: v })}
         help="避免酒馆对可渲染成前端界面的代码块进行语法高亮，从而提升渲染性能" />
-      <div style={{ marginTop: 12, fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>实验功能</div>
+      <div style={{ marginTop: 12, fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>实验功能</div>
       <ToggleRow label="允许流式渲染" enabled={render.allowStreamRender} onChange={(v) => setRender({ allowStreamRender: v })}
         help="在AI流式输出时就渲染，某些前端界面可能无法这样渲染。此外，这可能与某些脚本、插件、酒馆美化不兼容" />
     </div>
@@ -272,15 +272,15 @@ function OptimizeTab() {
 
   return (
     <div>
-      <div style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>性能</div>
+      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>性能</div>
       <ToggleRow label="要加载 # 条消息 → 要渲染 # 条消息" enabled={optimize.optimizeMessageLoad} onChange={(v) => setOptimize({ optimizeMessageLoad: v })}
         help={`优化消息加载和渲染，限制同时显示的楼层数量。\n\n例如设置 5 条消息，则页面最多显示 5 个楼层。发送新消息或收到回复时旧楼层自动取消渲染，删除楼层时旧楼层自动补全。\n\n原本酒馆只允许设置为 5 的倍数，现在可设置为任意非负数。`} />
 
-      <div style={{ marginTop: 16, fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>世界书</div>
+      <div style={{ marginTop: 16, fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>世界书</div>
       <ToggleRow label="强制使用推荐的世界书全局设置" enabled={optimize.forceWorldbookSettings} onChange={(v) => setOptimize({ forceWorldbookSettings: v })}
         help={`强制使用推荐的世界书全局设置:\n扫描深度: 2, 上下文百分比: 100, Token预算上限: 0, 最小激活数: 0, 最大深度: 0, 最大递归深度: 0, 插入策略: 角色世界书优先, 包括名称: false, 递归扫描: true, 区分大小写: false, 匹配整个单词: false, 使用群组评分: false, 溢出警报: false\n\n角色卡作者默认均会用这样的全局设置。`} />
 
-      <div style={{ marginTop: 16, fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>预设</div>
+      <div style={{ marginTop: 16, fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>预设</div>
       <ToggleRow label="最大化预设上下文长度" enabled={optimize.maximizePresetContext} onChange={(v) => setOptimize({ maximizePresetContext: v })}
         help={`启用后预设面板的上下文长度(token)将被锁定成最大(200w)，避免酒馆错误地截断本来可以完整发给AI的提示词。\n\n酒馆无法精确计算提示词token数，加上插件处理，计算出的token数往往比实际高。预设上下文太低会让酒馆错误截断提示词，锁定成最大值可避免。`} />
 
@@ -299,7 +299,7 @@ function DropdownMenu({ label, items }: { label: string; items: { label: string;
           <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
           <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, minWidth: 160, boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}>
             {items.map((item) => (
-              <div key={item.label} onClick={() => { item.action(); setOpen(false); }} style={{ padding: '6px 10px', cursor: 'pointer', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, borderBottom: '1px solid rgba(196,168,85,0.06)' }}
+              <div key={item.label} onClick={() => { item.action(); setOpen(false); }} style={{ padding: '6px 10px', cursor: 'pointer', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', borderBottom: '1px solid rgba(196,168,85,0.06)' }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(196,168,85,0.08)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>{item.label}</div>
             ))}
           </div>
@@ -311,14 +311,14 @@ function DropdownMenu({ label, items }: { label: string; items: { label: string;
 
 // ── Shared styles ──
 const rowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)' };
-const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 };
-const inputStyle: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, outline: 'none', caretColor: 'var(--gold)' };
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, minHeight: 50, resize: 'vertical' as const, outline: 'none', caretColor: 'var(--gold)' };
-const numInput: React.CSSProperties = { padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'center' as const, outline: 'none' };
-const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 10, outline: 'none', cursor: 'pointer' };
-const toolBtn: React.CSSProperties = { padding: '4px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap' as const };
-const miniBtn: React.CSSProperties = { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer' };
+const labelStyle: React.CSSProperties = { fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 };
+const inputStyle: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)' };
+const textareaStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', minHeight: 50, resize: 'vertical' as const, outline: 'none', caretColor: 'var(--gold)' };
+const numInput: React.CSSProperties = { padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center' as const, outline: 'none' };
+const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer' };
+const toolBtn: React.CSSProperties = { padding: '4px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', whiteSpace: 'nowrap' as const };
+const miniBtn: React.CSSProperties = { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' };
 const miniBtnGreen: React.CSSProperties = { ...miniBtn, color: 'var(--success)', borderColor: 'var(--success)' };
-const iconBtn: React.CSSProperties = { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 12, cursor: 'pointer', opacity: 0.6 };
-const scopeBtn: React.CSSProperties = { padding: '4px 12px', borderRadius: 3, cursor: 'pointer', border: '1px solid rgba(196,168,85,0.12)', background: 'rgba(0,0,0,0.15)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1 };
+const iconBtn: React.CSSProperties = { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer', opacity: 0.6 };
+const scopeBtn: React.CSSProperties = { padding: '4px 12px', borderRadius: 3, cursor: 'pointer', border: '1px solid rgba(196,168,85,0.12)', background: 'rgba(0,0,0,0.15)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1 };
 const scopeBtnActive: React.CSSProperties = { ...scopeBtn, border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.12)', color: 'var(--gold)' };

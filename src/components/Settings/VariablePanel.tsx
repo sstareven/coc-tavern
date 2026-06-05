@@ -107,7 +107,7 @@ export function VariablePanel({ visible, onClose }: Props) {
           marginBottom: 16, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
           flexShrink: 0,
         }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
             MVU 变量引擎
           </h3>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -121,7 +121,7 @@ export function VariablePanel({ visible, onClose }: Props) {
             ) : (
               <button onClick={() => setConfirmClear(true)} title="清空全部" style={toolBtn}>✕</button>
             )}
-            <button onClick={onClose} style={{ ...toolBtn, fontSize: 16 }}>✕</button>
+            <button onClick={onClose} style={{ ...toolBtn, fontSize: 'calc(16px * var(--system-ratio, 1))' }}>✕</button>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                 padding: '2px 10px', borderRadius: 3, border: 'none',
                 background: filter === f ? 'rgba(196,168,85,0.15)' : 'transparent',
                 color: filter === f ? 'var(--gold)' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer', letterSpacing: 1,
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', letterSpacing: 1,
               }}>
               {f === 'all' ? `全部 (${entries.length})` : SOURCE_LABELS[f].label}
             </button>
@@ -174,10 +174,10 @@ export function VariablePanel({ visible, onClose }: Props) {
                 rows={3}
                 style={{ width: '100%', padding: 6, borderRadius: 3, border: '1px solid var(--brass)',
                   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-                  fontSize: 10, resize: 'vertical', outline: 'none',
+                  fontSize: 'calc(10px * var(--system-ratio, 1))', resize: 'vertical', outline: 'none',
                 }}
               />
-              <button onClick={handleImport} style={{ ...addBtnStyle, marginTop: 4, fontSize: 10, padding: '3px 12px' }}>
+              <button onClick={handleImport} style={{ ...addBtnStyle, marginTop: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', padding: '3px 12px' }}>
                 导入
               </button>
             </motion.div>
@@ -191,7 +191,7 @@ export function VariablePanel({ visible, onClose }: Props) {
         }}>
           <table style={{
             width: '100%', borderCollapse: 'collapse',
-            fontSize: 11, fontFamily: 'var(--font-ui)',
+            fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
           }}>
             <thead>
               <tr style={{
@@ -223,7 +223,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                         }}
                         onBlur={() => handleEdit(v.name)}
                         autoFocus
-                        style={{ ...inputStyle, width: '100%', padding: '2px 6px', fontSize: 10 }}
+                        style={{ ...inputStyle, width: '100%', padding: '2px 6px', fontSize: 'calc(10px * var(--system-ratio, 1))' }}
                       />
                     ) : (
                       <span
@@ -237,7 +237,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                   </td>
                   <td style={tdStyle}>
                     <span style={{
-                      color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                      color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))',
                       wordBreak: 'break-all',
                     }}>
                       {v.value || '(空)'}
@@ -245,7 +245,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <span style={{
-                      fontSize: 9,
+                      fontSize: 'calc(9px * var(--system-ratio, 1))',
                       color: SOURCE_LABELS[v.source].color,
                     }}>
                       {SOURCE_LABELS[v.source].label}
@@ -258,7 +258,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                       style={{
                         background: 'transparent', border: 'none', cursor: 'pointer',
                         color: v.locked ? 'var(--blood)' : 'var(--ink-faded)',
-                        fontSize: 12, padding: 0,
+                        fontSize: 'calc(12px * var(--system-ratio, 1))', padding: 0,
                       }}>
                       {v.locked ? '🔒' : '🔓'}
                     </button>
@@ -271,7 +271,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                       style={{
                         background: 'transparent', border: 'none', cursor: v.locked ? 'not-allowed' : 'pointer',
                         color: v.locked ? 'var(--ink-faded)' : 'var(--blood)',
-                        fontSize: 12, padding: 0, opacity: v.locked ? 0.3 : 1,
+                        fontSize: 'calc(12px * var(--system-ratio, 1))', padding: 0, opacity: v.locked ? 0.3 : 1,
                       }}>
                       ✕
                     </button>
@@ -282,7 +282,7 @@ export function VariablePanel({ visible, onClose }: Props) {
           </table>
 
           {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 32, color: 'var(--ink-subtle)', fontSize: 11 }}>
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--ink-subtle)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
               {filter === 'all' ? '暂无变量，在上方添加或通过 AI 自动生成' : `没有来源为"${SOURCE_LABELS[filter].label}"的变量`}
             </div>
           )}
@@ -295,7 +295,7 @@ export function VariablePanel({ visible, onClose }: Props) {
             style={{
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 9,
+              color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))',
               letterSpacing: 2, textTransform: 'uppercase', padding: '4px 0',
             }}>
             <span style={{
@@ -317,7 +317,7 @@ export function VariablePanel({ visible, onClose }: Props) {
                   border: '1px solid rgba(196,168,85,0.08)', background: 'rgba(0,0,0,0.15)',
                 }}>
                   {flatStat.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-subtle)', fontSize: 10 }}>
+                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-subtle)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>
                       暂无剧情状态，开始游戏后由 AI 演化（世界 / 剧情 / 战斗）
                     </div>
                   ) : (
@@ -327,11 +327,11 @@ export function VariablePanel({ visible, onClose }: Props) {
                         borderTop: '1px solid rgba(255,255,255,0.02)',
                       }}>
                         <span style={{
-                          color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                          color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))',
                           flexShrink: 0, minWidth: 130, wordBreak: 'break-all',
                         }}>{path}</span>
                         <span style={{
-                          color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                          color: 'var(--ink-subtle)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))',
                           wordBreak: 'break-all',
                         }}>{val || '(空)'}</span>
                       </div>
@@ -350,23 +350,23 @@ export function VariablePanel({ visible, onClose }: Props) {
 const inputStyle: React.CSSProperties = {
   padding: '5px 8px', borderRadius: 3, border: '1px solid var(--brass)',
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-  fontFamily: 'var(--font-mono)', fontSize: 11, outline: 'none',
+  fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none',
 };
 
 const addBtnStyle: React.CSSProperties = {
   padding: '5px 14px', border: '1px solid var(--gold)', borderRadius: 3,
   background: 'rgba(196,168,85,0.1)', color: 'var(--gold)',
-  fontFamily: 'var(--font-mono)', fontSize: 14, cursor: 'pointer',
+  fontFamily: 'var(--font-mono)', fontSize: 'calc(14px * var(--system-ratio, 1))', cursor: 'pointer',
 };
 
 const toolBtn: React.CSSProperties = {
   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
   border: '1px solid transparent', borderRadius: 3, background: 'transparent',
-  color: 'var(--ink-subtle)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-ui)',
+  color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer', fontFamily: 'var(--font-ui)',
 };
 
 const thStyle: React.CSSProperties = {
-  padding: '7px 10px', textAlign: 'left', fontSize: 9,
+  padding: '7px 10px', textAlign: 'left', fontSize: 'calc(9px * var(--system-ratio, 1))',
   color: 'var(--ink-faded)', letterSpacing: 2, textTransform: 'uppercase',
   fontFamily: 'var(--font-ui)', fontWeight: 'normal',
 };

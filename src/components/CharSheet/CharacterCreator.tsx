@@ -1021,7 +1021,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
             <div>
               <h2 style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 18,
+                fontSize: 'calc(18px * var(--system-ratio, 1))',
                 color: 'var(--gold)',
                 letterSpacing: 4,
                 margin: 0,
@@ -1031,7 +1031,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               </h2>
               <div style={{
                 fontFamily: 'var(--font-ui)',
-                fontSize: 11,
+                fontSize: 'calc(11px * var(--system-ratio, 1))',
                 color: 'var(--ink-subtle)',
                 letterSpacing: 3,
                 marginTop: 2,
@@ -1043,7 +1043,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: '1px solid transparent', borderRadius: 3,
-              background: 'transparent', color: 'var(--ink-subtle)', fontSize: 16,
+              background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(16px * var(--system-ratio, 1))',
               fontFamily: 'var(--font-ui)',
             }}>
               ✕
@@ -1075,7 +1075,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                       border: active ? '1px solid var(--gold)' : done ? '1px solid rgba(196,168,85,0.35)' : '1px solid rgba(255,255,255,0.1)',
                       background: active ? 'var(--gold)' : done ? 'rgba(196,168,85,0.15)' : 'transparent',
                       color: active ? 'var(--void)' : done ? 'var(--gold)' : 'var(--ink-subtle)',
-                      fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                      fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700,
                       cursor: done ? 'pointer' : 'default',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
@@ -1083,7 +1083,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                     {done ? '✓' : i + 1}
                   </button>
                   {active && (
-                    <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
                       {label}
                     </span>
                   )}

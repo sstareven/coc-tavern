@@ -220,7 +220,7 @@ export function Storybook() {
     alignItems: 'center',
     paddingLeft: 14,
     fontFamily: '"PingFang SC", "DengXian", "Noto Serif SC", var(--font-ui), sans-serif',
-    fontSize: 11,
+    fontSize: 'calc(11px * var(--text-ratio, 1))',
     letterSpacing: 1.5,
     color: 'var(--book-ink)',
     background: `
@@ -502,7 +502,7 @@ export function Storybook() {
               }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{inventoryOpen ? '◁' : '◆'}</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>{inventoryOpen ? '◁' : '◆'}</span>
             {inventoryOpen ? '返回' : '物品/线索'}
           </button>
 
@@ -536,7 +536,7 @@ export function Storybook() {
               }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{charSheetOpen ? '◁' : '✦'}</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>{charSheetOpen ? '◁' : '✦'}</span>
             {charSheetOpen ? '返回' : '调查员记录'}
           </button>
 
@@ -570,7 +570,7 @@ export function Storybook() {
               }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>{npcOpen ? '◁' : '◉'}</span>
             {npcOpen ? '返回' : '人物名册'}
           </button>
 
@@ -604,7 +604,7 @@ export function Storybook() {
               }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{mapOpen ? '◁' : '✛'}</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>{mapOpen ? '◁' : '✛'}</span>
             {mapOpen ? '返回' : '地图'}
           </button>
 
@@ -640,7 +640,7 @@ export function Storybook() {
               }
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>{showToc ? '◁' : '☰'}</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>{showToc ? '◁' : '☰'}</span>
             {showToc ? '返回' : '目录'}
           </button>
 
@@ -661,7 +661,7 @@ export function Storybook() {
               e.currentTarget.style.paddingLeft = '14px';
             }}
           >
-            <span style={{ marginRight: 6, fontSize: 10, opacity: 0.5 }}>◈</span>
+            <span style={{ marginRight: 6, fontSize: 'calc(10px * var(--text-ratio, 1))', opacity: 0.5 }}>◈</span>
             检定记录
           </button>
         </div>

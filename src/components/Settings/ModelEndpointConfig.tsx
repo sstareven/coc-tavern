@@ -19,13 +19,13 @@ const rowStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
+  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
 };
 
 const inputStyle: React.CSSProperties = {
   width: 200, maxWidth: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 11, outline: 'none', caretColor: 'var(--gold)',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)',
 };
 
 /**
@@ -83,16 +83,16 @@ export function ModelEndpointConfig({
             style={{
               padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
               background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-              fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1, cursor: 'pointer',
               opacity: connStatus === 'testing' ? 0.5 : 1,
             }}>
             {connStatus === 'testing' ? '...' : '连接'}
           </button>
           {connStatus === 'connected' && (
-            <span style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
+            <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>已连接</span>
           )}
           {connStatus === 'failed' && (
-            <span style={{ fontSize: 9, color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
+            <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--blood)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>失败</span>
           )}
         </div>
       </div>
@@ -105,7 +105,7 @@ export function ModelEndpointConfig({
               onChange={(v) => setModel(v)}
               options={availableModels.map((m) => ({ value: m, label: m }))} />
           ) : (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faded)', padding: '7px 9px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-faded)', padding: '7px 9px' }}>
               {modelsLoading ? '加载中...' : '请先连接'}
             </div>
           )}

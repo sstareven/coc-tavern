@@ -134,7 +134,7 @@ function RegexSettingsContent() {
               padding: '4px 14px', borderRadius: '4px 4px 0 0', border: 'none',
               background: activeTab === tab.type ? 'rgba(196,168,85,0.15)' : 'transparent',
               color: activeTab === tab.type ? 'var(--gold)' : 'var(--ink-faded)',
-              cursor: 'pointer', fontSize: 12, fontWeight: activeTab === tab.type ? 'bold' : 'normal',
+              cursor: 'pointer', fontSize: 'calc(12px * var(--system-ratio, 1))', fontWeight: activeTab === tab.type ? 'bold' : 'normal',
               fontFamily: 'var(--font-ui)',
             }}>
             {tab.label}
@@ -148,7 +148,7 @@ function RegexSettingsContent() {
           placeholder="搜索脚本..."
           style={{
             flex: 1, minWidth: 100, padding: '5px 8px', borderRadius: 4,
-            border: '1px solid rgba(196,168,85,0.2)', fontSize: 11,
+            border: '1px solid rgba(196,168,85,0.2)', fontSize: 'calc(11px * var(--system-ratio, 1))',
             background: 'rgba(0,0,0,0.25)', color: 'var(--text-light)',
             fontFamily: 'var(--font-ui)', outline: 'none',
           }}
@@ -190,7 +190,7 @@ function RegexSettingsContent() {
                 style={{
                   width: '100%', padding: '6px', borderRadius: 3,
                   border: '1px solid rgba(196,168,85,0.2)', fontFamily: 'var(--font-mono)',
-                  fontSize: 10, background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+                  fontSize: 'calc(10px * var(--system-ratio, 1))', background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
                   resize: 'vertical',
                 }}
               />
@@ -205,7 +205,7 @@ function RegexSettingsContent() {
 
       {/* Select All */}
       {scripts.length > 0 && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 4, paddingLeft: 2 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 4, paddingLeft: 2 }}>
           <input type="checkbox" checked={allSelected} onChange={() => {
             if (allSelected) setSelected(new Set());
             else setSelected(new Set(scripts.map((s) => s.id)));
@@ -224,24 +224,24 @@ function RegexSettingsContent() {
                 background: script.disabled ? 'rgba(0,0,0,0.12)' : 'rgba(196,168,85,0.04)',
                 border: selected.has(script.id) ? '1px solid rgba(196,168,85,0.3)' : '1px solid transparent',
                 opacity: script.disabled ? 0.55 : 1,
-                fontSize: 11,
+                fontSize: 'calc(11px * var(--system-ratio, 1))',
               }}>
               <input type="checkbox" checked={selected.has(script.id)} onChange={() => toggleSelect(script.id)}
                 style={{ transform: 'scale(0.9)' }} />
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--text-light)' }}>
+                <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)' }}>
                   {script.scriptName}
-                  {script.disabled && <span style={{ color: 'var(--blood)', marginLeft: 6, fontSize: 9 }}>已禁用</span>}
+                  {script.disabled && <span style={{ color: 'var(--blood)', marginLeft: 6, fontSize: 'calc(9px * var(--system-ratio, 1))' }}>已禁用</span>}
                 </div>
                 <div style={{
-                  fontSize: 9, color: 'var(--ink-subtle)', overflow: 'hidden',
+                  fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', overflow: 'hidden',
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)',
                 }}>
                   {script.findRegex.substring(0, 50)}
                   {script.replaceString && <span style={{ marginLeft: 4 }}>→ {script.replaceString.substring(0, 25)}</span>}
                 </div>
-                <div style={{ fontSize: 9, color: 'var(--ink-faded)', marginTop: 1 }}>
+                <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', marginTop: 1 }}>
                   {script.placement.map((p) => PLACEMENT_LABELS[p] ?? '').filter(Boolean).join(' · ')}
                   {script.markdownOnly && ' · 显示'}{script.promptOnly && ' · 提示词'}
                 </div>
@@ -278,7 +278,7 @@ function RegexSettingsContent() {
           ))}
         </AnimatePresence>
         {scripts.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 28, color: 'var(--ink-subtle)', fontSize: 11 }}>
+          <div style={{ textAlign: 'center', padding: 28, color: 'var(--ink-subtle)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
             {search ? '没有找到匹配的脚本' : `暂无${activeTab === 'global' ? '全局' : '预设'}正则脚本`}
           </div>
         )}
@@ -292,13 +292,13 @@ function RegexSettingsContent() {
 function ExtensionsSettingsContent() {
   return (
     <div>
-      <p style={{ fontSize: 11, color: 'var(--ink-subtle)', marginBottom: 14 }}>
+      <p style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 14 }}>
         管理已安装的扩展脚本，启用或禁用功能模块。
       </p>
       <button onClick={() => { usePanelStore.getState().open('extManager'); }} style={{
         width: '100%', padding: '10px 0', border: '1px solid var(--brass)',
         borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
-        fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 3, cursor: 'pointer',
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 3, cursor: 'pointer',
       }}>
         打开扩展管理器
       </button>
@@ -486,7 +486,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
           {!isMobile && (
             <div style={{
               padding: '0 16px 12px', borderBottom: '1px solid rgba(196,168,85,0.12)', marginBottom: 8,
-              fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--gold)', letterSpacing: 2,
+              fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2,
               textAlign: 'center',
             }}>
               设置
@@ -504,14 +504,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 background: section === item.key ? 'rgba(196,168,85,0.1)' : 'transparent',
                 boxShadow: isMobile && section === item.key ? 'inset 0 -2px 0 var(--gold)' : 'none',
                 color: section === item.key ? 'var(--gold)' : 'var(--ink-subtle)',
-                fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1,
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 1,
                 cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap',
                 transition: 'background 0.2s, color 0.2s',
               }}
               onMouseEnter={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--text-light)'; e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; } }}
               onMouseLeave={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.background = 'transparent'; } }}
             >
-              <span style={{ fontSize: 14 }}>{item.icon}</span>
+              <span style={{ fontSize: 'calc(14px * var(--system-ratio, 1))' }}>{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}
@@ -524,7 +524,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             flexShrink: 0,
             border: 'none', borderRadius: 4,
             background: 'transparent', color: 'var(--ink-subtle)',
-            fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1,
+            fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
             cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap',
           }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
@@ -546,7 +546,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
           <div style={{
             paddingBottom: 12, marginBottom: 16,
             borderBottom: '1px solid rgba(196,168,85,0.12)',
-            fontFamily: 'var(--font-display)', fontSize: 15, color: 'var(--gold)', letterSpacing: 2,
+            fontFamily: 'var(--font-display)', fontSize: 'calc(15px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2,
           }}>
             {SIDEBAR_ITEMS.find((i) => i.key === section)?.label ?? ''}
           </div>
@@ -589,7 +589,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setSfxVolume(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{sfxVolume}%</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{sfxVolume}%</span>
                   </div>
                 </div>
 
@@ -601,7 +601,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setTooltipDelay(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{tooltipDelay}ms</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{tooltipDelay}ms</span>
                   </div>
                 </div>
 
@@ -627,7 +627,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setTextRatio(Number(e.target.value) / 100)}
                       style={{ width: 140 }}
                     />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
                       {Math.round(textRatio * 100)}%
                     </span>
                   </div>
@@ -647,7 +647,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setSystemRatio(Number(e.target.value) / 100)}
                       style={{ width: 140 }}
                     />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
                       {Math.round(systemRatio * 100)}%
                     </span>
                   </div>
@@ -666,7 +666,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setMaxSummaryEntries(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{maxSummaryEntries}</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{maxSummaryEntries}</span>
                   </div>
                 </div>
 
@@ -681,7 +681,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setContextPageDepth(Math.max(0, Number(e.target.value) || 0))}
                       style={numInputStyle}
                     />
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{contextPageDepth === 0 ? '全部页面' : `最近${contextPageDepth}页`}</span>
                   </div>
                 </div>
 
@@ -695,7 +695,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setNpcMemoryKeep(Number(e.target.value))}
                       style={{ width: 100, accentColor: 'var(--gold)' }}
                     />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{npcMemoryKeep}</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{npcMemoryKeep}</span>
                   </div>
                 </div>
 
@@ -711,7 +711,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setJsonRetryCount(Number(e.target.value) || 0)}
                       style={numInputStyle}
                     />
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{jsonRetryCount === 0 ? '不重试' : `重试${jsonRetryCount}次`}</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{jsonRetryCount === 0 ? '不重试' : `重试${jsonRetryCount}次`}</span>
                   </div>
                 </div>
 
@@ -766,28 +766,28 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       onChange={(e) => setRpmMaxQueueAttempts(Number(e.target.value) || 0)}
                       style={numInputStyle}
                     />
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmMaxQueueAttempts === 0 ? '不排队' : `最多 ${rpmMaxQueueAttempts} 轮`}</span>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{rpmMaxQueueAttempts === 0 ? '不排队' : `最多 ${rpmMaxQueueAttempts} 轮`}</span>
                   </div>
                 </div>
 
                 <CategoryBar label="世界书匹配" />
                 <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={globalCaseSensitive} onChange={(e) => setGlobalCaseSensitive(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     世界书全局区分大小写
                     <HelpIcon text={'全局开关：世界书关键词匹配时是否区分大小写。\n开启后「Arkham」与「arkham」视为不同关键词；关闭则忽略大小写。\n会覆盖各条目自身的大小写设置。'} />
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={globalMatchWholeWord} onChange={(e) => setGlobalMatchWholeWord(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     世界书全局完整单词匹配
                     <HelpIcon text={'全局开关：关键词是否必须作为「完整单词」才算命中。\n开启后关键词「cat」不会命中「category」里的片段。\n主要影响英文；中文没有单词边界，一般无影响。'} />
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={includeNames} onChange={(e) => setIncludeNames(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     包含角色名称
                     <HelpIcon text={'组装提示词时，是否在每条消息前标注发言者名称（如 User: / Char:）。\n部分模型或预设需要它来区分角色，部分则不需要。\n如果AI回复里莫名出现名字前缀，可尝试关闭。'} />
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
                     <input type="checkbox" checked={alertOnOverflow} onChange={(e) => setAlertOnOverflow(e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                     溢出警告
                     <HelpIcon text={'当注入的世界书内容超出下方「Token预算」、有条目被裁掉时，弹出提醒。\n方便你察觉部分世界书没能进入上下文。'} />
@@ -795,21 +795,21 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>递归步数</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>递归步数</span>
                     <HelpIcon text={'世界书条目被激活后，其内容里的关键词可以继续触发别的条目（递归扫描）。\n此值限制递归的层数。\n0 = 不限制（可能连锁激活大量条目、撑大上下文）。'} />
                     <input type="number" min={0} max={20} value={maxRecursionSteps} onChange={(e) => setMaxRecursionSteps(Number(e.target.value) || 0)}
                       style={numInputStyle} />
-                    <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
+                    <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>Token预算</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>Token预算</span>
                     <HelpIcon text={'单次注入世界书内容的 Token 上限。\n超出预算时，优先级低的条目会被裁掉、不进入上下文。\n0 = 不限制（注入所有匹配到的条目）。'} />
                     <input type="number" min={0} max={99999} step={100} value={wiBudget} onChange={(e) => setWiBudget(Number(e.target.value) || 0)}
                       style={numInputStyle} />
-                    <span style={{ fontSize: 8, color: 'var(--ink-faded)' }}>0=无限</span>
+                    <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)' }}>0=无限</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>插入策略</span>
+                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>插入策略</span>
                     <HelpIcon text={'多个匹配到的世界书条目注入提示词时的排布方式：\n均匀 — 按顺序均匀分布在上下文中\n全局优先 — 全局世界书排在更靠前的位置\n会话优先 — 当前会话绑定的世界书排在更靠前的位置'} />
                     <DarkSelect compact value={worldInfoStrategy} onChange={(v) => setWorldInfoStrategy(v as 'evenly' | 'global-first' | 'chat-first')}
                       options={[{ value: 'evenly', label: '均匀' }, { value: 'global-first', label: '全局优先' }, { value: 'chat-first', label: '会话优先' }]}
@@ -880,7 +880,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             : 'linear-gradient(180deg, rgba(196,168,85,0.25) 0%, rgba(196,168,85,0.12) 100%)',
                           color: isApplied ? 'var(--ink-subtle)' : 'var(--gold-bright)',
                           fontFamily: 'var(--font-display)',
-                          fontSize: 12,
+                          fontSize: 'calc(12px * var(--system-ratio, 1))',
                           letterSpacing: 2,
                           cursor: 'pointer',
                           transition: 'var(--transition-smooth)',
@@ -914,7 +914,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
                       >
                         {isApplied ? '↩ 撤销 DeepSeek 终极适配' : '★ 一键 DeepSeek 终极适配'}
-                        <span style={{ display: 'block', fontSize: 9, letterSpacing: 1, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', marginTop: 3, fontWeight: 400 }}>
+                        <span style={{ display: 'block', fontSize: 'calc(9px * var(--system-ratio, 1))', letterSpacing: 1, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', marginTop: 3, fontWeight: 400 }}>
                           {isApplied
                             ? '当前已生效 · 点击恢复到应用前的所有设置'
                             : '缓存最大化 · 无限长上下文 · MVU 保健（不动凭证 / UI / 思维模式）'}
@@ -940,7 +940,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       <input type="text" value={dsCache.targetSources ?? 'deepseek,custom'}
                         onChange={(e) => setDsCache({ targetSources: e.target.value })}
                         placeholder="deepseek,custom"
-                        style={{ flex: 1, maxWidth: 220, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: '4px 6px', transition: 'var(--transition-smooth)' }} />
+                        style={{ flex: 1, maxWidth: 220, fontFamily: 'var(--font-mono)', fontSize: 'calc(12px * var(--system-ratio, 1))', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: '4px 6px', transition: 'var(--transition-smooth)' }} />
                     </div>
                     <div style={rowStyle}>
                       <span style={labelStyle}>
@@ -969,7 +969,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         <textarea rows={2} value={dsCache.customPrefillContent ?? ''}
                           onChange={(e) => setDsCache({ customPrefillContent: e.target.value })}
                           placeholder='例如：{'
-                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
+                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'calc(12px * var(--system-ratio, 1))', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
                       </div>
                     )}
                     <div style={rowStyle}>
@@ -1028,20 +1028,20 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         <span style={labelStyle}>自定义指令</span>
                         <textarea rows={3} value={dsCache.customText} onChange={(e) => setDsCache({ customText: e.target.value })}
                           placeholder="自填思维模式指令，将附着到最后一条用户消息尾部（此处不解析 {{宏}}）"
-                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
+                          style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 'calc(12px * var(--system-ratio, 1))', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(196,168,85,0.2)', borderRadius: 4, color: 'inherit', padding: 6, resize: 'vertical', transition: 'var(--transition-smooth)' }} />
                       </div>
                     )}
 
                     {/* 实验性 ULTRA 缓存——标题强化为带橙色标签的 sub-bar，明显区别 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '24px 0 12px' }}>
                       <span style={{
-                        fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#d47830',
+                        fontSize: 'calc(11px * var(--system-ratio, 1))', fontWeight: 700, letterSpacing: 2, color: '#d47830',
                         fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', flexShrink: 0,
                         padding: '3px 10px', background: 'rgba(212,120,48,0.15)',
                         border: '1px solid rgba(212,120,48,0.5)', borderRadius: 3,
                         textTransform: 'uppercase',
                       }}>⚗ 实验性 · ULTRA 缓存优化</span>
-                      <span style={{ fontSize: 10, color: 'rgba(212,120,48,0.75)', letterSpacing: 1 }}>副作用较大 · 自选启用</span>
+                      <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'rgba(212,120,48,0.75)', letterSpacing: 1 }}>副作用较大 · 自选启用</span>
                       <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(212,120,48,0.5), rgba(212,120,48,0.04))' }} />
                     </div>
                     <div style={rowStyle}>
@@ -1098,11 +1098,11 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
                       width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
-                      fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
                     }}>
                       <span>{PP_OPTIONS.find((o) => o.value === promptPostProcessing)?.label ?? '未选择'}</span>
-                      <span style={{ fontSize: 8, color: 'var(--brass)' }}>▼</span>
+                      <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--brass)' }}>▼</span>
                     </button>
                     {ppDropdownOpen && (
                       <>
@@ -1112,14 +1112,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                           <div className="pp-scroll">
                             {PP_OPTIONS.map((opt) => {
                               if (opt.value.startsWith('__sep')) {
-                                return <div key={opt.value} style={{ padding: '5px 10px', fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, borderBottom: '1px solid rgba(196,168,85,0.08)', background: 'rgba(196,168,85,0.06)' }}>{opt.label}</div>;
+                                return <div key={opt.value} style={{ padding: '5px 10px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, borderBottom: '1px solid rgba(196,168,85,0.08)', background: 'rgba(196,168,85,0.06)' }}>{opt.label}</div>;
                               }
                               return (
                                 <div key={opt.value} onClick={() => { setPromptPostProcessing(opt.value); setPpDropdownOpen(false); }} style={{
                                   padding: '6px 10px', cursor: 'pointer',
                                   background: opt.value === promptPostProcessing ? 'rgba(196,168,85,0.15)' : 'transparent',
                                   color: opt.value === promptPostProcessing ? 'var(--gold)' : 'var(--text-light)',
-                                  fontFamily: 'var(--font-ui)', fontSize: 10,
+                                  fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))',
                                   borderBottom: '1px solid rgba(196,168,85,0.06)',
                                 }} onMouseEnter={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
                                   onMouseLeave={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'transparent'; }}
@@ -1172,7 +1172,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                           onChange={(e) => setMvuSelfCorrectRetries(Number(e.target.value))}
                           style={{ width: 100, accentColor: 'var(--gold)' }}
                         />
-                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuSelfCorrectRetries}</span>
+                        <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuSelfCorrectRetries}</span>
                       </div>
                     </div>
                   )}
@@ -1210,7 +1210,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             onChange={(e) => setMvuTemperature(Number(e.target.value))}
                             style={{ width: 100, accentColor: 'var(--gold)' }}
                           />
-                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 24 }}>{mvuTemperature}</span>
+                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 24 }}>{mvuTemperature}</span>
                         </div>
                       </div>
 
@@ -1221,7 +1221,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             onChange={(e) => setMvuRetryCount(Number(e.target.value))}
                             style={{ width: 100, accentColor: 'var(--gold)' }}
                           />
-                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuRetryCount}</span>
+                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuRetryCount}</span>
                         </div>
                       </div>
 
@@ -1232,7 +1232,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             onChange={(e) => setMvuMaxTokens(Number(e.target.value))}
                             style={{ width: 100, accentColor: 'var(--gold)' }}
                           />
-                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{mvuMaxTokens}</span>
+                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{mvuMaxTokens}</span>
                         </div>
                       </div>
                     </>
@@ -1268,7 +1268,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                       {/* 上次轻量补写节省的 token 量(运行时统计,执行补写后更新) */}
                       <div style={{ ...rowStyle, paddingLeft: 16 }}>
                         <span style={{ ...labelStyle, opacity: 0.75 }}>上次节省</span>
-                        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
+                        <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
                           {lastRewriteSaving > 0 ? `~${lastRewriteSaving} tokens` : '— (尚未补写)'}
                         </span>
                       </div>
@@ -1293,7 +1293,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   width: '100%', marginTop: 20, padding: '8px 0',
                   border: '1px solid var(--blood)', borderRadius: 3,
                   background: 'rgba(139,58,58,0.08)', color: 'var(--blood)',
-                  fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 4, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 4, cursor: 'pointer',
                 }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.18)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139,58,58,0.08)'; }}
@@ -1348,7 +1348,7 @@ function CategoryBar({ label, first }: { label: string; first?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: first ? '2px 0 10px' : '20px 0 10px' }}>
       <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: 3, color: 'var(--gold)',
+        fontSize: 'calc(10px * var(--system-ratio, 1))', fontWeight: 700, letterSpacing: 3, color: 'var(--gold)',
         fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', flexShrink: 0,
       }}>{label}</span>
       <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(196,168,85,0.35), rgba(196,168,85,0.04))' }} />
@@ -1357,14 +1357,14 @@ function CategoryBar({ label, first }: { label: string; first?: boolean }) {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
+  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
 };
 
 /** 统一的数字输入框样式。 */
 const numInputStyle: React.CSSProperties = {
   width: 64, padding: '4px 8px', border: '1px solid var(--brass)', borderRadius: 3,
   background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 11, textAlign: 'center', outline: 'none',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', outline: 'none',
 };
 
 /** 统一的开关按钮（药丸形，开启时金色高亮）。 */
@@ -1379,7 +1379,7 @@ function Toggle({ on, onChange, onLabel = 'ON', offLabel = 'OFF' }: {
         border: on ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
         background: on ? 'rgba(196,168,85,0.18)' : 'rgba(0,0,0,0.18)',
         color: on ? 'var(--gold)' : 'var(--ink-subtle)',
-        fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2, cursor: 'pointer',
+        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2, cursor: 'pointer',
         transition: 'var(--transition-smooth)',
       }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
@@ -1397,7 +1397,7 @@ const miniBtnStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: '4px 10px',
   cursor: 'pointer',
-  fontSize: 10,
+  fontSize: 'calc(10px * var(--system-ratio, 1))',
   fontFamily: 'var(--font-ui)',
   letterSpacing: 1,
 };
@@ -1407,7 +1407,7 @@ const iconBtn: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
   padding: '2px 5px',
-  fontSize: 12,
+  fontSize: 'calc(12px * var(--system-ratio, 1))',
   color: 'var(--ink-faded)',
   borderRadius: 3,
 };
@@ -1415,7 +1415,7 @@ const iconBtn: React.CSSProperties = {
 const helpIconStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   width: 14, height: 14, borderRadius: '50%', border: '1px solid var(--brass)',
-  color: 'var(--ink-subtle)', cursor: 'help', fontSize: 9, fontWeight: 'bold',
+  color: 'var(--ink-subtle)', cursor: 'help', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
   fontFamily: 'var(--font-ui)', marginLeft: 4,
 };
 
@@ -1458,7 +1458,7 @@ function HelpIcon({ text }: { text: string }) {
           width: 300, maxWidth: 'calc(100vw - 16px)', padding: '8px 10px',
           background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
           boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-          fontSize: 10, color: 'var(--text-light)', lineHeight: 1.8,
+          fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.8,
           fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line', pointerEvents: 'none',
         }}>
           {text}
@@ -1488,7 +1488,7 @@ function RpmRow({ label, help, value, onChange }: {
           onChange={(e) => onChange(Number(e.target.value) || 0)}
           style={numInputStyle}
         />
-        <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{value === 0 ? '不限制' : `${value} 次/分`}</span>
+        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>{value === 0 ? '不限制' : `${value} 次/分`}</span>
       </div>
     </div>
   );

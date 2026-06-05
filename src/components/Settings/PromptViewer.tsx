@@ -97,10 +97,10 @@ export function PromptViewer({ visible, onClose }: Props) {
           marginBottom: 12, flexShrink: 0, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 12,
         }}>
           <div>
-            <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: 3 }}>
+            <h3 style={{ margin: 0, color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', letterSpacing: 3 }}>
               提示词查看器
             </h3>
-            <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: 10, color: 'var(--ink-subtle)' }}>
+            <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>
               <span>模型: {model || '—'}</span>
               <span>预设: {presetName || '—'}</span>
               {updatedAt > 0 && (
@@ -110,7 +110,7 @@ export function PromptViewer({ visible, onClose }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{
-              fontSize: 10, color: 'var(--ink-subtle)',
+              fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
               fontFamily: 'var(--font-mono)',
             }}>
               ~{totalTokens}t · {messages.length}条
@@ -129,7 +129,7 @@ export function PromptViewer({ visible, onClose }: Props) {
             >↻ 刷新</button>
             <button onClick={onClose} style={{
               background: 'transparent', border: 'none', color: 'var(--ink-subtle)',
-              cursor: 'pointer', fontSize: 18, marginLeft: 4,
+              cursor: 'pointer', fontSize: 'calc(18px * var(--system-ratio, 1))', marginLeft: 4,
             }}>✕</button>
           </div>
         </div>
@@ -140,7 +140,7 @@ export function PromptViewer({ visible, onClose }: Props) {
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
         }}>
           {messages.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-faded)', fontSize: 12 }}>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-faded)', fontSize: 'calc(12px * var(--system-ratio, 1))' }}>
               暂无提示词数据。请先输入文字并发送，或点击刷新按钮。
             </div>
           ) : (
@@ -165,16 +165,16 @@ export function PromptViewer({ visible, onClose }: Props) {
                   }} onClick={() => toggleExpand(index)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
-                        fontWeight: 'bold', fontSize: 10, color: roleColor,
+                        fontWeight: 'bold', fontSize: 'calc(10px * var(--system-ratio, 1))', color: roleColor,
                         fontFamily: 'var(--font-ui)', letterSpacing: 1,
                       }}>
                         {roleLabel}
                       </span>
-                      <span style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>
+                      <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>
                         ~{msgTokens}t
                       </span>
                     </div>
-                    <span style={{ fontSize: 9, color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
+                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)' }}>
                       {isExpanded ? '▲ 收起' : '▼ 展开'}
                     </span>
                   </div>
@@ -182,7 +182,7 @@ export function PromptViewer({ visible, onClose }: Props) {
                   {/* Message Content */}
                   {isExpanded && (
                     <div style={{
-                      padding: '8px 12px', fontSize: 11, lineHeight: 1.6,
+                      padding: '8px 12px', fontSize: 'calc(11px * var(--system-ratio, 1))', lineHeight: 1.6,
                       fontFamily: 'var(--font-mono)', color: 'var(--text-light)',
                       whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                       background: 'rgba(0,0,0,0.15)',
@@ -204,6 +204,6 @@ export function PromptViewer({ visible, onClose }: Props) {
 
 const headerBtn: React.CSSProperties = {
   background: 'transparent', border: '1px solid var(--brass)', borderRadius: 3,
-  color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 10,
+  color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 'calc(10px * var(--system-ratio, 1))',
   padding: '3px 10px', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap',
 };

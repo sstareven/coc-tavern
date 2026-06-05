@@ -371,7 +371,7 @@ export function DicePanel() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 24, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 14,
           }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>
               掷骰检定 / DICE ROLL
             </h3>
             <button onClick={close} style={closeBtnStyle}
@@ -386,14 +386,14 @@ export function DicePanel() {
               style={{
                 flex: 1, padding: '8px 12px', border: '1px solid var(--brass)', borderRadius: 3,
                 background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
-                fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 1, outline: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 1, outline: 'none', cursor: 'pointer',
               }}>
               <option value="check">技能检定 (Skill Check)</option>
               <option value="opposed">对抗检定 (Opposed)</option>
               <option value="free">自由掷骰 (Free Roll)</option>
             </select>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2 }}>
               目标
             </div>
             <input type="number" name="dice-panel-target" min={1} max={100} value={localTarget}
@@ -402,7 +402,7 @@ export function DicePanel() {
               style={{
                 width: 56, padding: '8px 6px', border: '1px solid var(--brass)', borderRadius: 3,
                 background: 'rgba(0,0,0,0.3)', color: 'var(--gold)', fontFamily: 'var(--font-mono)',
-                fontSize: 16, fontWeight: 700, textAlign: 'center', outline: 'none', caretColor: 'var(--gold)',
+                fontSize: 'calc(16px * var(--system-ratio, 1))', fontWeight: 700, textAlign: 'center', outline: 'none', caretColor: 'var(--gold)',
               }}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; handleTargetBlur(); }}
@@ -423,7 +423,7 @@ export function DicePanel() {
                     borderRadius: 3,
                     background: active ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
                     color: active ? 'var(--gold)' : 'var(--ink-subtle)',
-                    fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 2,
+                    fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 2,
                     cursor: 'pointer', transition: 'var(--transition-smooth)',
                   }}>
                   {label}
@@ -450,7 +450,7 @@ export function DicePanel() {
               <>
                 <span style={{
                   color: isBonus ? 'var(--success)' : 'var(--blood)',
-                  fontSize: 16, fontFamily: 'var(--font-mono)', fontWeight: 'bold',
+                  fontSize: 'calc(16px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 'bold',
                 }}>
                   {isBonus ? '← 取小' : '← 取大'}
                 </span>
@@ -466,7 +466,7 @@ export function DicePanel() {
                 <div style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 8px',
                 }}>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--blood)', letterSpacing: 2 }}>
+                  <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--blood)', letterSpacing: 2 }}>
                     VS
                   </span>
                 </div>
@@ -478,7 +478,7 @@ export function DicePanel() {
             {hasBonus && displayOriginal !== displayFinal && (
               <>
                 <span style={{
-                  color: 'var(--ink-subtle)', fontSize: 18, fontFamily: 'var(--font-mono)',
+                  color: 'var(--ink-subtle)', fontSize: 'calc(18px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)',
                 }}>
                   →
                 </span>
@@ -490,13 +490,13 @@ export function DicePanel() {
                     width: 72, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: '2px solid var(--gold-bright)', borderRadius: 6,
                     background: 'rgba(232,200,101,0.12)',
-                    fontSize: 30, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    fontSize: 'calc(30px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700,
                     color: 'var(--gold-bright)',
                     boxShadow: '0 0 12px rgba(232,200,101,0.25)',
                   }}>
                     {displayFinal}
                   </div>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>
+                  <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1 }}>
                     最终结果
                   </span>
                 </div>
@@ -509,7 +509,7 @@ export function DicePanel() {
             style={{
               width: '100%', padding: '12px 0', border: '1px solid var(--gold)',
               borderRadius: 4, background: 'rgba(196,168,85,0.12)', color: 'var(--gold)',
-              fontFamily: 'var(--font-display)', fontSize: 18, letterSpacing: 8,
+              fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', letterSpacing: 8,
               cursor: 'pointer', transition: 'var(--transition-smooth)', marginBottom: 16,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.25)'; }}
@@ -542,7 +542,7 @@ export function DicePanel() {
                   padding: '10px 16px', border: `1px solid ${resultColor[localResult]}`,
                   borderRadius: 4, background: `${resultColor[localResult]}15`,
                   color: resultColor[localResult], fontFamily: 'var(--font-display)',
-                  fontSize: 15, letterSpacing: 3, textAlign: 'center',
+                  fontSize: 'calc(15px * var(--system-ratio, 1))', letterSpacing: 3, textAlign: 'center',
                 }}
               >
                 <motion.span
@@ -606,10 +606,10 @@ export function DicePanel() {
           {uiState === 'luck-slider' && (
             <div style={luckSliderBoxStyle} data-testid="dice-panel-luck-slider">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2 }}>
+                <span style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2 }}>
                   <IconLuck size={12} /> 幸运扣点
                 </span>
-                <span style={{ color: 'var(--ink-subtle)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ color: 'var(--ink-subtle)', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)' }}>
                   原 {stagedOriginalRoll} − {luckSpend} = {luckPreview?.previewRoll ?? stagedOriginalRoll}
                 </span>
               </div>
@@ -621,14 +621,14 @@ export function DicePanel() {
                 style={{ width: '100%', accentColor: 'var(--gold)' }}
               />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                <span style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>0</span>
+                <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>0</span>
                 <span data-testid="luck-preview-tier" style={{
-                  fontSize: 12, fontFamily: 'var(--font-display)', letterSpacing: 2,
+                  fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', letterSpacing: 2,
                   color: luckPreview ? resultColor[luckPreview.previewResult] : 'var(--ink-subtle)',
                 }}>
                   {luckPreview ? resultLabel[luckPreview.previewResult] : ''}
                 </span>
-                <span style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>{sliderMax}</span>
+                <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>{sliderMax}</span>
               </div>
               <button
                 data-testid="btn-confirm-luck"
@@ -657,21 +657,21 @@ const stagingBtnStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '8px 18px', border: '1px solid var(--gold)', borderRadius: 4,
   background: 'rgba(232,200,101,0.08)', color: 'var(--gold)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2,
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2,
   cursor: 'pointer', transition: 'var(--transition-smooth)', transform: 'scale(1)',
 };
 const stagingBtnPrimaryStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '8px 18px', border: '1px solid var(--blood)', borderRadius: 4,
   background: 'rgba(204,51,51,0.08)', color: 'var(--blood)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2,
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2,
   cursor: 'pointer', transition: 'var(--transition-smooth)', transform: 'scale(1)',
 };
 const stagingBtnSubtleStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '8px 18px', border: '1px solid var(--brass)', borderRadius: 4,
   background: 'rgba(0,0,0,0.2)', color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)', fontSize: 12, letterSpacing: 2,
+  fontFamily: 'var(--font-ui)', fontSize: 'calc(12px * var(--system-ratio, 1))', letterSpacing: 2,
   cursor: 'pointer', transition: 'var(--transition-smooth)', transform: 'scale(1)',
 };
 const luckSliderBoxStyle: React.CSSProperties = {

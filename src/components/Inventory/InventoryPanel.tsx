@@ -35,20 +35,20 @@ function ItemRow({ item }: { item: InventoryItem }) {
         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ink-faded-rgb),0.06)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'var(--font-body)', color: item.isKeyItem ? '#8b6914' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {item.isKeyItem && <span style={{ marginRight: 3, fontSize: 9 }}>★</span>}
+        <span style={{ flex: 1, minWidth: 0, fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: item.isKeyItem ? '#8b6914' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.isKeyItem && <span style={{ marginRight: 3, fontSize: 'calc(9px * var(--system-ratio, 1))' }}>★</span>}
           {item.name}
         </span>
         {item.quantity > 1 && (
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', flexShrink: 0 }}>×{item.quantity}</span>
+          <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', flexShrink: 0 }}>×{item.quantity}</span>
         )}
-        <span style={{ width: 44, flexShrink: 0, fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', textAlign: 'center' }}>
+        <span style={{ width: 44, flexShrink: 0, fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-subtle)', textAlign: 'center' }}>
           {CATEGORY_LABELS[item.category]}
         </span>
-        <span style={{ width: 12, flexShrink: 0, fontSize: 10, color: 'var(--ink-faded)', textAlign: 'center', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block' }}>▸</span>
+        <span style={{ width: 12, flexShrink: 0, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-faded)', textAlign: 'center', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block' }}>▸</span>
       </div>
       <div style={{ overflow: 'hidden', maxHeight: expanded ? 200 : 0, opacity: expanded ? 1 : 0, transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease' }}>
-        <div style={{ padding: '2px 0 10px 6px', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', lineHeight: 1.7, fontStyle: 'italic' }}>
+        <div style={{ padding: '2px 0 10px 6px', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', lineHeight: 1.7, fontStyle: 'italic' }}>
           {item.description || '（无描述）'}
         </div>
       </div>
@@ -69,36 +69,36 @@ function ClueRow({ clue, archived = false, evolvedIntoName }: { clue: Clue; arch
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
         <span style={{ flexShrink: 0, marginTop: 1, color: isKey ? 'var(--blood)' : clue.synthesized ? 'var(--gold-bright)' : major ? 'var(--gold-bright)' : 'var(--gold)', display: 'inline-flex' }}>
-          {isKey ? <IconKey size={14} /> : clue.synthesized ? <span style={{ fontSize: 13 }}>✦</span> : major ? <span style={{ fontSize: 13 }}>★</span> : <IconClue size={14} />}
+          {isKey ? <IconKey size={14} /> : clue.synthesized ? <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))' }}>✦</span> : major ? <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))' }}>★</span> : <IconClue size={14} />}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontFamily: 'var(--font-display)', color: isKey ? 'var(--blood)' : 'var(--ink)', letterSpacing: 1, fontWeight: (major || isKey) ? 700 : 400 }}>
-            {isKey && <span style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid var(--blood)', borderRadius: 7, padding: '0 5px', marginRight: 5, letterSpacing: 0.5, verticalAlign: 'middle' }}>关键</span>}
+          <div style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', color: isKey ? 'var(--blood)' : 'var(--ink)', letterSpacing: 1, fontWeight: (major || isKey) ? 700 : 400 }}>
+            {isKey && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--blood)', border: '1px solid var(--blood)', borderRadius: 7, padding: '0 5px', marginRight: 5, letterSpacing: 0.5, verticalAlign: 'middle' }}>关键</span>}
             {clue.name}
           </div>
           {evolvedIntoName && (
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', fontStyle: 'italic', marginTop: 1 }}>→ 已演化为 {evolvedIntoName}</div>
+            <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', fontStyle: 'italic', marginTop: 1 }}>→ 已演化为 {evolvedIntoName}</div>
           )}
           {clue.summary && (
-            <div style={{ fontSize: 11, fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap' }}>{clue.summary}</div>
+            <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap' }}>{clue.summary}</div>
           )}
           {clue.tags && clue.tags.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {clue.tags.map((t) => (
-                <span key={t} style={{ fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', padding: '0 5px', borderRadius: 7, border: '1px solid rgba(var(--ink-faded-rgb),0.25)', letterSpacing: 0.5 }}>{t}</span>
+                <span key={t} style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', padding: '0 5px', borderRadius: 7, border: '1px solid rgba(var(--ink-faded-rgb),0.25)', letterSpacing: 0.5 }}>{t}</span>
               ))}
             </div>
           )}
         </div>
-        <span style={{ width: 12, flexShrink: 0, fontSize: 10, color: 'var(--ink-faded)', textAlign: 'center', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block', marginTop: 2 }}>▸</span>
+        <span style={{ width: 12, flexShrink: 0, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-faded)', textAlign: 'center', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block', marginTop: 2 }}>▸</span>
       </div>
       <div style={{ overflow: 'hidden', maxHeight: expanded ? 400 : 0, opacity: expanded ? 1 : 0, transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease' }}>
-        <div style={{ padding: '0 0 12px 22px', fontSize: 12.5, fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.75 }}>
+        <div style={{ padding: '0 0 12px 22px', fontSize: 'calc(12.5px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.75 }}>
           {clue.discoveryNarrative || '（暂无更多发现细节）'}
           {clue.relatedTo && clue.relatedTo.length > 0 && (
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
               {clue.relatedTo.map((r, i) => (
-                <span key={i} style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--gold)', padding: '1px 7px', borderRadius: 8, border: '1px solid rgba(196,168,85,0.35)', background: 'rgba(196,168,85,0.08)' }}>{r}</span>
+                <span key={i} style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', padding: '1px 7px', borderRadius: 8, border: '1px solid rgba(196,168,85,0.35)', background: 'rgba(196,168,85,0.08)' }}>{r}</span>
               ))}
             </div>
           )}
@@ -197,8 +197,8 @@ export function InventoryOverlay() {
         padding: '28px 20px 20px 28px', overflow: 'hidden',
       }}>
         <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 8 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>随身物品</h3>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CARRIED ITEMS</span>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>随身物品</h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 2 }}>CARRIED ITEMS</span>
         </div>
 
         {/* Category filter */}
@@ -208,7 +208,7 @@ export function InventoryOverlay() {
             const count = tab.key === 'all' ? items.length : items.filter((i) => i.category === tab.key).length;
             return (
               <button key={tab.key} onClick={() => setFilter(tab.key)} style={{
-                padding: '1px 6px', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
+                padding: '1px 6px', fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
                 borderColor: active ? 'rgba(var(--ink-faded-rgb),0.35)' : 'rgba(var(--ink-faded-rgb),0.12)', borderRadius: 2,
                 background: active ? 'rgba(var(--ink-faded-rgb),0.08)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-subtle)',
                 cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
@@ -222,7 +222,7 @@ export function InventoryOverlay() {
 
         <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.06)' }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               {items.length === 0 ? '身上空空如也……' : '该分类下无物品'}
             </div>
           ) : (
@@ -230,7 +230,7 @@ export function InventoryOverlay() {
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
+        <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
           随身 {items.length} 件
         </div>
       </motion.div>
@@ -249,8 +249,8 @@ export function InventoryOverlay() {
           padding: '28px 28px 20px 20px', transformOrigin: '0% 50%', backfaceVisibility: 'hidden', overflow: 'hidden',
         }}>
         <div style={{ borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, marginBottom: 8 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>线索</h3>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--ink-faded)', letterSpacing: 2 }}>CLUES</span>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>线索</h3>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-faded)', letterSpacing: 2 }}>CLUES</span>
         </div>
 
         {/* 关键线索进度 N/3 + 拯救世界模式（仅当本局已生成真相支柱时显示） */}
@@ -258,16 +258,16 @@ export function InventoryOverlay() {
           <div style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4, border: '1px solid rgba(var(--blood-rgb,139,58,58),0.35)', background: 'rgba(139,58,58,0.06)' }}>
               <span style={{ flexShrink: 0, color: 'var(--blood)', display: 'inline-flex' }}><IconKey size={14} /></span>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink)', letterSpacing: 1 }}>关键线索</span>
+              <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink)', letterSpacing: 1 }}>关键线索</span>
               <span style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
                 {Array.from({ length: KEY_CLUE_TARGET }).map((_, i) => (
                   <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--blood)', background: i < uncoveredN ? 'var(--blood)' : 'transparent', transition: 'background 0.3s cubic-bezier(0.4,0,0.2,1)' }} />
                 ))}
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--blood)', marginLeft: 2 }}>{uncoveredN}/{KEY_CLUE_TARGET}</span>
+                <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--blood)', marginLeft: 2 }}>{uncoveredN}/{KEY_CLUE_TARGET}</span>
               </span>
             </div>
             {saveWorldMode && (
-              <div style={{ marginTop: 4, padding: '4px 8px', borderRadius: 4, background: 'var(--blood)', color: 'var(--parchment)', fontSize: 10.5, fontFamily: 'var(--font-ui)', letterSpacing: 1, textAlign: 'center' }}>
+              <div style={{ marginTop: 4, padding: '4px 8px', borderRadius: 4, background: 'var(--blood)', color: 'var(--parchment)', fontSize: 'calc(10.5px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1, textAlign: 'center' }}>
                 拯救世界模式 · 与灾厄赛跑
               </div>
             )}
@@ -281,7 +281,7 @@ export function InventoryOverlay() {
               const active = tab.key === 'all' ? tagFilter.size === 0 : tagFilter.has(tab.key);
               return (
                 <button key={tab.key} onClick={() => { if (tab.key === 'all') setTagFilter(new Set()); else toggleTag(tab.key); }} style={{
-                  padding: '1px 6px', fontSize: 10, fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
+                  padding: '1px 6px', fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 0.5, border: '1px solid',
                   borderColor: active ? 'rgba(var(--ink-faded-rgb),0.35)' : 'rgba(var(--ink-faded-rgb),0.12)', borderRadius: 2,
                   background: active ? 'rgba(var(--ink-faded-rgb),0.08)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-subtle)',
                   cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
@@ -296,11 +296,11 @@ export function InventoryOverlay() {
 
         <div className="inv-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.06)' }}>
           {activeClues.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               尚未发现任何线索……
             </div>
           ) : filteredClues.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
+            <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-faded)', fontStyle: 'italic' }}>
               该分类下无线索
             </div>
           ) : (
@@ -311,7 +311,7 @@ export function InventoryOverlay() {
             <div style={{ marginTop: 10 }}>
               <div
                 onClick={() => setShowArchived((v) => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 0', fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 1, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 0', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 1, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}
               >
                 <span style={{ transform: showArchived ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1)', display: 'inline-block' }}>▸</span>
                 已演化 · 历史线索 ({archivedClues.length})
@@ -326,7 +326,7 @@ export function InventoryOverlay() {
         </div>
 
         <div style={{ borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', paddingTop: 8, marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
+          <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)', letterSpacing: 2 }}>
             线索 {activeClues.length} 条{archivedClues.length > 0 ? ` · 历史 ${archivedClues.length}` : ''}
           </span>
           <button
@@ -334,7 +334,7 @@ export function InventoryOverlay() {
             disabled={integrating || activeClues.length < 2}
             title={activeClues.length < 2 ? '至少需要 2 条线索才能整合' : '让 AI 归纳已知线索，得出更指向真相的推理'}
             style={{
-              flexShrink: 0, padding: '3px 12px', fontSize: 11, fontFamily: 'var(--font-ui)', letterSpacing: 1,
+              flexShrink: 0, padding: '3px 12px', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 1,
               border: '1px solid rgba(196,168,85,0.45)', borderRadius: 3,
               background: 'rgba(196,168,85,0.08)', color: 'var(--gold)',
               cursor: integrating || activeClues.length < 2 ? 'not-allowed' : 'pointer',

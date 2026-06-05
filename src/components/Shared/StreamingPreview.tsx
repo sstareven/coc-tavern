@@ -41,16 +41,16 @@ export function StreamingPreview({ visible, text }: Props) {
         borderBottom: '1px solid rgba(196,168,85,0.12)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--gold)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
           ◈ 流式渲染中...
         </span>
-        <span style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>
+        <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)' }}>
           {text.length} 字符
         </span>
       </div>
       <div ref={scrollRef} style={{
         flex: 1, overflowY: 'auto', padding: '8px 12px',
-        fontSize: 12, color: 'var(--text-light)', lineHeight: 1.6,
+        fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.6,
         scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
       }}>
         {rendered.length === 1 && typeof rendered[0] === 'string' ? (
