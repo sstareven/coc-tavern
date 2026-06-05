@@ -108,6 +108,17 @@ export interface CombatRow {
   encounter: Encounter;
 }
 
+// 项目命名空间 console.log 捕获（[cache-diag] 等）。
+// 跨会话保留，删会话时随 deleteConversationInner 事务同步清除。
+export interface ConsoleLogRow {
+  id?: number;
+  sessionId: string;
+  pageIndex: number;
+  ts: number;
+  level: 'log' | 'warn' | 'error' | 'info';
+  message: string;
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -127,6 +138,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   keyClues: EntityTable<KeyClueRow, 'conversationId'>;
   plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
   combat: EntityTable<CombatRow, 'conversationId'>;
+  consoleLogs: EntityTable<ConsoleLogRow, 'id'>;
 };
 
 db.version(1).stores({
@@ -213,6 +225,14 @@ export const V10_SCHEMA = {
 } as const;
 
 db.version(10).stores(V10_SCHEMA);
+
+/** v11: 新增 console 日志捕获表（项目命名空间 [xxx] 日志，跨会话保留）。无数据迁移。 */
+export const V11_SCHEMA = {
+  ...V10_SCHEMA,
+  consoleLogs: '++id, [sessionId+pageIndex], sessionId, ts',
+} as const;
+
+db.version(11).stores(V11_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
