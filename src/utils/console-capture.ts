@@ -35,7 +35,10 @@ const retentionInFlight = new Set<string>();
 const MEMORY_LIMIT = 2000;
 let dexieAvailable = true;
 const memoryBuffer: LogRecord[] = [];
-let memoryNextId = 1;
+// 起 1e9 防与 dexie auto-inc id (从 1 起) 在排序时撞车。
+// 当前 dexieAvailable 一次性 gate 一旦 flip 就不再读 dexie,所以 mixed-source
+// 实际几乎不会发生——这是 cheap forward-defense,以防未来改用 per-call try。
+let memoryNextId = 1_000_000_000;
 
 /** 写入入口：被 Task 3 的 console 拦截器在生产中调用,也供测试直接驱动。
  *  签名是同步 void——内部 schedule()/flush() 走 dexie,但 caller 不需要 await
@@ -180,7 +183,7 @@ export function _resetForTests(): void {
   retentionInFlight.clear();
   dexieAvailable = true;
   memoryBuffer.length = 0;
-  memoryNextId = 1;
+  memoryNextId = 1_000_000_000;
   uninstallForTests();
 }
 
