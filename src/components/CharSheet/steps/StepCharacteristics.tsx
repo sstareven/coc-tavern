@@ -274,8 +274,8 @@ export function StepCharacteristics({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, overflowX: 'hidden' }}>
-      {/* v1.11.8: minWidth:0 + overflowX:hidden 防字体倍率 + 列表撑出横向滚动条 */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+      {/* v1.11.8: minWidth:0 让 flex 子项能正确收缩;不再裁切横向溢出,改让 grid 自适应列数 */}
       {/* Stable header: title on its own line, controls in a wrapping left-aligned row below.
           Same arrangement in BOTH modes so buttons never jump to the far right. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -433,7 +433,9 @@ export function StepCharacteristics({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        {/* v1.11.8: auto-fit minmax(220px, 1fr) —— 窄屏 1 列、宽屏 2-3 列自适应,
+            字体放大后属性卡片需要的宽度变大,grid 自动减少列数让内容完整可见。 */}
         {CHAR_ORDER.map(({ key, zh }) => {
           const val = charValues[key] || 50;
           const half = Math.floor(val / 2);

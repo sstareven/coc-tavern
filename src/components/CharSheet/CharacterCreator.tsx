@@ -999,7 +999,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 'calc(min(560px, 94vw) / var(--auto-zoom, 1))',
+              width: 'calc(min(720px, 94vw) / var(--auto-zoom, 1))',
               ...(step === 4
                 ? { height: 'calc(55vh / var(--auto-zoom, 1))' }
                 : { maxHeight: 'calc(88vh / var(--auto-zoom, 1))' }),
@@ -1053,16 +1053,16 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           {/* Step indicator */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14,
-            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8,
+            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8, width: '100%',
           }}>
             {STEPS.map((label, i) => {
               const active = i === step;
               const done = i < step;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i > 0 ? 1 : 'none', minWidth: 0 }}>
                   {i > 0 && (
                     <div style={{
-                      width: 20, height: 1,
+                      flex: 1, minWidth: 16, maxWidth: 80, height: 1,
                       background: i <= step ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
                       transition: 'var(--transition-smooth)',
                     }} />
