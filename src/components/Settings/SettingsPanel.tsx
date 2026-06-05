@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useSettingsStore, UI_SCALE_MIN, UI_SCALE_MAX } from '../../stores/useSettingsStore';
 import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
@@ -612,7 +612,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 {!isMobile && (
                   <div style={rowStyle}>
                     <span style={labelStyle}>界面缩放</span>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                       {[
                         { v: 1, name: '标准' },
                         { v: 1.15, name: '大' },
@@ -645,6 +645,57 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                           </button>
                         );
                       })}
+                      {/* v1.11.6: 自定义放大倍率 —— uiScale 不在 4 个预设档时高亮此输入。
+                          输入百分比 50-300（步长 5）；onChange 实时应用，clampUiScale 兜底越界。 */}
+                      {(() => {
+                        const isCustom = ![1, 1.15, 1.3, 1.5].includes(uiScale);
+                        return (
+                          <div
+                            title={`自定义 ${Math.round(UI_SCALE_MIN * 100)}% ~ ${Math.round(UI_SCALE_MAX * 100)}%`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '4px 6px 4px 10px',
+                              borderRadius: 4,
+                              border: isCustom ? '1px solid var(--gold)' : '1px solid var(--brass)',
+                              background: isCustom ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
+                              color: isCustom ? 'var(--gold)' : 'var(--ink-subtle)',
+                              fontFamily: 'var(--font-ui)',
+                              fontSize: 10,
+                              letterSpacing: 1,
+                              transition: 'var(--transition-smooth)',
+                            }}
+                          >
+                            自定义
+                            <input
+                              type="number"
+                              min={Math.round(UI_SCALE_MIN * 100)}
+                              max={Math.round(UI_SCALE_MAX * 100)}
+                              step={5}
+                              value={Math.round(uiScale * 100)}
+                              onChange={(e) => {
+                                const pct = Number(e.target.value);
+                                if (!Number.isFinite(pct)) return;
+                                setUiScale(pct / 100);
+                              }}
+                              style={{
+                                width: 44,
+                                padding: '2px 4px',
+                                background: 'rgba(0,0,0,0.35)',
+                                border: '1px solid rgba(196,168,85,0.3)',
+                                borderRadius: 3,
+                                color: isCustom ? 'var(--gold)' : 'var(--ink-subtle)',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: 10,
+                                textAlign: 'center',
+                                outline: 'none',
+                              }}
+                            />
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.8 }}>%</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

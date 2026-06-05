@@ -4,16 +4,20 @@ import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
 
-/** 界面缩放合法档位：标准/大/特大/超大。控件与 clamp 共用。 */
+/** 界面缩放合法档位：标准/大/特大/超大。控件按钮用；自定义值不限于这些档位（见 clampUiScale）。 */
 export const UI_SCALE_LEVELS = [1, 1.15, 1.3, 1.5] as const;
 
-/** 把任意输入吸附到最近的合法缩放档位；非法/非有限值回落 1。 */
+/** 界面缩放上下界（百分比 50% ~ 300%）——超出这个范围 UI 会糟糕到不可用。 */
+export const UI_SCALE_MIN = 0.5;
+export const UI_SCALE_MAX = 3.0;
+
+/** 把任意输入钳到 [UI_SCALE_MIN, UI_SCALE_MAX] 范围内；非法/非有限值回落 1。
+ *  v1.11.6 起接受任意自定义值（之前会 snap 到 UI_SCALE_LEVELS 的最近档）。 */
 export function clampUiScale(v: number): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return 1;
-  return UI_SCALE_LEVELS.reduce(
-    (best, lvl) => (Math.abs(lvl - v) < Math.abs(best - v) ? lvl : best),
-    UI_SCALE_LEVELS[0] as number,
-  );
+  if (v < UI_SCALE_MIN) return UI_SCALE_MIN;
+  if (v > UI_SCALE_MAX) return UI_SCALE_MAX;
+  return v;
 }
 
 interface SettingsState {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyUiScale } from './useUiScale';
-import { clampUiScale, UI_SCALE_LEVELS } from '../stores/useSettingsStore';
+import { clampUiScale, UI_SCALE_LEVELS, UI_SCALE_MIN, UI_SCALE_MAX } from '../stores/useSettingsStore';
 
 function fakeEl() {
   const calls: Array<[string, string, string?]> = [];
@@ -13,15 +13,25 @@ function fakeEl() {
   return { el, calls };
 }
 
-describe('clampUiScale', () => {
+describe('clampUiScale (v1.11.6: 接受任意值，仅钳上下界)', () => {
   it('合法档位原样返回', () => {
     for (const lvl of UI_SCALE_LEVELS) expect(clampUiScale(lvl)).toBe(lvl);
   });
-  it('越界/非法吸附到最近合法档', () => {
-    expect(clampUiScale(2.0)).toBe(1.5);
-    expect(clampUiScale(0.5)).toBe(1);
-    expect(clampUiScale(1.2)).toBe(1.15); // 1.2 距 1.15(0.05) < 1.3(0.1)
-    expect(clampUiScale(1.45)).toBe(1.5);
+  it('范围内自定义值原样返回（不再 snap 到档位）', () => {
+    expect(clampUiScale(1.2)).toBe(1.2);
+    expect(clampUiScale(1.45)).toBe(1.45);
+    expect(clampUiScale(1.75)).toBe(1.75);
+    expect(clampUiScale(2.25)).toBe(2.25);
+  });
+  it('上界 3.0 / 下界 0.5 边界值原样返回', () => {
+    expect(clampUiScale(UI_SCALE_MIN)).toBe(0.5);
+    expect(clampUiScale(UI_SCALE_MAX)).toBe(3.0);
+  });
+  it('越界钳到上下界', () => {
+    expect(clampUiScale(5.0)).toBe(UI_SCALE_MAX);
+    expect(clampUiScale(0.1)).toBe(UI_SCALE_MIN);
+  });
+  it('非法/非有限值回落 1', () => {
     expect(clampUiScale(NaN)).toBe(1);
     expect(clampUiScale(Infinity)).toBe(1);
   });
