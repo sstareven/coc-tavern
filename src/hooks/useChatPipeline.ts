@@ -776,7 +776,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const sessionId = useChatStore.getState().activeId ?? '__no_session__';
         const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
         const line = formatDiagnosticLine(result);
-        if (dsCfg.debugLog === true) console.log(line);
+        console.log(line); // experimentalPrefixDiagnostics 已是外层 gate；让 console-capture 可收
         if (!result.prefixStable) {
           // 命中漂移：在主日志面板写一条 warn，提醒用户排查
           pushLog('warn', line, 'system');
