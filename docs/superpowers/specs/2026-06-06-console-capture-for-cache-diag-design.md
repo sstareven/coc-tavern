@@ -58,7 +58,7 @@ navigator.clipboard.writeText(text)
 
 ### 1. `src/utils/console-capture.ts`（新建，~180 行）
 
-模块边界：纯模块，不依赖 React。只 import zustand store（`useChatStore`、`useBookStore`）来获取 sessionId 和 pageIndex —— 这是项目里 store 的访问惯例（参考 `prefix-cache-diagnostics.ts` 之类）。
+模块边界：纯模块，不依赖 React。复用项目主 db（`src/db/database.ts` 已用 Dexie 4.4）—— 不开新 DB，避免多 db 引入额外迁移/事务边界。只 import zustand store（`useChatStore`、`useBookStore`）来获取 sessionId 和 pageIndex —— 这是项目里 store 的访问惯例（参考 `prefix-cache-diagnostics.ts`）。
 
 **Exports**：
 
@@ -95,9 +95,10 @@ export interface LogRecord {
 - 保留原 `console.log/warn/error/info` 引用
 - 序列化非 string 参数用 `JSON.stringify(arg, null, 0)`，失败兜底 `String(arg)`
 - 命名空间正则 `/^\[[a-z][a-z0-9-]+\]/`（小写起、允许数字和短横线）
-- IndexedDB 操作全部 promise 包装；write 走批量 flush（见 Data Flow，触发条件：pending ≥ 10 走 microtask、否则 idle callback）
-- 保留策略：每 100 次 write 后检查计数；某 sessionId 条数 > 5000 → `cursor.delete()` 最旧一半
-- IDB 不可用（`indexedDB` undefined / 隐私模式）→ 降级 in-memory ring buffer（2000 条上限），同 API surface
+- 复用 `src/db/database.ts` 的主 dexie 实例；新增 `consoleLogs` 表（schema：`++id, [sessionId+pageIndex], sessionId, ts`），bump dexie version 并补迁移
+- write 用 `db.consoleLogs.bulkAdd(pending)` 批量；触发条件见 Data Flow
+- 保留策略：每 100 次 bulkAdd 后查 `db.consoleLogs.where('sessionId').equals(sid).count()`；> 5000 → 用 cursor `.where('sessionId').equals(sid).limit(N).delete()` 删最旧一半
+- IDB 不可用（`indexedDB` undefined / 隐私模式 / dexie 启动失败）→ 降级 in-memory ring buffer（2000 条上限），同 API surface
 
 ### 2. `src/main.tsx`（修改 1 行）
 
@@ -133,13 +134,15 @@ installConsoleCapture();
 
 ### 5. `src/stores/sessionLifecycle.ts`（修改）
 
-按 memory 的"按会话状态隔离不变量"要求，在删会话的流程里加：
+按 memory 的"按会话状态隔离不变量"要求，在 `deleteConversationInner`（line 446-472）的 dexie 事务里加一行：
 
 ```typescript
-await deleteLogsForSession(sessionIdBeingDeleted);
+await db.consoleLogs.where('sessionId').equals(cid).delete();
 ```
 
-具体接入点（startNewConversation / clear / delete 之类）按现有调用模式补 —— 需要先看代码定位。
+并把 `'consoleLogs'` 加入事务的 store 名数组（line 450 那串）。删会话事务原子完成，日志同步消失。
+
+注意 `clearAllGameState`/`startNewConversation` 流程**不**调 deleteLogs —— 开新会话不应擦旧会话日志（用户可能想跨会话回看）。仅 `deleteConversationInner`（真删会话行）调。
 
 ## Data Flow
 
@@ -154,15 +157,15 @@ await deleteLogsForSession(sessionIdBeingDeleted);
 7. 触发 flush 调度（如果还没调度过）：
    - pending 长度 < 10 → `requestIdleCallback(flush, { timeout: 100 })`
    - pending 长度 ≥ 10 → 立刻 `queueMicrotask(flush)`，避免高频日志期间 buffer 无限涨
-8. flush：开一个 readwrite txn，批量 add 全部 pending，清空数组，清调度标志
+8. flush：`db.consoleLogs.bulkAdd(pending)` 单次批量写，清空 pending，清调度标志；每 100 次 flush 触发 retention 检查（计数 + 删最旧一半）
 
 ### 读取路径（低频，复制按钮）
 
 1. `getLogsForSession(sid, 10)`
-2. 用 `by_session_page` index 的 `IDBKeyRange.bound([sid, 0], [sid, Infinity])` cursor 遍历
+2. `db.consoleLogs.where('[sessionId+pageIndex]').between([sid, Dexie.minKey], [sid, Dexie.maxKey]).toArray()`
 3. 收集 pageIndex 集合 → 取 max；保留 pageIndex >= max(maxPage - 9, 1)
 4. 统计 `omittedPages`（不在保留区间的页数）、`omittedRecords`
-5. 返回保留区间内的记录数组
+5. 返回保留区间内的记录数组（已按 [sessionId, pageIndex] 索引升序；同 pageIndex 内按 ts 升序由插入顺序+id 保证，bulkAdd 顺序写入）
 
 ## 复制文本格式
 
@@ -241,10 +244,11 @@ UI 测试由用户做（按 `memory/user-does-ui-testing.md`）。我跑：
 - `src/utils/console-capture.test.ts`
 
 **修改**：
+- `src/db/database.ts` — bump dexie version、加 `consoleLogs` 表 schema、加 `ConsoleLogRow` 类型导出
 - `src/main.tsx` — boot 时安装
 - `src/hooks/useChatPipeline.ts:779` — 去 debugLog gate
 - `src/components/Settings/CacheStatsPanel.tsx` — handleCopy 拉日志、buildCopyText 插段、buildTroubleshootBlock 加条目 #7
-- `src/stores/sessionLifecycle.ts` — 删会话时调 deleteLogsForSession
+- `src/stores/sessionLifecycle.ts` — `deleteConversationInner` 事务里删 consoleLogs（line 446-472）
 
 ## Acceptance
 
