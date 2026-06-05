@@ -110,6 +110,8 @@ export interface CombatRow {
 
 // 项目命名空间 console.log 捕获（[cache-diag] 等）。
 // 跨会话保留，删会话时随 deleteConversationInner 事务同步清除。
+// 命名注：此表用 sessionId 而非全表惯用的 conversationId——本表会收 boot 期/无会话期日志
+//   (sessionId === '__no_session__' fallback)，语义比"对话"更宽，故沿用 chatStore 的 activeId 命名。
 export interface ConsoleLogRow {
   id?: number;
   sessionId: string;

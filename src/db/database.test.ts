@@ -391,8 +391,11 @@ describe('upgradeV2 failure safety', () => {
 });
 
 describe('v11: consoleLogs table', () => {
+  beforeEach(async () => {
+    await db.consoleLogs.clear();
+  });
+
   it('exposes consoleLogs table with the new schema', async () => {
-    const { db } = await import('./database');
     expect(db.consoleLogs).toBeDefined();
 
     const row = {
