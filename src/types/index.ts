@@ -136,6 +136,11 @@ export interface PageGenStats {
    * 老存档/老页为 undefined → 跳过显示。
    */
   rpm?: number;
+  /**
+   * 生成时使用的模型名（settings.apiModel 快照）——CacheStatsPanel 据此区分 flash/pro
+   * 走对应费率算 cost、并把曲线按模型分双线显示。老存档为 undefined → 用默认 pro 价。
+   */
+  model?: string;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
