@@ -86,11 +86,11 @@ export function StepReview({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={sectionTitle}>确认创建 REVIEW</div>
+      <div style={sectionTitle}>确认创建</div>
 
       {/* Preset save */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <button onClick={onSavePreset} style={{ padding: '4px 12px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(196,168,85,0.1)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', letterSpacing: 2 }}>保存为预设</button>
+        <button onClick={onSavePreset} style={{ padding: '4px 12px', border: '1px solid var(--gold)', borderRadius: 3, background: 'rgba(196,168,85,0.1)', color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer', letterSpacing: 2 }}>保存为预设</button>
       </div>
 
       {/* Identity summary */}
@@ -100,7 +100,7 @@ export function StepReview({
         background: 'rgba(0,0,0,0.1)',
         padding: 12,
       }}>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
           身份信息
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 'calc(12px * var(--system-ratio, 1))' }}>
@@ -128,7 +128,7 @@ export function StepReview({
           background: 'rgba(0,0,0,0.1)',
           padding: 12,
         }}>
-          <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 6 }}>
             年龄修正 (AGE {ageModSummary.age})
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.7 }}>
@@ -154,7 +154,7 @@ export function StepReview({
         background: 'rgba(0,0,0,0.1)',
         padding: 12,
       }}>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
           基础属性
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px 12px', fontSize: 'calc(12px * var(--system-ratio, 1))' }}>
@@ -162,7 +162,7 @@ export function StepReview({
             const val = c(key);
             return (
               <div key={key} style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-light)' }}>
-                <span style={{ color: 'var(--ink-subtle)', fontSize: 'calc(10px * var(--system-ratio, 1))' }}>{zh} </span>
+                <span style={{ color: 'var(--ink-subtle)', fontSize: 10 }}>{zh} </span>
                 <span style={{ color: 'var(--gold)' }}>{val}</span>
               </div>
             );
@@ -177,7 +177,7 @@ export function StepReview({
         background: 'rgba(0,0,0,0.1)',
         padding: 12,
       }}>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
           衍生属性
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 12px', fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)' }}>
@@ -197,22 +197,22 @@ export function StepReview({
         background: 'rgba(0,0,0,0.1)',
         padding: 12,
       }}>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
           技能 ({occSkills.length + interestSkills.length + 1} 项)
         </div>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 6 }}>
+        <div style={{ fontSize: 11, color: 'var(--ink-subtle)', marginBottom: 6 }}>
           信用评级: <span style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{creditRating}%</span>
         </div>
         {occSkills.length > 0 && (
           <div style={{ marginBottom: 6 }}>
-            <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 4 }}>职业技能:</div>
+            <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 4 }}>职业技能:</div>
             {occSkills.map((sn) => {
               const spec = ALL_SKILLS.find((s) => s.name === sn);
               const base = spec ? resolveSkillBase(spec.base, charValues as Record<COC7Characteristic, number>) : 0;
               const occA = occPoints[sn] ?? 0;
               const intA = interestPoints[sn] ?? 0;
               return (
-                <div key={sn} style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--text-light)', marginLeft: 8 }}>
+                <div key={sn} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-light)', marginLeft: 8 }}>
                   {sn}: {base}% {occA > 0 ? `+${occA}%` : ''}{intA > 0 ? ` +${intA}%` : ''} = <span style={{ color: 'var(--gold)' }}>{Math.min(99, base + occA + intA)}%</span>
                 </div>
               );
@@ -221,13 +221,13 @@ export function StepReview({
         )}
         {interestSkills.filter((sn) => !occSkills.includes(sn)).length > 0 && (
           <div>
-            <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', marginBottom: 4 }}>兴趣技能:</div>
+            <div style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 4 }}>兴趣技能:</div>
             {interestSkills.filter((sn) => !occSkills.includes(sn)).map((sn) => {
               const spec = ALL_SKILLS.find((s) => s.name === sn);
               const base = spec ? resolveSkillBase(spec.base, charValues as Record<COC7Characteristic, number>) : 0;
               const intA = interestPoints[sn] ?? 0;
               return (
-                <div key={sn} style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--text-light)', marginLeft: 8 }}>
+                <div key={sn} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-light)', marginLeft: 8 }}>
                   {sn}: {base}% {intA > 0 ? `+${intA}%` : ''} = <span style={{ color: 'var(--gold)' }}>{Math.min(99, base + intA)}%</span>
                 </div>
               );
@@ -243,7 +243,7 @@ export function StepReview({
         background: 'rgba(0,0,0,0.1)',
         padding: 12,
       }}>
-        <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, marginBottom: 8 }}>
           背景故事
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'calc(12px * var(--system-ratio, 1))' }}>

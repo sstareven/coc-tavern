@@ -84,12 +84,12 @@ export function StepSkills({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={sectionTitle}>职业与技能 OCCUPATION & SKILLS</div>
+      <div style={sectionTitle}>职业与技能</div>
 
       {/* Occupation selector */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业 OCCUPATION</span>
+          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业</span>
           <DarkSelect value={occValue} onChange={onSetOccupation}
             options={[
               ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
@@ -98,7 +98,7 @@ export function StepSkills({
         </div>
         {isCustomOcc && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-            <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>自定义职业名称</span>
+            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>自定义职业名称</span>
             <input type="text" name="charsheet-skills-custom-occupation" value={customOccupation} onChange={(e) => onSetCustomOccupation(e.target.value)}
               style={{ ...inputStyle, height: 30 }} placeholder="输入职业名称" />
           </div>
@@ -109,7 +109,7 @@ export function StepSkills({
       <div style={{
         padding: '8px 12px', border: '1px solid rgba(196,168,85,0.12)', borderRadius: 4,
         background: 'rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 4,
-        fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)',
+        fontSize: 11, fontFamily: 'var(--font-mono)',
       }}>
         {selectedOcc && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -158,7 +158,7 @@ export function StepSkills({
             <button key={cat} onClick={() => onSetFilterCat(cat === '全部' ? null : cat as SkillCat)}
               className="sk-btn"
               style={{
-                padding: '3px 10px', borderRadius: 3, fontSize: 'calc(10px * var(--system-ratio, 1))', fontWeight: 700,
+                padding: '3px 10px', borderRadius: 3, fontSize: 10, fontWeight: 700,
                 fontFamily: 'var(--font-display)', letterSpacing: 1,
                 border: active ? `1px solid ${c}` : `1px solid ${c}44`,
                 color: active ? c : `${c}88`,
@@ -215,7 +215,7 @@ export function StepSkills({
                 {/* Header row — skill name */}
                 <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start' }}>
                   <span style={{
-                    fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', paddingLeft: 4, paddingRight: 32,
+                    fontSize: 10, fontFamily: 'var(--font-body)', paddingLeft: 4, paddingRight: 32,
                     color: suggested ? '#ffd54f' : (isOcc || isInt) ? catColor : `${catColor}88`,
                     fontWeight: suggested ? 700 : 400, flexShrink: 0,
                   }}>
@@ -232,7 +232,7 @@ export function StepSkills({
                       <button onClick={(e) => { e.stopPropagation(); onToggleOccSkill(sk.name); }}
                         className="sk-btn"
                         style={{ background: 'none', border: 'none', padding: '1px 2px',
-                          fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', fontWeight: 700,
+                          fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 700,
                           color: 'rgba(196,168,85,0.18)', cursor: 'pointer',
                           whiteSpace: 'pre', lineHeight: 1.1, textAlign: 'center',
                         }}>{'\u804c\n\u4e1a'}</button>
@@ -240,7 +240,7 @@ export function StepSkills({
                     <button onClick={(e) => { e.stopPropagation(); onToggleInterestSkill(sk.name); }}
                       className="sk-btn"
                       style={{ background: 'none', border: 'none', padding: '1px 2px',
-                        fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', fontWeight: 700,
+                        fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 700,
                         color: 'rgba(120,175,220,0.15)', cursor: 'pointer',
                         whiteSpace: 'pre', lineHeight: 1.1, textAlign: 'center',
                       }}>{'\u5174\n\u8da3'}</button>
@@ -288,7 +288,7 @@ export function StepSkills({
                       <button onClick={(e) => { e.stopPropagation(); if (!isOcc) onToggleOccSkill(sk.name); else onReEnterEdit(sk.name, 'occ'); }}
                         className={isOcc ? 'sk-btn sk-btn-occ' : 'sk-btn'}
                         style={{ background: 'none', border: 'none', padding: '1px 2px',
-                          fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', fontWeight: 700,
+                          fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 700,
                           color: isOcc ? 'rgba(196,168,85,0.32)' : 'rgba(196,168,85,0.18)',
                           cursor: 'pointer', whiteSpace: 'pre', lineHeight: 1.1, textAlign: 'center',
                         }}>{'\u804c\n\u4e1a'}</button>
@@ -296,14 +296,14 @@ export function StepSkills({
                     <button onClick={(e) => { e.stopPropagation(); if (!isInt) onToggleInterestSkill(sk.name); else onReEnterEdit(sk.name, 'int'); }}
                       className={isInt ? 'sk-btn sk-btn-int' : 'sk-btn'}
                       style={{ background: 'none', border: 'none', padding: '1px 2px',
-                        fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-display)', fontWeight: 700,
+                        fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: 700,
                         color: isInt ? 'rgba(120,175,220,0.28)' : 'rgba(120,175,220,0.15)',
                         cursor: 'pointer', whiteSpace: 'pre', lineHeight: 1.1, textAlign: 'center',
                       }}>{'\u5174\n\u8da3'}</button>
                   </div>
                 )}
                 {/* Description — absolute overlay, fade-in/out with bezier, marquee scroll */}
-                <div style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)',
+                <div style={{ fontSize: 8, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)',
                   position: 'absolute', left: 6, right: 4, bottom: 2, zIndex: 1,
                   mixBlendMode: 'difference', lineHeight: 1.3, overflow: 'hidden',
                   maskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',

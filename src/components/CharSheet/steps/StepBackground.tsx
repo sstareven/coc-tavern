@@ -71,19 +71,19 @@ export function StepBackground({
   }, [openField]);
 
   const fields: FieldDef[] = [
-    { label: '个人描述 Description', value: description, set: onSetDescription, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
-    { label: '思想/信念 Beliefs', value: beliefs, set: onSetBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
-    { label: '重要之人 Significant People', value: significantPeople, set: onSetSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
-    { label: '重要场所 Meaningful Locations', value: meaningfulLocations, set: onSetMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
-    { label: '珍贵之物 Treasured Possessions', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
-    { label: '特质 Traits', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
-    { label: '伤口/伤痕 Injuries', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
-    { label: '恐惧症/狂躁症 Phobias', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
+    { label: '个人描述', value: description, set: onSetDescription, hint: '例如：身材高瘦，戴圆框眼镜，右手有烧伤疤痕' },
+    { label: '思想/信念', value: beliefs, set: onSetBeliefs, hint: '例如：相信科学能解释一切，但近来开始怀疑' },
+    { label: '重要之人', value: significantPeople, set: onSetSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
+    { label: '重要场所', value: meaningfulLocations, set: onSetMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
+    { label: '珍贵之物', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
+    { label: '特质', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
+    { label: '伤口/伤痕', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
+    { label: '恐惧症/狂躁症', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
-      <div style={sectionTitle}>背景故事 BACKGROUND</div>
+      <div style={sectionTitle}>背景故事</div>
 
       {/* AI 背景补写：草稿框 + 工具栏（提示在左、按钮在右） */}
       <div style={{
@@ -102,12 +102,12 @@ export function StepBackground({
           placeholder={'用一段话随意描述你的调查员——身世、性格、在意的人或物、心结、伤痛……\n点「背景补写」，AI 会自动理解并整理分配到下方各栏，空着的栏也会帮你补全。'}
         />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
             写一段话或先手填几栏均可；全部留空则按职业与属性为你生成完整背景。
           </span>
           <button onClick={onBackstoryFill} disabled={bgFilling} className="sk-btn"
             style={{
-              ...btnBase, fontSize: 'calc(11px * var(--system-ratio, 1))', padding: '6px 16px', whiteSpace: 'nowrap', flexShrink: 0,
+              ...btnBase, fontSize: 11, padding: '6px 16px', whiteSpace: 'nowrap', flexShrink: 0,
               opacity: bgFilling ? 0.5 : 1, cursor: bgFilling ? 'wait' : 'pointer',
             }}>
             {bgFilling ? '整理中...' : '✦ 背景补写'}
@@ -135,7 +135,7 @@ export function StepBackground({
       {backstoryError && (
         <div style={{
           padding: '8px 12px', border: '1px solid rgba(255,82,82,0.3)', borderRadius: 4,
-          background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 'calc(11px * var(--system-ratio, 1))',
+          background: 'rgba(139,58,58,0.1)', color: 'var(--blood)', fontSize: 11,
           fontFamily: 'var(--font-body)', flexShrink: 0,
           whiteSpace: 'pre-line', lineHeight: 1.6,
         }}>
@@ -189,12 +189,12 @@ export function StepBackground({
                   transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s cubic-bezier(0.4,0,0.2,1), margin-bottom 0.4s cubic-bezier(0.4,0,0.2,1), padding 0.4s cubic-bezier(0.4,0,0.2,1), min-height 0.4s cubic-bezier(0.4,0,0.2,1), border-width 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.15s cubic-bezier(0.4,0,0.2,1), background 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s cubic-bezier(0.4,0,0.2,1)',
                 }}
               >
-                <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>{f.label}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {hasContent ? (
-                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-light)', fontFamily: 'var(--font-body)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.value}</span>
                   ) : null}
-                  <span style={{ color: 'var(--gold)', fontSize: 'calc(10px * var(--system-ratio, 1))', transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'▼'}</span>
+                  <span style={{ color: 'var(--gold)', fontSize: 10, transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{'▼'}</span>
                 </span>
               </div>
             );

@@ -638,7 +638,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setBgConfirm(false);
     const settings = useSettingsStore.getState();
     if (!settings.apiKey) {
-      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
+      setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }
     setBackstoryError('');
@@ -764,7 +764,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   // 点「背景补写」入口：无 apiKey 报错；若已有手填字段→弹确认条让用户选覆盖/仅填空格；否则直接整理。
   const handleBackstoryFill = () => {
     if (!useSettingsStore.getState().apiKey) {
-      setBackstoryError('请先在设置中配置 API 密钥后再使用背景补写功能。');
+      setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }
     setBackstoryError('');
@@ -1031,7 +1031,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               </h2>
               <div style={{
                 fontFamily: 'var(--font-ui)',
-                fontSize: 'calc(11px * var(--system-ratio, 1))',
+                fontSize: 11,
                 color: 'var(--ink-subtle)',
                 letterSpacing: 3,
                 marginTop: 2,
@@ -1083,7 +1083,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                     {done ? '✓' : i + 1}
                   </button>
                   {active && (
-                    <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
                       {label}
                     </span>
                   )}

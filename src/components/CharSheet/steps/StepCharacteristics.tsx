@@ -254,7 +254,7 @@ export function StepCharacteristics({
     background: 'rgba(196,168,85,0.1)',
     color: 'var(--gold)',
     fontFamily: 'var(--font-ui)',
-    fontSize: 'calc(11px * var(--system-ratio, 1))',
+    fontSize: 11,
     cursor: 'pointer',
     letterSpacing: 2,
     transition: 'var(--transition-smooth)',
@@ -267,18 +267,19 @@ export function StepCharacteristics({
     background: 'transparent',
     color: 'var(--ink-subtle)',
     fontFamily: 'var(--font-ui)',
-    fontSize: 'calc(11px * var(--system-ratio, 1))',
+    fontSize: 11,
     cursor: 'pointer',
     letterSpacing: 2,
     transition: 'var(--transition-smooth)',
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, overflowX: 'hidden' }}>
+      {/* v1.11.8: minWidth:0 + overflowX:hidden 防字体倍率 + 列表撑出横向滚动条 */}
       {/* Stable header: title on its own line, controls in a wrapping left-aligned row below.
           Same arrangement in BOTH modes so buttons never jump to the far right. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={sectionTitle}>基础属性 CHARACTERISTICS</div>
+        <div style={sectionTitle}>基础属性</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Mode toggle */}
           <div style={{
@@ -289,14 +290,14 @@ export function StepCharacteristics({
               padding: '5px 12px', border: 'none',
               background: poolMode ? 'rgba(196,168,85,0.18)' : 'transparent',
               color: poolMode ? 'var(--gold)' : 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
               letterSpacing: 1, transition: 'var(--transition-smooth)',
             }}>点数池分配</button>
             <button onClick={onSwitchToFreeMode} style={{
               padding: '5px 12px', border: 'none',
               background: !poolMode ? 'rgba(196,168,85,0.18)' : 'transparent',
               color: !poolMode ? 'var(--gold)' : 'var(--ink-subtle)',
-              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
               letterSpacing: 1, transition: 'var(--transition-smooth)',
             }}>自由调整</button>
           </div>
@@ -333,7 +334,7 @@ export function StepCharacteristics({
         >
           <span style={{
             color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-            fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', alignSelf: 'center',
+            fontSize: 11, textAlign: 'center', alignSelf: 'center',
           }}>
             骰子池:
           </span>
@@ -350,7 +351,7 @@ export function StepCharacteristics({
                 onPointerDown={(e) => startTouchDrag(e, { source: 'tray', value: v })}
               />
             )) : (
-              <span style={{ color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center' }}>
+              <span style={{ color: 'var(--success)', fontFamily: 'var(--font-ui)', letterSpacing: 1, fontSize: 11, textAlign: 'center' }}>
                 全部已分配
               </span>
             )}
@@ -365,7 +366,7 @@ export function StepCharacteristics({
           background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 8,
           transition: 'var(--transition-smooth)',
         }}>
-          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
+          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 11 }}>
             你已年长 — 需在 STR / CON / DEX 中合计扣除 {ageBand.strConDexGroup} 点
           </div>
           {(['STR', 'CON', 'DEX'] as const).map((k) => {
@@ -382,7 +383,7 @@ export function StepCharacteristics({
               </div>
             );
           })}
-          <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+          <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
             已分配 {(scdAlloc?.STR ?? 0) + (scdAlloc?.CON ?? 0) + (scdAlloc?.DEX ?? 0)} / {ageBand.strConDexGroup}
           </div>
         </div>
@@ -395,7 +396,7 @@ export function StepCharacteristics({
           background: 'rgba(196,168,85,0.06)', display: 'flex', flexDirection: 'column', gap: 8,
           transition: 'var(--transition-smooth)',
         }}>
-          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
+          <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontSize: 11 }}>
             你尚年轻 — 需在 STR / SIZ 中合计扣除 {ageBand.strSizGroup} 点
           </div>
           {(['STR', 'SIZ'] as const).map((k) => {
@@ -412,17 +413,17 @@ export function StepCharacteristics({
               </div>
             );
           })}
-          <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
+          <div style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>
             已分配 {(ssAlloc?.STR ?? 0) + (ssAlloc?.SIZ ?? 0)} / {ageBand.strSizGroup}
           </div>
         </div>
       )}
 
-      {/* A3.2 年龄修正：信息摘要（APP/MOV/EDU 提升次数/幸运重投） */}
+      {/* A3.2 年龄修正：信息摘要（APP//EDU 提升次数/幸运重投） */}
       {ageBand && (ageBand.appDeduct > 0 || ageBand.mov !== 8 || ageBand.eduImprovementCount > 0 || ageBand.luckRollAgain) && (
         <div style={{
           padding: '8px 12px', border: '1px solid rgba(196,168,85,0.18)', borderRadius: 4,
-          background: 'rgba(0,0,0,0.12)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)',
+          background: 'rgba(0,0,0,0.12)', fontSize: 11, color: 'var(--ink-subtle)',
           fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
         }}>
           {ageBand.appDeduct > 0 && <div>APP 已自动 -{ageBand.appDeduct}</div>}
@@ -465,7 +466,7 @@ export function StepCharacteristics({
                     <button onClick={() => onPoolAssign(key, null)} style={{
                       padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3,
                       background: 'transparent', color: 'var(--ink-subtle)',
-                      fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer',
                     }}>清除</button>
                   )}
                 </div>
@@ -477,7 +478,7 @@ export function StepCharacteristics({
                       onDragStart={(e) => startDrag(e, { source: 'slot', key })}
                       onPointerDown={(e) => startTouchDrag(e, { source: 'slot', key })}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
                       <span>1/2: {half}</span><span>1/5: {fifth}</span>
                     </div>
                   </div>
@@ -487,7 +488,7 @@ export function StepCharacteristics({
                     minHeight: 56, borderRadius: 6,
                     border: '1px dashed rgba(196,168,85,0.3)',
                     color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)',
-                    fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1,
+                    fontSize: 11, letterSpacing: 1,
                   }}>
                     拖入骰子
                   </div>
@@ -501,7 +502,7 @@ export function StepCharacteristics({
             <div key={key} style={{ padding: '10px 12px', border: '1px solid rgba(196,168,85,0.15)', borderRadius: 4, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600 }}>{zh} ({key})</span>
-                <button onClick={() => onRollChar(key)} style={{ padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(9px * var(--system-ratio, 1))', cursor: 'pointer' }}>ROLL</button>
+                <button onClick={() => onRollChar(key)} style={{ padding: '2px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 9, cursor: 'pointer' }}>ROLL</button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <button onClick={() => onAdjChar(key, -5)} style={plusMinusBtn}>-5</button>
@@ -510,7 +511,7 @@ export function StepCharacteristics({
                 <button onClick={() => onAdjChar(key, +1)} style={plusMinusBtn}>+1</button>
                 <button onClick={() => onAdjChar(key, +5)} style={plusMinusBtn}>+5</button>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
                 <span>1/2: {half}</span><span>1/5: {fifth}</span>
               </div>
             </div>

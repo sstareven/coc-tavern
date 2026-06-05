@@ -32,7 +32,7 @@ export function StepDerivedStats({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={sectionTitle}>衍生属性 SECONDARY STATS</div>
+      <div style={sectionTitle}>衍生属性</div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {stats.map((s) => (
@@ -46,7 +46,7 @@ export function StepDerivedStats({
             alignItems: 'center',
             gap: 4,
           }}>
-            <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
+            <div style={{ fontSize: 9, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
               {s.label}
             </div>
             <div style={{ fontSize: 'calc(20px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.color }}>
@@ -100,14 +100,14 @@ export function StepDerivedStats({
         <div style={{
           padding: '8px 12px',
           background: 'rgba(196,168,85,0.06)',
-          fontSize: 'calc(11px * var(--system-ratio, 1))',
+          fontSize: 11,
           color: 'var(--ink-subtle)',
           fontFamily: 'var(--font-ui)',
           letterSpacing: 2,
         }}>
           DB / Build 对照表 (STR + SIZ = {strPlusSiz})
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
           <thead>
             <tr style={{ background: 'rgba(0,0,0,0.12)' }}>
               <th style={{ ...thSmall, textAlign: 'left' }}>STR+SIZ</th>

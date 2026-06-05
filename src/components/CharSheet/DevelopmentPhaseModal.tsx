@@ -52,14 +52,14 @@ const headerStyle: React.CSSProperties = {
 
 const subHeaderStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
-  fontSize: 'calc(8px * var(--system-ratio, 1))',
+  fontSize: 8,
   color: 'var(--ink-faded)',
   letterSpacing: 2,
   marginBottom: 16,
 };
 
 const colHeaderStyle: React.CSSProperties = {
-  fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1,
+  fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', letterSpacing: 1,
 };
 
 const rowStyle: React.CSSProperties = {
@@ -147,23 +147,23 @@ export function DevelopmentPhaseModal({ open, onClose, rng }: Props) {
                   <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
                     {r.name}
                   </span>
-                  <span style={{ textAlign: 'center', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
+                  <span style={{ textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-subtle)' }}>
                     {r.d100}
                   </span>
                   <span style={{
-                    textAlign: 'center', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)',
+                    textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)',
                     color: r.improved ? 'var(--gold)' : 'var(--ink-faded)',
                   }}>
                     {r.improved ? `+${r.d10}` : '—'}
                   </span>
                   <span style={{
-                    textAlign: 'center', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)',
+                    textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)',
                     color: r.improved ? 'var(--gold)' : 'var(--ink-faded)',
                   }}>
                     {r.before} → {r.after}
                   </span>
                   <span style={{
-                    textAlign: 'right', fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
+                    textAlign: 'right', fontSize: 11, fontFamily: 'var(--font-ui)',
                     color: r.improved ? '#88c070' : 'var(--ink-subtle)', letterSpacing: 1,
                   }}>
                     {r.improved ? '提升' : '未变'}
@@ -182,7 +182,7 @@ export function DevelopmentPhaseModal({ open, onClose, rng }: Props) {
                           right: -10, top: '50%', transform: 'translateY(-50%)',
                           padding: '2px 8px',
                           borderRadius: 10,
-                          fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', fontWeight: 700,
+                          fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700,
                           color: '#88c0c0',
                           background: 'rgba(136,192,192,0.12)',
                           border: '1px solid #88c0c0',
@@ -201,7 +201,7 @@ export function DevelopmentPhaseModal({ open, onClose, rng }: Props) {
             </div>
 
             <div style={{
-              fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)',
+              fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)',
               letterSpacing: 1, marginBottom: 12,
             }}>
               本次发展：{totalImproved} 项提升 · 跨越 90% 获得 {totalSanBonus} 点理智
