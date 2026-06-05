@@ -867,7 +867,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                             '• 静态前缀稳定 + statSnapshot 减肥 + 跳过重复条目',
                             '• 子调用共享前缀 + 漂移诊断',
                             '• 上下文：剧情回顾上限拉满 50 + 关闭历史 page 裁剪（无限长）',
-                            '• MVU 保健：自纠开启 + 重试 2 次 + 严格 JSON 模式',
+                            '• MVU 保健：自纠开启 + 重试 2 次 + 强制始终提取 + 严格 JSON 模式',
                             '',
                             '应用前会 snapshot 所有被覆盖字段的原值，随时可一键撤销。',
                             '不动：API 凭证 / 思维模式偏好 / UI 缩放/音量 / MVU 独立 API 凭证。',
