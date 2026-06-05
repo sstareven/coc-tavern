@@ -55,6 +55,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 【理智气泡·sanityCheckPrompts·硬约束】当调查员在叙事正文中（leftContent / rightContent）实际目击恐怖/超自然/血腥/不可名状之物的【瞬间】，必须在该叙事段落里【紧贴触发文字的位置】嵌入一个内联自闭合标签 <san id="N"/>（N 是任意短字符串如 p1、p2），并在主 JSON 顶层 sanityCheckPrompts 数组里给出与此 id 对应的检定条目。这是【独立于选项检定】的被动 SAN check：玩家会看到一个血色脉冲气泡漂在该位置，点击后弹「阴森的理智检定面板」跑判定 + 掷扣 SAN。
 - 触发原则：触发的是【调查员当回合实际看到/听到/经历的、非自愿的精神冲击】——目击同伴死状、撞见神话生物、读到不可名状的真相、解开关键线索揭示出残酷事实、短时不可名状现象。日常恐惧、单纯紧张、玩家主动选择查看（应走选项检定）不嵌入气泡。
+- [严格] 触发 SAN check 前，本回合 leftContent/rightContent 必须先有至少 60 字恐怖铺垫描写（具象感官 / 目击事件 / 心理冲击）。仅含糊『感到诡异 / 一阵寒意 / 察觉到不自然』禁止 emit。trigger 字段须复述铺垫中最具冲击力的具体细节，不可仅写抽象短语。<san/> 标签紧贴铺垫描写最后一句之后，让玩家按下气泡前已从叙事里感受到「为什么这值得扣 SAN」。
 - 每条 prompt 必须 id 唯一；trigger 是给玩家看的一句话简短描述（如「目睹同伴被撕碎」「读到祭品仪式的全貌」）；checkType 取 'POW'（理智底层）/'INT'（看清诡异）/'skill'（需 checkSkill 指定具体技能如「克苏鲁神话」）；difficulty 取 'normal'（原值）/'hard'（/2）/'extreme'（/5）；sanLossSuccess 与 sanLossFail 是骰子表达式（"0"、"1"、"1D2"、"1D6"、"1D10" 等），格式与「进行理智检定(成功/失败)」一致。
 - 一回合通常 0-1 个气泡；多目击场景最多 2 个；不要把每段恐怖描写都塞气泡。
 - 严禁把 <san> 标签放进选项 choices 或非叙事字段；只能嵌在 leftContent / rightContent 的叙事文字中。
@@ -69,7 +70,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 {
   "sceneInfo": {"date": "1925年3月15日", "weekday": "星期一", "time": "深夜", "weather": "阴雨", "location": "阿卡姆·书房"},
   "leftHeader": "章节标题",
-  "leftContent": "你走进{{阿卡姆}}的{{大学图书馆}}，空气中弥漫着陈旧纸张的气味。桌上放着一封{{密信}}，<san id=\"p1\"/>你下意识翻过信纸，背面用褪色的红墨水画着一组扭曲的、似乎在缓缓蠕动的符号。",
+  "leftContent": "你走进{{阿卡姆}}的{{大学图书馆}}，空气中弥漫着陈旧纸张的气味。桌上放着一封{{密信}}，你翻开它——纸张背面的红墨水在灯下泛出锈血般的色泽，那些符号【并非静止】：每一笔都像被无形的手缓缓拉扯，蛇形的线条以一种不属于这世界的节律微微蠕动，凑近时甚至能听见极轻的、像指甲刮过铜板的摩擦声。<san id=\"p1\"/>你猛地后撤一步，胃里一阵翻涌。",
   "rightHeader": "行动标题",
   "rightContent": "引导文字。",
   "choices": [
@@ -97,7 +98,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
     {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
   ],
   "sanityCheckPrompts": [
-    {"id": "p1", "trigger": "瞥见信件背面的扭曲符号", "checkType": "POW", "difficulty": "normal", "sanLossSuccess": "0", "sanLossFail": "1D3"}
+    {"id": "p1", "trigger": "信纸背面的红墨水符号以非物理的节律蠕动，并发出指甲刮铜般的摩擦声", "checkType": "POW", "difficulty": "normal", "sanLossSuccess": "0", "sanLossFail": "1D3"}
   ],
   "mapUpdates": {
     "current": "大学图书馆",
