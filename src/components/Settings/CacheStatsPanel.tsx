@@ -26,20 +26,45 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   const pages = useBookStore((s) => s.pages);
   const [mode, setMode] = useState<'page' | 'day'>('page');
 
-  // 仅取主生成且返回了缓存信息的页（删页天然不在 pages 里 → 自动排除）。
-  // tier 从 genStats.model 推断；老页 model=undefined → inferModelTier 默认 'pro'。
-  const recs: Rec[] = useMemo(() => pages
-    .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.genStats && (p.genStats.cacheHitTokens != null || p.genStats.cacheMissTokens != null))
-    .map(({ p, i }) => ({
-      label: p.rightPage || p.leftPage || String(i + 1),
-      hit: p.genStats!.cacheHitTokens ?? 0,
-      miss: p.genStats!.cacheMissTokens ?? 0,
-      output: p.genStats!.completionTokens ?? 0,
-      at: p.genStats!.at ?? 0,
-      tier: inferModelTier(p.genStats!.model),
-    })),
-  [pages]);
+  // 把每页拆成「(主回合 model_tier 1 个) + (subCalls 按 tier 聚合 1 个 per tier)」的 Rec 数组。
+  // 同页同 tier 会被合并(比如主回合是 Pro,Pro 子调用很罕见但会合进同一页 Pro 点)。
+  // 这样每页最多产生 2 个 Rec(Pro + Flash),折线图按 tier 分两条曲线、X 轴用公共 page 序列对齐。
+  const recs: Rec[] = useMemo(() => {
+    const out: Rec[] = [];
+    pages.forEach((p, i) => {
+      const gs = p.genStats;
+      if (!gs) return;
+      const label = p.rightPage || p.leftPage || String(i + 1);
+      const at = gs.at ?? 0;
+      const byTier = new Map<ModelTier, { hit: number; miss: number; output: number }>();
+
+      // 主回合
+      const mainHit = gs.cacheHitTokens ?? 0;
+      const mainMiss = gs.cacheMissTokens ?? 0;
+      const mainOut = gs.completionTokens ?? 0;
+      if (mainHit > 0 || mainMiss > 0) {
+        const mainTier = inferModelTier(gs.model);
+        byTier.set(mainTier, { hit: mainHit, miss: mainMiss, output: mainOut });
+      }
+
+      // 子调用按 tier 累加
+      for (const s of gs.subCalls ?? []) {
+        const sHit = s.hit ?? 0;
+        const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+        const sOut = s.output ?? 0;
+        if (sHit === 0 && sMiss === 0) continue;
+        const t = inferModelTier(s.model);
+        const cur = byTier.get(t) ?? { hit: 0, miss: 0, output: 0 };
+        cur.hit += sHit; cur.miss += sMiss; cur.output += sOut;
+        byTier.set(t, cur);
+      }
+
+      byTier.forEach((v, t) => {
+        out.push({ label, hit: v.hit, miss: v.miss, output: v.output, at, tier: t });
+      });
+    });
+    return out;
+  }, [pages]);
 
   // 总览：按 tier 分组合计 + 全局合计
   const byTier = useMemo(() => {
@@ -88,7 +113,9 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', minWidth: 540, maxWidth: 720, width: '94%', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)' }}>
+      {/* zoom 反向抵消界面缩放(uiScale)：用户开 1.15/1.3/1.5 时数据面板保持 100% 显示,
+          否则图表 + 明细被放大反而看着信息密度变低。calc(1/var(...)) 让面板回到自然尺寸。 */}
+      <div style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', minWidth: 540, maxWidth: 720, width: '94%', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)', zoom: 'calc(1 / var(--ui-scale, 1))' as React.CSSProperties['zoom'] }}>
         {/* 标题栏 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 10, flexShrink: 0 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>缓存命中 / CACHE HITS</h3>
@@ -170,7 +197,12 @@ function PageDetailList({ pages }: { pages: import('../../types').BookPage[] }) 
       <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 3, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
         按页明细 / PER-PAGE DETAIL
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* 内层独立滚动:页数多时不让外层面板被撑长。 */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 8,
+        maxHeight: 360, overflowY: 'auto', paddingRight: 6,
+        scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)',
+      }}>
         {ordered.map(({ p, i }) => <PageDetailCard key={p.id ?? i} page={p} pageIdx={i} />)}
       </div>
     </div>
@@ -316,43 +348,59 @@ function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
   const W = 600, H = 220, padL = 36, padR = 12, padT = 14, padB = 28;
   const innerW = W - padL - padR, innerH = H - padT - padB;
   const svgRef = useRef<SVGSVGElement>(null);
-  const [hover, setHover] = useState<{ tier: ModelTier; idx: number } | null>(null);
+  const [hover, setHover] = useState<{ tier: ModelTier; labelIdx: number } | null>(null);
 
-  // 双线分组：保持各 tier 自己的 X 轴序列，按出现顺序排在自己的轴上。
+  // 公共 X 轴：所有 label 去重(保持首次出现顺序) → 同一页的 Pro 点与 Flash 点 X 位置对齐。
+  // 旧版按各 tier 自己的 N 等分,Flash/Pro 长度不同时两线在同一页错位。
+  const xLabels = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of points) {
+      if (!seen.has(p.label)) { seen.add(p.label); out.push(p.label); }
+    }
+    return out;
+  }, [points]);
+  const labelIdx = useMemo(() => {
+    const m = new Map<string, number>();
+    xLabels.forEach((l, i) => m.set(l, i));
+    return m;
+  }, [xLabels]);
+
   const flashPoints = points.filter((p) => p.tier === 'flash');
   const proPoints = points.filter((p) => p.tier === 'pro');
-  const maxN = Math.max(flashPoints.length, proPoints.length, 1);
 
-  const xFor = (i: number, n: number) =>
-    padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const xFor = (label: string) =>
+    padL + (xLabels.length <= 1 ? innerW / 2 : ((labelIdx.get(label) ?? 0) / (xLabels.length - 1)) * innerW);
   const y = (rate: number) => padT + (1 - rate / 100) * innerH;
 
-  // 同一条线沿自己的 N 等分；不同 tier 用各自的 N。这让单 tier 数据时也满布全图。
-  const linePoints = (arr: Point[]) => arr.map((p, i) => `${xFor(i, arr.length).toFixed(1)},${y(p.rate).toFixed(1)}`).join(' ');
+  const linePoints = (arr: Point[]) =>
+    arr.map((p) => `${xFor(p.label).toFixed(1)},${y(p.rate).toFixed(1)}`).join(' ');
 
-  const step = Math.max(1, Math.ceil(maxN / 10));
+  const step = Math.max(1, Math.ceil(xLabels.length / 10));
 
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const el = svgRef.current; if (!el) return;
+    const el = svgRef.current; if (!el || xLabels.length === 0) return;
     const r = el.getBoundingClientRect();
     const vx = ((e.clientX - r.left) / r.width) * W;
-    // 找最近点：分别在 flash / pro 序列里找；取距离更近者。
-    type Cand = { tier: ModelTier; idx: number; dx: number };
-    const closest = (arr: Point[], tier: ModelTier): Cand | null => {
-      if (arr.length === 0) return null;
-      const idx = arr.length <= 1 ? 0 : Math.round(((vx - padL) / innerW) * (arr.length - 1));
-      const clamped = Math.max(0, Math.min(arr.length - 1, idx));
-      return { tier, idx: clamped, dx: Math.abs(vx - xFor(clamped, arr.length)) };
-    };
-    const cf = closest(flashPoints, 'flash');
-    const cp = closest(proPoints, 'pro');
-    const pick = !cf ? cp : !cp ? cf : (cf.dx <= cp.dx ? cf : cp);
+    const idx = xLabels.length <= 1 ? 0 : Math.round(((vx - padL) / innerW) * (xLabels.length - 1));
+    const clamped = Math.max(0, Math.min(xLabels.length - 1, idx));
+    const labelAtX = xLabels[clamped];
+    // 该 X 位置上同时有 Flash 与 Pro 点时,取离鼠标 Y 更近的(允许在两条线之间切换)
+    const yPxRaw = ((e.clientY - r.top) / r.height) * H;
+    const fp = flashPoints.find((p) => p.label === labelAtX);
+    const pp = proPoints.find((p) => p.label === labelAtX);
+    type Cand = { tier: ModelTier; labelIdx: number; dy: number };
+    const cf: Cand | null = fp ? { tier: 'flash', labelIdx: clamped, dy: Math.abs(yPxRaw - y(fp.rate)) } : null;
+    const cp: Cand | null = pp ? { tier: 'pro', labelIdx: clamped, dy: Math.abs(yPxRaw - y(pp.rate)) } : null;
+    const pick = !cf ? cp : !cp ? cf : (cf.dy <= cp.dy ? cf : cp);
     setHover(pick);
   };
 
-  const hp = hover ? (hover.tier === 'flash' ? flashPoints[hover.idx] : proPoints[hover.idx]) : null;
-  const hxN = hp ? (hover!.tier === 'flash' ? flashPoints.length : proPoints.length) : 1;
-  const hx = hp ? xFor(hover!.idx, hxN) : 0;
+  const hoverLabel = hover ? xLabels[hover.labelIdx] : null;
+  const hp = hover && hoverLabel
+    ? (hover.tier === 'flash' ? flashPoints.find((p) => p.label === hoverLabel) : proPoints.find((p) => p.label === hoverLabel))
+    : null;
+  const hx = hp ? xFor(hp.label) : 0;
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -390,27 +438,25 @@ function RateChart({ points, xLabel }: { points: Point[]; xLabel: string }) {
         {proPoints.length > 0 && (
           <polyline points={linePoints(proPoints)} fill="none" stroke={TIER_COLORS.pro} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         )}
-        {/* 数据点 + X 轴标签 */}
-        {flashPoints.map((p, i) => {
-          const isHovered = hover?.tier === 'flash' && hover.idx === i;
+        {/* 数据点 — 公共 X 轴 */}
+        {flashPoints.map((p) => {
+          const isHovered = hover?.tier === 'flash' && xLabels[hover.labelIdx] === p.label;
           return (
-            <g key={`f-${i}`}>
-              <circle cx={xFor(i, flashPoints.length)} cy={y(p.rate)} r={isHovered ? 4.5 : 3} fill={isHovered ? '#fff3c4' : TIER_COLORS.flash} stroke="var(--abyss)" strokeWidth={1} />
-            </g>
+            <circle key={`f-${p.label}`} cx={xFor(p.label)} cy={y(p.rate)} r={isHovered ? 4.5 : 3}
+              fill={isHovered ? '#fff3c4' : TIER_COLORS.flash} stroke="var(--abyss)" strokeWidth={1} />
           );
         })}
-        {proPoints.map((p, i) => {
-          const isHovered = hover?.tier === 'pro' && hover.idx === i;
+        {proPoints.map((p) => {
+          const isHovered = hover?.tier === 'pro' && xLabels[hover.labelIdx] === p.label;
           return (
-            <g key={`p-${i}`}>
-              <circle cx={xFor(i, proPoints.length)} cy={y(p.rate)} r={isHovered ? 4.5 : 3} fill={isHovered ? '#fff3c4' : TIER_COLORS.pro} stroke="var(--abyss)" strokeWidth={1} />
-            </g>
+            <circle key={`p-${p.label}`} cx={xFor(p.label)} cy={y(p.rate)} r={isHovered ? 4.5 : 3}
+              fill={isHovered ? '#fff3c4' : TIER_COLORS.pro} stroke="var(--abyss)" strokeWidth={1} />
           );
         })}
-        {/* X 轴标签 — 用 Pro 系列或 Flash 系列里更长的那条做基准（让标签密度合理） */}
-        {(proPoints.length >= flashPoints.length ? proPoints : flashPoints).map((p, i, arr) => (
+        {/* X 轴标签 — 用公共 label 序列均匀采样 */}
+        {xLabels.map((label, i) => (
           i % step === 0 ? (
-            <text key={`xl-${i}`} x={xFor(i, arr.length)} y={H - 8} textAnchor="middle" fontSize={9} fill="var(--ink-faded)">{p.label}</text>
+            <text key={`xl-${i}`} x={xFor(label)} y={H - 8} textAnchor="middle" fontSize={9} fill="var(--ink-faded)">{label}</text>
           ) : null
         ))}
       </svg>
