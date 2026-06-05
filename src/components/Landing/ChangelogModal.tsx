@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.5';
+export const CURRENT_VERSION = 'v1.11.8';
 
 interface Release {
   version: string;
@@ -12,6 +12,28 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.8',
+    label: 'UI 大重构：响应式 + 文字倍率 · DS 终极适配 runtime override · 缓存深挖 · 人物创建重打磨',
+    items: [
+      '【UI 大重构·响应式整页缩放】完全废弃旧 uiScale 档位选择(用户控制 zoom 1.0/1.15/1.3/1.5),改为整页根据浏览器窗口宽度自动缩放(useResponsiveZoom: clamp(0.75, w/1280, 1.5),1280px 基准、1920px→1.5 封顶、800px→0.75 封底)。窗口拉大/缩小整页自动适配,无需手动调档',
+      '【UI 大重构·正文/系统两类文字倍率】设置面板新加两个 slider(80-150%):「正文文字大小」(叙事/对话/线索/关键词等剧情可读性文字) + 「系统文字大小」(按钮/菜单/设置面板/状态栏等 UI 文字)。两者独立调,沉浸阅读时可单独把正文调大不影响系统紧凑显示。脚本批量把项目 776 处 fontSize 接入 var(--text-ratio)/var(--system-ratio) CSS 变量,按文件路径分类(Book/SanityBubble/KeywordTooltip/TextBeautifier → text-ratio,其他 → system-ratio)',
+      '【UI 一键 DS 终极适配·runtime override】用户底下的 Toggle 开关状态完全不变。按钮 apply / revert 只切换 dsUltraActive 标志,所有读取处通过 getEffectiveDsCache/getEffectiveSetting 在 active 时返回 DS_ULTRA_PRESET 值,否则返回用户原值。优化项含 DS 缓存重组全开 + statSnapshot 减肥 + 跳过重复条目 + 子调用共享前缀 + 漂移诊断 + maxSummaryEntries:50 + MVU 自纠保健 + 强制 JSON + chatHistory 永久增长。撤销不影响用户底下 Toggle',
+      '【人物创建·大幅打磨】(1)面板宽度 560→720 让横向有空间;(2)属性 grid 强制左右两栏(minmax(0,1fr) minmax(0,1fr)) 点数池/自由调整都两栏;(3)属性卡内长属性名 ellipsis 截断保留「清除」按钮位置;(4)步骤指示器 connector 改 flex:1 撑开 + 圆按钮 flexShrink:0 保持正圆;(5)底部按钮 styles.ts 加 whiteSpace:nowrap + flexShrink:0 + 减小 padding/letterSpacing 防换行;(6)CharSheet/ 下 ≤11px 紧凑 UI 字号回退固定 px 防被字体倍率撑成巨型;(7)8 个 step sectionTitle + 8 个 background field label 全去英文对照(纯中文);(8)背景故事面板 minHeight 70vh+maxHeight 88vh 不再 55vh 太矮',
+      '【背景补写修复】CharacterCreator AI 整理背景的 maxTokens 1600 → 20000 防思考型模型(deepseek-v4-pro/reasoner)thinking + 8 字段总和被截断导致解析失败「AI 返回的内容无法解析」',
+      '【缓存深挖·driftBySegment 段统计】cache-diag 累计漂移按 suspectedSegment 分桶,日志输出「按段分布 {wbBefore=1, processedFormat=0}」让用户/排查者精确定位污染源',
+      '【缓存深挖·MVU 自纠走独立 API】useChatPipeline runMvuSelfCorrect.send 之前硬编码主 API(Pro),现在对齐 MVU 提取「优先 MVU 独立 API,回退主 API」节省 10×开销',
+      '【弹窗 portal 浮层防错位】DarkSelect/KeywordTooltip/SettingsPanel HelpIcon 是 portal 到 body 的 fixed 浮层,自动 zoom 后位置错位(跑右下角)。加 useResponsiveZoom.getAutoZoom() helper,3 处浮层坐标除以 zoom 抵消',
+      '【输入栏不顶书本】InputBar textarea 自动撑高上限 200→120px,超长文本进入 textarea 内部 overflow scroll,footer 不再撑高把书本中心位置往上顶',
+      '【弹窗自适应屏幕】4 弹窗(CharacterCreator/ChangelogModal/PresetSwitchOverlay/CacheStatsPanel)尺寸表达式 calc(min(原, vw) / var(--auto-zoom, 1)) 配合根 zoom 让弹窗按比例契合 viewport 不溢出不遮挡',
+      '【关键词释义补全·独立子调用】新增 src/sillytavern/keyword-meaning-extractor.ts,扫 leftContent+rightContent 所有 <kw>X</kw> 标签,未知关键词交给独立 Flash 调用补 10-30 字释义,addKeywords 入 store。修主回合长 prompt 下 LLM 漏写 keywords 字段致 KeywordTooltip 查不到 meaning 不显示 tooltip 的问题。走 v1.11.4 pendingVisibleSubcalls 队列翻页前等齐,玩家进入新页时所有 <kw> tooltip 全齐',
+      '【关键词指令强化】FORMAT_INSTRUCTION 关键词高亮段从「负面惩罚导向」翻转为「正向硬约束 + 5 类清单」(地名/人名+家族/物品+线索/超自然+邪教/可疑环境特征),首句「每段必须 2-5 个、不得低于 2 个」+ 明令「即使 chatHistory 老回合没标或用旧 {{xxx}},本回合也必须立刻开始用 <kw></kw>」打断 in-context learning 模仿',
+      '【开场白迁移】useBookStore.ts defaultPages[0] 序章页 9 个独立关键词 18 处 {{xxx}} → <kw>xxx</kw>(老存档不受影响,新开局看新版)',
+      '【孤立标签兜底】v1.11.3 起 LLM 偶发漏写 <kw> 开标签产出孤立 </kw>。stripMvu 新加 stripOrphanKwTags helper —— PUA 私用区 \\uE001/\\uE002 sentinel 临时遮蔽成对标签、剥除剩余孤立、还原',
+      '【人称视角硬约束】FORMAT_INSTRUCTION 新增「人称视角·一致性·硬约束」明确列举 leftContent/rightContent/clues.discoveryNarrative/npcUpdates.addMemory 必须全局贯穿同一人称视角,修「左页他/右页你」漂移',
+      '【翻页前等齐 6 个可见 UI 子调用】v1.11.4 改造:appendPage 入 store 后【不立即翻页】,收集暗线补/NPC 补/起始装备/线索整合/地点元素/地图自检 6 个可见子调用 promise,await Promise.race([allSettled, abortPromise]) 等齐后才 autoFlipForward。玩家看到的每一页都是完整状态。坏结局/关键线索/真相支柱命中/战斗检测保持 fire-and-forget(守秘人机密 + 战斗在已生成页面上判定)。中止(abort)立即翻页避免「点了中止反而更卡」',
+    ],
+  },
   {
     version: 'v1.11.5',
     label: '关键词释义补全 · 独立子调用 + 强化 <kw> 标签指令',
