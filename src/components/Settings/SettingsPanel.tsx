@@ -378,6 +378,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setWorldInfoStrategy = useSettingsStore((s) => s.setWorldInfoStrategy);
   const dsCache = useSettingsStore((s) => s.dsCache);
   const setDsCache = useSettingsStore((s) => s.setDsCache);
+  const dsUltraSnapshot = useSettingsStore((s) => s.dsUltraSnapshot);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -879,10 +880,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <CategoryBar label="DeepSeek 消息重组（前缀缓存）" />
                 {/* v1.11.6: 一键 DeepSeek 终极适配 —— 切换式按钮（基于 dsUltraSnapshot）：
                     未应用 → 金色「★ 一键应用」；已应用 → 暗色「↩ 撤销并恢复原设置」。
-                    snapshot 持久化于 settings 里,重启游戏后仍能撤销。 */}
+                    snapshot 持久化于 settings 里,重启游戏后仍能撤销。
+                    注意：dsUltraSnapshot 订阅在组件顶层(行 381)——React hooks 不能放在 IIFE/条件内。 */}
                 {(() => {
-                  const snapshot = useSettingsStore((s) => s.dsUltraSnapshot);
-                  const isApplied = !!snapshot;
+                  const isApplied = !!dsUltraSnapshot;
                   const apply = useSettingsStore.getState().applyDeepSeekUltraPreset;
                   const revert = useSettingsStore.getState().revertDeepSeekUltraPreset;
                   return (
