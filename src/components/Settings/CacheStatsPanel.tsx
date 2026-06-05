@@ -1,8 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
 import { useBookStore } from '../../stores/useBookStore';
 import { useSettingsStore, getEffectiveDsCache } from '../../stores/useSettingsStore';
+import { useChatStore } from '../../stores/useChatStore';
 import { estimateCostCNY, inferModelTier, type ModelTier, type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../../sillytavern/deepseek-cache';
 import { CURRENT_VERSION } from '../Landing/ChangelogModal';
+import { buildLogsSection } from './cache-copy-format';
+import { getLogsForSession, type LogRecord } from '../../utils/console-capture';
 
 /** 一个数据点：X 轴标签 + 命中/未命中/输出 token + 命中率(%) + 估算费用(¥)。tier 用于双线分组。 */
 interface Point { label: string; hit: number; miss: number; output: number; rate: number; cost: number; tier: ModelTier; }
@@ -103,6 +106,7 @@ function buildTroubleshootBlock(): string[] {
     '4. 想榨干缓存: 开 experimentalLeanSnapshot + experimentalSkipMvuVarList,主回合 dynamicTail 省 ~1-2k tokens/回合',
     '5. 第 1-2 页命中率特低: 正常,前 2 回合是 cache write;含动态宏的 promptItem 也要第 2 回合才被识别为"稳定下沉项"前置静态前缀',
     '6. 切换会话/预设/上下文裁剪边界 → 缓存重写,预期行为,不可避免',
+    '7. 想知道哪段漂移：看上面【F12 项目日志】里 [cache-diag] 那条的"按段分布"和"疑似来自 X 段"',
   ];
 }
 
@@ -122,6 +126,9 @@ function buildCopyText(
             pro:   { count: number; hit: number; miss: number; output: number; cost: number } },
   diagnostics: string[],
   troubleshoot: string[],
+  logs: LogRecord[],
+  omittedPages: number,
+  omittedRecords: number,
 ): string {
   const lines: string[] = [];
   // 诊断段最先 —— 用户在群里贴 issue 时通常只复制前 N 行,排错信息要靠前
@@ -168,6 +175,11 @@ function buildCopyText(
     }
   }
   lines.push('');
+  // F12 项目日志段（在 troubleshoot 之前；诊断头 → 表格 → 日志 → 排错尾）
+  const logsLines = buildLogsSection(logs, pages, omittedPages, omittedRecords);
+  if (logsLines.length > 0) {
+    lines.push(...logsLines);
+  }
   lines.push(...troubleshoot);
   return lines.join('\n');
 }
@@ -301,7 +313,14 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
       '', // presetLabel 当前不易稳定取(presetId 在 sessions,name 在 useChatStore.presetStore),先留空避免引入耦合
     );
     const troubleshoot = buildTroubleshootBlock();
-    const text = buildCopyText(pages, totalRate, totalCost, totalHit, totalMiss, totalOut, saved, byTier, diagnostics, troubleshoot);
+    // 拉当前会话最近 10 页项目命名空间 console 日志,带进复制段尾
+    const activeId = useChatStore.getState().activeId ?? '__no_session__';
+    const { records: logs, omittedPages, omittedRecords } = await getLogsForSession(activeId, 10);
+    const text = buildCopyText(
+      pages, totalRate, totalCost, totalHit, totalMiss, totalOut, saved, byTier,
+      diagnostics, troubleshoot,
+      logs, omittedPages, omittedRecords,
+    );
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
