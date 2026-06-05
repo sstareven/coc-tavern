@@ -103,3 +103,17 @@ export function _resetRpm(): void {
   histories.mvu = [];
   histories.rewrite = [];
 }
+
+/**
+ * 取「现在 60 秒滑动窗口内」某桶已发出的请求数（实际 Request-Per-Minute 实测值）。
+ * 用于 TokenDisplay 在右页右下角显示「当时发出了多少次请求」，与 settings.rpmLimit
+ * 配置上限是两回事——一个反映系统真实繁忙度（受多页/多子调用累积影响）, 一个反映
+ * 用户设置的上限。
+ *
+ * @param kind 默认 'main'。perApiRpmEnabled 关闭时所有 kind 统一归 main 桶。
+ */
+export function getCurrentRpm(kind: RpmKind = 'main'): number {
+  const { bucket } = resolveBucket(kind);
+  const now = Date.now();
+  return histories[bucket].filter((t) => now - t < WINDOW_MS).length;
+}

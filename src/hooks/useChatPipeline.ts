@@ -79,6 +79,7 @@ import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/chara
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
+import { getCurrentRpm } from '../sillytavern/rpm-limiter';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -1106,8 +1107,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
           cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
           at: Date.now(),
-          // 生成那一刻的 RPM 上限快照——TokenDisplay 用它在右下角显示「RPM=N」,后续改设置不影响历史页。
-          rpmLimit: useSettingsStore.getState().rpmLimit,
+          // 主 RPM 桶 60s 窗口内已发出的请求数实测值——TokenDisplay 在右下角显示「当时
+          // 发了 N 次请求」, 反映系统真实繁忙度（含本页主回合 + 同窗口内子调用累积）。
+          rpm: getCurrentRpm('main'),
         };
         pushLog(
           'info',

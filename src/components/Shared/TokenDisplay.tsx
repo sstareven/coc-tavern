@@ -40,12 +40,12 @@ export function TokenDisplay() {
   // 本页无生成记录（序章/老存档/未经本版本生成）——直接不显示，不留占位符
   if (!stats) return null;
 
-  const { totalTokens, promptTokens, completionTokens, durationMs, estimated, rpmLimit } = stats;
+  const { totalTokens, promptTokens, completionTokens, durationMs, estimated, rpm } = stats;
   const sec = (durationMs / 1000).toFixed(1);
   const tilde = estimated ? '~' : '';
   const hasSplit = promptTokens != null && completionTokens != null;
-  const rpmTail = typeof rpmLimit === 'number' ? ` · RPM=${rpmLimit}` : '';
-  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s${typeof rpmLimit === 'number' ? ` · 当时 RPM 上限 ${rpmLimit}/min` : ''}`;
+  const rpmTail = typeof rpm === 'number' ? ` · RPM=${rpm}` : '';
+  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s${typeof rpm === 'number' ? ` · 当时主桶 60s 窗口内 ${rpm} 次请求` : ''}`;
 
   return (
     <div
