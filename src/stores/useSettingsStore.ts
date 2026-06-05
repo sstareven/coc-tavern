@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
+import { useTavernHelperStore } from './useTavernHelperStore';
 
 /** 界面缩放合法档位：标准/大/特大/超大。控件按钮用；自定义值不限于这些档位（见 clampUiScale）。 */
 export const UI_SCALE_LEVELS = [1, 1.15, 1.3, 1.5] as const;
@@ -139,6 +140,14 @@ interface SettingsStore extends SettingsState {
   setUiScale: (v: number) => void;
   setDsCache: (c: Partial<DsCacheConfig>) => void;
   setForceJsonObject: (v: boolean) => void;
+  /**
+   * 一键 DeepSeek 终极适配 —— 把所有【与缓存命中/上下文长度相关】的设置项一次性
+   * 覆盖到「最大化前缀缓存命中」的组合。不动 API 三件套（凭证）/ 思维模式偏好 /
+   * UI 偏好（uiScale/音量/颜色）。
+   *
+   * 覆盖项见 useSettingsStore action 实现注释。
+   */
+  applyDeepSeekUltraPreset: () => void;
 }
 
 const defaults: SettingsState = {
@@ -247,6 +256,66 @@ export const useSettingsStore = create<SettingsStore>()(
       setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
       setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
       setForceJsonObject: (v) => set({ forceJsonObject: v }),
+      /**
+       * 一键 DeepSeek 终极适配 —— 把所有【与缓存命中/上下文长度/MVU 健康相关】的
+       * 设置一次性覆盖到最优组合：
+       *
+       * 【DS 缓存（前缀缓存最大化）】
+       * - restructure: true              三区重组(顶部稳定前缀)
+       * - roleTags: true                 合并时加 <role==X> 标签
+       * - keepTailAssistant: true        postHistory 尾的 assistant 保独立
+       * - targetSources: deepseek,custom 覆盖中转站
+       * - separateWiLights: true         绿灯下沉到底部高注意力区
+       * - autoDetectDynamicConstant: true 自动识别动态 constant 下沉
+       * - experimentalLeanSnapshot: true statSnapshot 减肥（省 500-1500 tok）
+       * - experimentalSkipMvuVarList: true 跳过与 statSnapshot 重复的内置条目
+       * - experimentalPrefixDiagnostics: true 漂移诊断(已有 driftBySegment)
+       * - experimentalSubagentSharedSystem: true 子调用共享前缀
+       * - autoSinkDynamicPromptItem: true 自动下沉含动态宏的 system 类 promptItem
+       *
+       * 【上下文长度（无限长保命中）】
+       * - maxSummaryEntries: 50          剧情回顾上限拉满
+       * - tavernHelper.optimize.optimizeMessageLoad: false（跨 store 调用）
+       *   不 trim 历史 page，让 chatHistory 永久增长——稳定前缀不被刷掉
+       *
+       * 【MVU 健康】
+       * - mvuSelfCorrectEnabled: true    MVU 失败时调 LLM 自纠
+       * - mvuSelfCorrectRetries: 2       保险，单次易漏
+       * - mvuForceAlways: false          主回合带 patch 时跳过 MVU 提取省钱
+       *
+       * 【全局】
+       * - forceJsonObject: true          严格 JSON 模式（MVU 解析更稳）
+       *
+       * 不动：API 三件套（凭证）/ dsCache.enabled/mode/customText（思维模式偏好）/
+       * UI 偏好（uiScale/音量/颜色）/ mvuApi 三件套（用户的独立 MVU API 凭证）。
+       */
+      applyDeepSeekUltraPreset: () => {
+        set((s) => ({
+          forceJsonObject: true,
+          maxSummaryEntries: 50,
+          mvuSelfCorrectEnabled: true,
+          mvuSelfCorrectRetries: 2,
+          mvuForceAlways: false,
+          dsCache: {
+            ...s.dsCache,
+            restructure: true,
+            roleTags: true,
+            keepTailAssistant: true,
+            targetSources: 'deepseek,custom',
+            separateWiLights: true,
+            autoDetectDynamicConstant: true,
+            experimentalLeanSnapshot: true,
+            experimentalSkipMvuVarList: true,
+            experimentalPrefixDiagnostics: true,
+            experimentalSubagentSharedSystem: true,
+            autoSinkDynamicPromptItem: true,
+            // 思维模式（enabled/mode/customText）不动 —— 那是用户偏好
+            // treatConstantAsDynamic 不开 —— autoDetectDynamicConstant 已够，开了过激不必要
+          },
+        }));
+        // 跨 store：关 optimizeMessageLoad 让 chatHistory 永久增长。
+        useTavernHelperStore.getState().setOptimize({ optimizeMessageLoad: false });
+      },
     }),
     {
       name: 'coc_settings_v2',
