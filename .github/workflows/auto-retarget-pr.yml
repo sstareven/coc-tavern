@@ -1,0 +1,28 @@
+name: Auto-retarget PR to beta
+
+# 仓库工作流：日常改动走 beta 分支，master 是稳定/线上分支(Vercel production)。
+# 任何提到 master 的 PR 会被自动改 base 为 beta,避免贡献者误把改动塞进 master。
+# 如需直接进 master(例如 hotfix),给 PR 打上 `target-master` 标签即可跳过。
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  retarget:
+    if: >-
+      github.event.pull_request.base.ref == 'master' &&
+      !contains(github.event.pull_request.labels.*.name, 'target-master')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retarget PR base from master to beta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --base beta
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "👋 Thanks for the PR! I retargeted its base from \`master\` to \`beta\` — daily development lands on \`beta\` first; \`master\` is the production branch wired to Vercel. If this really needs to go to \`master\` directly (e.g. hotfix), add the \`target-master\` label and reopen."
