@@ -734,7 +734,8 @@ function renderStringWithBubblesAndBeauty(
   const parts = splitTextWithSanBubbles(text, prompts, keyPrefix);
   return parts.flatMap((node, idx) => {
     if (typeof node !== 'string') return [node];
-    const beautified = beautifyText(node);
+    // 关键：把段索引 idx 传进 beautifyText keyPrefix —— 否则多段同 index 的对话/keyword 会撞同 key。
+    const beautified = beautifyText(node, `${keyPrefix}-s${idx}`);
     return beautified.map((n, j) => typeof n === 'string'
       ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
       : n);

@@ -118,7 +118,10 @@ function renderStringWithBubblesAndBeauty(
   const parts = splitTextWithSanBubbles(text, prompts, keyPrefix);
   return parts.flatMap((node, idx) => {
     if (typeof node !== 'string') return [node];
-    const beautified = beautifyText(node);
+    // 关键：把段索引 idx 传进 beautifyText 的 keyPrefix —— splitTextWithSanBubbles 把 text 拆成
+    // 多段后,每段 string 都从 match.index=0 重新计；若不区分前缀,两段相同位置的对话会撞同 key
+    // （如 dlg-118 重复，2026-06-05 用户实测 console 警告）。
+    const beautified = beautifyText(node, `${keyPrefix}-s${idx}`);
     return beautified.map((n, j) => typeof n === 'string'
       ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
       : n);
