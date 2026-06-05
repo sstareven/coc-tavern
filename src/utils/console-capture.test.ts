@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { db } from '../db/database';
 import {
   appendLog,
   getLogsForSession,
   deleteLogsForSession,
   _resetForTests,
+  installConsoleCapture,
 } from './console-capture';
 
 describe('console-capture: 写入/读取/删除', () => {
@@ -73,5 +74,88 @@ describe('console-capture: 写入/读取/删除', () => {
     const s2 = await db.consoleLogs.where('sessionId').equals('s2').count();
     expect(s1).toBe(0);
     expect(s2).toBe(1);
+  });
+});
+
+describe('console-capture: 拦截器', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    await db.consoleLogs.clear();
+    _resetForTests();
+    logSpy = vi.spyOn(console, 'log');
+  });
+
+  it('调原 console.log（F12 仍能看）', () => {
+    installConsoleCapture();
+    console.log('[cache-diag] hello');
+    expect(logSpy).toHaveBeenCalled();
+  });
+
+  it('命名空间前缀匹配的写库', async () => {
+    installConsoleCapture();
+    console.log('[cache-diag] hit', { foo: 1 });
+    await new Promise((r) => setTimeout(r, 50));
+    const rows = await db.consoleLogs.toArray();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].message).toContain('[cache-diag] hit');
+    expect(rows[0].message).toContain('{"foo":1}');
+    expect(rows[0].level).toBe('log');
+  });
+
+  it('不带命名空间前缀的不收（React/Vercel noise）', async () => {
+    installConsoleCapture();
+    console.log('Download the React DevTools …');
+    console.log({ object: 'first' });
+    console.log(42);
+    await new Promise((r) => setTimeout(r, 50));
+    const count = await db.consoleLogs.count();
+    expect(count).toBe(0);
+  });
+
+  it('大写起字母前缀不收（避免 React/Vercel 误中）', async () => {
+    installConsoleCapture();
+    console.log('[Vercel] something');
+    console.warn('[ABC] foo');
+    await new Promise((r) => setTimeout(r, 50));
+    const count = await db.consoleLogs.count();
+    expect(count).toBe(0);
+  });
+
+  it('warn/error/info 级别都拦', async () => {
+    installConsoleCapture();
+    console.warn('[mvu-jsonpatch] warn line');
+    console.error('[ds-cache-restructure] err');
+    console.info('[TH] info'); // 但 [TH] 是大写，不收
+    await new Promise((r) => setTimeout(r, 50));
+    const rows = await db.consoleLogs.toArray();
+    const messages = rows.map((r) => r.message);
+    expect(messages).toContain('[mvu-jsonpatch] warn line');
+    expect(messages).toContain('[ds-cache-restructure] err');
+    expect(messages.some((m) => m.includes('[TH] info'))).toBe(false);
+    expect(rows.find((r) => r.message.includes('mvu'))?.level).toBe('warn');
+    expect(rows.find((r) => r.message.includes('ds-cache'))?.level).toBe('error');
+  });
+
+  it('重复 install 只 patch 一次', () => {
+    installConsoleCapture();
+    const afterFirst = console.log;
+    installConsoleCapture();
+    expect(console.log).toBe(afterFirst);
+  });
+
+  it('非 string 第一参数不收（即使内容像命名空间）', async () => {
+    installConsoleCapture();
+    console.log(['[cache-diag]', 'array first arg']);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await db.consoleLogs.count()).toBe(0);
+  });
+
+  it('多行 message 原样保留', async () => {
+    installConsoleCapture();
+    console.log('[cache-diag] line1\n  line2\n  line3');
+    await new Promise((r) => setTimeout(r, 50));
+    const row = await db.consoleLogs.toCollection().first();
+    expect(row?.message).toContain('line1\n  line2\n  line3');
   });
 });

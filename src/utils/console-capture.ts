@@ -115,4 +115,81 @@ export function _resetForTests(): void {
   pending.length = 0;
   scheduled = false;
   flushCount = 0;
+  uninstallForTests();
+}
+
+// ===== 拦截器 =====
+const NAMESPACE_RE = /^\[[a-z][a-z0-9-]+\]/;
+const LEVELS: LogLevel[] = ['log', 'warn', 'error', 'info'];
+
+let installed = false;
+const originals: Partial<Record<LogLevel, (...args: unknown[]) => void>> = {};
+
+/** 启动时调一次。可重复调用无副作用。 */
+export function installConsoleCapture(): void {
+  if (installed) return;
+  installed = true;
+
+  for (const level of LEVELS) {
+    const orig = console[level].bind(console);
+    originals[level] = orig;
+    console[level] = (...args: unknown[]): void => {
+      // 1. 原 console 立刻执行 —— F12 永远先看到、拦截器 throw 也不影响
+      try {
+        orig(...args);
+      } catch {
+        // 极端：原 console 自身抛错（理论不可能），不再传播
+      }
+      // 2. 过滤 + 入队
+      try {
+        captureIfMatches(level, args);
+      } catch {
+        // 静默 swallow：拦截链不影响调用方
+      }
+    };
+  }
+}
+
+function captureIfMatches(level: LogLevel, args: unknown[]): void {
+  if (args.length === 0) return;
+  const first = args[0];
+  if (typeof first !== 'string') return;
+  if (!NAMESPACE_RE.test(first)) return;
+
+  const message = args.map(serializeArg).join(' ');
+  // sessionId / pageIndex 富化推迟到 Task 4,先用占位
+  appendLog({
+    sessionId: getCurrentSessionId(),
+    pageIndex: getCurrentPageIndex(),
+    ts: Date.now(),
+    level,
+    message,
+  });
+}
+
+function serializeArg(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
+}
+
+// 富化函数 —— Task 4 实装；先返回占位。
+function getCurrentSessionId(): string {
+  return '__no_session__';
+}
+function getCurrentPageIndex(): number {
+  return 0;
+}
+
+/** 测试钩子：解除 patch,还原原 console（仅 _resetForTests 内部调用）。 */
+function uninstallForTests(): void {
+  if (!installed) return;
+  for (const level of LEVELS) {
+    const orig = originals[level];
+    if (orig) console[level] = orig;
+  }
+  installed = false;
 }
