@@ -44,16 +44,15 @@ export function TokenDisplay() {
   const sec = (durationMs / 1000).toFixed(1);
   const tilde = estimated ? '~' : '';
   const hasSplit = promptTokens != null && completionTokens != null;
-  // 本页累计 LLM 请求数 = 1 主回合 + 所有子调用。
-  // RPM = 请求数 × 60 / 耗时秒数 —— 真正的 "Requests Per Minute" 频率值。
-  // 实时算 subCalls.length + 1, 子调用 fire-and-forget 追加 subCalls 时,
+  // 本页累计 LLM 请求数 = 1 主回合 + 所有子调用。subCalls fire-and-forget 追加时,
   // useBookStore 订阅会响应式更新显示。
+  // 注：早期版本附带「RPM 外推」(次数 × 60 / 耗时秒) —— 主回合 30s 做 2 次会显示
+  // 「3.99 RPM」,字面读起来像「一分钟会做 4 次」。但主回合结束后不会再有调用,
+  // 把瞬时速率外推到分钟级是误导。这里只显示真实请求次数,不再外推 RPM。
   const reqCount = 1 + (subCalls?.length ?? 0);
-  const durationSec = durationMs > 0 ? durationMs / 1000 : 1; // 防 0 除
-  const rpm = (reqCount * 60) / durationSec;
-  const rpmTail = ` · ${rpm.toFixed(1)}RPM`;
   const subCallLabels = (subCalls ?? []).map((s) => s.label).join(' / ');
-  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s · 共 ${reqCount} 次 LLM 调用${subCallLabels ? `(主回合 + ${subCallLabels})` : '(主回合)'} → ${rpm.toFixed(2)} RPM`;
+  const reqTail = ` · ${reqCount} 次`;
+  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s · 共 ${reqCount} 次 LLM 调用${subCallLabels ? `(主回合 + ${subCallLabels})` : '(主回合)'}`;
 
   return (
     <div
@@ -77,7 +76,7 @@ export function TokenDisplay() {
       ) : (
         <><RollingNumber value={totalTokens} /> tok</>
       )}
-      {' · '}{sec}s{rpmTail}
+      {' · '}{sec}s{reqTail}
     </div>
   );
 }
