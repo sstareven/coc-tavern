@@ -209,11 +209,22 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
   }, [recs, mode]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+    <div style={{
+      // v1.11.6: backdrop 用 vw/vh ÷ uiScale 替代 inset:0 + 内层反向 zoom。
+      position: 'fixed', top: 0, left: 0,
+      width: 'calc(100vw / var(--ui-scale, 1))',
+      height: 'calc(100vh / var(--ui-scale, 1))',
+      zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      {/* zoom 反向抵消界面缩放(uiScale)：用户开 1.15/1.3/1.5 时数据面板保持 100% 显示,
-          否则图表 + 明细被放大反而看着信息密度变低。calc(1/var(...)) 让面板回到自然尺寸。 */}
-      <div style={{ background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)', border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px', minWidth: 540, maxWidth: 720, width: '94%', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)', zoom: 'calc(1 / var(--ui-scale, 1))' as React.CSSProperties['zoom'] }}>
+      <div style={{
+        background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
+        border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
+        width: 'calc(min(720px, 94vw) / var(--ui-scale, 1))',
+        minWidth: 'calc(min(540px, 94vw) / var(--ui-scale, 1))',
+        maxHeight: 'calc(82vh / var(--ui-scale, 1))',
+        display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
+      }}>
         {/* 标题栏 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid rgba(196,168,85,0.18)', paddingBottom: 10, flexShrink: 0 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--gold)', letterSpacing: 4, margin: 0 }}>缓存命中 / CACHE HITS</h3>

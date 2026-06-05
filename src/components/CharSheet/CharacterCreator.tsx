@@ -43,8 +43,9 @@ interface Props {
 export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
-  // 人物创建面板不随「界面缩放」放大（太大）——反向 zoom 抵消根元素 zoom。
-  const uiScale = useSettingsStore((s) => s.uiScale);
+  // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 calc(... / var(--ui-scale, 1))
+  // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
+  // 不再订阅 uiScale ——CSS 变量 --ui-scale 直接由 applyUiScale 维护，组件不需要 React state。
   const [step, setStep] = useState(0);
 
   /* ---- Step 1: Identity ---- */
@@ -967,12 +968,14 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
 .bg-input::-webkit-scrollbar-thumb{background:rgba(196,168,85,0.22);border-radius:3px;transition:background 0.25s cubic-bezier(0.4,0,0.2,1)}
 .bg-input::-webkit-scrollbar-thumb:hover{background:rgba(196,168,85,0.45)}
 `}</style>
-      {/* Backdrop */}
+      {/* Backdrop —— v1.11.6: 不再用 inset:0(那会被根 zoom 拉到 150vw 致子元素居中漂移)。
+          改用 vw/vh ÷ uiScale 让 layout 算出来后渲染正好 100vw × 100vh 不超出。 */}
       <div
         onClick={() => {}}
         style={{
-          position: 'fixed',
-          inset: 0,
+          position: 'fixed', top: 0, left: 0,
+          width: 'calc(100vw / var(--ui-scale, 1))',
+          height: 'calc(100vh / var(--ui-scale, 1))',
           zIndex: 800,
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
@@ -983,7 +986,9 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
       <div style={{
         position: 'fixed',
         zIndex: 850,
-        zoom: uiScale === 1 ? undefined : 1 / uiScale,
+        // v1.11.6: 不再用 zoom: 1/uiScale 反向抵消（那是旧 hack）。
+        // 改成「自适应屏幕大小」：layout 维度 ÷ uiScale，让 zoom 后的实际渲染尺寸
+        // = layout × uiScale → 永远在 vw/vh 范围内，不会溢出，跟主体一起放大。
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
@@ -994,9 +999,10 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 560,
-              maxWidth: '94vw',
-              ...(step === 4 ? { height: '55vh' } : { maxHeight: '88vh' }),
+              width: 'calc(min(560px, 94vw) / var(--ui-scale, 1))',
+              ...(step === 4
+                ? { height: 'calc(55vh / var(--ui-scale, 1))' }
+                : { maxHeight: 'calc(88vh / var(--ui-scale, 1))' }),
               border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 6,
               boxShadow: '0 8px 60px rgba(0,0,0,0.7)',

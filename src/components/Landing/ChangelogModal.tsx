@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
-import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
 export const CURRENT_VERSION = 'v1.11.5';
@@ -410,8 +409,7 @@ const RELEASES: Release[] = [
 
 export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
-  // 唯一例外：更新日志不随「界面缩放」放大——施加反向 zoom 抵消根元素 zoom（嵌套相乘 S×(1/S)=1）。
-  const uiScale = useSettingsStore((s) => s.uiScale);
+  // v1.11.6: 弹窗用 calc(... / var(--ui-scale, 1)) 表达式自适应 — 不再需要订阅 uiScale。
 
   useEffect(() => {
     const seen = kvGet(CHANGELOG_KEY);
@@ -433,15 +431,21 @@ export function ChangelogModal() {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      // v1.11.6: backdrop 不再 zoom: 1/uiScale 抵消（旧 hack）。改用 vw/vh ÷ uiScale 让
+      // layout box 实际渲染尺寸 = (100vw / uiScale) × uiScale = 100vw 屏幕，居中坐标正确。
+      position: 'fixed', top: 0, left: 0,
+      width: 'calc(100vw / var(--ui-scale, 1))',
+      height: 'calc(100vh / var(--ui-scale, 1))',
+      zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-      zoom: uiScale === 1 ? undefined : 1 / uiScale,
     }}>
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
-        borderRadius: 6, padding: '32px 40px', maxWidth: 480, width: '90%',
-        maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+        borderRadius: 6, padding: '32px 40px',
+        width: 'calc(min(480px, 90vw) / var(--ui-scale, 1))',
+        maxHeight: 'calc(82vh / var(--ui-scale, 1))',
+        display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}>
         <h2 style={{

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
-import { useSettingsStore } from '../../stores/useSettingsStore';
 import { kvGet, kvSet } from '../../db/kv';
 import { DEFAULT_PRESETS } from '../../constants/presets';
 import { FUSION_PRESET_ID, FUSION_DS_ID, FUSION_XY_ID, FUSION_DS_NAME, FUSION_XY_NAME, buildFusionPreset } from '../../sillytavern/fusion-preset';
@@ -60,8 +59,7 @@ function persistEnabled(id: string, items: PromptItem[]): void {
 export function PresetSwitchOverlay() {
   const open = usePanelStore((s) => s.openPanel === 'presetSwitch');
   const closeAll = usePanelStore((s) => s.closeAll);
-  // 双人成行面板不随「界面缩放」放大——施加反向 zoom 抵消根元素 zoom（嵌套相乘 S×(1/S)=1），同 ChangelogModal。
-  const uiScale = useSettingsStore((s) => s.uiScale);
+  // v1.11.6: 弹窗用 calc(... / var(--ui-scale, 1)) 自适应 — 不再需要订阅 uiScale。
 
   const [presetId, setPresetId] = useState('');
   const [presetName, setPresetName] = useState('');
@@ -189,16 +187,21 @@ export function PresetSwitchOverlay() {
 
   return (
     <div onClick={closeAll} style={{
-      position: 'fixed', inset: 0, zIndex: 1500, display: 'flex',
+      // v1.11.6: 同 ChangelogModal —— backdrop 用 vw/vh ÷ uiScale 而非 inset:0 + 反向 zoom。
+      position: 'fixed', top: 0, left: 0,
+      width: 'calc(100vw / var(--ui-scale, 1))',
+      height: 'calc(100vh / var(--ui-scale, 1))',
+      zIndex: 1500, display: 'flex',
       alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        width: 'min(560px, 92vw)', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
+        width: 'calc(min(560px, 92vw) / var(--ui-scale, 1))',
+        maxHeight: 'calc(86vh / var(--ui-scale, 1))',
+        display: 'flex', flexDirection: 'column',
         background: 'radial-gradient(ellipse at top, #1d160e 0%, var(--void) 95%)',
         border: '1px solid var(--gold)', borderRadius: 8,
         boxShadow: '0 18px 60px rgba(0,0,0,0.6)', fontFamily: 'var(--font-ui)',
-        zoom: uiScale === 1 ? undefined : 1 / uiScale,
       }}>
         <div style={{ padding: '16px 18px 10px', borderBottom: '1px solid rgba(196,168,85,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
