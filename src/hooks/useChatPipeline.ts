@@ -1709,6 +1709,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         else cooldownStateRef.current.set(k, v - 1);
       }
       loadingRef.current = true;
+      // 同时设 React state，让 InputBar.pipeline.loading 立即变 true → 推进按钮 disabled
+      // —— 之前只设 loadingRef（防并发用的非响应式 ref），React state 完全靠下游 handleSendFromPreview
+      // 的 setLoading 兜底，若下游异步路径有任何延迟/中断会让按钮在 167s 主回合期间一直可点。
+      setLoading(true);
       useChoiceLockStore.getState().lock(); // 提交开始即锁灰选项，防止生成中连点重掷/二次推进
 
       try {
@@ -1740,6 +1744,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return ok ? '' : processedInput;
       } finally {
         loadingRef.current = false;
+        setLoading(false); // 兜底解锁,无论 handleSendFromPreview 是否走到了它自己的 setLoading(false)
         useChoiceLockStore.getState().unlock(); // 解锁选项（本次提交已结束：成功/失败/中止）
       }
     },
