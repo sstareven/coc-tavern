@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { inputStyle } from '../CharSheet/styles';
-import { getUiScale } from '../../hooks/useUiScale';
 
 const selectTriggerBase: React.CSSProperties = {
   ...inputStyle,
@@ -57,13 +56,12 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
   const menuItemFont = compact ? 'var(--font-ui)' : 'var(--font-body)';
 
   const menu = (open && rect) ? (() => {
-    // s=界面缩放：portal 到 body(在 zoom 内)，fixed 坐标需除以 s 换回布局空间，否则被二次缩放错位。
-    const s = getUiScale();
+    // v1.11.7: 不再有 zoom 整页缩放,fixed 坐标直接用,无需除以 uiScale。
     return createPortal(
     <div className="darkselect-menu" style={{
       position: 'fixed',
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)) / s,
-      top: (rect.bottom + 2) / s, minWidth: rect.width / s, maxWidth: 'calc(100vw - 16px)', zIndex: 9999,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+      top: rect.bottom + 2, minWidth: rect.width, maxWidth: 'calc(100vw - 16px)', zIndex: 9999,
       background: 'linear-gradient(180deg, rgba(26,20,14,0.99) 0%, rgba(18,14,10,0.99) 100%)',
       border: '1px solid var(--gold)', borderRadius: 4,
       boxShadow: '0 6px 24px rgba(0,0,0,0.7)',

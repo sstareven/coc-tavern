@@ -212,17 +212,17 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
     <div style={{
       // v1.11.6: backdrop 用 vw/vh ÷ uiScale 替代 inset:0 + 内层反向 zoom。
       position: 'fixed', top: 0, left: 0,
-      width: 'calc(100vw / var(--ui-scale, 1))',
-      height: 'calc(100vh / var(--ui-scale, 1))',
+      width: '100vw',
+      height: '100vh',
       zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         border: '1px solid var(--gold)', borderRadius: 8, padding: '24px 28px',
-        width: 'calc(min(720px, 94vw) / var(--ui-scale, 1))',
-        minWidth: 'calc(min(540px, 94vw) / var(--ui-scale, 1))',
-        maxHeight: 'calc(82vh / var(--ui-scale, 1))',
+        width: 'min(720px, 94vw)',
+        minWidth: 'min(540px, 94vw)',
+        maxHeight: '82vh',
         display: 'flex', flexDirection: 'column', boxShadow: '0 0 80px rgba(0,0,0,0.6)',
       }}>
         {/* 标题栏 */}

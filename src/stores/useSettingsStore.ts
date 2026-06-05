@@ -5,19 +5,18 @@ import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
 import { useTavernHelperStore } from './useTavernHelperStore';
 
-/** 界面缩放合法档位：标准/大/特大/超大。控件按钮用；自定义值不限于这些档位（见 clampUiScale）。 */
-export const UI_SCALE_LEVELS = [1, 1.15, 1.3, 1.5] as const;
+/**
+ * 文字倍率上下界（80% ~ 150%）—— 超出会让 UI 错乱(过小看不清 / 过大溢出)。
+ * v1.11.7 起：完全废弃 uiScale 整页 zoom 方案,改用纯响应式 + 文字倍率(正文/系统两类)。
+ */
+export const TEXT_RATIO_MIN = 0.8;
+export const TEXT_RATIO_MAX = 1.5;
 
-/** 界面缩放上下界（百分比 50% ~ 300%）——超出这个范围 UI 会糟糕到不可用。 */
-export const UI_SCALE_MIN = 0.5;
-export const UI_SCALE_MAX = 3.0;
-
-/** 把任意输入钳到 [UI_SCALE_MIN, UI_SCALE_MAX] 范围内；非法/非有限值回落 1。
- *  v1.11.6 起接受任意自定义值（之前会 snap 到 UI_SCALE_LEVELS 的最近档）。 */
-export function clampUiScale(v: number): number {
+/** 把任意输入钳到 [TEXT_RATIO_MIN, TEXT_RATIO_MAX]；非法/非有限值回落 1。 */
+export function clampTextRatio(v: number): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return 1;
-  if (v < UI_SCALE_MIN) return UI_SCALE_MIN;
-  if (v > UI_SCALE_MAX) return UI_SCALE_MAX;
+  if (v < TEXT_RATIO_MIN) return TEXT_RATIO_MIN;
+  if (v > TEXT_RATIO_MAX) return TEXT_RATIO_MAX;
   return v;
 }
 
@@ -75,8 +74,10 @@ interface SettingsState {
   // MVU 失败回灌自纠：默认关闭；开启后最多额外 N 次 mvu 桶往返让 AI 修正非法变量更新。
   mvuSelfCorrectEnabled: boolean;
   mvuSelfCorrectRetries: number;
-  /** 界面整体缩放倍率（桌面端，合法档位见 UI_SCALE_LEVELS）。默认 1=100%。 */
-  uiScale: number;
+  /** 正文文字倍率(0.8-1.5)。作用于叙事/对话/keywords/clues 等"剧情可读性"相关文字。默认 1=100%。 */
+  textRatio: number;
+  /** 系统文字倍率(0.8-1.5)。作用于按钮/菜单/设置面板/header/tab 等"系统 UI"文字。默认 1=100%。 */
+  systemRatio: number;
   /** DeepSeek V4 缓存优化器：思维模式指令注入（附着到末条用户消息，保前缀缓存）。 */
   dsCache: DsCacheConfig;
   /**
@@ -157,7 +158,8 @@ interface SettingsStore extends SettingsState {
   setRpmMaxQueueAttempts: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
-  setUiScale: (v: number) => void;
+  setTextRatio: (v: number) => void;
+  setSystemRatio: (v: number) => void;
   setDsCache: (c: Partial<DsCacheConfig>) => void;
   setForceJsonObject: (v: boolean) => void;
   /**
@@ -222,7 +224,8 @@ const defaults: SettingsState = {
   rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
-  uiScale: 1,
+  textRatio: 1,
+  systemRatio: 1,
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
 };
@@ -278,7 +281,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
-      setUiScale: (v) => set({ uiScale: clampUiScale(v) }),
+      setTextRatio: (v) => set({ textRatio: clampTextRatio(v) }),
+      setSystemRatio: (v) => set({ systemRatio: clampTextRatio(v) }),
       setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
       setForceJsonObject: (v) => set({ forceJsonObject: v }),
       /**

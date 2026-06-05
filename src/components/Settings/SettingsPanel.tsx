@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSettingsStore, UI_SCALE_MIN, UI_SCALE_MAX } from '../../stores/useSettingsStore';
+import { useSettingsStore, TEXT_RATIO_MIN, TEXT_RATIO_MAX } from '../../stores/useSettingsStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
 import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import { usePanelStore } from '../../stores/usePanelStore';
@@ -9,7 +9,6 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { getUiScale } from '../../hooks/useUiScale';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -341,8 +340,10 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
   const setSfxVolume = useSettingsStore((s) => s.setSfxVolume);
   const autoSubmitChoice = useSettingsStore((s) => s.autoSubmitChoice);
-  const uiScale = useSettingsStore((s) => s.uiScale);
-  const setUiScale = useSettingsStore((s) => s.setUiScale);
+  const textRatio = useSettingsStore((s) => s.textRatio);
+  const setTextRatio = useSettingsStore((s) => s.setTextRatio);
+  const systemRatio = useSettingsStore((s) => s.systemRatio);
+  const setSystemRatio = useSettingsStore((s) => s.setSystemRatio);
   const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
   const maxSummaryEntries = useSettingsStore((s) => s.maxSummaryEntries);
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
@@ -610,97 +611,47 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <Toggle on={autoSubmitChoice} onChange={() => setAutoSubmitChoice(!autoSubmitChoice)} />
                 </div>
 
-                {/* 界面缩放（整体放大，含字体）—— 仅桌面端显示 */}
-                {!isMobile && (
-                  <div style={rowStyle}>
-                    <span style={labelStyle}>界面缩放</span>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {[
-                        { v: 1, name: '标准' },
-                        { v: 1.15, name: '大' },
-                        { v: 1.3, name: '特大' },
-                        { v: 1.5, name: '超大' },
-                      ].map(({ v, name }) => {
-                        const active = uiScale === v;
-                        return (
-                          <button
-                            key={v}
-                            onClick={() => setUiScale(v)}
-                            title={`${name} ${Math.round(v * 100)}%`}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: 4,
-                              border: active ? '1px solid var(--gold)' : '1px solid var(--brass)',
-                              background: active ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
-                              color: active ? 'var(--gold)' : 'var(--ink-subtle)',
-                              fontFamily: 'var(--font-ui)',
-                              fontSize: 10,
-                              letterSpacing: 1,
-                              cursor: 'pointer',
-                              transition: 'var(--transition-smooth)',
-                            }}
-                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.2)'; }}
-                          >
-                            {name}
-                            <span style={{ marginLeft: 4, fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.8 }}>{Math.round(v * 100)}%</span>
-                          </button>
-                        );
-                      })}
-                      {/* v1.11.6: 自定义放大倍率 —— uiScale 不在 4 个预设档时高亮此输入。
-                          输入百分比 50-300（步长 5）；onChange 实时应用，clampUiScale 兜底越界。 */}
-                      {(() => {
-                        const isCustom = ![1, 1.15, 1.3, 1.5].includes(uiScale);
-                        return (
-                          <div
-                            title={`自定义 ${Math.round(UI_SCALE_MIN * 100)}% ~ ${Math.round(UI_SCALE_MAX * 100)}%`}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '4px 6px 4px 10px',
-                              borderRadius: 4,
-                              border: isCustom ? '1px solid var(--gold)' : '1px solid var(--brass)',
-                              background: isCustom ? 'rgba(196,168,85,0.15)' : 'rgba(0,0,0,0.2)',
-                              color: isCustom ? 'var(--gold)' : 'var(--ink-subtle)',
-                              fontFamily: 'var(--font-ui)',
-                              fontSize: 10,
-                              letterSpacing: 1,
-                              transition: 'var(--transition-smooth)',
-                            }}
-                          >
-                            自定义
-                            <input
-                              type="number"
-                              min={Math.round(UI_SCALE_MIN * 100)}
-                              max={Math.round(UI_SCALE_MAX * 100)}
-                              step={5}
-                              value={Math.round(uiScale * 100)}
-                              onChange={(e) => {
-                                const pct = Number(e.target.value);
-                                if (!Number.isFinite(pct)) return;
-                                setUiScale(pct / 100);
-                              }}
-                              style={{
-                                width: 44,
-                                padding: '2px 4px',
-                                background: 'rgba(0,0,0,0.35)',
-                                border: '1px solid rgba(196,168,85,0.3)',
-                                borderRadius: 3,
-                                color: isCustom ? 'var(--gold)' : 'var(--ink-subtle)',
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: 10,
-                                textAlign: 'center',
-                                outline: 'none',
-                              }}
-                            />
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.8 }}>%</span>
-                          </div>
-                        );
-                      })()}
-                    </div>
+                {/* v1.11.7: 文字倍率（取代旧「界面缩放」整页 zoom） — 分正文/系统两类独立调节。
+                    几何尺寸(按钮宽高/面板大小)由 CSS 响应式表达式(clamp/vw/vh)驱动,这里只动字号。 */}
+                <div style={rowStyle}>
+                  <span style={{ ...labelStyle, position: 'relative' }}>
+                    正文文字大小
+                    <HelpIcon text={'调节叙事/对话/线索/关键词等「剧情可读性」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n几何尺寸(书页/按钮宽高)由响应式 CSS 驱动,会跟随浏览器窗口大小自动调整,不受这里影响。'} />
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range"
+                      min={Math.round(TEXT_RATIO_MIN * 100)}
+                      max={Math.round(TEXT_RATIO_MAX * 100)}
+                      step={5}
+                      value={Math.round(textRatio * 100)}
+                      onChange={(e) => setTextRatio(Number(e.target.value) / 100)}
+                      style={{ width: 140 }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
+                      {Math.round(textRatio * 100)}%
+                    </span>
                   </div>
-                )}
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={{ ...labelStyle, position: 'relative' }}>
+                    系统文字大小
+                    <HelpIcon text={'调节按钮/菜单/设置面板/状态栏等「系统 UI」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n与正文文字独立——可以正文调大方便沉浸阅读、系统保持 100% 紧凑显示。'} />
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range"
+                      min={Math.round(TEXT_RATIO_MIN * 100)}
+                      max={Math.round(TEXT_RATIO_MAX * 100)}
+                      step={5}
+                      value={Math.round(systemRatio * 100)}
+                      onChange={(e) => setSystemRatio(Number(e.target.value) / 100)}
+                      style={{ width: 140 }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
+                      {Math.round(systemRatio * 100)}%
+                    </span>
+                  </div>
+                </div>
 
                 <CategoryBar label="上下文" />
                 {/* Max summary entries */}
@@ -1478,16 +1429,15 @@ function HelpIcon({ text }: { text: string }) {
   const onEnter = () => {
     const el = ref.current;
     if (el) {
-      // s=界面缩放：tooltip portal 到 body(在 zoom 内)，fixed 坐标需除以 s 换回布局空间，否则被二次缩放错位。
-      const s = getUiScale();
+      // v1.11.7: 不再有 zoom 整页缩放,fixed 坐标直接用,不需除以 uiScale。
       const r = el.getBoundingClientRect();
-      const W = 300 * s;
+      const W = 300;
       let x = r.left;
       if (x + W > window.innerWidth - 8) x = window.innerWidth - W - 8;
       x = Math.max(8, x);
       const below = r.bottom < window.innerHeight * 0.55;
       const yRaw = below ? r.bottom + 6 : r.top - 6;
-      setPos({ x: x / s, y: yRaw / s, below });
+      setPos({ x, y: yRaw, below });
     }
     setShow(true);
   };

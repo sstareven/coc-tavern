@@ -59,7 +59,7 @@ function persistEnabled(id: string, items: PromptItem[]): void {
 export function PresetSwitchOverlay() {
   const open = usePanelStore((s) => s.openPanel === 'presetSwitch');
   const closeAll = usePanelStore((s) => s.closeAll);
-  // v1.11.6: 弹窗用 calc(... / var(--ui-scale, 1)) 自适应 — 不再需要订阅 uiScale。
+  // v1.11.6: 弹窗用 ... 自适应 — 不再需要订阅 uiScale。
 
   const [presetId, setPresetId] = useState('');
   const [presetName, setPresetName] = useState('');
@@ -189,15 +189,15 @@ export function PresetSwitchOverlay() {
     <div onClick={closeAll} style={{
       // v1.11.6: 同 ChangelogModal —— backdrop 用 vw/vh ÷ uiScale 而非 inset:0 + 反向 zoom。
       position: 'fixed', top: 0, left: 0,
-      width: 'calc(100vw / var(--ui-scale, 1))',
-      height: 'calc(100vh / var(--ui-scale, 1))',
+      width: '100vw',
+      height: '100vh',
       zIndex: 1500, display: 'flex',
       alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        width: 'calc(min(560px, 92vw) / var(--ui-scale, 1))',
-        maxHeight: 'calc(86vh / var(--ui-scale, 1))',
+        width: 'min(560px, 92vw)',
+        maxHeight: '86vh',
         display: 'flex', flexDirection: 'column',
         background: 'radial-gradient(ellipse at top, #1d160e 0%, var(--void) 95%)',
         border: '1px solid var(--gold)', borderRadius: 8,

@@ -43,7 +43,7 @@ interface Props {
 export function CharacterCreator({ onComplete, onClose }: Props) {
   const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
-  // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 calc(... / var(--ui-scale, 1))
+  // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 ...
   // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
   // 不再订阅 uiScale ——CSS 变量 --ui-scale 直接由 applyUiScale 维护，组件不需要 React state。
   const [step, setStep] = useState(0);
@@ -974,8 +974,8 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         onClick={() => {}}
         style={{
           position: 'fixed', top: 0, left: 0,
-          width: 'calc(100vw / var(--ui-scale, 1))',
-          height: 'calc(100vh / var(--ui-scale, 1))',
+          width: '100vw',
+          height: '100vh',
           zIndex: 800,
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
@@ -999,10 +999,10 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 'calc(min(560px, 94vw) / var(--ui-scale, 1))',
+              width: 'min(560px, 94vw)',
               ...(step === 4
-                ? { height: 'calc(55vh / var(--ui-scale, 1))' }
-                : { maxHeight: 'calc(88vh / var(--ui-scale, 1))' }),
+                ? { height: '55vh' }
+                : { maxHeight: '88vh' }),
               border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 6,
               boxShadow: '0 8px 60px rgba(0,0,0,0.7)',

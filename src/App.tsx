@@ -30,11 +30,11 @@ import { db, V2_UPGRADE_FAILED } from './db/database';
 import { loadConversation, persistActiveGameState } from './stores/sessionLifecycle';
 import { useChatStore } from './stores/useChatStore';
 import { useBookStore } from './stores/useBookStore';
-import { useUiScale } from './hooks/useUiScale';
+import { useTextRatios } from './hooks/useTextRatios';
 import { useButtonSounds } from './hooks/useButtonSounds';
 
 export function App() {
-  useUiScale(); // 桌面端界面缩放：把设置中的 uiScale 应用到根元素 zoom
+  useTextRatios(); // 文字倍率：把 textRatio/systemRatio 挂到 :root CSS 变量供 calc(... * var(...)) 使用
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
   const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
   const [ready, setReady] = useState(false);
