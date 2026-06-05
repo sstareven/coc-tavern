@@ -127,18 +127,42 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
     return out;
   }, [pages]);
 
-  // 总览：按 tier 分组合计 + 全局合计
+  // 总览：按 tier 分组合计 + 全局合计。
+  // count 语义：真实 LLM 调用次数(主回合 1 + 每个 subCall 1),不按 (page, tier) 聚合后的 Rec 数算
+  // ——之前 byTier 直接 reduce recs 导致一页里多个 Flash 子调用合成 1 个 Rec 后 count=1,跟「实际发了 N 次 Flash 调用」语义不符。
   const byTier = useMemo(() => {
     const init = (): { hit: number; miss: number; output: number; cost: number; count: number } =>
       ({ hit: 0, miss: 0, output: 0, cost: 0, count: 0 });
     const flash = init(); const pro = init();
-    for (const r of recs) {
-      const bucket = r.tier === 'flash' ? flash : pro;
-      bucket.hit += r.hit; bucket.miss += r.miss; bucket.output += r.output; bucket.count += 1;
-      bucket.cost += estimateCostCNY(r.hit, r.miss, r.output, r.tier === 'flash' ? 'deepseek-v4-flash' : 'deepseek-v4-pro');
-    }
+    pages.forEach((p) => {
+      const gs = p.genStats;
+      if (!gs) return;
+      // 主回合
+      const mainHit = gs.cacheHitTokens ?? 0;
+      const mainMiss = gs.cacheMissTokens ?? 0;
+      const mainOut = gs.completionTokens ?? 0;
+      if (mainHit > 0 || mainMiss > 0) {
+        const mainTier = inferModelTier(gs.model);
+        const bucket = mainTier === 'flash' ? flash : pro;
+        bucket.hit += mainHit; bucket.miss += mainMiss; bucket.output += mainOut;
+        bucket.cost += estimateCostCNY(mainHit, mainMiss, mainOut, gs.model);
+        bucket.count += 1;
+      }
+      // 每个子调用单独算 1 次
+      for (const s of gs.subCalls ?? []) {
+        const sHit = s.hit ?? 0;
+        const sMiss = s.miss ?? (s.promptTokens != null && s.hit == null ? s.promptTokens : 0);
+        const sOut = s.output ?? 0;
+        if (sHit === 0 && sMiss === 0 && sOut === 0) continue;
+        const t = inferModelTier(s.model);
+        const bucket = t === 'flash' ? flash : pro;
+        bucket.hit += sHit; bucket.miss += sMiss; bucket.output += sOut;
+        bucket.cost += estimateCostCNY(sHit, sMiss, sOut, s.model);
+        bucket.count += 1;
+      }
+    });
     return { flash, pro };
-  }, [recs]);
+  }, [pages]);
 
   const totalHit = byTier.flash.hit + byTier.pro.hit;
   const totalMiss = byTier.flash.miss + byTier.pro.miss;

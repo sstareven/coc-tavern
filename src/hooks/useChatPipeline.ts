@@ -79,7 +79,7 @@ import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/chara
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
-import { getCurrentRpm } from '../sillytavern/rpm-limiter';
+import { getCurrentRpmTotal } from '../sillytavern/rpm-limiter';
 
 import type { ChatPreset, LoreEntry, Extension } from '../types';
 import type { AssembledMessage } from '../sillytavern/prompt-assembler';
@@ -1152,9 +1152,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
           cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
           at: Date.now(),
-          // 主 RPM 桶 60s 窗口内已发出的请求数实测值——TokenDisplay 在右下角显示「当时
-          // 发了 N 次请求」, 反映系统真实繁忙度（含本页主回合 + 同窗口内子调用累积）。
-          rpm: getCurrentRpm('main'),
+          // 主 + MVU + rewrite 三桶 60s 窗口内已发出的请求数累加——TokenDisplay 在右下角显示
+          // 「当时发了 N 次请求」, 反映系统真实繁忙度(主回合 + MVU 提取 + 子调用 全部累加)。
+          // 之前只取 main 桶, 漏算了走 mvu 桶的 MVU/起始物品/坏结局/关键线索, 实测 1 RPM 不对。
+          rpm: getCurrentRpmTotal(),
           // 本回合使用的模型名快照——CacheStatsPanel 按 model tier 走对应费率算 cost，
           // 并把曲线按 flash/pro 分双线展示。
           model: useSettingsStore.getState().apiModel,

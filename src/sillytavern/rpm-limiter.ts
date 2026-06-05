@@ -117,3 +117,21 @@ export function getCurrentRpm(kind: RpmKind = 'main'): number {
   const now = Date.now();
   return histories[bucket].filter((t) => now - t < WINDOW_MS).length;
 }
+
+/**
+ * 取「现在 60 秒滑动窗口内」三个桶 (main + mvu + rewrite) 累加的总请求数。
+ * 反映系统真实总繁忙度——TokenDisplay 右下角用它显示「当时发了 N 次请求」,涵盖
+ * 主回合 + MVU 提取 + 起始物品/坏结局/关键线索等所有 LLM 调用。
+ *
+ * 当 perApiRpmEnabled=false：所有 rpmAcquire 调用都被路由到 main 桶, mvu/rewrite
+ * 数组永远空,只需读 main 即可拿到全部;true 时三桶独立简单累加。
+ */
+export function getCurrentRpmTotal(): number {
+  const s = useSettingsStore.getState();
+  const now = Date.now();
+  const m = histories.main.filter((t) => now - t < WINDOW_MS).length;
+  if (!s.perApiRpmEnabled) return m;
+  return m
+    + histories.mvu.filter((t) => now - t < WINDOW_MS).length
+    + histories.rewrite.filter((t) => now - t < WINDOW_MS).length;
+}
