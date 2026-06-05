@@ -58,7 +58,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       borderTopLeftRadius: 4, borderBottomLeftRadius: 4,
       boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.04)',
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
-      fontSize: 15, lineHeight: 1.75, position: 'relative',
+      fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative',
     }}>
       <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, ...fadeStyle }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>

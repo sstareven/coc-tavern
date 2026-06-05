@@ -189,15 +189,15 @@ export function PresetSwitchOverlay() {
     <div onClick={closeAll} style={{
       // v1.11.6: 同 ChangelogModal —— backdrop 用 vw/vh ÷ uiScale 而非 inset:0 + 反向 zoom。
       position: 'fixed', top: 0, left: 0,
-      width: '100vw',
-      height: '100vh',
+      width: 'calc(100vw / var(--auto-zoom, 1))',
+      height: 'calc(100vh / var(--auto-zoom, 1))',
       zIndex: 1500, display: 'flex',
       alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        width: 'min(560px, 92vw)',
-        maxHeight: '86vh',
+        width: 'calc(min(560px, 92vw) / var(--auto-zoom, 1))',
+        maxHeight: 'calc(86vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column',
         background: 'radial-gradient(ellipse at top, #1d160e 0%, var(--void) 95%)',
         border: '1px solid var(--gold)', borderRadius: 8,

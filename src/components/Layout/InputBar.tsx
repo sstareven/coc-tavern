@@ -413,7 +413,7 @@ export function InputBar() {
                 background: 'rgba(0,0,0,0.3)',
                 color: 'var(--text-light)',
                 fontFamily: 'var(--font-ui)',
-                fontSize: 14,
+                fontSize: 'calc(14px * var(--system-ratio, 1))',
                 letterSpacing: 1,
                 outline: 'none',
                 caretColor: 'var(--gold)',

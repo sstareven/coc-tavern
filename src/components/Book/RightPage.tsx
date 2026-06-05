@@ -445,7 +445,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
   });
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.75, position: 'relative' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative' }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <InventoryChangesBar inventoryChanges={inventoryChanges ?? []} fadeStyle={fadeStyle} />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>

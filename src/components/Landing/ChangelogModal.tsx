@@ -434,8 +434,8 @@ export function ChangelogModal() {
       // v1.11.6: backdrop 不再 zoom: 1/uiScale 抵消（旧 hack）。改用 vw/vh ÷ uiScale 让
       // layout box 实际渲染尺寸 = (100vw / uiScale) × uiScale = 100vw 屏幕，居中坐标正确。
       position: 'fixed', top: 0, left: 0,
-      width: '100vw',
-      height: '100vh',
+      width: 'calc(100vw / var(--auto-zoom, 1))',
+      height: 'calc(100vh / var(--auto-zoom, 1))',
       zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
@@ -443,8 +443,8 @@ export function ChangelogModal() {
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
         borderRadius: 6, padding: '32px 40px',
-        width: 'min(480px, 90vw)',
-        maxHeight: '82vh',
+        width: 'calc(min(480px, 90vw) / var(--auto-zoom, 1))',
+        maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}>

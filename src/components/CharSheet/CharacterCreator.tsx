@@ -974,8 +974,8 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         onClick={() => {}}
         style={{
           position: 'fixed', top: 0, left: 0,
-          width: '100vw',
-          height: '100vh',
+          width: 'calc(100vw / var(--auto-zoom, 1))',
+          height: 'calc(100vh / var(--auto-zoom, 1))',
           zIndex: 800,
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
@@ -994,15 +994,15 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         overflow: 'hidden',
         ...(isMobile
-          ? { inset: 0, width: '100vw', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none' }
+          ? { inset: 0, width: 'calc(100vw / var(--auto-zoom, 1))', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none' }
           : {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: 'min(560px, 94vw)',
+              width: 'calc(min(560px, 94vw) / var(--auto-zoom, 1))',
               ...(step === 4
-                ? { height: '55vh' }
-                : { maxHeight: '88vh' }),
+                ? { height: 'calc(55vh / var(--auto-zoom, 1))' }
+                : { maxHeight: 'calc(88vh / var(--auto-zoom, 1))' }),
               border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 6,
               boxShadow: '0 8px 60px rgba(0,0,0,0.7)',
