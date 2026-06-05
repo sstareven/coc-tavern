@@ -22,7 +22,7 @@ export function BackgroundSettings() {
             角色发送的第一条消息
           </span>
         </div>
-        <textarea value={local.greeting} onChange={(e) => save({ greeting: e.target.value })}
+        <textarea name="bg-greeting" value={local.greeting} onChange={(e) => save({ greeting: e.target.value })}
           placeholder="角色出场时对玩家说的话..." style={textareaStyle} rows={4} />
       </div>
 
@@ -34,7 +34,7 @@ export function BackgroundSettings() {
             注入提示词的 Char Description
           </span>
         </div>
-        <textarea value={local.description} onChange={(e) => save({ description: e.target.value })}
+        <textarea name="bg-description" value={local.description} onChange={(e) => save({ description: e.target.value })}
           placeholder="角色的外貌、背景、身份等描述..." style={textareaStyle} rows={3} />
       </div>
 
@@ -46,7 +46,7 @@ export function BackgroundSettings() {
             注入提示词的 Char Personality
           </span>
         </div>
-        <textarea value={local.personality} onChange={(e) => save({ personality: e.target.value })}
+        <textarea name="bg-personality" value={local.personality} onChange={(e) => save({ personality: e.target.value })}
           placeholder="角色的性格特征、说话风格、行为模式..." style={textareaStyle} rows={3} />
       </div>
 
@@ -58,7 +58,7 @@ export function BackgroundSettings() {
             注入提示词的 Scenario 场景描述
           </span>
         </div>
-        <textarea value={local.scenario} onChange={(e) => save({ scenario: e.target.value })}
+        <textarea name="bg-scenario" value={local.scenario} onChange={(e) => save({ scenario: e.target.value })}
           placeholder="当前场景的环境、氛围、背景故事..." style={textareaStyle} rows={3} />
       </div>
 
@@ -70,7 +70,7 @@ export function BackgroundSettings() {
             注入提示词的 Persona Description
           </span>
         </div>
-        <textarea value={local.personaDescription} onChange={(e) => save({ personaDescription: e.target.value })}
+        <textarea name="bg-persona-description" value={local.personaDescription} onChange={(e) => save({ personaDescription: e.target.value })}
           placeholder="玩家角色的设定、背景..." style={textareaStyle} rows={3} />
       </div>
     </div>

@@ -51,7 +51,7 @@ export function ChatlistPanel({ onClose }: Props) {
 
         {/* Create new */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)}
+          <input name="chatlist-new-name" value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
             placeholder="对话名称..."
             style={{
