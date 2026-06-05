@@ -52,19 +52,39 @@ export function unescapeLiteralNewlines(s: string): string {
     .replace(/\\t/g, '\t');
 }
 
+/**
+ * 剥除孤立的 <kw> / </kw> 标签——LLM 用 v1.11.3 新语法时偶发漏写开/闭标签,
+ * 导致正文出现孤立 `</kw>` 字面（实测：「灰白的虚空。</kw>指尖触上门板时...」）。
+ *
+ * 算法：用私有区(PUA)字符当 sentinel 临时遮蔽成对的 `<kw>X</kw>`，剥除剩余
+ * 所有孤立 `<kw>` 或 `</kw>` 字面，再还原 sentinel 为标准标签。
+ *
+ * 不处理嵌套 `<kw>X<kw>Y</kw>Z</kw>`（KW_TAG 内部禁 `<` 字符）——遇上只保留
+ * 内层成对，外层视为孤立剥除；这是预期行为，比留下错误嵌套体验更好。
+ */
+function stripOrphanKwTags(s: string): string {
+  const OPEN_S = '\uE001'; // PUA sentinel — 不可能出现在 LLM 正文
+  const CLOSE_S = '\uE002';
+  let temp = s.replace(/<kw>([^<]+)<\/kw>/g, (_m, k: string) => OPEN_S + k + CLOSE_S);
+  temp = temp.replace(/<\/?kw>/g, '');
+  temp = temp.replace(new RegExp(OPEN_S + '([\\s\\S]*?)' + CLOSE_S, 'g'), '<kw>$1</kw>');
+  return temp;
+}
+
 export function stripMvu(s: string): string {
-  return s
-    .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
-    .replace(/<(em)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
-    .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '<kw>$1</kw>')
-    .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
-    .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
-    // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
-    // v1.11.3: 同时保留 <kw>...</kw> 关键词标签 —— TextBeautifier 渲染时识别它显示 tooltip。
-    // 用否定先行断言把 san 和 kw 都排除在「strip all tags」之外。
-    .replace(/<(?!san\b)(?!\/?kw\b)[^>]+>/g, '')
-    .replace(/\{\{set:[^}]+\}\}/gi, '')
-    .trim();
+  return stripOrphanKwTags(
+    s
+      .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
+      .replace(/<(em)>([\s\S]*?)<\/\1>/gi, '<kw>$2</kw>')
+      .replace(/<i(?!\s+data-)(?:\s[^>]*)?>([\s\S]*?)<\/i>/gi, '<kw>$1</kw>')
+      .replace(/<var\s+name=['"][^"']+['"]\s+value=['"][^"']*['"]\s*\/>/gi, '')
+      .replace(/<i\s+data-(?:var|set|val)="[^"]*"[^>]*>/gi, '')
+      // A2 重设: 保留 <san id="N"/> 自闭合理智气泡标签 — RightPage/LeftPage 渲染层会把它们替换为 SanityBubble 组件。
+      // v1.11.3: 同时保留 <kw>...</kw> 关键词标签 —— TextBeautifier 渲染时识别它显示 tooltip。
+      // 用否定先行断言把 san 和 kw 都排除在「strip all tags」之外。
+      .replace(/<(?!san\b)(?!\/?kw\b)[^>]+>/g, '')
+      .replace(/\{\{set:[^}]+\}\}/gi, ''),
+  ).trim();
 }
 
 /**
