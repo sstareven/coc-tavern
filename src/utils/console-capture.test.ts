@@ -7,6 +7,8 @@ import {
   _resetForTests,
   installConsoleCapture,
 } from './console-capture';
+import { useChatStore } from '../stores/useChatStore';
+import { useBookStore } from '../stores/useBookStore';
 
 describe('console-capture: 写入/读取/删除', () => {
   beforeEach(async () => {
@@ -157,5 +159,46 @@ describe('console-capture: 拦截器', () => {
     await new Promise((r) => setTimeout(r, 50));
     const row = await db.consoleLogs.toCollection().first();
     expect(row?.message).toContain('line1\n  line2\n  line3');
+  });
+});
+
+describe('console-capture: 富化 sessionId + pageIndex', () => {
+  beforeEach(async () => {
+    await db.consoleLogs.clear();
+    _resetForTests();
+  });
+
+  it('从 useChatStore.activeId 读 sessionId', async () => {
+    useChatStore.setState({ activeId: 'sess-abc' });
+    installConsoleCapture();
+    console.log('[cache-diag] from sess-abc');
+    await new Promise((r) => setTimeout(r, 50));
+    const row = await db.consoleLogs.toCollection().first();
+    expect(row?.sessionId).toBe('sess-abc');
+  });
+
+  it('activeId=null 时降为 __no_session__', async () => {
+    useChatStore.setState({ activeId: null });
+    installConsoleCapture();
+    console.log('[cache-diag] orphan');
+    await new Promise((r) => setTimeout(r, 50));
+    const row = await db.consoleLogs.toCollection().first();
+    expect(row?.sessionId).toBe('__no_session__');
+  });
+
+  it('pageIndex 取自 useBookStore.pages.length', async () => {
+    useChatStore.setState({ activeId: 's1' });
+    useBookStore.setState({
+      pages: [
+        { id: 'p1', leftHeader: 'a', rightContent: '', leftContent: '', rightHeader: '' },
+        { id: 'p2', leftHeader: 'b', rightContent: '', leftContent: '', rightHeader: '' },
+        { id: 'p3', leftHeader: 'c', rightContent: '', leftContent: '', rightHeader: '' },
+      ] as unknown as ReturnType<typeof useBookStore.getState>['pages'],
+    });
+    installConsoleCapture();
+    console.log('[cache-diag] page3');
+    await new Promise((r) => setTimeout(r, 50));
+    const row = await db.consoleLogs.toCollection().first();
+    expect(row?.pageIndex).toBe(3);
   });
 });

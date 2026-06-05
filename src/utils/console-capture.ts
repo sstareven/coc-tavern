@@ -1,4 +1,6 @@
 import { db, type ConsoleLogRow } from '../db/database';
+import { useChatStore } from '../stores/useChatStore';
+import { useBookStore } from '../stores/useBookStore';
 
 export type LogLevel = 'log' | 'warn' | 'error' | 'info';
 
@@ -161,7 +163,6 @@ function captureIfMatches(level: LogLevel, args: unknown[]): void {
   if (!NAMESPACE_RE.test(first)) return;
 
   const message = args.map(serializeArg).join(' ');
-  // sessionId / pageIndex 富化推迟到 Task 4,先用占位
   appendLog({
     sessionId: getCurrentSessionId(),
     pageIndex: getCurrentPageIndex(),
@@ -183,12 +184,21 @@ function serializeArg(arg: unknown): string {
   }
 }
 
-// 富化函数 —— Task 4 实装；先返回占位。
+// 富化函数：snapshot zustand store 读 sessionId 和 pageIndex。
+// try/catch 兜底覆盖 store 未 mount 或抛错的边界（boot 期、HMR 中间状态等）。
 function getCurrentSessionId(): string {
-  return '__no_session__';
+  try {
+    return useChatStore.getState().activeId ?? '__no_session__';
+  } catch {
+    return '__no_session__';
+  }
 }
 function getCurrentPageIndex(): number {
-  return 0;
+  try {
+    return useBookStore.getState().pages.length;
+  } catch {
+    return 0;
+  }
 }
 
 /** 测试钩子：解除 patch,还原原 console（仅 _resetForTests 内部调用）。 */
