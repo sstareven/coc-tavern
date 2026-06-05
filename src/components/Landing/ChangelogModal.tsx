@@ -3,7 +3,7 @@ import { kvGet, kvSet } from '../../db/kv';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.1';
+export const CURRENT_VERSION = 'v1.11.2';
 
 interface Release {
   version: string;
@@ -13,6 +13,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.2',
+    label: 'Token 显示：RPM 改回真实频率（请求数 × 60 / 耗时秒数）',
+    items: [
+      '【Token 显示·修复】v1.11.1 把 RPM 改成「N 请求」纯计数后，丢失了「Requests Per Minute 频率」语义。现改回用 `(请求数 × 60 / 耗时秒数)` 算真实 RPM——例：4 请求 / 53.5s × 60 ≈ 4.5 RPM；4 请求 / 191s × 60 ≈ 1.3 RPM。格式：`↑24,620 ↓3,863 · 53.5s · 4.5RPM`（1 位小数）。子调用 fire-and-forget 追加后，订阅 useBookStore 响应式更新 reqCount → rpm 跟随重算。Hover tooltip 完整展开：「共 4 次 LLM 调用（主回合 + MVU 提取 / 坏结局 / 起始物品）→ 4.49 RPM」',
+    ],
+  },
   {
     version: 'v1.11.1',
     label: 'Token 显示重做 · 统计与缓存面板修复 · 可访问性 · 多项管线修复',
