@@ -40,12 +40,18 @@ export function TokenDisplay() {
   // 本页无生成记录（序章/老存档/未经本版本生成）——直接不显示，不留占位符
   if (!stats) return null;
 
-  const { totalTokens, promptTokens, completionTokens, durationMs, estimated, rpm } = stats;
+  const { totalTokens, promptTokens, completionTokens, durationMs, estimated, subCalls } = stats;
   const sec = (durationMs / 1000).toFixed(1);
   const tilde = estimated ? '~' : '';
   const hasSplit = promptTokens != null && completionTokens != null;
-  const rpmTail = typeof rpm === 'number' ? ` · ${rpm}RPM` : '';
-  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s${typeof rpm === 'number' ? ` · 当时主桶 60s 窗口内 ${rpm} 次请求` : ''}`;
+  // 本页累计 LLM 请求数 = 1 主回合 + 所有子调用。
+  // 不再用 stats.rpm 快照字段——rpm-limiter 的 60s 滑动窗口在 Pro 主回合(>60s)
+  // 时永远算到 0,语义混乱;改成实时算 subCalls.length + 1,子调用 fire-and-forget
+  // 追加 subCalls 时,useBookStore 订阅会响应式更新显示。
+  const reqCount = 1 + (subCalls?.length ?? 0);
+  const reqTail = ` · ${reqCount}请求`;
+  const subCallLabels = (subCalls ?? []).map((s) => s.label).join(' / ');
+  const title = `本页生成${estimated ? '（估算）' : ''}：输入 ${promptTokens?.toLocaleString() ?? '—'} · 输出 ${completionTokens?.toLocaleString() ?? '—'} · 合计 ${totalTokens.toLocaleString()} tokens · 耗时 ${sec}s · 共 ${reqCount} 次 LLM 调用${subCallLabels ? `(主回合 + ${subCallLabels})` : '(主回合)'}`;
 
   return (
     <div
@@ -69,7 +75,7 @@ export function TokenDisplay() {
       ) : (
         <><RollingNumber value={totalTokens} /> tok</>
       )}
-      {' · '}{sec}s{rpmTail}
+      {' · '}{sec}s{reqTail}
     </div>
   );
 }
