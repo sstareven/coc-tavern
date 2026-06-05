@@ -125,8 +125,10 @@ export function OptionResolutionOverlay() {
 
   const handlePush = useCallback(() => {
     if (!pending) return;
-    const reason = window.prompt('推动检定的理由？', '再翻一遍 / 不甘心 / 用力一些');
-    if (reason == null) return; // 玩家取消推骰，停留在浮层
+    // 孤注一掷：不再向玩家收理由。系统统一传 '孤注一掷' 作为标记 → applyPushReroll
+    // 把它写进 line `(孤注一掷)` 与 record.pushReason；下游 AI 看到此标记 + 失败/大失败时
+    // 必须升级叙事后果（FORMAT_INSTRUCTION 强约束）。reason 字段保留只为数据兼容。
+    const reason = '孤注一掷';
     const push = applyPushReroll(pending.target, pending.sanCheck, pending.skill, reason);
     const newRecord = buildPushedRecord(pending, push);
     const newInputText = rebuildInputText(pending.inputText, pending.resultLine, push.line);

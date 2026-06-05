@@ -132,7 +132,7 @@ export function applyPushReroll(
   const newResult = determineResult(newRoll, target, sanCheck);
   const label = RESULT_LABELS[newResult] || newResult;
   const rollStr = String(newRoll).padStart(2, '0');
-  const line = `[${skill} d100=${rollStr}/${target} ${label} (推骰: ${reason})]\n`;
+  const line = `[${skill} d100=${rollStr}/${target} ${label} (孤注一掷)]\n`;
   return { newRoll, newResult, label, line, reason };
 }
 

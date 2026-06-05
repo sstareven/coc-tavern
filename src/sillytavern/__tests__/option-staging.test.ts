@@ -105,7 +105,7 @@ describe('A1.8 applyPushReroll — 推骰二次掷', () => {
     const r = applyPushReroll(30, false, '图书馆使用', '再翻一遍', rng);
     expect(r.newRoll).toBe(55);
     expect(r.newResult).toBe('failure');
-    expect(r.line).toContain('推骰: 再翻一遍');
+    expect(r.line).toContain('(孤注一掷)');
   });
 
   it('test 11 — mock rng → 0.1/0.1 → newRoll=11; target=60 → extreme-success (11 ≤ 60/5=12)', () => {

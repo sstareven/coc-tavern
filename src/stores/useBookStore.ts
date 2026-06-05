@@ -4,6 +4,7 @@ import type { NpcUpdate } from './useNpcStore';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 import { useCombatStore } from './useCombatStore';
+import { useSanityBubbleStore } from './useSanityBubbleStore';
 
 const defaultPages: BookPage[] = [
   // ▸▸▸ 序章：降生之梦 + 命运歧路 ◂◂◂
@@ -187,6 +188,11 @@ export const useBookStore = create<BookStore>((set, get) => ({
         // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。
         const enc = useCombatStore.getState().encounter;
         if (enc?.anchorPageId && removedIds.includes(enc.anchorPageId)) useCombatStore.getState().clearCombat();
+        // useSanityBubbleStore.resolved 是 in-memory 解决态(按 page.sanityCheckPrompts.id 标记)。
+        // 删页清掉气泡列表对应页 → resolved 也必须清，防新页 LLM 生成同 id(p1/p2/p3 是常见模板) 时
+        // 被误判为"已触发"(SanityBubble 渲染为灰圆点、玩家点不开/不掉 SAN)。注释期望见 useSanityBubbleStore
+        // 顶部 page-delete-rollback-snapshot-pattern 段；此处兑现该不变量。
+        useSanityBubbleStore.getState().reset();
       }, 0);
     }
     return { pages: fixed, pageIndex };
