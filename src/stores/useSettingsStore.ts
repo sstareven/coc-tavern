@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
-import { useTavernHelperStore } from './useTavernHelperStore';
 
 /**
  * 文字倍率上下界（80% ~ 150%）—— 超出会让 UI 错乱(过小看不清 / 过大溢出)。
@@ -90,25 +89,62 @@ interface SettingsState {
    */
   forceJsonObject: boolean;
   /**
-   * 一键 DeepSeek 终极适配 snapshot —— 应用 ultra preset 时保存的「被覆盖字段的原值」，
-   * 撤销时按此恢复。未应用时为 undefined。持久化于 settings 一起（用户重启游戏后仍能撤销）。
+   * v1.11.8 重构：一键 DeepSeek 终极适配现在是【runtime override】而非字段覆盖。
+   * true 时所有读取处通过 getEffective*() 返回 ULTRA_PRESET 值；用户底下 dsCache /
+   * mvuSelfCorrectEnabled 等 Toggle 的视觉/存储状态完全不被动,撤销时 Toggle 还是
+   * 原来那样。
    */
-  dsUltraSnapshot?: DsUltraSnapshot;
+  dsUltraActive: boolean;
 }
 
 /**
- * applyDeepSeekUltraPreset 触发时被覆盖的所有字段的快照形状。
- * revert 时按此恢复（dsCache 整段替换，跨 store 的 tavernOptimizeMessageLoad 也带）。
+ * v1.11.8 重构: DS ULTRA 不再修改 store 字段(老版用 DsUltraSnapshot snapshot+revert),
+ * 改为 runtime override —— DS_ULTRA_PRESET 常量定义 ULTRA 模式下所有字段的"effective"值,
+ * dsUltraActive===true 时通过 getEffective*() 返回这些值;false 时返回用户原值。
+ *
+ * 好处: 用户底下 Toggle 显示/存储状态完全不变,撤销时 Toggle 不会"莫名其妙变化"。
+ *
+ * 覆盖字段同老版 DsUltraSnapshot: dsCache 全段 + forceJsonObject + maxSummaryEntries
+ * + mvuSelfCorrect* + mvuForceAlways。跨 store 的 tavernHelper.optimizeMessageLoad
+ * 也在 ULTRA 下被强制 false(read 时由调用方接 effective 判断,见 useChatPipeline)。
  */
-export interface DsUltraSnapshot {
-  forceJsonObject: boolean;
-  maxSummaryEntries: number;
-  mvuSelfCorrectEnabled: boolean;
-  mvuSelfCorrectRetries: number;
-  mvuForceAlways: boolean;
-  dsCache: DsCacheConfig;
-  /** 跨 store: useTavernHelperStore.optimize.optimizeMessageLoad 的原值。 */
-  tavernOptimizeMessageLoad: boolean;
+export const DS_ULTRA_PRESET = {
+  forceJsonObject: true,
+  maxSummaryEntries: 50,
+  mvuSelfCorrectEnabled: true,
+  mvuSelfCorrectRetries: 2,
+  mvuForceAlways: false,
+  tavernOptimizeMessageLoad: false,
+  /** ULTRA 模式下 dsCache 的覆盖项(其余字段从用户当前 dsCache 透传:思维模式 enabled/mode/customText)。 */
+  dsCacheOverride: {
+    restructure: true,
+    roleTags: true,
+    keepTailAssistant: true,
+    targetSources: 'deepseek,custom',
+    separateWiLights: true,
+    autoDetectDynamicConstant: true,
+    experimentalLeanSnapshot: true,
+    experimentalSkipMvuVarList: true,
+    experimentalPrefixDiagnostics: true,
+    experimentalSubagentSharedSystem: true,
+    autoSinkDynamicPromptItem: true,
+  } as Partial<DsCacheConfig>,
+} as const;
+
+/** 计算 effective dsCache: dsUltraActive===true 时合并 override,否则原样。 */
+export function getEffectiveDsCache(s: SettingsState): DsCacheConfig {
+  return s.dsUltraActive ? { ...s.dsCache, ...DS_ULTRA_PRESET.dsCacheOverride } : s.dsCache;
+}
+
+/** 通用 effective setting selector: 字段在 DS_ULTRA_PRESET 里有 override 且 active 时返回 preset 值。 */
+export function getEffectiveSetting<K extends keyof Pick<SettingsState, 'forceJsonObject' | 'maxSummaryEntries' | 'mvuSelfCorrectEnabled' | 'mvuSelfCorrectRetries' | 'mvuForceAlways'>>(
+  s: SettingsState,
+  key: K,
+): SettingsState[K] {
+  if (s.dsUltraActive && key in DS_ULTRA_PRESET) {
+    return (DS_ULTRA_PRESET as unknown as Record<K, SettingsState[K]>)[key];
+  }
+  return s[key];
 }
 
 interface SettingsStore extends SettingsState {
@@ -228,6 +264,7 @@ const defaults: SettingsState = {
   systemRatio: 1,
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
+  dsUltraActive: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -318,60 +355,24 @@ export const useSettingsStore = create<SettingsStore>()(
        * 不动：API 三件套（凭证）/ dsCache.enabled/mode/customText（思维模式偏好）/
        * UI 偏好（uiScale/音量/颜色）/ mvuApi 三件套（用户的独立 MVU API 凭证）。
        */
+      /**
+       * v1.11.8 重构: 一键 DeepSeek 终极适配 = 纯 flag 切换。
+       *
+       * 不再 snapshot+覆盖字段(老版会让用户底下 Toggle 显示状态随之改变,撤销后
+       * 也可能不一致)。改为 set dsUltraActive: true,所有读取处通过 getEffective*()
+       * 在 active 时返回 DS_ULTRA_PRESET 值,否则返回用户原值。
+       *
+       * 用户底下 Toggle 显示的是 store.dsCache 原值(不变);实际生效的是 effective
+       * dsCache (active 时用 ULTRA preset 覆盖)。
+       */
       applyDeepSeekUltraPreset: () => {
-        set((s) => {
-          // 已应用则不重复 snapshot（防止「应用 → 应用」让 snapshot 变成 ultra 自身值致撤销失效）
-          const snapshot: DsUltraSnapshot = s.dsUltraSnapshot ?? {
-            forceJsonObject: s.forceJsonObject,
-            maxSummaryEntries: s.maxSummaryEntries,
-            mvuSelfCorrectEnabled: s.mvuSelfCorrectEnabled,
-            mvuSelfCorrectRetries: s.mvuSelfCorrectRetries,
-            mvuForceAlways: s.mvuForceAlways,
-            dsCache: { ...s.dsCache },
-            tavernOptimizeMessageLoad: useTavernHelperStore.getState().optimize.optimizeMessageLoad,
-          };
-          return {
-            forceJsonObject: true,
-            maxSummaryEntries: 50,
-            mvuSelfCorrectEnabled: true,
-            mvuSelfCorrectRetries: 2,
-            mvuForceAlways: false,
-            dsCache: {
-              ...s.dsCache,
-              restructure: true,
-              roleTags: true,
-              keepTailAssistant: true,
-              targetSources: 'deepseek,custom',
-              separateWiLights: true,
-              autoDetectDynamicConstant: true,
-              experimentalLeanSnapshot: true,
-              experimentalSkipMvuVarList: true,
-              experimentalPrefixDiagnostics: true,
-              experimentalSubagentSharedSystem: true,
-              autoSinkDynamicPromptItem: true,
-              // 思维模式（enabled/mode/customText）不动 —— 那是用户偏好
-              // treatConstantAsDynamic 不开 —— autoDetectDynamicConstant 已够，开了过激不必要
-            },
-            dsUltraSnapshot: snapshot,
-          };
-        });
-        // 跨 store：关 optimizeMessageLoad 让 chatHistory 永久增长。
-        useTavernHelperStore.getState().setOptimize({ optimizeMessageLoad: false });
+        set({ dsUltraActive: true });
       },
+      /**
+       * v1.11.8 重构: 撤销 = 纯 flag 关。用户 Toggle 状态从来没动过,所以撤销无需恢复。
+       */
       revertDeepSeekUltraPreset: () => {
-        const snap = useSettingsStore.getState().dsUltraSnapshot;
-        if (!snap) return; // 未应用过 → no-op
-        set({
-          forceJsonObject: snap.forceJsonObject,
-          maxSummaryEntries: snap.maxSummaryEntries,
-          mvuSelfCorrectEnabled: snap.mvuSelfCorrectEnabled,
-          mvuSelfCorrectRetries: snap.mvuSelfCorrectRetries,
-          mvuForceAlways: snap.mvuForceAlways,
-          dsCache: { ...snap.dsCache },
-          dsUltraSnapshot: undefined,
-        });
-        // 跨 store：恢复 optimizeMessageLoad
-        useTavernHelperStore.getState().setOptimize({ optimizeMessageLoad: snap.tavernOptimizeMessageLoad });
+        set({ dsUltraActive: false });
       },
     }),
     {

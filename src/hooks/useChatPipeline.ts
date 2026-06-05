@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useBookStore } from '../stores/useBookStore';
 import { usePanelStore } from '../stores/usePanelStore';
-import { useSettingsStore } from '../stores/useSettingsStore';
+import { useSettingsStore, getEffectiveDsCache, getEffectiveSetting } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useClueStore, CLUE_ACTIVE_CAP } from '../stores/useClueStore';
@@ -225,7 +225,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const sessionLorebookIds = chatNow.sessions.find((s) => s.id === chatNow.activeId)?.lorebookIds ?? [];
       const scopedBooks = resolveActiveBooks(allBooks, sessionLorebookIds, thOptimize.forceWorldbookSettings);
       // 早期取 DS 缓存配置：experimentalSkipMvuVarList 在 buckets 收集阶段就要用
-      const earlyDsCache = useSettingsStore.getState().dsCache;
+      // v1.11.8: 走 effective —— DS ULTRA active 时返回 override 后的 dsCache,否则返回用户原值。
+      // 用户底下 Toggle 显示状态完全不动,实际生效的是 effective。
+      const earlyDsCache = getEffectiveDsCache(useSettingsStore.getState());
       const experimentalSkipMvuVarList = earlyDsCache?.experimentalSkipMvuVarList === true;
       type ScopedEntry = LoreEntry & { _source?: WorldInfoSource };
       let otherEntries: ScopedEntry[] = [];
@@ -284,7 +286,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Probability filter: entries with probability < 100 have a chance of being skipped
       matchedKeyword = matchedKeyword.filter((e) => e.probability >= 100 || Math.random() * 100 < e.probability);
       let matchedSummary = matchLoreEntries(matchCtx, summaryEntries, matchSettings);
-      const maxSummary = useSettingsStore.getState().maxSummaryEntries;
+      const maxSummary = getEffectiveSetting(useSettingsStore.getState(), 'maxSummaryEntries');
       if (matchedSummary.length > maxSummary) {
         matchedSummary = matchedSummary.slice(-maxSummary);
       }
@@ -422,7 +424,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // 静态桶 = constant/generateInjects/inverted；用户可通过 treatConstantAsDynamic 把 constant 也下沉。
       // 自动检测(默认开)：constantBucket 里【含 EJS/动态宏】的条目(如 coc_lore 的 ejs_san_state/mvu_var_list 等)
       //   会自动加入 dynamicEntriesByRef——它们 entry.constant=true 但渲染结果随 statData 变，曾是命中率衰减元凶。
-      const dsCfg = settingsNow.dsCache;
+      const dsCfg = getEffectiveDsCache(settingsNow);
       const dsRestructureOn =
         !liteMode &&
         dsCfg?.restructure === true &&
@@ -1016,7 +1018,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               );
             }
           }
-          if (patchReport.failed.length > 0 && settings.mvuSelfCorrectEnabled && (settings.mvuSelfCorrectRetries ?? 0) > 0) {
+          // v1.11.8: 走 effective —— ULTRA active 时返回 preset 值,否则用户值。
+          const mvuSelfCorrectEnabled = getEffectiveSetting(settings, 'mvuSelfCorrectEnabled');
+          const mvuSelfCorrectRetries = getEffectiveSetting(settings, 'mvuSelfCorrectRetries');
+          if (patchReport.failed.length > 0 && mvuSelfCorrectEnabled && (mvuSelfCorrectRetries ?? 0) > 0) {
             useStatusToastStore.getState().updateProcessing('正在校正状态变量…');
             // 自纠瘦上下文：不再重发整份主 prompt(editedMessages，最大上下文冗余)，只给本回合叙事 + 当前状态快照。
             const rawStat = useVariableStore.getState().statData;
@@ -1027,7 +1032,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const statSnapshotYaml = Object.keys(visibleStat).length > 0 ? formatStatDataYaml(visibleStat) : '';
             const sc = await runMvuSelfCorrect(
               patchReport.failed,
-              settings.mvuSelfCorrectRetries,
+              mvuSelfCorrectRetries,
               {
                 // send 显式走 'mvu' RPM 桶 + 传中止信号 —— RPM 死线在此落实。
                 // v1.11.6: API 选择对齐 MVU 提取——优先用 MVU 独立 API（若已配置），
@@ -1248,7 +1253,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           // appendPage 把页数据入 store 是【必须立即做】的，下面 6 个可见子调用要靠 pages.length-1 定位写回。
           const thOptimize2 = useTavernHelperStore.getState().optimize;
           const thRender = useTavernHelperStore.getState().render;
-          if (thOptimize2.optimizeMessageLoad) {
+          // v1.11.8: ULTRA active 时强制 optimizeMessageLoad: false (chatHistory 永久增长保缓存)
+          // 即便 tavern store 字段为 true。
+          const optimizeMessageLoadEffective = useSettingsStore.getState().dsUltraActive
+            ? false
+            : thOptimize2.optimizeMessageLoad;
+          if (optimizeMessageLoadEffective) {
             const limit = thRender.renderDepth > 0 ? thRender.renderDepth : 10;
             bookStore.trimPages(limit);
           }

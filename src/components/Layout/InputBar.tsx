@@ -35,8 +35,10 @@ export function InputBar() {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
+    // v1.11.8: 上限 200→120px,防 footer 撑过高把书本往上顶;
+    // textarea 自身 overflow:auto 让超长文本内部滚动。
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   }, [input]);
 
   // ── Auto-submit listener ──

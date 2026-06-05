@@ -1000,9 +1000,10 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
               left: '50%',
               transform: 'translate(-50%, -50%)',
               width: 'calc(min(720px, 94vw) / var(--auto-zoom, 1))',
-              ...(step === 4
-                ? { height: 'calc(55vh / var(--auto-zoom, 1))' }
-                : { maxHeight: 'calc(88vh / var(--auto-zoom, 1))' }),
+              // v1.11.8: 所有 step 统一 maxHeight 88vh,背景故事不再用 55vh(用户反馈太矮)
+              // 让面板自适应填满屏幕上下,内容多时自动滚动。
+              maxHeight: 'calc(88vh / var(--auto-zoom, 1))',
+              minHeight: step === 4 ? 'calc(70vh / var(--auto-zoom, 1))' : undefined,
               border: '1px solid rgba(196,168,85,0.25)',
               borderRadius: 6,
               boxShadow: '0 8px 60px rgba(0,0,0,0.7)',

@@ -122,7 +122,10 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
 
   // 决定本次请求要不要带 response_format —— 显式参数优先,否则跟 settings;
   // 但已知不支持的 model 一律跳过(避免每次都浪费一次 RTT 探测)。
-  const settingsForceJsonObject = useSettingsStore.getState().forceJsonObject;
+  // v1.11.8: ULTRA active 时强制 forceJsonObject: true
+  const settingsForceJsonObject = useSettingsStore.getState().dsUltraActive
+    ? true
+    : useSettingsStore.getState().forceJsonObject;
   const wantJsonObject =
     (req.jsonObject ?? settingsForceJsonObject) &&
     !unsupportedJsonObjectModels.has(model);

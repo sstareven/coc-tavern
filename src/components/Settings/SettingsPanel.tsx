@@ -380,7 +380,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setWorldInfoStrategy = useSettingsStore((s) => s.setWorldInfoStrategy);
   const dsCache = useSettingsStore((s) => s.dsCache);
   const setDsCache = useSettingsStore((s) => s.setDsCache);
-  const dsUltraSnapshot = useSettingsStore((s) => s.dsUltraSnapshot);
+  const dsUltraActive = useSettingsStore((s) => s.dsUltraActive);
   const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
   const apiModel = useSettingsStore((s) => s.apiModel);
   const setApiModel = useSettingsStore((s) => s.setApiModel);
@@ -830,12 +830,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                 {/* DeepSeek 消息三区重组（前缀缓存）—— 合并思维模式 + 漂移诊断（升正式） */}
                 <CategoryBar label="DeepSeek 消息重组（前缀缓存）" />
-                {/* v1.11.6: 一键 DeepSeek 终极适配 —— 切换式按钮（基于 dsUltraSnapshot）：
-                    未应用 → 金色「★ 一键应用」；已应用 → 暗色「↩ 撤销并恢复原设置」。
-                    snapshot 持久化于 settings 里,重启游戏后仍能撤销。
-                    注意：dsUltraSnapshot 订阅在组件顶层(行 381)——React hooks 不能放在 IIFE/条件内。 */}
+                {/* v1.11.8 重构: 一键 DeepSeek 终极适配 = runtime override 切换式按钮（基于 dsUltraActive）：
+                    apply / revert 都【不动】 dsCache / forceJsonObject 等字段本身的 Toggle 状态;
+                    实际生效的字段通过 getEffectiveDsCache/getEffectiveSetting 在 active 时返回 ULTRA 值。
+                    用户底下 Toggle 显示的永远是原 dsCache,撤销后 Toggle 状态也不会动。
+                    注意：dsUltraActive 订阅在组件顶层(行 383)——React hooks 不能放在 IIFE/条件内。 */}
                 {(() => {
-                  const isApplied = !!dsUltraSnapshot;
+                  const isApplied = dsUltraActive;
                   const apply = useSettingsStore.getState().applyDeepSeekUltraPreset;
                   const revert = useSettingsStore.getState().revertDeepSeekUltraPreset;
                   return (
