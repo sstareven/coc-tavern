@@ -382,7 +382,7 @@ export function DicePanel() {
 
           {/* Mode selector + target */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
-            <select value={mode} onChange={(e) => setMode(e.target.value as DiceMode)}
+            <select name="dice-panel-mode" value={mode} onChange={(e) => setMode(e.target.value as DiceMode)}
               style={{
                 flex: 1, padding: '8px 12px', border: '1px solid var(--brass)', borderRadius: 3,
                 background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)',
@@ -396,7 +396,7 @@ export function DicePanel() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2 }}>
               目标
             </div>
-            <input type="number" min={1} max={100} value={localTarget}
+            <input type="number" name="dice-panel-target" min={1} max={100} value={localTarget}
               onChange={(e) => setLocalTarget(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleTargetBlur(); }}
               style={{
@@ -614,6 +614,7 @@ export function DicePanel() {
                 </span>
               </div>
               <input
+                name="dice-panel-luck-spend"
                 type="range" min={0} max={sliderMax} value={luckSpend}
                 data-testid="luck-slider-input"
                 onChange={(e) => setLuckSpend(Number(e.target.value))}

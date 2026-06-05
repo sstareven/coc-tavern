@@ -115,6 +115,7 @@ export function DebugConsole() {
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span style={{ color: 'var(--gold)', fontSize: 10 }}>{'>'}</span>
             <input
+              name="debug-console-cmd"
               ref={ref}
               value={cmd}
               onChange={(e) => setCmd(e.target.value)}

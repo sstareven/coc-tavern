@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { fetchModelList } from '../../sillytavern/api-router';
 
@@ -39,6 +39,8 @@ export function ModelEndpointConfig({
 }: Props) {
   const [connStatus, setConnStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [modelsLoading, setModelsLoading] = useState(false);
+  // 复用组件在不同通道（main / mvu / rewrite）多次渲染—— useId() 让每实例 input.name 唯一,避免冲突。
+  const uid = useId();
 
   const handleTest = () => {
     if (!url.trim()) return;
@@ -60,7 +62,7 @@ export function ModelEndpointConfig({
     <>
       <div style={rowStyle}>
         <span style={labelStyle}>API Key</span>
-        <input type="password" value={apiKey}
+        <input type="password" name={`${uid}-api-key`} value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-..." style={inputStyle}
           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
@@ -71,7 +73,7 @@ export function ModelEndpointConfig({
       <div style={rowStyle}>
         <span style={labelStyle}>API 地址</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input value={url}
+          <input name={`${uid}-api-url`} value={url}
             onChange={(e) => setUrl(e.target.value)}
             style={{ ...inputStyle, width: 160 }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}

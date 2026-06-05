@@ -99,7 +99,7 @@ export function StepSkills({
         {isCustomOcc && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
             <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>自定义职业名称</span>
-            <input type="text" value={customOccupation} onChange={(e) => onSetCustomOccupation(e.target.value)}
+            <input type="text" name="charsheet-skills-custom-occupation" value={customOccupation} onChange={(e) => onSetCustomOccupation(e.target.value)}
               style={{ ...inputStyle, height: 30 }} placeholder="输入职业名称" />
           </div>
         )}
@@ -142,7 +142,7 @@ export function StepSkills({
           transition: 'font-size 0.25s cubic-bezier(0.4,0,0.2,1)',
           lineHeight: 1, pointerEvents: 'none', userSelect: 'none',
         }}>{creditRating}</span>
-        <input type="range" min={crMin} max={crMax}
+        <input type="range" name="charsheet-skills-credit-rating" min={crMin} max={crMax}
           value={creditRating} onChange={(e) => onSetCreditRating(Math.min(creditRating + occRemaining, Number(e.target.value)))}
           style={{ width: '100%', accentColor: 'var(--gold)', marginTop: 2,
             background: `linear-gradient(to right, var(--gold) 0%, var(--gold) ${(Math.min(crMax, creditRating + occRemaining) - crMin) / Math.max(1, crMax - crMin) * 100}%, rgba(255,255,255,0.08) ${(Math.min(crMax, creditRating + occRemaining) - crMin) / Math.max(1, crMax - crMin) * 100}%, rgba(255,255,255,0.08) 100%)`,

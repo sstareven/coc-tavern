@@ -73,17 +73,17 @@ export function DebugLog() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: '1px solid rgba(196,168,85,0.12)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 2 }}>日志查看器 ({logs.length})</span>
-              <select value={filter.level} onChange={(e) => setFilter({ level: e.target.value as LogLevel | 'all' })} style={miniSelect}>
+              <select name="debug-log-level" value={filter.level} onChange={(e) => setFilter({ level: e.target.value as LogLevel | 'all' })} style={miniSelect}>
                 <option value="all">全部级别</option>
                 <option value="info">INFO</option><option value="warn">WARN</option><option value="error">ERROR</option><option value="debug">DEBUG</option>
               </select>
-              <select value={filter.category} onChange={(e) => setFilter({ category: e.target.value as LogCategory | 'all' })} style={miniSelect}>
+              <select name="debug-log-category" value={filter.category} onChange={(e) => setFilter({ category: e.target.value as LogCategory | 'all' })} style={miniSelect}>
                 <option value="all">全部分类</option>
                 {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input value={filter.search} onChange={(e) => setFilter({ search: e.target.value })} placeholder="搜索..." onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
+              <input name="debug-log-search" value={filter.search} onChange={(e) => setFilter({ search: e.target.value })} placeholder="搜索..." onFocus={(e) => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
                 style={{ ...miniSelect, width: 100, fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-light)' }} />
               <button onClick={selectAll} style={headerBtn}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.color = 'var(--gold)'; }}

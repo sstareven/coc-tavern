@@ -375,7 +375,7 @@ export function StepCharacteristics({
             return (
               <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ width: 40, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{k}</span>
-                <input type="range" min={0} max={Math.max(0, maxFor)} value={cur}
+                <input type="range" name={`charsheet-scd-alloc-${k}`} min={0} max={Math.max(0, maxFor)} value={cur}
                   onChange={(e) => onScdAlloc?.(k, Number(e.target.value))}
                   style={{ flex: 1, accentColor: 'var(--gold)' }} />
                 <span style={{ width: 28, textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-light)' }}>-{cur}</span>
@@ -405,7 +405,7 @@ export function StepCharacteristics({
             return (
               <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ width: 40, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{k}</span>
-                <input type="range" min={0} max={Math.max(0, maxFor)} value={cur}
+                <input type="range" name={`charsheet-ss-alloc-${k}`} min={0} max={Math.max(0, maxFor)} value={cur}
                   onChange={(e) => onSsAlloc?.(k, Number(e.target.value))}
                   style={{ flex: 1, accentColor: 'var(--gold)' }} />
                 <span style={{ width: 28, textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-light)' }}>-{cur}</span>
