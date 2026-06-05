@@ -465,7 +465,7 @@ export function ChangelogModal() {
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
         borderRadius: 6, padding: '32px 40px',
-        width: 'calc(min(480px, 90vw) / var(--auto-zoom, 1))',
+        width: 'calc(min(800px, 92vw) / var(--auto-zoom, 1))',
         maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
