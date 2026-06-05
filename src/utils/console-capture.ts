@@ -21,10 +21,14 @@ export interface LogsForSessionResult {
 type PendingRow = Omit<ConsoleLogRow, 'id'>;
 const pending: PendingRow[] = [];
 let scheduled = false;
+// 累计 flush 次数。Task 5 retention 会读它(每 100 次触发计数+清理),
+// 当前任务范围只统计不消费。
 let flushCount = 0;
 
-/** 内部 API：测试用。把记录入队、触发 flush 调度。 */
-export async function appendLog(row: PendingRow): Promise<void> {
+/** 写入入口：被 Task 3 的 console 拦截器在生产中调用,也供测试直接驱动。
+ *  签名是同步 void——内部 schedule()/flush() 走 dexie,但 caller 不需要 await
+ *  (logger 不能阻塞 console.log)。 */
+export function appendLog(row: PendingRow): void {
   pending.push(row);
   schedule();
 }
@@ -49,7 +53,10 @@ async function flush(): Promise<void> {
     await db.consoleLogs.bulkAdd(batch as ConsoleLogRow[]);
     flushCount += 1;
   } catch {
-    // 不让 console 拦截链抛错：静默 swallow
+    // 不让 console 拦截链抛错：静默 swallow。
+    // TODO(task-6): IDB 失败时降级 in-memory ring buffer (本任务范围外,留 hookpoint)
+    // TODO(task-3): Task 3 装上 console patch 后,这里若 console.error 报错会无限递归 ——
+    //   必须用 originals[level] 而不是 console.error
   }
 }
 
@@ -98,7 +105,8 @@ export async function deleteLogsForSession(sessionId: string): Promise<void> {
   try {
     await db.consoleLogs.where('sessionId').equals(sessionId).delete();
   } catch {
-    // swallow：被调时通常在 dexie 事务内,失败不阻断会话删除主流程
+    // swallow：被调时通常在 dexie 事务内,失败不阻断会话删除主流程。
+    // TODO(task-3): 同 flush — 用 originals[level] 而非 console.error,避免拦截器装上后递归
   }
 }
 
