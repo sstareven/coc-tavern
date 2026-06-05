@@ -459,6 +459,10 @@ interface LorebookStore {
   addEntry: (b: string) => void;
   addBook: (name: string) => string;
   importBook: (book: LoreBook) => string;
+  /** 按指定 id 写入 book（剧本系统挂载条目用，已存在则替换；与 importBook 区别是 id 由调用方决定） */
+  upsertBook: (id: string, book: LoreBook) => void;
+  /** 按 id 移除 book，内置 book 不可移除 */
+  removeBook: (id: string) => void;
   deleteBook: (id: string) => void;
   toggleBook: (id: string) => void;
   setBookScope: (id: string, scope: 'global' | 'chat') => void;
@@ -513,6 +517,16 @@ export const useLorebookStore = create<LorebookStore>()(
         });
         return id;
       },
+      upsertBook: (id, book) => set((s) => {
+        const books = { ...s.books, [id]: book };
+        return { books };
+      }),
+      removeBook: (id) => set((s) => {
+        if (defaultBooks[id]) return s;
+        const books = { ...s.books };
+        delete books[id];
+        return { books };
+      }),
       deleteBook: (id) => set((s) => {
         if (defaultBooks[id]) return s;
         const books = { ...s.books };

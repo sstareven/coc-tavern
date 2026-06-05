@@ -67,6 +67,15 @@ export function clearAllGameState() {
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
   useSanityBubbleStore.getState().reset();
+  // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。读取当前活跃会话的 scenarioId,
+  // clearAllGameState 在切档/新游戏前调用——此时尚未切到新会话,可拿到旧 scenarioId。
+  const prevScenarioId = useChatStore.getState().sessions.find(
+    (s) => s.id === useChatStore.getState().activeId,
+  )?.scenarioId;
+  if (prevScenarioId) {
+    // 避免循环引用：动态 import
+    import('../scenario/scenario-engine').then((m) => m.unloadScenario(prevScenarioId)).catch(() => {});
+  }
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
   useBookStore.getState().resetToPrologue();

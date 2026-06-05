@@ -62,6 +62,8 @@ export interface CharacterSheet {
   known_spells: string[];
   /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
   recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
+  /** Step 5 玩家填写的「初始物品」原文，进游戏前由 LLM 抽取入 useInventoryStore；preset 模式下空字符串 */
+  initialItemsRaw?: string;
 }
 
 /** 角色的持续状态条件（如中毒、着火、极度口渴）。 */
@@ -638,6 +640,8 @@ export interface ChatSession {
   pageCount?: number;
   /** In-memory only; gameState is persisted per-conversation in relational child tables (Dexie v2), not in the chat blob. */
   gameState?: SessionGameState;
+  /** 当前会话激活的剧本 id（剧本系统）；老会话 / 「自由探索」可为 undefined 或 '__free'。持久化随 chat blob。 */
+  scenarioId?: string;
 }
 
 // ===== Extensions =====

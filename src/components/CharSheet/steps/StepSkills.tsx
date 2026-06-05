@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react';
 import type { COC7Characteristic } from '../../../types';
 import { DarkSelect } from '../../Shared/DarkSelect';
 import { sectionTitle, inputStyle, editBtn } from '../styles';
+import { RecommendedSkillsChips } from '../../Scenario/RecommendedSkillsChips';
+import { useScenarioStore } from '../../../stores/useScenarioStore';
 import {
   type SkillCat,
   CAT_COLORS,
@@ -85,6 +87,14 @@ export function StepSkills({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={sectionTitle}>职业与技能</div>
+
+      {/* 剧本推荐技能 chip 行(自由探索 → 通用热门技能回退) */}
+      <RecommendedSkillsChipsRow
+        occSkills={occSkills}
+        interestSkills={interestSkills}
+        onToggleOccSkill={onToggleOccSkill}
+        onToggleInterestSkill={onToggleInterestSkill}
+      />
 
       {/* Occupation selector */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -337,5 +347,36 @@ export function StepSkills({
         </div>
       </div>
     </div>
+  );
+}
+
+// 剧本推荐技能 chip 行 - 从 useScenarioStore.lastPicked 读 recommendedSkills
+// 空时回退 POPULAR_SKILLS;点击 chip 按职业槽优先,满 8 加兴趣
+function RecommendedSkillsChipsRow({
+  occSkills,
+  interestSkills,
+  onToggleOccSkill,
+  onToggleInterestSkill,
+}: {
+  occSkills: string[];
+  interestSkills: string[];
+  onToggleOccSkill: (name: string) => void;
+  onToggleInterestSkill: (name: string) => void;
+}) {
+  const lastPicked = useScenarioStore((s) => s.lastPicked);
+  const scn = useScenarioStore((s) => (lastPicked ? s.getById(lastPicked) : undefined));
+  const recommended = scn?.recommendedSkills ?? [];
+  return (
+    <RecommendedSkillsChips
+      source={recommended}
+      occSelected={occSkills}
+      intSelected={interestSkills}
+      onClick={(name) => {
+        if (occSkills.includes(name) || interestSkills.includes(name)) return;
+        if (occSkills.length < 8) onToggleOccSkill(name);
+        else onToggleInterestSkill(name);
+      }}
+      emptyHint={scn?.id === '__free' ? '(剧本: 自由探索)' : undefined}
+    />
   );
 }

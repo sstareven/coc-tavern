@@ -21,6 +21,11 @@ import { DebugLog } from './components/Shared/DebugLog';
 import { DebugConsole } from './components/Shared/DebugConsole';
 import { ErrorModal } from './components/Shared/ErrorModal';
 import { StatusToast } from './components/Shared/StatusToast';
+import { ScenarioScreen } from './components/Scenario/ScenarioScreen';
+import { ScenarioEditor } from './components/Scenario/ScenarioEditor';
+import { activateScenario } from './scenario/scenario-engine';
+import { useScenarioStore } from './stores/useScenarioStore';
+import { startNewConversation } from './stores/sessionLifecycle';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
@@ -38,7 +43,8 @@ export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
   useTextRatios(); // 文字倍率：把 textRatio/systemRatio 挂到 :root CSS 变量供 calc(... * var(...)) 使用
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
-  const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
+  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'creator' | 'game'>('landing');
+  const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -137,12 +143,59 @@ export function App() {
     <>
       {screen === 'landing' && (
         <LandingScreen
-          onStart={() => setScreen('creator')}
+          onStart={() => setScreen('scenarioPick')}
           onLoadGame={() => setScreen('game')}
         />
       )}
+      {screen === 'scenarioPick' && (
+        <ScenarioScreen
+          onPick={(scenarioId, choice) => {
+            if (choice.mode === 'preset') {
+              // 选剧本预设角色 → 跳过创角,立刻新会话 + 激活剧本(LLM 扩首页) → 进游戏
+              void (async () => {
+                startNewConversation('新游戏');
+                try {
+                  await activateScenario(scenarioId, 'preset', choice.charIdx);
+                } catch (err) {
+                  console.error('[App] 激活剧本失败:', err);
+                }
+                setScreen('game');
+              })();
+            } else {
+              // 新建角色 → 记 scenarioId, 进 creator
+              useScenarioStore.getState().setLastPicked(scenarioId);
+              setScreen('creator');
+            }
+          }}
+          onClose={() => setScreen('landing')}
+          onOpenEditor={(id) => setEditorScenarioId(id)}
+        />
+      )}
+      {editorScenarioId && (
+        <ScenarioEditor
+          scenarioId={editorScenarioId}
+          onClose={() => setEditorScenarioId(null)}
+        />
+      )}
       {screen === 'creator' && (
-        <CharacterCreator onComplete={() => setScreen('game')} onClose={() => setScreen('landing')} />
+        <CharacterCreator
+          onComplete={() => {
+            // CharCreator.handleConfirm 已 setSheet。这里新会话 + 激活剧本(newChar) → 进游戏
+            void (async () => {
+              const scnId = useScenarioStore.getState().lastPicked;
+              startNewConversation('新游戏');
+              if (scnId) {
+                try {
+                  await activateScenario(scnId, 'newChar');
+                } catch (err) {
+                  console.error('[App] 激活剧本(newChar)失败:', err);
+                }
+              }
+              setScreen('game');
+            })();
+          }}
+          onClose={() => setScreen('scenarioPick')}
+        />
       )}
       {screen === 'game' && (
         <GameView onReturnToMenu={returnToMenu} />

@@ -10,6 +10,8 @@ interface ChatStore {
   deleteSession: (id: string) => void;
   setActive: (id: string) => void;
   setPreset: (presetId: string) => void;
+  /** 剧本系统：把 scenarioId 写到当前活跃会话；activateScenario / unloadScenario 调用 */
+  setSessionScenario: (scenarioId: string | null) => void;
   toggleSessionLorebook: (bookId: string) => void;
   addMessage: (role: 'user' | 'assistant', content: string) => void;
   /** Update the active session's in-memory pages + denormalized pageCount.
@@ -33,6 +35,7 @@ function projectSession(c: ChatSession): ChatSession {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     pageCount: c.pageCount ?? c.pages.length,
+    scenarioId: c.scenarioId,
   };
 }
 
@@ -71,6 +74,14 @@ export const useChatStore = create<ChatStore>()(
           sessions: s.sessions.map((c) =>
             c.id === s.activeId
               ? { ...c, presetId, updatedAt: Date.now() }
+              : c
+          ),
+        })),
+      setSessionScenario: (scenarioId) =>
+        set((s) => ({
+          sessions: s.sessions.map((c) =>
+            c.id === s.activeId
+              ? { ...c, scenarioId: scenarioId ?? undefined, updatedAt: Date.now() }
               : c
           ),
         })),

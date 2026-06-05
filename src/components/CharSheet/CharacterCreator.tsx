@@ -341,6 +341,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [traits, setTraits] = useState('');
   const [injuries, setInjuries] = useState('');
   const [backgroundFears, setBackgroundFears] = useState('');
+  const [initialItemsRaw, setInitialItemsRaw] = useState('');
   const [bgFilling, setBgFilling] = useState(false);
   const [backstoryError, setBackstoryError] = useState('');
   const [backstoryDraft, setBackstoryDraft] = useState('');
@@ -510,6 +511,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         manias: [],
         known_spells: [],
         recovery: {},
+        initialItemsRaw: initialItemsRaw,
       };
 
     // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
@@ -878,6 +880,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             traits={traits} onSetTraits={setTraits}
             injuries={injuries} onSetInjuries={setInjuries}
             backgroundFears={backgroundFears} onSetBackgroundFears={setBackgroundFears}
+            initialItemsRaw={initialItemsRaw} onSetInitialItemsRaw={setInitialItemsRaw}
             backstoryDraft={backstoryDraft}
             onSetBackstoryDraft={setBackstoryDraft}
             bgFilling={bgFilling}
