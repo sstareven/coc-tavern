@@ -1106,6 +1106,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           cacheHitTokens: lastUsage?.prompt_cache_hit_tokens,
           cacheMissTokens: lastUsage?.prompt_cache_miss_tokens,
           at: Date.now(),
+          // 生成那一刻的 RPM 上限快照——TokenDisplay 用它在右下角显示「RPM=N」,后续改设置不影响历史页。
+          rpmLimit: useSettingsStore.getState().rpmLimit,
         };
         pushLog(
           'info',

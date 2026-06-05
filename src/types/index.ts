@@ -130,6 +130,8 @@ export interface PageGenStats {
   cacheMissTokens?: number;
   /** 本页生成时刻(epoch ms)——供缓存面板按天分组 X 轴。 */
   at?: number;
+  /** 生成那一刻 settings.rpmLimit（主回合 RPM 桶上限）的快照——避免后续改 settings 影响历史页显示。 */
+  rpmLimit?: number;
 }
 
 // ===== LLM 派生更新（随页面持久化，供删页重建）=====
