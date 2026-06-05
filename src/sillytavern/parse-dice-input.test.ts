@@ -75,4 +75,33 @@ describe('parseDiceResultsFromInput', () => {
     expect(r.map((x) => x.skill)).toEqual(['侦查对抗(胜利)', '聆听']);
     expect(r.map((x) => x.type)).toEqual(['hard-success', 'success']);
   });
+
+  it('孤注一掷成功 — 不应被 (孤注一掷) 后缀污染成 failure (Bug #1 回归)', () => {
+    // Bug: split(/\s+/).pop() 会取到末尾的 "(孤注一掷)" 当 label,LABEL_TO_TYPE 查不到 → fallback failure
+    const r = parseDiceResultsFromInput('[听力 d100=85/30 成功 (孤注一掷)]');
+    expect(r).toHaveLength(1);
+    expect(r[0].type).toBe('success');
+    expect(r[0].roll).toBe('85');
+  });
+
+  it('孤注一掷失败 — 仍是 failure (不要把成功的回归改飞)', () => {
+    const r = parseDiceResultsFromInput('[听力 d100=72/30 失败 (孤注一掷)]');
+    expect(r[0].type).toBe('failure');
+  });
+
+  it('孤注一掷大成功 — 带感叹号的 label 仍正确', () => {
+    const r = parseDiceResultsFromInput('[幸运 d100=01/50 大成功！ (孤注一掷)]');
+    expect(r[0].type).toBe('crit-success');
+  });
+
+  it('幸运补救后缀 (幸运扣N点) 也要剥掉再取 label', () => {
+    const r = parseDiceResultsFromInput('[侦查 d100=55/60 成功 (幸运扣5点)]');
+    expect(r[0].type).toBe('success');
+    expect(r[0].roll).toBe('55');
+  });
+
+  it('奖励骰 + 孤注一掷成功 — 两层修饰均不污染', () => {
+    const r = parseDiceResultsFromInput('[攀爬 d100=22/40 奖励骰 困难成功 (孤注一掷)]');
+    expect(r[0].type).toBe('hard-success');
+  });
 });

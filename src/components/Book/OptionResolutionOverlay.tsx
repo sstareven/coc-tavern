@@ -132,12 +132,27 @@ export function OptionResolutionOverlay() {
     const push = applyPushReroll(pending.target, pending.sanCheck, pending.skill, reason);
     const newRecord = buildPushedRecord(pending, push);
     const newInputText = rebuildInputText(pending.inputText, pending.resultLine, push.line);
+    // 先 stash + 关闭浮层,然后 dispatch 一次 dice-roll-animate 重放骰子动画,
+    // 让玩家亲眼看到这次孤注的二次掷骰结果。
+    // 关键: detail 故意【不带 stagingTrigger】→ GameView.onDiceComplete 走非 staging 路径
+    // (写 textarea + auto-submit),不会再次开浮层造成"推骰→浮层→再推骰"死循环。
     useDiceStore.getState().stashRecord(newRecord);
-    commitToTextarea(newInputText);
     resolveStore({
       inputText: newInputText, record: newRecord,
       luckSpent: 0, pushed: true,
     });
+    document.dispatchEvent(new CustomEvent('dice-roll-animate', {
+      detail: {
+        skillName: pending.skill,
+        target: pending.target,
+        roll: push.newRoll,
+        resultType: push.newResult,
+        inputText: newInputText,
+        bonus: 'none',
+        bonusTens: 0,
+        // 故意不传 stagingTrigger:让 GameView fallback 到"写 textarea + auto-submit"。
+      },
+    }));
   }, [pending, resolveStore]);
 
   if (!pending) return null;

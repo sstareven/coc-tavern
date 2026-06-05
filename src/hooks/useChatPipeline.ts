@@ -1138,9 +1138,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Parse dice results from the user input (e.g., "[侦查 d100=42/60 成功]")
         const diceFromInput = parseDiceResultsFromInput(lastInputRef.current);
         if (diceFromInput.length > 0) {
-          // 标注检定发生时的页码（与实时检定记录的 pageIndex+1 一致），随页面持久化、供读档重建带页码。
-          const checkPage = useBookStore.getState().pageIndex + 1;
-          newPage.diceResults = diceFromInput.map((r) => ({ ...r, page: r.page ?? checkPage }));
+          // 修 Bug #3: 标注检定属于【新页】而非触发选项时的旧页号
+          // ----------------------------------------------------
+          // 本段执行时 newPage 尚未 appendPage,store.pageIndex 仍是旧页索引(N-1)。
+          //   - append 模式: newPage 即将成为第 N+1 页 → page 应为 baseIdx+2
+          //   - replace 模式: newPage 替换当前页,页号不变 → page 应为 baseIdx+1
+          // 与 useDiceStore.commitPending 改写 history record.page 的修复对齐。
+          const baseIdx = useBookStore.getState().pageIndex;
+          const checkPage = replace ? baseIdx + 1 : baseIdx + 2;
+          newPage.diceResults = diceFromInput.map((r) => ({ ...r, page: checkPage }));
         }
 
         // Validate generation quality

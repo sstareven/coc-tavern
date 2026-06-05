@@ -51,7 +51,11 @@ export function parseDiceResultsFromInput(input: string): DiceRecord[] {
     // 暗骰技能（心理学等）不进 page.diceResults：LeftPage/检定记录不显示，
     // 但其真实结果仍在用户输入文本里被 LLM 读到。
     if (isHiddenRollSkill(m[1])) continue;
-    const label = m[4].trim().split(/\s+/).pop() ?? '';
+    // 剥掉尾部圆括号注解再取 label。常见后缀如 `(孤注一掷)` `(幸运扣N点)`
+    // 跟在结果 label 后面,若不剥掉,split/pop 会把整段 `(孤注一掷)` 当成 label,
+    // LABEL_TO_TYPE 查不到 → fallback 成 'failure',导致孤注成功被误判为失败。
+    const cleaned = m[4].replace(/\s*\([^()]*\)\s*$/, '').trim();
+    const label = cleaned.split(/\s+/).pop() ?? '';
     out.push({
       skill: m[1],
       roll: m[2],

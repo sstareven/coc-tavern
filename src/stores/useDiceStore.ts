@@ -208,10 +208,21 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
   stashRecord: (r) => set((s) => ({ pending: [...s.pending, r] })),
-  commitPending: () => set((s) => ({
-    history: [...[...s.pending].reverse(), ...s.history].slice(0, 20),
-    pending: [],
-  })),
+  commitPending: () => set((s) => {
+    // 修 Bug #3: 检定记录页码对齐新页号
+    // ----------------------------------
+    // stashRecord 时 record.page 来自 fillInputBar 取的 pageIndex+1 = 触发选项时的【旧页号 N】,
+    // 但 commitPending 由 useChatPipeline 在新页 appendPage 之后调用,此刻这条检定的结果实际
+    // 应当归属【新页 N+1】(玩家看到第 N+1 页时检定记录显示 N 会显得错位)。
+    // 这里读 useBookStore 当前 pageIndex+1(= 新页号或 rewrite 时仍是当前页号),统一改写 pending
+    // 里所有 record 的 page 字段。
+    const currentPage = useBookStore.getState().pageIndex + 1;
+    const pendingFixed = s.pending.map((r) => ({ ...r, page: currentPage }));
+    return {
+      history: [...pendingFixed.reverse(), ...s.history].slice(0, 20),
+      pending: [],
+    };
+  }),
   clearPending: () => set({ pending: [] }),
   setHistory: (records) => set({
     history: records.slice(0, 20),
