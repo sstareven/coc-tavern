@@ -90,17 +90,41 @@ describe('diagnosePrefixDrift', () => {
   });
 
   it('formatDiagnosticLine 三态产出可读字符串', () => {
-    expect(formatDiagnosticLine({ isFirstSend: true, prefixStable: true, sendCount: 1, driftCount: 0 }))
+    expect(formatDiagnosticLine({ isFirstSend: true, prefixStable: true, sendCount: 1, driftCount: 0, driftBySegment: {} }))
       .toContain('首次发送');
-    expect(formatDiagnosticLine({ isFirstSend: false, prefixStable: true, sendCount: 5, driftCount: 1 }))
+    expect(formatDiagnosticLine({ isFirstSend: false, prefixStable: true, sendCount: 5, driftCount: 1, driftBySegment: { wbBefore: 1 } }))
       .toContain('稳定');
     const drift = formatDiagnosticLine({
       isFirstSend: false, prefixStable: false, sendCount: 5, driftCount: 1,
       driftPosition: 42, prevSnippet: 'old text', currSnippet: 'new text', suspectedSegment: 'wbBefore',
+      driftBySegment: { wbBefore: 1 },
     });
     expect(drift).toContain('漂移');
     expect(drift).toContain('wbBefore');
     expect(drift).toContain('old text');
     expect(drift).toContain('new text');
+  });
+
+  it('driftBySegment 多次漂移按段累计 + 日志输出分布', () => {
+    const offsets = { systemPrompt: 0, wbBefore: 100, processedFormat: 200, wbAfter: 300 };
+    const a = 'X'.repeat(50);                              // systemPrompt 段
+    const b = 'Y'.repeat(100);                             // wbBefore 段
+    const c = 'Z'.repeat(150);                             // processedFormat 段
+    diagnosePrefixDrift(a + b + c, 'session-seg', offsets);  // baseline
+    // 第二次：wbBefore 段变 → driftBySegment 应记 wbBefore=1
+    const r1 = diagnosePrefixDrift(a + 'Y'.repeat(99) + 'Z' + c, 'session-seg', offsets);
+    expect(r1.prefixStable).toBe(false);
+    expect(r1.driftBySegment.wbBefore).toBe(1);
+    // 第三次：wbBefore 段又变（与第二次比） → driftBySegment.wbBefore 应累计到 2
+    const r2 = diagnosePrefixDrift(a + 'Y'.repeat(98) + 'ZZ' + c, 'session-seg', offsets);
+    expect(r2.prefixStable).toBe(false);
+    expect(r2.driftBySegment.wbBefore).toBe(2);
+    // 稳定一次：driftBySegment 不变化、仍随结果带出
+    const r3 = diagnosePrefixDrift(a + 'Y'.repeat(98) + 'ZZ' + c, 'session-seg', offsets);
+    expect(r3.prefixStable).toBe(true);
+    expect(r3.driftBySegment.wbBefore).toBe(2);
+    // formatDiagnosticLine 输出段分布
+    const line = formatDiagnosticLine(r3);
+    expect(line).toContain('wbBefore=2');
   });
 });
