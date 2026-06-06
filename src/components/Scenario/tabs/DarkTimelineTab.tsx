@@ -83,7 +83,12 @@ export function DarkTimelineTab({ scn, onChange }: Props): React.ReactElement {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 4px' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 14,
+      padding: '10px 14px 16px',
+      height: '100%', minHeight: 0,
+      overflowY: 'auto',
+    }}>
       <Toolbar busy={busy} onAdd={addPhase} onGenerate={onGenerate} onClear={clearAll} />
       {err && <ErrBox text={err} onClose={() => setErr(null)} />}
 

@@ -218,6 +218,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
   return (
     <div
       role="dialog" aria-modal="true" aria-label="剧本编辑器"
+      className="scenario-editor"
       style={{
         position: 'fixed', inset: 0, zIndex: 160,
         display: 'flex', flexDirection: 'column',

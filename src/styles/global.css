@@ -13,3 +13,36 @@ html, body {
 
 /* 渲染隔断：长列表行用浏览器原生 content-visibility 跳过视口外行的布局/绘制 */
 .cv-row { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+
+/* 剧本编辑器铜版风滚动条 — 所有 .scenario-editor 子元素自动套用
+ * 替代浏览器默认丑陋滚动条;触发点是元素 overflow:auto/scroll 时显示。
+ * Firefox 用 scrollbar-color/scrollbar-width;WebKit 用 ::-webkit-scrollbar 伪元素。 */
+.scenario-editor,
+.scenario-editor * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196,168,85,0.32) transparent;
+}
+.scenario-editor::-webkit-scrollbar,
+.scenario-editor *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scenario-editor::-webkit-scrollbar-track,
+.scenario-editor *::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.18);
+  border-radius: 2px;
+}
+.scenario-editor::-webkit-scrollbar-thumb,
+.scenario-editor *::-webkit-scrollbar-thumb {
+  background: rgba(196,168,85,0.32);
+  border-radius: 2px;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scenario-editor::-webkit-scrollbar-thumb:hover,
+.scenario-editor *::-webkit-scrollbar-thumb:hover {
+  background: rgba(196,168,85,0.55);
+}
+.scenario-editor::-webkit-scrollbar-corner,
+.scenario-editor *::-webkit-scrollbar-corner {
+  background: transparent;
+}
