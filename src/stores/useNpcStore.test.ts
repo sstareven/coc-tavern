@@ -82,6 +82,50 @@ describe('useNpcStore.applyUpdates', () => {
     expect(names).toEqual(['霍尔姆斯', '霍尔姆斯先生']);
   });
 
+  it('剧本预设 NPC 安装后 isScenarioPreset/scenarioHiddenBio 保留（fix #1）', () => {
+    useNpcStore.getState().applyUpdates([{
+      name: '镇长哈尔德',
+      identity: '镇长',
+      backstory: 'KP 暗线核心：教派首脑',
+      innerThoughts: '隐藏祭祀地点的真相',
+      isScenarioPreset: true,
+      scenarioHiddenBio: 'KP 暗线核心：教派首脑',
+    }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.isScenarioPreset).toBe(true);
+    expect(p.scenarioHiddenBio).toBe('KP 暗线核心：教派首脑');
+  });
+
+  it('预设 NPC backstory/innerThoughts 非空 → 主回合覆盖被挡（fix #1 保护链生效）', () => {
+    useNpcStore.getState().applyUpdates([{
+      name: '镇长哈尔德', identity: '镇长',
+      backstory: 'KP 暗线骨架', innerThoughts: '隐藏祭祀地点',
+      isScenarioPreset: true,
+    }]);
+    useNpcStore.getState().applyUpdates([{
+      name: '镇长哈尔德', backstory: '他是个普通镇长', innerThoughts: '没什么秘密',
+    }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.backstory).toBe('KP 暗线骨架');
+    expect(p.innerThoughts).toBe('隐藏祭祀地点');
+  });
+
+  it('预设 NPC backstory 留空 → 首次 npcUpdate 允许填入（fix #12 空值不锁死）', () => {
+    useNpcStore.getState().applyUpdates([{
+      name: '神秘陌生人', identity: '路过的旅人',
+      backstory: '', innerThoughts: '', isScenarioPreset: true,
+    }]);
+    useNpcStore.getState().applyUpdates([{
+      name: '神秘陌生人',
+      backstory: '他来自远方港口,见过深海异象。',
+      innerThoughts: '试探调查员是否值得信赖。',
+    }]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.backstory).toBe('他来自远方港口,见过深海异象。');
+    expect(p.innerThoughts).toBe('试探调查员是否值得信赖。');
+    expect(p.isScenarioPreset).toBe(true);
+  });
+
   it('调查员不入名册：同名 npcUpdate 被忽略', () => {
     useChatSheetName('杰米');
     useNpcStore.getState().applyUpdates([{ name: '杰米', identity: '调查员' }, { name: '路人', identity: '小贩' }]);

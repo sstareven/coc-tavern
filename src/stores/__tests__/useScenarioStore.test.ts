@@ -15,8 +15,10 @@ function makeUserDoc(id: string, name: string): ScenarioDoc {
 
 describe('useScenarioStore', () => {
   beforeEach(() => {
-    // builtins 保留(由 onRehydrate 灌入 / 初始常量);只清用户态
-    useScenarioStore.setState({ userScenarios: [], activeId: null, lastPicked: null });
+    // D3 race:onRehydrateStorage 是异步的,单测隔离运行可能赶不上;
+    // 显式 ensureBuiltinsLoaded() 同步灌入,与生产路径(ScenarioScreen / mountScenarioBook)一致。
+    useScenarioStore.getState().ensureBuiltinsLoaded();
+    useScenarioStore.setState({ userScenarios: [], activeId: null, lastPicked: null, forkMap: {} });
   });
 
   it('builtins 至少包含「自由探索」__free', () => {

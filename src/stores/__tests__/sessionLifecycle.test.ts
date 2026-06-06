@@ -118,7 +118,17 @@ vi.mock('../../sillytavern/prefix-cache-diagnostics', () => ({
   clearAllDiagnostics: vi.fn(),
   clearDiagnosticsFor: vi.fn(),
 }));
-vi.mock('../../db/database', () => ({ db: {} }));
+// kvStore 最小可用 mock:useScenarioStore.clearForkMap 经 zustand persist setItem 走这里,
+// 不 mock 时 db.kvStore=undefined 触发 unhandled rejection(测试本身仍 pass 但日志吵)。
+vi.mock('../../db/database', () => ({
+  db: {
+    kvStore: {
+      get: async () => null,
+      put: async () => {},
+      delete: async () => {},
+    },
+  },
+}));
 
 import { clearAllGameState } from '../sessionLifecycle';
 

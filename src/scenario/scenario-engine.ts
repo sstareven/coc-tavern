@@ -403,6 +403,9 @@ export function unloadScenario(scenarioId: string): void {
  */
 export async function mountScenarioBook(scenarioId: string): Promise<void> {
   if (!scenarioId || scenarioId === '__free') return;
+  // D3 race 防御：读档可能早于 onRehydrateStorage 完成,此时 builtins=[],
+  // 内置剧本(__scenario_*)会被误判为不存在而静默跳过重挂。同步灌入兜底。
+  useScenarioStore.getState().ensureBuiltinsLoaded();
   const scn = useScenarioStore.getState().getById(scenarioId);
   if (!scn) {
     console.warn('[scenario-engine] mountScenarioBook 找不到剧本,跳过重挂:', scenarioId);
