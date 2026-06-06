@@ -28,6 +28,8 @@ import {
   maxLuckSpend,
 } from '../Dice/dice-panel-state';
 import { IconLuck, IconPush } from '../Layout/TabIcons';
+import { pickRollForResult } from '../../sillytavern/blessing-helpers';
+import type { DiceRecord, DiceResultType } from '../../types';
 
 const EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
@@ -54,6 +56,8 @@ export function OptionResolutionOverlay() {
   const [luckSpend, setLuckSpend] = useState(0);
   const [mode, setMode] = useState<'choose' | 'luck-slider'>('choose');
 
+  const blessingEnabled = useSettingsStore((s) => s.blessingEnabled);
+
   // 重置子态：浮层关闭/换 trigger 时回到「choose」
   const visible = !!pending;
   useEffect(() => {
@@ -71,6 +75,37 @@ export function OptionResolutionOverlay() {
     resolveStore({
       inputText: pending.inputText,
       record: pending.record,
+      luckSpent: 0,
+      pushed: false,
+    });
+  }, [pending, resolveStore]);
+
+  /** 赐福刻印：玩家手动选择期望的检定结果，取代当前 staging 结果后直接落账。 */
+  const handleBlessingPick = useCallback((type: string) => {
+    const trigger = pending;
+    if (!trigger) return;
+
+    const roll = pickRollForResult(type as DiceResultType, trigger.target, trigger.sanCheck);
+    if (roll === null) return;
+
+    const label = RESULT_LABEL[type] || type;
+    const rollStr = String(roll).padStart(2, '0');
+    const newResultLine = `[${trigger.skill} d100=${rollStr}/${trigger.target} ${label}]\n`;
+    const newInputText = rebuildInputText(trigger.inputText, trigger.resultLine, newResultLine);
+
+    const newRecord: DiceRecord = {
+      ...trigger.record,
+      roll: rollStr,
+      type: type as DiceResultType,
+      time: Date.now(),
+    };
+
+    // 与 handleDirectCommit 同款落账模式
+    useDiceStore.getState().stashRecord(newRecord);
+    commitToTextarea(newInputText);
+    resolveStore({
+      inputText: newInputText,
+      record: newRecord,
       luckSpent: 0,
       pushed: false,
     });
@@ -256,6 +291,53 @@ export function OptionResolutionOverlay() {
           {/* choose 子态：三按钮 */}
           {mode === 'choose' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* 赐福刻印 — 结果选择区 */}
+              {blessingEnabled && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  style={{ overflow: 'hidden', marginBottom: 12 }}
+                >
+                  <div style={{
+                    color: 'var(--gold)', fontFamily: 'var(--font-ui)',
+                    fontSize: 'calc(10px * var(--text-ratio, 1))',
+                    letterSpacing: 3, marginBottom: 6, opacity: 0.6,
+                  }}>
+                    赐福刻印
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                    {(['crit-success', 'extreme-success', 'hard-success', 'success', 'failure', 'crit-failure']).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => handleBlessingPick(type)}
+                        style={{
+                          padding: '8px 6px', borderRadius: 4,
+                          border: '1px solid var(--brass)',
+                          background: 'rgba(0,0,0,0.15)', cursor: 'pointer',
+                          color: RESULT_COLOR[type] || 'var(--ink-subtle)',
+                          fontFamily: 'var(--font-ui)',
+                          fontSize: 'calc(11px * var(--text-ratio, 1))',
+                          letterSpacing: 1, textAlign: 'center',
+                          transition: 'var(--transition-smooth)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = RESULT_COLOR[type] || 'var(--gold)';
+                          e.currentTarget.style.transform = 'scale(1.04)';
+                          e.currentTarget.style.background = `${RESULT_COLOR[type]}20`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--brass)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                          e.currentTarget.style.background = 'rgba(0,0,0,0.15)';
+                        }}
+                      >
+                        {RESULT_LABEL[type] || type}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               {canPush && (
                 <ActionButton
                   icon={<IconPush size={16} />}

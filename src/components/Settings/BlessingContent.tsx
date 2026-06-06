@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAutoZoom } from '../../hooks/useResponsiveZoom';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 
 // ── Styling constants (matching SettingsPanel.tsx exactly) ──
 
@@ -89,7 +90,8 @@ function HelpIcon({ text }: { text: string }) {
 // ── Component ──
 
 export function BlessingContent() {
-  const [enabled, setEnabled] = useState(false);
+  const enabled = useSettingsStore((s) => s.blessingEnabled);
+  const toggleBlessing = useSettingsStore((s) => s.toggleBlessing);
 
   return (
     <div>
@@ -103,10 +105,10 @@ export function BlessingContent() {
       <div style={rowStyle}>
         <span style={labelStyle}>
           领受深渊的祝福
-          <HelpIcon text="开启后，角色将获得来自深渊的古老祝福。功能开发中，敬请期待。" />
+          <HelpIcon text="开启后，在掷骰时浮现「赐福刻印」结果选项，可跳过随机掷骰直接锁定判定档位或伤害数值。" />
         </span>
         <button
-          onClick={() => setEnabled(!enabled)}
+          onClick={toggleBlessing}
           style={{
             padding: '5px 16px', borderRadius: 20, minWidth: 80, textAlign: 'center',
             border: enabled ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',

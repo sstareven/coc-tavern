@@ -101,6 +101,7 @@ interface SettingsState {
    * 原来那样。
    */
   dsUltraActive: boolean;
+  blessingEnabled: boolean;
 }
 
 /**
@@ -221,6 +222,7 @@ interface SettingsStore extends SettingsState {
    * 清 snapshot。snapshot 为 undefined 时是 no-op。
    */
   revertDeepSeekUltraPreset: () => void;
+  toggleBlessing: () => void;
 }
 
 const defaults: SettingsState = {
@@ -276,6 +278,7 @@ const defaults: SettingsState = {
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
   dsUltraActive: false,
+  blessingEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -386,6 +389,7 @@ export const useSettingsStore = create<SettingsStore>()(
       revertDeepSeekUltraPreset: () => {
         set({ dsUltraActive: false });
       },
+      toggleBlessing: () => set((s) => ({ blessingEnabled: !s.blessingEnabled })),
     }),
     {
       name: 'coc_settings_v2',
