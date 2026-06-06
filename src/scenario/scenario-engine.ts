@@ -99,8 +99,11 @@ export async function activateScenario(
   // ── 5. 写当前会话的 scenarioId（持久化随 chat blob）─────────────────
   useChatStore.getState().setSessionScenario(scn.id);
 
-  // ── 6. preset 模式：LLM 扩写首页 → 替换 page[0] ────────────────────
-  if (mode === 'preset') {
+  // ── 6. LLM 扩写首页 → 替换 page[0] ───────────────────────────────────
+  // 两种模式都走（preset / newChar）—— 否则 newChar 模式下 BookStore 会停留在 defaultPages[0]
+  // (那是「自由探索」的「你做了一个梦」段),导致玩家选不同剧本却看到同一段开场。
+  // 例外：'__free' 剧本本身就是 defaultPages[0] 的 prologueSeed 源,不必扩写也不必替换。
+  if (scn.id !== '__free') {
     let page0: BookPage;
     try {
       const expanded = await expandPrologueToPage(scn.prologueSeed, scn);

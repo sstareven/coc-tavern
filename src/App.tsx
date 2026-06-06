@@ -45,6 +45,7 @@ export function App() {
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
   const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'creator' | 'game'>('landing');
   const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false); // 剧本激活中(扩首页 LLM 调用)的 loading 覆盖层
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -154,10 +155,13 @@ export function App() {
               // 选剧本预设角色 → 跳过创角,立刻新会话 + 激活剧本(LLM 扩首页) → 进游戏
               void (async () => {
                 startNewConversation('新游戏');
+                setActivating(true);
                 try {
                   await activateScenario(scenarioId, 'preset', choice.charIdx);
                 } catch (err) {
                   console.error('[App] 激活剧本失败:', err);
+                } finally {
+                  setActivating(false);
                 }
                 setScreen('game');
               })();
@@ -185,10 +189,13 @@ export function App() {
               const scnId = useScenarioStore.getState().lastPicked;
               startNewConversation('新游戏');
               if (scnId) {
+                setActivating(true);
                 try {
                   await activateScenario(scnId, 'newChar');
                 } catch (err) {
                   console.error('[App] 激活剧本(newChar)失败:', err);
+                } finally {
+                  setActivating(false);
                 }
               }
               setScreen('game');
@@ -201,6 +208,29 @@ export function App() {
         <GameView onReturnToMenu={returnToMenu} />
       )}
       <ChangelogModal />
+
+      {/* 剧本激活中的全屏 loading 覆盖层 — 创角完成 / preset 选角时 LLM 扩首页期间显示 */}
+      {activating && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9995,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
+          background: 'rgba(8,6,4,0.92)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            border: '2px solid rgba(196,168,85,0.15)', borderTopColor: 'var(--gold)',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+          <div style={{
+            fontFamily: 'var(--font-display)', color: 'var(--gold)',
+            fontSize: 'calc(14px * var(--system-ratio, 1))', letterSpacing: 3,
+          }}>正在书写序章…</div>
+          <div style={{
+            fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)',
+            fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1, maxWidth: 360, textAlign: 'center',
+          }}>守秘人正在根据剧本背景为你扩写第一页，请稍候。</div>
+        </div>
+      )}
 
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
       <DicePanel />
