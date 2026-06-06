@@ -1,6 +1,7 @@
 // 剧本卡片 — 列在 ScenarioScreen grid 中；保持纯展示，逻辑全靠 props 注入
 import { useState } from 'react';
 import type { ScenarioDoc } from '../../types/scenario';
+import { IconStar } from '../Layout/TabIcons';
 
 interface Props {
   scn: ScenarioDoc;
@@ -10,11 +11,16 @@ interface Props {
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
-// 难度⭐：实心 + 空心，1~5
-function difficultyStars(n: number): string {
-  const full = '★'.repeat(Math.max(0, Math.min(5, n)));
-  const empty = '☆'.repeat(5 - full.length);
-  return full + empty;
+// 难度星：实心 + 空心，1~5；用 SVG 五点光圈渲染
+function DifficultyStars({ n }: { n: number }) {
+  const filled = Math.max(0, Math.min(5, n));
+  return (
+    <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <IconStar key={i} filled={i < filled} size={12} />
+      ))}
+    </span>
+  );
 }
 
 // 截断标签：超 8 个截断；用于职业/必要人物 chips
@@ -167,7 +173,7 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
         color: 'var(--ink, #b8a87a)',
       }}>
         <span title={`难度 ${meta.difficulty}/5`} style={{ color: 'var(--gold)', letterSpacing: 2 }}>
-          {difficultyStars(meta.difficulty)}
+          <DifficultyStars n={meta.difficulty} />
         </span>
         <span>SAN 损耗 · <span style={{ color: 'var(--text-light)' }}>{meta.sanLossHint}</span></span>
       </div>

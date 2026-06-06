@@ -487,6 +487,9 @@ function MiniModal({
     >
       <div onClick={(e) => e.stopPropagation()} style={{
         width: 'min(420px, 100%)',
+        maxHeight: '80dvh',
+        minHeight: 0,
+        overflowY: 'auto',
         background: 'linear-gradient(180deg, #1e1610, #110c07)',
         border: '1px solid var(--brass)',
         borderRadius: 4,

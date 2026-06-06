@@ -6,6 +6,8 @@ import { useScenarioStore } from '../../stores/useScenarioStore';
 import type { ScenarioDoc } from '../../types/scenario';
 import { downloadScenario } from '../../scenario/scenario-io';
 import { applyScenarioPatch } from '../../scenario/scenario-patch';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { IconStar } from '../Layout/TabIcons';
 import { CompanionChat } from './CompanionChat';
 import { MetaTab } from './tabs/MetaTab';
 import { LocationsTab } from './tabs/LocationsTab';
@@ -16,7 +18,6 @@ import { DarkThreadsTab } from './tabs/DarkThreadsTab';
 import { SecretsTab } from './tabs/SecretsTab';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
-const COMPACT_BREAKPOINT = 800;
 
 interface Props {
   scenarioId: string;
@@ -27,7 +28,7 @@ type TabKey =
   | 'meta' | 'locations' | 'people' | 'factions'
   | 'items' | 'dark' | 'secrets' | 'darkTimeline' | 'badEndings';
 
-interface TabDef { key: TabKey; label: string; star?: boolean }
+interface TabDef { key: TabKey; label: string; hidden?: boolean }
 
 const TABS: TabDef[] = [
   { key: 'meta', label: '元信息' },
@@ -37,8 +38,8 @@ const TABS: TabDef[] = [
   { key: 'items', label: '物品线索' },
   { key: 'dark', label: '暗线' },
   { key: 'secrets', label: '秘密与解锁' },
-  { key: 'darkTimeline', label: '暗线时间线', star: true },
-  { key: 'badEndings', label: '坏结局矩阵', star: true },
+  { key: 'darkTimeline', label: '暗线时间线', hidden: true },
+  { key: 'badEndings', label: '坏结局矩阵', hidden: true },
 ];
 
 export function ScenarioEditor({ scenarioId, onClose }: Props) {
@@ -53,15 +54,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
   const toastTimerRef = useRef<number | null>(null);
 
   // 视口宽度自适应
-  const [compact, setCompact] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth < COMPACT_BREAKPOINT;
-  });
-  useEffect(() => {
-    const onResize = (): void => setCompact(window.innerWidth < COMPACT_BREAKPOINT);
-    window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('resize', onResize); };
-  }, []);
+  const compact = useIsMobile('(max-width: 800px)');
 
   // 剧本 id 变更时重新初始化 working
   useEffect(() => {
@@ -248,7 +241,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
                 onMouseEnter={(ev) => { if (!active) ev.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
                 onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
               >
-                {t.star && <span style={{ color: 'var(--brass)' }}>★</span>}
+                {t.hidden && <span style={{ color: 'var(--brass)', display: 'inline-flex' }}><IconStar size={10} /></span>}
                 <span>{t.label}</span>
               </button>
             );
@@ -278,7 +271,11 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{
-            width: '100%', height: '60%',
+            width: '100%', height: '60dvh',
+            maxHeight: '80dvh',
+            minHeight: 0,
+            display: 'flex', flexDirection: 'column',
+            overflowY: 'auto',
             boxShadow: '0 -16px 40px rgba(0,0,0,0.7)',
           }}>
             <CompanionChat scn={working} onApplyPatch={onCompanionApply} compact />

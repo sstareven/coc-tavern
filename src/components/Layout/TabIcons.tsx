@@ -48,3 +48,16 @@ export function IconLuck({ size = 18 }: IconProps) {
 export function IconPush({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><circle cx="12" cy="12" r="8" /><path d="M9 9h-3v-3M15 15h3v3M8 14.5a5 5 0 008 1.5M16 9.5a5 5 0 00-8-1.5" /></svg>);
 }
+/** 难度星：五芒星轮廓；filled 时以 currentColor 实心 */
+export function IconStar({ size = 12, filled = false }: IconProps & { filled?: boolean }) {
+  const props = base(size);
+  return (<svg {...props} fill={filled ? 'currentColor' : 'none'}><path d="M12 3l2.6 6.1 6.6.5-5 4.4 1.5 6.5L12 17.3 5.3 20.5l1.5-6.5-5-4.4 6.6-.5L12 3z" /></svg>);
+}
+/** 关闭：斜十字 ×（铜版线描，替代字符 ×） */
+export function IconClose({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M6 6l12 12M18 6L6 18" /></svg>);
+}
+/** 勾选：对勾 ✓（替代字符 ✓） */
+export function IconCheck({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M5 12.5l4.5 4.5L19 7" /></svg>);
+}

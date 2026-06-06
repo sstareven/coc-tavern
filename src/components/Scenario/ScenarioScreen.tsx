@@ -153,7 +153,8 @@ function CharacterPickerDrawer({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 'min(560px, 100%)',
-          maxHeight: '80vh',
+          maxHeight: '80dvh',
+          minHeight: 0,
           display: 'flex', flexDirection: 'column',
           background: 'linear-gradient(180deg, #1e1610, #110c07)',
           border: '1px solid var(--brass)',

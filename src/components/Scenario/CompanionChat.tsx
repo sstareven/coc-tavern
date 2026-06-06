@@ -4,6 +4,7 @@ import type { ScenarioDoc, ScenarioPatch } from '../../types/scenario';
 import { validateScenarioPatch } from '../../scenario/scenario-patch';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { callDsSubagent } from '../../sillytavern/subagent-call';
+import { IconCheck } from '../Layout/TabIcons';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -370,7 +371,10 @@ function PatchPreview({
         ))}
       </ul>
       {applied ? (
-        <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 1 }}>✓ 已应用</div>
+        <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 1, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <IconCheck size={14} />
+          <span>已应用</span>
+        </div>
       ) : rejected ? (
         <div style={{ fontSize: 11, color: '#d08585', letterSpacing: 1 }}>已拒绝</div>
       ) : (

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useVariableStore } from '../../stores/useVariableStore';
-import { IconToc } from '../Layout/TabIcons';
+import { IconToc, IconClose } from '../Layout/TabIcons';
 import type { DarkPhase } from '../../types/scenario';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -289,7 +289,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       }}
       onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.92)'; }}
       onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.08)'; }}
-    >×</button>
+    ><IconClose size={14} /></button>
   );
 }
 

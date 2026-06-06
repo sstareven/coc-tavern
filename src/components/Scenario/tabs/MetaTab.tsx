@@ -2,6 +2,7 @@
 // 编辑 ScenarioMeta + prologueSeed + recommendedSkills/Occupations(chip 行)
 import { useState } from 'react';
 import type { ScenarioDoc, ScenarioMeta } from '../../../types/scenario';
+import { IconClose } from '../../Layout/TabIcons';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -181,8 +182,9 @@ function ChipEditor({ values, onChange, placeholder }: { values: string[]; onCha
               style={{
                 background: 'none', border: 'none', color: 'var(--gold)',
                 cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1,
+                display: 'inline-flex', alignItems: 'center',
               }}
-            >×</button>
+            ><IconClose size={12} /></button>
           </span>
         ))}
       </div>

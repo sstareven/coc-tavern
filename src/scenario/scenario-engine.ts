@@ -215,3 +215,27 @@ export async function activateScenario(
 export function unloadScenario(scenarioId: string): void {
   useLorebookStore.getState().removeBook(SCENARIO_BOOK_PREFIX + scenarioId);
 }
+
+/**
+ * M2 — 删页回溯不还原剧本副作用的「禁删 page0」防线说明。
+ *
+ * 剧本激活时 page[0] 被 LLM 扩写覆盖(见 activateScenario step 6),它承载了序章叙事 + 初始物品文本来源;
+ * 同步副作用还包括 extractInitialItems 入库、buildScenarioStatDataSeed 写 statData、scenarioBook 挂载 lorebook。
+ * 这些副作用都没有「随 page0 一起回滚」的机制——若允许玩家删除 page0,物品/MVU/lorebook 仍留在内存,
+ * 但剧情起点没了,UI 进入残缺态。
+ *
+ * 不变量靠 useBookStore.deletePage 现有保护实现：
+ *   `const start = Math.max(1, index);`
+ *   `if (start >= s.pages.length) return s;`
+ * 即:index=0 时 start 被夹到 1,若 pages 仅一页(start === pages.length)直接 return;若有多页,实际删除范围
+ * 是 [1, end],page0 永远不动。所以「禁删 page0」已是 useBookStore 的硬不变量,scenario-engine 无需再加守卫。
+ * 这里留注释钉死该机制,后续若有人改 deletePage 取消这条线请回头补 scenario-engine 的副作用回滚或显式守卫。
+ *
+ * 配套提供 unloadAndCleanupScenario 入口供 sessionLifecycle / 未来「删会话但保留剧本残留」场景按需清理:
+ *   - 卸 lorebook book(同 unloadScenario)
+ *   - 当前仅做最小集:lorebook 卸载;sheet/NPC/MVU/inventory 仍由 clearAllGameState 整体清理。
+ *     未来若要做「卸剧本但保留进度」的更细粒度操作,在此扩展精确回滚分支。
+ */
+export function unloadAndCleanupScenario(scenarioId: string): void {
+  unloadScenario(scenarioId);
+}
