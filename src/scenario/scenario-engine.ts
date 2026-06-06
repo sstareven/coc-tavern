@@ -16,6 +16,7 @@ import { useInventoryStore } from '../stores/useInventoryStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useChatStore } from '../stores/useChatStore';
 import { useMapStore } from '../stores/useMapStore';
+import { renderTemplate } from '../sillytavern/ejs-template';
 import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed } from './scenario-injection';
 import { extractInitialItems } from './initial-items-extractor';
 import { expandPrologueToPage } from './expand-prologue';
@@ -43,9 +44,14 @@ function applyScenarioMapLocations(entries: { category?: string; keys: string; c
     .map((e) => {
       const firstKey = e.keys.split(',')[0]?.trim();
       const name = firstKey || e.comment;
+      // 先 renderTemplate 处理 EJS 条件块(getvar('剧情.已解锁.X')==='true' 路径),
+      // 否则 MapOverlay 地点详情面板会显示字面 <% if %>...<% } %> 代码 — bug fix:
+      // 之前直接 split content 切前 3 行,EJS 字面文本就渗到 MapLocation.description。
+      // renderTemplate 失败时 fallback 到原文本(ejs-template.ts:205),不破坏现有流程。
+      const rendered = renderTemplate(e.content, { cache: { enabled: 0, size: 0 } });
       return {
         name,
-        description: e.content.split('\n').slice(0, 3).join('\n'),
+        description: rendered.split('\n').slice(0, 3).join('\n').trim(),
       };
     })
     .filter((l) => l.name.trim().length > 0);
