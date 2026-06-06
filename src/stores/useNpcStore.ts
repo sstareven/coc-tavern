@@ -169,7 +169,13 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         // 直接覆盖的文本字段
         const uRec = u as unknown as Record<string, unknown>;
         const pRec = p as unknown as Record<string, unknown>;
+        // 保护剧本预设 NPC 的 KP 暗线核心 hiddenBio 不被 LLM 主回合 npcUpdate 覆盖：
+        // backstory(=publicBio) 与 innerThoughts(=hiddenBio) 是剧本作者写定的暗线骨架，
+        // 主模型应只产生 favorabilityDelta/isPresent/addMemory/skills/status 等增量；
+        // 这两个字段的覆盖会让预设 NPC 一回合后失去人设根基，故对锚定预设 NPC 跳过。
+        const isPreset = p.isScenarioPreset === true;
         for (const f of SET_FIELDS) {
+          if (isPreset && (f === 'backstory' || f === 'innerThoughts')) continue;
           const v = uRec[f as string];
           if (typeof v === 'string' && v.trim()) pRec[f as string] = v;
         }

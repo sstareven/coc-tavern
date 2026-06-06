@@ -284,6 +284,11 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
       showToast(`导入失败：${r.error}`);
       return;
     }
+    const existing = useScenarioStore.getState().getById(r.doc.id);
+    if (existing) {
+      const choice = window.confirm(`已存在同 id 剧本 "${existing.meta.name}",是否替换?\n(取消则放弃导入)`);
+      if (!choice) return;
+    }
     const newId = upsert(r.doc);
     showToast(`已导入 — ${r.doc.meta.name}`);
     onOpenEditor(newId);

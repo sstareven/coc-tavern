@@ -1,6 +1,10 @@
 // 剧本系统类型 — 参见 docs/specs/2026-06-06-scenario-system-design.md §3
 import type { CharacterSheet } from './index';
 
+// 当前 schema 版本号；migrateScenario 据此判断是否需要升级
+export const CURRENT_SCENARIO_SCHEMA_VERSION = 1 as const;
+const SUPPORTED_SCHEMA_VERSIONS: ReadonlyArray<number> = [1];
+
 // 固定 6 类分类（与编辑器 tab 一一对应）
 export const SCENARIO_CATEGORIES = ['地点', '人物', '势力', '物品线索', '暗线', '秘密与解锁'] as const;
 export type ScenarioCategory = (typeof SCENARIO_CATEGORIES)[number];
@@ -81,7 +85,7 @@ export interface ScenarioDoc {
   badEndings: BadEnding[];
   authorNotes: string;
 
-  schemaVersion: 1;
+  schemaVersion: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -192,7 +196,7 @@ export function isValidScenarioDoc(x: unknown): x is ScenarioDoc {
   if (!Array.isArray(x.darkTimeline) || !x.darkTimeline.every(isDarkPhase)) return false;
   if (!Array.isArray(x.badEndings) || !x.badEndings.every(isBadEnding)) return false;
   if (!isStr(x.authorNotes)) return false;
-  if (x.schemaVersion !== 1) return false;
+  if (typeof x.schemaVersion !== 'number' || !SUPPORTED_SCHEMA_VERSIONS.includes(x.schemaVersion)) return false;
   if (!isNum(x.createdAt) || !isNum(x.updatedAt)) return false;
   return true;
 }

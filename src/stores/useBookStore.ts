@@ -182,8 +182,13 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const fixed = kept.map((p, i) => ({ ...p, leftPage: pageNum(i), rightPage: rightPageNum(i) }));
     const pageIndex = Math.min(s.pageIndex, fixed.length - 1);
     const removedIds = removedPages.map((p) => p.id).filter((id): id is string => Boolean(id));
-    if (removedIds.length) {
-      setTimeout(() => {
+    // 派生状态(inventory/sheet/npc)走 page-delete-rollback-snapshot-pattern 不变量回滚：
+    // - 物品按 removedPages.inventoryChanges 倒序 revert(逐回合反向施加)；
+    // - sheet/npc 用 kept 末页快照整页替换(快照模式比 updates 重放更可靠，含战斗终值)；
+    // - 老存档无快照则不动，避免误清(老档兜底仍由调用方 Storybook 的 clearAll+重放完成)。
+    // 用 setTimeout 同步副作用避开 store 间循环依赖(同 lorebook/combat/sanity 的处理)。
+    setTimeout(() => {
+      if (removedIds.length) {
         const lore = useLorebookStore.getState();
         for (const id of removedIds) lore.removeSummaryEntry(id);
         // 删页/回溯若删掉战斗锚定页 → 清掉这场悬空战斗，否则它非空却任何页都渲染不出面板(隐形)，
@@ -195,8 +200,30 @@ export const useBookStore = create<BookStore>((set, get) => ({
         // 被误判为"已触发"(SanityBubble 渲染为灰圆点、玩家点不开/不掉 SAN)。注释期望见 useSanityBubbleStore
         // 顶部 page-delete-rollback-snapshot-pattern 段；此处兑现该不变量。
         useSanityBubbleStore.getState().reset();
-      }, 0);
-    }
+      }
+      // ── 物品回滚：倒序撤销被删页的 inventoryChanges ──
+      void (async () => {
+        const { useInventoryStore } = await import('./useInventoryStore');
+        const inv = useInventoryStore.getState();
+        for (let k = removedPages.length - 1; k >= 0; k--) {
+          const p = removedPages[k];
+          if (p.inventoryChanges?.length) inv.revertChanges(p.inventoryChanges);
+        }
+      })();
+      // ── sheet/npc 快照式回滚：取 kept 末页(向前回溯找最近含快照的页)恢复 ──
+      void (async () => {
+        const lastSheetSnap = [...fixed].reverse().find((p) => p.sheetSnapshot)?.sheetSnapshot;
+        if (lastSheetSnap) {
+          const { useCharSheetStore } = await import('./useCharSheetStore');
+          useCharSheetStore.getState().setSheet(lastSheetSnap);
+        }
+        const lastNpcSnap = [...fixed].reverse().find((p) => p.npcSnapshot)?.npcSnapshot;
+        if (lastNpcSnap) {
+          const { useNpcStore } = await import('./useNpcStore');
+          useNpcStore.getState().replaceAll(Object.values(lastNpcSnap));
+        }
+      })();
+    }, 0);
     return { pages: fixed, pageIndex };
   }),
 

@@ -82,6 +82,7 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // 自动滚到底:消息变化后下一帧滚
   useEffect(() => {
@@ -92,6 +93,11 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
     });
   }, [messages.length]);
 
+  // 卸载时取消进行中的请求,避免悬挂 fetch + state 写入 unmounted 组件
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
   const send = async (): Promise<void> => {
     const text = draft.trim();
     if (!text || busy) return;
@@ -99,6 +105,11 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
     const userMsg: ChatMsg = { id: newMsgId(), role: 'user', content: text };
     setMessages((m) => [...m, userMsg]);
     setBusy(true);
+
+    // 取消上一次仍在进行的请求,然后新建本次的 controller
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
 
     try {
       // 把当前剧本摘要拼进 user prompt:meta + 条目列表头几个字段 + 暗线/坏结局 id
@@ -134,6 +145,7 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
         maxTokens: 20000,
         rpmLane: 'rewrite',
         label: 'scenario:CompanionChat',
+        signal,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPayload },

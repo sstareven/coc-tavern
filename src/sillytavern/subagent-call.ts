@@ -154,8 +154,23 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
       signal,
     });
 
-  let response = await doFetch(wantJsonObject);
+  // A5 — AbortError 必须原样透传,不能被 fallback 探测或 JSON 解析误吞为 parseError。
+  //      fetch 抛 AbortError 时 err.name === 'AbortError'(浏览器/node 18+);
+  //      或 signal.aborted 为 true 也视作中止。
+  const rethrowIfAborted = (err: unknown): never => {
+    const e = err as { name?: string } | null | undefined;
+    if (signal?.aborted || e?.name === 'AbortError') throw err;
+    throw err; // 非 abort 也透传,但 catch 链外抓不到 — 这里仅用作类型 never
+  };
+
+  let response: Response;
   let usedJsonObject = wantJsonObject;
+  try {
+    response = await doFetch(wantJsonObject);
+  } catch (err) {
+    rethrowIfAborted(err);
+    throw err;
+  }
 
   if (!response.ok && wantJsonObject) {
     // 探测是不是 response_format 不被支持 —— 是则缓存 model + fallback 重发
@@ -171,13 +186,20 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
         `[子调用 ${label}] 模型「${model}」不支持 response_format=json_object,已自动切回常规模式（本会话剩余子调用同样跳过）`,
         'api',
       );
-      response = await doFetch(false);
+      try {
+        response = await doFetch(false);
+      } catch (err) {
+        rethrowIfAborted(err);
+        throw err;
+      }
       usedJsonObject = false;
     }
   }
 
   if (!response.ok) throw new DsSubagentHttpError(label, response.status);
 
+  // A5 — abort 也可能在 response.json() 期间触发,提前透传
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
   // 解析按实际请求模式分流：json_object 模式走 strictJsonParse，否则走 coerceJsonObject。

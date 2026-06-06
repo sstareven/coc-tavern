@@ -18,6 +18,7 @@ import { useVariableStore } from './useVariableStore';
 import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
+import { useScenarioStore } from './useScenarioStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
@@ -85,6 +86,9 @@ export function clearAllGameState(prevScenarioId?: string) {
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
   useBookStore.getState().resetToPrologue();
+  // A1：剧本 fork 映射也是按会话隔离不变量——清掉防上一会话已 fork 的副本 id 泄漏到新会话,
+  // 否则新会话再 upsert 同一内置剧本会就地更新旧会话遗留副本(违反 session-isolation invariant)。
+  useScenarioStore.getState().clearForkMap();
 }
 
 /** 读当前活跃会话挂载的 scenarioId(若有),供调用方在切档/新游戏前先捕获、再传给 clearAllGameState,

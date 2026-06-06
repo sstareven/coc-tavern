@@ -1,7 +1,7 @@
 // 剧本编辑器 — 见 docs/specs/2026-06-06-scenario-system-design.md §5.1 / §E1
 // 全屏 overlay: 顶部工具栏 + 左竖向 9 tab + 右主区 + 最右侧驻留 CompanionChat(<800px 折叠抽屉)。
 // 状态来源:useScenarioStore.getById → 局部 working copy → upsert(working) 落库。
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import type { ScenarioDoc } from '../../types/scenario';
 import { downloadScenario } from '../../scenario/scenario-io';
@@ -47,31 +47,41 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
   const upsert = useScenarioStore((s) => s.upsert);
 
   const initial = useMemo<ScenarioDoc | undefined>(() => getById(scenarioId), [getById, scenarioId]);
-  const [working, setWorking] = useState<ScenarioDoc | undefined>(initial);
+  const [working, setWorkingRaw] = useState<ScenarioDoc | undefined>(initial);
   const [activeTab, setActiveTab] = useState<TabKey>('meta');
   const [toast, setToast] = useState<string | null>(null);
   const [companionOpen, setCompanionOpen] = useState(false); // 移动端抽屉显隐
   const toastTimerRef = useRef<number | null>(null);
-  // 初始快照 — 用于判断 dirty(切剧本时刷新)
-  const initialSnapshotRef = useRef<ScenarioDoc | undefined>(initial);
+  // D2 — revision counter 取代 JSON.stringify diff:setWorking 每次自增,保存/初始化时把 baseline 跳到当前。
+  // 用 useState 让顶部「未保存」徽章 + close 确认 + beforeunload 跟随 isDirty 自动 re-render。
+  const [revision, setRevision] = useState(0);
+  const [baselineRevision, setBaselineRevision] = useState(0);
   // 顶部「剧本名」inline draft — 失焦才 commit,避免每个字母都触发 re-render
   const [nameDraft, setNameDraft] = useState<string>(initial?.meta.name ?? '');
+
+  // D2 — 包装 setWorking,任何写都自增 revision;支持函数式 updater(同 React useState 语义)。
+  const setWorking = useCallback(
+    (next: ScenarioDoc | undefined | ((prev: ScenarioDoc | undefined) => ScenarioDoc | undefined)): void => {
+      setWorkingRaw(next);
+      setRevision((r) => r + 1);
+    },
+    [],
+  );
 
   // 视口宽度自适应
   const compact = useIsMobile('(max-width: 800px)');
 
-  // 剧本 id 变更时重新初始化 working + 快照 + name draft
+  // 剧本 id 变更时重新初始化 working + 基线 + name draft
   useEffect(() => {
-    setWorking(initial);
-    initialSnapshotRef.current = initial;
+    setWorkingRaw(initial);
+    // 切剧本视为干净基线:revision 和 baseline 一起 reset 到 0
+    setRevision(0);
+    setBaselineRevision(0);
     setNameDraft(initial?.meta.name ?? '');
   }, [initial]);
 
-  // dirty 判断 — JSON 序列化对比初始快照
-  const isDirty = useMemo<boolean>(() => {
-    if (!working || !initialSnapshotRef.current) return false;
-    return JSON.stringify(working) !== JSON.stringify(initialSnapshotRef.current);
-  }, [working]);
+  // D2 — dirty = 当前 revision 与基线不等(O(1),不再 JSON.stringify 整棵树)
+  const isDirty = revision !== baselineRevision;
 
   // 关窗确认 — 含 dirty 提示
   const handleClose = (): void => {
@@ -122,12 +132,16 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
     if (id !== working.id) {
       // 内置 fork:把 id 切到新副本并继续编辑
       const next = { ...working, id, builtin: false };
-      setWorking(next);
-      initialSnapshotRef.current = next; // 保存后刷新基线,清 dirty
+      setWorkingRaw(next);
+      setRevision((r) => {
+        const nr = r + 1;
+        setBaselineRevision(nr); // 保存后基线对齐当前 revision,清 dirty
+        return nr;
+      });
       showToast('已 fork 为新剧本副本并保存');
     } else {
-      initialSnapshotRef.current = working; // 保存后刷新基线,清 dirty
-      setWorking({ ...working });
+      // 已落库,把基线对齐当前 revision 即可清 dirty(不需重新写 working)
+      setBaselineRevision(revision);
       showToast('已保存');
     }
   };
@@ -154,8 +168,12 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
     };
     const saved = upsert(copy);
     const next = { ...copy, id: saved };
-    setWorking(next);
-    initialSnapshotRef.current = next; // 另存为后刷新基线
+    setWorkingRaw(next);
+    setRevision((r) => {
+      const nr = r + 1;
+      setBaselineRevision(nr); // 另存为后基线对齐,清 dirty
+      return nr;
+    });
     setNameDraft(next.meta.name);
     showToast('已另存为新剧本');
   };

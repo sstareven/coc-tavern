@@ -10,18 +10,25 @@ import type { ScenarioDoc } from '../../types/scenario';
 const getByIdMock = vi.fn();
 const setSheetMock = vi.fn();
 const npcApplyUpdatesMock = vi.fn();
+const npcReplaceAllMock = vi.fn();
 const setStatDataMock = vi.fn();
 const statDataRef: { current: Record<string, unknown> } = { current: {} };
 const upsertBookMock = vi.fn();
 const removeBookMock = vi.fn();
 const setSessionScenarioMock = vi.fn();
 const applyChangesMock = vi.fn();
+const invReplaceAllMock = vi.fn();
 const bookPagesRef: { current: unknown[] } = { current: [] };
 const replacePageMock = vi.fn();
 const appendPageMock = vi.fn();
 const goToPageMock = vi.fn();
 const resetToPrologueMock = vi.fn();
+const setPageAcquiredItemsMock = vi.fn();
+const setPageInventoryChangesMock = vi.fn();
 const sheetRef: { current: { initialItemsRaw?: string } } = { current: {} };
+// A3 + B2 snapshot/restore 用的 store 字段补全
+const mapApplyUpdatesMock = vi.fn();
+const mapReplaceAllMock = vi.fn();
 
 vi.mock('../../stores/useScenarioStore', () => ({
   useScenarioStore: { getState: () => ({ getById: getByIdMock }) },
@@ -30,7 +37,7 @@ vi.mock('../../stores/useCharSheetStore', () => ({
   useCharSheetStore: { getState: () => ({ setSheet: setSheetMock, sheet: sheetRef.current }) },
 }));
 vi.mock('../../stores/useNpcStore', () => ({
-  useNpcStore: { getState: () => ({ applyUpdates: npcApplyUpdatesMock }) },
+  useNpcStore: { getState: () => ({ applyUpdates: npcApplyUpdatesMock, replaceAll: npcReplaceAllMock, profiles: {} }) },
 }));
 vi.mock('../../stores/useVariableStore', () => ({
   useVariableStore: {
@@ -39,11 +46,22 @@ vi.mock('../../stores/useVariableStore', () => ({
 }));
 vi.mock('../../stores/useLorebookStore', () => ({
   useLorebookStore: {
-    getState: () => ({ upsertBook: upsertBookMock, removeBook: removeBookMock }),
+    getState: () => ({ upsertBook: upsertBookMock, removeBook: removeBookMock, books: {} }),
   },
 }));
 vi.mock('../../stores/useInventoryStore', () => ({
-  useInventoryStore: { getState: () => ({ applyChanges: applyChangesMock }) },
+  useInventoryStore: { getState: () => ({ applyChanges: applyChangesMock, replaceAll: invReplaceAllMock, items: [] }) },
+}));
+vi.mock('../../stores/useMapStore', () => ({
+  useMapStore: {
+    getState: () => ({
+      applyUpdates: mapApplyUpdatesMock,
+      replaceAll: mapReplaceAllMock,
+      locations: {},
+      edges: [],
+      currentLocationId: null,
+    }),
+  },
 }));
 vi.mock('../../stores/useBookStore', () => ({
   useBookStore: {
@@ -53,6 +71,8 @@ vi.mock('../../stores/useBookStore', () => ({
       appendPage: appendPageMock,
       goToPage: goToPageMock,
       resetToPrologue: resetToPrologueMock,
+      setPageAcquiredItems: setPageAcquiredItemsMock,
+      setPageInventoryChanges: setPageInventoryChangesMock,
     }),
   },
 }));

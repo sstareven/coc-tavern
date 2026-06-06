@@ -13,11 +13,15 @@ import type {
 } from '../types/scenario';
 
 // M9 — system message 拆为静态共享段,跨命令共享以吃满 prompt 缓存(7 命令同一 hash)。
-// 身份描述不再 inline 进 system;调用方在 user message 顶部以「【本次任务】xxx」起首。
+// D5 — 身份描述移到 user message **尾部**(原来在头部, user 段首字节就 diverge 致跨命令 cache miss);
+//      现 user 段以业务大块(entries 摘要 / outline / 元信息)开头,尾部追加「【本次任务】<role>」,
+//      让 entries.json 这种大段在 user 段尽早出现,prefix cache 可命中开头共享部分。
 //
 // ⚠️ M9 收益依赖 settings.dsCache.experimentalSubagentSharedSystem 关闭。
 // 若该开关开启, wrapSubagentMessages 会替换原 system, 本 SHARED 字面量走不到 system 槽,
-// 但 messages user 头部 `【本次任务】${role}` 仍可变;共享前缀仅命中到 SUBAGENT_SHARED_SYSTEM 段尾。
+// 但 messages user 业务大块仍可共享前缀;role 名只在 user 段尾 diverge,不影响开头大段缓存。
+// TODO(prompt-cache 实测验证): D5 修改后跨命令 user 段开头是否能在中转站 prompt cache 真正命中,
+//      需要在实际 API 后端拉 cached_tokens metric 验证(本次仅做代码逻辑改进)。
 const SHARED_SYSTEM_PROMPT = [
   '你是 COC 调查员叙事游戏(Call of Cthulhu)的【剧本编辑助手】,辅助守秘人构建/调整跑团剧本。',
   '严格遵守:',
@@ -27,31 +31,47 @@ const SHARED_SYSTEM_PROMPT = [
   '4. EJS 标签按 <% %> 原样保留,不要转义。',
 ].join('\n');
 
-// 把身份描述拼到 user message 顶部,跨命令同一份 system 共享缓存。
-function buildUserHeader(role: string): string {
-  return `【本次任务】${role}\n\n`;
+// D5 — 身份描述拼到 user message **尾部**(尾部 diverge 不影响开头大段共享前缀)。
+function buildUserFooter(role: string): string {
+  return `\n\n【本次任务】${role}`;
 }
 
 // M6 — 直接用 callDsSubagent 已有的 parsed/parseError,不再自己 indexOf('{') 截取;
 //      含 EJS <% if ... { %> 的回显里 lastIndexOf('}') 截不准会出错。
+// A5 — 子调用抛 AbortError 时不能误诊为「JSON 解析失败」,要透传出去给上游 abort 处理。
 async function callJson<T>(label: string, user: string, signal?: AbortSignal): Promise<T> {
   // 调用前先检查 abort,避免无意义发起
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const { apiBaseUrl, apiKey, apiModel } = useSettingsStore.getState();
-  const { parsed, parseError, content } = await callDsSubagent({
-    apiBaseUrl,
-    apiKey,
-    model: apiModel,
-    temperature: 0.7,
-    maxTokens: 20000,
-    rpmLane: 'rewrite', // 作者侧编辑,走 rewrite 桶,不挤主输出
-    label: 'scenario:' + label,
-    signal,
-    messages: [
-      { role: 'system', content: SHARED_SYSTEM_PROMPT },
-      { role: 'user', content: user },
-    ],
-  });
+  let parsed: Record<string, unknown> | null = null;
+  let parseError: string | undefined;
+  let content = '';
+  try {
+    const resp = await callDsSubagent({
+      apiBaseUrl,
+      apiKey,
+      model: apiModel,
+      temperature: 0.7,
+      maxTokens: 20000,
+      rpmLane: 'rewrite', // 作者侧编辑,走 rewrite 桶,不挤主输出
+      label: 'scenario:' + label,
+      signal,
+      messages: [
+        { role: 'system', content: SHARED_SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+    });
+    parsed = resp.parsed;
+    parseError = resp.parseError;
+    content = resp.content;
+  } catch (err) {
+    // A5 — abort 原样透传, 不要吞为 parseError(避免误诊为 JSON 解析失败)
+    const e = err as { name?: string } | null | undefined;
+    if (signal?.aborted || e?.name === 'AbortError') throw err;
+    throw err;
+  }
+  // A5 — 解析失败前再检查一次 abort(防 fetch 完成但调用方已 abort)
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   if (!parsed) {
     const snippet = (content || '').slice(0, 600);
     throw new Error(
@@ -68,8 +88,8 @@ export async function generateEntries(
   n = 5,
 ): Promise<{ upsertEntries: ScenarioEntry[] }> {
   // M7 — schema 字面量给真实 JSON 例子;类型/枚举/范围放【规则】段。
+  // D5 — 业务大块(outline / schema 示例 / 规则)在前共享,「【本次任务】<role>」尾追。
   const user = [
-    buildUserHeader(`为「${category}」类别批量生成 ${n} 条剧本条目`),
     `请基于以下大纲生成 ${n} 条「${category}」类别的剧本条目:`,
     '',
     outline,
@@ -85,7 +105,7 @@ export async function generateEntries(
     '- position: 整数 0|1|2|3|4(0=system 前,1=system 后,2=user 前,3=user 后,4=@D 注入)。',
     '- priority: 0~100 的数字。',
     '- cachePolicy: 固定 "auto"(后续由 decideCachePolicy 重判)。',
-  ].join('\n');
+  ].join('\n') + buildUserFooter(`为「${category}」类别批量生成 ${n} 条剧本条目`);
   return callJson<{ upsertEntries: ScenarioEntry[] }>('generateEntries', user);
 }
 
@@ -93,27 +113,29 @@ export async function generateEntries(
 // C4 — 全量 entries 会撞 context window;> 20 条时拆批,每批 ≤ 20 条,结果合并。
 export async function autoCategorize(
   entries: ScenarioEntry[],
+  signal?: AbortSignal,
 ): Promise<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }> {
   const BATCH_SIZE = 20;
   if (entries.length > BATCH_SIZE) {
     const merged: Array<{ id: string; category: ScenarioCategory }> = [];
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
       const batch = entries.slice(i, i + BATCH_SIZE);
-      const partial = await autoCategorizeBatch(batch);
+      const partial = await autoCategorizeBatch(batch, signal);
       merged.push(...partial.recategorize);
     }
     return { recategorize: merged };
   }
-  return autoCategorizeBatch(entries);
+  return autoCategorizeBatch(entries, signal);
 }
 
 async function autoCategorizeBatch(
   entries: ScenarioEntry[],
+  signal?: AbortSignal,
 ): Promise<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }> {
   const summary = entries.map((e) => ({ id: e.id, comment: e.comment, currentCategory: e.category, contentPreview: e.content.slice(0, 200) }));
   // M7 — schema 字面量给真实 JSON 例子;枚举值放【规则】段。
+  // D5 — 业务大块 summary 在前共享, role 名尾追。
   const user = [
-    buildUserHeader('对剧本全部条目进行自动分类调整'),
     '以下是当前剧本所有条目摘要,请判断每条最合适的分类:',
     JSON.stringify(summary, null, 2),
     '',
@@ -123,13 +145,14 @@ async function autoCategorizeBatch(
     '【规则】',
     '- category 取值只能是:地点 / 人物 / 势力 / 物品线索 / 暗线 / 秘密与解锁。',
     '- 只列出需要变更的条目;分类已合适的条目不要包含。',
-  ].join('\n');
-  return callJson<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }>('autoCategorize', user);
+  ].join('\n') + buildUserFooter('对剧本全部条目进行自动分类调整');
+  return callJson<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }>('autoCategorize', user, signal);
 }
 
 // 3) 缓存策略判定 — MVP 直接本地启发式;TODO 让 LLM 二级判定边缘案例
 export async function decideCachePolicy(
   entries: ScenarioEntry[],
+  _signal?: AbortSignal,
 ): Promise<{ setCachePolicies: Array<{ id: string; cachePolicy: ScenarioCachePolicy }> }> {
   // M8 — 复用 src/sillytavern/dynamic-markers.ts 的 hasDynamicMarker(覆盖 getvar/setvar/_.get/parseInt 等)。
   // 启发式:含动态 marker → dynamic_suffix;constant=true 且无 marker → static_prefix;其他 auto
@@ -154,8 +177,8 @@ export async function generateDarkTimeline(
     .map((e) => `- [${e.category}] ${e.comment}:${e.content.slice(0, 120)}`)
     .join('\n');
   // M7 — schema 字面量给真实 JSON 例子;数量/范围/语义放【规则】段。
+  // D5 — 元信息 / hints / 示例 / 规则共享前缀, role 名尾追。
   const user = [
-    buildUserHeader('基于剧本背景与现有条目生成暗线时间线'),
     '剧本元信息:',
     JSON.stringify(meta, null, 2),
     '',
@@ -169,7 +192,7 @@ export async function generateDarkTimeline(
     '- 生成 3~5 个 DarkPhase,按 threshold 0→100 递增。',
     '- threshold: 数字 0~100。',
     '- triggers / autoUnlockKeys: 字符串数组。autoUnlockKeys 用于条件解锁(写入 /剧情/已解锁/<key>)。',
-  ].join('\n');
+  ].join('\n') + buildUserFooter('基于剧本背景与现有条目生成暗线时间线');
   return callJson<{ upsertDarkTimeline: DarkPhase[] }>('generateDarkTimeline', user);
 }
 
@@ -187,8 +210,8 @@ export async function generateBadEndings(
   const clueTrimmed = clueAll.slice(0, CLUE_LIMIT);
   const clueSummary = clueTrimmed.map((e) => `- ${e.comment}`).join('\n');
   // M7 — schema 字面量给真实 JSON 例子;数量与语义放【规则】段。
+  // D5 — 业务大块在前共享, role 名 / 截断说明都在尾部。
   const lines: string[] = [
-    buildUserHeader('基于暗线时间线和现有线索生成坏结局矩阵'),
     '暗线时间线:',
     phaseSummary || '(空)',
     '',
@@ -212,6 +235,7 @@ export async function generateBadEndings(
     if (wasClueTrimmed) notes.push(`clue 摘要仅取前 ${CLUE_LIMIT}/${clueAll.length}`);
     user += `\n\n[已截断,仅取前 N 项:${notes.join(';') || '上下文过长'}]`;
   }
+  user += buildUserFooter('基于暗线时间线和现有线索生成坏结局矩阵');
   return callJson<{ upsertBadEndings: BadEnding[] }>('generateBadEndings', user);
 }
 
@@ -219,10 +243,11 @@ export async function generateBadEndings(
 export async function rewriteEntry(
   entry: ScenarioEntry,
   instruction: string,
+  signal?: AbortSignal,
 ): Promise<{ upsertEntries: ScenarioEntry[] }> {
   // M7 — schema 字面量给真实 JSON 例子;字段保留/EJS 处理放【规则】段。
+  // D5 — 业务大块在前共享, role 名尾追。
   const user = [
-    buildUserHeader('按指令重写单个剧本条目正文'),
     '原条目:',
     JSON.stringify(entry, null, 2),
     '',
@@ -234,8 +259,8 @@ export async function rewriteEntry(
     '【规则】',
     '- 仅改写 content 字段;其余字段(id/category/comment/keys/constant/position/priority/cachePolicy/hidden)保持原值。',
     '- EJS <% %> 块若存在,保留语义。',
-  ].join('\n');
-  return callJson<{ upsertEntries: ScenarioEntry[] }>('rewriteEntry', user);
+  ].join('\n') + buildUserFooter('按指令重写单个剧本条目正文');
+  return callJson<{ upsertEntries: ScenarioEntry[] }>('rewriteEntry', user, signal);
 }
 
 // 7) 给条目套 EJS 解锁条件 — 包装 content 为 <% if (getvar('剧情.已解锁.X')==='true') %> 块
@@ -243,6 +268,7 @@ export async function rewriteEntry(
 export async function injectEjsUnlock(
   entry: ScenarioEntry,
   unlockKeys?: string[],
+  signal?: AbortSignal,
 ): Promise<{ upsertEntries: ScenarioEntry[] }> {
   if (unlockKeys && unlockKeys.length > 0) {
     // 本地包装路径:多 key 用 || 连接;原 content 留作 if 块内
@@ -254,8 +280,8 @@ export async function injectEjsUnlock(
   }
   // LLM 决策路径:让模型自选合适 key 并产出包装后的条目
   // M7 — schema 字面量给真实 JSON 例子;包装格式/字段保留放【规则】段。
+  // D5 — 原条目 / 示例 / 规则共享前缀, role 名尾追。
   const user = [
-    buildUserHeader('为剧本条目添加 EJS 条件解锁包装'),
     '原条目:',
     JSON.stringify(entry, null, 2),
     '',
@@ -270,6 +296,6 @@ export async function injectEjsUnlock(
     '【规则】',
     '- 仅改写 content(包装为上述 EJS if 块);其余字段保持原值。',
     '- key 用简体中文短语,1~3 个,反映条目所属秘密/解锁条件。',
-  ].join('\n');
-  return callJson<{ upsertEntries: ScenarioEntry[] }>('injectEjsUnlock', user);
+  ].join('\n') + buildUserFooter('为剧本条目添加 EJS 条件解锁包装');
+  return callJson<{ upsertEntries: ScenarioEntry[] }>('injectEjsUnlock', user, signal);
 }

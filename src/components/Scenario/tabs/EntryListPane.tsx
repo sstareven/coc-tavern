@@ -1,7 +1,7 @@
 // 共享条目列表面板 — 见 docs/specs/2026-06-06-scenario-system-design.md §5.1 / §E2
 // 6 类 category tab 共用; 左列表+右编辑+顶部工具栏(搜索/新增/自动分类/优化缓存);
 // LLM 命令通过 props 透传给 ScenarioEditor 主控统一调用 + applyScenarioPatch。
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ScenarioCategory,
   ScenarioDoc,
@@ -71,6 +71,20 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
   const [rewriteText, setRewriteText] = useState('');
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockText, setUnlockText] = useState('');
+  // 4 个 LLM 入口共享一个 abortRef:任一新调用前/切 tab/卸载时全 abort,避免回调写入过期状态
+  const abortRef = useRef<AbortController | null>(null);
+
+  // 切 category(等价于 tab 切换)或卸载时,abort 进行中的请求
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, [category]);
+
+  // 每次进入 LLM 调用前 abort 上一次并新建 controller
+  const newSignal = (): AbortSignal => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    return abortRef.current.signal;
+  };
 
   const filtered = useMemo<ScenarioEntry[]>(() => {
     const q = search.trim().toLowerCase();
@@ -108,7 +122,7 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
     if (scn.entries.length === 0) return;
     setBusy('autoCategorize');
     try {
-      const r = await autoCategorize(scn.entries);
+      const r = await autoCategorize(scn.entries, newSignal());
       const next = applyScenarioPatch(scn, r);
       onChange(next);
       onToast?.(`已重新分类 ${r.recategorize?.length ?? 0} 条`);
@@ -123,7 +137,7 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
     if (scn.entries.length === 0) return;
     setBusy('decideCachePolicy');
     try {
-      const r = await decideCachePolicy(scn.entries);
+      const r = await decideCachePolicy(scn.entries, newSignal());
       const next = applyScenarioPatch(scn, r);
       onChange(next);
       onToast?.(`已优化 ${r.setCachePolicies?.length ?? 0} 条缓存策略`);
@@ -141,7 +155,7 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
     setRewriteOpen(false);
     setBusy('rewriteEntry');
     try {
-      const r = await rewriteEntry(selected, instr);
+      const r = await rewriteEntry(selected, instr, newSignal());
       const next = applyScenarioPatch(scn, r);
       onChange(next);
       setRewriteText('');
@@ -159,7 +173,7 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
     setUnlockOpen(false);
     setBusy('injectEjsUnlock');
     try {
-      const r = await injectEjsUnlock(selected, keys.length > 0 ? keys : undefined);
+      const r = await injectEjsUnlock(selected, keys.length > 0 ? keys : undefined, newSignal());
       const next = applyScenarioPatch(scn, r);
       onChange(next);
       setUnlockText('');

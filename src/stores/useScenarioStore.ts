@@ -4,6 +4,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
+// D3:BUILTIN_SCENARIOS 顶层会同步 import 8 个剧本(每个含大段叙事/条目/暗线 JSON),
+// 启动同步阻塞约百毫秒级。改成 ensureBuiltinsLoaded() 首次访问时同步灌入,延迟到 ScenarioScreen
+// 真正打开时才付代价。TODO:后续真正走 dynamic import 拆出独立 chunk,可异步 prefetch。
 import { BUILTIN_SCENARIOS } from '../data/builtin-scenarios';
 import type {
   ScenarioCategory,
@@ -33,6 +36,8 @@ interface ScenarioStore extends ScenarioState {
   applyPatch: (id: string, patch: ScenarioPatch) => void;
   // 会话切换时调用,丢弃过往会话的 fork 记录(副本本身保留)
   clearForkMap: () => void;
+  // D3:延迟初始化 builtins——首次 ScenarioScreen 访问时同步灌入,把启动同步开销挪到打开剧本面板时。
+  ensureBuiltinsLoaded: () => void;
 }
 
 const now = () => Date.now();
@@ -108,11 +113,19 @@ function mergePatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
 export const useScenarioStore = create<ScenarioStore>()(
   persist(
     (set, get) => ({
-      builtins: BUILTIN_SCENARIOS, // 启动时立即可用,onRehydrateStorage 会再覆盖一次确保最新
+      // D3:初始为空,首次 ensureBuiltinsLoaded() / onRehydrateStorage 时灌入,
+      // 把启动同步开销挪到打开剧本面板时。
+      builtins: [],
       userScenarios: [],
       activeId: null,
       lastPicked: null,
       forkMap: {},
+
+      ensureBuiltinsLoaded: () => {
+        if (get().builtins.length === 0) {
+          set({ builtins: BUILTIN_SCENARIOS });
+        }
+      },
 
       getById: (id) => {
         const s = get();
@@ -143,14 +156,19 @@ export const useScenarioStore = create<ScenarioStore>()(
               });
               return target.id;
             }
-            // forkMap 指向的副本被删了 → 走 fork 流程,落到新副本
+            // C5:forkMap 命中但目标副本已不在 userScenarios(被外部删除/GC) → 显式清掉 stale 映射,
+            // 再走 fork 流程,否则下一次写入仍会命中这条死映射、重复进入 idx<0 死循环。
+            console.warn('[useScenarioStore.upsert] forkMap 命中已删副本,清理 stale 映射', { builtinId: doc.id, staleForkId: existingForkId });
+            const cleaned = { ...s.forkMap };
+            delete cleaned[doc.id];
+            set({ forkMap: cleaned });
           }
           // 首次 fork:基于传入 doc(已带本次编辑)做副本,记入 forkMap
           const forked = forkDoc({ ...doc, id: doc.id });
-          set({
-            userScenarios: [...s.userScenarios, forked],
-            forkMap: { ...s.forkMap, [doc.id]: forked.id },
-          });
+          set(prev => ({
+            userScenarios: [...prev.userScenarios, forked],
+            forkMap: { ...prev.forkMap, [doc.id]: forked.id },
+          }));
           return forked.id;
         }
         const idx = s.userScenarios.findIndex(d => d.id === doc.id);
@@ -210,14 +228,19 @@ export const useScenarioStore = create<ScenarioStore>()(
               });
               return;
             }
-            // forkMap 指向的副本被删了 → 走 fork 流程
+            // C5:forkMap 命中但目标副本已不在 userScenarios → 清掉 stale 映射再走 fork 流程,
+            // 防御下一次 patch 仍命中死映射。
+            console.warn('[useScenarioStore.applyPatch] forkMap 命中已删副本,清理 stale 映射', { builtinId: id, staleForkId: existingForkId });
+            const cleaned = { ...s.forkMap };
+            delete cleaned[id];
+            set({ forkMap: cleaned });
           }
           const forked = forkDoc(builtinSrc);
           const patched = mergePatch(forked, patch);
-          set({
-            userScenarios: [...s.userScenarios, patched],
-            forkMap: { ...s.forkMap, [id]: patched.id },
-          });
+          set(prev => ({
+            userScenarios: [...prev.userScenarios, patched],
+            forkMap: { ...prev.forkMap, [id]: patched.id },
+          }));
           return;
         }
         const idx = s.userScenarios.findIndex(d => d.id === id);
@@ -231,18 +254,25 @@ export const useScenarioStore = create<ScenarioStore>()(
     {
       name: 'coc_scenarios_v1',
       storage: createJSONStorage(createDexieStorage),
-      // 内置剧本不入持久层,只保留用户态(含 forkMap,以便页面刷新后同一会话内仍复用副本)
+      // D4:forkMap 是会话内 dedup map, 不跨页面会话保留;同 tab 刷新依赖 startNewConversation
+      // 重建,刻意不写入 Dexie(注释跨会话不持久符号设计意图)。只持久化 userScenarios + lastPicked。
       partialize: (state) =>
         stripFunctions({
           userScenarios: state.userScenarios,
           lastPicked: state.lastPicked,
-          forkMap: state.forkMap,
         } as unknown as Record<string, unknown>) as Partial<ScenarioState>,
       onRehydrateStorage: () => (state) => {
-        // 老存档没有 builtins(或被旧版灌过),统一以代码常量为准
+        // 老存档没有 builtins(或被旧版灌过),统一以代码常量为准(D3:这里同步灌入 = 首次开 app 也立即可用)
         if (state) {
           state.builtins = BUILTIN_SCENARIOS;
           if (!state.forkMap) state.forkMap = {};
+          // A4:forkMap GC——清掉指向已不在 userScenarios 中的 forkId(被外部 remove / 数据迁移裁掉),
+          // 否则后续 upsert / applyPatch 会命中死映射,再走 stale 清理路径反而绕一圈。
+          state.forkMap = Object.fromEntries(
+            Object.entries(state.forkMap ?? {}).filter(([, forkId]) =>
+              state.userScenarios.some(d => d.id === forkId)
+            )
+          );
         }
       },
     },

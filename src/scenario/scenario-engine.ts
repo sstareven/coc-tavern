@@ -15,6 +15,7 @@ import { useLorebookStore } from '../stores/useLorebookStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useChatStore } from '../stores/useChatStore';
+import { useMapStore } from '../stores/useMapStore';
 import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed } from './scenario-injection';
 import { extractInitialItems } from './initial-items-extractor';
 import { expandPrologueToPage } from './expand-prologue';
@@ -92,14 +93,16 @@ export async function activateScenario(
   const scn = useScenarioStore.getState().getById(scenarioId);
   if (!scn) throw new Error(`[scenario-engine] 找不到剧本: ${scenarioId}`);
 
-  // A3 — 同会话二次激活幂等守卫：
-  // 防止 upsertBook 覆盖玩家手改的 lorebook 条目 / extractInitialItems 双倍入库到背包
-  // / replacePage 砸掉玩家已经推进的 page0 进度。若想换剧本必须先 startNewConversation。
-  const currentScn = useChatStore.getState().sessions.find(
-    (s) => s.id === useChatStore.getState().activeId,
-  )?.scenarioId;
-  if (currentScn === scenarioId) {
-    console.log('[scenario-engine] 剧本', scenarioId, '已激活在当前会话,跳过重复激活');
+  // A2 — 副作用幂等守卫(语义化版本):
+  // 旧实现用 sessionScenarioId === scenarioId 兜底,但 newChar/preset 流程在 step 5 才写 sessionId,
+  // 故 currentScn 在重复调用时永远 undefined,守卫永不命中,会让 upsertBook 反复覆盖玩家手改条目、
+  // extractInitialItems 双倍入库到背包、replacePage 砸掉玩家已推进的 page0 进度。
+  // 改为以 lorebook 已挂载且 enabled 作为「真正激活」的指标(副作用必然产物,与 sessionId 写入时序无关)。
+  // 若想换剧本必须先 startNewConversation,届时 lorebook 也会被 clearAllGameState 清掉。
+  const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
+  const alreadyMounted = useLorebookStore.getState().books[bookId]?.enabled === true;
+  if (alreadyMounted) {
+    console.log('[scenario-engine] 剧本', scenarioId, '已挂载,跳过重复激活');
     return;
   }
 
@@ -144,8 +147,17 @@ export async function activateScenario(
 
   // ── 3-6 包成 try/catch：任一步抛错都把已挂载的 scenarioBook 卸掉、把 sessionScenarioId 清空，
   //     避免「book 留挂、id 没写」造成下一会话仍命中剧本条目的幽灵态。
-  //     注：step 1-2(sheet/NPC/MVU seed) 的回滚不在此处兜底，由 clearAllGameState 在用户回主菜单时处理。
-  const scenarioBookId = SCENARIO_BOOK_PREFIX + scn.id;
+  //     A3+B5: 在 try 起点前抓 step 1-2(sheet/NPC/MVU) + step 3-4(lorebook/inventory) 之前的完整快照,
+  //     catch 块整体回滚到激活前状态,防止失败留下半成品继续生效造成玩家无感的混档。
+  //     注:setSessionScenario 在 try 内已有独立回滚旗标(只在写过时清),不需要预快照。
+  const scenarioBookId = bookId; // 复用 A2 守卫中算好的 book id
+  const prevSheet = useCharSheetStore.getState().sheet;
+  const prevStatData = useVariableStore.getState().statData;
+  const prevNpcProfiles = useNpcStore.getState().profiles;
+  const prevInventoryItems = useInventoryStore.getState().items;
+  const prevMapLocations = useMapStore.getState().locations;
+  const prevMapEdges = useMapStore.getState().edges;
+  const prevMapCurrentId = useMapStore.getState().currentLocationId;
   let bookMounted = false;
   let sessionScenarioWritten = false;
   // A2: replacePage/appendPage 之前先抓 page0 快照,出错时能把玩家原本的 page0 还回去——
@@ -162,6 +174,26 @@ export async function activateScenario(
     });
     bookMounted = true;
 
+    // B2: entries.category === '地点' 自动写入 useMapStore — 否则 lorebook 里的「地点」条目
+    // 只能被世界书匹配引擎按关键词激活,玩家打开地图面板看不到任何节点,与剧本叙事脱节。
+    // 首个 key 作为 name(地图节点按名匹配); content 前 3 行作描述(避免把整段世界观塞进描述框)。
+    const locationEntries = scn.entries.filter((e) => e.category === '地点');
+    if (locationEntries.length > 0) {
+      const newLocations = locationEntries
+        .map((e) => {
+          const firstKey = e.keys.split(',')[0]?.trim();
+          const name = firstKey || e.comment;
+          return {
+            name,
+            description: e.content.split('\n').slice(0, 3).join('\n'),
+          };
+        })
+        .filter((l) => l.name.trim().length > 0);
+      if (newLocations.length > 0) {
+        useMapStore.getState().applyUpdates({ newLocations });
+      }
+    }
+
     // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
     // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
     // preset:  step 1 setSheet(proto.sheet) 已把预设角色的 initialItemsRaw 写到 useCharSheetStore
@@ -171,9 +203,20 @@ export async function activateScenario(
       try {
         const items = await extractInitialItems(raw);
         if (items.length > 0) {
-          useInventoryStore.getState().applyChanges(
-            items.map((i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i })),
+          const changes: InventoryChange[] = items.map(
+            (i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i }),
           );
+          useInventoryStore.getState().applyChanges(changes);
+          // B3: 把入库结果也写回 page0 的 acquiredItems / inventoryChanges,这样:
+          //   1) 玩家删除 page0(若未来放开禁删) → useBookStore.deletePage 能用 inventoryChanges
+          //      调用 inventoryStore.revertChanges 还原背包,不会留下脱离剧情的孤儿物品;
+          //   2) 序章页 UI 显示「本页拾取」标记,与剧本叙事一致(玩家在序章里看到「你获得了...」)。
+          const itemNames = items.map((i) => i.name);
+          const bookStore = useBookStore.getState();
+          if (bookStore.pages.length > 0) {
+            bookStore.setPageAcquiredItems(0, itemNames);
+            bookStore.setPageInventoryChanges(0, changes);
+          }
         }
       } catch (err) {
         console.warn('[scenario-engine] 初始物品抽取失败，已跳过：', err);
@@ -232,9 +275,9 @@ export async function activateScenario(
       bookStore.goToPage(0);
     }
   } catch (err) {
-    // 非原子回滚：把 step 3-5 已经写出的副作用撤掉。
-    // 不动 step 1-2 是因为 sheet/NPC/MVU 没有 per-scenario 标识、无法精确还原，
-    // 让 clearAllGameState 在用户从错误页面回主菜单时整体清理更可靠。
+    // A3+B5: 整体回滚到激活前快照,防止失败留下半成品继续生效造成玩家无感的混档。
+    // 顺序:lorebook(防关键词激活) → sessionScenario → page0 → sheet/MVU/NPC/inventory/map。
+    // 每一步独立 try/catch,任一回滚抛错都不应阻止其它回滚(优先把残骸清干净)。
     if (bookMounted) {
       try {
         useLorebookStore.getState().removeBook(scenarioBookId);
@@ -261,6 +304,38 @@ export async function activateScenario(
       } catch (rollbackErr) {
         console.warn('[scenario-engine] 回滚 page0 失败：', rollbackErr);
       }
+    }
+    // A3+B5: step 1-2(sheet/NPC/MVU) + step 3 副作用(inventory/map) 一并回滚到 try 前快照,
+    // 避免「上半身设定换了/物品入库了/地图节点多了,下半身 lorebook 没挂」的混档幽灵态。
+    try {
+      useCharSheetStore.getState().setSheet(prevSheet);
+    } catch (rollbackErr) {
+      console.warn('[scenario-engine] 回滚 sheet 失败：', rollbackErr);
+    }
+    try {
+      useVariableStore.getState().setStatData(prevStatData);
+    } catch (rollbackErr) {
+      console.warn('[scenario-engine] 回滚 statData 失败：', rollbackErr);
+    }
+    try {
+      // NpcStore 没有 replaceAll(record) 重载,只有 replaceAll(NpcProfile[]); 直接喂 Object.values 即可。
+      useNpcStore.getState().replaceAll(Object.values(prevNpcProfiles));
+    } catch (rollbackErr) {
+      console.warn('[scenario-engine] 回滚 NPC profiles 失败：', rollbackErr);
+    }
+    try {
+      useInventoryStore.getState().replaceAll(prevInventoryItems);
+    } catch (rollbackErr) {
+      console.warn('[scenario-engine] 回滚 inventory 失败：', rollbackErr);
+    }
+    try {
+      useMapStore.getState().replaceAll({
+        locations: prevMapLocations,
+        edges: prevMapEdges,
+        currentLocationId: prevMapCurrentId,
+      });
+    } catch (rollbackErr) {
+      console.warn('[scenario-engine] 回滚 map 失败：', rollbackErr);
     }
     throw err;
   }

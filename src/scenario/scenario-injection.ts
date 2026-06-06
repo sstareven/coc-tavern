@@ -106,6 +106,11 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
     faction: c.npcAttrs.relationshipDefault || undefined,
     characteristics,
     skills,
+    // 锚点：applyUpdates 据 isScenarioPreset 跳过 backstory/innerThoughts，
+    // 保护剧本预设 NPC 的 KP 暗线核心(hiddenBio/publicBio)不被 LLM 主回合 npcUpdate 覆盖；
+    // scenarioHiddenBio 留作 hiddenBio 的锁定副本，便于必要时回滚校验。
+    isScenarioPreset: true,
+    scenarioHiddenBio: c.npcAttrs.hiddenBio,
     createdAt: now,
     updatedAt: now,
   };
