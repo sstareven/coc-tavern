@@ -472,6 +472,24 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   // 同步内存会话的 pages/pageCount，供 getActivePages 与会话列表使用。
   // （activeId 已在函数开头清空内存后同步设置，此处只需同步 pages。）
   useChatStore.getState().savePages(pages);
+
+  // B6 — 读档重挂剧本 lorebook book(+ 地图地点):clearAllGameState 已把前一会话的 scenarioBook
+  // 卸掉,但 loadConversation 的所有 replaceAll 都不挂书。结果切到/切回某剧本会话后,world-info
+  // 条目全空,LLM 看不到剧本设定,行为退化成自由模式。这里读 cid 对应的 scenarioId(已由
+  // useChatStore.setActive(cid) 切到目标会话,sessions 仍是同一份)并显式重挂。
+  // 动态 import 维持现状,避免与 scenario-engine 互引(scenario-engine 也 import 本文件外的 stores)。
+  // '__free' 走自由模式,无剧本 book,跳过;找不到剧本 mountScenarioBook 内部静默处理。
+  const loadedScenarioId = useChatStore.getState().sessions.find((s) => s.id === cid)?.scenarioId;
+  if (loadedScenarioId && loadedScenarioId !== '__free') {
+    try {
+      const m = await import('../scenario/scenario-engine');
+      await m.mountScenarioBook(loadedScenarioId);
+    } catch (err) {
+      // 重挂失败不阻断读档完成(玩家仍能进游戏,只是 world-info 缺剧本条目);
+      // 控制台留痕便于诊断「读档后 LLM 像没剧本」类反馈。
+      console.warn('[sessionLifecycle] mountScenarioBook 失败,剧本 lorebook 未重挂:', { cid, scenarioId: loadedScenarioId, err });
+    }
+  }
 }
 
 /** 公共入口：经 enqueue 串行化。 */

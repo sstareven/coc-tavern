@@ -192,6 +192,8 @@ export interface ClueInput {
 
 export interface NpcUpdate {
   name: string;
+  /** 指定 NPC id（剧本注入路径用，保留剧本固定 id；缺省由 store 在新建档时分配 UUID） */
+  id?: string;
   identity?: string;
   faction?: string;
   gender?: string;
@@ -215,6 +217,10 @@ export interface NpcUpdate {
   hpDelta?: number;
   sanDelta?: number;
   mpDelta?: number;
+  /** 剧本预设锚点：scenarioCharacterToNpc 注入时为 true；applyUpdates 据此跳过 backstory/innerThoughts 覆盖，防 KP 暗线被 LLM 主回合覆写。 */
+  isScenarioPreset?: boolean;
+  /** 剧本 hiddenBio 保护副本（KP 视角动机/秘密）：与 innerThoughts 同源但锁定不被 LLM 覆写。 */
+  scenarioHiddenBio?: string;
 }
 
 export interface MapUpdates {

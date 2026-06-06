@@ -158,12 +158,21 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         if (id) {
           p = { ...profiles[id] };
         } else {
-          id = crypto.randomUUID();
+          // 剧本注入路径会指定固定 id（scenarioCharacterToNpc 用剧本 character.id）；
+          // 主回合 LLM 增量则不带 id，由系统生成 UUID。
+          id = u.id ?? crypto.randomUUID();
           p = {
             id, name: u.name.trim(), identity: '', favorability: 0,
             appearance: '', personality: '', innerThoughts: '',
             memories: [], experience: '', backstory: '', possessions: [],
             isPresent: u.isPresent ?? true, createdAt: now, updatedAt: now,
+            // 剧本预设锚点必须在「新建」这一回合就落到 profile 上；
+            // 老版本只看 SET_FIELDS 字符串字段，把这两个字段丢了 → isPreset 永远 false，
+            // 接踵而来的 npcUpdate 直接把 hiddenBio/publicBio 覆盖成空，KP 暗线骨架瞬间塌掉。
+            ...(u.isScenarioPreset === true ? { isScenarioPreset: true } : {}),
+            ...(typeof u.scenarioHiddenBio === 'string' && u.scenarioHiddenBio.trim()
+              ? { scenarioHiddenBio: u.scenarioHiddenBio }
+              : {}),
           };
         }
         // 直接覆盖的文本字段
@@ -172,10 +181,16 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         // 保护剧本预设 NPC 的 KP 暗线核心 hiddenBio 不被 LLM 主回合 npcUpdate 覆盖：
         // backstory(=publicBio) 与 innerThoughts(=hiddenBio) 是剧本作者写定的暗线骨架，
         // 主模型应只产生 favorabilityDelta/isPresent/addMemory/skills/status 等增量；
-        // 这两个字段的覆盖会让预设 NPC 一回合后失去人设根基，故对锚定预设 NPC 跳过。
+        // 但若作者刻意留空（想让 LLM 在首次登场时填入初印象），则首次写入仍应放行，
+        // 故 guard 只在「目标字段已非空」时跳过覆盖。
         const isPreset = p.isScenarioPreset === true;
         for (const f of SET_FIELDS) {
-          if (isPreset && (f === 'backstory' || f === 'innerThoughts')) continue;
+          if (
+            isPreset
+            && (f === 'backstory' || f === 'innerThoughts')
+            && typeof pRec[f as string] === 'string'
+            && (pRec[f as string] as string).trim()
+          ) continue;
           const v = uRec[f as string];
           if (typeof v === 'string' && v.trim()) pRec[f as string] = v;
         }

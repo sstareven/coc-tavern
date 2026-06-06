@@ -4,6 +4,7 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useChatStore } from '../../stores/useChatStore';
+import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
 import type { DiceResultType } from '../../types';
 
 export function DebugConsole() {
@@ -84,8 +85,12 @@ export function DebugConsole() {
       if (!scn) {
         result = '当前会话未激活剧本';
       } else {
-        const unlocked = (useVariableStore.getState().statData as Record<string, unknown>)?.['剧情.已解锁'] ?? {};
-        const unlockedKeys = Object.keys(unlocked as Record<string, unknown>).join(', ') || '(无)';
+        const statData = useVariableStore.getState().statData;
+        const unlocked = getTreePath(statData, '剧情.已解锁');
+        const unlockedKeys =
+          unlocked && typeof unlocked === 'object' && !Array.isArray(unlocked)
+            ? Object.keys(unlocked as Record<string, unknown>).join(', ') || '(无)'
+            : '(无)';
         result = `剧本: ${scn.meta.name} (${scn.id}) | 类型: ${scn.meta.type} | 暗线 phase 数: ${scn.darkTimeline.length} | 坏结局: ${scn.badEndings.length} | 已解锁: ${unlockedKeys}`;
       }
     } else if (trimmed === 'scenario list') {
@@ -97,9 +102,10 @@ export function DebugConsole() {
       const key = input.trim().slice('scenario unlock '.length).trim();
       if (!key) { result = '用法: scenario unlock <解锁标识>'; }
       else {
-        const cur = useVariableStore.getState().statData as Record<string, unknown>;
-        const unlocked = { ...((cur['剧情.已解锁'] as Record<string, unknown>) ?? {}), [key]: true };
-        useVariableStore.getState().setStatData({ ...cur, '剧情.已解锁': unlocked });
+        const cur = useVariableStore.getState().statData;
+        const next = structuredClone(cur);
+        setTreePath(next, `剧情.已解锁.${key}`, true);
+        useVariableStore.getState().setStatData(next);
         result = `已解锁: 剧情.已解锁.${key} = true`;
       }
     } else if (trimmed.startsWith('scenario phase ')) {
@@ -110,12 +116,11 @@ export function DebugConsole() {
       const phase = scn?.darkTimeline.find((p) => p.id === id);
       if (!phase) { result = `找不到 darkPhase id: ${id}`; }
       else {
-        const cur = useVariableStore.getState().statData as Record<string, unknown>;
-        useVariableStore.getState().setStatData({
-          ...cur,
-          '剧情.暗线.描述': phase.directorNote,
-          '剧情.暗线.进度': phase.threshold,
-        });
+        const cur = useVariableStore.getState().statData;
+        const next = structuredClone(cur);
+        setTreePath(next, '剧情.暗线.描述', phase.directorNote);
+        setTreePath(next, '剧情.暗线.进度', phase.threshold);
+        useVariableStore.getState().setStatData(next);
         result = `已强制进入暗线阶段: ${phase.title} (threshold=${phase.threshold})`;
       }
     } else if (trimmed.startsWith('scenario badending ')) {
@@ -126,8 +131,10 @@ export function DebugConsole() {
       const ending = scn?.badEndings.find((b) => b.id === id);
       if (!ending) { result = `找不到 badEnding id: ${id}`; }
       else {
-        const cur = useVariableStore.getState().statData as Record<string, unknown>;
-        useVariableStore.getState().setStatData({ ...cur, '剧情.结局类型': '坏结局:' + ending.id });
+        const cur = useVariableStore.getState().statData;
+        const next = structuredClone(cur);
+        setTreePath(next, '剧情.结局类型', '坏结局:' + ending.id);
+        useVariableStore.getState().setStatData(next);
         result = `已强制触发坏结局: ${ending.id}`;
       }
     } else if (trimmed === 'clear') {

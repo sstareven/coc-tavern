@@ -46,30 +46,25 @@ async function callJson<T>(label: string, user: string, signal?: AbortSignal): P
   let parsed: Record<string, unknown> | null = null;
   let parseError: string | undefined;
   let content = '';
-  try {
-    const resp = await callDsSubagent({
-      apiBaseUrl,
-      apiKey,
-      model: apiModel,
-      temperature: 0.7,
-      maxTokens: 20000,
-      rpmLane: 'rewrite', // 作者侧编辑,走 rewrite 桶,不挤主输出
-      label: 'scenario:' + label,
-      signal,
-      messages: [
-        { role: 'system', content: SHARED_SYSTEM_PROMPT },
-        { role: 'user', content: user },
-      ],
-    });
-    parsed = resp.parsed;
-    parseError = resp.parseError;
-    content = resp.content;
-  } catch (err) {
-    // A5 — abort 原样透传, 不要吞为 parseError(避免误诊为 JSON 解析失败)
-    const e = err as { name?: string } | null | undefined;
-    if (signal?.aborted || e?.name === 'AbortError') throw err;
-    throw err;
-  }
+  // A5 — callDsSubagent 自己已经处理 abort 透传,这里不再额外包 try/catch
+  //      (原 catch 两个分支都是 throw err,语义无意义)。
+  const resp = await callDsSubagent({
+    apiBaseUrl,
+    apiKey,
+    model: apiModel,
+    temperature: 0.7,
+    maxTokens: 20000,
+    rpmLane: 'rewrite', // 作者侧编辑,走 rewrite 桶,不挤主输出
+    label: 'scenario:' + label,
+    signal,
+    messages: [
+      { role: 'system', content: SHARED_SYSTEM_PROMPT },
+      { role: 'user', content: user },
+    ],
+  });
+  parsed = resp.parsed;
+  parseError = resp.parseError;
+  content = resp.content;
   // A5 — 解析失败前再检查一次 abort(防 fetch 完成但调用方已 abort)
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   if (!parsed) {

@@ -78,7 +78,9 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
   const now = Date.now();
   // CharacterSheet 字段较多且互不耦合,只挑映射需要的;其它 sheet 字段交由名册外的渠道呈现
   const sheet = c.sheet as unknown as Record<string, unknown>;
-  const name = typeof sheet.name === 'string' && sheet.name.trim() ? sheet.name.trim() : c.npcAttrs.identityTag || c.id;
+  const identity = (sheet.identity as { name?: unknown } | undefined) ?? undefined;
+  const rawName = identity && typeof identity.name === 'string' ? identity.name : '';
+  const name = rawName.trim() ? rawName.trim() : c.npcAttrs.identityTag || c.id;
   const characteristics = (sheet.characteristics as NpcProfile['characteristics']) ?? undefined;
   // sheet.skills 形如 {技能名: {base,current,...}};名册的 skills 字段是 Record<name, number>,取 current
   const skillsRaw = sheet.skills as Record<string, { current?: number; base?: number }> | undefined;

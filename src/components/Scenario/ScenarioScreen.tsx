@@ -203,8 +203,8 @@ function CharacterPickerDrawer({
 
           {/* protagonist_candidate 列表 */}
           {candidates.map(({ ch, idx }) => {
-            const name = ch.sheet?.name || defaultSheet.name || '未命名调查员';
-            const occ = (ch.sheet as { occupation?: string }).occupation ?? '';
+            const name = ch.sheet?.identity?.name || defaultSheet.identity?.name || '未命名调查员';
+            const occ = ch.sheet?.identity?.occupation ?? '';
             const bio = ch.npcAttrs.publicBio;
             return (
               <button

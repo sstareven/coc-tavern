@@ -5,6 +5,7 @@ import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';
 import { useCombatStore } from './useCombatStore';
 import { useSanityBubbleStore } from './useSanityBubbleStore';
+import { useChatStore } from './useChatStore';
 
 const defaultPages: BookPage[] = [
   // ▸▸▸ 序章：降生之梦 + 命运歧路 ◂◂◂
@@ -346,7 +347,13 @@ export const useBookStore = create<BookStore>((set, get) => ({
       return;
     }
     // 开场白随版本刷新：老存档里固化的序章页用最新模板替换，保留后续进度与原 id
-    const refreshed = pages[0]?.leftHeader === '序章'
+    // 例外：剧本会话（scenarioId 存在）的 page0 是 scenario-engine LLM 扩写的专属序章，
+    // 不能被默认模板覆盖——否则重载会话会把剧本开场白打回「你做了一个梦」。
+    // 详见 scenario-engine.ts:264 的 activateScenario 注释。
+    const chat = useChatStore.getState();
+    const activeSession = chat.sessions.find(s => s.id === chat.activeId);
+    const isScenarioSession = !!activeSession?.scenarioId;
+    const refreshed = (pages[0]?.leftHeader === '序章' && !isScenarioSession)
       ? [{ ...defaultPages[0], id: pages[0].id }, ...pages.slice(1)]
       : pages;
     const withIds = refreshed.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });

@@ -77,7 +77,7 @@ describe('buildScenarioStatDataSeed', () => {
 
 describe('scenarioCharacterToNpc', () => {
   const sheetWith = (name: string, skills?: Record<string, { current?: number; base?: number }>) =>
-    ({ name, skills, characteristics: { STR: 50 } } as unknown as ScenarioCharacter['sheet']);
+    ({ identity: { name }, skills, characteristics: { STR: 50 } } as unknown as ScenarioCharacter['sheet']);
 
   const c = (over: Partial<ScenarioCharacter> = {}): ScenarioCharacter => ({
     id: 'c1', role: 'npc_only', sheet: sheetWith(''),
@@ -88,7 +88,7 @@ describe('scenarioCharacterToNpc', () => {
     ...over,
   });
 
-  it('sheet.name 非空 → 取 sheet.name;否则 fall back identityTag → id', () => {
+  it('sheet.identity.name 非空 → 取 sheet.identity.name;否则 fall back identityTag → id', () => {
     expect(scenarioCharacterToNpc(c({ sheet: sheetWith('阿福') })).name).toBe('阿福');
     expect(scenarioCharacterToNpc(c()).name).toBe('管家');
     const noTag = c({ sheet: sheetWith(''), npcAttrs: { ...c().npcAttrs, identityTag: '' } });

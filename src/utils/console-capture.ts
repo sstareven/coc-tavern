@@ -138,7 +138,7 @@ export async function getLogsForSession(
   const allPages = new Set<number>();
   for (const r of allRows) allPages.add(r.pageIndex);
   const maxPage = Math.max(...allPages);
-  const keepFrom = Math.max(maxPage - (lastNPages - 1), 1);
+  const keepFrom = Math.max(maxPage - (lastNPages - 1), 0);
 
   const omittedPagesSet = new Set<number>();
   let omittedRecords = 0;

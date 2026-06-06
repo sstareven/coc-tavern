@@ -26,6 +26,34 @@ export type ScenarioActivateMode = 'newChar' | 'preset';
 
 const SCENARIO_BOOK_PREFIX = '__scenario_';
 
+// B6: 卸载剧本是 fire-and-forget(unloadScenario 调用方多为 clearAllGameState 内的动态 import,
+// 微任务完成时机不受调用方控制)。若玩家紧接着重新激活同一 scenarioId,activateScenario 的 A2 守卫
+// 会读到「还挂着的旧 book」直接早退;紧接着排队的 unloadScenario 才执行 removeBook,把刚被守卫
+// 「认作已挂」的 book 拔掉——新会话进游戏后没有 world-info 条目。
+// 解决:用 pendingUnloads 记录每个 bookId 正在进行/排队中的卸载 Promise,activateScenario 入口
+// 等所有 pending 卸载 settle 再读 A2 状态,杜绝读写竞争。
+const pendingUnloads = new Map<string, Promise<void>>();
+
+// B6: 把 scn.entries 里 category === '地点' 的条目同步到 useMapStore——抽成共享 helper 后
+// activateScenario step 3 后置与 mountScenarioBook(读档重挂)都能复用,避免重复粘贴维护成本。
+function applyScenarioMapLocations(entries: { category?: string; keys: string; content: string; comment: string }[]): void {
+  const locationEntries = entries.filter((e) => e.category === '地点');
+  if (locationEntries.length === 0) return;
+  const newLocations = locationEntries
+    .map((e) => {
+      const firstKey = e.keys.split(',')[0]?.trim();
+      const name = firstKey || e.comment;
+      return {
+        name,
+        description: e.content.split('\n').slice(0, 3).join('\n'),
+      };
+    })
+    .filter((l) => l.name.trim().length > 0);
+  if (newLocations.length > 0) {
+    useMapStore.getState().applyUpdates({ newLocations });
+  }
+}
+
 // 仅供 MVU 种子合并使用的 deep merge：
 //   - 已存在的路径/键一律保留（base 优先），seed 仅补齐 missing 的字段；
 //   - 仅 plain object 递归，数组/原始值视为叶子直接由 base 接管（base 缺时才取 seed）；
@@ -100,11 +128,33 @@ export async function activateScenario(
   // 改为以 lorebook 已挂载且 enabled 作为「真正激活」的指标(副作用必然产物,与 sessionId 写入时序无关)。
   // 若想换剧本必须先 startNewConversation,届时 lorebook 也会被 clearAllGameState 清掉。
   const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
+  // B6: 先等待任何针对同一 bookId 的 pending unload 完成,再读 A2 状态。
+  // 否则 sessionLifecycle 在 clearAllGameState 里发起的 fire-and-forget unloadScenario 微任务
+  // 可能晚于 A2 读取触发,导致「读到挂载 → 早退 → 紧接着 removeBook 拔掉」的竞争,新会话没书。
+  const pending = pendingUnloads.get(bookId);
+  if (pending) await pending;
   const alreadyMounted = useLorebookStore.getState().books[bookId]?.enabled === true;
   if (alreadyMounted) {
     console.log('[scenario-engine] 剧本', scenarioId, '已挂载,跳过重复激活');
     return;
   }
+
+  // ── A3+B5+B4: 预激活快照(必须在 step 1 setSheet/applyUpdates 之前抓) ─────
+  // 若放在 step 1-2 之后,prevSheet 会捕获到 setSheet(proto.sheet) 写入后的剧本预设卡;
+  // 之后 step 3-6 抛错走 catch 时,setSheet(prevSheet) 把玩家「恢复」成同一张剧本预设卡,
+  // 玩家肉眼看不到回滚,留下混档幽灵。同理 statData / npcProfiles 也必须是 step 1-2 之前的真态。
+  // 注:inventory/map 的快照与 page0 快照,本来就在 step 3-4 之前,迁移到 step 1 之前一并集中。
+  const prevSheet = useCharSheetStore.getState().sheet;
+  const prevStatData = useVariableStore.getState().statData;
+  const prevNpcProfiles = useNpcStore.getState().profiles;
+  const prevInventoryItems = useInventoryStore.getState().items;
+  const prevMapLocations = useMapStore.getState().locations;
+  const prevMapEdges = useMapStore.getState().edges;
+  const prevMapCurrentId = useMapStore.getState().currentLocationId;
+  // A2: replacePage/appendPage 之前先抓 page0 快照,出错时能把玩家原本的 page0 还回去——
+  // 否则 catch 块只回滚 lorebook+sessionId,玩家会看到一个被剧本 LLM 扩写半截、又因抛错没写
+  // sessionScenarioId 的「幽灵 page0」。pages 为空时 originalPage0 = null,catch 走 resetToPrologue。
+  const originalPage0 = useBookStore.getState().pages[0] ?? null;
 
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
   if (mode === 'preset') {
@@ -147,23 +197,12 @@ export async function activateScenario(
 
   // ── 3-6 包成 try/catch：任一步抛错都把已挂载的 scenarioBook 卸掉、把 sessionScenarioId 清空，
   //     避免「book 留挂、id 没写」造成下一会话仍命中剧本条目的幽灵态。
-  //     A3+B5: 在 try 起点前抓 step 1-2(sheet/NPC/MVU) + step 3-4(lorebook/inventory) 之前的完整快照,
+  //     A3+B5: step 1-2 之前已抓快照(prevSheet/prevStatData/prevNpcProfiles 等),
   //     catch 块整体回滚到激活前状态,防止失败留下半成品继续生效造成玩家无感的混档。
   //     注:setSessionScenario 在 try 内已有独立回滚旗标(只在写过时清),不需要预快照。
   const scenarioBookId = bookId; // 复用 A2 守卫中算好的 book id
-  const prevSheet = useCharSheetStore.getState().sheet;
-  const prevStatData = useVariableStore.getState().statData;
-  const prevNpcProfiles = useNpcStore.getState().profiles;
-  const prevInventoryItems = useInventoryStore.getState().items;
-  const prevMapLocations = useMapStore.getState().locations;
-  const prevMapEdges = useMapStore.getState().edges;
-  const prevMapCurrentId = useMapStore.getState().currentLocationId;
   let bookMounted = false;
   let sessionScenarioWritten = false;
-  // A2: replacePage/appendPage 之前先抓 page0 快照,出错时能把玩家原本的 page0 还回去——
-  // 否则 catch 块只回滚 lorebook+sessionId,玩家会看到一个被剧本 LLM 扩写半截、又因抛错没写
-  // sessionScenarioId 的「幽灵 page0」。pages 为空时 originalPage0 = null,catch 走 resetToPrologue。
-  const originalPage0 = useBookStore.getState().pages[0] ?? null;
   let page0Replaced = false;
   try {
     // ── 3. 挂载剧本条目到 lorebook（独立 book，priority +1000 防撞键） ──
@@ -176,23 +215,8 @@ export async function activateScenario(
 
     // B2: entries.category === '地点' 自动写入 useMapStore — 否则 lorebook 里的「地点」条目
     // 只能被世界书匹配引擎按关键词激活,玩家打开地图面板看不到任何节点,与剧本叙事脱节。
-    // 首个 key 作为 name(地图节点按名匹配); content 前 3 行作描述(避免把整段世界观塞进描述框)。
-    const locationEntries = scn.entries.filter((e) => e.category === '地点');
-    if (locationEntries.length > 0) {
-      const newLocations = locationEntries
-        .map((e) => {
-          const firstKey = e.keys.split(',')[0]?.trim();
-          const name = firstKey || e.comment;
-          return {
-            name,
-            description: e.content.split('\n').slice(0, 3).join('\n'),
-          };
-        })
-        .filter((l) => l.name.trim().length > 0);
-      if (newLocations.length > 0) {
-        useMapStore.getState().applyUpdates({ newLocations });
-      }
-    }
+    // B6: 抽成 applyScenarioMapLocations helper,mountScenarioBook 读档重挂时复用同一份地点同步逻辑。
+    applyScenarioMapLocations(scn.entries);
 
     // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
     // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
@@ -342,7 +366,57 @@ export async function activateScenario(
 }
 
 export function unloadScenario(scenarioId: string): void {
-  useLorebookStore.getState().removeBook(SCENARIO_BOOK_PREFIX + scenarioId);
+  const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
+  // B6: 把卸载动作包成 Promise 并注册到 pendingUnloads,activateScenario 入口会等它 settle 再
+  // 读 A2 状态,杜绝「读到挂载 → 早退 → 紧接着 removeBook 拔掉」的竞争。
+  // 注:removeBook 本身是同步的,但 Promise 化能跨微任务边界把 fire-and-forget unload 串起来,
+  // 让任何后来的 activateScenario(同一 bookId) 能等到此次 unload 真正生效。
+  const promise = (async () => {
+    try {
+      useLorebookStore.getState().removeBook(bookId);
+    } finally {
+      // 只在自己仍是当前注册的 promise 时清理映射,避免覆盖更晚 unload 的注册(否则后来的
+      // activateScenario 会跳过等待,又落回竞争窗口)。
+      if (pendingUnloads.get(bookId) === promise) pendingUnloads.delete(bookId);
+    }
+  })();
+  pendingUnloads.set(bookId, promise);
+}
+
+/**
+ * B6 — 读档专用:为已加载的会话(从关系表恢复后)重新挂载剧本 lorebook book + 地图地点。
+ *
+ * 背景:clearAllGameState 会卸掉前一会话的剧本 book(持久化层无 lorebook 表,book 只在内存),
+ *       但 loadConversation 的 5+ 个 replaceAll 流程不会回头挂书。结果切到/切回某剧本会话后,
+ *       world-info 条目全空,LLM 看不到剧本设定,行为退化成自由模式。
+ *
+ * 与 activateScenario 的区别:
+ *   - 不动 sheet / NPC / inventory / MVU / page0 / sessionScenarioId — 这些已由 loadConversation 还原;
+ *   - 不调 extractInitialItems / expandPrologueToPage — 这些是「新游戏」副作用,读档已有结果;
+ *   - 仅 step 3(挂 book) + step 3 附带的 applyScenarioMapLocations(地图节点重建)。
+ *
+ * 也会先等 pendingUnloads 完成(同 activateScenario 的竞争防御):若 clearAllGameState 的
+ * fire-and-forget unload 尚未 settle,本函数等它 settle 再 upsert,保证最终态是「book 挂着」。
+ *
+ * 找不到剧本(被删除/不在 builtins+userScenarios)→ 静默跳过,不抛错(读档 UX 优先);
+ * scenarioId === '__free' → 兼容性跳过(自由模式无剧本 book)。
+ */
+export async function mountScenarioBook(scenarioId: string): Promise<void> {
+  if (!scenarioId || scenarioId === '__free') return;
+  const scn = useScenarioStore.getState().getById(scenarioId);
+  if (!scn) {
+    console.warn('[scenario-engine] mountScenarioBook 找不到剧本,跳过重挂:', scenarioId);
+    return;
+  }
+  const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
+  const pending = pendingUnloads.get(bookId);
+  if (pending) await pending;
+  useLorebookStore.getState().upsertBook(bookId, {
+    name: '[剧本] ' + scn.meta.name,
+    enabled: true,
+    entries: scenarioEntriesToLoreEntries(scn.entries),
+  });
+  applyScenarioMapLocations(scn.entries);
 }
 
 /**

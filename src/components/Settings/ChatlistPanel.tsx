@@ -82,7 +82,7 @@ export function ChatlistPanel({ onClose }: Props) {
             sessions.map((sess) => (
               <SessionItem key={sess.id} sess={sess} isActive={activeId === sess.id}
                 onSelect={() => { void switchConversation(sess.id); onClose(); }}
-                onDelete={() => { const wasActive = activeId === sess.id; deleteSession(sess.id); void deleteConversation(sess.id); if (wasActive) clearAllGameState(); }} />
+                onDelete={() => { const chat = useChatStore.getState(); const wasActive = chat.activeId === sess.id; const prevScenarioId = wasActive ? chat.sessions.find(c => c.id === sess.id)?.scenarioId ?? undefined : undefined; deleteSession(sess.id); void deleteConversation(sess.id); if (wasActive) clearAllGameState(prevScenarioId); }} />
             ))
           )}
         </div>

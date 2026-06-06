@@ -64,7 +64,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); void switchConversation(s.id); onLoad(); }} onDelete={() => { const wasActive = useChatStore.getState().activeId === s.id; deleteSession(s.id); void deleteConversation(s.id); if (wasActive) clearAllGameState(); }} />)
+            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); void switchConversation(s.id); onLoad(); }} onDelete={() => { const chat = useChatStore.getState(); const wasActive = chat.activeId === s.id; const prevScenarioId = wasActive ? chat.sessions.find(c => c.id === s.id)?.scenarioId ?? undefined : undefined; deleteSession(s.id); void deleteConversation(s.id); if (wasActive) clearAllGameState(prevScenarioId); }} />)
           )}
         </div>
       </div>

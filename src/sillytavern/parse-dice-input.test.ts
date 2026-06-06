@@ -104,4 +104,30 @@ describe('parseDiceResultsFromInput', () => {
     const r = parseDiceResultsFromInput('[攀爬 d100=22/40 奖励骰 困难成功 (孤注一掷)]');
     expect(r[0].type).toBe('hard-success');
   });
+
+  it('嵌套圆括号注解 — 孤注一掷+幸运补救层级嵌套不应回退到 failure (Bug #8 回归)', () => {
+    // 旧 regex `\([^()]*\)` 禁止括号内嵌括号,只剥内层 → 残留 `困难成功(孤注一掷` 查不到 → failure
+    const r = parseDiceResultsFromInput('[侦查 d100=15/60 困难成功(孤注一掷(幸运扣2点))]');
+    expect(r).toHaveLength(1);
+    expect(r[0].type).toBe('hard-success');
+  });
+
+  it('嵌套圆括号 + 普通成功', () => {
+    const r = parseDiceResultsFromInput('[侦查 d100=30/60 成功(孤注一掷(幸运扣2点))]');
+    expect(r).toHaveLength(1);
+    expect(r[0].type).toBe('success');
+  });
+
+  it('未闭合的尾部 ( — 也应剥掉再查 label (Bug #8 回归)', () => {
+    // 旧 regex 完全不匹配,整段 `成功(有奖励骰` 进 LABEL_TO_TYPE → undefined → failure
+    const r = parseDiceResultsFromInput('[侦查 d100=42/60 成功(有奖励骰]');
+    expect(r).toHaveLength(1);
+    expect(r[0].type).toBe('success');
+    expect(r[0].roll).toBe('42');
+  });
+
+  it('未闭合 + 带感叹号大成功', () => {
+    const r = parseDiceResultsFromInput('[幸运 d100=01/50 大成功！(漏写右括号]');
+    expect(r[0].type).toBe('crit-success');
+  });
 });

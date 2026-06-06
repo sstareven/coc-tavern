@@ -1425,7 +1425,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
         // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
         // 此前点选项时只 stash 不记录，故未提交/提交失败的掷骰不会污染检定记录面板。
-        useDiceStore.getState().commitPending();
+        //
+        // Fix #9: append 模式下此刻 pageIndex 仍是旧 N-1（autoFlipForward 还没跑），不传显式
+        // 页号会让 commitPending 内部 fallback=pageIndex+1=N 错位一页（同回合 diceFromInput 用的
+        // checkPage 是 N+1，stash 暂存反而落 N，记录被拆到两个页号）。把上面 checkPage 同源计算
+        // 重算一遍传进去：append→baseIdx+2、replace→baseIdx+1（replace 时 fallback 也等价）。
+        {
+          const commitBaseIdx = useBookStore.getState().pageIndex;
+          const commitPage = replace ? commitBaseIdx + 1 : commitBaseIdx + 2;
+          useDiceStore.getState().commitPending(commitPage);
+        }
 
         // 累积 LLM 本页产出的关键词释义入会话级 DB（addKeywords 保留首见去重）——
         // 供 KeywordTooltip 悬停显示，并经 buildKeywordInjection 在后续回合回灌给 LLM。
