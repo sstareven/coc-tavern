@@ -188,7 +188,7 @@ export function StepSkills({
       </div>
 
       {/* All skills grid */}
-      <div style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+      <div data-skills-scroll="true" style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, alignItems: 'start' }}>
           {skillPool
             // 克苏鲁神话不在创建期开放加点（仅游戏中通过遭遇神话获得），从加点网格隐藏。
@@ -219,7 +219,7 @@ export function StepSkills({
             const desc = skillDescMap[sk.name] || '';
 
             return (
-              <div key={sk.name} onClick={() => { if (highlighted && !editing) onReEnterEdit(sk.name, editingType || 'occ'); }} style={{ cursor: highlighted && !editing ? 'pointer' : 'default',
+              <div key={sk.name} data-skill-name={sk.name} onClick={() => { if (highlighted && !editing) onReEnterEdit(sk.name, editingType || 'occ'); }} style={{ cursor: highlighted && !editing ? 'pointer' : 'default',
                 padding: '8px 28px 8px 6px',
                 minWidth: 0, minHeight: 44,
                 borderLeft: `2px solid ${catColor}44`,
@@ -360,12 +360,11 @@ export function StepSkills({
 }
 
 // 剧本推荐技能 chip 行 - 从 useScenarioStore.lastPicked 读 recommendedSkills
-// 空时回退 POPULAR_SKILLS;点击 chip 按职业槽优先,满 8 加兴趣
+// 空时回退 POPULAR_SKILLS;点击 chip 不直接加技能,而是滚动技能网格到该技能 + 高亮闪烁,
+// 玩家自己决定加职业槽/兴趣槽(避免推荐 chip 多时误点)。
 function RecommendedSkillsChipsRow({
   occSkills,
   interestSkills,
-  onToggleOccSkill,
-  onToggleInterestSkill,
 }: {
   occSkills: string[];
   interestSkills: string[];
@@ -381,9 +380,15 @@ function RecommendedSkillsChipsRow({
       occSelected={occSkills}
       intSelected={interestSkills}
       onClick={(name) => {
-        if (occSkills.includes(name) || interestSkills.includes(name)) return;
-        if (occSkills.length < 8) onToggleOccSkill(name);
-        else onToggleInterestSkill(name);
+        // 点击 chip 不再直接加技能,而是滚动技能网格到该技能位置 + 高亮闪烁,
+        // 让玩家自己决定加职业槽/兴趣槽。需求来自实战:推荐 chip 多时玩家容易误点。
+        const root = document.querySelector('[data-skills-scroll="true"]');
+        const row = root?.querySelector(`[data-skill-name="${CSS.escape(name)}"]`) as HTMLElement | null;
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.classList.add('skill-pulse');
+          window.setTimeout(() => row.classList.remove('skill-pulse'), 1400);
+        }
       }}
       emptyHint={scn?.id === '__free' ? '(剧本: 自由探索)' : undefined}
     />

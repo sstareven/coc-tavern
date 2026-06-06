@@ -19,6 +19,14 @@ html, body {
  * loading 覆盖层)就静止;提到全局解此死锁。 */
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 技能行高亮闪烁 — StepSkills 推荐技能 chip 点击时,滚动到对应行 + 应用 .skill-pulse
+ * 1.4s 后移除。视觉上 2 次铜光波动,引导玩家在密集技能网格中找到推荐技能。 */
+@keyframes skill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196,168,85,0); background-color: transparent; }
+  50%      { box-shadow: 0 0 0 4px rgba(196,168,85,0.45); background-color: rgba(196,168,85,0.22); }
+}
+.skill-pulse { animation: skill-pulse 0.7s cubic-bezier(0.4, 0, 0.2, 1) 2; }
+
 /* 剧本编辑器铜版风滚动条 — 所有 .scenario-editor 子元素自动套用
  * 替代浏览器默认丑陋滚动条;触发点是元素 overflow:auto/scroll 时显示。
  * Firefox 用 scrollbar-color/scrollbar-width;WebKit 用 ::-webkit-scrollbar 伪元素。 */

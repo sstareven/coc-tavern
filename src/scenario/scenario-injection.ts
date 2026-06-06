@@ -92,18 +92,33 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
       )
     : undefined;
 
+  // 解析 NPC 随身物品: sheet.initialItemsRaw 是逗号/顿号/换行/分号分隔的自由文本,
+  // 拆成 possessions string[]。TeamSidebar 从中识别武器(/剑|刀|枪|弓|斧|锤|弹|匕/);
+  // CombatPanel 的 buildCombatantFromNpc 也用 possessions 派生 weapons。
+  const itemsRaw = (sheet.initialItemsRaw as string | undefined) ?? '';
+  const possessions = itemsRaw
+    .split(/[、,，;；\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
   return {
     id: c.id,
     name,
     identity: c.npcAttrs.identityTag,
     favorability: c.npcAttrs.attitudeDefault,
-    appearance: '',
-    personality: '',
+    // 外观快览: 公开身份说明(剧本作者写的一句话),NpcOverlay 顶部显示
+    appearance: c.npcAttrs.publicBio,
+    personality: typeof sheet.personality === 'string' ? sheet.personality : '',
     innerThoughts: c.npcAttrs.hiddenBio, // 隐藏简历 = KP 视角动机/秘密
     memories: [],
     experience: '',
-    backstory: c.npcAttrs.publicBio, // 公开简历 = 背景故事(玩家可知)
-    possessions: [],
+    // 背景故事: sheet.description 已被 _npc-helpers 拼成 8 段 markdown 格式
+    //   (个人描述/思想信念/重要之人/重要场所/珍贵之物/特质/伤口伤痕/恐惧症狂躁症),
+    //   与玩家角色卡的「制作方案」一致,NpcOverlay「背景故事」段直接显示。
+    backstory: typeof sheet.description === 'string' && sheet.description.trim().length > 0
+      ? sheet.description
+      : c.npcAttrs.publicBio,
+    possessions,
     // 开局在场:protagonist (推荐主角候选,玩家选一个其余作队友) + optional (配角可玩,默认同行)
     // 都在场;locked_npc (反派/已死者/俘虏) 不在场,由剧情后续引入。
     // 这样玩家进游戏就有 1-3 名 NPC 队友,与剧本「2-4 调查员」头计相吻合。
