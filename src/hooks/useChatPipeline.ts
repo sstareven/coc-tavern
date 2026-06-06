@@ -23,7 +23,7 @@ import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/comb
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
-import { generateStartingItems } from '../sillytavern/starting-items-generator';
+// generateStartingItems 已废弃 — 剧本系统 activateScenario 统一处理初始物品(commit removed)
 import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
@@ -1374,54 +1374,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
 
-        // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。
-        // 背包是「页锚定」派生态：异步拿到物品后须 (a) setPageInventoryChanges 写回该首页（删页重放据此恢复）、
-        // (b) applyChanges 入背包（主回合 applyChanges 早已跑完，这里必须自行入库）、(c) 重新持久化。全程 activeId 守卫防串档。
-        // 按【捕获的插入 index】定位该页（appendPage 不赋 id，不能用 findIndex(id)）：append 取 pages 末位、replace 取被替换位；
-        // setPageInventoryChanges 自带越界守卫，期间该页若被删则静默放弃。skipInventoryNarrativeCheck 即 pages.length<=1 序章首回合标志。
-        if (
-          skipInventoryNarrativeCheck &&
-          (!newPage.inventoryChanges || newPage.inventoryChanges.length === 0) &&
-          settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()
-        ) {
-          const aidSI = useChatStore.getState().activeId;
-          const siPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
-          const sheet = useCharSheetStore.getState().sheet;
-          const prologue = useBookStore.getState().pages[0];
-          const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
-          const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
-          pendingVisibleSubcalls.push((async () => {
-            try {
-              // 走 MVU API（若已配置）/ 主 API（fallback）+ mvu RPM 桶 —— 起始物品是
-              // 短 JSON 子调用，无需主回合的 Pro 大模型，走 Flash 更快更便宜。
-              const useMvuSI = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-              const siBase = (useMvuSI ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-              const siKey = (useMvuSI ? settings.mvuApiKey : settings.apiKey) ?? '';
-              const siModel = (useMvuSI ? settings.mvuApiModel : settings.apiModel) ?? '';
-              const { changes, usage: siUsage } = await generateStartingItems(ctx, siBase, siKey, siModel);
-              // 缓存命中历史：起始物品调用统计追加进 page.genStats.subCalls
-              if (siUsage && useChatStore.getState().activeId === aidSI) {
-                useBookStore.getState().addPageSubCallStat(siPageIdx, {
-                  label: '起始物品',
-                  model: siModel,
-                  hit: siUsage.prompt_cache_hit_tokens,
-                  miss: siUsage.prompt_cache_miss_tokens,
-                  promptTokens: siUsage.prompt_tokens,
-                  output: siUsage.completion_tokens,
-                  at: Date.now(),
-                });
-              }
-              if (changes.length === 0 || useChatStore.getState().activeId !== aidSI) return;
-              useBookStore.getState().setPageInventoryChanges(siPageIdx, changes);
-              useInventoryStore.getState().applyChanges(changes);
-              if (useChatStore.getState().activeId === aidSI) useChatStore.getState().savePages(useBookStore.getState().pages);
-              if (aidSI && useChatStore.getState().activeId === aidSI) await saveConversation(aidSI);
-              pushLog('info', `[起始物品] 已为序章配备 ${changes.length} 件起始随身物品：${changes.map((c) => c.name).join('、')}`, 'system');
-            } catch (e) {
-              pushLog('warn', `[起始物品] 生成失败（本局无起始装备）：${e instanceof Error ? e.message : String(e)}`, 'api');
-            }
-          })());
-        }
+        // 序章首回合「起始装备」LLM 子调用已废弃 (commit removed) — 剧本系统的 activateScenario
+        // step 4 已统一用 extractInitialItems 处理初始物品(sheet.initialItemsRaw → 入 inventoryStore
+        // + 写 page[0].acquiredItems/inventoryChanges),这里再跑 generateStartingItems 会重复入库
+        // 一堆"初始物品"。整段删除,不再 fire-and-forget。
+        //
+        // 若 sheet.initialItemsRaw 为空(老存档/玩家未填)→ 序章背包为空是预期行为,玩家应在剧本
+        // 推进中靠 LLM 翻页时的 inventoryChanges 获取物品,而非靠这条遗留子调用补救。
 
         // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
         // 此前点选项时只 stash 不记录，故未提交/提交失败的掷骰不会污染检定记录面板。

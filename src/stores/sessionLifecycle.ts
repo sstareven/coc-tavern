@@ -80,8 +80,16 @@ export function clearAllGameState(prevScenarioId?: string) {
     (s) => s.id === useChatStore.getState().activeId,
   )?.scenarioId;
   if (scenarioIdToUnload) {
-    // 避免循环引用：动态 import
-    import('../scenario/scenario-engine').then((m) => m.unloadScenario(scenarioIdToUnload)).catch(() => {});
+    // **同步**直接 removeBook,而非走 dynamic import('../scenario/scenario-engine')
+    // 的 fire-and-forget。否则 activateScenario A2 守卫(books[bookId]?.enabled)
+    // 在 dynamic import 还没 resolve 时读到 enabled=true → 跳过激活 → page0
+    // 残留 defaultPages[0]"梦剧本"(Bug: 返回菜单后再选 NPC 进梦境)。
+    const SCENARIO_BOOK_PREFIX = '__scenario_';
+    try {
+      useLorebookStore.getState().removeBook(SCENARIO_BOOK_PREFIX + scenarioIdToUnload);
+    } catch (rmErr) {
+      console.warn('[sessionLifecycle] 同步卸载剧本 book 失败:', rmErr);
+    }
   }
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。

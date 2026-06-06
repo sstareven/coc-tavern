@@ -144,17 +144,17 @@ beforeEach(() => {
 });
 
 describe('D4 — clearAllGameState 显式 prevScenarioId 顺序解耦', () => {
-  // dynamic import().then 是 microtask 链;用 setTimeout(0) 把断言推到下一个 macrotask 后,
-  // 等 await import + 之后的 .then 都完成。
+  // 实测路径已不再 dynamic import unloadScenario, 改为同步 useLorebookStore.removeBook,
+  // 所以 flushMicrotasks 仅作冗余安全网(unloadScenarioMock 仍 mock 在,但不再被调用)。
   const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 10));
 
-  it('显式传 prevScenarioId=sc-x → unloadScenario 被调,即便 activeId 已切到新会话', async () => {
+  it('显式传 prevScenarioId=sc-x → removeBook 被同步调,即便 activeId 已切到新会话', async () => {
     setSessionsState([{ id: 'new-conv', scenarioId: undefined }], 'new-conv');
 
     clearAllGameState('sc-x');
     await flushMicrotasks();
 
-    expect(unloadScenarioMock).toHaveBeenCalledWith('sc-x');
+    expect(removeBookMock).toHaveBeenCalledWith('__scenario_sc-x');
   });
 
   it('不传 prevScenarioId → 回退到从 sessions 反查(向后兼容)', async () => {
@@ -163,16 +163,16 @@ describe('D4 — clearAllGameState 显式 prevScenarioId 顺序解耦', () => {
     clearAllGameState();
     await flushMicrotasks();
 
-    expect(unloadScenarioMock).toHaveBeenCalledWith('sc-from-sessions');
+    expect(removeBookMock).toHaveBeenCalledWith('__scenario_sc-from-sessions');
   });
 
-  it('不传 prevScenarioId 且当前会话也无 scenarioId → 不调 unloadScenario', async () => {
+  it('不传 prevScenarioId 且当前会话也无 scenarioId → 不调 removeBook', async () => {
     setSessionsState([{ id: 'cur', scenarioId: undefined }], 'cur');
 
     clearAllGameState();
     await flushMicrotasks();
 
-    expect(unloadScenarioMock).not.toHaveBeenCalled();
+    expect(removeBookMock).not.toHaveBeenCalled();
   });
 });
 
