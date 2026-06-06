@@ -171,7 +171,8 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
         marginBottom: 10,
         fontSize: 12,
         fontFamily: 'var(--font-ui)',
-        color: 'var(--ink, #b8a87a)',
+        color: 'var(--text-light, #d4c4a0)',
+        opacity: 0.78,
       }}>
         <span title={`难度 ${meta.difficulty}/5`} style={{ color: 'var(--gold)', letterSpacing: 2 }}>
           <DifficultyStars n={meta.difficulty} />
@@ -184,8 +185,8 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
         margin: '0 0 12px',
         fontSize: 12.5,
         lineHeight: 1.55,
-        color: 'var(--text-light, #d0c2a0)',
-        opacity: 0.85,
+        color: 'var(--text-light, #d4c4a0)',
+        opacity: 0.92,
         display: '-webkit-box',
         WebkitLineClamp: 2,
         WebkitBoxOrient: 'vertical',
@@ -199,7 +200,7 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
       {/* 推荐职业 chips */}
       {occChips.length > 0 && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', marginBottom: 4, letterSpacing: 1.2 }}>推荐职业</div>
+          <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.75)', marginBottom: 4, letterSpacing: 1.2 }}>推荐职业</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {occChips.map((s, i) => <Chip key={i}>{s}</Chip>)}
           </div>
@@ -209,7 +210,7 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
       {/* 必要人物 chips */}
       {npcChips.length > 0 && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', marginBottom: 4, letterSpacing: 1.2 }}>登场角色</div>
+          <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.75)', marginBottom: 4, letterSpacing: 1.2 }}>登场角色</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {npcChips.map((s, i) => <Chip key={i}>{s}</Chip>)}
           </div>

@@ -205,7 +205,7 @@ function SectionLabel({ title, subtitle }: { title: string; subtitle?: string })
       }}>{title}</span>
       {subtitle && (
         <span style={{
-          fontSize: 10, color: 'var(--ink-subtle, #8a7a52)',
+          fontSize: 10, color: 'var(--text-light, #d4c4a0)', opacity: 0.6,
           fontFamily: 'var(--font-ui)', letterSpacing: 1,
         }}>{subtitle}</span>
       )}
@@ -313,7 +313,8 @@ function CharacterPickerDrawer({
           {!hasAnyPickable && (
             <div style={{
               padding: '24px 16px', textAlign: 'center',
-              color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
+              color: 'var(--text-light, #d4c4a0)', opacity: 0.65,
+              fontSize: 12, fontFamily: 'var(--font-ui)',
             }}>本剧本未配置可选角色 — 请「新建角色」</div>
           )}
         </div>
@@ -400,10 +401,11 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
         {all.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '64px 20px',
-            color: 'var(--ink, #8a7a52)', fontFamily: 'var(--font-ui)',
+            color: 'var(--text-light, #d4c4a0)', opacity: 0.7,
+            fontFamily: 'var(--font-ui)',
           }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>暂无剧本</div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>点击右上「新剧本」或「导入」开始</div>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>点击右上「新剧本」或「导入」开始</div>
           </div>
         ) : (
           <div style={{
