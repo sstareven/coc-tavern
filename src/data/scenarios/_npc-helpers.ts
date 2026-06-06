@@ -55,13 +55,19 @@ function buildHalfFifth(chars: Record<COC7Characteristic, number>) {
 function buildCharSheetDescription(input: MakeNpcInput): string {
   // 与 CharCreator handleConfirm 同款 8 段 markdown 风格(占位文案保持文学统一)。
   // 玩家在 NpcOverlay「背景故事」段看到结构化档案,与自己角色卡一致。
+  // 关键设计:input.personality(行为/语气描述)合并进【特质】段而非独立 sheet.personality,
+  // 否则 NpcOverlay 会同时显示「性格」+「背景故事」内的【特质】段,内容重复。
+  const traitsParts: string[] = [];
+  if (input.traits?.trim()) traitsParts.push(input.traits.trim());
+  if (input.personality?.trim()) traitsParts.push(input.personality.trim());
+  const traitsContent = traitsParts.length > 0 ? traitsParts.join('\n') : '沉默寡言，行踪不定。';
   const parts: string[] = [];
   parts.push(`【个人描述】\n${input.description?.trim() || '此人的过往如同被墨水浸染的旧档案，所有记录都已模糊不清。'}`);
   parts.push(`【思想/信念】\n${input.beliefs?.trim() || '信念栏是空白的——或许什么都不相信，又或许信念过于危险，不宜写下。'}`);
   parts.push(`【重要之人】\n${input.significantPeople?.trim() || '没有任何人被列为重要联系人。这意味着孤独，或者意味着保护。'}`);
   parts.push(`【重要场所】\n${input.meaningfulLocations?.trim() || '档案中未记录任何意义非凡之地。也许那些地方已经不复存在了。'}`);
   parts.push(`【珍贵之物】\n${input.treasuredPossessions?.trim() || '此人似乎没有任何牵挂之物——或者说，那些珍贵的东西早已失去。'}`);
-  parts.push(`【特质】\n${input.traits?.trim() || '沉默寡言，行踪不定。'}`);
+  parts.push(`【特质】\n${traitsContent}`);
   parts.push(`【伤口/伤痕】\n${input.injuries?.trim() || '表面上看不出明显伤痕，但谁知道衣领下藏着什么。'}`);
   parts.push(`【恐惧症/狂躁症】\n${input.backgroundFears?.trim() || '未记录在案。但每个调查员都有不愿面对的东西。'}`);
   return parts.join('\n\n');
@@ -98,7 +104,9 @@ export function makeNpc(input: MakeNpcInput): ScenarioCharacter {
     },
     greeting: '',
     description: buildCharSheetDescription(input),
-    personality: input.personality ?? '',
+    // 设空: personality 内容已合并进 description 的【特质】段,避免 NpcOverlay
+    // 同时显示「性格」+「背景故事/特质」重复内容。preset 模式玩家扮演 NPC 时同理。
+    personality: '',
     scenario: '',
     personaDescription: '',
     posture: '站立',
