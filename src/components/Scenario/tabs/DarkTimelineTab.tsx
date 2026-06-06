@@ -221,7 +221,10 @@ const PhaseCard = memo(
         }}
       >
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-          <span style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>
+          <span style={{
+            fontSize: 10, color: 'var(--gold)', opacity: 0.45,
+            letterSpacing: 1.5, fontFamily: 'var(--font-mono)',
+          }}>
             {phase.id}
           </span>
           <button
@@ -293,7 +296,10 @@ const PhaseCard = memo(
 function Field({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>
+      <div style={{
+        fontSize: 10, color: 'var(--gold)', opacity: 0.55,
+        letterSpacing: 1.2, fontFamily: 'var(--font-ui)',
+      }}>
         {label}
       </div>
       {children}
@@ -528,13 +534,14 @@ function Empty(): React.ReactElement {
       style={{
         padding: '32px 16px',
         textAlign: 'center',
-        color: 'var(--ink, #8a7a52)',
+        color: 'var(--text-light, #d4c4a0)',
+        opacity: 0.6,
         fontSize: 12,
         fontFamily: 'var(--font-ui)',
       }}
     >
       <div style={{ marginBottom: 6 }}>暂无暗线阶段</div>
-      <div style={{ opacity: 0.7, display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{ opacity: 0.85, display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
         点击「+ 新阶段」手动添加，或「
         <IconSparkle size={12} />
         LLM 生成」据元信息自动产出
