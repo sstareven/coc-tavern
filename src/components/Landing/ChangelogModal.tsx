@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { kvGet, kvSet } from '../../db/kv';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.10';
+export const CURRENT_VERSION = 'v1.11.11';
 
 interface Release {
   version: string;
@@ -12,6 +13,13 @@ interface Release {
 
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.11.11',
+    label: '修更新日志在手机端被自适应缩放放大溢出屏幕',
+    items: [
+      '【更新日志·手机端修复】v1.11.8 引入「自适应屏幕缩放」后，本弹窗在手机端会出现：width 表达式 `calc(min(800px, 92vw) / var(--auto-zoom, 1))` 在手机端的 auto-zoom < 1 时 → 800÷小数变得超大，弹窗宽高远超手机视口，遮住下方书页与「开始探索」按钮挡住游玩。现按 useIsMobile 分流尺寸表达式：桌面仍用 vw/vh ÷ auto-zoom 等比；手机端改为 92vw × 85vh 直接生效不被 zoom 放大，padding 也从 32×40 收紧到 18×16；标题/正文字号自动按 system-ratio 收一档',
+    ],
+  },
   {
     version: 'v1.11.10',
     label: '一键 DeepSeek 终极适配现在会保证 MVU 状态变量更新 · 缓存面板更宽更美',
@@ -449,7 +457,10 @@ const RELEASES: Release[] = [
 
 export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
+  const isMobile = useIsMobile();
   // v1.11.6: 弹窗用 ... 表达式自适应 — 不再需要订阅 uiScale。
+  // v1.11.11: 手机端的 auto-zoom < 1 会把 `calc(... / auto-zoom)` 放大成几倍于屏幕,
+  //          导致弹窗遮住整个手机屏。手机端改走直接 vw/vh 表达式,不除 auto-zoom。
 
   useEffect(() => {
     const seen = kvGet(CHANGELOG_KEY);
@@ -473,24 +484,33 @@ export function ChangelogModal() {
     <div style={{
       // v1.11.6: backdrop 不再 zoom: 1/uiScale 抵消（旧 hack）。改用 vw/vh ÷ uiScale 让
       // layout box 实际渲染尺寸 = (100vw / uiScale) × uiScale = 100vw 屏幕，居中坐标正确。
+      // v1.11.11: 手机端直接 100vw/100vh,不除 auto-zoom（手机端 zoom<1 会把 backdrop 放大到屏幕外）。
       position: 'fixed', top: 0, left: 0,
-      width: 'calc(100vw / var(--auto-zoom, 1))',
-      height: 'calc(100vh / var(--auto-zoom, 1))',
+      width: isMobile ? '100vw' : 'calc(100vw / var(--auto-zoom, 1))',
+      height: isMobile ? '100vh' : 'calc(100vh / var(--auto-zoom, 1))',
       zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
     }}>
       <div style={{
         background: 'var(--leather)', border: '1px solid var(--gold)',
-        borderRadius: 6, padding: '32px 40px',
-        width: 'calc(min(800px, 92vw) / var(--auto-zoom, 1))',
-        maxHeight: 'calc(82vh / var(--auto-zoom, 1))',
+        borderRadius: 6,
+        // 手机端 padding 收紧 + 直接走 vw/vh 不除 auto-zoom;
+        // 桌面仍按 v1.11.6 的 auto-zoom 等比逻辑。
+        padding: isMobile ? '18px 16px' : '32px 40px',
+        width: isMobile ? '92vw' : 'calc(min(800px, 92vw) / var(--auto-zoom, 1))',
+        maxHeight: isMobile ? '85vh' : 'calc(82vh / var(--auto-zoom, 1))',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}>
         <h2 style={{
-          fontFamily: 'var(--font-display)', fontSize: 'calc(22px * var(--system-ratio, 1))', color: 'var(--gold)',
-          letterSpacing: 6, textAlign: 'center', marginBottom: 20, flexShrink: 0,
+          fontFamily: 'var(--font-display)',
+          fontSize: isMobile
+            ? 'calc(16px * var(--system-ratio, 1))'
+            : 'calc(22px * var(--system-ratio, 1))',
+          color: 'var(--gold)',
+          letterSpacing: isMobile ? 3 : 6, textAlign: 'center',
+          marginBottom: isMobile ? 12 : 20, flexShrink: 0,
         }}>
           更新日志
         </h2>
@@ -500,26 +520,32 @@ export function ChangelogModal() {
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) transparent',
         }}>
           {RELEASES.map((rel, ri) => (
-            <div key={rel.version} style={{ marginBottom: ri === RELEASES.length - 1 ? 0 : 26 }}>
+            <div key={rel.version} style={{ marginBottom: ri === RELEASES.length - 1 ? 0 : (isMobile ? 18 : 26) }}>
               <p style={{
-                fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', letterSpacing: 4,
+                fontSize: isMobile
+                  ? 'calc(10px * var(--system-ratio, 1))'
+                  : 'calc(11px * var(--system-ratio, 1))',
+                textAlign: 'center', letterSpacing: isMobile ? 2 : 4,
                 color: ri === 0 ? 'var(--gold)' : 'var(--ink-subtle)',
                 opacity: ri === 0 ? 1 : 0.7,
-                marginTop: 0, marginBottom: 14,
+                marginTop: 0, marginBottom: isMobile ? 10 : 14,
                 paddingBottom: 8, borderBottom: '1px solid rgba(196,168,85,0.15)',
               }}>
                 {rel.version} — {rel.label}
               </p>
               <ul style={{
                 listStyle: 'none', padding: 0, margin: 0,
-                display: 'flex', flexDirection: 'column', gap: 8,
+                display: 'flex', flexDirection: 'column', gap: isMobile ? 6 : 8,
                 opacity: ri === 0 ? 1 : 0.78,
               }}>
                 {rel.items.map((f, i) => (
                   <li key={i} style={{
-                    fontSize: 'calc(13px * var(--system-ratio, 1))', color: 'var(--text-light)',
+                    fontSize: isMobile
+                      ? 'calc(12px * var(--system-ratio, 1))'
+                      : 'calc(13px * var(--system-ratio, 1))',
+                    color: 'var(--text-light)',
                     fontFamily: 'var(--font-ui)', lineHeight: 1.55,
-                    paddingLeft: 18, position: 'relative',
+                    paddingLeft: 16, position: 'relative',
                   }}>
                     <span style={{
                       position: 'absolute', left: 0, color: 'var(--gold)',
@@ -534,10 +560,14 @@ export function ChangelogModal() {
         </div>
 
         <button onClick={close} style={{
-          display: 'block', margin: '24px auto 0', padding: '12px 48px', flexShrink: 0,
+          display: 'block', margin: isMobile ? '14px auto 0' : '24px auto 0',
+          padding: isMobile ? '10px 32px' : '12px 48px', flexShrink: 0,
           border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.1)',
-          color: 'var(--gold)', fontFamily: 'var(--font-ui)', fontSize: 'calc(14px * var(--system-ratio, 1))',
-          letterSpacing: 4, borderRadius: 3, cursor: 'pointer',
+          color: 'var(--gold)', fontFamily: 'var(--font-ui)',
+          fontSize: isMobile
+            ? 'calc(12px * var(--system-ratio, 1))'
+            : 'calc(14px * var(--system-ratio, 1))',
+          letterSpacing: isMobile ? 3 : 4, borderRadius: 3, cursor: 'pointer',
         }}>
           开 始 探 索
         </button>
