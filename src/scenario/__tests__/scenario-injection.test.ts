@@ -121,7 +121,11 @@ describe('scenarioCharacterToNpc', () => {
     expect(out.skills).toEqual({ 聆听: 70, 侦查: 35 });
   });
 
-  it('isPresent 默认 false(剧本载入时离场)', () => {
-    expect(scenarioCharacterToNpc(c()).isPresent).toBe(false);
+  it('isPresent: optional/protagonist 开局在场;locked_npc 不在场', () => {
+    // 设计反转(2026-06-07): 玩家选 protagonist 后,其他 NPC 队友默认在场组队(2-4 调查员);
+    // 只有 locked_npc(反派/俘虏/教派潜伏) 仍保持离场,等剧情后引入。
+    expect(scenarioCharacterToNpc(c()).isPresent).toBe(true); // c() 默认 role='optional'
+    expect(scenarioCharacterToNpc(c({ role: 'protagonist' })).isPresent).toBe(true);
+    expect(scenarioCharacterToNpc(c({ role: 'locked_npc' })).isPresent).toBe(false);
   });
 });

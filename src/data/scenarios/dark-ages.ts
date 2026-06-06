@@ -36,6 +36,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_da_hermann',
+      role: 'optional',
       name: '院长赫尔曼',
       age: 64,
       gender: '男',
@@ -56,6 +57,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_da_pagan_elder',
+      role: 'locked_npc',
       name: '老妇恩戈达',
       age: 71,
       gender: '女',
@@ -76,6 +78,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_da_knight',
+      role: 'protagonist',
       name: '骑士罗格·冯·里尔',
       age: 27,
       gender: '男',

@@ -38,6 +38,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_gl_lady',
+      role: 'protagonist',
       name: '海伦·阿什福德夫人',
       age: 38,
       gender: '女',
@@ -58,6 +59,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_gl_inspector',
+      role: 'protagonist',
       name: '督察威廉·布莱克伍德',
       age: 46,
       gender: '男',
@@ -78,6 +80,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_gl_medium',
+      role: 'locked_npc',
       name: '埃德蒙·斯雷特',
       age: 51,
       gender: '男',

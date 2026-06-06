@@ -36,6 +36,7 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_mi_hrafnr',
+      role: 'protagonist',
       name: '赫拉夫尔·乌尔夫松',
       age: 42,
       gender: '男',
@@ -56,6 +57,7 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_mi_seer',
+      role: 'optional',
       name: '托拉·赛德雷',
       age: 73,
       gender: '女',
@@ -76,6 +78,7 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_mi_silent_boy',
+      role: 'protagonist',
       name: '艾纳尔',
       age: 17,
       gender: '男',

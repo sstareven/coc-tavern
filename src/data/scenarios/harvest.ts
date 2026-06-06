@@ -38,6 +38,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_hv_prophet',
+      role: 'protagonist',
       name: '疯狂先知·克拉',
       age: 60,
       gender: '女',
@@ -58,6 +59,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_hv_apprentice',
+      role: 'protagonist',
       name: '少年学徒·恩诺',
       age: 16,
       gender: '男',
@@ -78,6 +80,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_hv_outpost_leader',
+      role: 'locked_npc',
       name: '前哨同盟·萨拉',
       age: 35,
       gender: '女',

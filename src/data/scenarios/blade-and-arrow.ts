@@ -36,6 +36,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_ba_general',
+      role: 'protagonist',
       name: '主帅哈尔德',
       age: 52,
       gender: '男',
@@ -56,6 +57,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_ba_scout',
+      role: 'protagonist',
       name: '副官莉拉',
       age: 29,
       gender: '女',
@@ -76,6 +78,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_ba_prisoner',
+      role: 'locked_npc',
       name: '俘虏祭司·萨米尔',
       age: 38,
       gender: '男',

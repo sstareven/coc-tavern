@@ -36,6 +36,7 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_rome_titus',
+      role: 'protagonist',
       name: '盖乌斯·提图斯',
       age: 48,
       gender: '男',
@@ -56,6 +57,7 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_rome_vestal',
+      role: 'protagonist',
       name: '克劳狄娅·普莉玛',
       age: 28,
       gender: '女',
@@ -76,6 +78,7 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_rome_centurion',
+      role: 'protagonist',
       name: '马库斯·瓦勒里乌斯',
       age: 39,
       gender: '男',

@@ -38,6 +38,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_ic_hestia',
+      role: 'optional',
       name: 'AI 「赫斯提亚」',
       age: 7,
       gender: '女性化',
@@ -58,6 +59,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_ic_scientist',
+      role: 'optional',
       name: '科学家·埃伦娜·武',
       age: 36,
       gender: '女',
@@ -78,6 +80,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_ic_security',
+      role: 'protagonist',
       name: '安全官·卡尔·迈尔斯',
       age: 41,
       gender: '男',

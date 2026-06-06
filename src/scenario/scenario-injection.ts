@@ -104,7 +104,10 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
     experience: '',
     backstory: c.npcAttrs.publicBio, // 公开简历 = 背景故事(玩家可知)
     possessions: [],
-    isPresent: false, // 剧本载入时默认离场;由剧情把人物拉到当前地点
+    // 开局在场:protagonist (推荐主角候选,玩家选一个其余作队友) + optional (配角可玩,默认同行)
+    // 都在场;locked_npc (反派/已死者/俘虏) 不在场,由剧情后续引入。
+    // 这样玩家进游戏就有 1-3 名 NPC 队友,与剧本「2-4 调查员」头计相吻合。
+    isPresent: c.role !== 'locked_npc',
     faction: c.npcAttrs.relationshipDefault || undefined,
     characteristics,
     skills,

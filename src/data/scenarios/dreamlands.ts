@@ -42,6 +42,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
   characters: [
     makeNpc({
       id: 'npc_dr_friend',
+      role: 'protagonist',
       name: '失语的朋友·伊莎',
       age: 31,
       gender: '女',
@@ -62,6 +63,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_dr_cat',
+      role: 'protagonist',
       name: '乌尔塔尔之猫·缪兰',
       age: 9,
       gender: '雌',
@@ -82,6 +84,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     }),
     makeNpc({
       id: 'npc_dr_dreamer',
+      role: 'protagonist',
       name: '老梦行者·奥古斯丁',
       age: 71,
       gender: '男',
