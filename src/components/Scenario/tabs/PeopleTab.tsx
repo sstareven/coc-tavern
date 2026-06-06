@@ -79,6 +79,16 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
     patchSelected({ sheet });
   };
 
+  const patchSheetDescription = (desc: string): void => {
+    if (!selected) return;
+    patchSelected({ sheet: { ...selected.sheet, description: desc } });
+  };
+
+  const patchSheetItemsRaw = (raw: string): void => {
+    if (!selected) return;
+    patchSelected({ sheet: { ...selected.sheet, initialItemsRaw: raw } });
+  };
+
   const patchNpc = (patch: Partial<ScenarioCharacter['npcAttrs']>): void => {
     if (!selected) return;
     patchSelected({ npcAttrs: { ...selected.npcAttrs, ...patch } });
@@ -219,6 +229,28 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                     onChange={(e) => patchNpc({ hiddenBio: e.target.value })}
                   />
                   <CharCounter value={selected.npcAttrs.hiddenBio} max={4000} />
+                </Row>
+                <Row label="个人档案(8 段格式 - 个人描述/思想信念/重要之人/重要场所/珍贵之物/特质/伤口伤痕/恐惧症狂躁症)">
+                  <textarea
+                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 11.5, lineHeight: 1.55 }}
+                    rows={12}
+                    maxLength={8000}
+                    placeholder={'【个人描述】\n...\n\n【思想/信念】\n...\n\n【重要之人】\n...'}
+                    value={selected.sheet?.description ?? ''}
+                    onChange={(e) => patchSheetDescription(e.target.value)}
+                  />
+                  <CharCounter value={selected.sheet?.description ?? ''} max={8000} />
+                </Row>
+                <Row label="随身物品(逗号/顿号/分号/换行分隔,进游戏拆为 possessions 数组)">
+                  <textarea
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                    rows={2}
+                    maxLength={500}
+                    placeholder="例:罗马军用短剑、皮质护臂、军团徽章、军囊（含口粮与火石）"
+                    value={selected.sheet?.initialItemsRaw ?? ''}
+                    onChange={(e) => patchSheetItemsRaw(e.target.value)}
+                  />
+                  <CharCounter value={selected.sheet?.initialItemsRaw ?? ''} max={500} />
                 </Row>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <SmallBtn onClick={() => handleRemove(selected.id)} label="删除角色" danger />
