@@ -170,7 +170,8 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       {/* 顶部工具栏 */}
       <header style={{
         flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+        minHeight: 56,
         padding: '12px 18px',
         borderBottom: '1px solid rgba(196,168,85,0.20)',
         background: 'rgba(10,7,4,0.6)',
@@ -179,13 +180,15 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
         <span style={{
           fontSize: 11, color: 'var(--ink, #8a7a52)',
           fontFamily: 'var(--font-ui)', letterSpacing: 2,
+          flexShrink: 0,
         }}>剧本</span>
         <input
           value={working.meta.name}
           onChange={(e) => handleNameChange(e.target.value)}
           aria-label="剧本名"
           style={{
-            flex: '0 1 320px',
+            flex: '1 1 200px',
+            minWidth: 0,
             padding: '6px 10px',
             background: 'rgba(0,0,0,0.4)',
             border: '1px solid rgba(196,168,85,0.3)',
@@ -201,16 +204,16 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
             letterSpacing: 1.5,
             background: 'rgba(196,168,85,0.12)',
             border: '1px solid var(--brass)', borderRadius: 2,
+            flexShrink: 0,
           }}>内置 · 保存将 fork</span>
         )}
-        <div style={{ flex: 1 }} />
-        <BarBtn onClick={handleSave} label="保存" accent />
-        <BarBtn onClick={handleExport} label="导出" />
-        <BarBtn onClick={handleSaveAs} label="另存为" />
+        <BarBtn onClick={handleSave} label="保存" accent compact={compact} />
+        <BarBtn onClick={handleExport} label="导出" compact={compact} />
+        <BarBtn onClick={handleSaveAs} label="另存为" compact={compact} />
         {compact && (
-          <BarBtn onClick={() => setCompanionOpen((v) => !v)} label={companionOpen ? '关闭伙伴' : '作者伙伴'} />
+          <BarBtn onClick={() => setCompanionOpen((v) => !v)} label={companionOpen ? '关闭伙伴' : '作者伙伴'} compact={compact} />
         )}
-        <BarBtn onClick={onClose} label="关闭" danger />
+        <BarBtn onClick={onClose} label="关闭" danger compact={compact} />
       </header>
 
       {/* 主体: tabs(左) + 主区(中) + companion(右,桌面端) */}
@@ -300,7 +303,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
 
 // ── 工具栏按钮 ──
 
-function BarBtn({ onClick, label, accent, danger }: { onClick: () => void; label: string; accent?: boolean; danger?: boolean }) {
+function BarBtn({ onClick, label, accent, danger, compact }: { onClick: () => void; label: string; accent?: boolean; danger?: boolean; compact?: boolean }) {
   const [hover, setHover] = useState(false);
   const [pressed, setPressed] = useState(false);
   const color = danger ? '#b14a4a' : accent ? 'var(--gold)' : 'var(--text-light, #d0c2a0)';
@@ -314,7 +317,8 @@ function BarBtn({ onClick, label, accent, danger }: { onClick: () => void; label
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        padding: '6px 14px',
+        flexShrink: 0,
+        padding: compact ? '5px 10px' : '6px 14px',
         background: hover ? 'rgba(196,168,85,0.15)' : 'rgba(255,255,255,0.03)',
         border: `1px solid ${border}`, borderRadius: 2,
         color, fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 1.5,

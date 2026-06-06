@@ -56,18 +56,22 @@ describe('buildScenarioStatDataSeed', () => {
     authorNotes: '', schemaVersion: 1, createdAt: 0, updatedAt: 0, ...over,
   });
 
-  it('暗线进度=0, 威胁等级=潜伏, 结局类型空, 已解锁是空对象', () => {
-    const seed = buildScenarioStatDataSeed(docOf());
-    expect(seed['剧情.暗线.进度']).toBe(0);
-    expect(seed['剧情.暗线.威胁等级']).toBe('潜伏');
-    expect(seed['剧情.结局类型']).toBe('');
-    expect(seed['剧情.已解锁']).toEqual({});
+  it('暗线进度=0, 威胁等级=潜伏, 结局类型空, 已解锁是空对象 (nested tree shape, 匹配 getTreePath)', () => {
+    const seed = buildScenarioStatDataSeed(docOf()) as {
+      剧情: { 暗线: { 进度: number; 威胁等级: string }; 结局类型: string; 已解锁: Record<string, unknown> };
+    };
+    expect(seed.剧情.暗线.进度).toBe(0);
+    expect(seed.剧情.暗线.威胁等级).toBe('潜伏');
+    expect(seed.剧情.结局类型).toBe('');
+    expect(seed.剧情.已解锁).toEqual({});
   });
 
   it('暗线描述取 darkTimeline[0].directorNote;无暗线则空串', () => {
-    expect(buildScenarioStatDataSeed(docOf())['剧情.暗线.描述']).toBe('');
+    const empty = buildScenarioStatDataSeed(docOf()) as { 剧情: { 暗线: { 描述: string } } };
+    expect(empty.剧情.暗线.描述).toBe('');
     const withDark = docOf({ darkTimeline: [{ id: 'p1', threshold: 30, title: '', triggers: [], directorNote: '一切都在崩坏。', autoUnlockKeys: [] }] });
-    expect(buildScenarioStatDataSeed(withDark)['剧情.暗线.描述']).toBe('一切都在崩坏。');
+    const withDarkSeed = buildScenarioStatDataSeed(withDark) as { 剧情: { 暗线: { 描述: string } } };
+    expect(withDarkSeed.剧情.暗线.描述).toBe('一切都在崩坏。');
   });
 });
 

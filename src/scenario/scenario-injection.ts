@@ -54,12 +54,18 @@ export function scenarioEntriesToLoreEntries(
  * 不返回完整 statData;由 createInitialStatData 先建树,这里只 patch 剧本枝。
  */
 export function buildScenarioStatDataSeed(scn: ScenarioDoc): Record<string, unknown> {
+  // 项目 statData 走嵌套树（getTreePath 按点分路径读取），平铺 key 会读不到。
+  // 已解锁返回 {} 仅作为「该枝缺失时建空字典」的占位，deepMerge 时不能覆盖已有子树。
   return {
-    '剧情.暗线.描述': scn.darkTimeline[0]?.directorNote ?? '',
-    '剧情.暗线.进度': 0,
-    '剧情.暗线.威胁等级': '潜伏',
-    '剧情.结局类型': '',
-    '剧情.已解锁': {},
+    剧情: {
+      暗线: {
+        描述: scn.darkTimeline[0]?.directorNote ?? '',
+        进度: 0,
+        威胁等级: '潜伏',
+      },
+      结局类型: '',
+      已解锁: {},
+    },
   };
 }
 

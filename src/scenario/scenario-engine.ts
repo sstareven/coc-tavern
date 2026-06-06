@@ -25,6 +25,33 @@ export type ScenarioActivateMode = 'newChar' | 'preset';
 
 const SCENARIO_BOOK_PREFIX = '__scenario_';
 
+// 仅供 MVU 种子合并使用的 deep merge：
+//   - 已存在的路径/键一律保留（base 优先），seed 仅补齐 missing 的字段；
+//   - 仅 plain object 递归，数组/原始值视为叶子直接由 base 接管（base 缺时才取 seed）；
+//   - 不修改入参，纯函数返回新对象。
+// 这样 seed 里的 {剧情:{已解锁:{}}} 不会盖掉已有 /剧情/已解锁 子树，只是在该枝缺失时建空字典。
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+}
+function deepMergePreserve(
+  base: Record<string, unknown>,
+  seed: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const k of Object.keys(seed)) {
+    const bv = base[k];
+    const sv = seed[k];
+    if (isPlainObject(bv) && isPlainObject(sv)) {
+      out[k] = deepMergePreserve(bv, sv);
+    } else if (bv === undefined) {
+      // base 没有该键 → 补 seed 值（含基本量/数组/空字典）
+      out[k] = sv;
+    }
+    // 其它情况 base 已存在叶子 → 保持 base，不被 seed 覆盖
+  }
+  return out;
+}
+
 // 兜底首页选项（扩首页 LLM 调用失败时使用） — 故意非剧本化，给玩家自由打开局面。
 import type { ChoiceItem } from '../types';
 const FALLBACK_CHOICES: ChoiceItem[] = [
@@ -44,9 +71,18 @@ export async function activateScenario(
 
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
   if (mode === 'preset') {
-    const idx = charIdx ?? 0;
+    // preset 模式必须显式指定主角索引；不允许 undefined 默默兜底到 0，
+    // 否则一旦上游路由没传 charIdx，玩家会被随机分配第 0 号角色（可能是 npc_only）。
+    if (charIdx === undefined) {
+      throw new Error('[scenario-engine] preset 模式必须显式传 charIdx');
+    }
+    const idx = charIdx;
     const proto = scn.characters[idx];
     if (!proto) throw new Error(`[scenario-engine] preset 模式 charIdx=${idx} 越界`);
+    // 仅 protagonist_candidate 可被玩家扮演；npc_only / 其它角色不可作为主角。
+    if (proto.role !== 'protagonist_candidate') {
+      throw new Error(`[scenario-engine] charIdx=${idx} 指向的角色不可扮演 (role=${proto.role})`);
+    }
     useCharSheetStore.getState().setSheet(proto.sheet);
     // 其他角色全部 NPC 化（排除当前主角索引）
     const npcStore = useNpcStore.getState();
@@ -62,86 +98,117 @@ export async function activateScenario(
     }
   }
 
-  // ── 2. MVU 种子（剧情.*/世界.* 等） — 与现有 statData 合并（顶层 shallow merge）─
+  // ── 2. MVU 种子（剧情.*/世界.* 等） — 与现有 statData 深合并，已有路径保留，seed 仅补 missing。─
+  // 注意：buildScenarioStatDataSeed 返回嵌套树（项目 statData 走点分路径 getTreePath）；
+  // 历史曾用 spread 顶层 shallow merge，会让 seed 的 {剧情:{已解锁:{}}} 把已有 /剧情/已解锁 子树吞掉，
+  // 故改用 deepMerge：仅在目标缺路径时填入 seed 值，已存在的子树/键一律保留。
   const seed = buildScenarioStatDataSeed(scn);
   if (seed && Object.keys(seed).length > 0) {
     const cur = useVariableStore.getState().statData;
-    useVariableStore.getState().setStatData({ ...cur, ...seed });
+    useVariableStore.getState().setStatData(deepMergePreserve(cur, seed));
   }
 
-  // ── 3. 挂载剧本条目到 lorebook（独立 book，priority +1000 防撞键） ──
+  // ── 3-6 包成 try/catch：任一步抛错都把已挂载的 scenarioBook 卸掉、把 sessionScenarioId 清空，
+  //     避免「book 留挂、id 没写」造成下一会话仍命中剧本条目的幽灵态。
+  //     注：step 1-2(sheet/NPC/MVU seed) 的回滚不在此处兜底，由 clearAllGameState 在用户回主菜单时处理。
   const scenarioBookId = SCENARIO_BOOK_PREFIX + scn.id;
-  useLorebookStore.getState().upsertBook(scenarioBookId, {
-    name: '[剧本] ' + scn.meta.name,
-    enabled: true,
-    entries: scenarioEntriesToLoreEntries(scn.entries),
-  });
+  let bookMounted = false;
+  let sessionScenarioWritten = false;
+  try {
+    // ── 3. 挂载剧本条目到 lorebook（独立 book，priority +1000 防撞键） ──
+    useLorebookStore.getState().upsertBook(scenarioBookId, {
+      name: '[剧本] ' + scn.meta.name,
+      enabled: true,
+      entries: scenarioEntriesToLoreEntries(scn.entries),
+    });
+    bookMounted = true;
 
-  // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
-  // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
-  // preset:  step 1 setSheet(proto.sheet) 已把预设角色的 initialItemsRaw 写到 useCharSheetStore
-  // 统一从 useCharSheetStore 取，两种模式一致处理
-  const raw = (useCharSheetStore.getState().sheet.initialItemsRaw ?? '').trim();
-  if (raw) {
-    try {
-      const items = await extractInitialItems(raw);
-      if (items.length > 0) {
-        useInventoryStore.getState().applyChanges(
-          items.map((i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i })),
-        );
-      }
-    } catch (err) {
-      console.warn('[scenario-engine] 初始物品抽取失败，已跳过：', err);
-    }
-  }
-
-  // ── 5. 写当前会话的 scenarioId（持久化随 chat blob）─────────────────
-  useChatStore.getState().setSessionScenario(scn.id);
-
-  // ── 6. LLM 扩写首页 → 替换 page[0] ───────────────────────────────────
-  // 两种模式都走（preset / newChar）—— 否则 newChar 模式下 BookStore 会停留在 defaultPages[0]
-  // (那是「自由探索」的「你做了一个梦」段),导致玩家选不同剧本却看到同一段开场。
-  // 例外：'__free' 剧本本身就是 defaultPages[0] 的 prologueSeed 源,不必扩写也不必替换。
-  if (scn.id !== '__free') {
-    let page0: BookPage;
-    try {
-      const expanded = await expandPrologueToPage(scn.prologueSeed, scn);
-      page0 = { ...expanded, id: crypto.randomUUID() };
-    } catch (err) {
-      console.warn('[scenario-engine] 首页扩写失败，回落原 prologueSeed：', err);
+    // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
+    // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
+    // preset:  step 1 setSheet(proto.sheet) 已把预设角色的 initialItemsRaw 写到 useCharSheetStore
+    // 统一从 useCharSheetStore 取，两种模式一致处理
+    const raw = (useCharSheetStore.getState().sheet.initialItemsRaw ?? '').trim();
+    if (raw) {
       try {
-        // UI 层 toast：window.dispatchEvent 通用桥；若无监听则静默
-        window.dispatchEvent(
-          new CustomEvent('coc:toast', {
-            detail: { type: 'warning', message: '剧本首页扩写失败，已使用原始序章文本' },
-          }),
-        );
-      } catch {
-        /* SSR / 非浏览器环境忽略 */
+        const items = await extractInitialItems(raw);
+        if (items.length > 0) {
+          useInventoryStore.getState().applyChanges(
+            items.map((i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i })),
+          );
+        }
+      } catch (err) {
+        console.warn('[scenario-engine] 初始物品抽取失败，已跳过：', err);
       }
-      page0 = {
-        id: crypto.randomUUID(),
-        leftHeader: '序章',
-        leftContent: scn.prologueSeed,
-        rightHeader: '',
-        rightContent: '',
-        rightChoices: FALLBACK_CHOICES,
-        // leftPage/rightPage 是字符串型页码（"i"/"ii" 等），setPages 会按 index 重写，这里给空即可
-        leftPage: '',
-        rightPage: '',
-      };
     }
-    // 绕开 useBookStore.setPages 的「序章自动刷新」逻辑：
-    // setPages 内部对 leftHeader === '序章' 的首页会强制替换为 defaultPages[0]，
-    // 这会把刚刚 LLM 扩写出来的 page0 内容刷成「做梦开场」，只剩 id。
-    // 改用 replacePage / appendPage（纯 set，无序章替换分支） + goToPage。
-    const bookStore = useBookStore.getState();
-    if (bookStore.pages.length > 0) {
-      bookStore.replacePage(0, page0);
-    } else {
-      bookStore.appendPage(page0);
+
+    // ── 5. 写当前会话的 scenarioId（持久化随 chat blob）─────────────────
+    useChatStore.getState().setSessionScenario(scn.id);
+    sessionScenarioWritten = true;
+
+    // ── 6. LLM 扩写首页 → 替换 page[0] ───────────────────────────────────
+    // 两种模式都走（preset / newChar）—— 否则 newChar 模式下 BookStore 会停留在 defaultPages[0]
+    // (那是「自由探索」的「你做了一个梦」段),导致玩家选不同剧本却看到同一段开场。
+    // 例外：'__free' 剧本本身就是 defaultPages[0] 的 prologueSeed 源,不必扩写也不必替换。
+    if (scn.id !== '__free') {
+      let page0: BookPage;
+      try {
+        const expanded = await expandPrologueToPage(scn.prologueSeed, scn);
+        page0 = { ...expanded, id: crypto.randomUUID() };
+      } catch (err) {
+        console.warn('[scenario-engine] 首页扩写失败，回落原 prologueSeed：', err);
+        try {
+          // UI 层 toast：window.dispatchEvent 通用桥；若无监听则静默
+          window.dispatchEvent(
+            new CustomEvent('coc:toast', {
+              detail: { type: 'warning', message: '剧本首页扩写失败，已使用原始序章文本' },
+            }),
+          );
+        } catch {
+          /* SSR / 非浏览器环境忽略 */
+        }
+        page0 = {
+          id: crypto.randomUUID(),
+          leftHeader: '序章',
+          leftContent: scn.prologueSeed,
+          rightHeader: '',
+          rightContent: '',
+          rightChoices: FALLBACK_CHOICES,
+          // leftPage/rightPage 是字符串型页码（"i"/"ii" 等），setPages 会按 index 重写，这里给空即可
+          leftPage: '',
+          rightPage: '',
+        };
+      }
+      // 绕开 useBookStore.setPages 的「序章自动刷新」逻辑：
+      // setPages 内部对 leftHeader === '序章' 的首页会强制替换为 defaultPages[0]，
+      // 这会把刚刚 LLM 扩写出来的 page0 内容刷成「做梦开场」，只剩 id。
+      // 改用 replacePage / appendPage（纯 set，无序章替换分支） + goToPage。
+      const bookStore = useBookStore.getState();
+      if (bookStore.pages.length > 0) {
+        bookStore.replacePage(0, page0);
+      } else {
+        bookStore.appendPage(page0);
+      }
+      bookStore.goToPage(0);
     }
-    bookStore.goToPage(0);
+  } catch (err) {
+    // 非原子回滚：把 step 3-5 已经写出的副作用撤掉。
+    // 不动 step 1-2 是因为 sheet/NPC/MVU 没有 per-scenario 标识、无法精确还原，
+    // 让 clearAllGameState 在用户从错误页面回主菜单时整体清理更可靠。
+    if (bookMounted) {
+      try {
+        useLorebookStore.getState().removeBook(scenarioBookId);
+      } catch (rollbackErr) {
+        console.warn('[scenario-engine] 回滚 lorebook 失败：', rollbackErr);
+      }
+    }
+    if (sessionScenarioWritten) {
+      try {
+        useChatStore.getState().setSessionScenario(null);
+      } catch (rollbackErr) {
+        console.warn('[scenario-engine] 回滚 sessionScenario 失败：', rollbackErr);
+      }
+    }
+    throw err;
   }
 }
 

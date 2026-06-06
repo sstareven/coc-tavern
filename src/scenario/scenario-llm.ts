@@ -198,10 +198,7 @@ export async function injectEjsUnlock(
     const cond = unlockKeys
       .map((k) => `getvar('剧情.已解锁.${k}')==='true'`)
       .join(' || ');
-    const wrapped =
-      entry.content +
-      '\n' +
-      `<% if (${cond}) { %>\n${entry.content}\n<% } %>`;
+    const wrapped = `<% if (${cond}) { %>\n${entry.content}\n<% } %>`;
     return { upsertEntries: [{ ...entry, content: wrapped }] };
   }
   // LLM 决策路径:让模型自选合适 key 并产出包装后的条目
@@ -211,7 +208,7 @@ export async function injectEjsUnlock(
     JSON.stringify(entry, null, 2),
     '',
     "请自动决定 1~3 个最合适的解锁 key(写入 /剧情/已解锁/<key>),并将 content 包装为:",
-    "原 content\\n<% if (getvar('剧情.已解锁.K1')==='true' || getvar('剧情.已解锁.K2')==='true') { %>\\n原 content\\n<% } %>",
+    "<% if (getvar('剧情.已解锁.K1')==='true' || getvar('剧情.已解锁.K2')==='true') { %>\\n原 content\\n<% } %>",
     '',
     '其余字段保持原值。',
     '输出 JSON:{ "upsertEntries": [ <整个包装后的条目对象> ] }',

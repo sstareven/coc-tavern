@@ -103,8 +103,8 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        width: 300,
-        height: 400,
+        width: '100%',
+        minHeight: 380,
         padding: 16,
         background: 'linear-gradient(180deg, rgba(40,28,16,0.85), rgba(20,14,8,0.92))',
         border: `1px solid ${hover ? 'var(--brass)' : 'rgba(196,168,85,0.35)'}`,
