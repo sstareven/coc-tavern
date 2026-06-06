@@ -228,7 +228,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
           {list.length === 0 ? (
             <div style={{
               padding: 18, textAlign: 'center',
-              color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
+              color: 'rgba(196,168,85,0.55)', fontSize: 12, fontFamily: 'var(--font-ui)',
             }}>
               暂无时代化职业
               <div style={{ marginTop: 6, fontSize: 10.5 }}>
@@ -261,7 +261,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
                     {active && <span aria-hidden="true" style={{ color: 'var(--gold)' }}>★</span>}
                     <span>{o.name || '未命名职业'}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.55)' }}>
                     信用 {o.crMin}–{o.crMax}%
                   </div>
                 </button>
@@ -275,7 +275,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
           {!selected ? (
             <div style={{
               padding: 24, textAlign: 'center',
-              color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
+              color: 'rgba(196,168,85,0.55)', fontSize: 12, fontFamily: 'var(--font-ui)',
             }}>从左侧选择职业编辑,或新建一项</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -294,7 +294,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
 
               <Row label={`信用评级 ${selected.crMin} — ${selected.crMax}`}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--ink, #8a7a52)', minWidth: 24, textAlign: 'right' }}>{selected.crMin}</span>
+                  <span style={{ fontSize: 11, color: 'rgba(196,168,85,0.55)', minWidth: 24, textAlign: 'right' }}>{selected.crMin}</span>
                   <input
                     type="range"
                     min={0}
@@ -321,7 +321,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
 
               <div style={{ marginTop: 4 }}>
                 <span style={{
-                  fontSize: 10.5, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2,
+                  fontSize: 10.5, color: 'rgba(196,168,85,0.55)', letterSpacing: 1.2,
                   fontFamily: 'var(--font-ui)',
                 }}>8 个职业技能(从当前剧本可见池中选)</span>
                 <div style={{
@@ -394,7 +394,7 @@ function SkillSlot({ slotIdx, value, open, query, candidates, onOpen, onClose, o
           background: open ? 'rgba(196,168,85,0.14)' : 'rgba(0,0,0,0.4)',
           border: `1px solid ${open ? 'var(--brass)' : 'rgba(196,168,85,0.3)'}`,
           borderRadius: 2,
-          color: value ? 'var(--text-light, #d0c2a0)' : 'var(--ink, #8a7a52)',
+          color: value ? 'var(--text-light, #d0c2a0)' : 'rgba(196,168,85,0.55)',
           fontFamily: 'var(--font-ui)', fontSize: 11.5,
           textAlign: 'left',
           cursor: 'pointer',
@@ -425,7 +425,7 @@ function SkillSlot({ slotIdx, value, open, query, candidates, onOpen, onClose, o
             style={{ ...inputStyle, marginBottom: 6 }}
           />
           {filtered.length === 0 ? (
-            <div style={{ padding: 10, fontSize: 11, color: 'var(--ink, #8a7a52)', textAlign: 'center' }}>无匹配技能</div>
+            <div style={{ padding: 10, fontSize: 11, color: 'rgba(196,168,85,0.55)', textAlign: 'center' }}>无匹配技能</div>
           ) : (
             filtered.map((name) => (
               <button
@@ -468,7 +468,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       display: 'flex', flexDirection: 'column', gap: 4,
       flex: 1,
     }}>
-      <span style={{ fontSize: 10.5, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
+      <span style={{ fontSize: 10.5, color: 'rgba(196,168,85,0.55)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
       {children}
     </label>
   );

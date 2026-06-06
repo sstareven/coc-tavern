@@ -254,7 +254,7 @@ export function SkillsTab({ scn, onChange, onToast }: Props) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
               {scn.customSkills.length === 0 ? (
                 <span style={{
-                  color: 'var(--ink, #8a7a52)', fontSize: 11, fontFamily: 'var(--font-ui)',
+                  color: 'rgba(196,168,85,0.55)', fontSize: 11, fontFamily: 'var(--font-ui)',
                 }}>暂无自定义技能</span>
               ) : (
                 scn.customSkills.map((s) => {
@@ -354,7 +354,7 @@ export function SkillsTab({ scn, onChange, onToast }: Props) {
             ) : (
               <div style={{
                 padding: 16, textAlign: 'center',
-                color: 'var(--ink, #8a7a52)', fontSize: 11.5, fontFamily: 'var(--font-ui)',
+                color: 'rgba(196,168,85,0.55)', fontSize: 11.5, fontFamily: 'var(--font-ui)',
               }}>选择上方 tag 编辑,或点「+ 新」新增</div>
             )}
           </div>
@@ -385,7 +385,7 @@ export function SkillsTab({ scn, onChange, onToast }: Props) {
               return (
                 <div key={cat} style={{ marginBottom: 14 }}>
                   <div style={{
-                    fontSize: 10.5, color: 'var(--ink, #8a7a52)',
+                    fontSize: 10.5, color: 'rgba(196,168,85,0.55)',
                     letterSpacing: 1.2, fontFamily: 'var(--font-ui)',
                     marginBottom: 6,
                     paddingBottom: 4,
@@ -459,7 +459,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <span style={{
-        fontSize: 10.5, color: 'var(--ink, #8a7a52)',
+        fontSize: 10.5, color: 'rgba(196,168,85,0.55)',
         letterSpacing: 1.2, fontFamily: 'var(--font-ui)',
       }}>{label}</span>
       {children}
