@@ -6,6 +6,7 @@ import { useCombatStore, isOrphanedEncounter } from '../stores/useCombatStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
+import { useNpcStore } from '../stores/useNpcStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useChatStore } from '../stores/useChatStore';
 import { useStatusToastStore } from '../stores/useStatusToastStore';
@@ -51,7 +52,7 @@ function buildPreset(o: OpposedSeed): OpeningPreset {
 }
 type OpposedResultWinner = OpeningPreset['op']['winner'];
 
-/** LLM 不可用/失败时的本地兜底建场：玩家 + 单个对手（NPC 或据对抗目标值造）。 */
+/** LLM 不可用/失败时的本地兜底建场：玩家 + 在场 NPC 队友 + 单个对手（NPC 或据对抗目标值造）。 */
 function buildLocalEncounter(opts: EnterCombatOpts): Encounter {
   const sheet = useCharSheetStore.getState().sheet;
   const inventory = useInventoryStore.getState().items;
@@ -70,7 +71,13 @@ function buildLocalEncounter(opts: EnterCombatOpts): Encounter {
       flags: { ...NO_FLAGS }, tendency: { attack: 70, flee: 20 }, roundDefenses: 0,
     };
   }
-  const combatants = [player, enemy];
+  // 注入在场 NPC 队友(剧本预设角色 + 后续邀请加入的同行)
+  // 排除将要作为敌人的那个(若 opts.npcTarget 指向某队友被劫持,优先 enemy)
+  const enemyNpcId = opts.npcTarget?.id;
+  const allies: Combatant[] = Object.values(useNpcStore.getState().profiles)
+    .filter((n) => n.isPresent && n.id !== enemyNpcId)
+    .map((n) => buildCombatantFromNpc(n, 'ally'));
+  const combatants = [player, ...allies, enemy];
   return {
     active: true, round: 1, turnOrder: nextTurnOrder(combatants), currentIdx: 0,
     combatants, bystanders: [], playerTargetId: enemy.id,

@@ -113,7 +113,7 @@ const FIREARM_KEYS = ['射击(手枪)', '射击(步枪)', '射击(霰弹枪)'];
  * 属性缺 50，技能按别名兜底（fighting 40 / dodge 25），HP/DB/MOV 走 parseNpcDerived（解析不到再推算），
  * 武器由 possessions 经武器表映射 + 恒在的徒手。倾向据 favorability：≤-30 好斗，否则中性。
  */
-export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
+export function buildCombatantFromNpc(npc: NpcProfile, faction: CombatFaction = 'enemy'): Combatant {
   const ch = npc.characteristics ?? {};
   const derived = parseNpcDerived(npc);
   const resolve = (keys: string[], fallback: number): number => {
@@ -131,10 +131,15 @@ export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
   const db = derived.db ?? buildAndDamageBonus(STR, SIZ).db;
   const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
   const aggressive = npc.favorability <= -30;
+  // ally 队友倾向稳定输出(不会乱跑);enemy 看 favorability
+  const tendency = faction === 'ally'
+    ? { attack: 75, flee: 15 }
+    : (aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 });
+  const idPrefix = faction === 'ally' ? 'ally' : 'npc';
   return {
-    id: `npc-${npc.id}`,
-    name: npc.name || 'NPC',
-    faction: 'enemy',
+    id: `${idPrefix}-${npc.id}`,
+    name: npc.name || (faction === 'ally' ? '同伴' : 'NPC'),
+    faction,
     controlledBy: 'ai',
     dex: DEX, str: STR, siz: SIZ, con: CON, mov: derived.mov ?? 8,
     fighting, dodge, firearm,
@@ -143,7 +148,7 @@ export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
     armor: 0,
     weapons: [unarmed, ...mapNamesToWeapons(npc.possessions ?? [], resolve)],
     flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
-    tendency: aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 },
+    tendency,
     roundDefenses: 0,
   };
 }
