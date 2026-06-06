@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/useChatStore';
+import { useScenarioStore } from '../../stores/useScenarioStore';
 import { switchConversation, deleteConversation, clearAllGameState, cleanupOrphanGameState } from '../../stores/sessionLifecycle';
+import { db } from '../../db/database';
 import type { ChatSession } from '../../types';
 
 interface Props { onLoad: () => void; onClose: () => void }
@@ -11,11 +13,50 @@ function fmtDate(ts: number): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** 剧本 id → 显示名（'__free'/找不到/老存档都各有兜底）。 */
+function resolveScenarioName(scenarioId: string | undefined, nameById: Record<string, string>): string {
+  if (!scenarioId || scenarioId === '__free') return '自由模式';
+  const name = nameById[scenarioId];
+  if (name) return name;
+  // 剧本被删/老存档指空 id — 显示截短 id 而不是空白，保留可调试线索
+  return scenarioId.length > 16 ? `${scenarioId.slice(0, 14)}…` : scenarioId;
+}
+
 export function LoadGameModal({ onLoad, onClose }: Props) {
   const sessions = useChatStore((s) => s.sessions);
   const deleteSession = useChatStore((s) => s.deleteSession);
+  // 订阅 builtins+userScenarios，玩家在另一面板改完剧本名后切回 modal 立即看到新名。
+  const builtins = useScenarioStore((s) => s.builtins);
+  const userScenarios = useScenarioStore((s) => s.userScenarios);
+  const scenarioNameById: Record<string, string> = {};
+  for (const d of builtins) scenarioNameById[d.id] = d.meta.name;
+  for (const d of userScenarios) scenarioNameById[d.id] = d.meta.name;
 
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  // 调查员姓名从 charsheets 关系表批量异步拉一次（session blob 只存会话名，不含 sheet）。
+  // session.name 由 CharCreator 创建时塞的 sheet.identity.name，但玩家中途改名后不会回写，
+  // 这里直接读 charsheets 拿当前真实姓名，"自适应识别" = 不依赖创角时的快照。
+  const [namesById, setNamesById] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const ids = sessions.map((s) => s.id);
+      if (ids.length === 0) {
+        if (!cancelled) setNamesById({});
+        return;
+      }
+      const rows = await db.charsheets.bulkGet(ids);
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      rows.forEach((row, i) => {
+        const n = row?.sheet?.identity?.name?.trim();
+        if (n) next[ids[i]] = n;
+      });
+      setNamesById(next);
+    })();
+    return () => { cancelled = true; };
+  }, [sessions]);
 
   return (
     <div
@@ -27,6 +68,7 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
       }}
     >
       <div
+        className="scenario-editor"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 480, maxWidth: '92vw', maxHeight: '80vh',
@@ -57,14 +99,31 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
           >✕</button>
         </div>
 
-        {/* List */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+        {/* List — flex:1 + minHeight:0 让 overflow:auto 在 maxHeight 80vh 下确实滚动 */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0' }}>
           {sorted.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-subtle)', fontSize: 'calc(13px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', letterSpacing: 2 }}>
               暂无存档，请开始新游戏
             </div>
           ) : (
-            sorted.map((s, i) => <SessionRow key={s.id} session={s} isLatest={i === 0} onSelect={() => { cleanupOrphanGameState(); void switchConversation(s.id); onLoad(); }} onDelete={() => { const chat = useChatStore.getState(); const wasActive = chat.activeId === s.id; const prevScenarioId = wasActive ? chat.sessions.find(c => c.id === s.id)?.scenarioId ?? undefined : undefined; deleteSession(s.id); void deleteConversation(s.id); if (wasActive) clearAllGameState(prevScenarioId); }} />)
+            sorted.map((s, i) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                isLatest={i === 0}
+                scenarioName={resolveScenarioName(s.scenarioId, scenarioNameById)}
+                investigatorName={namesById[s.id]}
+                onSelect={() => { cleanupOrphanGameState(); void switchConversation(s.id); onLoad(); }}
+                onDelete={() => {
+                  const chat = useChatStore.getState();
+                  const wasActive = chat.activeId === s.id;
+                  const prevScenarioId = wasActive ? chat.sessions.find(c => c.id === s.id)?.scenarioId ?? undefined : undefined;
+                  deleteSession(s.id);
+                  void deleteConversation(s.id);
+                  if (wasActive) clearAllGameState(prevScenarioId);
+                }}
+              />
+            ))
           )}
         </div>
       </div>
@@ -72,10 +131,23 @@ export function LoadGameModal({ onLoad, onClose }: Props) {
   );
 }
 
-function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
-  session: ChatSession; isLatest: boolean; onSelect: () => void; onDelete: () => void;
+function SessionRow({ session: s, isLatest, scenarioName, investigatorName, onSelect, onDelete }: {
+  session: ChatSession;
+  isLatest: boolean;
+  scenarioName: string;
+  investigatorName?: string;
+  onSelect: () => void;
+  onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // 第二行元信息段（按存在与否拼接），分隔符 ·；至少日期+页数总在，剧本/调查员可缺。
+  const metaParts: string[] = [
+    fmtDate(s.updatedAt),
+    `${s.pageCount ?? s.pages.length} 页`,
+    scenarioName,
+  ];
+  if (investigatorName) metaParts.push(investigatorName);
 
   return (
     <div
@@ -96,7 +168,7 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
             fontSize: 'calc(14px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', fontWeight: 600, letterSpacing: 1,
             color: isLatest ? 'var(--gold)' : 'var(--text-light)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{s.name}</span>
+          }}>{investigatorName || s.name}</span>
           {isLatest && (
             <span style={{
               fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)',
@@ -105,8 +177,11 @@ function SessionRow({ session: s, isLatest, onSelect, onDelete }: {
             }}>最新</span>
           )}
         </div>
-        <div style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)', marginTop: 4 }}>
-          {fmtDate(s.updatedAt)} · {s.pageCount ?? s.pages.length} 页
+        <div style={{
+          fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--ink-faded)',
+          marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {metaParts.join(' · ')}
         </div>
       </div>
       {confirmDelete ? (
