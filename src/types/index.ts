@@ -811,6 +811,8 @@ export interface Combatant {
   fighting: number;
   dodge: number;
   firearm?: number;
+  /** 急救技能(COC7e 起始 30%);供 ally 在队友濒死时尝试急救。缺省 = 30。 */
+  firstAid?: number;
   /** 伤害加值骰式（如 '1d4' / '0' / '-1'）；近战伤害结算时叠加。 */
   damageBonus?: string;
   hp: number;

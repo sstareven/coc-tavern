@@ -4,8 +4,10 @@ import {
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
+  rollDamageFormula,
 } from './combat-engine';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
+import { useSettingsStore } from '../stores/useSettingsStore';
 
 const defaultRng: Rng = Math.random;
 
@@ -217,12 +219,14 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
 }
 
-/** 单个 AI 行动者的回合：按倾向决策攻击/逃跑。 */
+/** 单个 AI 行动者的回合：按倾向决策攻击/逃跑/急救(ally)。 */
 export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng): Encounter {
   let enc = enc0;
   const ai = byId(enc, aiId);
   if (!ai || !alive(ai) || ai.controlledBy !== 'ai') return enc;
-  const action = decideAiAction(ai, enc, rng);
+  // ally 用 settings.npcAutoTendency;enemy 用默认 'mixed'(对 enemy 无 ally 急救分支,等同 attack)
+  const mode = ai.faction === 'ally' ? useSettingsStore.getState().npcAutoTendency : 'mixed';
+  const action = decideAiAction(ai, enc, rng, mode);
   // 倒地者轮到自己先起身(COC7e 俯卧规则)。起身消耗本回合移动：
   // 选逃则本回合只能起身、无法脱离(下回合才能真正逃)；选攻则起身后照常近战(不需移动)。
   if (ai.flags.prone) {
@@ -231,6 +235,34 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
       return log(enc, `${ai.name} 倒在地上，先挣扎着起身，未能在本回合脱离战斗`, 'narrative');
     }
     enc = log(enc, `${ai.name} 从地上起身，随即发难`, 'narrative');
+  }
+  // ally 急救分支(COC7e p61:急救成功 1d3 HP,大成功 1d3+1,且稳定 dying)
+  if (action.type === 'firstAid') {
+    const targetC = byId(enc, action.targetId);
+    if (!targetC || !alive(targetC)) {
+      return log(enc, `${ai.name} 想去急救但目标已不可救`, 'narrative');
+    }
+    const firstAidSkill = ai.firstAid ?? 30;
+    const r = d100WithDice(0, 0, rng);
+    const lvl = successLevel(r.finalRoll, firstAidSkill);
+    enc = rec(enc, {
+      skill: `${ai.name}·急救`,
+      roll: String(r.finalRoll),
+      target: String(firstAidSkill),
+      type: diceTypeFor(r.finalRoll, firstAidSkill),
+      purpose: '急救检定',
+    });
+    if (lvl === 'fail' || lvl === 'fumble') {
+      return log(enc, `${ai.name} 试图为 ${targetC.name} 急救 — 失败`, 'narrative');
+    }
+    // 成功:1d3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
+    const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+    const newHp = Math.min(targetC.maxHp, targetC.hp + heal);
+    enc = patchCombatant(enc, targetC.id, {
+      hp: newHp,
+      flags: { ...targetC.flags, dying: false },
+    });
+    return log(enc, `${ai.name} 为 ${targetC.name} 急救 — +${heal} HP`, 'narrative');
   }
   if (action.type === 'flee') {
     // 逃跑需 MOV/速度结算：比所有敌对存活者都快 → 直接脱离；否则掷 CON 速度检定，成功才逃脱、失败被拦下(留在场继续)。

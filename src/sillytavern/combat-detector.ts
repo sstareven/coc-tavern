@@ -64,6 +64,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
   const fighting = skill(sheet, ['格斗(斗殴)'], 25);
   const dodge = skill(sheet, ['闪避'], Math.floor(c.DEX / 2));
   const firearm = skill(sheet, ['射击(手枪)'], 20);
+  const firstAid = skill(sheet, ['急救'], 30);
   const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
   return {
     id: 'player',
@@ -71,7 +72,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     faction: 'player',
     controlledBy: 'player',
     dex: c.DEX, str: c.STR, siz: c.SIZ, con: c.CON, mov: sheet.secondary.mov,
-    fighting, dodge, firearm,
+    fighting, dodge, firearm, firstAid,
     damageBonus: sheet.secondary.db || '0',
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: 0,
@@ -136,13 +137,14 @@ export function buildCombatantFromNpc(npc: NpcProfile, faction: CombatFaction = 
     ? { attack: 75, flee: 15 }
     : (aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 });
   const idPrefix = faction === 'ally' ? 'ally' : 'npc';
+  const firstAid = resolve(['急救', '医学', '草药学'], 30);
   return {
     id: `${idPrefix}-${npc.id}`,
     name: npc.name || (faction === 'ally' ? '同伴' : 'NPC'),
     faction,
     controlledBy: 'ai',
     dex: DEX, str: STR, siz: SIZ, con: CON, mov: derived.mov ?? 8,
-    fighting, dodge, firearm,
+    fighting, dodge, firearm, firstAid,
     damageBonus: db,
     hp, maxHp: hp,
     armor: 0,

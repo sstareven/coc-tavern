@@ -189,6 +189,7 @@ export function CombatPanel() {
         {enemies.map((e) => (
           <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} active={activeActorId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
         ))}
+        {allies.length > 0 && <NpcTendencyChips />}
         {allies.map((a) => <CombatantRow key={a.id} c={a} hp={displayHp[a.id] ?? a.hp} hostile={false} target={false} active={activeActorId === a.id} />)}
       </div>
 
@@ -490,6 +491,53 @@ function DefensePanel({ pendingDefense, enc, animating, onChoose }: {
           <ActionBtn label={`战技反击 [${player.fighting}]`} disabled={animating} title={counterTip} onClick={() => onChoose('maneuver-counter')} />
         )}
       </div>
+    </div>
+  );
+}
+
+/** NPC 队友自动行动倾向切换 chip 行 — 仅在有 ally 时显示。
+ *  影响 combat-engine.decideAiAction(self, enc, rng, mode) 中 ally 是否优先急救濒死队友。 */
+function NpcTendencyChips() {
+  const tendency = useSettingsStore((s) => s.npcAutoTendency);
+  const setTendency = useSettingsStore((s) => s.setNpcAutoTendency);
+  const opts: Array<{ key: 'attack' | 'mixed' | 'support'; label: string; hint: string }> = [
+    { key: 'attack', label: '攻击', hint: '队友只攻击,不急救' },
+    { key: 'mixed', label: '混合', hint: '队友自主判断:HP<40% 队友 50% 急救;dying 80%' },
+    { key: 'support', label: '急救', hint: '队友优先救濒死(HP<40%),无人需救才打' },
+  ];
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '4px 0', marginBottom: 2,
+      fontSize: 'calc(11px * var(--system-ratio, 1))',
+      color: 'var(--ink-subtle)', fontFamily: 'var(--font-display)',
+      letterSpacing: 1.5,
+    }}>
+      <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', opacity: 0.65 }}>同伴倾向</span>
+      {opts.map((o) => {
+        const active = tendency === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => setTendency(o.key)}
+            title={o.hint}
+            style={{
+              padding: '2px 9px',
+              fontSize: 'calc(11px * var(--system-ratio, 1))',
+              fontFamily: 'var(--font-display)', letterSpacing: 1.5,
+              borderRadius: 2,
+              cursor: 'pointer',
+              color: active ? 'var(--ink)' : 'var(--ink-subtle)',
+              background: active ? 'rgba(196,168,85,0.22)' : 'transparent',
+              border: `1px solid ${active ? 'var(--brass)' : 'rgba(107,90,58,0.35)'}`,
+              transition: 'background 180ms cubic-bezier(0.4,0,0.2,1), border-color 180ms cubic-bezier(0.4,0,0.2,1)',
+            }}
+            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(196,168,85,0.1)'; }}
+            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+          >{o.label}</button>
+        );
+      })}
     </div>
   );
 }

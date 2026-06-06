@@ -234,11 +234,44 @@ export function nextTurnOrder(combatants: Combatant[]): string[] {
 
 export type AiAction =
   | { type: 'attack'; targetId: string }
+  | { type: 'firstAid'; targetId: string }
   | { type: 'flee' };
 
-/** AI 回合决策：攻击/逃跑两倾向(1-100)按相对权重定逃跑概率 fleeChance=flee/(attack+flee)；
- *  d100 ≤ fleeChance→逃；否则攻击敌对阵营存活目标(HP 最低优先)。无敌可打→撤。 */
-export function decideAiAction(self: Combatant, enc: Encounter, rng: Rng = defaultRng): AiAction {
+/** AI 决策模式:
+ *  - 'attack' 纯攻击,不考虑急救队友
+ *  - 'support' ally 优先急救濒死队友;无人需救才打
+ *  - 'mixed'(默认) 若有 HP/Max < 0.4 队友且自己急救 >= 30 → 50% 急救;其余攻击
+ *  设置 enemy 时 mode 无效(敌人永远攻击)。
+ */
+export type AiMode = 'attack' | 'support' | 'mixed';
+
+/** AI 回合决策:
+ *  - ally 在 mode='support'/'mixed' 时按 COC7e 急救规则优先救濒死队友;
+ *    急救对象筛选 HP/Max < 0.4(或 dying flag),自己急救 >= 30%。
+ *  - 否则按攻击/逃跑两倾向(1-100)按相对权重定逃跑概率 fleeChance=flee/(attack+flee);
+ *    d100 ≤ fleeChance→逃;否则攻击敌对阵营存活目标(HP 最低优先)。无敌可打→撤。 */
+export function decideAiAction(self: Combatant, enc: Encounter, rng: Rng = defaultRng, mode: AiMode = 'mixed'): AiAction {
+  // ally 急救判定:仅 ally 走该分支;mode='attack' 跳过
+  if (self.faction === 'ally' && mode !== 'attack') {
+    const firstAidSkill = self.firstAid ?? 30;
+    if (firstAidSkill >= 30) {
+      // 找需要急救的队友: 同 faction(ally/player) + 存活 + HP/Max < 0.4 或 dying
+      const allies = enc.combatants.filter((c) =>
+        (c.faction === 'ally' || c.faction === 'player') &&
+        c.id !== self.id &&
+        !c.flags.dead && !c.flags.unconscious && !c.flags.fled &&
+        (c.flags.dying || (c.maxHp > 0 && c.hp / c.maxHp < 0.4)),
+      );
+      if (allies.length > 0) {
+        // 优先血最少
+        const target = allies.reduce((lo, c) => (c.hp < lo.hp ? c : lo), allies[0]);
+        if (mode === 'support') return { type: 'firstAid', targetId: target.id };
+        // mixed: 50% 概率急救,50% 攻击(若 dying 则 80%)
+        const healChance = target.flags.dying ? 0.8 : 0.5;
+        if (rng() < healChance) return { type: 'firstAid', targetId: target.id };
+      }
+    }
+  }
   const hostile = self.faction === 'enemy' ? ['player', 'ally'] : ['enemy'];
   const targets = enc.combatants.filter((c) => hostile.includes(c.faction) && !c.flags.dead && !c.flags.unconscious && !c.flags.fled);
   if (targets.length === 0) return { type: 'flee' };
