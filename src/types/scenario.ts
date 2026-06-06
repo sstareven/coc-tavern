@@ -123,6 +123,14 @@ export interface ScenarioPatch {
   upsertBadEndings?: BadEnding[];
   patchMeta?: Partial<ScenarioMeta>;
   patchCharacters?: ScenarioCharacter[];
+
+  // 时代化职业/技能/技能黑名单变更 — 全部按 name 去重(同 name 覆盖,异 name 追加)
+  upsertOccupations?: Occupation[];
+  removeOccupationNames?: string[];
+  upsertCustomSkills?: ScenarioCustomSkill[];
+  removeCustomSkillNames?: string[];
+  addToBlacklist?: string[];
+  removeFromBlacklist?: string[];
 }
 
 // ---- 类型守卫（手写，不引 zod） ----

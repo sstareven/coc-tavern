@@ -3,6 +3,7 @@
 import { callDsSubagent } from '../sillytavern/subagent-call';
 import { hasDynamicMarker } from '../sillytavern/dynamic-markers';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { ALL_SKILLS, type Occupation } from '../sillytavern/coc-data';
 import type {
   ScenarioEntry,
   ScenarioCategory,
@@ -10,6 +11,7 @@ import type {
   ScenarioMeta,
   DarkPhase,
   BadEnding,
+  ScenarioCustomSkill,
 } from '../types/scenario';
 
 // M9 — system message 拆为静态共享段,跨命令共享以吃满 prompt 缓存(7 命令同一 hash)。
@@ -39,6 +41,21 @@ function buildUserFooter(role: string): string {
 // M6 — 直接用 callDsSubagent 已有的 parsed/parseError,不再自己 indexOf('{') 截取;
 //      含 EJS <% if ... { %> 的回显里 lastIndexOf('}') 截不准会出错。
 // A5 — 子调用抛 AbortError 时不能误诊为「JSON 解析失败」,要透传出去给上游 abort 处理。
+
+// JSON 解析失败专用 error,让 safeCallJson 仅吞这类错(网络/HTTP 5xx/限流继续上抛)
+export class ScenarioJsonParseError extends Error {
+  readonly label: string;
+  readonly snippet: string;
+  readonly parseError?: string;
+  constructor(label: string, snippet: string, parseError?: string) {
+    super(`[scenario-llm ${label}] JSON 解析失败:${parseError || '无 parsed 对象'};snippet=${JSON.stringify(snippet)}`);
+    this.name = 'ScenarioJsonParseError';
+    this.label = label;
+    this.snippet = snippet;
+    this.parseError = parseError;
+  }
+}
+
 async function callJson<T>(label: string, user: string, signal?: AbortSignal): Promise<T> {
   // 调用前先检查 abort,避免无意义发起
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -69,9 +86,7 @@ async function callJson<T>(label: string, user: string, signal?: AbortSignal): P
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   if (!parsed) {
     const snippet = (content || '').slice(0, 600);
-    throw new Error(
-      `[scenario-llm ${label}] JSON 解析失败:${parseError || '无 parsed 对象'};snippet=${JSON.stringify(snippet)}`,
-    );
+    throw new ScenarioJsonParseError(label, snippet, parseError);
   }
   return parsed as unknown as T;
 }
@@ -293,4 +308,145 @@ export async function injectEjsUnlock(
     '- key 用简体中文短语,1~3 个,反映条目所属秘密/解锁条件。',
   ].join('\n') + buildUserFooter('为剧本条目添加 EJS 条件解锁包装');
   return callJson<{ upsertEntries: ScenarioEntry[] }>('injectEjsUnlock', user, signal);
+}
+
+// ============================================================================
+// 时代化职业/技能池命令(Section 5)— spec §6
+//
+// 与前 7 命令的区别:
+// - JSON 解析失败 → 返回空 patch + console.warn,不抛错(spec §6.4: "JSON 解析失败 →
+//   不应用 patch + toast 报错；返回空数组合法")。前端 toast 由调用方根据 upsert*
+//   是否为空判断,本层不破坏 await 链。
+// - 共享 SHARED_SYSTEM_PROMPT + buildUserFooter(role) 走 prefix cache。
+// ============================================================================
+
+// 安全解析包装:JSON 解析失败时返回 fallback 并 warn;网络/HTTP 错 / AbortError 继续上抛
+// (let 调用方 toast 真实错因,而不是误读成"返回空")
+async function safeCallJson<T>(label: string, user: string, fallback: T, signal?: AbortSignal): Promise<T> {
+  try {
+    return await callJson<T>(label, user, signal);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err;
+    if (err instanceof ScenarioJsonParseError) {
+      // eslint-disable-next-line no-console
+      console.warn(`[scenario-llm ${label}] JSON 解析失败,使用空 patch fallback;`, err);
+      return fallback;
+    }
+    // 网络 / HTTP 4xx 5xx / 限流 等 — 不掩盖,让 UI 看到真实错因
+    throw err;
+  }
+}
+
+// 8) 时代化职业批量生成 — spec §6.1
+//    池外技能名收集到 suggestedNewSkills,UI 可一键加入 customSkills
+export async function generateCustomOccupations(
+  meta: ScenarioMeta,
+  existing: Occupation[],
+  n = 10,
+  signal?: AbortSignal,
+): Promise<{ upsertOccupations: Occupation[]; suggestedNewSkills?: string[] }> {
+  const existingNames = existing.map((o) => o.name);
+  const skillWhitelist = ALL_SKILLS.map((s) => s.name);
+  // D5 — 大块在前共享, role 名尾追。
+  const user = [
+    '剧本元信息:',
+    JSON.stringify(meta, null, 2),
+    '',
+    `请按时代背景生成 ${n} 个职业(Occupation),严禁与下列已存在职业重名:`,
+    JSON.stringify(existingNames),
+    '',
+    '【技能名白名单】(优先从中选择 8 个推荐技能)',
+    JSON.stringify(skillWhitelist),
+    '',
+    '【输出 JSON 示例】',
+    '{ "upsertOccupations": [ { "name": "罗马军团百夫长", "crMin": 30, "crMax": 60, "skills": ["战斗(剑)","聆听","侦查","说服","急救","攀爬","跳跃","聆听"] } ], "suggestedNewSkills": ["战车驾驶","古文献抄写"] }',
+    '',
+    '【规则】',
+    `- 生成数量:约 ${n} 条 Occupation,严格按时代背景(${meta.type}/${meta.blurb})合理化。`,
+    '- name: 时代特色职业名(罗马只允许罗马时代职业,禁止"会计/程序员"等现代名)。',
+    '- crMin/crMax: 0~99 整数,按时代社会结构合理(贵族 50-90 / 农奴 0-5)。',
+    '- skills: 长度为 8 的字符串数组,优先来自技能白名单。',
+    '- 若职业必需的技能不在白名单(如罗马的"战车驾驶"),将该技能名收集到 suggestedNewSkills 输出(顶层),职业 skills 字段仍可填入该名(后续由作者一键加入 customSkills)。',
+    '- suggestedNewSkills: 字符串数组,可省略或空数组。',
+  ].join('\n') + buildUserFooter(`为「${meta.name}」时代背景生成 ${n} 个职业`);
+  return safeCallJson<{ upsertOccupations: Occupation[]; suggestedNewSkills?: string[] }>(
+    'occ-gen',
+    user,
+    { upsertOccupations: [], suggestedNewSkills: [] },
+    signal,
+  );
+}
+
+// 9) 时代化自定义技能批量生成 — spec §6.2
+//    顺势察觉的不合时代标准技能收集到 suggestedBlacklist
+export async function generateCustomSkills(
+  meta: ScenarioMeta,
+  existing: ScenarioCustomSkill[],
+  n = 6,
+  signal?: AbortSignal,
+): Promise<{ upsertCustomSkills: ScenarioCustomSkill[]; suggestedBlacklist?: string[] }> {
+  const existingNames = existing.map((s) => s.name);
+  // D5 — 大块在前共享, role 名尾追。
+  const user = [
+    '剧本元信息:',
+    JSON.stringify(meta, null, 2),
+    '',
+    `请按时代背景生成 ${n} 个 ScenarioCustomSkill,严禁与下列已存在自定义技能重名:`,
+    JSON.stringify(existingNames),
+    '',
+    '【输出 JSON 示例】',
+    '{ "upsertCustomSkills": [ { "name": "骑马", "base": 5, "cat": "运动系", "desc": "罗马时代骑乘马匹的技巧。" }, { "name": "古文献抄写", "base": 10, "cat": "侦查系" } ], "suggestedBlacklist": ["汽车驾驶","计算机使用"] }',
+    '',
+    '【规则】',
+    `- 生成数量:约 ${n} 条 ScenarioCustomSkill,严格按时代背景(${meta.type}/${meta.blurb})合理化。`,
+    '- name: 时代特色技能名(罗马时代如"骑马"/"古文献抄写"/"战车驾驶"/"短剑投掷")。',
+    '- base: 数字(参考 COC 标准 5/10/20/25) 或字符串 "DEX_HALF" 或 "EDU" 三者之一。',
+    '- cat: 必须是固定 6 类之一:"侦查系" / "护理系" / "运动系" / "战斗系" / "交涉系" / "生活系"。',
+    '- desc: 可选,简体中文一句话描述。',
+    '- 若顺带察觉本剧本不应保留的标准 ALL_SKILLS 名(如罗马剧本里的"汽车驾驶"/"电气维修"),收集到 suggestedBlacklist(顶层字符串数组,可省略)。',
+  ].join('\n') + buildUserFooter(`为「${meta.name}」时代背景生成 ${n} 个自定义技能`);
+  return safeCallJson<{ upsertCustomSkills: ScenarioCustomSkill[]; suggestedBlacklist?: string[] }>(
+    'skill-gen',
+    user,
+    { upsertCustomSkills: [], suggestedBlacklist: [] },
+    signal,
+  );
+}
+
+// 10) 技能黑名单双向判定 — spec §6.3
+//     给出应加入/应移除的两组建议 + reasonMap 解释
+export async function proposeSkillBlacklist(
+  meta: ScenarioMeta,
+  currentBlacklist: string[],
+  signal?: AbortSignal,
+): Promise<{ addToBlacklist: string[]; removeFromBlacklist?: string[]; reasonMap?: Record<string, string> }> {
+  const allSkillNames = ALL_SKILLS.map((s) => s.name);
+  // D5 — 大块在前共享, role 名尾追。
+  const user = [
+    '剧本元信息:',
+    JSON.stringify(meta, null, 2),
+    '',
+    '【完整 ALL_SKILLS 列表】(候选黑名单源)',
+    JSON.stringify(allSkillNames),
+    '',
+    '【当前已勾选黑名单】',
+    JSON.stringify(currentBlacklist),
+    '',
+    '【输出 JSON 示例】',
+    '{ "addToBlacklist": ["汽车驾驶","电气维修","计算机使用"], "removeFromBlacklist": ["游泳"], "reasonMap": { "汽车驾驶": "罗马时代无汽车", "游泳": "罗马时代仍有渔民,不应禁" } }',
+    '',
+    '【规则】',
+    `- 双向判定:对比剧本背景(${meta.type}/${meta.blurb}),从 ALL_SKILLS 中找出:`,
+    '  a) 时代不通应禁但当前未禁 → addToBlacklist。',
+    '  b) 当前已禁但实际合理 → removeFromBlacklist。',
+    '- addToBlacklist / removeFromBlacklist 中的所有技能名必须出现在 ALL_SKILLS 列表里(否则白勾)。',
+    '- reasonMap: 可选 Record<string,string>,对每个建议给一句话简体中文解释,用于 UI hover。',
+    '- removeFromBlacklist / reasonMap 可省略或空对象。',
+  ].join('\n') + buildUserFooter(`为「${meta.name}」时代背景双向判定技能黑名单`);
+  return safeCallJson<{ addToBlacklist: string[]; removeFromBlacklist?: string[]; reasonMap?: Record<string, string> }>(
+    'blacklist',
+    user,
+    { addToBlacklist: [], removeFromBlacklist: [], reasonMap: {} },
+    signal,
+  );
 }

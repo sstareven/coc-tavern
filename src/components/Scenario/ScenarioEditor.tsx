@@ -12,6 +12,8 @@ import { CompanionChat } from './CompanionChat';
 import { MetaTab } from './tabs/MetaTab';
 import { LocationsTab } from './tabs/LocationsTab';
 import { PeopleTab } from './tabs/PeopleTab';
+import { OccupationsTab } from './tabs/OccupationsTab';
+import { SkillsTab } from './tabs/SkillsTab';
 import { FactionsTab } from './tabs/FactionsTab';
 import { ItemsTab } from './tabs/ItemsTab';
 import { DarkThreadsTab } from './tabs/DarkThreadsTab';
@@ -25,7 +27,7 @@ interface Props {
 }
 
 type TabKey =
-  | 'meta' | 'locations' | 'people' | 'factions'
+  | 'meta' | 'locations' | 'people' | 'occupations' | 'skills' | 'factions'
   | 'items' | 'dark' | 'secrets' | 'darkTimeline' | 'badEndings';
 
 interface TabDef { key: TabKey; label: string; hidden?: boolean }
@@ -34,6 +36,8 @@ const TABS: TabDef[] = [
   { key: 'meta', label: '元信息' },
   { key: 'locations', label: '地点' },
   { key: 'people', label: '人物' },
+  { key: 'occupations', label: '职业' },
+  { key: 'skills', label: '技能' },
   { key: 'factions', label: '势力' },
   { key: 'items', label: '物品线索' },
   { key: 'dark', label: '暗线' },
@@ -194,6 +198,8 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       case 'meta': return <MetaTab scn={working} onChange={onChange} />;
       case 'locations': return <LocationsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'people': return <PeopleTab scn={working} onChange={onChange} onToast={passToast} />;
+      case 'occupations': return <OccupationsTab scn={working} onChange={onChange} onToast={passToast} />;
+      case 'skills': return <SkillsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'factions': return <FactionsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'items': return <ItemsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'dark': return <DarkThreadsTab scn={working} onChange={onChange} onToast={passToast} />;

@@ -7,13 +7,19 @@ import type {
   ScenarioCategory,
   ScenarioCachePolicy,
   ScenarioCharacter,
+  ScenarioCustomSkill,
   DarkPhase,
   BadEnding,
   ScenarioMeta,
 } from '../types/scenario';
+import type { Occupation } from '../sillytavern/coc-data';
+import { ALL_SKILLS } from '../sillytavern/coc-data';
+import type { SkillCat } from '../sillytavern/coc-data';
 
 const SCENARIO_CATEGORIES_RUNTIME: ScenarioCategory[] = ['地点', '人物', '势力', '物品线索', '暗线', '秘密与解锁'];
 const CACHE_POLICIES_RUNTIME: ScenarioCachePolicy[] = ['static_prefix', 'dynamic_suffix', 'auto'];
+const SKILL_CATS_RUNTIME: SkillCat[] = ['侦查系', '护理系', '运动系', '战斗系', '交涉系', '生活系'];
+const ALL_SKILL_NAMES_RUNTIME: ReadonlySet<string> = new Set(ALL_SKILLS.map((s) => s.name));
 
 // 不可变应用 patch：每一段独立 reduce；返回新 doc；updatedAt 用当前 epoch ms
 export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
@@ -22,6 +28,9 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
   let badEndings = doc.badEndings;
   let meta = doc.meta;
   let characters = doc.characters;
+  let customOccupations = doc.customOccupations;
+  let customSkills = doc.customSkills;
+  let skillBlacklist = doc.skillBlacklist;
 
   // 1) upsertEntries — 按 id upsert，否则 push 末尾
   if (patch.upsertEntries && patch.upsertEntries.length > 0) {
@@ -90,6 +99,56 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     characters = [...mapped, ...appended];
   }
 
+  // 9) upsertOccupations — 按 name upsert(同 name 覆盖,异 name 追加)
+  if (patch.upsertOccupations && patch.upsertOccupations.length > 0) {
+    const incoming = new Map<string, Occupation>();
+    for (const o of patch.upsertOccupations) incoming.set(o.name, o);
+    const mapped = customOccupations.map((o) => (incoming.has(o.name) ? (incoming.get(o.name) as Occupation) : o));
+    const existedNames = new Set(customOccupations.map((o) => o.name));
+    const appended = patch.upsertOccupations.filter((o) => !existedNames.has(o.name));
+    customOccupations = [...mapped, ...appended];
+  }
+
+  // 10) removeOccupationNames — 按 name 过滤
+  if (patch.removeOccupationNames && patch.removeOccupationNames.length > 0) {
+    const removeSet = new Set(patch.removeOccupationNames);
+    customOccupations = customOccupations.filter((o) => !removeSet.has(o.name));
+  }
+
+  // 11) upsertCustomSkills — 按 name upsert
+  if (patch.upsertCustomSkills && patch.upsertCustomSkills.length > 0) {
+    const incoming = new Map<string, ScenarioCustomSkill>();
+    for (const s of patch.upsertCustomSkills) incoming.set(s.name, s);
+    const mapped = customSkills.map((s) => (incoming.has(s.name) ? (incoming.get(s.name) as ScenarioCustomSkill) : s));
+    const existedNames = new Set(customSkills.map((s) => s.name));
+    const appended = patch.upsertCustomSkills.filter((s) => !existedNames.has(s.name));
+    customSkills = [...mapped, ...appended];
+  }
+
+  // 12) removeCustomSkillNames — 按 name 过滤
+  if (patch.removeCustomSkillNames && patch.removeCustomSkillNames.length > 0) {
+    const removeSet = new Set(patch.removeCustomSkillNames);
+    customSkills = customSkills.filter((s) => !removeSet.has(s.name));
+  }
+
+  // 13) addToBlacklist — 集合并集(去重) + ALL_SKILLS 白名单过滤
+  //     不变量:skillBlacklist 必须是 ALL_SKILLS 中实际存在的技能名,否则白勾(SkillsTab
+  //     既看不见也无法清除,getScenarioSkillPool 也匹配不到任何 ALL_SKILLS 项)。LLM
+  //     幻觉名字会在此被静默剔除,与 SkillsTab.cleanBlacklist 行为对齐(spec §6.5)。
+  if (patch.addToBlacklist && patch.addToBlacklist.length > 0) {
+    const union = new Set<string>(skillBlacklist);
+    for (const n of patch.addToBlacklist) {
+      if (ALL_SKILL_NAMES_RUNTIME.has(n)) union.add(n);
+    }
+    skillBlacklist = Array.from(union);
+  }
+
+  // 14) removeFromBlacklist — 集合差集(过滤掉不存在的项天然成立)
+  if (patch.removeFromBlacklist && patch.removeFromBlacklist.length > 0) {
+    const removeSet = new Set(patch.removeFromBlacklist);
+    skillBlacklist = skillBlacklist.filter((n) => !removeSet.has(n));
+  }
+
   return {
     ...doc,
     meta,
@@ -97,6 +156,9 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     entries,
     darkTimeline,
     badEndings,
+    customOccupations,
+    customSkills,
+    skillBlacklist,
     updatedAt: Date.now(),
   };
 }
@@ -143,6 +205,27 @@ function isCharacterLike(x: unknown): x is ScenarioCharacter {
   return isObj(x) && isStr(x.id) && (x.role === 'protagonist' || x.role === 'optional' || x.role === 'locked_npc');
 }
 
+// Occupation 结构守卫:校验 name/crMin/crMax/skills(string[])
+function isOccupationLike(x: unknown): x is Occupation {
+  if (!isObj(x)) return false;
+  if (!isStr(x.name) || !isNum(x.crMin) || !isNum(x.crMax)) return false;
+  if (!Array.isArray(x.skills) || !x.skills.every(isStr)) return false;
+  return true;
+}
+
+// ScenarioCustomSkill 结构守卫:校验 name/base/cat 含枚举校验
+// 与 spec §6.5 "轻量结构校验"的妥协:cat 枚举校验代价低,但能挡掉 LLM 幻觉的 '奇幻系'
+// 让脏 entry 入库后 UI 选择器无法编辑(SkillsTab 6 类下拉)。补此守卫与项目其它枚举
+// 守卫(SCENARIO_CATEGORIES_RUNTIME/CACHE_POLICIES_RUNTIME)风格对齐。
+function isCustomSkillLike(x: unknown): x is ScenarioCustomSkill {
+  if (!isObj(x)) return false;
+  if (!isStr(x.name)) return false;
+  if (!(isNum(x.base) || x.base === 'DEX_HALF' || x.base === 'EDU')) return false;
+  if (!isStr(x.cat) || !SKILL_CATS_RUNTIME.includes(x.cat as SkillCat)) return false;
+  if (x.desc !== undefined && !isStr(x.desc)) return false;
+  return true;
+}
+
 // 任一字段缺失即视为该字段不存在；任一字段存在但类型错则返回 false
 export function validateScenarioPatch(p: unknown): p is ScenarioPatch {
   if (!isObj(p)) return false;
@@ -178,6 +261,24 @@ export function validateScenarioPatch(p: unknown): p is ScenarioPatch {
   }
   if (obj.patchCharacters !== undefined) {
     if (!Array.isArray(obj.patchCharacters) || !obj.patchCharacters.every(isCharacterLike)) return false;
+  }
+  if (obj.upsertOccupations !== undefined) {
+    if (!Array.isArray(obj.upsertOccupations) || !obj.upsertOccupations.every(isOccupationLike)) return false;
+  }
+  if (obj.removeOccupationNames !== undefined) {
+    if (!Array.isArray(obj.removeOccupationNames) || !obj.removeOccupationNames.every(isStr)) return false;
+  }
+  if (obj.upsertCustomSkills !== undefined) {
+    if (!Array.isArray(obj.upsertCustomSkills) || !obj.upsertCustomSkills.every(isCustomSkillLike)) return false;
+  }
+  if (obj.removeCustomSkillNames !== undefined) {
+    if (!Array.isArray(obj.removeCustomSkillNames) || !obj.removeCustomSkillNames.every(isStr)) return false;
+  }
+  if (obj.addToBlacklist !== undefined) {
+    if (!Array.isArray(obj.addToBlacklist) || !obj.addToBlacklist.every(isStr)) return false;
+  }
+  if (obj.removeFromBlacklist !== undefined) {
+    if (!Array.isArray(obj.removeFromBlacklist) || !obj.removeFromBlacklist.every(isStr)) return false;
   }
 
   return true;
