@@ -1,0 +1,178 @@
+// 剑见箭 · 古典战阵 — 古典冷兵器战场背景下的神话调查
+// 源: COCExtends.pdf 第 4 章「剑见箭」(原书为战斗规则变体，本剧本将其包装为一段战阵剧本)
+import type { ScenarioDoc } from '../../types/scenario';
+
+export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
+  id: 'sc-blade-and-arrow',
+  builtin: true,
+  meta: {
+    name: '剑见箭 · 古典战阵',
+    type: '战斗',
+    durationHint: '3-5h',
+    difficulty: 4,
+    headcountHint: '3-5 调查员',
+    sanLossHint: '中',
+    blurb: '两军对垒前的最后一夜。敌阵前方的山脊上，有一只插旗的人形，远超人类的高度。今夜你不是去赢一场战，而是去阻止某种不该被请上战场的存在。',
+    coverEmoji: '⚔',
+  },
+  prologueSeed: `营地的篝火稀稀疏疏，士兵们绕着火堆，磨着武器，赌着筛子，谁也没真正在笑。明日的会战是双方都准备了半年的事——本应是一场两军对垒的常规决战。但今天傍晚以来，斥候带回的消息越来越古怪：敌方阵营前方的山脊上立了一只「插旗的人」，远远看去比人高出三倍；夜里营前的草地上长出从没见过的菌类；前来送水的村妇当中有一位的瞳孔在火光下整夜没有缩过。
+
+将军在你帐前找到你，把一只刻着旧符号的青铜环放在你手里。「这东西，是上一辈将军交给我的，让我在战场看到不正常的事情时去找带这种东西的人。」他说。「我不知道敌方为什么有把握赢这场战——但我猜对方知道一些我们不知道的事。在天亮之前，你去查清楚。」
+
+你的呼吸冒着白汽。山脊上那只「插旗的人」一直没有动。它在等什么。`,
+  recommendedSkills: [
+    '格斗(短剑/长剑/斧)',
+    '射击(弓/弩)',
+    '闪避',
+    '战术',
+    '聆听',
+    '侦查',
+    '生存',
+    '克苏鲁神话',
+    '急救',
+  ],
+  recommendedOccupations: ['战士', '弓手', '盾牌兵', '骑士', '雇佣兵', '将领副官', '军医'],
+  characters: [],
+  entries: [
+    {
+      id: 'e_ba_camp',
+      category: '地点',
+      comment: '己方军营',
+      keys: '军营, 营帐, 篝火',
+      content:
+        '依山而建的临时军营，主帐居中，左右伸出炊事、医务、武器与马厩等支营。前哨设在三个方向，夜间换岗严格。营内秩序井然但气氛压抑——所有人都知道明天的会战是大事。',
+      constant: true,
+      position: 0,
+      priority: 10,
+      cachePolicy: 'static_prefix',
+    },
+    {
+      id: 'e_ba_ridge',
+      category: '地点',
+      comment: '敌方山脊',
+      keys: '山脊, 插旗, 人形',
+      content:
+        '约一里外的山脊，与敌营隔着一道矮溪。山脊上有一只插旗的人形，旗杆刻着不认识的符号。\n<% if (getvar(\'剧情.已解锁.山脊真相\') === \'true\') { %>\n那不是插旗的人——是一只被钉在地上的、外形像人却高三倍的存在；它「活着」，但被某种仪式锁定在此处充当某种「领示」。它的眼皮夜里偶尔会眨动。\n<% } %>',
+      constant: false,
+      position: 0,
+      priority: 40,
+      cachePolicy: 'dynamic_suffix',
+    },
+    {
+      id: 'e_ba_general',
+      category: '人物',
+      comment: '将军',
+      keys: '将军, 主帅',
+      content:
+        '统兵多年的老将，五十出头，脸上有横贯眉骨的旧伤。沉稳寡言，对部下不分贵贱。把那只青铜环交给调查员时，他说了一句：「你若死了，环子带回；你若活着，再来跟我说话。」',
+      constant: false,
+      position: 0,
+      priority: 35,
+      cachePolicy: 'auto',
+    },
+    {
+      id: 'e_ba_enemy_cult',
+      category: '势力',
+      comment: '敌方阵中密教',
+      keys: '密教, 敌阵, 异教',
+      content:
+        '敌军主帅本人未必参与，但他帐下有一支由「祭司」组成的小队。这些人不在编制内，全军没人能详细说出他们的身份。他们在战前几日反复绕着山脊那只「插旗的人」做仪式。',
+      constant: false,
+      position: 0,
+      priority: 30,
+      cachePolicy: 'auto',
+    },
+    {
+      id: 'e_ba_bronze_ring',
+      category: '物品线索',
+      comment: '青铜符环',
+      keys: '青铜环, 符环, 古符',
+      content:
+        '将军交给你的青铜环，比拳头略小，雕刻五道古老的符号。佩戴时能感到对方阵中那群「祭司」的位置——不是看见，是知道。环子在接近山脊那只「人形」时会发热。',
+      constant: false,
+      position: 0,
+      priority: 50,
+      cachePolicy: 'static_prefix',
+    },
+    {
+      id: 'e_ba_dark_thread',
+      category: '暗线',
+      comment: '战场召请',
+      keys: '召请, 战场, 旧神',
+      content:
+        '敌军中那批「祭司」试图在明日的会战中以双方的战死者为祭，召请一只栖息于战争之中的旧神化身。他们已经布置了仪式的三个支点——山脊那只领示物、营前菌圈、村妇之中的「容器」——只剩点火（开战）。',
+      constant: false,
+      position: 0,
+      priority: 60,
+      cachePolicy: 'auto',
+      hidden: true,
+    },
+    {
+      id: 'e_ba_unlock_ridge',
+      category: '秘密与解锁',
+      comment: '深层秘密 · 山脊真相',
+      keys: '山脊真相',
+      content: '玩家若靠近山脊在 200 步以内并做相应检定，解锁此键。',
+      constant: false,
+      position: 0,
+      priority: 5,
+      cachePolicy: 'static_prefix',
+      hidden: true,
+    },
+  ],
+  darkTimeline: [
+    {
+      id: 'dp_ba_1',
+      threshold: 0,
+      title: '战前夜',
+      triggers: ['前哨听到非鸟非兽的叫声', '马匹烦躁不安', '青铜环不规则发热', '士兵中有人主动找祭司求护身符'],
+      directorNote: '夜尚未深。玩家有较多时间侦查、找人、跨营潜行。',
+      autoUnlockKeys: [],
+    },
+    {
+      id: 'dp_ba_2',
+      threshold: 25,
+      title: '凌晨备战',
+      triggers: ['炊事开始', '军医准备绷带', '将军开战前训话', '敌阵中能看到火把移动'],
+      directorNote: '时间窗口收窄。玩家若仍在敌营或山脊附近，回营需要解决夜路与晨雾的双重难题。',
+      autoUnlockKeys: ['战前焦灼'],
+    },
+    {
+      id: 'dp_ba_3',
+      threshold: 50,
+      title: '会战开始',
+      triggers: ['号角响起', '两军推进', '青铜环灼烫', '山脊人形开始流出黑色雾'],
+      directorNote: '仪式的「点火」已经发生。所有战死者会被自动卷入仪式。玩家必须在战中阻止仪式三支点之一。',
+      autoUnlockKeys: ['仪式点火'],
+    },
+    {
+      id: 'dp_ba_4',
+      threshold: 75,
+      title: '阵线崩坏',
+      triggers: ['己方阵线被冲散', '受伤的同袍突然站起继续战斗', '黑雾从山脊蔓延至营前', '空中出现非鸟非云的影'],
+      directorNote: '仪式逼近完成。化身正在凝实。这是最后阻止机会。',
+      autoUnlockKeys: ['化身凝实'],
+    },
+  ],
+  badEndings: [
+    {
+      id: 'be_ba_avatar_walks',
+      condition: '暗线 ≥75 且仪式三支点都未被破坏',
+      narrative:
+        '化身在战场中央踱步而出。它的脚踩进尸堆中，没有声音。双方士兵停下兵刃，仰面望它。它低下头，看了一眼山脊上那只领示物，再看一眼远方。然后它转身，朝着南方城市方向走去。它每走一步，地面下沉一寸。明天它将抵达最近的城邦。后天，那座城邦不再属于人。',
+      accelerators: ['只顾保命未阻止仪式', '与敌方密教私下议和', '靠近山脊却未做处理'],
+    },
+    {
+      id: 'be_ba_personal_kill',
+      condition: '调查员在会战中目睹仪式而 SAN 损失累计 >20',
+      narrative:
+        '调查员战后被同袍发现独自坐在山脊那只「人形」脚下，把青铜环戴在自己头上，眼神平静。他/她从此不再说一句完整的话，但每一次大战之前都会出现在另一支军队的营地里。各军把他/她当作不祥之兆。',
+      accelerators: ['长时间凝视山脊', '多次靠近祭司却不阻止', '佩戴青铜环时间过久'],
+    },
+  ],
+  authorNotes:
+    '基调：「战场上的克苏鲁不是天降异象，而是事先布置好的祭祀机器。」节奏可压缩得很紧（一夜+一战），适合作为高密度的单场剧本。建议守秘人多用「时间倒计时」类压迫感。',
+  schemaVersion: 1,
+  createdAt: 0,
+  updatedAt: 0,
+};

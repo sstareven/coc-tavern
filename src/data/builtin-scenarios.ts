@@ -1,5 +1,13 @@
 // 内置剧本常量（首装幂等种入）—— 参见 spec §7
 import type { ScenarioDoc } from '../types/scenario';
+import { SCENARIO_ROME_CTHULHU } from './scenarios/rome-cthulhu';
+import { SCENARIO_DARK_AGES } from './scenarios/dark-ages';
+import { SCENARIO_MYSTIC_ICELAND } from './scenarios/mystic-iceland';
+import { SCENARIO_BLADE_AND_ARROW } from './scenarios/blade-and-arrow';
+import { SCENARIO_GASLIGHT } from './scenarios/gaslight';
+import { SCENARIO_DREAMLANDS } from './scenarios/dreamlands';
+import { SCENARIO_ICARUS } from './scenarios/icarus';
+import { SCENARIO_HARVEST } from './scenarios/harvest';
 
 // 自由探索:1920 马萨诸塞氛围,无预设角色/条目/暗线,纯兜底
 export const FREE_EXPLORATION_SCENARIO: ScenarioDoc = {
@@ -33,7 +41,17 @@ export const FREE_EXPLORATION_SCENARIO: ScenarioDoc = {
   updatedAt: 0,
 };
 
-// PDF 抽取的剧本占位 —— 由并行 PDF 工作流回填(spec §7.2 / §11 桶 J)
-export const PDF_EXTRACTED_SCENARIOS: ScenarioDoc[] = [];
+// PDF 抽取的剧本：8 个时代设定（克苏鲁不败 / 黑暗时代 / 神秘冰岛 / 剑见箭 / 煤气灯 / 幻梦境 / 伊卡洛斯 / 收割）
+// 源：COCExtends.pdf (Cthulhu Through the Ages)
+export const PDF_EXTRACTED_SCENARIOS: ScenarioDoc[] = [
+  SCENARIO_ROME_CTHULHU,
+  SCENARIO_DARK_AGES,
+  SCENARIO_MYSTIC_ICELAND,
+  SCENARIO_BLADE_AND_ARROW,
+  SCENARIO_GASLIGHT,
+  SCENARIO_DREAMLANDS,
+  SCENARIO_ICARUS,
+  SCENARIO_HARVEST,
+];
 
 export const BUILTIN_SCENARIOS: ScenarioDoc[] = [FREE_EXPLORATION_SCENARIO, ...PDF_EXTRACTED_SCENARIOS];
