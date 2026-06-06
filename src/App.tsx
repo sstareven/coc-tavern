@@ -134,7 +134,6 @@ export function App() {
           border: '2px solid rgba(196,168,85,0.15)', borderTopColor: 'var(--gold)',
           animation: 'spin 0.9s linear infinite',
         }} />
-        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
       </div>
     );
   }

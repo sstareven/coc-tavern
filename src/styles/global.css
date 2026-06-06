@@ -14,6 +14,11 @@ html, body {
 /* 渲染隔断：长列表行用浏览器原生 content-visibility 跳过视口外行的布局/绘制 */
 .cv-row { content-visibility: auto; contain-intrinsic-size: auto 40px; }
 
+/* 全局 spinner keyframes — 给所有 inline animation: 'spin Xs linear infinite' 用。
+ * 之前只在 App.tsx splash 屏内 <style> 注册,splash 不渲染时其他 spinner(如剧本激活
+ * loading 覆盖层)就静止;提到全局解此死锁。 */
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* 剧本编辑器铜版风滚动条 — 所有 .scenario-editor 子元素自动套用
  * 替代浏览器默认丑陋滚动条;触发点是元素 overflow:auto/scroll 时显示。
  * Firefox 用 scrollbar-color/scrollbar-width;WebKit 用 ::-webkit-scrollbar 伪元素。 */
