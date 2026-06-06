@@ -74,8 +74,10 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
   // 4 个 LLM 入口共享一个 abortRef:任一新调用前/切 tab/卸载时全 abort,避免回调写入过期状态
   const abortRef = useRef<AbortController | null>(null);
 
-  // 切 category(等价于 tab 切换)或卸载时,abort 进行中的请求
+  // 切 category(等价于 tab 切换)或卸载时,abort 进行中的请求 + 清掉跨 tab 的 selectedId
+  // (selectedId 跨 category 残留会让右侧详情渲染当前 tab 看不到的 entry,操作按钮误伤)。
   useEffect(() => {
+    setSelectedId(null);
     return () => { abortRef.current?.abort(); };
   }, [category]);
 

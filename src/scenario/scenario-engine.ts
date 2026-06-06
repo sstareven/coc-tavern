@@ -393,7 +393,10 @@ export function unloadScenario(scenarioId: string): void {
  * 与 activateScenario 的区别:
  *   - 不动 sheet / NPC / inventory / MVU / page0 / sessionScenarioId — 这些已由 loadConversation 还原;
  *   - 不调 extractInitialItems / expandPrologueToPage — 这些是「新游戏」副作用,读档已有结果;
- *   - 仅 step 3(挂 book) + step 3 附带的 applyScenarioMapLocations(地图节点重建)。
+ *   - 仅 step 3(挂 book)。
+ *   - 不调 applyScenarioMapLocations:读档时 sessionLifecycle.replaceAll(map)
+ *     已恢复玩家编辑后的地图状态;若 mountScenarioBook 再追加默认地点,玩家
+ *     游戏中删除/重命名的地点会被悄悄重生。地图同步只在 activateScenario 首激活跑。
  *
  * 也会先等 pendingUnloads 完成(同 activateScenario 的竞争防御):若 clearAllGameState 的
  * fire-and-forget unload 尚未 settle,本函数等它 settle 再 upsert,保证最终态是「book 挂着」。
@@ -419,7 +422,7 @@ export async function mountScenarioBook(scenarioId: string): Promise<void> {
     enabled: true,
     entries: scenarioEntriesToLoreEntries(scn.entries),
   });
-  applyScenarioMapLocations(scn.entries);
+  // 不调 applyScenarioMapLocations:见上方 mountScenarioBook 注释,地点同步仅在首激活路径。
 }
 
 /**

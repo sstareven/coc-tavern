@@ -11,6 +11,10 @@ interface Props {
   ariaLabel: string;
 }
 
+// 模块级 close 栈:多层 ModalShell 同开时,ESC 只触发栈顶最深一层。
+// 不用 document 单 listener 一刀切是为了保留 React 组件局部生命周期。
+const modalCloseStack: Array<() => void> = [];
+
 export function ModalShell({ open, onClose, zIndex = 1000, children, ariaLabel }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -18,14 +22,20 @@ export function ModalShell({ open, onClose, zIndex = 1000, children, ariaLabel }
 
   useEffect(() => {
     if (!open) return;
+    modalCloseStack.push(onClose);
     const handleKeyDown = (ev: KeyboardEvent): void => {
-      if (ev.key === 'Escape') {
-        ev.stopPropagation();
-        onClose();
-      }
+      if (ev.key !== 'Escape') return;
+      // 只有栈顶最深 modal 响应,嵌套时一次 ESC 只关一层
+      if (modalCloseStack[modalCloseStack.length - 1] !== onClose) return;
+      ev.stopPropagation();
+      onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      const idx = modalCloseStack.lastIndexOf(onClose);
+      if (idx >= 0) modalCloseStack.splice(idx, 1);
+    };
   }, [open, onClose]);
 
   if (!open) return null;
