@@ -77,22 +77,21 @@ export async function activateScenario(
     entries: scenarioEntriesToLoreEntries(scn.entries),
   });
 
-  // ── 4. 初始物品（仅 newChar，preset 角色卡已含装备）─────────────────
-  if (mode === 'newChar') {
-    const raw = (scn.characters[charIdx ?? 0]?.sheet.initialItemsRaw ?? '').trim();
-    // 注：若 newChar 模式下尚未走完 CharacterCreator(Step 5 才填 initialItemsRaw)，
-    // raw 通常为空——真正的初始物品抽取由 CharacterCreator 完成后再触发；此处仅处理剧本内嵌的默认初始物品。
-    if (raw) {
-      try {
-        const items = await extractInitialItems(raw);
-        if (items.length > 0) {
-          useInventoryStore.getState().applyChanges(
-            items.map((i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i })),
-          );
-        }
-      } catch (err) {
-        console.warn('[scenario-engine] 初始物品抽取失败，已跳过：', err);
+  // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
+  // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
+  // preset:  step 1 setSheet(proto.sheet) 已把预设角色的 initialItemsRaw 写到 useCharSheetStore
+  // 统一从 useCharSheetStore 取，两种模式一致处理
+  const raw = (useCharSheetStore.getState().sheet.initialItemsRaw ?? '').trim();
+  if (raw) {
+    try {
+      const items = await extractInitialItems(raw);
+      if (items.length > 0) {
+        useInventoryStore.getState().applyChanges(
+          items.map((i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i })),
+        );
       }
+    } catch (err) {
+      console.warn('[scenario-engine] 初始物品抽取失败，已跳过：', err);
     }
   }
 
