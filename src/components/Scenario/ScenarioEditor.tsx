@@ -18,6 +18,8 @@ import { FactionsTab } from './tabs/FactionsTab';
 import { ItemsTab } from './tabs/ItemsTab';
 import { DarkThreadsTab } from './tabs/DarkThreadsTab';
 import { SecretsTab } from './tabs/SecretsTab';
+import { DarkTimelineTab } from './tabs/DarkTimelineTab';
+import { BadEndingsTab } from './tabs/BadEndingsTab';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -204,14 +206,8 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       case 'items': return <ItemsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'dark': return <DarkThreadsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'secrets': return <SecretsTab scn={working} onChange={onChange} onToast={passToast} />;
-      case 'darkTimeline':
-      case 'badEndings':
-        return (
-          <div style={{
-            padding: 24, color: 'var(--ink, #8a7a52)',
-            fontSize: 12, fontFamily: 'var(--font-ui)', textAlign: 'center',
-          }}>(占位) 此 tab 由 F1/F2 任务实现</div>
-        );
+      case 'darkTimeline': return <DarkTimelineTab scn={working} onChange={onChange} />;
+      case 'badEndings': return <BadEndingsTab scn={working} onChange={onChange} />;
     }
   };
 
