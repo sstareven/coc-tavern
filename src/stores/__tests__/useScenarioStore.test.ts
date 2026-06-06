@@ -8,7 +8,8 @@ function makeUserDoc(id: string, name: string): ScenarioDoc {
     id, builtin: false,
     meta: { name, type: '调查', durationHint: '3-5h', difficulty: 2, headcountHint: '1人', sanLossHint: '中', blurb: '' },
     prologueSeed: '', recommendedSkills: [], recommendedOccupations: [],
-    characters: [], entries: [], darkTimeline: [], badEndings: [],
+    characters: [], customOccupations: [], customSkills: [], skillBlacklist: [],
+    entries: [], darkTimeline: [], badEndings: [],
     authorNotes: '', schemaVersion: 1, createdAt: 1, updatedAt: 1,
   };
 }

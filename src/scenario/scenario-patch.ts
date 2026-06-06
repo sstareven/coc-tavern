@@ -140,7 +140,7 @@ function isBadEndingLike(x: unknown): x is BadEnding {
 }
 
 function isCharacterLike(x: unknown): x is ScenarioCharacter {
-  return isObj(x) && isStr(x.id) && (x.role === 'protagonist_candidate' || x.role === 'npc_only');
+  return isObj(x) && isStr(x.id) && (x.role === 'protagonist' || x.role === 'optional' || x.role === 'locked_npc');
 }
 
 // 任一字段缺失即视为该字段不存在；任一字段存在但类型错则返回 false

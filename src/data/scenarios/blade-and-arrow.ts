@@ -234,6 +234,9 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「战场上的克苏鲁不是天降异象，而是事先布置好的祭祀机器。」节奏可压缩得很紧（一夜+一战），适合作为高密度的单场剧本。建议守秘人多用「时间倒计时」类压迫感。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

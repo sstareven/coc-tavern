@@ -1,5 +1,6 @@
 // 剧本系统类型 — 参见 docs/specs/2026-06-06-scenario-system-design.md §3
 import type { CharacterSheet } from './index';
+import type { Occupation, SkillCat } from '../sillytavern/coc-data';
 
 // 当前 schema 版本号；migrateScenario 据此判断是否需要升级
 export const CURRENT_SCENARIO_SCHEMA_VERSION = 1 as const;
@@ -25,9 +26,15 @@ export interface ScenarioEntry {
   hidden?: boolean; // 编辑模式独有的「未解锁/伏笔」条目；玩家模式视为禁用
 }
 
+// NPC 三档:
+// - protagonist  推荐视角(顶部出现在抽屉里,加金边)
+// - optional     配角可玩(下沉到"配角视角"分区,玩家可越界玩)
+// - locked_npc   剧本钉死不可选(反派/序章死者/关键 NPC),抽屉里不出现
+export type ScenarioCharacterRole = 'protagonist' | 'optional' | 'locked_npc';
+
 export interface ScenarioCharacter {
   id: string;
-  role: 'protagonist_candidate' | 'npc_only';
+  role: ScenarioCharacterRole;
   sheet: CharacterSheet; // 完整复用现有 CharacterSheet
   npcAttrs: {
     identityTag: string;
@@ -37,6 +44,14 @@ export interface ScenarioCharacter {
     publicBio: string; // 玩家可见
     hiddenBio: string; // 仅编辑模式可见
   };
+}
+
+// 时代化技能定义:剧本可声明本时代特有技能(骑马/咒语吟唱/驾飞船),并入 ALL_SKILLS
+export interface ScenarioCustomSkill {
+  name: string;
+  base: number | 'DEX_HALF' | 'EDU';
+  cat: SkillCat;
+  desc?: string;
 }
 
 export interface DarkPhase {
@@ -76,6 +91,14 @@ export interface ScenarioDoc {
   recommendedSkills: string[];
   recommendedOccupations: string[];
   characters: ScenarioCharacter[];
+
+  // 时代化职业/技能池:控制 CharCreator StepSkills 看到的下拉与技能网格
+  // - customOccupations 非空 → 完全隔离,只显示本剧本职业(详见 scenario-pools.ts)
+  // - customSkills 加入 ALL_SKILLS 后呈现(如"骑马/咒语吟唱")
+  // - skillBlacklist 从 ALL_SKILLS 中剔除(如罗马剧本禁"汽车驾驶")
+  customOccupations: Occupation[];
+  customSkills: ScenarioCustomSkill[];
+  skillBlacklist: string[];
 
   // 世界书级条目
   entries: ScenarioEntry[];
@@ -136,7 +159,7 @@ function isScenarioEntry(x: unknown): x is ScenarioEntry {
 function isScenarioCharacter(x: unknown): x is ScenarioCharacter {
   if (!isObj(x)) return false;
   if (!isStr(x.id)) return false;
-  if (x.role !== 'protagonist_candidate' && x.role !== 'npc_only') return false;
+  if (x.role !== 'protagonist' && x.role !== 'optional' && x.role !== 'locked_npc') return false;
   if (!isObj(x.sheet)) return false; // 不深检 CharacterSheet，结构由上游保证
   if (!isObj(x.npcAttrs)) return false;
   const n = x.npcAttrs;
@@ -148,6 +171,25 @@ function isScenarioCharacter(x: unknown): x is ScenarioCharacter {
     isStr(n.publicBio) &&
     isStr(n.hiddenBio)
   );
+}
+
+// Occupation/customSkill 的轻量结构守卫:校验关键字段存在 + 类型正确,不深检 SkillCat 取值
+// (CAT 由 coc-data 控制,外部 JSON 灌入只要是字符串即可,运行时显示按 catColor[?cat] 取色,缺色用 default)
+function isOccupationLike(x: unknown): boolean {
+  if (!isObj(x)) return false;
+  return (
+    isStr(x.name) &&
+    isNum(x.crMin) &&
+    isNum(x.crMax) &&
+    Array.isArray(x.skills) &&
+    x.skills.every(isStr)
+  );
+}
+
+function isCustomSkillLike(x: unknown): boolean {
+  if (!isObj(x)) return false;
+  const baseOk = isNum(x.base) || x.base === 'DEX_HALF' || x.base === 'EDU';
+  return isStr(x.name) && baseOk && isStr(x.cat);
 }
 
 function isDarkPhase(x: unknown): x is DarkPhase {
@@ -192,6 +234,9 @@ export function isValidScenarioDoc(x: unknown): x is ScenarioDoc {
   if (!isStrArr(x.recommendedSkills)) return false;
   if (!isStrArr(x.recommendedOccupations)) return false;
   if (!Array.isArray(x.characters) || !x.characters.every(isScenarioCharacter)) return false;
+  if (!Array.isArray(x.customOccupations) || !x.customOccupations.every(isOccupationLike)) return false;
+  if (!Array.isArray(x.customSkills) || !x.customSkills.every(isCustomSkillLike)) return false;
+  if (!isStrArr(x.skillBlacklist)) return false;
   if (!Array.isArray(x.entries) || !x.entries.every(isScenarioEntry)) return false;
   if (!Array.isArray(x.darkTimeline) || !x.darkTimeline.every(isDarkPhase)) return false;
   if (!Array.isArray(x.badEndings) || !x.badEndings.every(isBadEnding)) return false;

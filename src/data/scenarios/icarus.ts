@@ -236,6 +236,9 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「太空中的孤立 + 旧神 = 无处可逃」。建议守秘人多用 AI 缓存式语言、低频音、菱形冰晶的反复出现来制造迫近感。本剧本可作单场高强度奔袭，也可拆作连载。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

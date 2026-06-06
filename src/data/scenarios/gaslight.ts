@@ -248,6 +248,9 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「雾里的事，雾里办」。维多利亚伦敦本身就是个完美的克苏鲁舞台——阶级、雾、煤气灯、新闻、新兴科学与古老迷信并存。调查节奏可以慢，氛围必须细。建议守秘人多用气味与声音作意象。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

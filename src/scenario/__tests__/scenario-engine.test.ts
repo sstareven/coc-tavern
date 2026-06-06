@@ -111,6 +111,9 @@ function emptyDoc(over: Partial<ScenarioDoc> = {}): ScenarioDoc {
     recommendedSkills: [],
     recommendedOccupations: [],
     characters: [],
+    customOccupations: [],
+    customSkills: [],
+    skillBlacklist: [],
     entries: [],
     darkTimeline: [],
     badEndings: [],
@@ -156,7 +159,7 @@ describe('D1 — activateScenario 失败回滚', () => {
     const doc = emptyDoc({
       characters: [{
         id: 'c1',
-        role: 'protagonist_candidate',
+        role: 'protagonist',
         sheet: {} as never,
         npcAttrs: {
           identityTag: '', attitudeDefault: 0, relationshipDefault: '',
@@ -172,11 +175,11 @@ describe('D1 — activateScenario 失败回滚', () => {
     expect(setSessionScenarioMock).not.toHaveBeenCalled();
   });
 
-  it('preset 模式 charIdx 指向 npc_only → throw', async () => {
+  it('preset 模式 charIdx 指向 locked_npc → throw', async () => {
     const doc = emptyDoc({
       characters: [{
         id: 'c1',
-        role: 'npc_only',
+        role: 'locked_npc',
         sheet: {} as never,
         npcAttrs: {
           identityTag: '', attitudeDefault: 0, relationshipDefault: '',
@@ -186,7 +189,7 @@ describe('D1 — activateScenario 失败回滚', () => {
     });
     getByIdMock.mockReturnValue(doc);
 
-    await expect(activateScenario('sc-1', 'preset', 0)).rejects.toThrow(/不可扮演/);
+    await expect(activateScenario('sc-1', 'preset', 0)).rejects.toThrow(/锁定不可扮演/);
     expect(upsertBookMock).not.toHaveBeenCalled();
   });
 });

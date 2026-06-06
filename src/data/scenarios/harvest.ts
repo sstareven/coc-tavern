@@ -236,6 +236,9 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「绝境之中还有更深的绝望」。这是 8 个剧本里 SAN 损耗最重的，请守秘人配合调整生命与精神状态。建议突出资源匮乏、人际信任、克制的英雄主义。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

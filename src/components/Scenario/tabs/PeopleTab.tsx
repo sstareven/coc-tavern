@@ -23,7 +23,7 @@ function uuid(): string {
 function makeBlankCharacter(): ScenarioCharacter {
   return {
     id: uuid(),
-    role: 'protagonist_candidate',
+    role: 'protagonist',
     sheet: JSON.parse(JSON.stringify(defaultSheet)),
     npcAttrs: {
       identityTag: '',
@@ -35,6 +35,13 @@ function makeBlankCharacter(): ScenarioCharacter {
     },
   };
 }
+
+// role 三档显示标签
+const ROLE_LABELS: Record<ScenarioCharacter['role'], string> = {
+  protagonist: '推荐视角',
+  optional: '配角可玩',
+  locked_npc: '钉死 NPC',
+};
 
 export function PeopleTab({ scn, onChange, onToast }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -139,7 +146,7 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                   >
                     <div style={{ fontSize: 12.5, color: active ? 'var(--gold)' : 'var(--text-light)' }}>{name}</div>
                     <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)' }}>
-                      {c.role === 'protagonist_candidate' ? '可玩' : '仅 NPC'}
+                      {ROLE_LABELS[c.role]}
                     </div>
                   </button>
                 );
@@ -169,8 +176,9 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                       value={selected.role}
                       onChange={(e) => patchSelected({ role: e.target.value as ScenarioCharacter['role'] })}
                     >
-                      <option value="protagonist_candidate">可玩</option>
-                      <option value="npc_only">仅 NPC</option>
+                      <option value="protagonist">推荐视角</option>
+                      <option value="optional">配角可玩</option>
+                      <option value="locked_npc">钉死 NPC(玩家不可选)</option>
                     </select>
                   </Row>
                 </div>

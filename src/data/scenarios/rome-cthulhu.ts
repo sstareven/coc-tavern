@@ -248,6 +248,9 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「文明的秩序与远古的混沌正面相撞，但秩序未必能赢」。建议守秘人多用罗马式的庄重词汇与拉丁短句作氛围。NPC 的死亡可以是优雅的、合礼的——这与他们所面对的恐怖形成强烈反差。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

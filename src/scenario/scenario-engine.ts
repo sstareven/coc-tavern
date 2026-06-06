@@ -159,16 +159,17 @@ export async function activateScenario(
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
   if (mode === 'preset') {
     // preset 模式必须显式指定主角索引；不允许 undefined 默默兜底到 0，
-    // 否则一旦上游路由没传 charIdx，玩家会被随机分配第 0 号角色（可能是 npc_only）。
+    // 否则一旦上游路由没传 charIdx，玩家会被随机分配第 0 号角色（可能是 locked_npc）。
     if (charIdx === undefined) {
       throw new Error('[scenario-engine] preset 模式必须显式传 charIdx');
     }
     const idx = charIdx;
     const proto = scn.characters[idx];
     if (!proto) throw new Error(`[scenario-engine] preset 模式 charIdx=${idx} 越界`);
-    // 仅 protagonist_candidate 可被玩家扮演；npc_only / 其它角色不可作为主角。
-    if (proto.role !== 'protagonist_candidate') {
-      throw new Error(`[scenario-engine] charIdx=${idx} 指向的角色不可扮演 (role=${proto.role})`);
+    // protagonist (推荐主角) 和 optional (配角可玩) 都允许玩家扮演;
+    // locked_npc 是剧本钉死的不可选角色(反派/序章死者),拒绝。
+    if (proto.role === 'locked_npc') {
+      throw new Error(`[scenario-engine] charIdx=${idx} 指向的角色被剧本锁定不可扮演 (role=${proto.role})`);
     }
     useCharSheetStore.getState().setSheet(proto.sheet);
     // 其他角色全部 NPC 化（排除当前主角索引）
@@ -227,9 +228,23 @@ export async function activateScenario(
       try {
         const items = await extractInitialItems(raw);
         if (items.length > 0) {
-          const changes: InventoryChange[] = items.map(
-            (i: Omit<InventoryChange, 'action'>): InventoryChange => ({ action: 'add', ...i }),
-          );
+          // ExtractedInitialItem.category 是 5 元枚举(weapon/medical/misc/key_item/clothing),
+          // 与 InventoryStore 用的 ItemCategory(weapon/tool/consumable/clue/key_item/misc) 不一致;
+          // 这里做名义映射(medical→consumable,clothing→misc),其余按原值。
+          const CAT_MAP: Record<NonNullable<typeof items[number]['category']>, InventoryChange['category']> = {
+            weapon: 'weapon',
+            medical: 'consumable',
+            misc: 'misc',
+            key_item: 'key_item',
+            clothing: 'misc',
+          };
+          const changes: InventoryChange[] = items.map((i) => ({
+            action: 'add',
+            name: i.name,
+            quantity: i.quantity,
+            category: i.category ? CAT_MAP[i.category] : undefined,
+            description: i.description,
+          }));
           useInventoryStore.getState().applyChanges(changes);
           // B3: 把入库结果也写回 page0 的 acquiredItems / inventoryChanges,这样:
           //   1) 玩家删除 page0(若未来放开禁删) → useBookStore.deletePage 能用 inventoryChanges
@@ -371,7 +386,10 @@ export function unloadScenario(scenarioId: string): void {
   // 读 A2 状态,杜绝「读到挂载 → 早退 → 紧接着 removeBook 拔掉」的竞争。
   // 注:removeBook 本身是同步的,但 Promise 化能跨微任务边界把 fire-and-forget unload 串起来,
   // 让任何后来的 activateScenario(同一 bookId) 能等到此次 unload 真正生效。
-  const promise = (async () => {
+  // 用 definite-assignment !: 绕开 TS 对 IIFE 内引用自身 const 的「used before assigned」误报
+  // (运行时 finally 块在 promise 已赋值后才执行)。
+  let promise!: Promise<void>;
+  promise = (async () => {
     try {
       useLorebookStore.getState().removeBook(bookId);
     } finally {

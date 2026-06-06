@@ -32,6 +32,9 @@ export const FREE_EXPLORATION_SCENARIO: ScenarioDoc = {
   recommendedSkills: [], // 空数组 → UI 自动回退 POPULAR_SKILLS
   recommendedOccupations: [],
   characters: [],
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   entries: [],
   darkTimeline: [],
   badEndings: [],

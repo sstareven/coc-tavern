@@ -13,6 +13,9 @@ function makeDoc(over: Partial<ScenarioDoc> = {}): ScenarioDoc {
     recommendedSkills: [],
     recommendedOccupations: [],
     characters: [],
+    customOccupations: [],
+    customSkills: [],
+    skillBlacklist: [],
     entries: [],
     darkTimeline: [],
     badEndings: [],
@@ -90,7 +93,7 @@ describe('applyScenarioPatch', () => {
   it('patchCharacters: 按 id upsert', () => {
     const sheet = {} as ScenarioCharacter['sheet']; // sheet 不深检
     const c1: ScenarioCharacter = {
-      id: 'c1', role: 'npc_only', sheet,
+      id: 'c1', role: 'optional', sheet,
       npcAttrs: { identityTag: '管家', attitudeDefault: 0, relationshipDefault: '', locationDefault: '', publicBio: '', hiddenBio: '' },
     };
     const doc = makeDoc({ characters: [c1] });

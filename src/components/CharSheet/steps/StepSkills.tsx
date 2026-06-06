@@ -7,10 +7,11 @@ import { useScenarioStore } from '../../../stores/useScenarioStore';
 import {
   type SkillCat,
   CAT_COLORS,
-  ALL_SKILLS,
-  SKILL_DESC,
-  COC_OCCUPATIONS,
 } from '../../../sillytavern/coc-data';
+import {
+  getScenarioOccupationPool, getScenarioSkillPool, getScenarioSkillDescMap,
+  type ScenarioSkillPoolEntry,
+} from '../../../scenario/scenario-pools';
 
 interface Props {
   occupation: string;
@@ -42,7 +43,7 @@ interface Props {
   onSaveAndExit: () => void;
 }
 
-function getBase(sk: typeof ALL_SKILLS[number], charValues: Record<COC7Characteristic, number>): number {
+function getBase(sk: ScenarioSkillPoolEntry, charValues: Record<COC7Characteristic, number>): number {
   if (typeof sk.base === 'number') return sk.base;
   if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
   return charValues.EDU ?? 50;
@@ -77,9 +78,16 @@ export function StepSkills({
   onClearIntSkill,
   onSaveAndExit,
 }: Props) {
+  // 派生当前剧本的职业/技能池(同 RecommendedSkillsChipsRow 走 lastPicked,保持源一致)
+  const lastPickedScn = useScenarioStore((s) => s.lastPicked);
+  const activeScenario = useScenarioStore((s) => (lastPickedScn ? s.getById(lastPickedScn) : undefined));
+  const occupationPool = getScenarioOccupationPool(activeScenario);
+  const skillPool = getScenarioSkillPool(activeScenario);
+  const skillDescMap = getScenarioSkillDescMap(activeScenario);
+
   const occValue = occupation || '__custom__';
   const isCustomOcc = occValue === '__custom__';
-  const selectedOcc = !isCustomOcc ? COC_OCCUPATIONS.find((o) => o.name === occValue) : null;
+  const selectedOcc = !isCustomOcc ? occupationPool.find((o) => o.name === occValue) : null;
   const suggestedSkills = selectedOcc?.skills || [];
   const crMin = selectedOcc?.crMin ?? 0;
   const crMax = selectedOcc?.crMax ?? 99;
@@ -102,7 +110,7 @@ export function StepSkills({
           <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业</span>
           <DarkSelect value={occValue} onChange={onSetOccupation}
             options={[
-              ...COC_OCCUPATIONS.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
+              ...occupationPool.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
               { value: '__custom__', label: '自定义职业...', sub: '' },
             ]} />
         </div>
@@ -182,7 +190,7 @@ export function StepSkills({
       {/* All skills grid */}
       <div style={{ height: 320, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, alignItems: 'start' }}>
-          {ALL_SKILLS
+          {skillPool
             // 克苏鲁神话不在创建期开放加点（仅游戏中通过遭遇神话获得），从加点网格隐藏。
             .filter((sk) => sk.name !== '克苏鲁神话')
             .filter((sk) => !filterCat || sk.cat === filterCat)
@@ -202,12 +210,13 @@ export function StepSkills({
             const intPts = interestPoints[sk.name] ?? 0;
             const base = getBase(sk, charValues);
             const total = base + occPts + intPts;
-            const catColor = CAT_COLORS[sk.cat];
+            // sk.cat 可能是 SkillCat 之外的字符串(剧本自定义技能),取色时兜底为灰色
+            const catColor = (CAT_COLORS as Record<string, string>)[sk.cat] ?? '#b0bec5';
             const occFull = occSkills.length >= 8 && !isOcc;
             const intFull = intRemaining <= 0 && !isInt;
             const highlighted = isOcc || isInt;
             const editing = editingSkill === sk.name;
-            const desc = SKILL_DESC[sk.name] || '';
+            const desc = skillDescMap[sk.name] || '';
 
             return (
               <div key={sk.name} onClick={() => { if (highlighted && !editing) onReEnterEdit(sk.name, editingType || 'occ'); }} style={{ cursor: highlighted && !editing ? 'pointer' : 'default',

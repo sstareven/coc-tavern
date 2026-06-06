@@ -240,6 +240,9 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「幻梦境是一种宽广而温柔的恐怖」。建议守秘人在叙事里大量使用诗化语言，不要太怕逻辑断裂；剧本可作单人或小队入梦使用。猫是玩家最可靠的盟友，请慷慨地让它们帮忙。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

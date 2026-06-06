@@ -96,9 +96,10 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
   const { meta, builtin } = scn;
 
   const occChips = chipList(scn.recommendedOccupations, 4);
-  const necessary = scn.characters.filter(c => c.role === 'protagonist_candidate' || c.role === 'npc_only');
+  // 必要人物 chip 行 — 三档都算(包括 locked_npc),让玩家看到剧本里所有关键角色
+  const necessary = scn.characters.filter(c => c.role === 'protagonist' || c.role === 'optional' || c.role === 'locked_npc');
   const npcChips = chipList(
-    necessary.map(c => c.sheet?.name ?? c.npcAttrs.identityTag).filter((s): s is string => !!s),
+    necessary.map(c => c.sheet?.identity?.name ?? c.npcAttrs.identityTag).filter((s): s is string => !!s),
     4,
   );
 

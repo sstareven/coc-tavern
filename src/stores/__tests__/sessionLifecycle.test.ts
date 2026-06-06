@@ -23,7 +23,8 @@ vi.mock('../useLorebookStore', () => ({
   },
 }));
 vi.mock('../../scenario/scenario-engine', () => ({
-  unloadScenario: (id: string) => unloadScenarioMock(id),
+  // vitest 1.x 后 Mock<...> 类型在严格 tsc 下不可直接 call;cast 为函数类型即可
+  unloadScenario: (id: string) => (unloadScenarioMock as unknown as (id: string) => void)(id),
 }));
 
 vi.mock('../useChatStore', () => ({

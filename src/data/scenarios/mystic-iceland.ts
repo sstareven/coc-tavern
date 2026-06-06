@@ -235,6 +235,9 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「萨迦时代的人面对神话不是惊讶，而是熟悉。」氛围应该是冷峻、克制、宿命的。NPC 的台词可参考古诺尔斯萨迦——直白、简短、带格律感。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

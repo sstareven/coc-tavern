@@ -235,6 +235,9 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
   ],
   authorNotes:
     '基调：「信仰庇护不了一切，但有时是仅剩的工具」。建议在叙事中常用钟声、烛影、抄写声作为氛围意象。修道院的清规与混乱的恐怖之间，应保持一种压抑的对比。',
+  customOccupations: [],
+  customSkills: [],
+  skillBlacklist: [],
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,

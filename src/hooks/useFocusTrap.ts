@@ -21,7 +21,7 @@ function collectFocusable(root: HTMLElement): HTMLElement[] {
   return nodes.filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
 }
 
-export function useFocusTrap(ref: RefObject<HTMLElement>, enabled: boolean): void {
+export function useFocusTrap(ref: RefObject<HTMLElement | null>, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
     const root = ref.current;

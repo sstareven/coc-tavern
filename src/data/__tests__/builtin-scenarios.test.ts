@@ -1,7 +1,7 @@
 // builtin-scenarios 守卫:8 个内置剧本都必须通过 isValidScenarioDoc + 满足结构不变量
-// (有 protagonist_candidate / prologueSeed 足够长 / entry id 唯一)
+// (role 字段合法 / prologueSeed 足够长 / entry id 唯一)
 import { describe, it, expect } from 'vitest';
-import { BUILTIN_SCENARIOS, FREE_EXPLORATION_SCENARIO } from '../builtin-scenarios';
+import { BUILTIN_SCENARIOS } from '../builtin-scenarios';
 import { isValidScenarioDoc } from '../../types/scenario';
 
 describe('BUILTIN_SCENARIOS 守卫', () => {
@@ -13,12 +13,11 @@ describe('BUILTIN_SCENARIOS 守卫', () => {
   );
 
   it.each(BUILTIN_SCENARIOS.map((s) => [s.id, s] as const))(
-    '[%s] characters 若有则 role 字段合法(允许 0 个 protagonist_candidate — 玩家可走 newChar)',
+    '[%s] characters 若有则 role 字段属于三档之一',
     (_id, scn) => {
-      // 设计: 剧本里的角色默认全是 NPC 配角,玩家自己建调查员去玩(newChar 模式)。
-      // preset 模式(玩家扮演剧本里某角色)需要 protagonist_candidate,但不强制每个剧本都提供。
+      // 设计: 默认 optional(玩家可越界扮演);protagonist 是推荐;locked_npc 是反派/序章死者等剧本钉死
       for (const c of scn.characters) {
-        expect(['protagonist_candidate', 'npc_only']).toContain(c.role);
+        expect(['protagonist', 'optional', 'locked_npc']).toContain(c.role);
       }
     },
   );

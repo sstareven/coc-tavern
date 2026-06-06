@@ -44,6 +44,9 @@ function makeBlankScenario(): ScenarioDoc {
     recommendedSkills: [],
     recommendedOccupations: [],
     characters: [],
+    customOccupations: [],
+    customSkills: [],
+    skillBlacklist: [],
     entries: [],
     darkTimeline: [],
     badEndings: [],
@@ -128,13 +131,99 @@ function ToolbarButton({
 }
 
 // ── 角色选择抽屉(modal in modal) ──
+// 角色按钮 — 在主角分区与配角分区两处复用,样式由 variant 控制。
+function CharacterPickButton({
+  ch, idx, variant, onPick,
+}: {
+  ch: ScenarioCharacter;
+  idx: number;
+  variant: 'protagonist' | 'optional';
+  onPick: (c: ScenarioPickChoice) => void;
+}) {
+  const name = ch.sheet?.identity?.name || defaultSheet.identity?.name || '未命名调查员';
+  const occ = ch.sheet?.identity?.occupation ?? '';
+  const bio = ch.npcAttrs.publicBio;
+  const isProto = variant === 'protagonist';
+  return (
+    <button
+      onClick={() => onPick({ mode: 'preset', charIdx: idx })}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+        padding: '12px 16px',
+        background: isProto ? 'rgba(196,168,85,0.06)' : 'rgba(255,255,255,0.02)',
+        border: isProto
+          ? '1px solid rgba(196,168,85,0.45)'
+          : '1px solid rgba(196,168,85,0.18)',
+        borderRadius: 3,
+        color: 'var(--text-light, #d0c2a0)',
+        fontFamily: 'var(--font-ui)', textAlign: 'left',
+        cursor: 'pointer',
+        opacity: isProto ? 1 : 0.85,
+        transition: `background 200ms ${EASE}, transform 180ms ${EASE}, border-color 200ms ${EASE}, opacity 200ms ${EASE}`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = isProto ? 'rgba(196,168,85,0.14)' : 'rgba(196,168,85,0.08)';
+        e.currentTarget.style.borderColor = 'var(--brass)';
+        e.currentTarget.style.opacity = '1';
+        e.currentTarget.style.transform = 'translateX(2px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = isProto ? 'rgba(196,168,85,0.06)' : 'rgba(255,255,255,0.02)';
+        e.currentTarget.style.borderColor = isProto ? 'rgba(196,168,85,0.45)' : 'rgba(196,168,85,0.18)';
+        e.currentTarget.style.opacity = isProto ? '1' : '0.85';
+        e.currentTarget.style.transform = 'translateX(0)';
+      }}
+    >
+      <IconUser size={20} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, color: 'var(--gold)', marginBottom: 2 }}>
+          {name}{occ ? ` · ${occ}` : ''}
+        </div>
+        {bio && (
+          <div style={{
+            fontSize: 11.5, lineHeight: 1.5, opacity: 0.75,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>{bio}</div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// 分区标题(铜版小字 + 横线尾随)
+function SectionLabel({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'baseline', gap: 8,
+      padding: '4px 2px', marginTop: 4,
+      borderBottom: '1px solid rgba(196,168,85,0.18)',
+    }}>
+      <span style={{
+        fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)',
+        letterSpacing: 3, fontWeight: 600,
+      }}>{title}</span>
+      {subtitle && (
+        <span style={{
+          fontSize: 10, color: 'var(--ink-subtle, #8a7a52)',
+          fontFamily: 'var(--font-ui)', letterSpacing: 1,
+        }}>{subtitle}</span>
+      )}
+    </div>
+  );
+}
+
 function CharacterPickerDrawer({
   scn, onPick, onCancel,
 }: { scn: ScenarioDoc; onPick: (c: ScenarioPickChoice) => void; onCancel: () => void }) {
-  const candidates: Array<{ ch: ScenarioCharacter; idx: number }> =
-    scn.characters
-      .map((ch, idx) => ({ ch, idx }))
-      .filter(({ ch }) => ch.role === 'protagonist_candidate');
+  // 三分区: protagonist 顶部加金边、optional 下沉灰边、locked_npc 不出现
+  const protagonists = scn.characters
+    .map((ch, idx) => ({ ch, idx }))
+    .filter(({ ch }) => ch.role === 'protagonist');
+  const optionals = scn.characters
+    .map((ch, idx) => ({ ch, idx }))
+    .filter(({ ch }) => ch.role === 'optional');
+  const hasAnyPickable = protagonists.length + optionals.length > 0;
 
   return (
     <div
@@ -179,7 +268,7 @@ function CharacterPickerDrawer({
           flex: 1, overflowY: 'auto', padding: 16,
           display: 'flex', flexDirection: 'column', gap: 10,
         }}>
-          {/* 新建角色 选项 */}
+          {/* 新建角色 选项(始终首位) */}
           <button
             onClick={() => onPick({ mode: 'newChar' })}
             style={{
@@ -201,54 +290,27 @@ function CharacterPickerDrawer({
             </div>
           </button>
 
-          {/* protagonist_candidate 列表 */}
-          {candidates.map(({ ch, idx }) => {
-            const name = ch.sheet?.identity?.name || defaultSheet.identity?.name || '未命名调查员';
-            const occ = ch.sheet?.identity?.occupation ?? '';
-            const bio = ch.npcAttrs.publicBio;
-            return (
-              <button
-                key={ch.id}
-                onClick={() => onPick({ mode: 'preset', charIdx: idx })}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  padding: '12px 16px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(196,168,85,0.25)', borderRadius: 3,
-                  color: 'var(--text-light, #d0c2a0)',
-                  fontFamily: 'var(--font-ui)', textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: `background 200ms ${EASE}, transform 180ms ${EASE}, border-color 200ms ${EASE}`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(196,168,85,0.10)';
-                  e.currentTarget.style.borderColor = 'var(--brass)';
-                  e.currentTarget.style.transform = 'translateX(2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(196,168,85,0.25)';
-                  e.currentTarget.style.transform = 'translateX(0)';
-                }}
-              >
-                <IconUser size={20} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, color: 'var(--gold)', marginBottom: 2 }}>
-                    {name}{occ ? ` · ${occ}` : ''}
-                  </div>
-                  {bio && (
-                    <div style={{
-                      fontSize: 11.5, lineHeight: 1.5, opacity: 0.75,
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    }}>{bio}</div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+          {/* 推荐视角(protagonist) */}
+          {protagonists.length > 0 && (
+            <>
+              <SectionLabel title="推荐视角" />
+              {protagonists.map(({ ch, idx }) => (
+                <CharacterPickButton key={ch.id} ch={ch} idx={idx} variant="protagonist" onPick={onPick} />
+              ))}
+            </>
+          )}
 
-          {candidates.length === 0 && (
+          {/* 配角视角(optional) — 作者未为玩家专门调谐 */}
+          {optionals.length > 0 && (
+            <>
+              <SectionLabel title="配角视角" subtitle="作者未为你专门调谐" />
+              {optionals.map(({ ch, idx }) => (
+                <CharacterPickButton key={ch.id} ch={ch} idx={idx} variant="optional" onPick={onPick} />
+              ))}
+            </>
+          )}
+
+          {!hasAnyPickable && (
             <div style={{
               padding: '24px 16px', textAlign: 'center',
               color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',

@@ -52,7 +52,8 @@ describe('buildScenarioStatDataSeed', () => {
     id: 'd', builtin: false,
     meta: { name: 'X', type: '调查', durationHint: '3-5h', difficulty: 2, headcountHint: '1人', sanLossHint: '中', blurb: '' },
     prologueSeed: '', recommendedSkills: [], recommendedOccupations: [],
-    characters: [], entries: [], darkTimeline: [], badEndings: [],
+    characters: [], customOccupations: [], customSkills: [], skillBlacklist: [],
+    entries: [], darkTimeline: [], badEndings: [],
     authorNotes: '', schemaVersion: 1, createdAt: 0, updatedAt: 0, ...over,
   });
 
@@ -80,7 +81,7 @@ describe('scenarioCharacterToNpc', () => {
     ({ identity: { name }, skills, characteristics: { STR: 50 } } as unknown as ScenarioCharacter['sheet']);
 
   const c = (over: Partial<ScenarioCharacter> = {}): ScenarioCharacter => ({
-    id: 'c1', role: 'npc_only', sheet: sheetWith(''),
+    id: 'c1', role: 'optional', sheet: sheetWith(''),
     npcAttrs: {
       identityTag: '管家', attitudeDefault: 30, relationshipDefault: '雇主家眷',
       locationDefault: '宅邸', publicBio: '老人,沉默', hiddenBio: '知晓密室密码',

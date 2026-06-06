@@ -26,7 +26,7 @@ interface MakeNpcInput {
   locationDefault: string;
   publicBio: string;
   hiddenBio: string;
-  /** 默认 'npc_only';若想让玩家可扮演,传 'protagonist_candidate' */
+  /** 默认 'optional'(玩家可选配角);要锁定不可玩传 'locked_npc';强推主角传 'protagonist' */
   role?: ScenarioCharacter['role'];
 }
 
@@ -90,7 +90,7 @@ export function makeNpc(input: MakeNpcInput): ScenarioCharacter {
   };
   return {
     id: input.id,
-    role: input.role ?? 'npc_only',
+    role: input.role ?? 'optional',
     sheet,
     npcAttrs: {
       identityTag: input.identityTag,

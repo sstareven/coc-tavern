@@ -15,9 +15,14 @@ import {
   clampSkillPointAlloc,
 } from '../../sillytavern/coc-rules';
 import {
-  STEPS, CHAR_ORDER, type SkillCat, ALL_SKILLS, SKILL_DESC, COC_OCCUPATIONS,
+  STEPS, CHAR_ORDER, type SkillCat,
   DEFAULT_CHARS, POOL_VALUES,
 } from '../../sillytavern/coc-data';
+import { useScenarioStore } from '../../stores/useScenarioStore';
+import {
+  getScenarioOccupationPool, getScenarioSkillPool, getScenarioSkillDescMap,
+  type ScenarioSkillPoolEntry,
+} from '../../scenario/scenario-pools';
 import { StepIdentity } from './steps/StepIdentity';
 import { StepCharacteristics } from './steps/StepCharacteristics';
 import { StepDerivedStats } from './steps/StepDerivedStats';
@@ -28,8 +33,8 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 
 /* ============================== Helpers ============================== */
 
-function getBaseForSkill(sk: typeof ALL_SKILLS[number], charValues: Record<COC7Characteristic, number>): number {
-  // 取值这层保留在本地（从 ALL_SKILLS 项取 base spec），spec→base 解析委托给 resolveSkillBase 统一规则。
+function getBaseForSkill(sk: ScenarioSkillPoolEntry, charValues: Record<COC7Characteristic, number>): number {
+  // 取值这层保留在本地（从池中取每条 base spec），spec→base 解析委托给 resolveSkillBase 统一规则。
   return resolveSkillBase(sk.base, charValues);
 }
 
@@ -47,6 +52,15 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
   // 不再订阅 uiScale ——CSS 变量 --ui-scale 直接由 applyUiScale 维护，组件不需要 React state。
   const [step, setStep] = useState(0);
+
+  // 当前激活剧本(若有)— 决定 StepSkills 看到的职业/技能池
+  // ScenarioScreen.onPick 在玩家选剧本时 setLastPicked,所以 lastPicked 等同于"当前剧本"
+  const lastPickedScn = useScenarioStore((s) => s.lastPicked);
+  const activeScenario = useScenarioStore((s) => (lastPickedScn ? s.getById(lastPickedScn) : undefined));
+  const skillPool = useMemo(() => getScenarioSkillPool(activeScenario), [activeScenario]);
+  const occupationPool = useMemo(() => getScenarioOccupationPool(activeScenario), [activeScenario]);
+  const skillDescMap = useMemo(() => getScenarioSkillDescMap(activeScenario), [activeScenario]);
+
 
   /* ---- Step 1: Identity ---- */
   const [name, setName] = useState('');
@@ -287,7 +301,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const cur = p[skillName] ?? 0;
       const used = Object.values(p).reduce((a, b) => a + b, 0) + crRef.current;
       const remaining = occPointPool - used;
-      const sk = ALL_SKILLS.find((s) => s.name === skillName);
+      const sk = skillPool.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
       const otherAlloc = intPointsRef.current[skillName] ?? 0;
       const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
@@ -300,7 +314,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const cur = p[skillName] ?? 0;
       const used = Object.values(p).reduce((a, b) => a + b, 0);
       const remaining = intPointPool - used;
-      const sk = ALL_SKILLS.find((s) => s.name === skillName);
+      const sk = skillPool.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
       const otherAlloc = occPointsRef.current[skillName] ?? 0;
       const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
@@ -323,7 +337,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const occRemaining = occPointPool - occTotalAllocated;
   const intRemaining = intPointPool - intTotalAllocated;
   // Invariant guard (BUG1): no single skill may exceed base+occ+int ≤ 99 — final defense before Step5.
-  const allSkillsUnderCap = ALL_SKILLS.every((sk) => {
+  const allSkillsUnderCap = skillPool.every((sk) => {
     const occ = occPoints[sk.name] ?? 0;
     const int = interestPoints[sk.name] ?? 0;
     if (occ === 0 && int === 0) return true;
@@ -440,7 +454,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
     // Occupation skills
     for (const skillName of occSkills) {
-      const spec = ALL_SKILLS.find((s) => s.name === skillName);
+      const spec = skillPool.find((s) => s.name === skillName);
       const base = spec ? resolveSkillBase(spec.base, chars) : 0;
       const occAlloc = occPoints[skillName] ?? 0;
       const intAlloc = interestPoints[skillName] ?? 0;
@@ -450,7 +464,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     // Personal interest skills
     for (const skillName of interestSkills) {
       if (occSkills.includes(skillName)) continue;
-      const spec = ALL_SKILLS.find((s) => s.name === skillName);
+      const spec = skillPool.find((s) => s.name === skillName);
       const base = spec ? resolveSkillBase(spec.base, chars) : 0;
       const intAlloc = interestPoints[skillName] ?? 0;
       skills[skillName] = { base, current: Math.min(99, base + intAlloc) };
@@ -548,13 +562,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   };
 
   const randomAllocate = () => {
-    const selectedOcc = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    const selectedOcc = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
     const suggested = selectedOcc?.skills || [];
     const crMin = selectedOcc?.crMin ?? 0;
     const crMax = selectedOcc?.crMax ?? 99;
     const isCustomOcc = occupation === '__custom__';
     const getBaseVal = (name: string) => {
-      const sk = ALL_SKILLS.find((x) => x.name === name);
+      const sk = skillPool.find((x) => x.name === name);
       if (!sk) return 0;
       if (typeof sk.base === 'number') return sk.base;
       if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
@@ -593,7 +607,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const occPoolForSkills = occPointPool - cr;
       setOccPoints(suggested.length > 0 && occPoolForSkills > 0 ? allocLoop({}, suggested, occPoolForSkills) : {});
       const usedNames = new Set(suggested);
-      const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
+      const intPool = skillPool.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
       const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
       setInterestSkills(pickInt);
       setInterestPoints(pickInt.length > 0 && intPointPool > 0 ? allocLoop({}, pickInt, intPointPool) : {});
@@ -602,7 +616,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   // 重置技能分配（清空职业/兴趣技能与点数，信用评级回到该职业最低基础值），允许重新分配。
   const resetAllocation = () => {
-    const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
     setOccSkills([]); setOccPoints({});
     setInterestSkills([]); setInterestPoints({});
     setCreditRating(occObj?.crMin ?? 0);
@@ -613,7 +627,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   useEffect(() => {
     if (occupation !== prevOccRef.current) {
       // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)，自定义职业为 0。
-      const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+      const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
       setOccSkills([]); setOccPoints({});
       setInterestSkills([]); setInterestPoints({});
       setCreditRating(occObj?.crMin ?? 0);
@@ -647,7 +661,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setBgFilling(true);
     try {
       const occText = occupation === '__custom__' ? customOccupation : occupation;
-      const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
+      const occObj = occupationPool.find((o) => o.name === occupation);
 
       const charLines: string[] = [];
       for (const { key, zh } of CHAR_ORDER) {
@@ -662,10 +676,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       const occSkillLines: string[] = [];
       for (const s of occSkills) {
-        const sk = ALL_SKILLS.find((x) => x.name === s);
+        const sk = skillPool.find((x) => x.name === s);
         const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
         const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
-        const desc = SKILL_DESC[s] || '';
+        const desc = skillDescMap[s] || '';
         occSkillLines.push(`- ${s}：${Math.min(99, base + pts)}%${desc ? ` — ${desc}` : ''}`);
       }
 
