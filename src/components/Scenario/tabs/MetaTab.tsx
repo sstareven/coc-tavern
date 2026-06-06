@@ -33,9 +33,11 @@ export function MetaTab({ scn, onChange }: Props) {
           <textarea
             style={{ ...inputStyle, resize: 'vertical' }}
             rows={2}
+            maxLength={500}
             value={scn.meta.blurb}
             onChange={(e) => patchMeta({ blurb: e.target.value })}
           />
+          <CharCounter value={scn.meta.blurb} max={500} />
         </Row>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Row label="类型" compact>
@@ -70,10 +72,12 @@ export function MetaTab({ scn, onChange }: Props) {
         <textarea
           style={{ ...inputStyle, fontFamily: 'var(--font-mono)', resize: 'vertical' }}
           rows={6}
+          maxLength={8000}
           placeholder="喂给 LLM 扩写为 page[0] 的场景种子文本"
           value={scn.prologueSeed}
           onChange={(e) => setField('prologueSeed', e.target.value)}
         />
+        <CharCounter value={scn.prologueSeed} max={8000} />
       </Section>
 
       <Section title="推荐技能">
@@ -96,10 +100,12 @@ export function MetaTab({ scn, onChange }: Props) {
         <textarea
           style={{ ...inputStyle, resize: 'vertical' }}
           rows={3}
+          maxLength={4000}
           placeholder="仅作者可见;不进 LLM 上下文"
           value={scn.authorNotes}
           onChange={(e) => setField('authorNotes', e.target.value)}
         />
+        <CharCounter value={scn.authorNotes} max={4000} />
       </Section>
     </div>
   );
@@ -145,6 +151,18 @@ function Row({ label, children, compact }: { label: string; children: React.Reac
       <span style={{ fontSize: 10.5, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
       {children}
     </label>
+  );
+}
+
+function CharCounter({ value, max }: { value: string; max: number }) {
+  const len = value.length;
+  const ratio = len / max;
+  return (
+    <div style={{
+      textAlign: 'right', fontSize: 10,
+      color: ratio > 0.8 ? '#c4a855' : 'var(--ink-faded, #6b5a3a)',
+      fontFamily: 'var(--font-ui)',
+    }}>{len}/{max}</div>
   );
 }
 

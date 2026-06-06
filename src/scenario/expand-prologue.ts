@@ -87,7 +87,7 @@ export async function expandPrologueToPage(
     model: s.apiModel,
     temperature: 0.85,
     maxTokens: 20000,
-    rpmLane: 'main',
+    rpmLane: 'rewrite',
     label: 'scenario:expand-prologue',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },

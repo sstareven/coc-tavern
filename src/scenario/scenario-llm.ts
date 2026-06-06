@@ -14,6 +14,10 @@ import type {
 
 // M9 — system message 拆为静态共享段,跨命令共享以吃满 prompt 缓存(7 命令同一 hash)。
 // 身份描述不再 inline 进 system;调用方在 user message 顶部以「【本次任务】xxx」起首。
+//
+// ⚠️ M9 收益依赖 settings.dsCache.experimentalSubagentSharedSystem 关闭。
+// 若该开关开启, wrapSubagentMessages 会替换原 system, 本 SHARED 字面量走不到 system 槽,
+// 但 messages user 头部 `【本次任务】${role}` 仍可变;共享前缀仅命中到 SUBAGENT_SHARED_SYSTEM 段尾。
 const SHARED_SYSTEM_PROMPT = [
   '你是 COC 调查员叙事游戏(Call of Cthulhu)的【剧本编辑助手】,辅助守秘人构建/调整跑团剧本。',
   '严格遵守:',
@@ -30,7 +34,9 @@ function buildUserHeader(role: string): string {
 
 // M6 — 直接用 callDsSubagent 已有的 parsed/parseError,不再自己 indexOf('{') 截取;
 //      含 EJS <% if ... { %> 的回显里 lastIndexOf('}') 截不准会出错。
-async function callJson<T>(label: string, user: string): Promise<T> {
+async function callJson<T>(label: string, user: string, signal?: AbortSignal): Promise<T> {
+  // 调用前先检查 abort,避免无意义发起
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const { apiBaseUrl, apiKey, apiModel } = useSettingsStore.getState();
   const { parsed, parseError, content } = await callDsSubagent({
     apiBaseUrl,
@@ -40,13 +46,14 @@ async function callJson<T>(label: string, user: string): Promise<T> {
     maxTokens: 20000,
     rpmLane: 'rewrite', // 作者侧编辑,走 rewrite 桶,不挤主输出
     label: 'scenario:' + label,
+    signal,
     messages: [
       { role: 'system', content: SHARED_SYSTEM_PROMPT },
       { role: 'user', content: user },
     ],
   });
   if (!parsed) {
-    const snippet = (content || '').slice(0, 200);
+    const snippet = (content || '').slice(0, 600);
     throw new Error(
       `[scenario-llm ${label}] JSON 解析失败:${parseError || '无 parsed 对象'};snippet=${JSON.stringify(snippet)}`,
     );
@@ -83,7 +90,24 @@ export async function generateEntries(
 }
 
 // 2) 自动重新分类 — LLM 给每条 id → 新 category
+// C4 — 全量 entries 会撞 context window;> 20 条时拆批,每批 ≤ 20 条,结果合并。
 export async function autoCategorize(
+  entries: ScenarioEntry[],
+): Promise<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }> {
+  const BATCH_SIZE = 20;
+  if (entries.length > BATCH_SIZE) {
+    const merged: Array<{ id: string; category: ScenarioCategory }> = [];
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const partial = await autoCategorizeBatch(batch);
+      merged.push(...partial.recategorize);
+    }
+    return { recategorize: merged };
+  }
+  return autoCategorizeBatch(entries);
+}
+
+async function autoCategorizeBatch(
   entries: ScenarioEntry[],
 ): Promise<{ recategorize: Array<{ id: string; category: ScenarioCategory }> }> {
   const summary = entries.map((e) => ({ id: e.id, comment: e.comment, currentCategory: e.category, contentPreview: e.content.slice(0, 200) }));
@@ -150,17 +174,20 @@ export async function generateDarkTimeline(
 }
 
 // 5) 坏结局矩阵生成
+// C4 — darkTimeline 取前 8 phase / clue 摘要前 30 条;若 user payload > 12000 字符,追加截断说明。
 export async function generateBadEndings(
   darkTimeline: DarkPhase[],
   entries: ScenarioEntry[],
 ): Promise<{ upsertBadEndings: BadEnding[] }> {
-  const phaseSummary = darkTimeline.map((p) => `- ${p.title}(threshold ${p.threshold}):${p.directorNote.slice(0, 100)}`).join('\n');
-  const clueSummary = entries
-    .filter((e) => e.category === '物品线索' || e.category === '秘密与解锁')
-    .map((e) => `- ${e.comment}`)
-    .join('\n');
+  const DARK_LIMIT = 8;
+  const CLUE_LIMIT = 30;
+  const darkTrimmed = darkTimeline.slice(0, DARK_LIMIT);
+  const phaseSummary = darkTrimmed.map((p) => `- ${p.title}(threshold ${p.threshold}):${p.directorNote.slice(0, 100)}`).join('\n');
+  const clueAll = entries.filter((e) => e.category === '物品线索' || e.category === '秘密与解锁');
+  const clueTrimmed = clueAll.slice(0, CLUE_LIMIT);
+  const clueSummary = clueTrimmed.map((e) => `- ${e.comment}`).join('\n');
   // M7 — schema 字面量给真实 JSON 例子;数量与语义放【规则】段。
-  const user = [
+  const lines: string[] = [
     buildUserHeader('基于暗线时间线和现有线索生成坏结局矩阵'),
     '暗线时间线:',
     phaseSummary || '(空)',
@@ -175,7 +202,16 @@ export async function generateBadEndings(
     '- 生成 3~6 个 BadEnding。',
     '- condition: 自然语言描述触发组合(SAN/暗线进度/NPC 状态等)。',
     '- accelerators: 字符串数组,列出会加速此结局的因素。',
-  ].join('\n');
+  ];
+  let user = lines.join('\n');
+  const wasDarkTrimmed = darkTimeline.length > DARK_LIMIT;
+  const wasClueTrimmed = clueAll.length > CLUE_LIMIT;
+  if (user.length > 12000 || wasDarkTrimmed || wasClueTrimmed) {
+    const notes: string[] = [];
+    if (wasDarkTrimmed) notes.push(`darkTimeline 仅取前 ${DARK_LIMIT}/${darkTimeline.length}`);
+    if (wasClueTrimmed) notes.push(`clue 摘要仅取前 ${CLUE_LIMIT}/${clueAll.length}`);
+    user += `\n\n[已截断,仅取前 N 项:${notes.join(';') || '上下文过长'}]`;
+  }
   return callJson<{ upsertBadEndings: BadEnding[] }>('generateBadEndings', user);
 }
 

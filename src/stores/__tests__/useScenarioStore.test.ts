@@ -46,8 +46,8 @@ describe('useScenarioStore', () => {
     expect(newId).not.toBe('__free');
     const forked = useScenarioStore.getState().getById(newId);
     expect(forked?.builtin).toBe(false);
-    // 副本名加「(副本)」后缀
-    expect(forked?.meta.name).toMatch(/副本/);
+    // A4: upsert 内置 fork 命名为「(修改 YYYYMMDD)」(供多版本区分)
+    expect(forked?.meta.name).toMatch(/修改/);
   });
 
   it('remove 用户 doc → 移除', () => {
@@ -71,12 +71,12 @@ describe('useScenarioStore', () => {
     expect(s.lastPicked).toBeNull();
   });
 
-  it('fork 用户 doc → 新 id + (副本) 后缀', () => {
+  it('fork 用户 doc → 新 id + 「(修改 YYYYMMDD)」后缀', () => {
     useScenarioStore.getState().upsert(makeUserDoc('u1', '某'));
     const newId = useScenarioStore.getState().fork('u1');
     expect(newId).not.toBeNull();
     expect(newId).not.toBe('u1');
-    expect(useScenarioStore.getState().getById(newId!)?.meta.name).toMatch(/副本/);
+    expect(useScenarioStore.getState().getById(newId!)?.meta.name).toMatch(/修改/);
   });
 
   it('fork 不存在 id → null', () => {

@@ -52,14 +52,47 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const [companionOpen, setCompanionOpen] = useState(false); // 移动端抽屉显隐
   const toastTimerRef = useRef<number | null>(null);
+  // 初始快照 — 用于判断 dirty(切剧本时刷新)
+  const initialSnapshotRef = useRef<ScenarioDoc | undefined>(initial);
+  // 顶部「剧本名」inline draft — 失焦才 commit,避免每个字母都触发 re-render
+  const [nameDraft, setNameDraft] = useState<string>(initial?.meta.name ?? '');
 
   // 视口宽度自适应
   const compact = useIsMobile('(max-width: 800px)');
 
-  // 剧本 id 变更时重新初始化 working
+  // 剧本 id 变更时重新初始化 working + 快照 + name draft
   useEffect(() => {
     setWorking(initial);
+    initialSnapshotRef.current = initial;
+    setNameDraft(initial?.meta.name ?? '');
   }, [initial]);
+
+  // dirty 判断 — JSON 序列化对比初始快照
+  const isDirty = useMemo<boolean>(() => {
+    if (!working || !initialSnapshotRef.current) return false;
+    return JSON.stringify(working) !== JSON.stringify(initialSnapshotRef.current);
+  }, [working]);
+
+  // 关窗确认 — 含 dirty 提示
+  const handleClose = (): void => {
+    if (isDirty) {
+      // eslint-disable-next-line no-alert
+      const ok = window.confirm('有未保存的改动,确认放弃?');
+      if (!ok) return;
+    }
+    onClose();
+  };
+
+  // beforeunload 拦截 — 用户刷新/关闭浏览器标签时提示
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent): void => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const showToast = (msg: string): void => {
     setToast(msg);
@@ -88,9 +121,13 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
     const id = upsert(working);
     if (id !== working.id) {
       // 内置 fork:把 id 切到新副本并继续编辑
-      setWorking({ ...working, id, builtin: false });
+      const next = { ...working, id, builtin: false };
+      setWorking(next);
+      initialSnapshotRef.current = next; // 保存后刷新基线,清 dirty
       showToast('已 fork 为新剧本副本并保存');
     } else {
+      initialSnapshotRef.current = working; // 保存后刷新基线,清 dirty
+      setWorking({ ...working });
       showToast('已保存');
     }
   };
@@ -116,12 +153,20 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       updatedAt: Date.now(),
     };
     const saved = upsert(copy);
-    setWorking({ ...copy, id: saved });
+    const next = { ...copy, id: saved };
+    setWorking(next);
+    initialSnapshotRef.current = next; // 另存为后刷新基线
+    setNameDraft(next.meta.name);
     showToast('已另存为新剧本');
   };
 
   const handleNameChange = (name: string): void => {
     setWorking((prev) => prev ? applyScenarioPatch(prev, { patchMeta: { name } }) : prev);
+  };
+
+  // 顶部「剧本名」inline draft commit — 失焦/回车时落库
+  const commitNameDraft = (): void => {
+    if (nameDraft !== working.meta.name) handleNameChange(nameDraft);
   };
 
   const renderTab = (): React.ReactNode => {
@@ -176,8 +221,10 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
           flexShrink: 0,
         }}>剧本</span>
         <input
-          value={working.meta.name}
-          onChange={(e) => handleNameChange(e.target.value)}
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={commitNameDraft}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           aria-label="剧本名"
           style={{
             flex: '1 1 200px',
@@ -190,6 +237,16 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
             fontSize: 14, letterSpacing: 1,
           }}
         />
+        {isDirty && (
+          <span style={{
+            padding: '2px 8px',
+            fontSize: 10, color: '#d4a64a', fontFamily: 'var(--font-ui)',
+            letterSpacing: 1.5,
+            background: 'rgba(212,166,74,0.10)',
+            border: '1px solid #d4a64a', borderRadius: 2,
+            flexShrink: 0,
+          }}>未保存</span>
+        )}
         {working.builtin && (
           <span style={{
             padding: '2px 8px',
@@ -206,7 +263,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
         {compact && (
           <BarBtn onClick={() => setCompanionOpen((v) => !v)} label={companionOpen ? '关闭伙伴' : '作者伙伴'} compact={compact} />
         )}
-        <BarBtn onClick={onClose} label="关闭" danger compact={compact} />
+        <BarBtn onClick={handleClose} label="关闭" danger compact={compact} />
       </header>
 
       {/* 主体: tabs(左) + 主区(中) + companion(右,桌面端) */}

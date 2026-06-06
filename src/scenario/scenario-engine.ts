@@ -30,10 +30,22 @@ const SCENARIO_BOOK_PREFIX = '__scenario_';
 //   - 仅 plain object 递归，数组/原始值视为叶子直接由 base 接管（base 缺时才取 seed）；
 //   - 不修改入参，纯函数返回新对象。
 // 这样 seed 里的 {剧情:{已解锁:{}}} 不会盖掉已有 /剧情/已解锁 子树，只是在该枝缺失时建空字典。
+// A1: isPlainObject 跨 realm 失效修复——iframe / worker / vm context 创建的 object 其
+// Object.getPrototypeOf(v) !== 主 realm 的 Object.prototype,严判会把它们误判为叶子,导致
+// 深合并退化为顶层 spread,seed 的 {剧情:{已解锁:{}}} 直接覆盖已有子树。改为宽松判断：
+// 所有 typeof 'object' 且非 null/数组/常见内置类型 (Date/Map/Set/RegExp) 都视为可递归 plain object。
 function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    !Array.isArray(v) &&
+    !(v instanceof Date) &&
+    !(v instanceof Map) &&
+    !(v instanceof Set) &&
+    !(v instanceof RegExp)
+  );
 }
-function deepMergePreserve(
+export function deepMergePreserve(
   base: Record<string, unknown>,
   seed: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -44,8 +56,19 @@ function deepMergePreserve(
     if (isPlainObject(bv) && isPlainObject(sv)) {
       out[k] = deepMergePreserve(bv, sv);
     } else if (bv === undefined) {
-      // base 没有该键 → 补 seed 值（含基本量/数组/空字典）
-      out[k] = sv;
+      // base 没有该键 → 补 seed 值（含基本量/数组/空字典）。
+      // A1: seed 内对象先 JSON 深克隆切断引用共享——避免 seed 树被多个 base 共享同一引用,
+      // 后续某处 mutate statData 时另一处会被串改。基本量/不可序列化值原样赋值。
+      if (isPlainObject(sv) || Array.isArray(sv)) {
+        try {
+          out[k] = JSON.parse(JSON.stringify(sv));
+        } catch {
+          // 含 BigInt / 循环引用等不可序列化结构 → 退化为原引用(seed 本就是新建对象,风险低)
+          out[k] = sv;
+        }
+      } else {
+        out[k] = sv;
+      }
     }
     // 其它情况 base 已存在叶子 → 保持 base，不被 seed 覆盖
   }
@@ -68,6 +91,17 @@ export async function activateScenario(
 ): Promise<void> {
   const scn = useScenarioStore.getState().getById(scenarioId);
   if (!scn) throw new Error(`[scenario-engine] 找不到剧本: ${scenarioId}`);
+
+  // A3 — 同会话二次激活幂等守卫：
+  // 防止 upsertBook 覆盖玩家手改的 lorebook 条目 / extractInitialItems 双倍入库到背包
+  // / replacePage 砸掉玩家已经推进的 page0 进度。若想换剧本必须先 startNewConversation。
+  const currentScn = useChatStore.getState().sessions.find(
+    (s) => s.id === useChatStore.getState().activeId,
+  )?.scenarioId;
+  if (currentScn === scenarioId) {
+    console.log('[scenario-engine] 剧本', scenarioId, '已激活在当前会话,跳过重复激活');
+    return;
+  }
 
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
   if (mode === 'preset') {
@@ -114,6 +148,11 @@ export async function activateScenario(
   const scenarioBookId = SCENARIO_BOOK_PREFIX + scn.id;
   let bookMounted = false;
   let sessionScenarioWritten = false;
+  // A2: replacePage/appendPage 之前先抓 page0 快照,出错时能把玩家原本的 page0 还回去——
+  // 否则 catch 块只回滚 lorebook+sessionId,玩家会看到一个被剧本 LLM 扩写半截、又因抛错没写
+  // sessionScenarioId 的「幽灵 page0」。pages 为空时 originalPage0 = null,catch 走 resetToPrologue。
+  const originalPage0 = useBookStore.getState().pages[0] ?? null;
+  let page0Replaced = false;
   try {
     // ── 3. 挂载剧本条目到 lorebook（独立 book，priority +1000 防撞键） ──
     useLorebookStore.getState().upsertBook(scenarioBookId, {
@@ -188,6 +227,8 @@ export async function activateScenario(
       } else {
         bookStore.appendPage(page0);
       }
+      // A2: 标记 page0 已被剧本扩写覆盖,catch 块据此决定是否还原原 page0。
+      page0Replaced = true;
       bookStore.goToPage(0);
     }
   } catch (err) {
@@ -206,6 +247,19 @@ export async function activateScenario(
         useChatStore.getState().setSessionScenario(null);
       } catch (rollbackErr) {
         console.warn('[scenario-engine] 回滚 sessionScenario 失败：', rollbackErr);
+      }
+    }
+    // A2: page0 已被替换 → 还原玩家原本的 page0;若原本没有(全新存档)则回退到默认序章,
+    // 避免幽灵 page0 残留(剧本 LLM 扩写一半但 scenarioId 没写,UI 会看到半成品序章)。
+    if (page0Replaced) {
+      try {
+        if (originalPage0) {
+          useBookStore.getState().replacePage(0, originalPage0);
+        } else {
+          useBookStore.getState().resetToPrologue();
+        }
+      } catch (rollbackErr) {
+        console.warn('[scenario-engine] 回滚 page0 失败：', rollbackErr);
       }
     }
     throw err;

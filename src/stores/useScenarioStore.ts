@@ -17,17 +17,22 @@ interface ScenarioState {
   userScenarios: ScenarioDoc[];
   activeId: string | null;
   lastPicked: string | null;
+  // 内置 id → 当前会话已 fork 出的副本 id;不跨会话,startNewConversation/loadConversation 会清空
+  forkMap: Record<string, string>;
 }
 
 interface ScenarioStore extends ScenarioState {
   getById: (id: string) => ScenarioDoc | undefined;
-  // 内置剧本被 upsert 时会自动 fork 出一份新 id 的用户副本(返回新 id);否则原地 upsert 并返回原 id。
+  // 内置剧本被 upsert 时会自动 fork 出一份新 id 的用户副本(返回新 id);
+  // 同一会话内对同一内置 id 再次 upsert 会复用 forkMap 中的副本就地更新(返回该副本 id)。
   upsert: (doc: ScenarioDoc) => string;
   remove: (id: string) => void;
   fork: (id: string) => string | null;
   setActive: (id: string | null) => void;
   setLastPicked: (id: string | null) => void;
   applyPatch: (id: string, patch: ScenarioPatch) => void;
+  // 会话切换时调用,丢弃过往会话的 fork 记录(副本本身保留)
+  clearForkMap: () => void;
 }
 
 const now = () => Date.now();
@@ -38,6 +43,14 @@ const uuid = (): string => {
   return 'scn_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 };
 
+function dateStamp(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+
 function cloneDoc(doc: ScenarioDoc): ScenarioDoc {
   return JSON.parse(JSON.stringify(doc)) as ScenarioDoc;
 }
@@ -46,7 +59,7 @@ function forkDoc(src: ScenarioDoc): ScenarioDoc {
   const copy = cloneDoc(src);
   copy.id = uuid();
   copy.builtin = false;
-  copy.meta = { ...copy.meta, name: copy.meta.name + '(副本)' };
+  copy.meta = { ...copy.meta, name: `${copy.meta.name} (修改 ${dateStamp()})` };
   copy.createdAt = now();
   copy.updatedAt = now();
   return copy;
@@ -99,6 +112,7 @@ export const useScenarioStore = create<ScenarioStore>()(
       userScenarios: [],
       activeId: null,
       lastPicked: null,
+      forkMap: {},
 
       getById: (id) => {
         const s = get();
@@ -109,9 +123,34 @@ export const useScenarioStore = create<ScenarioStore>()(
         const s = get();
         const isBuiltin = s.builtins.some(b => b.id === doc.id);
         if (isBuiltin) {
-          // 内置剧本不可改 → 自动 fork 新 id
+          // 同一会话内已 fork 过 → 就地更新副本(避免每次编辑累积新副本)
+          const existingForkId = s.forkMap[doc.id];
+          if (existingForkId) {
+            const idx = s.userScenarios.findIndex(d => d.id === existingForkId);
+            if (idx >= 0) {
+              const target = s.userScenarios[idx];
+              // 用传入 doc 的字段覆盖现有副本,但保留副本 id / builtin=false / createdAt / 命名后缀
+              const updated: ScenarioDoc = {
+                ...doc,
+                id: target.id,
+                builtin: false,
+                meta: { ...doc.meta, name: target.meta.name },
+                createdAt: target.createdAt,
+                updatedAt: now(),
+              };
+              set({
+                userScenarios: s.userScenarios.map((d, i) => (i === idx ? updated : d)),
+              });
+              return target.id;
+            }
+            // forkMap 指向的副本被删了 → 走 fork 流程,落到新副本
+          }
+          // 首次 fork:基于传入 doc(已带本次编辑)做副本,记入 forkMap
           const forked = forkDoc({ ...doc, id: doc.id });
-          set({ userScenarios: [...s.userScenarios, forked] });
+          set({
+            userScenarios: [...s.userScenarios, forked],
+            forkMap: { ...s.forkMap, [doc.id]: forked.id },
+          });
           return forked.id;
         }
         const idx = s.userScenarios.findIndex(d => d.id === doc.id);
@@ -131,14 +170,21 @@ export const useScenarioStore = create<ScenarioStore>()(
       remove: (id) => {
         const s = get();
         if (s.builtins.some(b => b.id === id)) return; // 内置不可删
+        // 同步清理 forkMap 里指向这条副本的映射,避免下次 upsert 还命中已删 id
+        const nextForkMap = { ...s.forkMap };
+        for (const [builtinId, forkId] of Object.entries(nextForkMap)) {
+          if (forkId === id) delete nextForkMap[builtinId];
+        }
         set({
           userScenarios: s.userScenarios.filter(d => d.id !== id),
           activeId: s.activeId === id ? null : s.activeId,
           lastPicked: s.lastPicked === id ? null : s.lastPicked,
+          forkMap: nextForkMap,
         });
       },
 
       fork: (id) => {
+        // 显式 fork 行为:不查 forkMap,每次都新建副本(用户主动复制)
         const src = get().getById(id);
         if (!src) return null;
         const forked = forkDoc(src);
@@ -151,12 +197,27 @@ export const useScenarioStore = create<ScenarioStore>()(
 
       applyPatch: (id, patch) => {
         const s = get();
-        // 内置剧本应用 patch → 先 fork 再应用(行为同 upsert)
         const builtinSrc = s.builtins.find(b => b.id === id);
         if (builtinSrc) {
+          // 同一会话内已 fork → 就地 patch 该副本
+          const existingForkId = s.forkMap[id];
+          if (existingForkId) {
+            const idx = s.userScenarios.findIndex(d => d.id === existingForkId);
+            if (idx >= 0) {
+              const patched = mergePatch(s.userScenarios[idx], patch);
+              set({
+                userScenarios: s.userScenarios.map((d, i) => (i === idx ? patched : d)),
+              });
+              return;
+            }
+            // forkMap 指向的副本被删了 → 走 fork 流程
+          }
           const forked = forkDoc(builtinSrc);
           const patched = mergePatch(forked, patch);
-          set({ userScenarios: [...s.userScenarios, patched] });
+          set({
+            userScenarios: [...s.userScenarios, patched],
+            forkMap: { ...s.forkMap, [id]: patched.id },
+          });
           return;
         }
         const idx = s.userScenarios.findIndex(d => d.id === id);
@@ -164,19 +225,25 @@ export const useScenarioStore = create<ScenarioStore>()(
         const patched = mergePatch(s.userScenarios[idx], patch);
         set({ userScenarios: s.userScenarios.map((d, i) => (i === idx ? patched : d)) });
       },
+
+      clearForkMap: () => set({ forkMap: {} }),
     }),
     {
       name: 'coc_scenarios_v1',
       storage: createJSONStorage(createDexieStorage),
-      // 内置剧本不入持久层,只保留用户态
+      // 内置剧本不入持久层,只保留用户态(含 forkMap,以便页面刷新后同一会话内仍复用副本)
       partialize: (state) =>
         stripFunctions({
           userScenarios: state.userScenarios,
           lastPicked: state.lastPicked,
+          forkMap: state.forkMap,
         } as unknown as Record<string, unknown>) as Partial<ScenarioState>,
       onRehydrateStorage: () => (state) => {
         // 老存档没有 builtins(或被旧版灌过),统一以代码常量为准
-        if (state) state.builtins = BUILTIN_SCENARIOS;
+        if (state) {
+          state.builtins = BUILTIN_SCENARIOS;
+          if (!state.forkMap) state.forkMap = {};
+        }
       },
     },
   ),

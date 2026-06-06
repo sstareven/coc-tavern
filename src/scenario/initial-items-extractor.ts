@@ -46,7 +46,7 @@ export async function extractInitialItems(raw: string): Promise<ExtractedInitial
     model: s.apiModel,
     temperature: 0.2,
     maxTokens: 20000,
-    rpmLane: 'main',
+    rpmLane: 'rewrite',
     label: 'scenario:initial-items',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -84,6 +84,14 @@ export async function extractInitialItems(raw: string): Promise<ExtractedInitial
   } catch (err) {
     // 兜底:网络/HTTP/JSON 任意失败 → 空数组,不阻塞起新游戏
     console.warn('[initial-items-extractor] 抽取失败,已回落空背包:', err);
+    // C5 — toast 告知玩家手动补救路径(浏览器环境才 dispatch,SSR/测试环境 window 可能未定义)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('coc:toast', {
+          detail: { type: 'warning', message: '起始物品抽取失败, 请到角色卡背包页手动添加' },
+        }),
+      );
+    }
     return [];
   }
 }

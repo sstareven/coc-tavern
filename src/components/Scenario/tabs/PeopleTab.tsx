@@ -193,10 +193,24 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                   </Row>
                 </div>
                 <Row label="公开简历(玩家可见)">
-                  <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={selected.npcAttrs.publicBio} onChange={(e) => patchNpc({ publicBio: e.target.value })} />
+                  <textarea
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                    rows={2}
+                    maxLength={4000}
+                    value={selected.npcAttrs.publicBio}
+                    onChange={(e) => patchNpc({ publicBio: e.target.value })}
+                  />
+                  <CharCounter value={selected.npcAttrs.publicBio} max={4000} />
                 </Row>
                 <Row label="隐藏简历(仅作者可见)">
-                  <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={selected.npcAttrs.hiddenBio} onChange={(e) => patchNpc({ hiddenBio: e.target.value })} />
+                  <textarea
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                    rows={2}
+                    maxLength={4000}
+                    value={selected.npcAttrs.hiddenBio}
+                    onChange={(e) => patchNpc({ hiddenBio: e.target.value })}
+                  />
+                  <CharCounter value={selected.npcAttrs.hiddenBio} max={4000} />
                 </Row>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <SmallBtn onClick={() => handleRemove(selected.id)} label="删除角色" danger />
@@ -237,6 +251,18 @@ function Row({ label, children, compact }: { label: string; children: React.Reac
       <span style={{ fontSize: 10.5, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
       {children}
     </label>
+  );
+}
+
+function CharCounter({ value, max }: { value: string; max: number }) {
+  const len = value.length;
+  const ratio = len / max;
+  return (
+    <div style={{
+      textAlign: 'right', fontSize: 10,
+      color: ratio > 0.8 ? '#c4a855' : 'var(--ink-faded, #6b5a3a)',
+      fontFamily: 'var(--font-ui)',
+    }}>{len}/{max}</div>
   );
 }
 

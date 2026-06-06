@@ -1,7 +1,7 @@
 // 共享条目列表面板 — 见 docs/specs/2026-06-06-scenario-system-design.md §5.1 / §E2
 // 6 类 category tab 共用; 左列表+右编辑+顶部工具栏(搜索/新增/自动分类/优化缓存);
 // LLM 命令通过 props 透传给 ScenarioEditor 主控统一调用 + applyScenarioPatch。
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type {
   ScenarioCategory,
   ScenarioDoc,
@@ -227,44 +227,14 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
               color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
             }}>暂无「{category}」条目</div>
           ) : (
-            filtered.map((e) => {
-              const active = e.id === selectedId;
-              const dyn = hasDynamicMarker(e.content);
-              return (
-                <button
-                  key={e.id}
-                  onClick={() => setSelectedId(e.id)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', gap: 4,
-                    width: '100%', textAlign: 'left',
-                    padding: '10px 12px',
-                    background: active ? 'rgba(196,168,85,0.14)' : 'transparent',
-                    border: 'none',
-                    borderLeft: active ? '2px solid var(--brass)' : '2px solid transparent',
-                    color: 'var(--text-light, #d0c2a0)',
-                    fontFamily: 'var(--font-ui)',
-                    cursor: 'pointer',
-                    transition: `background 180ms ${EASE}, border-color 180ms ${EASE}`,
-                  }}
-                  onMouseEnter={(ev) => { if (!active) ev.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                  onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
-                >
-                  <div style={{
-                    fontSize: 13, color: active ? 'var(--gold)' : 'var(--text-light)',
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}>{e.comment || '(无标题)'}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, opacity: 0.8 }}>
-                    <span title={policyLightLabel(e.cachePolicy)} style={{
-                      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                      background: policyLightColor(e.cachePolicy),
-                    }} />
-                    <span style={{ color: 'var(--ink, #8a7a52)' }}>{e.constant ? '常驻' : '触发'}</span>
-                    {dyn && <span style={{ color: '#d4a64a' }}>· 动态</span>}
-                    {e.hidden && <span style={{ color: '#8a7a52' }}>· 隐藏</span>}
-                  </div>
-                </button>
-              );
-            })
+            filtered.map((e) => (
+              <EntryListItem
+                key={e.id}
+                entry={e}
+                active={e.id === selectedId}
+                onSelect={setSelectedId}
+              />
+            ))
           )}
         </div>
 
@@ -276,90 +246,14 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
               color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
             }}>从左侧选择条目以编辑</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <FormRow label="标题">
-                <input
-                  value={selected.comment}
-                  onChange={(e) => handleField('comment', e.target.value)}
-                  style={inputStyle}
-                />
-              </FormRow>
-              <FormRow label="关键词">
-                <input
-                  value={selected.keys}
-                  onChange={(e) => handleField('keys', e.target.value)}
-                  placeholder="逗号分隔"
-                  style={inputStyle}
-                />
-              </FormRow>
-              <FormRow label="内容">
-                <textarea
-                  value={selected.content}
-                  onChange={(e) => handleField('content', e.target.value)}
-                  rows={6}
-                  style={{
-                    ...inputStyle,
-                    fontFamily: 'var(--font-mono)',
-                    lineHeight: 1.5,
-                    resize: 'vertical',
-                  }}
-                />
-              </FormRow>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <FormRow label="position" compact>
-                  <select
-                    value={selected.position}
-                    onChange={(e) => handleField('position', Number(e.target.value) as 0 | 1 | 2 | 3 | 4)}
-                    style={inputStyle}
-                  >
-                    {[0, 1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </FormRow>
-                <FormRow label="priority" compact>
-                  <input
-                    type="number"
-                    value={selected.priority}
-                    onChange={(e) => handleField('priority', Number(e.target.value) || 0)}
-                    style={inputStyle}
-                  />
-                </FormRow>
-                <FormRow label="缓存策略" compact>
-                  <select
-                    value={selected.cachePolicy}
-                    onChange={(e) => handleField('cachePolicy', e.target.value as ScenarioCachePolicy)}
-                    style={inputStyle}
-                  >
-                    <option value="auto">默认</option>
-                    <option value="static_prefix">静态前置</option>
-                    <option value="dynamic_suffix">动态尾置</option>
-                  </select>
-                </FormRow>
-              </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Toggle
-                  label="常驻"
-                  checked={selected.constant}
-                  onChange={(v) => handleField('constant', v)}
-                />
-                <Toggle
-                  label="隐藏"
-                  checked={selected.hidden ?? false}
-                  onChange={(v) => handleField('hidden', v)}
-                />
-              </div>
-
-              {/* 操作行 */}
-              <div style={{
-                display: 'flex', gap: 8, flexWrap: 'wrap',
-                marginTop: 4, paddingTop: 12,
-                borderTop: '1px solid rgba(196,168,85,0.15)',
-              }}>
-                <ToolBtn onClick={() => setRewriteOpen(true)} label="重写文案" busy={busy === 'rewriteEntry'} />
-                <ToolBtn onClick={() => setUnlockOpen(true)} label="加解锁条件" busy={busy === 'injectEjsUnlock'} />
-                <div style={{ flex: 1 }} />
-                <ToolBtn onClick={handleDelete} label="删除" busy={false} danger />
-              </div>
-            </div>
+            <EntryEditor
+              entry={selected}
+              busy={busy}
+              onField={handleField}
+              onDelete={handleDelete}
+              onOpenRewrite={() => setRewriteOpen(true)}
+              onOpenUnlock={() => setUnlockOpen(true)}
+            />
           )}
         </div>
       </div>
@@ -390,6 +284,179 @@ export function EntryListPane({ category, scn, onChange, onToast }: Props) {
 }
 
 // ── 小组件 ──
+
+// 左列表行 — memo 按 entry.id + 关键字段比较,避免无关条目重渲染
+const EntryListItem = memo(function EntryListItem({
+  entry, active, onSelect,
+}: {
+  entry: ScenarioEntry;
+  active: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const dyn = hasDynamicMarker(entry.content);
+  return (
+    <button
+      onClick={() => onSelect(entry.id)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 4,
+        width: '100%', textAlign: 'left',
+        padding: '10px 12px',
+        background: active ? 'rgba(196,168,85,0.14)' : 'transparent',
+        border: 'none',
+        borderLeft: active ? '2px solid var(--brass)' : '2px solid transparent',
+        color: 'var(--text-light, #d0c2a0)',
+        fontFamily: 'var(--font-ui)',
+        cursor: 'pointer',
+        transition: `background 180ms ${EASE}, border-color 180ms ${EASE}`,
+      }}
+      onMouseEnter={(ev) => { if (!active) ev.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+      onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{
+        fontSize: 13, color: active ? 'var(--gold)' : 'var(--text-light)',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{entry.comment || '(无标题)'}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, opacity: 0.8 }}>
+        <span title={policyLightLabel(entry.cachePolicy)} style={{
+          display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+          background: policyLightColor(entry.cachePolicy),
+        }} />
+        <span style={{ color: 'var(--ink, #8a7a52)' }}>{entry.constant ? '常驻' : '触发'}</span>
+        {dyn && <span style={{ color: '#d4a64a' }}>· 动态</span>}
+        {entry.hidden && <span style={{ color: '#8a7a52' }}>· 隐藏</span>}
+      </div>
+    </button>
+  );
+}, (prev, next) => (
+  prev.active === next.active &&
+  prev.entry.id === next.entry.id &&
+  prev.entry.comment === next.entry.comment &&
+  prev.entry.content === next.entry.content &&
+  prev.entry.constant === next.entry.constant &&
+  prev.entry.hidden === next.entry.hidden &&
+  prev.entry.cachePolicy === next.entry.cachePolicy &&
+  prev.onSelect === next.onSelect
+));
+
+// 右侧编辑面板 — memo,短字段+正文走本地 draft + onBlur commit,避免每键击打全树 re-render
+const EntryEditor = memo(function EntryEditor({
+  entry, busy, onField, onDelete, onOpenRewrite, onOpenUnlock,
+}: {
+  entry: ScenarioEntry;
+  busy: string | null;
+  onField: <K extends keyof ScenarioEntry>(key: K, val: ScenarioEntry[K]) => void;
+  onDelete: () => void;
+  onOpenRewrite: () => void;
+  onOpenUnlock: () => void;
+}) {
+  // 短字段 + 正文 draft — 同 entry.id 时保留本地编辑,切 entry 时刷新
+  const [commentDraft, setCommentDraft] = useState(entry.comment);
+  const [keysDraft, setKeysDraft] = useState(entry.keys);
+  const [contentDraft, setContentDraft] = useState(entry.content);
+  const [priorityDraft, setPriorityDraft] = useState(String(entry.priority));
+
+  useEffect(() => {
+    setCommentDraft(entry.comment);
+    setKeysDraft(entry.keys);
+    setContentDraft(entry.content);
+    setPriorityDraft(String(entry.priority));
+  }, [entry.id, entry.comment, entry.keys, entry.content, entry.priority]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <FormRow label="标题">
+        <input
+          value={commentDraft}
+          onChange={(e) => setCommentDraft(e.target.value)}
+          onBlur={() => { if (commentDraft !== entry.comment) onField('comment', commentDraft); }}
+          style={inputStyle}
+        />
+      </FormRow>
+      <FormRow label="关键词">
+        <input
+          value={keysDraft}
+          onChange={(e) => setKeysDraft(e.target.value)}
+          onBlur={() => { if (keysDraft !== entry.keys) onField('keys', keysDraft); }}
+          placeholder="逗号分隔"
+          style={inputStyle}
+        />
+      </FormRow>
+      <FormRow label="内容">
+        <textarea
+          value={contentDraft}
+          onChange={(e) => setContentDraft(e.target.value)}
+          onBlur={() => { if (contentDraft !== entry.content) onField('content', contentDraft); }}
+          rows={6}
+          style={{
+            ...inputStyle,
+            fontFamily: 'var(--font-mono)',
+            lineHeight: 1.5,
+            resize: 'vertical',
+          }}
+        />
+      </FormRow>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <FormRow label="position" compact>
+          <select
+            value={entry.position}
+            onChange={(e) => onField('position', Number(e.target.value) as 0 | 1 | 2 | 3 | 4)}
+            style={inputStyle}
+          >
+            {[0, 1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </FormRow>
+        <FormRow label="priority" compact>
+          <input
+            type="number"
+            value={priorityDraft}
+            onChange={(e) => setPriorityDraft(e.target.value)}
+            onBlur={() => {
+              const n = Number(priorityDraft) || 0;
+              if (n !== entry.priority) onField('priority', n);
+              setPriorityDraft(String(n));
+            }}
+            style={inputStyle}
+          />
+        </FormRow>
+        <FormRow label="缓存策略" compact>
+          <select
+            value={entry.cachePolicy}
+            onChange={(e) => onField('cachePolicy', e.target.value as ScenarioCachePolicy)}
+            style={inputStyle}
+          >
+            <option value="auto">默认</option>
+            <option value="static_prefix">静态前置</option>
+            <option value="dynamic_suffix">动态尾置</option>
+          </select>
+        </FormRow>
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Toggle
+          label="常驻"
+          checked={entry.constant}
+          onChange={(v) => onField('constant', v)}
+        />
+        <Toggle
+          label="隐藏"
+          checked={entry.hidden ?? false}
+          onChange={(v) => onField('hidden', v)}
+        />
+      </div>
+
+      {/* 操作行 */}
+      <div style={{
+        display: 'flex', gap: 8, flexWrap: 'wrap',
+        marginTop: 4, paddingTop: 12,
+        borderTop: '1px solid rgba(196,168,85,0.15)',
+      }}>
+        <ToolBtn onClick={onOpenRewrite} label="重写文案" busy={busy === 'rewriteEntry'} />
+        <ToolBtn onClick={onOpenUnlock} label="加解锁条件" busy={busy === 'injectEjsUnlock'} />
+        <div style={{ flex: 1 }} />
+        <ToolBtn onClick={onDelete} label="删除" busy={false} danger />
+      </div>
+    </div>
+  );
+});
 
 const inputStyle: React.CSSProperties = {
   width: '100%',

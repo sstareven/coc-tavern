@@ -232,32 +232,41 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
           alignItems: 'flex-end',
         }}
       >
-        <textarea
-          rows={2}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // Ctrl/Cmd+Enter 发送
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-              e.preventDefault();
-              void send();
-            }
-          }}
-          placeholder={'告诉我你想要的:例如「生 5 个印斯茅斯渔夫」「把暗线再凶一点」「给所有禁书条目加 EJS 解锁」'}
-          style={{
-            flex: 1,
-            padding: '6px 8px',
-            fontSize: 12.5,
-            lineHeight: 1.55,
-            color: 'var(--text-light, #d0c2a0)',
-            background: 'rgba(8,5,2,0.55)',
-            border: '1px solid rgba(196,168,85,0.25)',
-            borderRadius: 2,
-            outline: 'none',
-            resize: 'none',
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <textarea
+            rows={2}
+            value={draft}
+            maxLength={2000}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd+Enter 发送
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder={'告诉我你想要的:例如「生 5 个印斯茅斯渔夫」「把暗线再凶一点」「给所有禁书条目加 EJS 解锁」'}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: 'var(--text-light, #d0c2a0)',
+              background: 'rgba(8,5,2,0.55)',
+              border: '1px solid rgba(196,168,85,0.25)',
+              borderRadius: 2,
+              outline: 'none',
+              resize: 'none',
+              fontFamily: 'var(--font-ui)',
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{
+            textAlign: 'right', fontSize: 10,
+            color: draft.length / 2000 > 0.8 ? '#c4a855' : 'var(--ink-faded, #6b5a3a)',
             fontFamily: 'var(--font-ui)',
-          }}
-        />
+          }}>{draft.length}/2000</div>
+        </div>
         <SendButton onClick={() => void send()} busy={busy} disabled={busy || draft.trim().length === 0} />
       </footer>
     </aside>

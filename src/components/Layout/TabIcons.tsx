@@ -61,3 +61,11 @@ export function IconClose({ size = 14 }: IconProps) {
 export function IconCheck({ size = 14 }: IconProps) {
   return (<svg {...base(size)}><path d="M5 12.5l4.5 4.5L19 7" /></svg>);
 }
+/** 闪光：四芒星火花（替代 emoji ✨，标识 LLM 生成） */
+export function IconSparkle({ size = 12 }: IconProps) {
+  return (<svg {...base(size)}><path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3" /></svg>);
+}
+/** 刷新/清空：循环箭头（替代 emoji ♻） */
+export function IconRefresh({ size = 12 }: IconProps) {
+  return (<svg {...base(size)}><path d="M4 12a8 8 0 0114-5.3L20 9M20 4v5h-5M20 12a8 8 0 01-14 5.3L4 15M4 20v-5h5" /></svg>);
+}

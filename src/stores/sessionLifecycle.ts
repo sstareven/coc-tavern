@@ -317,7 +317,7 @@ export function saveConversation(cid: string): Promise<void> {
  *
  * Inner（未入队）版本——供 switchConversation 复用。
  */
-async function loadConversationInner(cid: string): Promise<void> {
+async function loadConversationInner(cid: string, prevScenarioIdHint?: string): Promise<void> {
   if (!cid) return;
 
   // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏——【必须在任何 DB 读取之前】：
@@ -328,7 +328,10 @@ async function loadConversationInner(cid: string): Promise<void> {
   // M1：先读旧 scenarioId 再显式传给 clearAllGameState——下一行 setActive(cid) 会把 activeId 改成新会话,
   // 若 clear 内部反查 activeId 会拿到新会话的空 scenarioId,旧剧本 book 永不卸载。这里改成显式传参,
   // 不再依赖「先 clear 再 setActive」的顺序假设。
-  const prevScenarioId = readActiveScenarioId();
+  //
+  // A5: switchConversation 入参在调用入口同步捕获 prevScenarioId 并显式传入,完全跳过
+  // 此处的反查;独立 loadConversation 入口仍走 readActiveScenarioId(向后兼容)。
+  const prevScenarioId = prevScenarioIdHint ?? readActiveScenarioId();
   clearAllGameState(prevScenarioId);
   useChatStore.getState().setActive(cid);
 
@@ -522,6 +525,10 @@ export function switchConversation(id: string): Promise<void> {
   // P1-5：在此同步捕获 prevId——并发的 createSession 会在链外同步改 activeId，
   // 若在 .then 内才读 activeId 会读到那个更新的 id，导致保存错会话（prev 永不保存）。
   const prevId = useChatStore.getState().activeId;
+  // A5: 同步捕获 prevScenarioId——避免并发的 createSession / setActive 在 enqueue 排队
+  // 期间把 activeId / sessions 改写,导致 loadConversationInner 里的 readActiveScenarioId
+  // 读到错误的 scenarioId,旧剧本 book 永不卸载。显式串行传递,完全解耦时序。
+  const prevScenarioId = useChatStore.getState().sessions.find((s) => s.id === prevId)?.scenarioId;
   // 单次 enqueue 覆盖 save(prev)+load(next)，整个切换是一条原子链步；内部用 *Inner（未入队）
   // 版本，避免等待本步已持有的同一条链而自死锁。
   return enqueue(async () => {
@@ -529,13 +536,31 @@ export function switchConversation(id: string): Promise<void> {
     if (pendingTarget !== id) return;
 
     if (prevId && prevId !== id) {
-      await saveConversationInner(prevId);
+      // A5: saveConversationInner 抛错不再静默吞掉——以前 enqueue 的 .catch 会把异常吞了,
+      // 玩家「切档前保存」失败时毫无知觉,等读档发现进度丢失才意识到。这里显式 console.error
+      // + 玩家可见 toast 警告,但不阻断切档(切了就切了,继续走完 load 流程)。
+      try {
+        await saveConversationInner(prevId);
+      } catch (saveErr) {
+        console.error('[sessionLifecycle] switchConversation: 切档前保存旧会话失败', { prevId, err: saveErr });
+        try {
+          window.dispatchEvent(
+            new CustomEvent('coc:toast', {
+              detail: { type: 'warning', message: '切档前未保存,可能丢失进度' },
+            }),
+          );
+        } catch {
+          /* SSR / 非浏览器环境忽略 */
+        }
+      }
     }
     // 再次检查 latest-wins（save 期间可能又来新请求）
     if (pendingTarget !== id) return;
 
     useChatStore.getState().setActive(id);
-    await loadConversationInner(id);
+    // A5: 显式传 prevScenarioId 给 loadConversationInner——避免它内部走 readActiveScenarioId
+    // 反查时拿到已被 setActive 改写的新 activeId 对应的空 scenarioId。
+    await loadConversationInner(id, prevScenarioId);
   });
 }
 

@@ -1,8 +1,9 @@
 // 编辑器 — 暗线时间线 tab(scn.darkTimeline 编辑 + LLM 生成)
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { ScenarioDoc, DarkPhase } from '../../../types/scenario';
 import { generateDarkTimeline } from '../../../scenario/scenario-llm';
 import { applyScenarioPatch } from '../../../scenario/scenario-patch';
+import { IconClose, IconRefresh, IconSparkle } from '../../Layout/TabIcons';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -118,9 +119,21 @@ function Toolbar({
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       <BarButton onClick={onAdd}>+ 新阶段</BarButton>
       <BarButton onClick={onGenerate} primary disabled={busy}>
-        {busy ? '生成中…' : '✨ LLM 生成'}
+        {busy ? (
+          '生成中…'
+        ) : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <IconSparkle size={12} />
+            LLM 生成
+          </span>
+        )}
       </BarButton>
-      <BarButton onClick={onClear} danger>♻ 清空</BarButton>
+      <BarButton onClick={onClear} danger>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <IconRefresh size={12} />
+          清空
+        </span>
+      </BarButton>
     </div>
   );
 }
@@ -184,88 +197,98 @@ function BarButton({
 }
 
 // ── 单个 phase 卡片 ──
-function PhaseCard({
-  phase,
-  onChange,
-  onRemove,
-}: {
-  phase: DarkPhase;
-  onChange: (patch: Partial<DarkPhase>) => void;
-  onRemove: () => void;
-}): React.ReactElement {
-  return (
-    <article
-      style={{
-        padding: 14,
-        background: 'linear-gradient(180deg, rgba(40,28,16,0.85), rgba(20,14,8,0.92))',
-        border: '1px solid rgba(196,168,85,0.35)',
-        borderRadius: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      }}
-    >
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-        <span style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>
-          {phase.id}
-        </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          style={{
-            padding: '2px 8px',
-            fontSize: 10,
-            color: '#d08585',
-            background: 'transparent',
-            border: '1px solid rgba(160,80,80,0.5)',
-            borderRadius: 2,
-            cursor: 'pointer',
-            fontFamily: 'var(--font-ui)',
-            letterSpacing: 1,
-            transition: `background 180ms ${EASE}`,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          删除
-        </button>
-      </header>
+// 用 React.memo + 按 phase.id/字段浅比对避免父级 onChange identity 变化触发整树 re-render
+const PhaseCard = memo(
+  function PhaseCard({
+    phase,
+    onChange,
+    onRemove,
+  }: {
+    phase: DarkPhase;
+    onChange: (patch: Partial<DarkPhase>) => void;
+    onRemove: () => void;
+  }): React.ReactElement {
+    return (
+      <article
+        style={{
+          padding: 14,
+          background: 'linear-gradient(180deg, rgba(40,28,16,0.85), rgba(20,14,8,0.92))',
+          border: '1px solid rgba(196,168,85,0.35)',
+          borderRadius: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}
+      >
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink, #8a7a52)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>
+            {phase.id}
+          </span>
+          <button
+            type="button"
+            onClick={onRemove}
+            style={{
+              padding: '2px 8px',
+              fontSize: 10,
+              color: '#d08585',
+              background: 'transparent',
+              border: '1px solid rgba(160,80,80,0.5)',
+              borderRadius: 2,
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+              letterSpacing: 1,
+              transition: `background 180ms ${EASE}`,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            删除
+          </button>
+        </header>
 
-      {/* threshold 滑块 */}
-      <Field label={`门槛 — ${phase.threshold}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={phase.threshold}
-          onChange={(e) => onChange({ threshold: Number(e.target.value) })}
-          style={{ width: '100%', accentColor: 'var(--gold, #c4a855)' }}
-        />
-      </Field>
+        {/* threshold 滑块 — 拖动量大,不走 draft */}
+        <Field label={`门槛 — ${phase.threshold}`}>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={phase.threshold}
+            onChange={(e) => onChange({ threshold: Number(e.target.value) })}
+            style={{ width: '100%', accentColor: 'var(--gold, #c4a855)' }}
+          />
+        </Field>
 
-      <Field label="标题">
-        <TextInput value={phase.title} onChange={(v) => onChange({ title: v })} placeholder="如:暮色降临" />
-      </Field>
+        <Field label="标题">
+          <TextInput value={phase.title} onCommit={(v) => onChange({ title: v })} placeholder="如:暮色降临" />
+        </Field>
 
-      <Field label="触发事件(每行一条)">
-        <TextArea
-          rows={3}
-          value={phase.triggers.join('\n')}
-          onChange={(v) => onChange({ triggers: linesToArr(v) })}
-        />
-      </Field>
+        <Field label="触发事件(每行一条)">
+          <TextArea
+            rows={3}
+            value={phase.triggers.join('\n')}
+            onCommit={(v) => onChange({ triggers: linesToArr(v) })}
+          />
+        </Field>
 
-      <Field label="守秘人导演词">
-        <TextArea rows={4} value={phase.directorNote} onChange={(v) => onChange({ directorNote: v })} />
-      </Field>
+        <Field label="守秘人导演词">
+          <TextArea rows={4} value={phase.directorNote} onCommit={(v) => onChange({ directorNote: v })} />
+        </Field>
 
-      <Field label="自动解锁 key(进入此阶段时写入 /剧情/已解锁/<key>)">
-        <ChipEditor values={phase.autoUnlockKeys} onChange={(arr) => onChange({ autoUnlockKeys: arr })} />
-      </Field>
-    </article>
-  );
-}
+        <Field label="自动解锁 key(进入此阶段时写入 /剧情/已解锁/<key>)">
+          <ChipEditor values={phase.autoUnlockKeys} onChange={(arr) => onChange({ autoUnlockKeys: arr })} />
+        </Field>
+      </article>
+    );
+  },
+  (prev, next) =>
+    prev.phase.id === next.phase.id &&
+    prev.phase.threshold === next.phase.threshold &&
+    prev.phase.title === next.phase.title &&
+    prev.phase.directorNote === next.phase.directorNote &&
+    prev.phase.triggers === next.phase.triggers &&
+    prev.phase.autoUnlockKeys === next.phase.autoUnlockKeys,
+);
 
 function Field({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {
   return (
@@ -278,21 +301,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// 受控输入但用 local draft + onBlur 才上抛,避免每次按键触发父级 re-render(尤其中文输入法)
 function TextInput({
   value,
-  onChange,
+  onCommit,
   placeholder,
 }: {
   value: string;
-  onChange: (v: string) => void;
+  onCommit: (v: string) => void;
   placeholder?: string;
 }): React.ReactElement {
+  const [draft, setDraft] = useState(value);
+  // 外部 value 变化(如 LLM 生成/撤销)时同步本地 draft
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
   return (
     <input
       type="text"
-      value={value}
+      value={draft}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft);
+      }}
       style={{
         padding: '6px 8px',
         fontSize: 13,
@@ -309,18 +341,25 @@ function TextInput({
 
 function TextArea({
   value,
-  onChange,
+  onCommit,
   rows,
 }: {
   value: string;
-  onChange: (v: string) => void;
+  onCommit: (v: string) => void;
   rows: number;
 }): React.ReactElement {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
   return (
     <textarea
       rows={rows}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft);
+      }}
       style={{
         padding: '6px 8px',
         fontSize: 12.5,
@@ -337,7 +376,7 @@ function TextArea({
   );
 }
 
-// chip 编辑器:逗号/回车确认;Backspace 删尾
+// chip 编辑器:全角/半角逗号 + 回车确认;Backspace 删尾
 function ChipEditor({
   values,
   onChange,
@@ -371,47 +410,14 @@ function ChipEditor({
       }}
     >
       {values.map((v, i) => (
-        <span
-          key={`${v}_${i}`}
-          style={{
-            padding: '2px 8px',
-            fontSize: 11,
-            background: 'rgba(196,168,85,0.12)',
-            border: '1px solid rgba(196,168,85,0.4)',
-            color: 'var(--gold)',
-            borderRadius: 2,
-            fontFamily: 'var(--font-ui)',
-            letterSpacing: 1,
-            display: 'inline-flex',
-            gap: 6,
-            alignItems: 'center',
-          }}
-        >
-          {v}
-          <button
-            type="button"
-            onClick={() => onChange(values.filter((_, j) => j !== i))}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--gold)',
-              cursor: 'pointer',
-              padding: 0,
-              fontSize: 12,
-              lineHeight: 1,
-            }}
-            aria-label="移除"
-          >
-            ×
-          </button>
-        </span>
+        <Chip key={`${v}_${i}`} value={v} onRemove={() => onChange(values.filter((_, j) => j !== i))} />
       ))}
       <input
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ',' || e.key === ',') {
+          if (e.key === 'Enter' || e.key === ',' || e.key === '，') {
             e.preventDefault();
             commit();
           } else if (e.key === 'Backspace' && draft === '' && values.length > 0) {
@@ -436,6 +442,49 @@ function ChipEditor({
   );
 }
 
+// chip 单元:独立 memo 子组件,避免同列其他 chip onChange identity 变化触发整行重渲
+const Chip = memo(
+  function Chip({ value, onRemove }: { value: string; onRemove: () => void }): React.ReactElement {
+    return (
+      <span
+        style={{
+          padding: '2px 8px',
+          fontSize: 11,
+          background: 'rgba(196,168,85,0.12)',
+          border: '1px solid rgba(196,168,85,0.4)',
+          color: 'var(--gold)',
+          borderRadius: 2,
+          fontFamily: 'var(--font-ui)',
+          letterSpacing: 1,
+          display: 'inline-flex',
+          gap: 6,
+          alignItems: 'center',
+        }}
+      >
+        {value}
+        <button
+          type="button"
+          onClick={onRemove}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--gold)',
+            cursor: 'pointer',
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            lineHeight: 1,
+          }}
+          aria-label="移除"
+        >
+          <IconClose size={12} />
+        </button>
+      </span>
+    );
+  },
+  (prev, next) => prev.value === next.value,
+);
+
 function ErrBox({ text, onClose }: { text: string; onClose: () => void }): React.ReactElement {
   return (
     <div
@@ -456,9 +505,18 @@ function ErrBox({ text, onClose }: { text: string; onClose: () => void }): React
       <button
         type="button"
         onClick={onClose}
-        style={{ background: 'transparent', border: 'none', color: '#e0a0a0', cursor: 'pointer' }}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: '#e0a0a0',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: 0,
+        }}
+        aria-label="关闭"
       >
-        ×
+        <IconClose size={14} />
       </button>
     </div>
   );
@@ -476,7 +534,11 @@ function Empty(): React.ReactElement {
       }}
     >
       <div style={{ marginBottom: 6 }}>暂无暗线阶段</div>
-      <div style={{ opacity: 0.7 }}>点击「+ 新阶段」手动添加，或「✨ LLM 生成」据元信息自动产出</div>
+      <div style={{ opacity: 0.7, display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+        点击「+ 新阶段」手动添加，或「
+        <IconSparkle size={12} />
+        LLM 生成」据元信息自动产出
+      </div>
     </div>
   );
 }
