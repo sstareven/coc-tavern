@@ -244,7 +244,7 @@ export function SkillsTab({ scn, onChange, onToast }: Props) {
         <section style={{
           display: 'flex', flexDirection: 'column',
           borderRight: '1px solid rgba(196,168,85,0.18)',
-          minWidth: 0,
+          minWidth: 0, minHeight: 0,
         }}>
           <PaneHeader title="自定义技能">
             <SmallBtn onClick={handleAddCustom} label="+ 新" accent />
@@ -362,7 +362,7 @@ export function SkillsTab({ scn, onChange, onToast }: Props) {
 
         {/* 右栏 黑名单 */}
         <section style={{
-          display: 'flex', flexDirection: 'column', minWidth: 0,
+          display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0,
         }}>
           <PaneHeader title="标准技能黑名单">
             <input
