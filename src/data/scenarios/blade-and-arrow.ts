@@ -245,7 +245,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     { name: '斥候', crMin: 9, crMax: 40, skills: ['潜行', '侦查', '聆听', '生存', '导航', '射击(弓/弩)', '攀爬', '骑术'] },
     { name: '游吟诗人', crMin: 9, crMax: 50, skills: ['艺术与手艺', '取悦', '说服', '心理学', '聆听', '历史', '语言(其他)', '话术'] },
     { name: '巫祝', crMin: 20, crMax: 60, skills: ['神秘学', '克苏鲁神话', '心理学', '说服', '历史', '聆听', '人类学', '急救'] },
-    { name: '铁匠', crMin: 20, crMax: 50, skills: ['艺术与手艺', '估价', '聆听', '侦查', '格斗(短剑/长剑/斧)', '机械修补', '说服', '历史'] },
+    { name: '铁匠', crMin: 20, crMax: 50, skills: ['艺术与手艺', '估价', '聆听', '侦查', '格斗(短剑/长剑/斧)', '机械维修', '说服', '历史'] },
     { name: '商队向导', crMin: 20, crMax: 50, skills: ['导航', '生存', '骑术', '聆听', '侦查', '说服', '估价', '语言(其他)'] },
   ],
   customSkills: [
@@ -254,7 +254,6 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     { name: '战术', base: 5, cat: '生活系', desc: '指挥阵列、部署兵力、判断战场态势' },
     { name: '医学(战场)', base: 5, cat: '护理系', desc: '战场上的简易外科与伤口处理,缺少现代器具时的应急医疗' },
     { name: '语言(古语)', base: 1, cat: '生活系', desc: '解读古代铭文、咒文与失传语种' },
-    { name: '机械修补', base: 5, cat: '生活系', desc: '修整投石车、马车、铠甲等冷兵器时代机械与器具' },
   ],
   skillBlacklist: [
     '汽车驾驶',
