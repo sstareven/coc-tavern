@@ -43,6 +43,20 @@ export interface ScenarioCharacter {
     locationDefault: string;
     publicBio: string; // 玩家可见
     hiddenBio: string; // 仅编辑模式可见
+    // 角色卡 8 段背景(独立字段,编辑器拆开来编辑;makeNpc 也会拼回到 sheet.description
+    // 供 LLM prompt 上下文用)。全部 optional 兼容老数据。
+    description?: string;
+    beliefs?: string;
+    significantPeople?: string;
+    meaningfulLocations?: string;
+    treasuredPossessions?: string;
+    traits?: string;
+    injuries?: string;
+    backgroundFears?: string;
+    /** 随身物品自由文本(逗号/顿号/分号/换行分隔);进游戏 scenarioCharacterToNpc
+     * 拆为 possessions 数组,TeamSidebar 武器列 + 战斗 weapons 派生。
+     * 与 sheet.initialItemsRaw 同步存储。 */
+    initialItemsRaw?: string;
   };
 }
 

@@ -107,35 +107,48 @@ function BadgeButton({ name, progress, onClick }: { name: string; progress: numb
     <button
       type="button"
       onClick={onClick}
+      aria-label={`查看剧本「${name}」详情(暗线 ${progress}/100)`}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '4px 10px', borderRadius: 12,
-        border: '1px solid rgba(196,168,85,0.45)',
-        background: 'rgba(0,0,0,0.25)',
+        // 左上角铜版胶囊 — 与 TeamSidebar 胶囊(top:56)样式一致,位置下移到 92
+        position: 'fixed', top: 92, left: 14, zIndex: 49,
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '6px 14px', borderRadius: 18,
+        background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',
+        border: '1px solid var(--brass)',
         color: 'var(--gold)',
         fontFamily: 'var(--font-ui)',
-        fontSize: 'calc(11px * var(--system-ratio, 1))',
-        letterSpacing: 1, cursor: 'pointer', userSelect: 'none',
-        transition: `transform 200ms ${EASE}, filter 200ms ${EASE}, background 200ms ${EASE}`,
+        fontSize: 11, letterSpacing: 2,
+        cursor: 'pointer', userSelect: 'none',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+        transition: 'transform 180ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1), background 200ms cubic-bezier(0.4,0,0.2,1)',
       }}
       title="点击查看剧本详情"
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.05)';
-        e.currentTarget.style.filter = 'brightness(1.18)';
-        e.currentTarget.style.background = 'rgba(196,168,85,0.18)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.background = 'linear-gradient(180deg, rgba(60,40,20,0.95), rgba(30,20,12,0.98))';
+        e.currentTarget.style.borderColor = 'var(--gold)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.filter = 'brightness(1)';
-        e.currentTarget.style.background = 'rgba(0,0,0,0.25)';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.background = 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))';
+        e.currentTarget.style.borderColor = 'var(--brass)';
       }}
-      onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)'; }}
-      onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+      onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(0.97)'; }}
+      onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-1px) scale(1)'; }}
     >
-      <IconToc size={13} />
-      <span style={{ color: 'var(--parchment, #d8c79a)' }}>{name}</span>
-      <span style={{ opacity: 0.5 }}>·</span>
-      <span>暗线 {progress}/100</span>
+      <span style={{
+        width: 16, height: 16, borderRadius: '50%',
+        background: 'rgba(196,168,85,0.18)',
+        border: '1px solid var(--gold)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+        color: 'var(--gold)',
+      }}>
+        <IconToc size={10} />
+      </span>
+      <span style={{ color: 'var(--parchment, #d8c79a)', fontWeight: 500 }}>{name}</span>
+      <span style={{ opacity: 0.45 }}>·</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>暗线 {progress}/100</span>
     </button>
   );
 }

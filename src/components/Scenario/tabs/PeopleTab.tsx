@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { ScenarioDoc, ScenarioCharacter } from '../../../types/scenario';
 import { defaultSheet } from '../../../stores/useCharSheetStore';
+import { buildCharSheetDescription } from '../../../data/scenarios/_npc-helpers';
 import { EntryListPane } from './EntryListPane';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -45,6 +46,7 @@ const ROLE_LABELS: Record<ScenarioCharacter['role'], string> = {
 
 export function PeopleTab({ scn, onChange, onToast }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bgExpanded, setBgExpanded] = useState(false);
   const selected = selectedId ? scn.characters.find((c) => c.id === selectedId) ?? null : null;
 
   const commitChars = (next: ScenarioCharacter[]): void => {
@@ -79,14 +81,26 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
     patchSelected({ sheet });
   };
 
-  const patchSheetDescription = (desc: string): void => {
+  /** 编辑 8 段背景的任一独立字段 → 更新 npcAttrs.X + 重建 sheet.description(让 LLM 看到拼接版) */
+  const patchBgField = (field: keyof ScenarioCharacter['npcAttrs'], value: string): void => {
     if (!selected) return;
-    patchSelected({ sheet: { ...selected.sheet, description: desc } });
-  };
-
-  const patchSheetItemsRaw = (raw: string): void => {
-    if (!selected) return;
-    patchSelected({ sheet: { ...selected.sheet, initialItemsRaw: raw } });
+    const newNpcAttrs = { ...selected.npcAttrs, [field]: value };
+    const sheet = {
+      ...selected.sheet,
+      description: buildCharSheetDescription({
+        description: newNpcAttrs.description,
+        beliefs: newNpcAttrs.beliefs,
+        significantPeople: newNpcAttrs.significantPeople,
+        meaningfulLocations: newNpcAttrs.meaningfulLocations,
+        treasuredPossessions: newNpcAttrs.treasuredPossessions,
+        traits: newNpcAttrs.traits,
+        injuries: newNpcAttrs.injuries,
+        backgroundFears: newNpcAttrs.backgroundFears,
+      }),
+      // 同步 initialItemsRaw 到 sheet(scenarioCharacterToNpc 从 sheet 拆 possessions)
+      ...(field === 'initialItemsRaw' ? { initialItemsRaw: value } : {}),
+    };
+    patchSelected({ npcAttrs: newNpcAttrs, sheet });
   };
 
   const patchNpc = (patch: Partial<ScenarioCharacter['npcAttrs']>): void => {
@@ -230,28 +244,97 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                   />
                   <CharCounter value={selected.npcAttrs.hiddenBio} max={4000} />
                 </Row>
-                <Row label="个人档案(8 段格式 - 个人描述/思想信念/重要之人/重要场所/珍贵之物/特质/伤口伤痕/恐惧症狂躁症)">
-                  <textarea
-                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 11.5, lineHeight: 1.55 }}
-                    rows={12}
-                    maxLength={8000}
-                    placeholder={'【个人描述】\n...\n\n【思想/信念】\n...\n\n【重要之人】\n...'}
-                    value={selected.sheet?.description ?? ''}
-                    onChange={(e) => patchSheetDescription(e.target.value)}
-                  />
-                  <CharCounter value={selected.sheet?.description ?? ''} max={8000} />
-                </Row>
-                <Row label="随身物品(逗号/顿号/分号/换行分隔,进游戏拆为 possessions 数组)">
-                  <textarea
-                    style={{ ...inputStyle, resize: 'vertical' }}
-                    rows={2}
-                    maxLength={500}
-                    placeholder="例:罗马军用短剑、皮质护臂、军团徽章、军囊（含口粮与火石）"
-                    value={selected.sheet?.initialItemsRaw ?? ''}
-                    onChange={(e) => patchSheetItemsRaw(e.target.value)}
-                  />
-                  <CharCounter value={selected.sheet?.initialItemsRaw ?? ''} max={500} />
-                </Row>
+
+                {/* 折叠区: 9 个独立背景字段 + 随身物品 */}
+                <ExpandableSection
+                  title="角色背景档案"
+                  hint="8 段(个人描述/思想信念/...) 与玩家调查员卡同款 — 改后自动同步 sheet.description"
+                  expanded={bgExpanded}
+                  onToggle={() => setBgExpanded((v) => !v)}
+                >
+                  <Row label="个人描述/外观">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="如:中年贵族,身材中等略胖,发色已斑白..."
+                      value={selected.npcAttrs.description ?? ''}
+                      onChange={(e) => patchBgField('description', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="思想/信念">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="如:罗马的秩序高于一切,但真正支撑秩序的不是元老院的法令..."
+                      value={selected.npcAttrs.beliefs ?? ''}
+                      onChange={(e) => patchBgField('beliefs', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="重要之人">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="1-2 个名字 + 关系,可以是已亡/离散/盟友"
+                      value={selected.npcAttrs.significantPeople ?? ''}
+                      onChange={(e) => patchBgField('significantPeople', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="重要场所">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="具体地点 + 情感联系"
+                      value={selected.npcAttrs.meaningfulLocations ?? ''}
+                      onChange={(e) => patchBgField('meaningfulLocations', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="珍贵之物">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="1-2 件珍藏物,可与随身物品不同"
+                      value={selected.npcAttrs.treasuredPossessions ?? ''}
+                      onChange={(e) => patchBgField('treasuredPossessions', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="特质(性格/行为模式)">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="2-3 个短句,深化或扩展行为模式"
+                      value={selected.npcAttrs.traits ?? ''}
+                      onChange={(e) => patchBgField('traits', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="伤口/伤痕">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="可见或隐藏的伤痕/旧伤,或'无显著旧伤'"
+                      value={selected.npcAttrs.injuries ?? ''}
+                      onChange={(e) => patchBgField('injuries', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="恐惧症/狂躁症">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={1500}
+                      placeholder="1-2 个具象化的恐惧或强迫行为,与时代/经历相关"
+                      value={selected.npcAttrs.backgroundFears ?? ''}
+                      onChange={(e) => patchBgField('backgroundFears', e.target.value)}
+                    />
+                  </Row>
+                  <Row label="随身物品(逗号/顿号/分号/换行分隔)">
+                    <textarea
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                      rows={2} maxLength={500}
+                      placeholder="例:罗马军用短剑、皮质护臂、军团徽章、军囊(含口粮与火石)"
+                      value={selected.npcAttrs.initialItemsRaw ?? ''}
+                      onChange={(e) => patchBgField('initialItemsRaw', e.target.value)}
+                    />
+                  </Row>
+                </ExpandableSection>
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <SmallBtn onClick={() => handleRemove(selected.id)} label="删除角色" danger />
                 </div>
@@ -331,5 +414,66 @@ function SmallBtn({ onClick, label, accent, danger }: { onClick: () => void; lab
         transition: `transform 180ms ${EASE}, background 180ms ${EASE}`,
       }}
     >{label}</button>
+  );
+}
+
+/** 折叠展开容器 — 默认折叠;展开时显示 children。点击 header 切换。 */
+function ExpandableSection({
+  title, hint, expanded, onToggle, children,
+}: {
+  title: string;
+  hint?: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{
+      border: '1px solid rgba(196,168,85,0.22)',
+      borderRadius: 3,
+      background: 'rgba(0,0,0,0.18)',
+      overflow: 'hidden',
+    }}>
+      <button
+        onClick={onToggle}
+        type="button"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', padding: '8px 12px',
+          background: expanded ? 'rgba(196,168,85,0.12)' : 'transparent',
+          border: 'none',
+          color: 'var(--gold)',
+          fontFamily: 'var(--font-ui)', fontSize: 11.5, letterSpacing: 1.5,
+          cursor: 'pointer',
+          textAlign: 'left',
+          transition: `background 200ms ${EASE}`,
+        }}
+        onMouseEnter={(e) => { if (!expanded) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+        onMouseLeave={(e) => { if (!expanded) e.currentTarget.style.background = 'transparent'; }}
+      >
+        <span style={{
+          display: 'inline-block', width: 10, textAlign: 'center',
+          transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          transition: `transform 200ms ${EASE}`,
+          color: 'rgba(196,168,85,0.7)',
+        }}>▶</span>
+        <span style={{ fontWeight: 500 }}>{title}</span>
+        {hint && (
+          <span style={{
+            marginLeft: 8, fontSize: 10, color: 'rgba(196,168,85,0.55)',
+            letterSpacing: 0.8, fontFamily: 'var(--font-ui)',
+          }}>{hint}</span>
+        )}
+      </button>
+      {expanded && (
+        <div style={{
+          padding: '10px 12px 12px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          borderTop: '1px solid rgba(196,168,85,0.18)',
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
