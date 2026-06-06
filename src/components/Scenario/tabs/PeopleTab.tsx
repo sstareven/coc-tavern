@@ -129,7 +129,7 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
             {scn.characters.length === 0 ? (
               <div style={{
                 padding: 18, textAlign: 'center',
-                color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
+                color: 'rgba(196,168,85,0.55)', fontSize: 12, fontFamily: 'var(--font-ui)',
               }}>暂无角色</div>
             ) : (
               scn.characters.map((c) => {
@@ -155,7 +155,7 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                     onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
                   >
                     <div style={{ fontSize: 12.5, color: active ? 'var(--gold)' : 'var(--text-light)' }}>{name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--ink, #8a7a52)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.55)' }}>
                       {ROLE_LABELS[c.role]}
                     </div>
                   </button>
@@ -169,7 +169,7 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
             {!selected ? (
               <div style={{
                 padding: 24, textAlign: 'center',
-                color: 'var(--ink, #8a7a52)', fontSize: 12, fontFamily: 'var(--font-ui)',
+                color: 'rgba(196,168,85,0.55)', fontSize: 12, fontFamily: 'var(--font-ui)',
               }}>从左侧选择角色编辑</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -277,7 +277,9 @@ const inputStyle: React.CSSProperties = {
   background: 'rgba(0,0,0,0.4)',
   border: '1px solid rgba(196,168,85,0.3)',
   borderRadius: 2,
-  color: 'var(--text-light, #d0c2a0)',
+  // 编辑器输入文本直接用 #e8d8b4 暖羊皮黄(不走 var(--text-light) 默认 #d4c4a0 偏暗),
+  // 在编辑器深背景上对比度提升一档(WCAG 9:1+),阅读不再昏暗。
+  color: '#e8d8b4',
   fontFamily: 'var(--font-ui)', fontSize: 12,
   boxSizing: 'border-box',
 };
@@ -288,7 +290,7 @@ function Row({ label, children, compact }: { label: string; children: React.Reac
       display: 'flex', flexDirection: 'column', gap: 4,
       minWidth: compact ? 130 : undefined, flex: compact ? '0 0 auto' : 1,
     }}>
-      <span style={{ fontSize: 10.5, color: 'var(--ink, #8a7a52)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
+      <span style={{ fontSize: 10.5, color: 'rgba(196,168,85,0.55)', letterSpacing: 1.2, fontFamily: 'var(--font-ui)' }}>{label}</span>
       {children}
     </label>
   );
