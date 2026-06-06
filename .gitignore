@@ -40,3 +40,6 @@ test-results/
 
 # 版权规则书临时抽取文本（设计调研用，绝不入库）
 .tmp_combat_research/
+
+# 设计阶段一次性预览页（HTML sketch，等 spec 落地即删，不入 build/commit）
+tmp_preview/
