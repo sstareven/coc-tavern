@@ -184,10 +184,10 @@ export function App() {
       {screen === 'creator' && (
         <CharacterCreator
           onComplete={() => {
-            // CharCreator.handleConfirm 已 setSheet。这里新会话 + 激活剧本(newChar) → 进游戏
+            // CharCreator.handleConfirm 已 startNewConversation + setSheet。这里只激活剧本(newChar) → 进游戏
+            // 注意: 不能再调一次 startNewConversation, 否则 clearAllGameState 会清掉刚建的玩家卡, 且 activateScenario 会跑在错的 session 上
             void (async () => {
               const scnId = useScenarioStore.getState().lastPicked;
-              startNewConversation('新游戏');
               if (scnId) {
                 setActivating(true);
                 try {

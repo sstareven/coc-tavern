@@ -132,7 +132,17 @@ export async function activateScenario(
         rightPage: '',
       };
     }
-    useBookStore.getState().setPages([page0]);
+    // 绕开 useBookStore.setPages 的「序章自动刷新」逻辑：
+    // setPages 内部对 leftHeader === '序章' 的首页会强制替换为 defaultPages[0]，
+    // 这会把刚刚 LLM 扩写出来的 page0 内容刷成「做梦开场」，只剩 id。
+    // 改用 replacePage / appendPage（纯 set，无序章替换分支） + goToPage。
+    const bookStore = useBookStore.getState();
+    if (bookStore.pages.length > 0) {
+      bookStore.replacePage(0, page0);
+    } else {
+      bookStore.appendPage(page0);
+    }
+    bookStore.goToPage(0);
   }
 }
 
