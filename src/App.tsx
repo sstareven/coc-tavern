@@ -23,6 +23,7 @@ import { ErrorModal } from './components/Shared/ErrorModal';
 import { StatusToast } from './components/Shared/StatusToast';
 import { ScenarioScreen } from './components/Scenario/ScenarioScreen';
 import { ScenarioEditor } from './components/Scenario/ScenarioEditor';
+import { RosterPicker } from './components/Landing/RosterPicker';
 import { activateScenario } from './scenario/scenario-engine';
 import { useScenarioStore } from './stores/useScenarioStore';
 import { startNewConversation } from './stores/sessionLifecycle';
@@ -43,7 +44,7 @@ export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
   useTextRatios(); // 文字倍率：把 textRatio/systemRatio 挂到 :root CSS 变量供 calc(... * var(...)) 使用
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
-  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'creator' | 'game'>('landing');
+  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'rosterPick' | 'creator' | 'game'>('landing');
   const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
   const [activating, setActivating] = useState(false); // 剧本激活中(扩首页 LLM 调用)的 loading 覆盖层
   const [ready, setReady] = useState(false);
@@ -149,14 +150,32 @@ export function App() {
       )}
       {screen === 'scenarioPick' && (
         <ScenarioScreen
-          onPick={(scenarioId, choice) => {
-            if (choice.mode === 'preset') {
-              // 选剧本预设角色 → 跳过创角,立刻新会话 + 激活剧本(LLM 扩首页) → 进游戏
+          onPick={(scenarioId) => {
+            // 选完剧本统一跳 RosterPicker(不再区分 preset/newChar — 角色选择由 RosterPicker 决定)
+            useScenarioStore.getState().setLastPicked(scenarioId);
+            setScreen('rosterPick');
+          }}
+          onClose={() => setScreen('landing')}
+          onOpenEditor={(id) => setEditorScenarioId(id)}
+        />
+      )}
+      {screen === 'rosterPick' && (() => {
+        const scnId = useScenarioStore.getState().lastPicked;
+        if (!scnId) {
+          setScreen('scenarioPick');
+          return null;
+        }
+        return (
+          <RosterPicker
+            scenarioId={scnId}
+            onBack={() => setScreen('scenarioPick')}
+            onAddNewCharacter={() => setScreen('creator')}
+            onPickChar={(charIdx, mode) => {
               void (async () => {
                 startNewConversation('新游戏');
                 setActivating(true);
                 try {
-                  await activateScenario(scenarioId, 'preset', choice.charIdx);
+                  await activateScenario(scnId, mode, charIdx);
                 } catch (err) {
                   console.error('[App] 激活剧本失败:', err);
                 } finally {
@@ -164,16 +183,10 @@ export function App() {
                 }
                 setScreen('game');
               })();
-            } else {
-              // 新建角色 → 记 scenarioId, 进 creator
-              useScenarioStore.getState().setLastPicked(scenarioId);
-              setScreen('creator');
-            }
-          }}
-          onClose={() => setScreen('landing')}
-          onOpenEditor={(id) => setEditorScenarioId(id)}
-        />
-      )}
+            }}
+          />
+        );
+      })()}
       {editorScenarioId && (
         <ScenarioEditor
           scenarioId={editorScenarioId}
@@ -183,24 +196,10 @@ export function App() {
       {screen === 'creator' && (
         <CharacterCreator
           onComplete={() => {
-            // CharCreator.handleConfirm 已 startNewConversation + setSheet。这里只激活剧本(newChar) → 进游戏
-            // 注意: 不能再调一次 startNewConversation, 否则 clearAllGameState 会清掉刚建的玩家卡, 且 activateScenario 会跑在错的 session 上
-            void (async () => {
-              const scnId = useScenarioStore.getState().lastPicked;
-              if (scnId) {
-                setActivating(true);
-                try {
-                  await activateScenario(scnId, 'newChar');
-                } catch (err) {
-                  console.error('[App] 激活剧本(newChar)失败:', err);
-                } finally {
-                  setActivating(false);
-                }
-              }
-              setScreen('game');
-            })();
+            // M4: CharCreator.handleConfirm 已把自创卡 applyPatch 写进剧本,这里只回 RosterPicker 让玩家选他进游戏
+            setScreen('rosterPick');
           }}
-          onClose={() => setScreen('scenarioPick')}
+          onClose={() => setScreen('rosterPick')}
         />
       )}
       {screen === 'game' && (
