@@ -17,7 +17,6 @@ import type {
   ScenarioDoc,
   ScenarioCharacter,
   ScenarioRelation,
-  RelationType,
 } from '../../types/scenario';
 
 // ── 构造工具 ──
@@ -142,7 +141,9 @@ describe('canJoinParty', () => {
     const doc = makeDoc([makeChar('npc1')]);
     const res = canJoinParty(doc, 'npc1', [], PLAYER);
     expect(res.ok).toBe(false);
-    expect(res.reason).toBe('stranger');
+    if (!res.ok) {
+      expect(res.reason).toBe('stranger');
+    }
   });
 
   it('玩家好友 → 通过(玩家→候选 friend 边)', () => {
@@ -181,8 +182,10 @@ describe('canJoinParty', () => {
     ]);
     const res = canJoinParty(doc, 'b', ['a'], PLAYER);
     expect(res.ok).toBe(false);
-    expect(res.reason).toBe('hostile');
-    expect(res.hostileWith).toBe('a');
+    if (!res.ok) {
+      expect(res.reason).toBe('hostile');
+      expect(res.hostileWith).toBe('a');
+    }
   });
 
   it('队里有 A, B 与 A rival → 拒绝(rival 也算敌对)', () => {
@@ -193,7 +196,9 @@ describe('canJoinParty', () => {
     ]);
     const res = canJoinParty(doc, 'b', ['a'], PLAYER);
     expect(res.ok).toBe(false);
-    expect(res.reason).toBe('hostile');
+    if (!res.ok) {
+      expect(res.reason).toBe('hostile');
+    }
   });
 
   it('玩家与候选敌对 → 拒绝(优先于 stranger)', () => {
@@ -203,14 +208,18 @@ describe('canJoinParty', () => {
     ]);
     const res = canJoinParty(doc, 'npc1', [], PLAYER);
     expect(res.ok).toBe(false);
-    expect(res.reason).toBe('hostile');
+    if (!res.ok) {
+      expect(res.reason).toBe('hostile');
+    }
   });
 
   it('候选 id 在 doc 中不存在 → 拒绝(unknown)', () => {
     const doc = makeDoc([makeChar(PLAYER)]);
     const res = canJoinParty(doc, 'ghost', [], PLAYER);
     expect(res.ok).toBe(false);
-    expect(res.reason).toBe('unknown');
+    if (!res.ok) {
+      expect(res.reason).toBe('unknown');
+    }
   });
 
   it('与队内成员 acquaintance → 通过(非敌对边即可)', () => {
