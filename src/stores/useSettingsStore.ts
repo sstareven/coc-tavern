@@ -101,7 +101,9 @@ interface SettingsState {
    * 原来那样。
    */
   dsUltraActive: boolean;
-  blessingEnabled: boolean;
+  cheatingEnabled: boolean;
+  /** 「领受赐福」tab 是否已被 Konami 序列解锁；默认 false 隐藏 tab，输完彩蛋后 true 永久持久化。 */
+  cheatingUnlocked: boolean;
 }
 
 /**
@@ -222,7 +224,11 @@ interface SettingsStore extends SettingsState {
    * 清 snapshot。snapshot 为 undefined 时是 no-op。
    */
   revertDeepSeekUltraPreset: () => void;
-  toggleBlessing: () => void;
+  toggleCheating: () => void;
+  /** Konami 序列匹配成功时调，永久解锁「领受赐福」tab 显示。 */
+  unlockCheating: () => void;
+  /** 调试用：还原到未解锁状态（同时关 cheatingEnabled，避免「藏 tab 但作弊仍生效」）。 */
+  lockCheating: () => void;
 }
 
 const defaults: SettingsState = {
@@ -278,7 +284,8 @@ const defaults: SettingsState = {
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
   dsUltraActive: false,
-  blessingEnabled: false,
+  cheatingEnabled: false,
+  cheatingUnlocked: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -389,7 +396,9 @@ export const useSettingsStore = create<SettingsStore>()(
       revertDeepSeekUltraPreset: () => {
         set({ dsUltraActive: false });
       },
-      toggleBlessing: () => set((s) => ({ blessingEnabled: !s.blessingEnabled })),
+      toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
+      unlockCheating: () => set({ cheatingUnlocked: true }),
+      lockCheating: () => set({ cheatingUnlocked: false, cheatingEnabled: false }),
     }),
     {
       name: 'coc_settings_v2',

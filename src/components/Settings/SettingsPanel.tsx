@@ -1,5 +1,4 @@
-import { useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore, TEXT_RATIO_MIN, TEXT_RATIO_MAX } from '../../stores/useSettingsStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
@@ -9,12 +8,16 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { getAutoZoom } from '../../hooks/useResponsiveZoom';
+import { IconSparkle } from '../Layout/TabIcons';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
 import { PromptTemplateContent } from './PromptTemplateContent';
-import { BlessingContent } from './BlessingContent';
+import { CheatingContent } from './CheatingContent';
+import {
+  rowStyle, labelStyle, numInputStyle, helpIconStyle,
+  CategoryBar, Toggle, HelpIcon,
+} from './_shared';
 import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
 
 const PP_OPTIONS = [
@@ -31,7 +34,7 @@ const PP_OPTIONS = [
 ];
 
 // ── Section type ──
-type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate' | 'blessing';
+type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate' | 'cheating';
 
 interface Props {
   visible: boolean;
@@ -313,7 +316,7 @@ function ExtensionsSettingsContent() {
 interface SidebarItem {
   key: SettingsSection;
   label: string;
-  icon: string;
+  icon: ReactNode;
 }
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -323,7 +326,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'tavernHelper', label: '酒馆助手', icon: '🍶' },
   { key: 'background', label: '背景设定', icon: '📜' },
   { key: 'promptTemplate', label: '提示词模板', icon: '📝' },
-  { key: 'blessing', label: '领受赐福', icon: '✨' },
+  { key: 'cheating', label: '领受赐福', icon: <IconSparkle size={14} /> },
 ];
 
 // ── Main Settings Panel ──
@@ -331,6 +334,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const isMobile = useIsMobile();
   const [section, setSection] = useState<SettingsSection>('general');
+  const cheatingUnlocked = useSettingsStore((s) => s.cheatingUnlocked);
 
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
@@ -496,7 +500,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             </div>
           )}
 
-          {SIDEBAR_ITEMS.map((item) => (
+          {SIDEBAR_ITEMS.filter((item) => item.key !== 'cheating' || cheatingUnlocked).map((item) => (
             <button key={item.key}
               onClick={() => setSection(item.key)}
               style={{
@@ -1333,9 +1337,9 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <PromptTemplateContent />
               </motion.div>
             )}
-            {section === 'blessing' && (
-              <motion.div key="blessing" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
-                <BlessingContent />
+            {section === 'cheating' && (
+              <motion.div key="cheating" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <CheatingContent />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1346,58 +1350,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 }
 
 // ── Shared styles ──
-
-const rowStyle: React.CSSProperties = {
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)',
-};
-
-/** 设置分类分割栏：金色小标题 + 两侧渐隐分割线。 */
-function CategoryBar({ label, first }: { label: string; first?: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: first ? '2px 0 10px' : '20px 0 10px' }}>
-      <span style={{
-        fontSize: 'calc(10px * var(--system-ratio, 1))', fontWeight: 700, letterSpacing: 3, color: 'var(--gold)',
-        fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', flexShrink: 0,
-      }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(196,168,85,0.35), rgba(196,168,85,0.04))' }} />
-    </div>
-  );
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-};
-
-/** 统一的数字输入框样式。 */
-const numInputStyle: React.CSSProperties = {
-  width: 64, padding: '4px 8px', border: '1px solid var(--brass)', borderRadius: 3,
-  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)',
-  fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', outline: 'none',
-};
-
-/** 统一的开关按钮（药丸形，开启时金色高亮）。 */
-function Toggle({ on, onChange, onLabel = 'ON', offLabel = 'OFF' }: {
-  on: boolean; onChange: () => void; onLabel?: string; offLabel?: string;
-}) {
-  return (
-    <button
-      onClick={onChange}
-      style={{
-        padding: '5px 16px', borderRadius: 20, minWidth: 80, textAlign: 'center',
-        border: on ? '1px solid var(--gold)' : '1px solid var(--ink-faded)',
-        background: on ? 'rgba(196,168,85,0.18)' : 'rgba(0,0,0,0.18)',
-        color: on ? 'var(--gold)' : 'var(--ink-subtle)',
-        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2, cursor: 'pointer',
-        transition: 'var(--transition-smooth)',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = on ? 'var(--gold)' : 'var(--ink-faded)'; e.currentTarget.style.color = on ? 'var(--gold)' : 'var(--ink-subtle)'; }}
-    >
-      {on ? onLabel : offLabel}
-    </button>
-  );
-}
 
 const miniBtnStyle: React.CSSProperties = {
   background: 'rgba(196,168,85,0.08)',
@@ -1420,65 +1372,6 @@ const iconBtn: React.CSSProperties = {
   color: 'var(--ink-faded)',
   borderRadius: 3,
 };
-
-const helpIconStyle: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 14, height: 14, borderRadius: '50%', border: '1px solid var(--brass)',
-  color: 'var(--ink-subtle)', cursor: 'help', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
-  fontFamily: 'var(--font-ui)', marginLeft: 4,
-};
-
-/** 悬浮（hover）显示说明的问号图标。提示窗用 portal 渲染到 body、fixed 定位，
- *  脱离面板溢出裁剪、可超出窗口、不会撑出滚动条。 */
-function HelpIcon({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number; below: boolean }>({ x: 0, y: 0, below: true });
-  const ref = useRef<HTMLSpanElement>(null);
-
-  const onEnter = () => {
-    const el = ref.current;
-    if (el) {
-      // v1.11.8: useResponsiveZoom 让 :root 又有 zoom,portal 到 body 的 fixed 浮层需要
-      // 把可视坐标除以 auto-zoom 换回布局坐标,否则问号 tooltip 跑右下角。
-      const s = getAutoZoom();
-      const r = el.getBoundingClientRect();
-      const W = 300 * s;
-      let x = r.left;
-      if (x + W > window.innerWidth - 8) x = window.innerWidth - W - 8;
-      x = Math.max(8, x);
-      const below = r.bottom < window.innerHeight * 0.55;
-      const yRaw = below ? r.bottom + 6 : r.top - 6;
-      setPos({ x: x / s, y: yRaw / s, below });
-    }
-    setShow(true);
-  };
-
-  return (
-    <span
-      ref={ref}
-      style={{ display: 'inline-flex', verticalAlign: 'middle' }}
-      onMouseEnter={onEnter}
-      onMouseLeave={() => setShow(false)}
-      onClick={(e) => e.preventDefault()}
-    >
-      <span style={helpIconStyle}>?</span>
-      {show && createPortal(
-        <div style={{
-          position: 'fixed', left: pos.x, top: pos.y, zIndex: 2000,
-          ...(pos.below ? {} : { transform: 'translateY(-100%)' }),
-          width: 300, maxWidth: 'calc(100vw - 16px)', padding: '8px 10px',
-          background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-          fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.8,
-          fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line', pointerEvents: 'none',
-        }}>
-          {text}
-        </div>,
-        document.body,
-      )}
-    </span>
-  );
-}
 
 /** RPM 数字输入行（label + 帮助 + 0–10 number input + 「N 次/分」后缀）。去重 4 处近乎相同的 RPM 设置行。 */
 function RpmRow({ label, help, value, onChange }: {

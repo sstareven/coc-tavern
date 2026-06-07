@@ -20,7 +20,8 @@ import {
   sfxCritFailure,
 } from '../../audio/sfx';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { pickRollForResult } from '../../sillytavern/blessing-helpers';
+import { pickRollForResult } from '../../sillytavern/cheating-helpers';
+import { CheatingGrid } from './CheatingGrid';
 
 const resultLabel: Record<DiceResultType, string> = {
   'crit-success': '大成功！',
@@ -183,9 +184,9 @@ export function DicePanel() {
   const [uiState, setUiState] = useState<DicePanelSubState>('idle');
   const [stagedOriginalRoll, setStagedOriginalRoll] = useState(0);
   const [luckSpend, setLuckSpend] = useState(0);
-  const blessingEnabled = useSettingsStore((s) => s.blessingEnabled);
-  const [blessingOpen, setBlessingOpen] = useState(false);
-  const [pendingBlessingType, setPendingBlessingType] = useState<DiceResultType | null>(null);
+  const cheatingEnabled = useSettingsStore((s) => s.cheatingEnabled);
+  const [cheatingOpen, setCheatingOpen] = useState(false);
+  const [pendingCheatingType, setPendingCheatingType] = useState<DiceResultType | null>(null);
 
   useEffect(() => {
     setLocalTarget(String(target));
@@ -523,10 +524,10 @@ export function DicePanel() {
             掷 骰
           </motion.button>
 
-          {/* Blessing ✦ button — only when blessing is ON, not yet rolled, and panel not open */}
-          {blessingEnabled && uiState === 'idle' && !blessingOpen && (
+          {/* Cheating ✦ button — only when cheating is ON, not yet rolled, and panel not open */}
+          {cheatingEnabled && uiState === 'idle' && !cheatingOpen && (
             <button
-              onClick={() => setBlessingOpen(true)}
+              onClick={() => setCheatingOpen(true)}
               style={{
                 ...stagingBtnStyle,
                 width: 40, padding: '8px 0', flexShrink: 0,
@@ -541,8 +542,8 @@ export function DicePanel() {
             </button>
           )}
 
-          {/* Blessing result selection panel */}
-          {blessingOpen && (
+          {/* Cheating result selection panel */}
+          {cheatingOpen && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -550,79 +551,39 @@ export function DicePanel() {
               transition={{ type: 'spring', stiffness: 300, damping: 25, mass: 0.8 }}
               style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}
             >
-              <div style={{
-                color: 'var(--gold)', fontFamily: 'var(--font-ui)',
-                fontSize: 'calc(10px * var(--system-ratio, 1))',
-                letterSpacing: 3, marginBottom: 4, opacity: 0.7,
-              }}>
-                赐福刻印
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-                {(['crit-success', 'extreme-success', 'hard-success', 'success', 'failure', 'crit-failure'] as DiceResultType[]).map((type, i) => (
-                  <motion.button
-                    key={type}
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04, type: 'spring', stiffness: 250, damping: 20 }}
-                    onClick={() => {
-                      setPendingBlessingType(pendingBlessingType === type ? null : type);
-                    }}
-                    style={{
-                      padding: '8px 4px', borderRadius: 4,
-                      border: `1px solid ${pendingBlessingType === type ? resultColor[type] : 'var(--brass)'}`,
-                      background: pendingBlessingType === type ? `${resultColor[type]}18` : 'rgba(0,0,0,0.15)',
-                      color: pendingBlessingType === type ? resultColor[type] : 'var(--ink-subtle)',
-                      fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))',
-                      letterSpacing: 1, cursor: 'pointer', textAlign: 'center',
-                      transition: 'var(--transition-smooth)',
-                      boxShadow: pendingBlessingType === type ? `0 0 10px ${resultColor[type]}40` : 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (pendingBlessingType !== type) {
-                        e.currentTarget.style.background = `${resultColor[type]}20`;
-                      }
-                      e.currentTarget.style.transform = 'scale(1.04)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = pendingBlessingType === type ? `${resultColor[type]}18` : 'rgba(0,0,0,0.15)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                    onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)'; }}
-                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
-                  >
-                    {resultLabel[type]}
-                  </motion.button>
-                ))}
-              </div>
+              <CheatingGrid
+                selectedType={pendingCheatingType}
+                onSelect={(type) => setPendingCheatingType(pendingCheatingType === type ? null : type)}
+                animated
+              />
 
               {/* Bottom action buttons */}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                 <button
-                  onClick={() => { setBlessingOpen(false); setPendingBlessingType(null); }}
+                  onClick={() => { setCheatingOpen(false); setPendingCheatingType(null); }}
                   style={{ ...stagingBtnSubtleStyle, flex: 1, justifyContent: 'center' }}
                 >
                   取消
                 </button>
-                {pendingBlessingType && (
+                {pendingCheatingType && (
                   <button
                     onClick={() => {
                       const target = localTarget || 50;
                       const sanCheck = useDiceStore.getState().sanCheck;
-                      const roll = pickRollForResult(pendingBlessingType, Number(target), sanCheck);
+                      const roll = pickRollForResult(pendingCheatingType, Number(target), sanCheck);
                       if (roll !== null) {
                         setDisplayFinal(roll);
-                        setLocalResult(pendingBlessingType);
+                        setLocalResult(pendingCheatingType);
                         // Transition uiState from 'idle' → 'rolled' / 'pushable'
                         // so staging buttons (推骰/花费幸运/直接落账) appear
                         const nextState = deriveUiStateAfterRoll({
-                          resultType: pendingBlessingType,
+                          resultType: pendingCheatingType,
                           sanCheck,
                           mode,
                         });
                         setUiState(nextState);
-                        setBlessingOpen(false);
-                        setPendingBlessingType(null);
+                        setCheatingOpen(false);
+                        setPendingCheatingType(null);
                       }
                     }}
                     style={{ ...stagingBtnStyle, flex: 1, justifyContent: 'center' }}
