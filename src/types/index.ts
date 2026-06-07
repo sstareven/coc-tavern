@@ -97,6 +97,8 @@ export interface BookPage {
   keywords?: Record<string, string>;
   diceResults?: DiceRecord[];
   inventoryChanges?: InventoryChange[];
+  /** 本回合 post-settle 子评估器追加的旁白行(关系演化脱队/事件等)。随页持久化,删页一并随页移除。 */
+  narration?: string[];
   rewrite?: RewriteBlock;
   /** 行动补写拾取已直接入库的物品名，用于阻止后续正文 API 对同名物品重复计数。随页面持久化。 */
   acquiredItems?: string[];
