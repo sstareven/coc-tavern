@@ -82,28 +82,33 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
 
   if (compact) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap',
-        fontFamily: 'var(--font-display)', fontSize: 'calc(11px * var(--text-ratio, 1))', color: 'var(--parchment)', userSelect: 'none' }}>
-        <span style={{ color: 'var(--gold)', letterSpacing: 1 }}>{location}</span>
-        <span style={{ opacity: 0.5 }}>·</span>
-        <span>{date}</span>
-        {weekday && <><span style={{ opacity: 0.5 }}>·</span><span>{weekday}</span></>}
-        <span style={{ opacity: 0.5 }}>·</span>
-        <span>{weatherIcon(weather)} {weather}</span>
-        <span style={{ opacity: 0.5 }}>·</span>
-        <span>{time}</span>
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center',
+        fontFamily: 'var(--font-display)', fontSize: 'calc(12px * var(--text-ratio, 1))',
+        color: 'var(--parchment)', userSelect: 'none', width: '100%',
+      }}>
+        {/* 场景信息行(地点/日期/天气/时间) —— flexWrap 让小屏自动换行,不再横向溢出 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center', rowGap: 2 }}>
+          <span style={{ color: 'var(--gold)', letterSpacing: 1 }}>{location}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{date}{weekday ? ` ${weekday}` : ''}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{weatherIcon(weather)} {weather}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{time}</span>
+        </div>
+        {/* 数值行(HP/SAN/MP + 状态标签) —— 仅在角色卡有数值时显示,避免空行占位 */}
         {hasStats && (
-          <>
-            <span style={{ width: 1, height: 12, background: 'rgba(196,168,85,0.25)', margin: '0 2px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', rowGap: 2 }}>
             <CompactStat label="HP" stat={hp} color="var(--success)" />
             <CompactStat label="SAN" stat={san} color="var(--blood)" />
             <CompactStat label="MP" stat={mp} color="var(--gold)" />
-          </>
+            <StateChips
+              posture={posture} conditions={statusConditions} compact
+              temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
+            />
+          </div>
         )}
-        <StateChips
-          posture={posture} conditions={statusConditions} compact
-          temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
-        />
       </div>
     );
   }

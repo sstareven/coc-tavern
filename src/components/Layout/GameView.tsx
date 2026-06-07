@@ -107,8 +107,23 @@ export function GameView({ onReturnToMenu }: Props) {
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: appHeight }}>
       <TopBar onReturnToMenu={onReturnToMenu} />
-      <CurrentScenarioBadge />
-      <TeamSidebar />
+      {/* 手机端:剧本+队伍胶囊包成 TopBar 下方一行,避免 fixed 浮在 MobileTabBar/StatusBar 之上遮挡。
+          桌面端:沿用各自 fixed 浮在左上角(top:56/92),不占布局。 */}
+      {isMobile ? (
+        <div style={{
+          display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          padding: '4px 10px', background: '#14100b',
+          borderBottom: '1px solid rgba(196,168,85,0.08)',
+        }}>
+          <TeamSidebar />
+          <CurrentScenarioBadge />
+        </div>
+      ) : (
+        <>
+          <CurrentScenarioBadge />
+          <TeamSidebar />
+        </>
+      )}
 
       {isMobile ? (
         <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>

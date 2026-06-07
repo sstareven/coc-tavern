@@ -39,7 +39,7 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
       <MobileTabBar active={active} onTab={onTab} />
 
       {/* 紧凑状态栏 —— position:relative + z-index 5 形成独立 stacking,确保 ActionSheet 抽屉/遮罩(zIndex 8/9)无法覆盖到它 */}
-      <div style={{ position: 'relative', zIndex: 5, flexShrink: 0, padding: '5px 8px', background: '#14100b', borderBottom: '1px solid rgba(196,168,85,0.12)', overflowX: 'auto' }}>
+      <div style={{ position: 'relative', zIndex: 5, flexShrink: 0, padding: '6px 8px', background: '#14100b', borderBottom: '1px solid rgba(196,168,85,0.12)' }}>
         <StatusBar compact />
       </div>
 

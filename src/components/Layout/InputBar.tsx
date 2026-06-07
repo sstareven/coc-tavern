@@ -197,8 +197,8 @@ export function InputBar() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '10px 24px',
+            gap: isMobile ? 6 : 8,
+            padding: isMobile ? '8px 10px' : '10px 24px',
           }}
         >
           {/* Magic wand button with popup menu */}
@@ -206,7 +206,7 @@ export function InputBar() {
             <button
               onClick={() => setWandOpen(!wandOpen)}
               title="工具"
-              style={wandBtnStyle}
+              style={wandBtnStyle(isMobile)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'var(--gold)';
                 e.currentTarget.style.borderColor = 'var(--gold)';
@@ -468,7 +468,7 @@ export function InputBar() {
               disabled={pipeline.loading || buttonMode !== 'advance'}
               title="推进剧情"
               data-sfx="primary"
-              style={dualBtnStyle(buttonMode === 'advance', pipeline.loading)}
+              style={dualBtnStyle(buttonMode === 'advance', pipeline.loading, isMobile)}
               onMouseEnter={(e) => {
                 if (buttonMode === 'advance' && !pipeline.loading) {
                   e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
@@ -495,7 +495,7 @@ export function InputBar() {
               onClick={handleRewrite}
               disabled={pipeline.loading || buttonMode !== 'rewrite'}
               title="补写当前自定义行动，生成新候选选项"
-              style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading)}
+              style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading, isMobile)}
               onMouseEnter={(e) => {
                 if (buttonMode === 'rewrite' && !pipeline.loading) {
                   e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
@@ -584,15 +584,16 @@ function WandRow({ icon, label, iconColor, iconMono, divider, onClick }: WandRow
   );
 }
 
-function dualBtnStyle(active: boolean, loading: boolean): React.CSSProperties {
+function dualBtnStyle(active: boolean, loading: boolean, mobile = false): React.CSSProperties {
   return {
-    padding: '7px 24px',
+    padding: mobile ? '6px 10px' : '7px 24px',
     border: 'none',
     background: active ? 'rgba(196,168,85,0.18)' : 'transparent',
     color: active ? 'var(--gold)' : 'rgba(196,168,85,0.35)',
     fontFamily: 'var(--font-ui)',
-    fontSize: 'calc(13px * var(--system-ratio, 1))',
-    letterSpacing: 3,
+    fontSize: `calc(${mobile ? 12 : 13}px * var(--system-ratio, 1))`,
+    letterSpacing: mobile ? 1 : 3,
+    minWidth: mobile ? 56 : undefined,
     cursor: active && !loading ? 'pointer' : 'default',
     pointerEvents: active && !loading ? 'auto' : 'none',
     whiteSpace: 'nowrap',
@@ -600,23 +601,25 @@ function dualBtnStyle(active: boolean, loading: boolean): React.CSSProperties {
   };
 }
 
-const wandBtnStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 0,
-  border: '1px solid var(--brass)',
-  background: 'rgba(0,0,0,0.2)',
-  color: 'var(--ink-subtle)',
-  fontFamily: 'var(--font-ui)',
-  fontSize: 'calc(14px * var(--system-ratio, 1))',
-  borderRadius: 3,
-  cursor: 'pointer',
-  transition: 'var(--transition-smooth)',
-  flexShrink: 0,
-};
+function wandBtnStyle(mobile = false): React.CSSProperties {
+  return {
+    width: mobile ? 30 : 32,
+    height: mobile ? 30 : 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    border: '1px solid var(--brass)',
+    background: 'rgba(0,0,0,0.2)',
+    color: 'var(--ink-subtle)',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 'calc(14px * var(--system-ratio, 1))',
+    borderRadius: 3,
+    cursor: 'pointer',
+    transition: 'var(--transition-smooth)',
+    flexShrink: 0,
+  };
+}
 
 /**
  * 导出当前会话的地图数据为 JSON 并触发下载（排查用调试工具）。

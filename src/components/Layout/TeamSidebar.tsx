@@ -13,6 +13,7 @@ import { parseNpcDerived } from '../../sillytavern/npc-derived';
 import { canJoinParty } from '../../scenario/relation-graph';
 import { IconClose, IconUserPlus, IconUserMinus } from './TabIcons';
 import { groupNpcsByParty } from './team-sidebar-grouping';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { NpcProfile, CharacterSheet, Combatant } from '../../types';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -86,6 +87,7 @@ export function TeamSidebar(): React.ReactElement | null {
   const sheet = useCharSheetStore((s) => s.sheet);
   const profiles = useNpcStore((s) => s.profiles);
   const encounter = useCombatStore((s) => s.encounter);
+  const isMobile = useIsMobile();
 
   const grouping = useMemo(
     () => groupNpcsByParty(Object.values(profiles)),
@@ -142,14 +144,15 @@ export function TeamSidebar(): React.ReactElement | null {
 
   return (
     <>
-      {/* 折叠胶囊 — 左上角 */}
+      {/* 折叠胶囊 — 桌面端 fixed 左上,手机端 relative 由 GameView 包到 TopBar 下方一行,避免遮挡 MobileTabBar */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
           aria-label={`打开队伍侧边栏(${teamCount} 调查员)`}
           style={{
-            position: 'fixed',
-            top: 56, left: 14, zIndex: 50,
+            ...(isMobile
+              ? { position: 'relative', flexShrink: 0 }
+              : { position: 'fixed', top: 56, left: 14, zIndex: 50 }),
             display: 'inline-flex', alignItems: 'center', gap: 8,
             padding: '6px 14px',
             background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',
