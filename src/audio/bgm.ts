@@ -203,3 +203,46 @@ export function setBgmVolume(v: number): void {
 export function isBgmPlaying(): boolean {
   return started && current !== null && !!audio && !audio.paused;
 }
+
+// ============ 加载进度订阅 ============
+// 在 HTMLAudioElement 上监听 progress/loadedmetadata/canplaythrough 事件,
+// 每次事件触发用 audio.buffered.end(last) / audio.duration 计算 0-1 推给订阅方。
+// 用于 LandingScreen 顶部进度条,告知玩家 BGM 缓冲到哪了。
+
+const progressListeners = new Set<(p: number) => void>();
+let lastProgress = 0;
+let progressBound = false;
+
+function computeBufferedProgress(a: HTMLAudioElement): number {
+  const dur = a.duration;
+  if (!isFinite(dur) || dur <= 0) return 0;
+  const b = a.buffered;
+  if (!b || b.length === 0) return 0;
+  const end = b.end(b.length - 1);
+  return Math.max(0, Math.min(1, end / dur));
+}
+
+function pushProgress(p: number): void {
+  lastProgress = p;
+  for (const fn of progressListeners) {
+    try { fn(p); } catch { /* listener 抛错不影响其他订阅 */ }
+  }
+}
+
+function bindProgressEvents(a: HTMLAudioElement): void {
+  if (progressBound) return;
+  progressBound = true;
+  const onAny = () => pushProgress(computeBufferedProgress(a));
+  a.addEventListener('progress', onAny);
+  a.addEventListener('loadedmetadata', onAny);
+  a.addEventListener('canplaythrough', () => pushProgress(1));
+}
+
+/** 订阅 BGM 加载进度(0-1)。立即推一次当前值;返回 unsub 函数。
+ *  懒绑定 audio element —— 调用本函数本身就会启动 mp3 的 preload。 */
+export function subscribeBgmLoadProgress(cb: (p: number) => void): () => void {
+  bindProgressEvents(getAudio());
+  progressListeners.add(cb);
+  try { cb(lastProgress); } catch { /* noop */ }
+  return () => { progressListeners.delete(cb); };
+}
