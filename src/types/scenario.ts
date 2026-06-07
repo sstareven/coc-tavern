@@ -26,11 +26,33 @@ export interface ScenarioEntry {
   hidden?: boolean; // 编辑模式独有的「未解锁/伏笔」条目；玩家模式视为禁用
 }
 
-// NPC 三档:
-// - protagonist  推荐视角(顶部出现在抽屉里,加金边)
-// - optional     配角可玩(下沉到"配角视角"分区,玩家可越界玩)
-// - locked_npc   剧本钉死不可选(反派/序章死者/关键 NPC),抽屉里不出现
-export type ScenarioCharacterRole = 'protagonist' | 'optional' | 'locked_npc';
+// NPC 四档:
+// - protagonist     推荐视角(顶部出现在抽屉里,加金边)
+// - optional        配角可玩(下沉到"配角视角"分区,玩家可越界玩)
+// - locked_npc      剧本钉死不可选(反派/序章死者/关键 NPC),抽屉里不出现
+// - player_created  玩家自创卡(CharCreator 完成后固化进剧本),RosterPicker 分组「你创建的」
+export type ScenarioCharacterRole = 'protagonist' | 'optional' | 'locked_npc' | 'player_created';
+
+// 关系类型 — 8 枚举(spec §2.1)。
+// 方向语义: A.relations[targetId=B, type='mentor'] 表示 "A 是 B 的导师"。
+// 反向语义由 relation-graph 通过反查 characters[].relations 计算,作者不必两边都写。
+// 类型对称性: family/lover/friend/colleague/rival/enemy/acquaintance 反向同义;
+//             mentor 反向 = "学生"(仅 UI 显示用,语义上判定时与 mentor 等价)。
+export type RelationType =
+  | 'family'        // 亲属(父母/兄妹/亲戚)
+  | 'lover'         // 恋人/配偶
+  | 'friend'        // 朋友(含旧识/好友)
+  | 'colleague'     // 同事/同行/同学
+  | 'mentor'        // 师徒
+  | 'rival'         // 竞争对手(敌对但相识,排斥同队)
+  | 'enemy'         // 敌人(排斥同队)
+  | 'acquaintance'; // 点头之交(最弱的"有关系")
+
+export interface ScenarioRelation {
+  targetId: string;       // 对方 ScenarioCharacter.id
+  type: RelationType;
+  note?: string;          // 自由文本: 进 lorebook 条目增色,不影响入队判定
+}
 
 export interface ScenarioCharacter {
   id: string;
@@ -58,6 +80,12 @@ export interface ScenarioCharacter {
      * 与 sheet.initialItemsRaw 同步存储。 */
     initialItemsRaw?: string;
   };
+  /** 出边集合(对其他 ScenarioCharacter.id 的有向关系); undefined/[] = 此角色无关系记录 */
+  relations?: ScenarioRelation[];
+  /** 开场是否在场; undefined/false = 走原 isPresent 默认逻辑(不自动建场) */
+  presentAtStart?: boolean;
+  /** 玩家自创卡用(role='player_created'); RosterPicker 按时间倒序分组排序 */
+  createdAt?: number;
 }
 
 // 时代化技能定义:剧本可声明本时代特有技能(骑马/咒语吟唱/驾飞船),并入 ALL_SKILLS
@@ -178,21 +206,43 @@ function isScenarioEntry(x: unknown): x is ScenarioEntry {
   );
 }
 
+const REL_TYPES: readonly RelationType[] = ['family', 'lover', 'friend', 'colleague', 'mentor', 'rival', 'enemy', 'acquaintance'];
+
+function isRelationType(x: unknown): x is RelationType {
+  return isStr(x) && (REL_TYPES as readonly string[]).includes(x);
+}
+
+function isScenarioRelation(x: unknown): x is ScenarioRelation {
+  if (!isObj(x)) return false;
+  if (!isStr(x.targetId)) return false;
+  if (!isRelationType(x.type)) return false;
+  if (x.note !== undefined && !isStr(x.note)) return false;
+  return true;
+}
+
 function isScenarioCharacter(x: unknown): x is ScenarioCharacter {
   if (!isObj(x)) return false;
   if (!isStr(x.id)) return false;
-  if (x.role !== 'protagonist' && x.role !== 'optional' && x.role !== 'locked_npc') return false;
+  if (x.role !== 'protagonist' && x.role !== 'optional' && x.role !== 'locked_npc' && x.role !== 'player_created') return false;
   if (!isObj(x.sheet)) return false; // 不深检 CharacterSheet，结构由上游保证
   if (!isObj(x.npcAttrs)) return false;
   const n = x.npcAttrs;
-  return (
+  if (!(
     isStr(n.identityTag) &&
     isNum(n.attitudeDefault) &&
     isStr(n.relationshipDefault) &&
     isStr(n.locationDefault) &&
     isStr(n.publicBio) &&
     isStr(n.hiddenBio)
-  );
+  )) return false;
+  // 新字段守卫: 全部 optional, 给出就深检
+  if (x.relations !== undefined) {
+    if (!Array.isArray(x.relations)) return false;
+    if (!x.relations.every(isScenarioRelation)) return false;
+  }
+  if (x.presentAtStart !== undefined && !isBool(x.presentAtStart)) return false;
+  if (x.createdAt !== undefined && !isNum(x.createdAt)) return false;
+  return true;
 }
 
 // Occupation/customSkill 的轻量结构守卫:校验关键字段存在 + 类型正确,不深检 SkillCat 取值
