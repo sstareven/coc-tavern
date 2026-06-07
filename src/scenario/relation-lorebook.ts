@@ -93,3 +93,71 @@ export function buildRelationEntries(scenarioDoc: ScenarioDoc): ScenarioEntry[] 
   }
   return out;
 }
+
+import { useScenarioStore } from '../stores/useScenarioStore';
+import { useLorebookStore } from '../stores/useLorebookStore';
+import { scenarioEntriesToLoreEntries } from './scenario-injection';
+
+const SCENARIO_BOOK_PREFIX = '__scenario_';
+
+/**
+ * 提取一个 ScenarioDoc 中所有 character 的「关系相关字段」组合成稳定快照，
+ * 仅当快照变化时才重渲染关系条目（避免 store 任意变更都重渲染）。
+ */
+function snapshotRelationFingerprint(doc: ScenarioDoc | undefined): string {
+  if (!doc) return '';
+  const parts: string[] = [];
+  for (const c of doc.characters) {
+    const rels = (c.relations ?? [])
+      .map((r) => `${r.targetId}:${r.type}:${r.note ?? ''}`)
+      .join('|');
+    parts.push(`${c.id}#${c.sheet?.identity?.name ?? ''}#${c.npcAttrs.identityTag}#${c.presentAtStart ? 1 : 0}#${rels}`);
+  }
+  return parts.join('\n');
+}
+
+/**
+ * 订阅 useScenarioStore，监测指定剧本的 characters[].relations / identity.name /
+ * identityTag / presentAtStart 变化，触发时调 useLorebookStore.upsertEntries 把关系条目
+ * 按 'rel_' 前缀替换写入对应 book。
+ * 返回 unsubscribe 函数；调用方负责在卸剧本前调用 unsubscribe。
+ */
+export function subscribeRelationLorebook(scenarioId: string): () => void {
+  const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
+
+  const rerender = () => {
+    const doc = useScenarioStore.getState().getById(scenarioId);
+    if (!doc) return;
+    const book = useLorebookStore.getState().books[bookId];
+    if (!book) return; // book 未挂或已卸 → 静默跳过
+    const scnEntries = buildRelationEntries(doc);
+    const loreEntries = scenarioEntriesToLoreEntries(scnEntries);
+    // scenarioEntriesToLoreEntries 会把 id 加 'scn_' 前缀，
+    // 这里把它拨回成 'rel_<charId>' 让 upsertEntries 的前缀替换器认得出。
+    const normalized: Record<string, typeof loreEntries[string]> = {};
+    const stripPrefix = `${SCENARIO_BOOK_PREFIX}${scenarioId}_rel_`;
+    for (const scn of scnEntries) {
+      const charId = scn.id.startsWith(stripPrefix) ? scn.id.slice(stripPrefix.length) : scn.id;
+      const lk = `scn_${scn.id}`;
+      const loreEntry = loreEntries[lk];
+      if (loreEntry) normalized[`rel_${charId}`] = loreEntry;
+    }
+    useLorebookStore.getState().upsertEntries(bookId, normalized, { prefix: 'rel_' });
+  };
+
+  let lastFingerprint = snapshotRelationFingerprint(useScenarioStore.getState().getById(scenarioId));
+  // 初始挂载时跑一次，把当前关系图刷进 lorebook（不然得等下一次 store 变化才有条目）
+  rerender();
+
+  const unsubscribe = useScenarioStore.subscribe((state) => {
+    const doc =
+      state.userScenarios.find((s) => s.id === scenarioId) ??
+      state.builtins.find((s) => s.id === scenarioId);
+    const fp = snapshotRelationFingerprint(doc);
+    if (fp === lastFingerprint) return;
+    lastFingerprint = fp;
+    rerender();
+  });
+
+  return unsubscribe;
+}

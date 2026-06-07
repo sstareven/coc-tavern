@@ -18,6 +18,7 @@ import { useChatStore } from '../stores/useChatStore';
 import { useMapStore } from '../stores/useMapStore';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed } from './scenario-injection';
+import { subscribeRelationLorebook } from './relation-lorebook';
 import { extractInitialItems } from './initial-items-extractor';
 import { expandPrologueToPage } from './expand-prologue';
 import type { BookPage } from '../types';
@@ -34,6 +35,11 @@ const SCENARIO_BOOK_PREFIX = '__scenario_';
 // 解决:用 pendingUnloads 记录每个 bookId 正在进行/排队中的卸载 Promise,activateScenario 入口
 // 等所有 pending 卸载 settle 再读 A2 状态,杜绝读写竞争。
 const pendingUnloads = new Map<string, Promise<void>>();
+
+// 关系 lorebook 实时订阅句柄：activateScenario / mountScenarioBook 挂上,
+// unloadScenario 解挂。同一 scenarioId 重复挂载时先 unsubscribe 旧的再注册新的,
+// 防止订阅泄漏导致多次 upsertEntries 写同一 book。
+const relationUnsubscribes = new Map<string, () => void>();
 
 // B6: 把 scn.entries 里 category === '地点' 的条目同步到 useMapStore——抽成共享 helper 后
 // activateScenario step 3 后置与 mountScenarioBook(读档重挂)都能复用,避免重复粘贴维护成本。
@@ -225,6 +231,12 @@ export async function activateScenario(
     // B6: 抽成 applyScenarioMapLocations helper,mountScenarioBook 读档重挂时复用同一份地点同步逻辑。
     applyScenarioMapLocations(scn.entries);
 
+    // 挂关系图实时订阅:玩家/PeopleTab/post-settle 改 characters[].relations 后,
+    // 下一次 LLM 调用前 lorebook 已被 upsertEntries 同步(只替换 rel_* 前缀条目)。
+    const prevUnsub = relationUnsubscribes.get(scenarioId);
+    if (prevUnsub) prevUnsub();
+    relationUnsubscribes.set(scenarioId, subscribeRelationLorebook(scenarioId));
+
     // ── 4. 初始物品（两种模式统一处理，序章生成之前完成入库，玩家第一眼看到序章背包就已有物品）──
     // newChar: CharCreator Step 5 填的 initialItemsRaw 已通过 setSheet 写到 useCharSheetStore
     // preset:  step 1 setSheet(proto.sheet) 已把预设角色的 initialItemsRaw 写到 useCharSheetStore
@@ -387,6 +399,12 @@ export async function activateScenario(
 }
 
 export function unloadScenario(scenarioId: string): void {
+  // 先解关系图订阅,避免后续 store 变化继续往一个即将被 removeBook 拔掉的 book 上 upsertEntries。
+  const unsub = relationUnsubscribes.get(scenarioId);
+  if (unsub) {
+    unsub();
+    relationUnsubscribes.delete(scenarioId);
+  }
   const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
   // B6: 把卸载动作包成 Promise 并注册到 pendingUnloads,activateScenario 入口会等它 settle 再
   // 读 A2 状态,杜绝「读到挂载 → 早退 → 紧接着 removeBook 拔掉」的竞争。
@@ -447,6 +465,11 @@ export async function mountScenarioBook(scenarioId: string): Promise<void> {
     entries: scenarioEntriesToLoreEntries(scn.entries),
   });
   // 不调 applyScenarioMapLocations:见上方 mountScenarioBook 注释,地点同步仅在首激活路径。
+  // 挂关系图实时订阅(与 activateScenario 同模式):重挂时先 unsubscribe 旧的再注册新的,
+  // 防止 unloadScenario 失败/读档跳过 unload 留下的孤儿订阅泄漏。
+  const prevUnsub = relationUnsubscribes.get(scenarioId);
+  if (prevUnsub) prevUnsub();
+  relationUnsubscribes.set(scenarioId, subscribeRelationLorebook(scenarioId));
 }
 
 /**
