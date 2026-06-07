@@ -418,8 +418,15 @@ export interface NpcProfile {
   backstory: string;
   /** 随身物品 */
   possessions: string[];
-  /** 是否在场 */
+  /** 是否在场(场景内,可被旁白引用/对话/上下文注入) */
   isPresent: boolean;
+  /**
+   * 是否在玩家小队(显式同队标记,与 isPresent 解耦)。
+   * - undefined/false: 不在小队,仅"在场"或"缺席"
+   * - true: 玩家显式邀请入队;LLM 主回合 npcUpdates 不会改此字段(避免抢权)
+   * 仅玩家 UI 操作 + post-settle party-relation-evaluator 自动脱队评估器可写。
+   */
+  inParty?: boolean;
   /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
   status?: string;
   /** 当前生命/理智/魔法值（缺省=按属性推算的最大值；最大值仍由 parseNpcDerived 现算）。受 npcUpdates 的 hp/san/mpDelta 与战斗结算回写更新。 */
