@@ -1,7 +1,7 @@
 // 剧本 NPC 辅助函数 — 极简地生成 ScenarioCharacter
 // 调用方只填关键字段(name/age/occupation/八围/技能/角色 attrs),其他由 helper 兜底
 import type { CharacterSheet, COC7Characteristic } from '../../types';
-import type { ScenarioCharacter } from '../../types/scenario';
+import type { ScenarioCharacter, ScenarioRelation } from '../../types/scenario';
 import { deriveSecondaryStats } from '../../sillytavern/coc-rules';
 
 interface MakeNpcInput {
@@ -38,6 +38,10 @@ interface MakeNpcInput {
   hiddenBio: string;
   /** 默认 'optional'(玩家可选配角);要锁定不可玩传 'locked_npc';强推主角传 'protagonist' */
   role?: ScenarioCharacter['role'];
+  /** 出边关系集合;主角间禁用 enemy/rival(canJoinParty 会拒绝入队) */
+  relations?: ScenarioRelation[];
+  /** 开场即在场;TeamSidebar 默认勾选 isPresent */
+  presentAtStart?: boolean;
 }
 
 const DEFAULT_CHARS: Record<COC7Characteristic, number> = {
@@ -171,5 +175,7 @@ export function makeNpc(input: MakeNpcInput): ScenarioCharacter {
       backgroundFears: input.backgroundFears,
       initialItemsRaw: input.initialItemsRaw,
     },
+    ...(input.relations ? { relations: input.relations } : {}),
+    ...(input.presentAtStart !== undefined ? { presentAtStart: input.presentAtStart } : {}),
   };
 }
