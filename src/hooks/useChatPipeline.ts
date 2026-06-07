@@ -439,7 +439,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const dsRestructureOn =
         !liteMode &&
         dsCfg?.restructure === true &&
-        isDeepSeekSource(settingsNow.apiModel, dsCfg.targetSources ?? 'deepseek,custom');
+        isDeepSeekSource(settingsNow.getEffectiveMainApi().model, dsCfg.targetSources ?? 'deepseek,custom');
       const dynamicEntriesByRef = new Set<LoreEntry>();
       const autoDetectedDynamicConstants: string[] = []; // 名字列表，仅给 debugLog 用
       if (dsRestructureOn) {
@@ -599,7 +599,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         statData: useVariableStore.getState().statData,
         charName: useCharSheetStore.getState().sheet?.identity?.name ?? '',
         userName: charVars['charName'] || '调查员',
-        modelName: useSettingsStore.getState().apiModel,
+        modelName: useSettingsStore.getState().getEffectiveMainApi().model,
         lastMessage: '',
       };
 
@@ -852,7 +852,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       // Context budget management — trim if over limit
       const settings = useSettingsStore.getState();
-      const budget = getModelBudget(settings.apiModel);
+      const budget = getModelBudget(settings.getEffectiveMainApi().model);
       const result = trimToBudget(messages, budget);
 
       if (result.summary) {
@@ -892,7 +892,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Store for Prompt Viewer —— 显示真实发送的(重组后)消息结构，所见即所得。
       usePromptViewerStore.getState().setPrompt(
         finalMessages,
-        useSettingsStore.getState().apiModel,
+        useSettingsStore.getState().getEffectiveMainApi().model,
         activePreset.name,
       );
 
@@ -930,7 +930,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       useStatusToastStore.getState().showProcessing('正在窥探深渊，等待档案浮现…');
       pushLog(
         'info',
-        `发送API请求 — 模型: ${settings.apiModel}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`,
+        `发送API请求 — 模型: ${settings.getEffectiveMainApi().model}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`,
       );
 
       startStream();
@@ -954,9 +954,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           send: (corrective) => sendChatCompletion(
             applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
             presetForApi,
-            settings.apiBaseUrl,
-            settings.apiKey,
-            settings.apiModel,
+            settings.getEffectiveMainApi().baseUrl,
+            settings.getEffectiveMainApi().apiKey,
+            settings.getEffectiveMainApi().model,
             streamRenderEnabled,
             streamRenderEnabled ? onToken : undefined,
             controller.signal,
@@ -994,7 +994,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // (mvuForceAlways forces it every turn for max extraction fidelity).
         const needLlmExtraction =
           mvuSettings.mvuForceAlways || shouldUseLlmExtraction(hookProcessedContent);
-        const useIndependentMvu = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey && needLlmExtraction);
+        const useIndependentMvu = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.getEffectiveMvuApi().apiKey && needLlmExtraction);
         let mvuUsage: TokenUsage | undefined;
         let selfCorrectUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
         // 先【同步】应用模型显式输出的 <UpdateVariable> JSONPatch（本地正则，快）：本回合 HP/SAN/MP/姿态/状态/阶段
@@ -1040,9 +1040,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             try {
               const extracted = await extractVariablesWithLLM(
                 hookProcessedContent,
-                mvuSettings.mvuApiBaseUrl,
-                mvuSettings.mvuApiKey,
-                mvuSettings.mvuApiModel,
+                mvuSettings.getEffectiveMvuApi().baseUrl,
+                mvuSettings.getEffectiveMvuApi().apiKey,
+                mvuSettings.getEffectiveMvuApi().model,
                 mvuSettings.mvuTemperature,
                 mvuSettings.mvuRetryCount,
                 mvuSettings.mvuMaxTokens,
@@ -1081,10 +1081,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 // 否则回退主 API。之前硬编码主 API 致 MVU 自纠走 Pro 模型,与 MVU 提取(Flash)
                 // 路径不一致、单次自纠开销远高于必要(用户实测 4163 tokens × Pro 单价)。
                 send: async (msgs) => {
-                  const useMvuSC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-                  const scBase = (useMvuSC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-                  const scKey = (useMvuSC ? settings.mvuApiKey : settings.apiKey) ?? '';
-                  const scModel = (useMvuSC ? settings.mvuApiModel : settings.apiModel) ?? '';
+                  const useMvuSC = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+                  const scBase = (useMvuSC ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+                  const scKey = (useMvuSC ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+                  const scModel = (useMvuSC ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
                   const r = await sendChatCompletion(
                     applyPostProcessing(msgs, settings.promptPostProcessing),
                     presetForApi,
@@ -1237,7 +1237,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           // 滑出窗口,永远是 0。TokenDisplay 改用 subCalls.length + 1 实时算「本页请求次数」。
           // 本回合使用的模型名快照——CacheStatsPanel 按 model tier 走对应费率算 cost，
           // 并把曲线按 flash/pro 分双线展示。
-          model: useSettingsStore.getState().apiModel,
+          model: useSettingsStore.getState().getEffectiveMainApi().model,
           // 子调用历史日志：主回合内部的 MVU 提取 + MVU 自纠各算一条；fire-and-forget 子调用
           // （起始物品/坏结局/关键线索/线索整合/NPC补写/地点元素/地图自检/时间跳跃/战斗探测/
           // 行动补写）由各自调用点完成后用 addPageSubCallStat 追加。
@@ -1246,7 +1246,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             if (mvuUsage) {
               subs.push({
                 label: 'MVU 提取',
-                model: useIndependentMvu ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                model: useIndependentMvu ? mvuSettings.getEffectiveMvuApi().model : mvuSettings.getEffectiveMainApi().model,
                 hit: mvuUsage.prompt_cache_hit_tokens,
                 miss: mvuUsage.prompt_cache_miss_tokens,
                 promptTokens: mvuUsage.prompt_tokens,
@@ -1258,10 +1258,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               // v1.11.6: model 标签条件对齐自纠 send 内部 useMvuSC 逻辑——不依赖 useIndependentMvu
               // (那个还 AND 了 needLlmExtraction,会让"主 JSON 已带 patch + 配了独立 MVU API"
               // 的场景下自纠走独立 API 但 stat label 误标主 model)。
-              const selfCorrectUsedMvuApi = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.mvuApiKey?.trim());
+              const selfCorrectUsedMvuApi = !!(mvuSettings.mvuUseIndependentApi && mvuSettings.getEffectiveMvuApi().apiKey?.trim());
               subs.push({
                 label: 'MVU 自纠',
-                model: selfCorrectUsedMvuApi ? mvuSettings.mvuApiModel : mvuSettings.apiModel,
+                model: selfCorrectUsedMvuApi ? mvuSettings.getEffectiveMvuApi().model : mvuSettings.getEffectiveMainApi().model,
                 promptTokens: selfCorrectUsage.prompt_tokens,
                 output: selfCorrectUsage.completion_tokens,
                 at: Date.now(),
@@ -1342,7 +1342,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 暗线定向补生成：剧情本应推进暗线、但主 JSON 遗漏 darkThread 时（darkThreadMissing），
         // 不弹框打断、改为【fire-and-forget 独立调用】补出本回合暗线。走 'mvu' RPM 桶——撞上限自动排队
         // （rpmAcquire 排队不报错），内部重试若干次；穷尽失败才记日志。全程会话守卫，绝不阻塞翻页。
-        if (darkThreadMissing && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+        if (darkThreadMissing && settings.getEffectiveMainApi().apiKey?.trim() && settings.getEffectiveMainApi().baseUrl?.trim() && settings.getEffectiveMainApi().model?.trim()) {
           const aidDT = useChatStore.getState().activeId;
           const dtPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
           const latest = useDarkThreadStore.getState().entries.slice(-1)[0];
@@ -1352,7 +1352,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const dtCtx = [`近期叙事:\n${newPage.leftContent}`, progressLine, secretLine].filter(Boolean).join('\n');
           pendingVisibleSubcalls.push((async () => {
             try {
-              const dt = await generateDarkThread(dtCtx, settings.apiBaseUrl, settings.apiKey, settings.apiModel, controller.signal);
+              const dt = await generateDarkThread(dtCtx, settings.getEffectiveMainApi().baseUrl, settings.getEffectiveMainApi().apiKey, settings.getEffectiveMainApi().model, controller.signal);
               if (!dt || useChatStore.getState().activeId !== aidDT) return; // 穷尽失败或切档 → 放弃
               // addEntry 入参字段名是 details（映射 development）——与正常路径 :947-952 一致。
               useDarkThreadStore.getState().addEntry({ progress: dt.progress, threatLevel: dt.threatLevel, details: dt.development, foreshadowing: dt.foreshadowing });
@@ -1371,10 +1371,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // fire-and-forget 走 'rewrite' RPM 桶（撞上限自动排队 1 分钟）拉出叙事里被遗漏的 NPC、回灌入名册并写回页面。
         // 与暗线补生成同模式：会话守卫、abort 守卫、失败静默 fail-open。
         if (npcMissingDetected) {
-          const useIndepRW = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey?.trim();
-          const rwBase = useIndepRW ? settings.rewriteApiBaseUrl : settings.apiBaseUrl;
-          const rwKey  = useIndepRW ? settings.rewriteApiKey  : settings.apiKey;
-          const rwModel = useIndepRW ? settings.rewriteApiModel : settings.apiModel;
+          const useIndepRW = settings.rewriteUseIndependentApi && !!settings.getEffectiveRewriteApi().apiKey?.trim();
+          const rwBase = useIndepRW ? settings.getEffectiveRewriteApi().baseUrl : settings.getEffectiveMainApi().baseUrl;
+          const rwKey  = useIndepRW ? settings.getEffectiveRewriteApi().apiKey  : settings.getEffectiveMainApi().apiKey;
+          const rwModel = useIndepRW ? settings.getEffectiveRewriteApi().model : settings.getEffectiveMainApi().model;
           if (rwBase?.trim() && rwKey?.trim() && rwModel?.trim()) {
             const aidNR = useChatStore.getState().activeId;
             const nrPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
@@ -1443,10 +1443,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           if (taggedKws.length > 0) {
             const knownSet = new Set(Object.keys(useKeywordStore.getState().keywords));
             const unknown = taggedKws.filter((k) => !knownSet.has(k));
-            const useMvuKM = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-            const kmBase = (useMvuKM ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-            const kmKey = (useMvuKM ? settings.mvuApiKey : settings.apiKey) ?? '';
-            const kmModel = (useMvuKM ? settings.mvuApiModel : settings.apiModel) ?? '';
+            const useMvuKM = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+            const kmBase = (useMvuKM ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+            const kmKey = (useMvuKM ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+            const kmModel = (useMvuKM ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
             if (unknown.length > 0 && kmBase.trim() && kmKey.trim() && kmModel.trim()) {
               const aidKM = useChatStore.getState().activeId;
               pendingVisibleSubcalls.push((async () => {
@@ -1496,7 +1496,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 与主回合输出彻底解耦，绝不挤占主 JSON（修复其曾导致 clues/npc/map 被截断的回归）。
         // fire-and-forget；含会话守卫；后日谈不生成；需 API 配置齐全。
         if ((!useDarkThreadStore.getState().badEnding || useKeyClueStore.getState().pillars.length === 0) && !isEpilogue
-            && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+            && settings.getEffectiveMainApi().apiKey?.trim() && settings.getEffectiveMainApi().baseUrl?.trim() && settings.getEffectiveMainApi().model?.trim()) {
           const aidBE = useChatStore.getState().activeId;
           const sheet = useCharSheetStore.getState().sheet;
           const recent = useBookStore.getState().pages.slice(-3).map((p) => p.leftContent).filter(Boolean).join('\n');
@@ -1505,10 +1505,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             try {
               // 一次产出：坏结局（灾厄终点）+ 3 真相支柱（破局所需，守秘人机密）。
               // 走 MVU API（若已配置）/ 主 API（fallback）—— 短 JSON 子调用走 Flash 更快。
-              const useMvuBE = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-              const beBase = (useMvuBE ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-              const beKey = (useMvuBE ? settings.mvuApiKey : settings.apiKey) ?? '';
-              const beModel = (useMvuBE ? settings.mvuApiModel : settings.apiModel) ?? '';
+              const useMvuBE = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+              const beBase = (useMvuBE ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+              const beKey = (useMvuBE ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+              const beModel = (useMvuBE ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
               const { description, pillars, usage: beUsage } = await generateBadEnding(ctx, beBase, beKey, beModel);
               if (useChatStore.getState().activeId !== aidBE) return; // 期间切换会话，放弃避免污染别档
               // 缓存命中历史：坏结局调用统计追加进 page.genStats.subCalls
@@ -1549,7 +1549,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const dtNow = useDarkThreadStore.getState().badEnding;
           const kcNow = useKeyClueStore.getState().pillars;
           if (useAnchorStore.getState().anchors.nodes.length === 0 && dtNow && kcNow.length > 0 && !isEpilogue
-              && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+              && settings.getEffectiveMainApi().apiKey?.trim() && settings.getEffectiveMainApi().baseUrl?.trim() && settings.getEffectiveMainApi().model?.trim()) {
             const aidAN = useChatStore.getState().activeId;
             const prologue = useBookStore.getState().pages[0];
             const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
@@ -1559,7 +1559,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                   opening,
                   dtNow.description,
                   kcNow.map((p) => ({ title: p.title, secret: p.secret })),
-                  settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+                  settings.getEffectiveMainApi().baseUrl, settings.getEffectiveMainApi().apiKey, settings.getEffectiveMainApi().model,
                   controller.signal,
                 );
                 if (!anchors || useChatStore.getState().activeId !== aidAN) return; // 失败或切档 → 放弃
@@ -1583,10 +1583,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           !isEpilogue &&
           !lastInputRef.current.includes('即时战斗结束') // 防战斗结算页再次触发进战
         ) {
-          const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-          const cdBase = (useMvuApiCB ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-          const cdKey = (useMvuApiCB ? settings.mvuApiKey : settings.apiKey) ?? '';
-          const cdModel = (useMvuApiCB ? settings.mvuApiModel : settings.apiModel) ?? '';
+          const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+          const cdBase = (useMvuApiCB ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+          const cdKey = (useMvuApiCB ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+          const cdModel = (useMvuApiCB ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
           if (cdBase.trim() && cdKey.trim() && cdModel.trim()) {
             const aidCB = useChatStore.getState().activeId;
             const sheetCB = useCharSheetStore.getState().sheet;
@@ -1623,17 +1623,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const kc = useKeyClueStore.getState();
           const unsolved = kc.pillars.filter((p) => !p.uncovered);
           if (result.clues && result.clues.length > 0 && unsolved.length > 0 && !kc.saveWorldMode
-              && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+              && settings.getEffectiveMainApi().apiKey?.trim() && settings.getEffectiveMainApi().baseUrl?.trim() && settings.getEffectiveMainApi().model?.trim()) {
             const aidKC = useChatStore.getState().activeId;
             const newClues = result.clues.map((c) => ({ name: c.name, summary: c.summary ?? '', discoveryNarrative: c.discoveryNarrative }));
             const pillarsForEval = unsolved.map((p) => ({ id: p.id, title: p.title, secret: p.secret }));
             void (async () => {
               try {
                 // 走 MVU API（若已配置）—— 关键线索评估也是短 JSON 子调用，走 Flash 更快。
-                const useMvuKC = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-                const kcBase = (useMvuKC ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-                const kcKey = (useMvuKC ? settings.mvuApiKey : settings.apiKey) ?? '';
-                const kcModel = (useMvuKC ? settings.mvuApiModel : settings.apiModel) ?? '';
+                const useMvuKC = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+                const kcBase = (useMvuKC ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+                const kcKey = (useMvuKC ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+                const kcModel = (useMvuKC ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
                 const { matches, usage: kcUsage } = await evaluateKeyClues(pillarsForEval, newClues, kcBase, kcKey, kcModel);
                 // 缓存命中历史：关键线索调用统计追加进 page.genStats.subCalls
                 if (kcUsage) {
@@ -1670,13 +1670,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 活跃线索超上限 → 推进过程中自动归并成 1-3 条总结（后台进行，不阻塞本回合渲染；
         // 原线索归档、可在「历史线索」回溯）。仅在 API 配置齐全时尝试。
         const activeClues = useClueStore.getState().clues.filter((c) => c.status !== 'archived');
-        if (activeClues.length > CLUE_ACTIVE_CAP && settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()) {
+        if (activeClues.length > CLUE_ACTIVE_CAP && settings.getEffectiveMainApi().apiKey?.trim() && settings.getEffectiveMainApi().baseUrl?.trim() && settings.getEffectiveMainApi().model?.trim()) {
           const aidAtTrigger = useChatStore.getState().activeId;
           pendingVisibleSubcalls.push((async () => {
             try {
               const { clues: summaries } = await integrateClues(
                 activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
-                settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+                settings.getEffectiveMainApi().baseUrl, settings.getEffectiveMainApi().apiKey, settings.getEffectiveMainApi().model,
               );
               if (summaries.length === 0) return;
               // 守卫：归并期间若切换了会话，放弃——避免把本会话的归并写进已切到的别的存档（污染）。
@@ -1722,10 +1722,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         {
           const ms = useMapStore.getState();
           const curLoc = ms.locations.find((l) => l.id === ms.currentLocationId);
-          const useMvuApi = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-          const leBase = (useMvuApi ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-          const leKey = (useMvuApi ? settings.mvuApiKey : settings.apiKey) ?? '';
-          const leModel = (useMvuApi ? settings.mvuApiModel : settings.apiModel) ?? '';
+          const useMvuApi = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+          const leBase = (useMvuApi ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+          const leKey = (useMvuApi ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+          const leModel = (useMvuApi ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
           if (curLoc?.name && leBase.trim() && leKey.trim() && leModel.trim()) {
             const aidLE = useChatStore.getState().activeId;
             const ledPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
@@ -1775,10 +1775,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             (result.mapUpdates.newEdges?.length ?? 0) > 0
           ));
           if (mapChangedThisTurn && useMapStore.getState().locations.length >= 2) {
-            const useMvuApi = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-            const rcBase = (useMvuApi ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-            const rcKey = (useMvuApi ? settings.mvuApiKey : settings.apiKey) ?? '';
-            const rcModel = (useMvuApi ? settings.mvuApiModel : settings.apiModel) ?? '';
+            const useMvuApi = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+            const rcBase = (useMvuApi ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+            const rcKey = (useMvuApi ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+            const rcModel = (useMvuApi ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
             if (rcBase.trim() && rcKey.trim() && rcModel.trim()) {
               const aidRC = useChatStore.getState().activeId;
               const ms0 = useMapStore.getState();
@@ -1927,7 +1927,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         currentInputRef.current = processedInput;
 
         const settings = useSettingsStore.getState();
-        if (!settings.apiKey) {
+        if (!settings.getEffectiveMainApi().apiKey) {
           setError('请先在设置中配置API');
           return processedInput;
         }
@@ -1962,7 +1962,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       pushLog('info', `[重新生成] 使用上次输入: "${lastInput.slice(0, 50)}..."`);
 
       const settings = useSettingsStore.getState();
-      if (!settings.apiKey) {
+      if (!settings.getEffectiveMainApi().apiKey) {
         setError('请先在设置中配置API');
         return;
       }
@@ -1999,10 +1999,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     rewriteAbortRef.current = controller;
     try {
       const settings = useSettingsStore.getState();
-      const useIndep = settings.rewriteUseIndependentApi && !!settings.rewriteApiKey;
-      const baseUrl = useIndep ? settings.rewriteApiBaseUrl : settings.apiBaseUrl;
-      const apiKey = useIndep ? settings.rewriteApiKey : settings.apiKey;
-      const model = useIndep ? settings.rewriteApiModel : settings.apiModel;
+      const useIndep = settings.rewriteUseIndependentApi && !!settings.getEffectiveRewriteApi().apiKey;
+      const baseUrl = useIndep ? settings.getEffectiveRewriteApi().baseUrl : settings.getEffectiveMainApi().baseUrl;
+      const apiKey = useIndep ? settings.getEffectiveRewriteApi().apiKey : settings.getEffectiveMainApi().apiKey;
+      const model = useIndep ? settings.getEffectiveRewriteApi().model : settings.getEffectiveMainApi().model;
       if (!apiKey) {
         useStatusToastStore.getState().showError('请先在设置中配置API');
         setError('请先在设置中配置API');
@@ -2012,10 +2012,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // 行动补写·战斗发起：玩家明确发起攻击/搏斗 → 据当前场景建场进入即时战斗面板，跳过候选选项生成；
       // 脱战后由 InputBar 订阅 status='resolving' 走主管线翻页叙述。仅当未在战斗中且检测出可战目标才进战，否则回落正常补写。
       if (shouldDetectCombat(trimmed) && !useCombatStore.getState().encounter) {
-        const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-        const cdBase = (useMvuApiCB ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-        const cdKey = (useMvuApiCB ? settings.mvuApiKey : settings.apiKey) ?? '';
-        const cdModel = (useMvuApiCB ? settings.mvuApiModel : settings.apiModel) ?? '';
+        const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+        const cdBase = (useMvuApiCB ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+        const cdKey = (useMvuApiCB ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+        const cdModel = (useMvuApiCB ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
         if (cdBase.trim() && cdKey.trim() && cdModel.trim()) {
           useStatusToastStore.getState().updateProcessing('正在进入战斗…');
           const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n');

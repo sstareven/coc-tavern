@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.13.3';
+export const CURRENT_VERSION = 'v1.14.0';
 
 interface Release {
   version: string;
@@ -19,6 +19,19 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.14.0',
+    label: 'API 管理重构:多 profile 模式 + 跨 profile 模型搜索 + 三套调用站统一 effective selector',
+    items: [
+      '【API 管理·全新 tab】设置面板新增「API 管理」侧目录(位于「基本设置」下方)。顶部添加表单:识别名/API 地址/API Key 三栏 + 连接测试 + 保存;中部已保存配置列表(横向滚动表格,铜版风滚动条);每条记录可编辑/删除(删除走二次确认气泡);编辑时 API Key 输入框留空=保持原值(防误清空),旁有「显示/隐藏」按钮可预览原 Key',
+      '【主/MVU/补写·改走 profile 选择】原先「主 API / MVU / 补写」三套独立 apiBaseUrl+apiKey+apiModel 字段(共 12 字段 + 12 setter)全部删除,改为各自选 (profileId, modelName) 引用 API 管理列表。在「基本设置」三处使用 ApiModelPicker 组件:跨所有 profile 扁平模型池 + 实时搜索(按 modelName 或识别名)+ 按 modelName 拆 `-` 头段分类分组(deepseek-v4-pro → deepseek 组),搜索后无命中分类不显示,全无命中显「(空)」;模型选项显示「[识别名] modelName」',
+      '【useSettingsStore·effective selector 单点收敛】新增 getEffectiveMainApi() / getEffectiveMvuApi() / getEffectiveRewriteApi() 三个 selector 返回 {baseUrl, apiKey, model}。MVU/补写的「使用独立 API」关闭时自动回退主线 profile + model(决策点 2:最少惊讶)。所有调用站点(useChatPipeline 60+ 处 + scenario-llm / combat-entry / time-jump-generator / party-relation-evaluator 等共 27 文件)统一收敛到这三个 selector,sendChatCompletion / fetchModelList 下游签名零改动',
+      '【脱敏防护】API Key 在 UI 列表用 maskApiKey() 显示「****xxxx」(尾 4 位)、输入框 type=password、stripApiKeysForExport() 导出时强制剔除明文 key、validateImportNoSecrets() 导入时若发现明文 key 拒收;subagent-call/api-router 日志不打整个 profile 对象',
+      '【纯逻辑层】新建 src/api/api-profiles-engine.ts(CRUD/validate/脱敏 纯函数)+ src/api/api-models-engine.ts(搜索 filterModelsBySearch / 分类 categorizeModels / 掩码 maskApiKey 纯函数)+ 单测 34 例覆盖。新建 src/stores/useApiProfilesStore.ts(独立 zustand persist + Dexie 存储)',
+      '【UI 偏好遵守】无 emoji 用 SVG 编辑/删除 icon;按钮 hover 增亮放大 + active 按压;无英文 label;全套铜版风滚动条;表单输入框 focus 时边框金色',
+      '【删除文件】ModelEndpointConfig.tsx(原三份复制器废弃,被 ApiModelPicker 取代)',
+    ],
+  },
   {
     version: 'v1.13.3',
     label: '领受赐福 cheat 系统缺陷修复 + 禁用档位 + 悬浮溢出修正',

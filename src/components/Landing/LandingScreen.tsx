@@ -24,7 +24,7 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
 
   // 开始游戏前校验：未配置 API Key 则拦截并引导去设置——没有 AI 接口无法生成任何叙事。
   const handleStart = () => {
-    if (!useSettingsStore.getState().apiKey.trim()) {
+    if (!useSettingsStore.getState().getEffectiveMainApi().apiKey.trim()) {
       setShowApiWarn(true);
       return;
     }

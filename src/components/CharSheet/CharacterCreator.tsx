@@ -687,8 +687,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   // mode 决定写回范围：overwrite=写回全部；fillEmpty=只写原本为空的字段（保护手填内容）。
   const runBackstoryFill = async (mode: 'overwrite' | 'fillEmpty') => {
     setBgConfirm(false);
-    const settings = useSettingsStore.getState();
-    if (!settings.apiKey) {
+    const main = useSettingsStore.getState().getEffectiveMainApi();
+    if (!main.apiKey) {
       setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }
@@ -774,7 +774,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         // <think> 里花掉几千 token,1600 不够装 8 个字段(每段 2-4 句 × 80 字 ≈ 1500 输出),
         // 实测被截断导致 markdown ### 标题不全 → 解析 applied=0 → 报「AI 返回的内容无法解析」。
         { ...DEFAULT_INPUT_PRESET, temperature: 0.8, maxTokens: 20000 },
-        settings.apiBaseUrl, settings.apiKey, settings.apiModel,
+        main.baseUrl, main.apiKey, main.model,
       );
 
       const rawText = response.content || '';
@@ -814,7 +814,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   // 点「背景补写」入口：无 apiKey 报错；若已有手填字段→弹确认条让用户选覆盖/仅填空格；否则直接整理。
   const handleBackstoryFill = () => {
-    if (!useSettingsStore.getState().apiKey) {
+    if (!useSettingsStore.getState().getEffectiveMainApi().apiKey) {
       setBackstoryError('请先在设置中配置 密钥后再使用背景补写功能。');
       return;
     }

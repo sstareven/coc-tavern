@@ -143,12 +143,12 @@ export function InventoryOverlay() {
   const [integrating, setIntegrating] = useState(false);
   const handleIntegrate = async () => {
     if (integrating || activeClues.length < 2) return;
-    const s = useSettingsStore.getState();
-    if (!s.apiKey?.trim()) {
+    const main = useSettingsStore.getState().getEffectiveMainApi();
+    if (!main.apiKey?.trim()) {
       useStatusToastStore.getState().showError('未配置 API Key，无法整合线索');
       return;
     }
-    if (!s.apiBaseUrl?.trim() || !s.apiModel?.trim()) {
+    if (!main.baseUrl?.trim() || !main.model?.trim()) {
       useStatusToastStore.getState().showError('未配置 API 地址或模型，无法整合线索');
       return;
     }
@@ -157,7 +157,7 @@ export function InventoryOverlay() {
     try {
       const { clues: synthesized } = await integrateClues(
         activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
-        s.apiBaseUrl, s.apiKey, s.apiModel,
+        main.baseUrl, main.apiKey, main.model,
       );
       if (synthesized.length === 0) {
         pushLog('warn', '[线索整合] 未产出新的总结线索（模型无可归纳的关联或解析为空，详见上方日志）', 'api');

@@ -299,13 +299,15 @@ export function CacheStatsPanel({ onClose }: { onClose: () => void }) {
         if (sHit > 0 || sMiss > 0 || sOut > 0) totalCalls += 1;
       }
     }
+    const mainApi = settings.getEffectiveMainApi();
+    const mvuApi = settings.getEffectiveMvuApi();
     const diagnostics = buildDiagnosticsBlock(
       ds,
-      safeHost(settings.apiBaseUrl),
-      settings.apiModel ?? '',
+      safeHost(mainApi.baseUrl),
+      mainApi.model ?? '',
       !!settings.mvuUseIndependentApi,
-      safeHost(settings.mvuApiBaseUrl),
-      settings.mvuApiModel ?? '',
+      safeHost(mvuApi.baseUrl),
+      mvuApi.model ?? '',
       settings.promptPostProcessing ?? '',
       pages.length,
       pagesWithStats,

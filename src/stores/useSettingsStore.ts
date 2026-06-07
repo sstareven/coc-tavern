@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
+import { useApiProfilesStore } from './useApiProfilesStore';
+import { resolveProfileById } from '../api/api-profiles-engine';
 
 /**
  * 文字倍率上下界（80% ~ 150%）—— 超出会让 UI 错乱(过小看不清 / 过大溢出)。
@@ -33,28 +35,20 @@ interface SettingsState {
    *  - 'mixed'(默认) HP<40% 50% 急救/50% 攻击;dying 状态 80% 急救
    */
   npcAutoTendency: 'attack' | 'support' | 'mixed';
-  apiBaseUrl: string;
-  apiModel: string;
-  apiKey: string;
-  availableModels: string[];
+  // v1.14.0 重构:主/MVU/补写 三套 API 配置字段全部移交 useApiProfilesStore(独立 store +
+  // 多 profile 列表 + 三套各自选 profileId/model)。原 apiBaseUrl/apiModel/apiKey/availableModels +
+  // 同结构 mvu*/rewrite* 共 12 字段已删,调用站点统一走 getEffectiveMainApi/Mvu/Rewrite() 三个
+  // selector 拿 {baseUrl, apiKey, model}。beta-no-backward-compat 红利,无迁移代码,老存档失效。
   promptPostProcessing: string;
 
   mvuUseIndependentApi: boolean;
   mvuForceAlways: boolean;
-  mvuApiBaseUrl: string;
-  mvuApiModel: string;
-  mvuApiKey: string;
   rewriteUseIndependentApi: boolean;
   rewriteLite: boolean;
   rewriteLiteIncludeMatchedLore: boolean;
-  rewriteApiBaseUrl: string;
-  rewriteApiModel: string;
-  rewriteApiKey: string;
-  rewriteAvailableModels: string[];
   mvuTemperature: number;
   mvuRetryCount: number;
   mvuMaxTokens: number;
-  mvuAvailableModels: string[];
   maxSummaryEntries: number;
   npcMemoryKeep: number;
   contextPageDepth: number;
@@ -168,27 +162,15 @@ interface SettingsStore extends SettingsState {
   setSfxVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
   setNpcAutoTendency: (v: 'attack' | 'support' | 'mixed') => void;
-  setApiBaseUrl: (url: string) => void;
-  setApiModel: (model: string) => void;
-  setApiKey: (k: string) => void;
-  setAvailableModels: (models: string[]) => void;
   setPromptPostProcessing: (v: string) => void;
   setMvuUseIndependentApi: (v: boolean) => void;
   setMvuForceAlways: (v: boolean) => void;
-  setMvuApiBaseUrl: (url: string) => void;
-  setMvuApiModel: (model: string) => void;
-  setMvuApiKey: (key: string) => void;
   setRewriteUseIndependentApi: (v: boolean) => void;
   setRewriteLite: (v: boolean) => void;
   setRewriteLiteIncludeMatchedLore: (v: boolean) => void;
-  setRewriteApiBaseUrl: (url: string) => void;
-  setRewriteApiModel: (model: string) => void;
-  setRewriteApiKey: (key: string) => void;
-  setRewriteAvailableModels: (models: string[]) => void;
   setMvuTemperature: (t: number) => void;
   setMvuRetryCount: (n: number) => void;
   setMvuMaxTokens: (n: number) => void;
-  setMvuAvailableModels: (models: string[]) => void;
   setMaxSummaryEntries: (n: number) => void;
   setNpcMemoryKeep: (n: number) => void;
   setContextPageDepth: (n: number) => void;
@@ -225,10 +207,24 @@ interface SettingsStore extends SettingsState {
    */
   revertDeepSeekUltraPreset: () => void;
   toggleCheating: () => void;
-  /** Konami 序列匹配成功时调，永久解锁「领受赐福」tab 显示。 */
+  /** Konami 序列匹配成功时调,永久解锁「领受赐福」tab 显示。 */
   unlockCheating: () => void;
-  /** 调试用：还原到未解锁状态（同时关 cheatingEnabled，避免「藏 tab 但作弊仍生效」）。 */
+  /** 调试用:还原到未解锁状态(同时关 cheatingEnabled,避免「藏 tab 但作弊仍生效」)。 */
   lockCheating: () => void;
+
+  /**
+   * v1.14.0 起的统一调用入口:主叙事 API 当前 effective 凭证。
+   * 跨 store 同步读 useApiProfilesStore 的 selectedMainApiProfileId + selectedMainModel,
+   * 解析得 {baseUrl, apiKey, model}。未选 profile → 三段都空,下游应给「请到 API 管理」提示。
+   */
+  getEffectiveMainApi: () => { baseUrl: string; apiKey: string; model: string };
+  /**
+   * MVU 提取 API 当前 effective 凭证。
+   * mvuUseIndependentApi=false 时回退主线(profile + model 全套);=true 时用 selectedMvuApiProfileId/Model。
+   */
+  getEffectiveMvuApi: () => { baseUrl: string; apiKey: string; model: string };
+  /** 行动补写 API,逻辑同 Mvu。rewriteUseIndependentApi 控制是否独立。 */
+  getEffectiveRewriteApi: () => { baseUrl: string; apiKey: string; model: string };
 }
 
 const defaults: SettingsState = {
@@ -239,28 +235,16 @@ const defaults: SettingsState = {
   sfxVolume: 100,
   autoSubmitChoice: false,
   npcAutoTendency: 'mixed',
-  apiBaseUrl: 'https://api.deepseek.com',
-  apiModel: 'deepseek-v4-pro',
-  apiKey: '',
-  availableModels: [],
   promptPostProcessing: '',
 
   mvuUseIndependentApi: false,
   mvuForceAlways: false,
-  mvuApiBaseUrl: 'https://api.deepseek.com',
-  mvuApiModel: 'deepseek-chat',
-  mvuApiKey: '',
   rewriteUseIndependentApi: false,
   rewriteLite: false,
   rewriteLiteIncludeMatchedLore: false,
-  rewriteApiBaseUrl: 'https://api.deepseek.com',
-  rewriteApiModel: 'deepseek-chat',
-  rewriteApiKey: '',
-  rewriteAvailableModels: [],
   mvuTemperature: 1,
   mvuRetryCount: 1,
   mvuMaxTokens: 32768,
-  mvuAvailableModels: [],
   maxSummaryEntries: 20,
   npcMemoryKeep: 6,
   contextPageDepth: 3,
@@ -290,7 +274,7 @@ const defaults: SettingsState = {
 
 export const useSettingsStore = create<SettingsStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...defaults,
 
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
@@ -301,28 +285,16 @@ export const useSettingsStore = create<SettingsStore>()(
       setSfxVolume: (v) => set({ sfxVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
       setNpcAutoTendency: (v) => set({ npcAutoTendency: v }),
-      setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
-      setApiModel: (model) => set({ apiModel: model }),
-      setApiKey: (k) => set({ apiKey: k }),
-      setAvailableModels: (models) => set({ availableModels: models }),
       setPromptPostProcessing: (v) => set({ promptPostProcessing: v }),
       setMvuUseIndependentApi: (v) => set({ mvuUseIndependentApi: v }),
       setMvuForceAlways: (v) => set({ mvuForceAlways: v }),
-      setMvuApiBaseUrl: (url) => set({ mvuApiBaseUrl: url }),
-      setMvuApiModel: (model) => set({ mvuApiModel: model }),
-      setMvuApiKey: (key) => set({ mvuApiKey: key }),
       setRewriteUseIndependentApi: (v) => set({ rewriteUseIndependentApi: v }),
       setRewriteLite: (v) => set({ rewriteLite: v }),
       setRewriteLiteIncludeMatchedLore: (v) => set({ rewriteLiteIncludeMatchedLore: v }),
-      setRewriteApiBaseUrl: (url) => set({ rewriteApiBaseUrl: url }),
-      setRewriteApiModel: (model) => set({ rewriteApiModel: model }),
-      setRewriteApiKey: (key) => set({ rewriteApiKey: key }),
-      setRewriteAvailableModels: (models) => set({ rewriteAvailableModels: models }),
       setMvuTemperature: (t) => set({ mvuTemperature: Math.max(0, Math.min(2, t)) }),
       setMvuRetryCount: (n) => set({ mvuRetryCount: Math.max(1, Math.min(5, Math.floor(n))) }),
       // max_tokens 下限 20000(避免 thinking 模型 JSON 截断),上限 65536
       setMvuMaxTokens: (n) => set({ mvuMaxTokens: Math.max(20000, Math.min(65536, Math.floor(n))) }),
-      setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
       setMaxSummaryEntries: (n) => set({ maxSummaryEntries: Math.max(0, Math.min(50, Math.floor(n))) }),
       setNpcMemoryKeep: (n) => set({ npcMemoryKeep: Math.max(3, Math.min(12, Math.floor(n))) }),
       setContextPageDepth: (n) => set({ contextPageDepth: Math.max(0, Math.min(50, Math.floor(n))) }),
@@ -400,6 +372,44 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
       unlockCheating: () => set({ cheatingUnlocked: true }),
       lockCheating: () => set({ cheatingUnlocked: false, cheatingEnabled: false }),
+
+      // ───────────── v1.14.0:effective API selector(跨 store 读 useApiProfilesStore) ─────────────
+      // 同步读取,非订阅式 — 给 useChatPipeline / subagent-call 等纯逻辑调用站点用。
+      // React 组件需要 reactive 监听变化时,直接订阅 useApiProfilesStore 对应字段。
+      getEffectiveMainApi: () => {
+        const ap = useApiProfilesStore.getState();
+        const profile = resolveProfileById(ap.apiProfiles, ap.selectedMainApiProfileId);
+        return {
+          baseUrl: profile?.apiBaseUrl ?? '',
+          apiKey: profile?.apiKey ?? '',
+          model: ap.selectedMainModel,
+        };
+      },
+      getEffectiveMvuApi: () => {
+        const s = get();
+        const ap = useApiProfilesStore.getState();
+        // useIndependent=false → 回退主线 profile+model 全套(决策点 2:复用最少惊讶)
+        const profileId = s.mvuUseIndependentApi ? ap.selectedMvuApiProfileId : ap.selectedMainApiProfileId;
+        const model = s.mvuUseIndependentApi ? ap.selectedMvuModel : ap.selectedMainModel;
+        const profile = resolveProfileById(ap.apiProfiles, profileId);
+        return {
+          baseUrl: profile?.apiBaseUrl ?? '',
+          apiKey: profile?.apiKey ?? '',
+          model,
+        };
+      },
+      getEffectiveRewriteApi: () => {
+        const s = get();
+        const ap = useApiProfilesStore.getState();
+        const profileId = s.rewriteUseIndependentApi ? ap.selectedRewriteApiProfileId : ap.selectedMainApiProfileId;
+        const model = s.rewriteUseIndependentApi ? ap.selectedRewriteModel : ap.selectedMainModel;
+        const profile = resolveProfileById(ap.apiProfiles, profileId);
+        return {
+          baseUrl: profile?.apiBaseUrl ?? '',
+          apiKey: profile?.apiKey ?? '',
+          model,
+        };
+      },
     }),
     {
       name: 'coc_settings_v2',

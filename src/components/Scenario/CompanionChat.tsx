@@ -136,7 +136,7 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
         '请输出 { "reply": "...", "patch": { ... } } 单个 JSON 对象。',
       ].join('\n');
 
-      const { apiBaseUrl, apiKey, apiModel } = useSettingsStore.getState();
+      const { baseUrl: apiBaseUrl, apiKey, model: apiModel } = useSettingsStore.getState().getEffectiveMainApi();
       const { content } = await callDsSubagent({
         apiBaseUrl,
         apiKey,

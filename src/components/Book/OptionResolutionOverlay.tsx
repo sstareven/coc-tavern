@@ -58,7 +58,7 @@ export function OptionResolutionOverlay() {
   const [mode, setMode] = useState<'choose' | 'luck-slider'>('choose');
 
   const cheatingEnabled = useSettingsStore((s) => s.cheatingEnabled);
-  const disabledTypes = useMemo(() => pending ? getCheatingDisabledTypes(pending.target, pending.sanCheck) : new Set(), [pending]);
+  const disabledTypes = useMemo(() => pending ? getCheatingDisabledTypes(pending.target, pending.sanCheck) : new Set<DiceResultType>(), [pending]);
 
   // 重置子态：浮层关闭/换 trigger 时回到「choose」
   const visible = !!pending;

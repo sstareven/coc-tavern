@@ -41,9 +41,9 @@ export async function extractInitialItems(raw: string): Promise<ExtractedInitial
 
   const s = useSettingsStore.getState();
   const req: DsSubagentRequest = {
-    apiBaseUrl: s.apiBaseUrl,
-    apiKey: s.apiKey,
-    model: s.apiModel,
+    apiBaseUrl: s.getEffectiveMainApi().baseUrl,
+    apiKey: s.getEffectiveMainApi().apiKey,
+    model: s.getEffectiveMainApi().model,
     temperature: 0.2,
     maxTokens: 20000,
     rpmLane: 'rewrite',
