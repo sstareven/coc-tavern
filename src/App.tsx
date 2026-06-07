@@ -72,31 +72,37 @@ export function App() {
   useEffect(() => {
     initBuiltinCommands();
     (async () => {
+      // Stage 1 阻塞路径 —— 必须完成才能让 LandingScreen 渲染:
+      //   initKvCache(KV 缓存预热, ~几十 ms) → db.open(Dexie v2 升级, ~50-200ms)
       await initKvCache();
-      // 幂等种入「双人成行融合预设」并设为默认（只写预设存储，不碰会话/存档表）。
-      await seedFusionPreset();
-      // 一次性 localStorage → Dexie 迁移（幂等）。Dexie v2 .upgrade() 在 db 打开时自动运行。
-      await migrateFromLocalStorage();
-      // 触碰 db 确保 v2 升级已执行；若升级失败标志已写入则告警（降级路径尽力而为）。
       try {
         await db.open();
-        const failed = await db.kvStore.get(V2_UPGRADE_FAILED);
-        if (failed?.value === 'true') {
-          console.warn('[DB] v2 迁移曾失败，部分历史存档可能未完全迁移到关系表。');
-        }
       } catch (err) {
-        console.error('[DB] 打开数据库失败：', err);
+        console.error('[DB] 打开数据库失败:', err);
       }
-      // 启动恢复活跃会话的完整状态（pages + gameState 各域）自关系表。
-      const activeId = useChatStore.getState().activeId;
-      if (activeId) {
+      setReady(true); // ★ LandingScreen 立刻可见,后续都不再阻塞首屏
+
+      // Stage 2 后台并行 —— 不阻塞首屏,失败不影响 LandingScreen 可交互:
+      //   seedFusionPreset(种入「双人成行」融合预设,纯预设表写入)
+      //   migrateFromLocalStorage(老 localStorage → Dexie kvStore,幂等)
+      // 两者完成后再做活跃会话恢复(loadConversation),不阻塞 LandingScreen 但保证用户
+      // 点「读取游戏」前 BookStore 等已恢复到上次活跃会话。
+      void (async () => {
+        await Promise.all([
+          seedFusionPreset().catch((e) => console.error('[seed] fusion preset 失败:', e)),
+          migrateFromLocalStorage().catch((e) => console.error('[mig] localStorage 迁移失败:', e)),
+        ]);
         try {
-          await loadConversation(activeId);
+          const failed = await db.kvStore.get(V2_UPGRADE_FAILED);
+          if (failed?.value === 'true') {
+            console.warn('[DB] v2 迁移曾失败,部分历史存档可能未完全迁移到关系表。');
+          }
+          const activeId = useChatStore.getState().activeId;
+          if (activeId) await loadConversation(activeId);
         } catch (err) {
-          console.error('[DB] 启动恢复会话失败：', err);
+          console.error('[DB] 后台活跃会话恢复失败:', err);
         }
-      }
-      setReady(true);
+      })();
     })();
   }, []);
 

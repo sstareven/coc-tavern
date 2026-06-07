@@ -15,8 +15,12 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
   const [bgmProgress, setBgmProgress] = useState(0);
 
   // 订阅 BGM 缓冲进度,缓冲到 100% 后 BgmLoadingBar 自行淡出。
-  // subscribeBgmLoadProgress 会立即推一次当前值,无需手动初始化。
-  useEffect(() => subscribeBgmLoadProgress(setBgmProgress), []);
+  // 延迟 1.2s 再订阅 —— subscribeBgmLoadProgress 内部会调 getAudio() 创建 Audio + preload 头部,
+  // 推后到首屏渲染后,避免与 LandingScreen 首帧抢主线程;按钮已可点(BGM 由用户手势再触发完整加载)。
+  useEffect(() => {
+    const id = window.setTimeout(() => subscribeBgmLoadProgress(setBgmProgress), 1200);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // 开始游戏前校验：未配置 API Key 则拦截并引导去设置——没有 AI 接口无法生成任何叙事。
   const handleStart = () => {
