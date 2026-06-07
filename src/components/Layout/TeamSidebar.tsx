@@ -6,8 +6,13 @@ import { useState, useMemo } from 'react';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { useCombatStore } from '../../stores/useCombatStore';
+import { useScenarioStore } from '../../stores/useScenarioStore';
+import { useChatStore } from '../../stores/useChatStore';
+import { useStatusToastStore } from '../../stores/useStatusToastStore';
 import { parseNpcDerived } from '../../sillytavern/npc-derived';
-import { IconClose } from './TabIcons';
+import { canJoinParty } from '../../scenario/relation-graph';
+import { IconClose, IconUserPlus, IconUserMinus } from './TabIcons';
+import { groupNpcsByParty } from './team-sidebar-grouping';
 import type { NpcProfile, CharacterSheet, Combatant } from '../../types';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -82,24 +87,58 @@ export function TeamSidebar(): React.ReactElement | null {
   const profiles = useNpcStore((s) => s.profiles);
   const encounter = useCombatStore((s) => s.encounter);
 
-  const presentNpcs = useMemo(
-    () => Object.values(profiles).filter((n) => n.isPresent).sort((a, b) => a.name.localeCompare(b.name)),
+  const grouping = useMemo(
+    () => groupNpcsByParty(Object.values(profiles)),
     [profiles],
   );
+  const partyNpcs = grouping.party;
+  const presentOutsideNpcs = grouping.presentOutside;
 
   const members = useMemo(
-    () => buildMemberSnapshots(sheet, presentNpcs, encounter?.combatants ?? []),
-    [sheet, presentNpcs, encounter],
+    () => buildMemberSnapshots(sheet, partyNpcs, encounter?.combatants ?? []),
+    [sheet, partyNpcs, encounter],
   );
+
+  const joinParty = useNpcStore((s) => s.joinParty);
+  const leaveParty = useNpcStore((s) => s.leaveParty);
+  const showError = useStatusToastStore((s) => s.showError);
+
+  const scenarioId = useChatStore((s) => s.sessions.find((c) => c.id === s.activeId)?.scenarioId);
+  const scenarioDoc = useScenarioStore((s) => (scenarioId ? s.getById(scenarioId) : undefined));
+
+  const handleInvite = (npcId: string) => {
+    if (!scenarioDoc) {
+      // 自由模式 / 无剧本(__free) — 没关系图可校验,直接放行
+      joinParty(npcId);
+      return;
+    }
+    const partyIds = partyNpcs.map((n) => n.id);
+    const playerId = '__player__'; // 玩家节点 id 约定;canJoinParty 内部用它对齐 relation-graph
+    const check = canJoinParty(scenarioDoc, npcId, partyIds, playerId);
+    if (check.ok) {
+      joinParty(npcId);
+    } else {
+      showError(check.reason === 'hostile' ? '与队伍敌对，无法入队' : '与你不熟，无法邀请入队');
+    }
+  };
+
+  const handleLeave = (npcId: string) => {
+    leaveParty(npcId);
+  };
 
   const inCombat = encounter !== null && encounter.status === 'active';
   const currentActorId = inCombat ? encounter.turnOrder[encounter.currentIdx] : null;
 
-  // 队伍只剩玩家(无 NPC 同行)就不渲染胶囊
-  if (members.length <= 1) return null;
+  // 仅当队伍只剩玩家 且 也没有在场非队 NPC 时,才完全不渲染——否则玩家就邀请不了
+  if (members.length <= 1 && presentOutsideNpcs.length === 0) return null;
 
   const teamCount = members.length;
-  const pillLabel = inCombat ? `战斗 第 ${encounter.round} 回合` : `队伍 ${teamCount}`;
+  const outsideCount = presentOutsideNpcs.length;
+  const pillLabel = inCombat
+    ? `战斗 第 ${encounter.round} 回合`
+    : outsideCount > 0
+      ? `队伍 ${teamCount} · 在场 +${outsideCount}`
+      : `队伍 ${teamCount}`;
 
   return (
     <>
@@ -220,9 +259,17 @@ export function TeamSidebar(): React.ReactElement | null {
                 member={m}
                 isActor={isActor}
                 inCombat={inCombat}
+                onLeave={!m.isPlayer ? () => handleLeave(m.id) : undefined}
               />
             );
           })}
+
+          {presentOutsideNpcs.length > 0 && (
+            <PresentOutsideSection
+              npcs={presentOutsideNpcs}
+              onInvite={handleInvite}
+            />
+          )}
         </div>
       </aside>
 
@@ -247,8 +294,8 @@ export function TeamSidebar(): React.ReactElement | null {
 }
 
 function MemberCard({
-  member, isActor, inCombat,
-}: { member: MemberSnapshot; isActor: boolean; inCombat: boolean }): React.ReactElement {
+  member, isActor, inCombat, onLeave,
+}: { member: MemberSnapshot; isActor: boolean; inCombat: boolean; onLeave?: () => void }): React.ReactElement {
   const hpRatio = member.hpMax > 0 ? Math.max(0, Math.min(1, member.hpCurrent / member.hpMax)) : 0;
   const sanRatio = member.sanMax > 0 ? Math.max(0, Math.min(1, member.sanCurrent / member.sanMax)) : 0;
   const hpCrit = hpRatio < 0.3;
@@ -325,6 +372,11 @@ function MemberCard({
         <span style={{ color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>{member.weapon}</span>
       </div>
 
+      {/* 玩家主动请退队按钮(玩家本人不显示;战斗中也不显示防误触) */}
+      {onLeave && !inCombat && (
+        <LeaveButton onClick={onLeave} />
+      )}
+
       {/* 战斗时显示 "正在做什么" */}
       {inCombat && action && (
         <div style={{
@@ -386,5 +438,144 @@ function Bar({
         }} />
       </div>
     </div>
+  );
+}
+
+function PresentOutsideSection({
+  npcs, onInvite,
+}: { npcs: NpcProfile[]; onInvite: (id: string) => void }): React.ReactElement {
+  const [open, setOpen] = useState(true);
+  return (
+    <section style={{ marginTop: 18 }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 8px',
+          background: 'transparent',
+          border: '1px solid rgba(196,168,85,0.22)',
+          borderRadius: 2,
+          color: 'rgba(196,168,85,0.85)',
+          fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2,
+          cursor: 'pointer',
+          transition: `background 180ms ${EASE}, border-color 180ms ${EASE}`,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(196,168,85,0.08)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+      >
+        <span>在场非队 · {npcs.length}</span>
+        <span style={{ fontSize: 9, opacity: 0.65 }}>{open ? '收起' : '展开'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {npcs.map((n) => (
+            <OutsideRow key={n.id} npc={n} onInvite={() => onInvite(n.id)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OutsideRow({
+  npc, onInvite,
+}: { npc: NpcProfile; onInvite: () => void }): React.ReactElement {
+  const [hover, setHover] = useState(false);
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 10px',
+      background: 'rgba(0,0,0,0.22)',
+      border: `1px solid ${hover ? 'rgba(196,168,85,0.5)' : 'rgba(196,168,85,0.18)'}`,
+      borderRadius: 3,
+      transition: `border-color 200ms ${EASE}, background 200ms ${EASE}`,
+    }}
+    onMouseEnter={() => setHover(true)}
+    onMouseLeave={() => setHover(false)}
+    >
+      <div style={{
+        width: 26, height: 26, borderRadius: '50%',
+        background: 'rgba(196,168,85,0.10)',
+        border: '1px solid rgba(196,168,85,0.32)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'rgba(196,168,85,0.85)',
+        fontFamily: 'var(--font-display)', fontSize: 12, flexShrink: 0,
+      }}>{npc.name.slice(0, 1)}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 12, color: 'var(--text-light)',
+          fontFamily: 'var(--font-ui)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{npc.name}</div>
+        <div style={{
+          fontSize: 10, color: 'rgba(196,168,85,0.6)',
+          fontFamily: 'var(--font-mono)', marginTop: 1,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{npc.identity || '在场'}</div>
+      </div>
+      <InviteButton onClick={onInvite} />
+    </div>
+  );
+}
+
+function InviteButton({ onClick }: { onClick: () => void }): React.ReactElement {
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      aria-label="邀请入队"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '4px 8px',
+        background: hover ? 'rgba(196,168,85,0.18)' : 'rgba(196,168,85,0.08)',
+        border: '1px solid rgba(196,168,85,0.45)',
+        borderRadius: 2,
+        color: 'var(--gold)',
+        fontFamily: 'var(--font-ui)', fontSize: 10.5, letterSpacing: 1,
+        cursor: 'pointer',
+        transform: active ? 'scale(0.96)' : hover ? 'scale(1.04)' : 'scale(1)',
+        transition: `transform 160ms ${EASE}, background 180ms ${EASE}, border-color 180ms ${EASE}`,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setActive(false); }}
+      onMouseDown={() => setActive(true)}
+      onMouseUp={() => setActive(false)}
+    >
+      <IconUserPlus size={12} />
+      <span>邀请入队</span>
+    </button>
+  );
+}
+
+function LeaveButton({ onClick }: { onClick: () => void }): React.ReactElement {
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      aria-label="请求退队"
+      style={{
+        marginTop: 2,
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        alignSelf: 'flex-start',
+        padding: '3px 7px',
+        background: hover ? 'rgba(139,58,58,0.20)' : 'rgba(139,58,58,0.08)',
+        border: '1px solid rgba(139,58,58,0.40)',
+        borderRadius: 2,
+        color: 'rgba(220,160,160,0.9)',
+        fontFamily: 'var(--font-ui)', fontSize: 10, letterSpacing: 1,
+        cursor: 'pointer',
+        transform: active ? 'scale(0.96)' : hover ? 'scale(1.04)' : 'scale(1)',
+        transition: `transform 160ms ${EASE}, background 180ms ${EASE}, border-color 180ms ${EASE}`,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setActive(false); }}
+      onMouseDown={() => setActive(true)}
+      onMouseUp={() => setActive(false)}
+    >
+      <IconUserMinus size={11} />
+      <span>请求退队</span>
+    </button>
   );
 }

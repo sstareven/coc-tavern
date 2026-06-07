@@ -69,3 +69,11 @@ export function IconSparkle({ size = 12 }: IconProps) {
 export function IconRefresh({ size = 12 }: IconProps) {
   return (<svg {...base(size)}><path d="M4 12a8 8 0 0114-5.3L20 9M20 4v5h-5M20 12a8 8 0 01-14 5.3L4 15M4 20v-5h5" /></svg>);
 }
+/** 邀请入队：人像 + 加号（铜版线描，与 IconNpc 同语言） */
+export function IconUserPlus({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M17 6v6M14 9h6" /></svg>);
+}
+/** 请求退队：人像 + 减号 */
+export function IconUserMinus({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M14 9h6" /></svg>);
+}
