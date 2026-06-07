@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.14.1';
+export const CURRENT_VERSION = 'v1.14.2';
 
 interface Release {
   version: string;
@@ -19,6 +19,14 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.14.2',
+    label: '去掉「连接测试」按钮 · 保存即测试',
+    items: [
+      '【保存即测试】以前添加/编辑 API 配置要先点「连接测试」拉一次模型确认连得通,再点「保存」,两步;现在直接点「保存」一气呵成:输入无效或连不通会在按钮右边弹一行红字错误提示(如「连接失败,请检查地址和 Key」「已连接但未拉到任何模型」等),只有连通成功才真正存进列表。',
+      '【按钮简化】添加表单和编辑模态都只剩「保存」(以及编辑模态的「取消」)。少一个按钮,流程更清爽。',
+    ],
+  },
   {
     version: 'v1.14.1',
     label: 'API 三段统一搬到「API 管理」· 模型选择加左右标签',
