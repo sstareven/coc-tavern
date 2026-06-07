@@ -24,16 +24,9 @@ export interface CharacterSheet {
     residence: string;
     id: string;
   };
-  /** 开场白 — the character's first message / greeting */
-  greeting: string;
-  /** 角色描述 — character description for the AI prompt */
+  /** 角色描述 — 由 CharCreator StepBackground 8 段背景拼接而成（含特质/信念/重要之人等）。
+   *  CharSheetOverlay 唯一展示字段；charDescription marker 与 matchSources.characterDescription 来源。 */
   description: string;
-  /** 角色性格 — personality traits for the AI prompt */
-  personality: string;
-  /** 场景设定 — current scenario description */
-  scenario: string;
-  /** 用户设定描述 — persona / user description */
-  personaDescription: string;
   /** 当前姿态 — 站立/倒下/昏迷/被束缚 等，供 LLM 遵守物理约束 */
   posture: string;
   /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */

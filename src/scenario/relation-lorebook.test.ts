@@ -15,7 +15,7 @@ function makeSheet(name: string): CharacterSheet {
     },
     skills: {},
     identity: { name, occupation: '', age: 30, gender: '', birthplace: '', residence: '', id: '' },
-    greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
+    description: '', 
     posture: '', statusConditions: [], dailySanLoss: 0,
     temporaryInsanity: { active: false, roundsLeft: 0 },
     indefiniteInsanity: { active: false, daysLeft: 0 },

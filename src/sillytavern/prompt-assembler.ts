@@ -327,21 +327,25 @@ function resolveMarkerContent(
     case 'worldInfoAfter':
       return worldInfoAfter;
     case 'personaDescription':
-      return charVars.personaDescription || '';
+      // 字段已删（玩家 Persona 在 COC 投影下与 sheet.identity+description 重复）；
+      // marker 保留接收 ST 老预设导入，渲染为空。
+      return '';
     case 'charDescription':
       return charVars.description || '';
     case 'charPersonality':
-      return charVars.personality || '';
+      // 字段已删（性格由 CharCreator「特质」段写进 description 8 段）
+      return '';
     case 'scenario':
-      return charVars.scenario || '';
+      // 字段已删（场景由剧本系统 prologueSeed + entries + scenario-engine 接管）
+      return '';
     case 'enhanceDefinitions':
     case 'auxiliary':
       return preset.auxiliaryPrompt || '';
     case 'postHistoryInstructions':
       return preset.postHistoryPrompt || '';
     case 'dialogueExamples':
-      // Chat examples — from character greeting, skip if none
-      return charVars.greeting || '';
+      // 字段已删（COC 翻页式叙事没有「角色第一句话」语义）
+      return '';
     default:
       return '';
   }

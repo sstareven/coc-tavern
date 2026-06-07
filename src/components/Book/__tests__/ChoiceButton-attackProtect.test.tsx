@@ -10,7 +10,7 @@ import type { ChoiceItem, NpcProfile } from '../../../types';
 function fakeNpc(id: string, name: string, inParty: boolean): NpcProfile {
   return {
     id, name, identity: '', favorability: 0,
-    appearance: '', personality: '', innerThoughts: '', experience: '',
+    appearance: '', innerThoughts: '', experience: '',
     backstory: '', status: '', possessions: [], memories: [],
     memorySummary: '', skills: {}, characteristics: {},
     isPresent: true, inParty,

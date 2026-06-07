@@ -15,7 +15,7 @@ function makeChar(id: string, name: string, role: ScenarioCharacter['role'] = 'o
       secondary: { hp: { current: 10, max: 10 }, san: { current: 50, max: 50 }, mp: { current: 10, max: 10 }, luck: 50, mov: 8, db: '0', build: 0 },
       skills: {},
       identity: { name, occupation: '侦探', age: 30, gender: '男', birthplace: '', residence: '', id },
-      greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
+      description: '', 
       posture: '站立', statusConditions: [], dailySanLoss: 0,
       temporaryInsanity: { active: false, roundsLeft: 0 },
       indefiniteInsanity: { active: false, daysLeft: 0 },

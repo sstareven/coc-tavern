@@ -14,7 +14,7 @@ function baseSheet(): CharacterSheet {
     secondary: { hp: { current: 10, max: 12 }, san: { current: 60, max: 80 }, mp: { current: 8, max: 8 }, luck: 55, mov: 7, db: '0', build: 0 },
     skills: { 侦查: { base: 25, current: 40, ticked: false }, '射击(手枪)': { base: 20, current: 50, ticked: false } },
     identity: { name: '调查员', occupation: '记者', age: 30, gender: '男', residence: '', birthplace: '', id: '' },
-    greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
+    description: '', 
     posture: '站立', statusConditions: [],
     dailySanLoss: 0,
     temporaryInsanity: { active: false, roundsLeft: 0 },

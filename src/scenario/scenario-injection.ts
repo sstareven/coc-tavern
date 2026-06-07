@@ -106,7 +106,7 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
     favorability: c.npcAttrs.attitudeDefault,
     // 外观快览: 公开身份说明(剧本作者写的一句话),NpcOverlay 顶部显示
     appearance: c.npcAttrs.publicBio,
-    personality: typeof sheet.personality === 'string' ? sheet.personality : '',
+    personality: c.npcAttrs.traits ?? '',
     innerThoughts: c.npcAttrs.hiddenBio, // 隐藏简历 = KP 视角动机/秘密
     memories: [],
     experience: '',

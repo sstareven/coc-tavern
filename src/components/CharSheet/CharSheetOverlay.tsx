@@ -30,10 +30,7 @@ function parseSections(text: string): { title: string; body: string }[] | null {
 }
 
 const DOSSIER_FIELDS = [
-  { key: 'description' as const, label: '个人描述' },
-  { key: 'personality' as const, label: '性格特征' },
-  { key: 'scenario' as const, label: '场景设定' },
-  { key: 'personaDescription' as const, label: '角色设定' },
+  { key: 'description' as const, label: '个人档案' },
 ];
 
 const sectionLabel: React.CSSProperties = {

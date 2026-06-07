@@ -6,7 +6,7 @@ function mkNpc(over: Partial<NpcProfile>): NpcProfile {
   return {
     id: over.id ?? 'x', name: over.name ?? 'X',
     identity: '', favorability: 0,
-    appearance: '', personality: '', innerThoughts: '',
+    appearance: '', innerThoughts: '',
     memories: [], experience: '', backstory: '', possessions: [],
     isPresent: over.isPresent ?? false,
     createdAt: 0, updatedAt: 0,

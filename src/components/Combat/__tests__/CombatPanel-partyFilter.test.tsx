@@ -22,7 +22,7 @@ function mkCombatant(id: string, name: string, faction: Combatant['faction']): C
 function mkNpc(id: string, name: string, inParty: boolean): NpcProfile {
   return {
     id, name, identity: '', favorability: 0,
-    appearance: '', personality: '', innerThoughts: '', experience: '',
+    appearance: '', innerThoughts: '', experience: '',
     backstory: '', status: '', possessions: [], memories: [],
     memorySummary: '', skills: {}, characteristics: {},
     isPresent: true, inParty,

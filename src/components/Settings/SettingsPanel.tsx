@@ -8,10 +8,9 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconScroll, IconQuill } from '../Layout/TabIcons';
+import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconQuill } from '../Layout/TabIcons';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
-import { BackgroundSettings } from './BackgroundSettings';
 import { PromptTemplateContent } from './PromptTemplateContent';
 import { CheatingContent } from './CheatingContent';
 import {
@@ -34,7 +33,7 @@ const PP_OPTIONS = [
 ];
 
 // ── Section type ──
-type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'background' | 'promptTemplate' | 'cheating';
+type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'promptTemplate' | 'cheating';
 
 interface Props {
   visible: boolean;
@@ -324,7 +323,6 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'regex', label: '正则脚本', icon: <IconRegex size={14} /> },
   { key: 'extensions', label: '扩展管理', icon: <IconExtension size={14} /> },
   { key: 'tavernHelper', label: '酒馆助手', icon: <IconFlask size={14} /> },
-  { key: 'background', label: '背景设定', icon: <IconScroll size={14} /> },
   { key: 'promptTemplate', label: '提示词模板', icon: <IconQuill size={14} /> },
   { key: 'cheating', label: '领受赐福', icon: <IconSparkle size={14} /> },
 ];
@@ -1325,11 +1323,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             {section === 'tavernHelper' && (
               <motion.div key="tavernHelper" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
                 <TavernHelperContent />
-              </motion.div>
-            )}
-            {section === 'background' && (
-              <motion.div key="background" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
-                <BackgroundSettings />
               </motion.div>
             )}
             {section === 'promptTemplate' && (

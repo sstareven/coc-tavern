@@ -134,13 +134,7 @@ export function makeNpc(input: MakeNpcInput): ScenarioCharacter {
       residence: input.residence ?? '',
       id: input.id,
     },
-    greeting: '',
     description: buildCharSheetDescriptionLegacy(input),
-    // 设空: personality 内容已合并进 description 的【特质】段,避免 NpcOverlay
-    // 同时显示「性格」+「背景故事/特质」重复内容。preset 模式玩家扮演 NPC 时同理。
-    personality: '',
-    scenario: '',
-    personaDescription: '',
     posture: '站立',
     statusConditions: [],
     dailySanLoss: 0,

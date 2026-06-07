@@ -137,8 +137,8 @@ const makeCtx = (o: Partial<MatchContext> = {}): MatchContext => ({
 });
 
 const emptySources = {
-  personaDescription: '', characterDescription: '', characterPersonality: '',
-  characterDepthPrompt: '', scenario: '', creatorNotes: '',
+  characterDescription: '', characterPersonality: '',
+  characterDepthPrompt: '', creatorNotes: '',
 };
 
 describe('matchLoreEntries — character filter', () => {

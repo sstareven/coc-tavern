@@ -277,12 +277,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         generationType: 'normal' as const,
         charTags: [] as string[],   // COC 暂无角色标签来源
         matchSources: {
-          personaDescription: charVars.personaDescription || '',
+          personaDescription: '',       // COC 投影下与 identity+description 重复，已删
           characterDescription: charVars.description || '',
-          characterPersonality: charVars.personality || '',
-          characterDepthPrompt: '',   // COC 无对应来源
-          scenario: charVars.scenario || '',
-          creatorNotes: '',           // COC 无对应来源
+          characterPersonality: '',     // 性格已并入 description「特质」段
+          characterDepthPrompt: '',     // COC 无对应来源
+          scenario: '',                 // 已被剧本系统接管
+          creatorNotes: '',             // COC 无对应来源
         },
       };
       let matchedKeyword = matchLoreEntries(matchCtx, otherEntries, matchSettings);
@@ -2156,11 +2156,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         generationType: 'normal',
         charTags: [],
         matchSources: {
-          personaDescription: tcCharVars.personaDescription || '',
+          personaDescription: '',
           characterDescription: tcCharVars.description || '',
-          characterPersonality: tcCharVars.personality || '',
+          characterPersonality: '',
           characterDepthPrompt: '',
-          scenario: tcCharVars.scenario || '',
+          scenario: '',
           creatorNotes: '',
         },
       });

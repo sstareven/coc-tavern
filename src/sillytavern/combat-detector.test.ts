@@ -14,7 +14,7 @@ const item = (name: string, category: InventoryItem['category']): InventoryItem 
 
 function npc(over: Partial<NpcProfile>): NpcProfile {
   return {
-    id: 'n', name: 'X', identity: '', favorability: 0, appearance: '', personality: '',
+    id: 'n', name: 'X', identity: '', favorability: 0, appearance: '', 
     innerThoughts: '', memories: [], experience: '', backstory: '', possessions: [],
     isPresent: true, createdAt: 0, updatedAt: 0, ...over,
   };
