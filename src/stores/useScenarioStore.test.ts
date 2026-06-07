@@ -119,3 +119,111 @@ describe('useScenarioStore.mergePatch — patchCharacters 浅合并', () => {
     expect(merged.role).toBe('optional');
   });
 });
+
+describe('useScenarioStore.applyRelationDelta', () => {
+  beforeEach(resetStore);
+
+  it('newType=具体枚举 → 新增 relations 项', () => {
+    const charA = makeChar('cA', '甲');
+    const doc = makeDoc({ id: 'scn_r1', characters: [charA, makeChar('cB', '乙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyRelationDelta('scn_r1', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'friend', reason: '一起经历了码头那晚' },
+    ]);
+
+    const updated = useScenarioStore.getState().getById('scn_r1')!;
+    const rels = updated.characters.find(c => c.id === 'cA')!.relations!;
+    expect(rels).toHaveLength(1);
+    expect(rels[0]).toMatchObject({ targetId: 'cB', type: 'friend', note: '一起经历了码头那晚' });
+  });
+
+  it('newType=具体枚举 → 已有同 targetId 项 replace type 而非追加', () => {
+    const charA = makeChar('cA', '甲', { relations: [{ targetId: 'cB', type: 'friend' }] });
+    const doc = makeDoc({ id: 'scn_r2', characters: [charA, makeChar('cB', '乙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyRelationDelta('scn_r2', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'enemy' },
+    ]);
+
+    const rels = useScenarioStore.getState().getById('scn_r2')!.characters.find(c => c.id === 'cA')!.relations!;
+    expect(rels).toHaveLength(1);
+    expect(rels[0].type).toBe('enemy');
+  });
+
+  it('newType=stranger → 删除该 targetId 出边', () => {
+    const charA = makeChar('cA', '甲', {
+      relations: [
+        { targetId: 'cB', type: 'friend' },
+        { targetId: 'cC', type: 'rival' },
+      ],
+    });
+    const doc = makeDoc({ id: 'scn_r3', characters: [charA, makeChar('cB', '乙'), makeChar('cC', '丙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyRelationDelta('scn_r3', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'stranger' },
+    ]);
+
+    const rels = useScenarioStore.getState().getById('scn_r3')!.characters.find(c => c.id === 'cA')!.relations!;
+    expect(rels).toHaveLength(1);
+    expect(rels[0].targetId).toBe('cC');
+  });
+
+  it('多条 deltas 同回合应用 → 顺序生效', () => {
+    const doc = makeDoc({ id: 'scn_r4', characters: [makeChar('cA', '甲'), makeChar('cB', '乙'), makeChar('cC', '丙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyRelationDelta('scn_r4', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'friend' },
+      { sourceId: 'cA', targetId: 'cC', newType: 'enemy' },
+      { sourceId: 'cB', targetId: 'cA', newType: 'friend' },
+    ]);
+
+    const updated = useScenarioStore.getState().getById('scn_r4')!;
+    const aRels = updated.characters.find(c => c.id === 'cA')!.relations!;
+    const bRels = updated.characters.find(c => c.id === 'cB')!.relations!;
+    expect(aRels).toHaveLength(2);
+    expect(bRels).toHaveLength(1);
+    expect(bRels[0]).toMatchObject({ targetId: 'cA', type: 'friend' });
+  });
+
+  it('builtin 剧本 → 触发 forkMap 副本(不污染 builtin)', () => {
+    const builtin = makeDoc({ id: 'scn_builtin', builtin: true, characters: [makeChar('cA', '甲'), makeChar('cB', '乙')] });
+    useScenarioStore.setState({ builtins: [builtin], userScenarios: [], forkMap: {} });
+
+    useScenarioStore.getState().applyRelationDelta('scn_builtin', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'friend' },
+    ]);
+
+    const s = useScenarioStore.getState();
+    // builtin 原文不变
+    expect(s.builtins[0].characters.find(c => c.id === 'cA')!.relations).toBeUndefined();
+    // 副本被 fork 出来,带新关系
+    expect(s.userScenarios).toHaveLength(1);
+    expect(s.forkMap['scn_builtin']).toBe(s.userScenarios[0].id);
+    const forkedA = s.userScenarios[0].characters.find(c => c.id === 'cA')!;
+    expect(forkedA.relations).toEqual([{ targetId: 'cB', type: 'friend' }]);
+  });
+
+  it('未知 scenarioId → 静默无操作', () => {
+    useScenarioStore.getState().applyRelationDelta('not_exist', [
+      { sourceId: 'cA', targetId: 'cB', newType: 'friend' },
+    ]);
+    expect(useScenarioStore.getState().userScenarios).toEqual([]);
+  });
+
+  it('未知 sourceId → 跳过该条 delta,其余仍生效', () => {
+    const doc = makeDoc({ id: 'scn_r5', characters: [makeChar('cA', '甲'), makeChar('cB', '乙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyRelationDelta('scn_r5', [
+      { sourceId: 'nope', targetId: 'cB', newType: 'enemy' },
+      { sourceId: 'cA', targetId: 'cB', newType: 'friend' },
+    ]);
+
+    const updated = useScenarioStore.getState().getById('scn_r5')!;
+    expect(updated.characters.find(c => c.id === 'cA')!.relations).toEqual([{ targetId: 'cB', type: 'friend' }]);
+  });
+});

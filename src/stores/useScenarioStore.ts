@@ -11,8 +11,11 @@ import { BUILTIN_SCENARIOS } from '../data/builtin-scenarios';
 import type {
   ScenarioCategory,
   ScenarioCachePolicy,
+  ScenarioCharacter,
   ScenarioDoc,
   ScenarioPatch,
+  ScenarioRelation,
+  RelationType,
 } from '../types/scenario';
 
 interface ScenarioState {
@@ -34,6 +37,13 @@ interface ScenarioStore extends ScenarioState {
   setActive: (id: string | null) => void;
   setLastPicked: (id: string | null) => void;
   applyPatch: (id: string, patch: ScenarioPatch) => void;
+  // 关系增量补丁的统一入口:遍历 deltas,upsert/删除 source 角色的 relations 出边,
+  // 再走 applyPatch + patchCharacters,自动经 forkMap 副本路径(builtin 不污染)。
+  // reason 非空 → 填入新增/更新项的 note(供 lorebook 用)。
+  applyRelationDelta: (
+    scenarioId: string,
+    deltas: Array<{ sourceId: string; targetId: string; newType: RelationType | 'stranger'; reason?: string }>,
+  ) => void;
   // 会话切换时调用,丢弃过往会话的 fork 记录(副本本身保留)
   clearForkMap: () => void;
   // D3:延迟初始化 builtins——首次 ScenarioScreen 访问时同步灌入,把启动同步开销挪到打开剧本面板时。
@@ -252,6 +262,36 @@ export const useScenarioStore = create<ScenarioStore>()(
         if (idx < 0) return;
         const patched = mergePatch(s.userScenarios[idx], patch);
         set({ userScenarios: s.userScenarios.map((d, i) => (i === idx ? patched : d)) });
+      },
+
+      applyRelationDelta: (scenarioId, deltas) => {
+        if (!deltas?.length) return;
+        const doc = get().getById(scenarioId);
+        if (!doc) return;
+
+        // 把 deltas 收敛成 sourceId → 该角色最终 relations[] 的映射,然后一次 applyPatch 下去。
+        const finalRelsBySource = new Map<string, ScenarioRelation[]>();
+        for (const d of deltas) {
+          const src = doc.characters.find(c => c.id === d.sourceId);
+          if (!src) continue;
+          const current = finalRelsBySource.get(d.sourceId) ?? [...(src.relations ?? [])];
+          const idx = current.findIndex(r => r.targetId === d.targetId);
+          if (d.newType === 'stranger') {
+            if (idx >= 0) current.splice(idx, 1);
+          } else {
+            const next: ScenarioRelation = idx >= 0
+              ? { ...current[idx], type: d.newType, ...(d.reason ? { note: d.reason } : {}) }
+              : { targetId: d.targetId, type: d.newType, ...(d.reason ? { note: d.reason } : {}) };
+            if (idx >= 0) current[idx] = next; else current.push(next);
+          }
+          finalRelsBySource.set(d.sourceId, current);
+        }
+
+        if (finalRelsBySource.size === 0) return;
+
+        const patchCharacters = Array.from(finalRelsBySource.entries())
+          .map(([sourceId, relations]) => ({ id: sourceId, relations } as ScenarioCharacter));
+        get().applyPatch(scenarioId, { patchCharacters });
       },
 
       clearForkMap: () => set({ forkMap: {} }),
