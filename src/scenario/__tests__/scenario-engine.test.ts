@@ -31,7 +31,12 @@ const mapApplyUpdatesMock = vi.fn();
 const mapReplaceAllMock = vi.fn();
 
 vi.mock('../../stores/useScenarioStore', () => ({
-  useScenarioStore: { getState: () => ({ getById: getByIdMock }) },
+  useScenarioStore: {
+    getState: () => ({ getById: getByIdMock, userScenarios: [], builtins: [] }),
+    // M3 Task 3 引入 subscribeRelationLorebook，会在 activateScenario 里挂订阅。
+    // 测试不触发 store 变化，只需 subscribe 返回 unsubscribe 即可。
+    subscribe: vi.fn(() => () => {}),
+  },
 }));
 vi.mock('../../stores/useCharSheetStore', () => ({
   useCharSheetStore: { getState: () => ({ setSheet: setSheetMock, sheet: sheetRef.current }) },
