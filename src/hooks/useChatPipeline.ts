@@ -75,6 +75,8 @@ import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
+import { evaluatePartyRelations } from '../sillytavern/party-relation-evaluator';
+import { useNarrationStore } from '../stores/useNarrationStore';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -1109,6 +1111,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             patchReport,
             applyCorrectiveOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
           });
+
+          // M9 关系演化评估器(spec §8 / §4.2 R4)。
+          // 接现有 post-settle 链, 在 sanity/bout 之后、newPage 写入派生状态之前跑。
+          // 失败永不阻塞主流程(party-relation-evaluator 内已包 try/catch)。
+          {
+            const chatNow2 = useChatStore.getState();
+            const session2 = chatNow2.sessions.find((c) => c.id === chatNow2.activeId);
+            const scenarioId = session2?.scenarioId;
+            if (scenarioId && scenarioId !== '__free') {
+              await evaluatePartyRelations({
+                scenarioId,
+                narrative: hookProcessedContent,
+                sessionId: chatNow2.activeId ?? '',
+                playerId: useCharSheetStore.getState().sheet.identity.name || 'player',
+              });
+            }
+          }
         };
 
         const newPage = result.page;
@@ -1128,6 +1147,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
+        // M9: 把本回合 party-relation-evaluator 等子评估器追加的旁白固化进本页, 随页持久化。
+        const drainedNarration = useNarrationStore.getState().drainPending();
+        if (drainedNarration.length > 0) newPage.narration = drainedNarration;
         // A2 重设: 本页 SAN check 气泡数组(随页持久化, 删页时一并随页移除, 不污染剩余页面)
         if (result.sanityCheckPrompts) newPage.sanityCheckPrompts = result.sanityCheckPrompts;
 
