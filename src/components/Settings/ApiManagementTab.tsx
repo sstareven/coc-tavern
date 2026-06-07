@@ -1,12 +1,14 @@
 // src/components/Settings/ApiManagementTab.tsx —— SettingsPanel「API 管理」tab 主体
 // 设计:
-//   - 顶部:添加 API 表单(识别名/地址/Key + 连接测试 + 保存)
+//   - 顶部:添加 API 表单(识别名/地址/Key)+ 单一「保存」按钮(无独立连接测试)
+//          保存时同步做连通性校验:fetchModelList 失败/拉到 0 模型 → 错误显示在按钮右侧
 //   - 中部:已保存 API 配置列表 — 横向滚动表格(overflowX:auto + 全局铜版风滚动条)
 //   - 编辑:点行内「编辑」icon → motion.div 浮层弹出表单
 //          apiKey 输入框留空=不覆盖原值(决策点 3),旁有「显示原 Key」眼睛 icon
+//          保存逻辑同上(无独立连接测试)
 //   - 删除:点「删除」icon → inline 二次确认气泡(原地确认/取消)
 //   - 脱敏:列表的 apiKey 不显示明文,只显「****abcd」(maskApiKey)
-//   - 全局已生效铜版风滚动条,无需手套类
+//   - v1.14.1:三段 API 配置(主/MVU/补写)从 SettingsPanel 搬来,在「已保存列表」下方
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -141,9 +143,9 @@ export function ApiManagementTab() {
   const [addLabel, setAddLabel] = useState('');
   const [addUrl, setAddUrl] = useState('https://api.deepseek.com');
   const [addKey, setAddKey] = useState('');
+  /** 保存按钮态:idle / saving / ok / failed。failed 时 errorText 显示在按钮右边。 */
+  const [addSaveStatus, setAddSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'failed'>('idle');
   const [addError, setAddError] = useState<string | null>(null);
-  const [addTestStatus, setAddTestStatus] = useState<'idle' | 'testing' | 'ok' | 'failed'>('idle');
-  const [addTestModels, setAddTestModels] = useState<string[]>([]);
   // 提示词后处理下拉
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
 
@@ -152,36 +154,44 @@ export function ApiManagementTab() {
   // 编辑模态
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleAddTest = async () => {
-    setAddError(null);
-    const v = validateApiProfileForm({ label: addLabel, apiBaseUrl: addUrl, apiKey: addKey });
-    if (!v.ok) { setAddError(v.error ?? '表单无效'); return; }
-    setAddTestStatus('testing');
-    try {
-      const list = await fetchModelList(addUrl.trim(), addKey);
-      setAddTestModels(list);
-      setAddTestStatus(list.length > 0 ? 'ok' : 'failed');
-    } catch {
-      setAddTestModels([]);
-      setAddTestStatus('failed');
-    }
-  };
-
-  const handleAddSave = () => {
+  /**
+   * 保存:先 validate 表单 → 尝试 fetchModelList(同时充当连通性校验) →
+   *   成功 → addProfile + setProfileAvailableModels(拉到的模型列表) + 清表单
+   *   失败 → 在保存按钮右边显示错误,不写 store。
+   * 不再有独立「连接测试」按钮 — 保存即测试。
+   */
+  const handleAddSave = async () => {
     setAddError(null);
     const form: ApiProfileForm = { label: addLabel, apiBaseUrl: addUrl, apiKey: addKey };
     const v = validateApiProfileForm(form);
-    if (!v.ok) { setAddError(v.error ?? '表单无效'); return; }
-    const newProfile = addProfile(form);
-    if (addTestModels.length > 0) {
-      setProfileAvailableModels(newProfile.id, addTestModels);
+    if (!v.ok) {
+      setAddError(v.error ?? '表单无效');
+      setAddSaveStatus('failed');
+      return;
     }
+    setAddSaveStatus('saving');
+    let models: string[] = [];
+    try {
+      models = await fetchModelList(addUrl.trim(), addKey);
+    } catch {
+      setAddError('连接失败,请检查地址和 Key');
+      setAddSaveStatus('failed');
+      return;
+    }
+    if (models.length === 0) {
+      setAddError('已连接但未拉到任何模型,请检查 API');
+      setAddSaveStatus('failed');
+      return;
+    }
+    const newProfile = addProfile(form);
+    setProfileAvailableModels(newProfile.id, models);
     // 重置表单
     setAddLabel('');
     setAddUrl('https://api.deepseek.com');
     setAddKey('');
-    setAddTestStatus('idle');
-    setAddTestModels([]);
+    setAddSaveStatus('ok');
+    // 短暂显示「已保存」,1.5s 后回 idle
+    window.setTimeout(() => setAddSaveStatus('idle'), 1500);
   };
 
   return (
@@ -242,20 +252,15 @@ export function ApiManagementTab() {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button onClick={handleAddTest} disabled={addTestStatus === 'testing'}
-          style={{ ...miniBtnBase, opacity: addTestStatus === 'testing' ? 0.5 : 1 }}
-          onMouseEnter={miniBtnHover} onMouseLeave={miniBtnLeave}
-          onMouseDown={miniBtnPress} onMouseUp={miniBtnRelease}
-        >
-          {addTestStatus === 'testing' ? '测试中...' : '连接测试'}
-        </button>
-        <button onClick={handleAddSave}
+        <button onClick={handleAddSave} disabled={addSaveStatus === 'saving'}
           style={{
             ...miniBtnBase,
             borderColor: 'var(--gold)', color: 'var(--gold)',
             background: 'rgba(196,168,85,0.1)',
+            opacity: addSaveStatus === 'saving' ? 0.5 : 1,
           }}
           onMouseEnter={(e) => {
+            if (addSaveStatus === 'saving') return;
             e.currentTarget.style.background = 'rgba(196,168,85,0.2)';
             e.currentTarget.style.filter = 'brightness(1.2)';
             e.currentTarget.style.transform = 'scale(1.04)';
@@ -266,19 +271,14 @@ export function ApiManagementTab() {
             e.currentTarget.style.transform = 'scale(1)';
           }}
           onMouseDown={miniBtnPress} onMouseUp={miniBtnRelease}
-        >保 存</button>
+        >{addSaveStatus === 'saving' ? '保存中...' : '保 存'}</button>
 
-        {addTestStatus === 'ok' && (
+        {addSaveStatus === 'ok' && (
           <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--success)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>
-            已连接 · 拉到 {addTestModels.length} 个模型
+            已保存
           </span>
         )}
-        {addTestStatus === 'failed' && (
-          <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--blood)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>
-            连接失败,请检查地址和 Key
-          </span>
-        )}
-        {addError && (
+        {addSaveStatus === 'failed' && addError && (
           <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--blood)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>
             {addError}
           </span>
@@ -612,19 +612,41 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
   const [keyInput, setKeyInput] = useState('');
   const [revealOriginal, setRevealOriginal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'ok' | 'failed'>('idle');
-  const [testCount, setTestCount] = useState(0);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'failed'>('idle');
 
-  const handleSave = () => {
+  /**
+   * 保存:validate → fetchModelList(连通性校验同时拉模型) → 成功才 onSave + 写 store。
+   * 失败时把错误显示在保存按钮右边,不关闭模态。
+   * 不再有独立「连接测试」按钮。
+   */
+  const handleSave = async () => {
     setError(null);
     const labelTrim = label.trim();
     const urlTrim = url.trim();
-    if (!labelTrim) { setError('识别名不能为空'); return; }
-    if (!urlTrim) { setError('API 地址不能为空'); return; }
+    if (!labelTrim) { setError('识别名不能为空'); setSaveStatus('failed'); return; }
+    if (!urlTrim) { setError('API 地址不能为空'); setSaveStatus('failed'); return; }
     try {
       const u = new URL(urlTrim);
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') { setError('API 地址必须以 http(s) 开头'); return; }
-    } catch { setError('API 地址格式无效'); return; }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        setError('API 地址必须以 http(s) 开头'); setSaveStatus('failed'); return;
+      }
+    } catch { setError('API 地址格式无效'); setSaveStatus('failed'); return; }
+
+    setSaveStatus('saving');
+    const effectiveKey = keyInput.length > 0 ? keyInput : profile.apiKey;
+    let models: string[] = [];
+    try {
+      models = await onTestAndSaveModels(urlTrim, effectiveKey);
+    } catch {
+      setError('连接失败,请检查地址和 Key');
+      setSaveStatus('failed');
+      return;
+    }
+    if (models.length === 0) {
+      setError('已连接但未拉到任何模型,请检查 API');
+      setSaveStatus('failed');
+      return;
+    }
 
     onSave({
       label: labelTrim,
@@ -632,19 +654,6 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
       // keyInput 留空 → 不传 apiKey → updateApiProfile 保持原值
       ...(keyInput.length > 0 ? { apiKey: keyInput } : null),
     });
-  };
-
-  const handleTest = async () => {
-    setError(null);
-    const effectiveKey = keyInput.length > 0 ? keyInput : profile.apiKey;
-    setTestStatus('testing');
-    try {
-      const list = await onTestAndSaveModels(url.trim(), effectiveKey);
-      setTestCount(list.length);
-      setTestStatus(list.length > 0 ? 'ok' : 'failed');
-    } catch {
-      setTestStatus('failed');
-    }
   };
 
   return (
@@ -715,18 +724,21 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
-          <button onClick={handleTest} disabled={testStatus === 'testing'}
-            style={{ ...miniBtnBase, opacity: testStatus === 'testing' ? 0.5 : 1 }}
-            onMouseEnter={miniBtnHover} onMouseLeave={miniBtnLeave}
-            onMouseDown={miniBtnPress} onMouseUp={miniBtnRelease}
-          >{testStatus === 'testing' ? '测试中...' : '连接测试'}</button>
-
-          <button onClick={handleSave}
-            style={{ ...miniBtnBase, borderColor: 'var(--gold)', color: 'var(--gold)', background: 'rgba(196,168,85,0.1)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.2)'; e.currentTarget.style.filter = 'brightness(1.2)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
+          <button onClick={handleSave} disabled={saveStatus === 'saving'}
+            style={{
+              ...miniBtnBase, borderColor: 'var(--gold)', color: 'var(--gold)',
+              background: 'rgba(196,168,85,0.1)',
+              opacity: saveStatus === 'saving' ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (saveStatus === 'saving') return;
+              e.currentTarget.style.background = 'rgba(196,168,85,0.2)';
+              e.currentTarget.style.filter = 'brightness(1.2)';
+              e.currentTarget.style.transform = 'scale(1.04)';
+            }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.1)'; e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scale(1)'; }}
             onMouseDown={miniBtnPress} onMouseUp={miniBtnRelease}
-          >保 存</button>
+          >{saveStatus === 'saving' ? '保存中...' : '保 存'}</button>
 
           <button onClick={onClose}
             style={{ ...miniBtnBase }}
@@ -734,13 +746,7 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
             onMouseDown={miniBtnPress} onMouseUp={miniBtnRelease}
           >取 消</button>
 
-          {testStatus === 'ok' && (
-            <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--success)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>已连接 · {testCount} 个模型</span>
-          )}
-          {testStatus === 'failed' && (
-            <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--blood)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>连接失败</span>
-          )}
-          {error && (
+          {saveStatus === 'failed' && error && (
             <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--blood)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>{error}</span>
           )}
         </div>
