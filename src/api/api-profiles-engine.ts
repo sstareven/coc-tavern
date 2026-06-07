@@ -104,30 +104,3 @@ export function validateApiProfileForm(form: ApiProfileForm): { ok: boolean; err
   }
   return { ok: true };
 }
-
-/**
- * 安全导出 — 剔除所有 apiKey(置空字符串)。
- * 用户「导出 API 配置」按钮时调,避免把密钥写入下载的 JSON 文件并被分享/上传到公共仓库。
- */
-export function stripApiKeysForExport(profiles: ApiProfile[]): ApiProfile[] {
-  return profiles.map((p) => ({ ...p, apiKey: '' }));
-}
-
-/**
- * 导入校验 — 若导入 JSON 含任何非空 apiKey,拒收。
- * 防止误把别人的明文密钥导入到本地;也减少把含密钥的 JSON 通过 share/issue 流出的风险。
- */
-export function validateImportNoSecrets(json: unknown): { ok: boolean; error?: string } {
-  if (!Array.isArray(json)) {
-    return { ok: false, error: '导入数据必须是 profile 数组' };
-  }
-  for (const item of json as Partial<ApiProfile>[]) {
-    if (item && typeof item.apiKey === 'string' && item.apiKey.length > 0) {
-      return {
-        ok: false,
-        error: '导入数据包含明文 API Key,出于安全已拒绝。请在源头剔除 apiKey 字段后再导入。',
-      };
-    }
-  }
-  return { ok: true };
-}

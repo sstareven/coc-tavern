@@ -11,6 +11,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
 import {
   type ApiProfile,
   type ApiProfileForm,
@@ -18,7 +20,24 @@ import {
 } from '../../api/api-profiles-engine';
 import { maskApiKey, displayHostFromUrl } from '../../api/api-models-engine';
 import { fetchModelList } from '../../sillytavern/api-router';
-import { CategoryBar } from './_shared';
+import { ApiModelPicker } from './ApiModelPicker';
+import {
+  CategoryBar, rowStyle, labelStyle, Toggle, HelpIcon, SliderRow,
+} from './_shared';
+
+/** 提示词后处理预设清单(原 SettingsPanel 顶部,v1.14.1 随三段一并迁来本 tab)。 */
+const PP_OPTIONS = [
+  { label: '未选择 (DS 推荐)', value: '' },
+  { label: 'With Tools', value: '__sep_with_tools' },
+  { label: '合并相同角色连续的发言(含工具)', value: 'merge_with_tools' },
+  { label: '半严格 (强制对话角色交替) (含工具) (Claude/Gemini 推荐)', value: 'semi_strict_with_tools' },
+  { label: '严格 (强制对话角色交替、用户最先)(含工具) (Claude/Gemini 推荐)', value: 'strict_with_tools' },
+  { label: 'No Tools', value: '__sep_no_tools' },
+  { label: '合并相同角色连续的发言', value: 'merge' },
+  { label: '半严格 (强制对话角色交替) (Claude/Gemini 推荐)', value: 'semi_strict' },
+  { label: '严格(强制对话角色交替、用户最先) (Claude/Gemini 推荐)', value: 'strict' },
+  { label: '单一用户消息 (无工具) (Claude/Gemini 推荐)', value: 'single_user' },
+];
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
@@ -91,6 +110,33 @@ export function ApiManagementTab() {
   const deleteProfile = useApiProfilesStore((s) => s.deleteProfileById);
   const setProfileAvailableModels = useApiProfilesStore((s) => s.setProfileAvailableModels);
 
+  // v1.14.1:三段 API 配置(主/MVU/补写)从 SettingsPanel 搬来,需要 useSettingsStore 的所有相关字段
+  const promptPostProcessing = useSettingsStore((s) => s.promptPostProcessing);
+  const setPromptPostProcessing = useSettingsStore((s) => s.setPromptPostProcessing);
+  const mvuUseIndependentApi = useSettingsStore((s) => s.mvuUseIndependentApi);
+  const setMvuUseIndependentApi = useSettingsStore((s) => s.setMvuUseIndependentApi);
+  const mvuForceAlways = useSettingsStore((s) => s.mvuForceAlways);
+  const setMvuForceAlways = useSettingsStore((s) => s.setMvuForceAlways);
+  const mvuSelfCorrectEnabled = useSettingsStore((s) => s.mvuSelfCorrectEnabled);
+  const setMvuSelfCorrectEnabled = useSettingsStore((s) => s.setMvuSelfCorrectEnabled);
+  const mvuSelfCorrectRetries = useSettingsStore((s) => s.mvuSelfCorrectRetries);
+  const setMvuSelfCorrectRetries = useSettingsStore((s) => s.setMvuSelfCorrectRetries);
+  const forceJsonObject = useSettingsStore((s) => s.forceJsonObject);
+  const setForceJsonObject = useSettingsStore((s) => s.setForceJsonObject);
+  const mvuTemperature = useSettingsStore((s) => s.mvuTemperature);
+  const setMvuTemperature = useSettingsStore((s) => s.setMvuTemperature);
+  const mvuRetryCount = useSettingsStore((s) => s.mvuRetryCount);
+  const setMvuRetryCount = useSettingsStore((s) => s.setMvuRetryCount);
+  const mvuMaxTokens = useSettingsStore((s) => s.mvuMaxTokens);
+  const setMvuMaxTokens = useSettingsStore((s) => s.setMvuMaxTokens);
+  const rewriteUseIndependentApi = useSettingsStore((s) => s.rewriteUseIndependentApi);
+  const setRewriteUseIndependentApi = useSettingsStore((s) => s.setRewriteUseIndependentApi);
+  const rewriteLite = useSettingsStore((s) => s.rewriteLite);
+  const setRewriteLite = useSettingsStore((s) => s.setRewriteLite);
+  const rewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.rewriteLiteIncludeMatchedLore);
+  const setRewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.setRewriteLiteIncludeMatchedLore);
+  const lastRewriteSaving = usePromptViewerStore((s) => s.lastRewriteSaving);
+
   // 添加表单 state
   const [addLabel, setAddLabel] = useState('');
   const [addUrl, setAddUrl] = useState('https://api.deepseek.com');
@@ -98,6 +144,8 @@ export function ApiManagementTab() {
   const [addError, setAddError] = useState<string | null>(null);
   const [addTestStatus, setAddTestStatus] = useState<'idle' | 'testing' | 'ok' | 'failed'>('idle');
   const [addTestModels, setAddTestModels] = useState<string[]>([]);
+  // 提示词后处理下拉
+  const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
 
   // 删除二确气泡
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -147,9 +195,9 @@ export function ApiManagementTab() {
           fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio,1))',
           color: 'var(--ink-subtle)', lineHeight: 1.7,
         }}>
-          <span style={{ color: 'var(--gold)', letterSpacing: 1.5 }}>v1.14.0 重构</span> ·
+          <span style={{ color: 'var(--gold)', letterSpacing: 1.5 }}>v1.14.1 重构</span> ·
           API 管理改为多 profile 模式;原「主 API / MVU / 补写」三套独立配置已合并清空,请在下方重新添加配置后,
-          回到基本设置选择对应 profile 与模型。
+          在本页主 API/MVU/补写 三段就地选择对应 profile 与模型。
         </div>
       )}
 
@@ -287,6 +335,170 @@ export function ApiManagementTab() {
           </table>
         </div>
       )}
+
+      {/* ────────── v1.14.1:三段 API 配置(主/MVU/补写)从基本设置搬来 ────────── */}
+
+      {/* 主 API */}
+      <div style={{ marginTop: 22 }}>
+        <CategoryBar label="主 API" />
+
+        <ApiModelPicker channel="main" />
+
+        {/* Prompt Post-Processing */}
+        <div style={rowStyle}>
+          <span style={labelStyle}>
+            提示词后处理
+            <HelpIcon text={`未选择 — 原样发送,不动 messages(DS 推荐:前缀缓存按字面前缀匹配,任何重排/合并都会破坏命中)
+合并相同角色连续的发言 — 多半无效,仅在预设乱拼出大量同 role 碎片时考虑
+半严格 — 合并角色 + 只允许一条系统消息(Claude/Gemini 等需要严格交替的 API 推荐)
+严格 — 半严格 + 强制用户消息在最前(Claude/Gemini 推荐)
+单一用户消息 — 所有消息合并成一条 user(仅特殊严格 API 用,DS 上会让缓存几乎全 miss)`} />
+          </span>
+          <div style={{ position: 'relative', width: 240, maxWidth: '100%' }}>
+            <button onClick={() => setPpDropdownOpen(!ppDropdownOpen)} style={{
+              width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3,
+              background: 'rgba(0,0,0,0.3)', color: 'var(--parchment)',
+              fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', outline: 'none',
+            }}>
+              <span>{PP_OPTIONS.find((o) => o.value === promptPostProcessing)?.label ?? '未选择'}</span>
+              <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--brass)' }}>▼</span>
+            </button>
+            {ppDropdownOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setPpDropdownOpen(false)} />
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 3, marginTop: 2, maxHeight: 320, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)' }}>
+                  <style>{`.pp-scroll::-webkit-scrollbar{width:5px}.pp-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.pp-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.pp-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+                  <div className="pp-scroll">
+                    {PP_OPTIONS.map((opt) => {
+                      if (opt.value.startsWith('__sep')) {
+                        return <div key={opt.value} style={{ padding: '5px 10px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, borderBottom: '1px solid rgba(196,168,85,0.08)', background: 'rgba(196,168,85,0.06)' }}>{opt.label}</div>;
+                      }
+                      return (
+                        <div key={opt.value} onClick={() => { setPromptPostProcessing(opt.value); setPpDropdownOpen(false); }} style={{
+                          padding: '6px 10px', cursor: 'pointer',
+                          background: opt.value === promptPostProcessing ? 'rgba(196,168,85,0.15)' : 'transparent',
+                          color: opt.value === promptPostProcessing ? 'var(--gold)' : 'var(--text-light)',
+                          fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))',
+                          borderBottom: '1px solid rgba(196,168,85,0.06)',
+                        }} onMouseEnter={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                          onMouseLeave={(e) => { if (opt.value !== promptPostProcessing) e.currentTarget.style.background = 'transparent'; }}
+                        >{opt.label}</div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* MVU 变量引擎 API */}
+      <div style={{ marginTop: 22 }}>
+        <CategoryBar label="MVU 变量引擎 API" />
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>独立通道</span>
+          <Toggle on={mvuUseIndependentApi} onChange={() => setMvuUseIndependentApi(!mvuUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
+        </div>
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>
+            始终用 LLM 提取
+            <HelpIcon text={'关闭（智能）：仅当回复有「叙事暗示的数值变化」（如「感到眩晕」暗示SAN降）且缺少显式 <var>/{{set:}} 标签时才调用 LLM 提取——纯标签回复由本地正则处理，省下一次 API 调用。\n\n打开（始终）：每回合都调用 LLM 提取，最大化提取保真度（更费 token）。\n\n注意：本开关仅在「独立通道」开启且已配置 API Key 时生效。'} />
+          </span>
+          <Toggle on={mvuForceAlways} onChange={() => setMvuForceAlways(!mvuForceAlways)} onLabel="始终" offLabel="智能" />
+        </div>
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>
+            变量更新自纠
+            <HelpIcon text={'关闭（默认）：变量更新若未通过校验（如 HP 跌破 0、天气填了非法值）则丢弃该条并记入调试日志，回合照常推进（零额外 LLM 调用）。\n\n打开：把未通过的更新回灌给 AI，要求其只重输出修正后的合法值。每次修正额外发起一次「MVU 通道」请求——严格走 MVU 的 RPM 桶并受下方重试预算硬上限约束（达上限即排队，绝不超出每分钟限制），失败数不再下降时提前停止。'} />
+          </span>
+          <Toggle on={mvuSelfCorrectEnabled} onChange={() => setMvuSelfCorrectEnabled(!mvuSelfCorrectEnabled)} onLabel="开启" offLabel="关闭" />
+        </div>
+        {mvuSelfCorrectEnabled && (
+          <SliderRow
+            indent
+            label="↳ 自纠重试预算"
+            help={'每回合最多向 AI 请求修正变量更新的次数（0–3，默认 1）。这是 RPM 死线的硬上限——无论失败多少项，本回合自纠请求数都不超过此值，且每次都走 MVU 桶排队限流。设为 0 等价于关闭自纠。'}
+            value={mvuSelfCorrectRetries} onChange={setMvuSelfCorrectRetries}
+            min={0} max={3}
+          />
+        )}
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>
+            严格 JSON 模式
+            <HelpIcon text={'开启(默认):为所有子调用 API 请求附加 response_format: { type: "json_object" } 参数,让模型严格返回单一合法 JSON 对象,降低解析失败率。\n\n关闭:不附加该参数,子调用解析走启发式兜底修复(coerceJsonObject)。\n\n自动 fallback:若模型不支持该参数,首次探测失败后自动切回常规模式,该 model 本会话剩余子调用直接跳过(避免重复浪费 RTT)。'} />
+          </span>
+          <Toggle on={forceJsonObject} onChange={() => setForceJsonObject(!forceJsonObject)} onLabel="开启" offLabel="关闭" />
+        </div>
+
+        {mvuUseIndependentApi && (
+          <>
+            <ApiModelPicker channel="mvu" />
+
+            <SliderRow
+              label="温度"
+              value={mvuTemperature} onChange={setMvuTemperature}
+              min={0} max={2} step={0.1}
+              formatValue={(v) => v.toFixed(1)}
+            />
+
+            <SliderRow
+              label="重试次数"
+              value={mvuRetryCount} onChange={setMvuRetryCount}
+              min={1} max={5}
+            />
+
+            <SliderRow
+              label="最大回复长度 (Token)"
+              help={'MVU 子调用单次最大回复 token 数。低于 20000 容易让 thinking 模型在思考链占满预算后 JSON 截断,默认 32768 是安全起点。'}
+              value={mvuMaxTokens} onChange={setMvuMaxTokens}
+              min={20000} max={65536} step={1024}
+            />
+          </>
+        )}
+      </div>
+
+      {/* 行动补写 API */}
+      <div style={{ marginTop: 22 }}>
+        <CategoryBar label="行动补写 API" />
+        <div style={rowStyle}>
+          <span style={labelStyle}>独立通道</span>
+          <Toggle on={rewriteUseIndependentApi} onChange={() => setRewriteUseIndependentApi(!rewriteUseIndependentApi)} onLabel="独立" offLabel="跟随全局" />
+        </div>
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>
+            轻量补写模式
+            <HelpIcon text={'关闭（完整,默认）：行动补写复用主叙事的完整上下文(系统提示+全量匹配世界书+角色卡+页面+摘要+暗线+注入)生成 4 个候选选项。\n\n打开（轻量）：补写仅发送 当前场景(当前页) + 角色卡(技能/HP/SAN) + 常驻设定(constant 世界书) + 补写指令,跳过摘要/暗线/注入/关键词匹配世界书。大幅省 token,但选项可能略降对「仅靠匹配世界书才知道的设定」的感知。\n\n建议先用 5-10 个真实回合 A/B 验证选项质量不降后再常开。'} />
+          </span>
+          <Toggle on={rewriteLite} onChange={() => setRewriteLite(!rewriteLite)} onLabel="轻量" offLabel="完整" />
+        </div>
+        {rewriteLite && (
+          <>
+            <div style={{ ...rowStyle, paddingLeft: 16 }}>
+              <span style={labelStyle}>
+                ↳ 保留匹配世界书
+                <HelpIcon text={'轻量补写默认连「关键词匹配世界书」也跳过(最大节省)。\n\n打开此项：保留匹配世界书,仅跳过摘要/暗线/注入——当补写选项需要引用「只有匹配世界书才知道的设定」时使用,在「最大节省」与「设定感知」之间取中间档。'} />
+              </span>
+              <Toggle on={rewriteLiteIncludeMatchedLore} onChange={() => setRewriteLiteIncludeMatchedLore(!rewriteLiteIncludeMatchedLore)} onLabel="保留" offLabel="跳过" />
+            </div>
+            <div style={{ ...rowStyle, paddingLeft: 16 }}>
+              <span style={{ ...labelStyle, opacity: 0.75 }}>上次节省</span>
+              <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)' }}>
+                {lastRewriteSaving > 0 ? `~${lastRewriteSaving} tokens` : '— (尚未补写)'}
+              </span>
+            </div>
+          </>
+        )}
+        {rewriteUseIndependentApi && (
+          <ApiModelPicker channel="rewrite" />
+        )}
+      </div>
 
       {/* ────────── 编辑模态 ────────── */}
       <AnimatePresence>
