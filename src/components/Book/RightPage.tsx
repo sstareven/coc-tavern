@@ -35,6 +35,8 @@ interface Props {
   inventoryChanges?: InventoryChange[];
   /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目, 用来把 <san id="N"/> 替换成 React 组件。 */
   sanityCheckPrompts?: SanityCheckPrompt[];
+  /** M9 关系评估器 / 脱队联动追加的本页旁白行。 */
+  narration?: string[];
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -429,7 +431,7 @@ function openBackpack() {
   });
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts, narration }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -449,6 +451,28 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative' }}>
       <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0, ...fadeStyle }}>{header}</h3>
       <InventoryChangesBar inventoryChanges={inventoryChanges ?? []} fadeStyle={fadeStyle} />
+      {narration && narration.length > 0 && (
+        <div
+          data-testid="rp-narration"
+          style={{
+            marginBottom: 10,
+            padding: '8px 12px',
+            borderLeft: '2px solid var(--gold)',
+            background: 'rgba(196,168,85,0.05)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 'calc(13px * var(--text-ratio, 1))',
+            fontStyle: 'italic',
+            color: 'var(--ink-subtle)',
+            lineHeight: 1.7,
+            transition: 'all 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+            ...fadeStyle,
+          }}
+        >
+          {narration.map((line, i) => (
+            <div key={i} style={{ marginBottom: i < narration.length - 1 ? 4 : 0 }}>{line}</div>
+          ))}
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
