@@ -52,6 +52,9 @@ interface NpcStore {
   getAbsent: () => NpcProfile[];
   buildContextInjection: () => string;
   replaceAll: (profiles: NpcProfile[]) => void;
+  joinParty: (npcId: string) => void;
+  leaveParty: (npcId: string) => void;
+  getParty: () => NpcProfile[];
   clearAll: () => void;
 }
 
@@ -151,6 +154,8 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       }
       for (const u of updates) {
         if (!u.name?.trim()) continue;
+        // 防 LLM 抢权:inParty 仅玩家 UI/canJoinParty 通道可写。
+        delete (u as unknown as Record<string, unknown>).inParty;
         if (investigator && u.name.trim() === investigator) continue; // 调查员不入名册
         const now = Date.now();
         let id = findIdByName(profiles, u.name);
@@ -282,5 +287,26 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     }
     return { profiles };
   }),
+
+  joinParty: (npcId) => {
+    set((s) => {
+      const p = s.profiles[npcId];
+      if (!p) return {};
+      return { profiles: { ...s.profiles, [npcId]: { ...p, inParty: true, updatedAt: Date.now() } } };
+    });
+  },
+
+  leaveParty: (npcId) => {
+    set((s) => {
+      const p = s.profiles[npcId];
+      if (!p) return {};
+      return { profiles: { ...s.profiles, [npcId]: { ...p, inParty: false, updatedAt: Date.now() } } };
+    });
+  },
+
+  getParty: () => Object.values(get().profiles)
+    .filter((p) => p.isPresent && p.inParty)
+    .sort((a, b) => b.updatedAt - a.updatedAt),
+
   clearAll: () => set({ profiles: {} }),
 }));

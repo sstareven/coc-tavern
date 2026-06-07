@@ -294,3 +294,72 @@ describe('mergeAliases — 显式别名归并（不在 applyUpdates 自动触发
     expect(mergeAliases(before, 'Z', 'X')).toBe(before);
   });
 });
+
+describe('useNpcStore.joinParty / leaveParty / getParty', () => {
+  beforeEach(() => { useNpcStore.getState().clearAll(); });
+
+  it('joinParty 把 inParty 设为 true,不改 isPresent', () => {
+    useNpcStore.getState().applyUpdates([{ name: '同行者' }]);
+    const id = Object.keys(useNpcStore.getState().profiles)[0];
+
+    useNpcStore.getState().joinParty(id);
+
+    const p = useNpcStore.getState().profiles[id];
+    expect(p.inParty).toBe(true);
+    expect(p.isPresent).toBe(true);
+  });
+
+  it('leaveParty 把 inParty 设为 false', () => {
+    useNpcStore.getState().applyUpdates([{ name: '叛逃者' }]);
+    const id = Object.keys(useNpcStore.getState().profiles)[0];
+    useNpcStore.getState().joinParty(id);
+    useNpcStore.getState().leaveParty(id);
+
+    expect(useNpcStore.getState().profiles[id].inParty).toBe(false);
+  });
+
+  it('joinParty/leaveParty 对不存在的 id 静默返回,不抛错', () => {
+    expect(() => useNpcStore.getState().joinParty('ghost')).not.toThrow();
+    expect(() => useNpcStore.getState().leaveParty('ghost')).not.toThrow();
+    expect(useNpcStore.getState().profiles).toEqual({});
+  });
+
+  it('getParty 只返回 isPresent && inParty', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '队友A' },
+      { name: '队友B' },
+      { name: '在场陌生人' },
+      { name: '离场旧友', isPresent: false },
+    ]);
+    const ids = Object.fromEntries(
+      Object.values(useNpcStore.getState().profiles).map(p => [p.name, p.id]),
+    );
+    useNpcStore.getState().joinParty(ids['队友A']);
+    useNpcStore.getState().joinParty(ids['队友B']);
+    useNpcStore.getState().joinParty(ids['离场旧友']); // inParty=true 但 isPresent=false → 不算队伍
+
+    const party = useNpcStore.getState().getParty();
+    expect(party.map(p => p.name).sort()).toEqual(['队友A', '队友B']);
+  });
+
+  it('applyUpdates 拒绝 LLM 写 inParty(防 LLM 抢权)', () => {
+    useNpcStore.getState().applyUpdates([{ name: '小队候选' }]);
+    const id = Object.keys(useNpcStore.getState().profiles)[0];
+    useNpcStore.getState().joinParty(id);
+
+    // 模拟 LLM 试图把同名 NPC 踢出小队
+    useNpcStore.getState().applyUpdates([
+      { name: '小队候选', isPresent: true, inParty: false } as never,
+    ]);
+
+    expect(useNpcStore.getState().profiles[id].inParty).toBe(true);
+  });
+
+  it('applyUpdates 不会反向引入 inParty 字段(从未 joinParty 的 NPC 仍 inParty 缺省)', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '路人', inParty: true } as never,
+    ]);
+    const p = Object.values(useNpcStore.getState().profiles)[0];
+    expect(p.inParty).toBeFalsy();
+  });
+});
