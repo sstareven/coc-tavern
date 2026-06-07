@@ -29,6 +29,10 @@ const sheetRef: { current: { initialItemsRaw?: string } } = { current: {} };
 // A3 + B2 snapshot/restore 用的 store 字段补全
 const mapApplyUpdatesMock = vi.fn();
 const mapReplaceAllMock = vi.fn();
+// M10: joinParty 与 relation-graph 用例
+const joinPartyMock = vi.fn();
+const canJoinPartyMock = vi.fn();
+const hasHostileEdgeMock = vi.fn();
 
 vi.mock('../../stores/useScenarioStore', () => ({
   useScenarioStore: {
@@ -42,7 +46,12 @@ vi.mock('../../stores/useCharSheetStore', () => ({
   useCharSheetStore: { getState: () => ({ setSheet: setSheetMock, sheet: sheetRef.current }) },
 }));
 vi.mock('../../stores/useNpcStore', () => ({
-  useNpcStore: { getState: () => ({ applyUpdates: npcApplyUpdatesMock, replaceAll: npcReplaceAllMock, profiles: {} }) },
+  useNpcStore: { getState: () => ({
+    applyUpdates: npcApplyUpdatesMock,
+    replaceAll: npcReplaceAllMock,
+    joinParty: joinPartyMock,
+    profiles: {},
+  }) },
 }));
 vi.mock('../../stores/useVariableStore', () => ({
   useVariableStore: {
@@ -102,6 +111,11 @@ vi.mock('../initial-items-extractor', () => ({
   extractInitialItems: (...args: unknown[]) => extractInitialItemsMock(...args),
 }));
 
+vi.mock('../relation-graph', () => ({
+  canJoinParty: (...args: unknown[]) => canJoinPartyMock(...args),
+  hasHostileEdge: (...args: unknown[]) => hasHostileEdgeMock(...args),
+}));
+
 import { activateScenario, deepMergePreserve } from '../scenario-engine';
 
 function emptyDoc(over: Partial<ScenarioDoc> = {}): ScenarioDoc {
@@ -135,6 +149,14 @@ beforeEach(() => {
   statDataRef.current = {};
   bookPagesRef.current = [];
   sheetRef.current = {};
+  // M10: 默认 canJoinParty 返回 { ok: false } / hasHostileEdge 返回 false,各用例按需 override
+  canJoinPartyMock.mockReturnValue({ ok: false, reason: 'stranger' });
+  hasHostileEdgeMock.mockReturnValue(false);
+  // vi.clearAllMocks() 只清调用记录不清 implementation;D1 用例曾给 appendPageMock 装了
+  // throw 实现, 不重置会污染后续 M10 用例。这里把 page 写入类 mock 重置为 noop。
+  appendPageMock.mockReset();
+  replacePageMock.mockReset();
+  expandPrologueMock.mockReset();
   // 默认让 crypto.randomUUID 存在(scenario-engine 用)
   if (!(globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID) {
     (globalThis as { crypto?: { randomUUID?: () => string } }).crypto = {
@@ -241,5 +263,126 @@ describe('D2 — deepMergePreserve 语义钉死', () => {
     expect(out.a).toEqual({ sub: 1 });
     // 不复用同一引用
     expect(out.a).not.toBe(sharedSeedSub);
+  });
+});
+
+describe('M10 — activateScenario 开场建场 + 准入 + 敌对冲突', () => {
+  // 这一 describe 块要求 scenario-engine.ts 按 presentAtStart 字段建场:
+  //   - presentAtStart=true 且非玩家本人 → applyUpdates({isPresent:true,isScenarioPreset:true})
+  //   - canJoinParty 通过 → joinParty(id);失败 → 仅 isPresent
+  //   - 两个 presentAtStart=true 互为敌对 → 后到者强制 isPresent=false + console.warn
+  // 实现见 §5.3 + §4.2 R5。
+  function charWithPresent(
+    id: string,
+    name: string,
+    presentAtStart: boolean,
+    role: 'protagonist' | 'optional' | 'locked_npc' = 'optional',
+  ) {
+    return {
+      id,
+      role,
+      presentAtStart,
+      sheet: { identity: { name } } as never,
+      npcAttrs: {
+        identityTag: '', attitudeDefault: 0, relationshipDefault: '',
+        locationDefault: '', publicBio: '', hiddenBio: '',
+      },
+    };
+  }
+
+  it('presentAtStart=true 且与玩家非敌对 → applyUpdates(isPresent=true) + joinParty 入队', async () => {
+    const doc = emptyDoc({
+      id: 'sc-m10-a',
+      characters: [
+        charWithPresent('c-player', '玩家', false, 'protagonist'),
+        charWithPresent('c-friend', '朋友', true, 'optional'),
+      ],
+    });
+    getByIdMock.mockReturnValue(doc);
+    canJoinPartyMock.mockReturnValue({ ok: true }); // 准入通过
+
+    expandPrologueMock.mockResolvedValue({
+      leftHeader: '序章', leftContent: '', rightHeader: '', rightContent: '',
+      rightChoices: [], leftPage: '', rightPage: '',
+    });
+
+    await activateScenario('sc-m10-a', 'preset', 0);
+
+    // applyUpdates 必须有一笔 c-friend 且 isPresent=true
+    const calls = npcApplyUpdatesMock.mock.calls.map((c) => c[0] as unknown[]);
+    const flat = calls.flat() as Array<{ id?: string; isPresent?: boolean }>;
+    const friendUpdate = flat.find((u) => u.id === 'c-friend');
+    expect(friendUpdate).toBeTruthy();
+    expect(friendUpdate?.isPresent).toBe(true);
+    // 入队
+    expect(joinPartyMock).toHaveBeenCalledWith('c-friend');
+  });
+
+  it('presentAtStart=true 但 canJoinParty 返回 false → 仅 isPresent,不入队', async () => {
+    const doc = emptyDoc({
+      id: 'sc-m10-b',
+      characters: [
+        charWithPresent('c-player', '玩家', false, 'protagonist'),
+        charWithPresent('c-stranger', '陌生人', true, 'optional'),
+      ],
+    });
+    getByIdMock.mockReturnValue(doc);
+    canJoinPartyMock.mockReturnValue({ ok: false, reason: 'stranger' }); // 拒绝入队
+
+    expandPrologueMock.mockResolvedValue({
+      leftHeader: '序章', leftContent: '', rightHeader: '', rightContent: '',
+      rightChoices: [], leftPage: '', rightPage: '',
+    });
+
+    await activateScenario('sc-m10-b', 'preset', 0);
+
+    const calls = npcApplyUpdatesMock.mock.calls.map((c) => c[0] as unknown[]);
+    const flat = calls.flat() as Array<{ id?: string; isPresent?: boolean }>;
+    const strangerUpdate = flat.find((u) => u.id === 'c-stranger');
+    expect(strangerUpdate).toBeTruthy();
+    expect(strangerUpdate?.isPresent).toBe(true);
+    // 但不该 joinParty
+    expect(joinPartyMock).not.toHaveBeenCalledWith('c-stranger');
+  });
+
+  it('两个 presentAtStart=true 互为敌对 → 后到者强制 isPresent=false + console.warn', async () => {
+    const doc = emptyDoc({
+      id: 'sc-m10-c',
+      characters: [
+        charWithPresent('c-player', '玩家', false, 'protagonist'),
+        charWithPresent('c-a', 'A', true, 'optional'),
+        charWithPresent('c-b', 'B', true, 'optional'),
+      ],
+    });
+    getByIdMock.mockReturnValue(doc);
+    // canJoinParty 一律 false(本用例只关心 isPresent 决策)
+    canJoinPartyMock.mockReturnValue({ ok: false, reason: 'stranger' });
+    // hasHostileEdge: A 与 B 之间互为敌对(任一方向 true 都算敌对)
+    hasHostileEdgeMock.mockImplementation((_doc: unknown, aId: unknown, bId: unknown) => {
+      const pair = [aId, bId].sort().join('|');
+      return pair === ['c-a', 'c-b'].sort().join('|');
+    });
+
+    expandPrologueMock.mockResolvedValue({
+      leftHeader: '序章', leftContent: '', rightHeader: '', rightContent: '',
+      rightChoices: [], leftPage: '', rightPage: '',
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await activateScenario('sc-m10-c', 'preset', 0);
+
+    const calls = npcApplyUpdatesMock.mock.calls.map((c) => c[0] as unknown[]);
+    const flat = calls.flat() as Array<{ id?: string; isPresent?: boolean }>;
+    const aUpdate = flat.find((u) => u.id === 'c-a');
+    const bUpdate = flat.find((u) => u.id === 'c-b');
+    expect(aUpdate?.isPresent).toBe(true);   // 先到者保留
+    expect(bUpdate?.isPresent).toBe(false);  // 后到者强制不在场
+    // 留痕
+    expect(warnSpy).toHaveBeenCalled();
+    const warned = warnSpy.mock.calls.flat().join(' ');
+    expect(warned).toMatch(/开场冲突|敌对|hostile/i);
+
+    warnSpy.mockRestore();
   });
 });
