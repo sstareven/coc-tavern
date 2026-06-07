@@ -19,6 +19,7 @@ import { useMapStore } from '../stores/useMapStore';
 import { renderTemplate } from '../sillytavern/ejs-template';
 import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed } from './scenario-injection';
 import { subscribeRelationLorebook } from './relation-lorebook';
+import { canJoinParty, hasHostileEdge } from './relation-graph';
 import { extractInitialItems } from './initial-items-extractor';
 import { expandPrologueToPage } from './expand-prologue';
 import type { BookPage } from '../types';
@@ -169,6 +170,13 @@ export async function activateScenario(
   const originalPage0 = useBookStore.getState().pages[0] ?? null;
 
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
+  // M10: playerId 为玩家本人对应的 ScenarioCharacter.id;
+  //  - preset 模式 = scn.characters[charIdx].id(玩家扮演该角色)
+  //  - newChar 模式 = null(玩家自创卡,关系图中 player_created 角色由 CharCreator M4/M5 写入,
+  //    此时尚未指定具体 id;canJoinParty 第 4 参 playerId 类型为 string 不容空,
+  //    故 newChar 模式下跳过 R1 入队判定——presentAtStart NPC 仅 isPresent=true 建场,
+  //    入队由后续 PeopleTab/post-settle 评估器按真实关系驱动)
+  let playerId: string | null = null;
   if (mode === 'preset') {
     // preset 模式必须显式指定主角索引；不允许 undefined 默默兜底到 0，
     // 否则一旦上游路由没传 charIdx，玩家会被随机分配第 0 号角色（可能是 locked_npc）。
@@ -184,17 +192,46 @@ export async function activateScenario(
       throw new Error(`[scenario-engine] charIdx=${idx} 指向的角色被剧本锁定不可扮演 (role=${proto.role})`);
     }
     useCharSheetStore.getState().setSheet(proto.sheet);
-    // 其他角色全部 NPC 化（排除当前主角索引）
-    const npcStore = useNpcStore.getState();
-    for (let i = 0; i < scn.characters.length; i++) {
-      if (i === idx) continue;
-      npcStore.applyUpdates([scenarioCharacterToNpc(scn.characters[i])]);
-    }
-  } else {
-    // newChar：剧本里所有角色全部 NPC 化（玩家走原 CharacterCreator）
-    const npcStore = useNpcStore.getState();
-    for (const c of scn.characters) {
-      npcStore.applyUpdates([scenarioCharacterToNpc(c)]);
+    playerId = proto.id;
+  }
+  // 其他角色全部 NPC 化(preset 模式排除玩家本人;newChar 模式全部 NPC 化)。
+  // M10: 开场建场流程——按 characters[] 顺序遍历,跟踪已"在场"NPC 集合,
+  //   - presentAtStart!==true → 走原 applyUpdates(scenarioCharacterToNpc),isPresent 由 scenarioCharacterToNpc 决定;
+  //   - presentAtStart===true:
+  //       1) 与已在场 NPC 互为敌对(hasHostileEdge 任一方向 true) → 强制 isPresent=false + console.warn(spec §4.2 R5);
+  //       2) 否则 isPresent=true 建场;再跑 canJoinParty.ok(对方与玩家或队内任意成员有非敌对边) → joinParty 自动入队;
+  //          newChar 模式 playerId=null → 跳过 joinParty 判定(canJoinParty 第 4 参不容空);
+  //   - 玩家本人(c.id === playerId)跳过,不入 NpcProfile 名册(玩家不在名册;玩家 inParty 由调用方语义保证)。
+  const npcStore = useNpcStore.getState();
+  const presentIds: string[] = []; // 已 isPresent=true 的 NPC id,用于敌对冲突顺序判定
+  const partyIds: string[] = []; // 已入队 NPC id(不含玩家;canJoinParty 第 3 参语义)
+  for (let i = 0; i < scn.characters.length; i++) {
+    const c = scn.characters[i];
+    if (mode === 'preset' && c.id === playerId) continue; // 玩家本人不进名册
+    const npc = scenarioCharacterToNpc(c);
+    if (c.presentAtStart === true) {
+      // R5: 与已在场 NPC 互为敌对 → 后到者强制 isPresent=false
+      const conflict = presentIds.find((existingId) => hasHostileEdge(scn, c.id, existingId));
+      if (conflict) {
+        console.warn(
+          `[scenario-engine] 开场冲突(R5): "${c.id}" 与已在场 "${conflict}" 互为敌对边, 强制 isPresent=false`,
+        );
+        npc.isPresent = false;
+        npcStore.applyUpdates([npc]);
+        continue;
+      }
+      npc.isPresent = true;
+      npcStore.applyUpdates([npc]);
+      presentIds.push(c.id);
+      // R1: 与玩家或队内任意成员有非敌对边 → 自动 joinParty
+      // newChar 模式 playerId=null → 跳过(无玩家锚点,关系图准入无意义)
+      if (playerId !== null && canJoinParty(scn, c.id, partyIds, playerId).ok) {
+        npcStore.joinParty(c.id);
+        partyIds.push(c.id);
+      }
+    } else {
+      // 未显式 presentAtStart → 走 scenarioCharacterToNpc 默认值(locked_npc 不在场,其余在场)
+      npcStore.applyUpdates([npc]);
     }
   }
 
