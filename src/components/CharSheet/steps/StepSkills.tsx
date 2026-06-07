@@ -16,8 +16,6 @@ import {
 interface Props {
   occupation: string;
   onSetOccupation: (v: string) => void;
-  customOccupation: string;
-  onSetCustomOccupation: (v: string) => void;
   occSkills: string[];
   interestSkills: string[];
   occPoints: Record<string, number>;
@@ -52,8 +50,6 @@ function getBase(sk: ScenarioSkillPoolEntry, charValues: Record<COC7Characterist
 export function StepSkills({
   occupation,
   onSetOccupation,
-  customOccupation,
-  onSetCustomOccupation,
   occSkills,
   interestSkills,
   occPoints,
@@ -85,9 +81,8 @@ export function StepSkills({
   const skillPool = getScenarioSkillPool(activeScenario);
   const skillDescMap = getScenarioSkillDescMap(activeScenario);
 
-  const occValue = occupation || '__custom__';
-  const isCustomOcc = occValue === '__custom__';
-  const selectedOcc = !isCustomOcc ? occupationPool.find((o) => o.name === occValue) : null;
+  // 玩家不再能在创角面板自定义职业 — 想加新职业请去剧本编辑器的 customOccupations。
+  const selectedOcc = occupationPool.find((o) => o.name === occupation) ?? null;
   const suggestedSkills = selectedOcc?.skills || [];
   const crMin = selectedOcc?.crMin ?? 0;
   const crMax = selectedOcc?.crMax ?? 99;
@@ -104,23 +99,13 @@ export function StepSkills({
         onToggleInterestSkill={onToggleInterestSkill}
       />
 
-      {/* Occupation selector */}
+      {/* Occupation selector — 仅从剧本作者预设的 occupationPool 选 */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
           <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>职业</span>
-          <DarkSelect value={occValue} onChange={onSetOccupation}
-            options={[
-              ...occupationPool.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` })),
-              { value: '__custom__', label: '自定义职业...', sub: '' },
-            ]} />
+          <DarkSelect value={occupation} onChange={onSetOccupation}
+            options={occupationPool.map((o) => ({ value: o.name, label: `${o.name}`, sub: `信用 ${o.crMin}–${o.crMax}%` }))} />
         </div>
-        {isCustomOcc && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', letterSpacing: 1 }}>自定义职业名称</span>
-            <input type="text" name="charsheet-skills-custom-occupation" value={customOccupation} onChange={(e) => onSetCustomOccupation(e.target.value)}
-              style={{ ...inputStyle, height: 30 }} placeholder="输入职业名称" />
-          </div>
-        )}
       </div>
 
       {/* Info bar */}
@@ -205,7 +190,7 @@ export function StepSkills({
             const isOcc = occSkills.includes(sk.name);
             const isInt = interestSkills.includes(sk.name);
             const suggested = suggestedSkills.includes(sk.name);
-            const canUseOcc = isCustomOcc || suggested;
+            const canUseOcc = suggested;
             const occPts = occPoints[sk.name] ?? 0;
             const intPts = interestPoints[sk.name] ?? 0;
             const base = getBase(sk, charValues);

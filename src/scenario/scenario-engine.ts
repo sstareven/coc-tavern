@@ -367,6 +367,15 @@ export async function activateScenario(
       // A2: 标记 page0 已被剧本扩写覆盖,catch 块据此决定是否还原原 page0。
       page0Replaced = true;
       bookStore.goToPage(0);
+
+      // 把 LLM 在 page0.sceneInfo 给出的当前地点同步到 useMapStore.currentLocationId，
+      // 让玩家序章一进去打开地图就看见金色「所在」徽章；与 useChatPipeline.advanceTurn
+      // 末尾的 setCurrentByName 兜底同语义（不用 applyUpdates({current}) 防给陌生地点
+      // 自动建空描述节点 — 见 BUG3 修复策略）。fallback page0 无 sceneInfo 自动跳过。
+      const sceneLoc = page0.sceneInfo?.location?.trim();
+      if (sceneLoc && sceneLoc !== '未知') {
+        useMapStore.getState().setCurrentByName(sceneLoc);
+      }
     }
   } catch (err) {
     // A3+B5: 整体回滚到激活前快照,防止失败留下半成品继续生效造成玩家无感的混档。
