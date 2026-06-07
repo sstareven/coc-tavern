@@ -21,11 +21,13 @@ interface Release {
 export const RELEASES: Release[] = [
   {
     version: 'v1.13.1',
-    label: '手机端 UX 大修：正文区扩展 · 字号自动补偿 · 滚动条全局化',
+    label: '手机端 UX 大修 · 程序化 BGM 接入 · 设置面板 UI 风格统一',
     items: [
-      '【手机端·正文区扩展】GameView 手机端 appHeight 表达式只给了 `${viewportH}px` 没除以 `--auto-zoom`，根容器 zoom=0.75 把 1307px 渲染成 980px、视口底下露 327px 空白，叙事卡片被压扁。两条路径(手机/桌面)统一用 `calc(... / var(--auto-zoom, 1))`，正文卡片自动延伸到视口底部，可用面积增加约 327px',
-      '【手机端·字号自动补偿】useResponsiveZoom 在窄屏(<1280px)兜底到 MIN_ZOOM=0.75，所有 px 字号渲染压成原值 75%——11px 提示文字最终只剩 8.25px、16.5px 正文最终只剩 12.4px，读不清。useTextRatios hook 现在检测手机端时自动叠加 4/3 ≈ 1.333 补偿因子完全抵消 zoom 缩放，设置面板的「100%」在手机/桌面渲染出相同物理字号；桌面端不受影响',
-      '【滚动条·全局铜版风】铜版风滚动条样式之前只挂 `.scenario-editor *` 子树，MobileNoteView 等 inline-style 的滚动容器漏出浏览器默认黑色滚动条。现改成 `html` + `::-webkit-scrollbar` 全局选择器，所有 overflow:auto/scroll 元素自动套铜金色细滚动条，包括手机端叙事卷轴',
+      '【BGM·全新接入】WebAudio 程序化 BGM 系统起步，随后切换为 /public/BGM.mp3（ffmpeg libmp3lame 把原 67MB 320kbps 压到 38MB 96kbps 立体声，54 分钟氛围 BGM 听感无损）流式播放。4 个 track 共用同一音源走不同 BiquadFilter 链按场景差异化：menu 直通（清亮）/ investigation 低通 5kHz Q=0.5（温柔）/ combat 低通 1.5kHz + 高架 -3dB（压抑紧张）/ mythos 低通 700Hz + 低架 +4dB（深沉，邪神/坏结局）。LandingScreen 显示 BGM 缓冲进度条，加载失败优雅回退不刷错；SettingsPanel 新增「音乐音量」滑块联动 musicVolume',
+      '【设置面板·UI 风格统一】抽出 SliderRow 共享组件（label / help / range / 数值后缀）替代 11 处重复滑块写法；音乐音量补 % 单位；温度/重试/maxTokens 统一 gap/width/字号/颜色；6 tab emoji 全换为铜版线描 SVG icon；关闭按钮 ✕ 换 IconClose；mvuMaxTokens UI 上限 16384 → 65536、默认 8096 → 32768、setter clamp 下限 20000；多个 setter 补 clamp（setMusicVolume / setTooltipDelay / setMvuTemperature / setMaxRecursionSteps 等）',
+      '【手机端·正文区扩展（v1.13.1 收尾）】GameView 手机端 appHeight 表达式只给了 `${viewportH}px` 没除以 `--auto-zoom`，根容器 zoom=0.75 把 1307px 渲染成 980px、视口底下露 327px 空白。两条路径（手机/桌面）统一用 `calc(... / var(--auto-zoom, 1))`，正文卡片自动延伸到视口底部，可用面积增加约 327px。叠加同期完成的 ActionSheet 钉视口底 + 截图 bug 修复 + 顶部/底部固定区压缩，手机端纵向阅读空间彻底释放',
+      '【手机端·字号自动补偿】useResponsiveZoom 在窄屏（<1280px）兜底到 MIN_ZOOM=0.75，所有 px 字号渲染压成原值 75%——11px 提示文字最终只剩 8.25px、16.5px 正文最终只剩 12.4px，读不清。useTextRatios hook 现在检测手机端时自动叠加 4/3 ≈ 1.333 补偿因子完全抵消 zoom 缩放，设置面板的「100%」在手机/桌面渲染出相同物理字号；桌面端不受影响',
+      '【滚动条·全局铜版风】铜版风滚动条样式之前只挂 .scenario-editor * 子树，MobileNoteView 等 inline-style 的滚动容器漏出浏览器默认黑色滚动条。现改成 html + ::-webkit-scrollbar 全局选择器，所有 overflow:auto/scroll 元素自动套铜金色细滚动条，包括手机端叙事卷轴',
       '【手机端·叙事便条松绑】MobileNoteView 卡片 padding 10/12/8 → 14/18/12（左右内边距增加 6px），正文字号 calc(15px*ratio) → calc(16.5px*ratio)，行高 1.75 → 1.8，段落间距 12/8 → 14/12。叙事阅读区不再贴边、字号舒展、段落清晰',
     ],
   },
