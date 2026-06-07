@@ -22,6 +22,7 @@ import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
 import { cleanChoiceText, buildChoiceInput } from './choice-input-builder';
 import { type StagingTrigger } from '../../sillytavern/option-staging';
+import { parseAttackTarget } from '../../sillytavern/parse-attack-target';
 import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 
 interface Props {
@@ -634,7 +635,18 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   const check = parseCheckAction(ch.action) ?? parseCheckAction(ch.text);
   const isCheck = check !== null;
   const playerSkill = isCheck ? getPlayerSkillValue(check.skillName) : null;
-  const enabled = isLatestPage && !effectivelyLocked;
+  // M8 攻击保护：解析选项是否在攻击当前队友（inParty=true）。命中 → 灰显 + tooltip "队友"，点击拦截。
+  // 同时查 action 和 text 两个字段——LLM 偶尔把攻击意图只写在 text 里。
+  // 直接订阅 profiles（稳定引用），派生队友名列表，避免 selector 每次返回新数组导致无限重渲染。
+  const npcProfiles = useNpcStore((s) => s.profiles);
+  const partyNames = React.useMemo(
+    () => Object.values(npcProfiles).filter((p) => p.isPresent && p.inParty).map((p) => p.name),
+    [npcProfiles],
+  );
+  const attackingPartyMember =
+    parseAttackTarget(ch.action || '', partyNames) ??
+    parseAttackTarget(ch.text || '', partyNames);
+  const enabled = isLatestPage && !effectivelyLocked && !attackingPartyMember;
   const isHovered = hovered && enabled;
 
   return (
@@ -659,7 +671,17 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
         fillInputBar(buildChoiceInput(ch), ch.action);
       }}
       disabled={!enabled}
-      title={!isLatestPage ? '只有最新一页的选项可以选择' : (sanityBlocked ? '请先点亮所有血色理智气泡' : (locked ? '正在处理上一个选择…' : undefined))}
+      title={
+        attackingPartyMember
+          ? `不能攻击队友（${attackingPartyMember.targetName}）`
+          : !isLatestPage
+            ? '只有最新一页的选项可以选择'
+            : sanityBlocked
+              ? '请先点亮所有血色理智气泡'
+              : locked
+                ? '正在处理上一个选择…'
+                : undefined
+      }
       style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: isCheck ? '12px 16px' : '10px 14px',
