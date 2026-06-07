@@ -38,6 +38,10 @@ test-results/
 # .mcp.json 与 .claude/settings.json 是项目级接线，照常提交）
 .codegraph/
 
+# OpenCode 工具本地配置（lsp.json 里写了 C:/Users/USER 绝对路径；
+# 与 .codegraph/.superpowers/.omo 同类机器本地状态，公开仓库不入库）
+.opencode/
+
 # 版权规则书临时抽取文本（设计调研用，绝不入库）
 .tmp_combat_research/
 

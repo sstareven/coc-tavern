@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { kvGet, kvSet } from '../../db/kv';
+import { initKvCache, kvGet, kvSet } from '../../db/kv';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.11.11';
 
 interface Release {
   version: string;
@@ -11,8 +10,41 @@ interface Release {
   items: string[];
 }
 
-// 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
+// 版本倒序：最新在最前。新增版本时只需在数组顶部插入，CURRENT_VERSION 自动派生自 RELEASES[0]。
 const RELEASES: Release[] = [
+  {
+    version: 'v1.13.0',
+    label: '设置新增「领受赐福」骰子祝福作弊系统 · 构建热修 · 更新日志机制加固',
+    items: [
+      '【领受赐福·新增】设置面板新增「领受赐福」标签页——一套骰子祝福作弊系统。可开关并调节祝福强度，为检定骰子施加不同程度的幸运偏斜，适合想轻松体验剧情或测试极端骰运的玩家。配有开关与帮助图标，默认关闭不影响正常游玩',
+      '【领受赐福·接线】检定骰运行时（DicePanel）与选项结算覆盖层（OptionResolutionOverlay）接入祝福强度——开启后每一次手投/推骰/孤注一掷的骰值会按强度档位向有利结果偏移；记录里仍保留真实骰值便于排查',
+      '【构建·热修】关系图测试（relation-graph.test）TS2783 重复 transition 与 TS2339 联合类型收窄编译失败已修；RightPage 一处多余声明顺手清掉，Vercel 构建恢复',
+      '【更新日志机制·根治漏弹】v1.12.0 发版时 package.json bump 了但 CURRENT_VERSION 漏改，导致整版玩家没收到弹窗（本版才补登记）。现在 CURRENT_VERSION 直接从 RELEASES[0] 派生，再也不存在「两个真值源对不齐」的可能。同时把弹窗判定从字符串相等换成 semver 比较，Vercel 紧急回退 deploy 不会再让玩家「弹了又弹」；useEffect 改为等 IndexedDB 缓存就绪再读取，避免首次刷新把已升级用户错判为新用户重复弹窗；footer 主动「重看更新日志」关闭时不再覆盖弹窗已读标记，下一次升级仍会自动弹出。底层 kv 迁移列表里的 `coc_changelog_seen` 拼写错位（应为 `coc-changelog-seen`）一并修正，老 localStorage 数据真正能迁到 IndexedDB',
+    ],
+  },
+  {
+    version: 'v1.12.0',
+    label: '剧本系统 · 关系系统 · 理智重设 · COC7e 规则补完 · 多项修复',
+    items: [
+      '【剧本系统·MVP】全新剧本系统上线——内置 8 个基于 COC 扩展规则书的时代剧本（1920s 经典 / 1890s 煤气灯 / 现代 / 二战 / 古罗马 / 黑暗时代 / 西部拓荒 / 未来反乌托邦），每个剧本自带世界观说明、24 个 NPC 角色池（按主角/盟友/对手三档标注）、时代化职业与技能池、开场情境与暗线。创建新游戏时先选剧本再选角色',
+      '【剧本系统·编辑器】剧本编辑器对标世界书——9 字段折叠编辑（名称/时代/世界观/职业/技能池/NPC/暗线/坏结局/EJS 解锁注入），暗线时间线与坏结局矩阵可视化，铜版风滚动条。支持 LLM 命令批量操作',
+      '【剧本系统·选角】新增 RosterPicker 选角界面——剧本预设角色与自创调查员分组显示；PeopleTab 列表加玩家位占位与自创卡删除按钮；自创卡完成后自动写回剧本',
+      '【关系系统·角色关系图】全新角色关系图系统——RelationEditor 列表+侧栏编辑角色间关系（盟友/中立/敌对/亲密/厌恶…），实时敌对冲突校验。角色创建流程新增「关系」步骤',
+      '【关系系统·队伍机制】TeamSidebar 解耦 isPresent 与 inParty——在场 NPC 可独立选择加入/退出队伍；战斗自动注入在场 NPC 为 ally；NPC 接口拒 LLM 直接写 inParty 防越权',
+      '【关系系统·攻击保护】队友攻击保护——ChoiceButton 检测队友目标时灰显 + tooltip 提示 + 点击拦截；CombatPanel 敌人列表自动过滤队友',
+      '【关系系统·旁白叙事】party-relation-evaluator 子调用——LLM 每回合评估角色间关系演化（好感度变化/信任建立/脱队判定），事件型旁白自动写入 RightPage 旁白段',
+      '【理智系统·完全重设】被动 SAN 检定改为「血色脉冲气泡」嵌在叙事中——撞见值得理智冲击的事物时气泡自然出现在那段文字旁；点击弹出阴森的「理智检定面板」跑 POW/INT 或克苏鲁神话技能判定 + 掷扣 SAN。气泡必须先点完才能继续点选项',
+      '【理智系统·疯狂发作】SAN 归零触发疯狂发作评估——COC7e 疯狂发作/恐惧症/躁狂症规则表完整实现；临时疯狂倒计时（advanceTurn 自动递减）；SAN 奖励（技能突破 90% 时 +2D6）',
+      '【理智系统·门槛】硬性约束仅五种情形触发 SAN 检定（直面神话生物/至亲惨死/被迫作恶/阅读神话典籍/接触不可名状），常识性恐惧不触发。孤儿气泡自动补位防死锁；新页/删页时重置已解决状态',
+      '【COC7e 规则补完·发展期】发展期技能改良流程完整实现——d100+1d10 改良掷骰（排除信用评级与克苏鲁神话），成功打勾的技能在章节结束后可改良；CharSheetOverlay 新增「结束本章·发展期」入口',
+      '【COC7e 规则补完·年龄调整】applyAgeModifiers 按年龄段扣减/奖励属性，EDU 改良队列，15-19 岁幸运值可重投',
+      '【COC7e 规则补完·幸运消耗】孤注一掷与幸运补救流程——DicePanel 子状态机（live luck slider + 推骰提示），commitWithLuck 扣点幸运，DiceRecordsExpander 渲染 [推]/[幸-N] 徽章',
+      '【战斗增强·NPC 队友】ally NPC 队友急救行为（COC7e p61），战斗面板倾向控制（积极/保守/撤退）；战斗自动注入在场 NPC 为 ally',
+      '【控制台日志·F12 诊断】启动时安装 console 拦截——日志写入 IndexedDB（按 sessionId/pageIndex 富化），单会话 5000 上限懒清理，IDB 不可用时降级 in-memory ring buffer。缓存面板「复制表格」附带 F12 项目日志段（按页分组，最近 10 页）',
+      '【DS 缓存优化·稳定下沉项回收】跨回合 hash 检测——把「看似动态实则稳定」的 promptItem 从 dynamicTail 前置回静态前缀，回收被误判下沉的缓存空间',
+      '【修复·多项】Token 显示去掉外推 RPM 改直接显示请求次数；检定解析兼容前缀难度+无括号+全角括号漂移；NPC 同名严格匹配+老档同名合并迁移；地图地点描述兜底不建空节点；兴趣/职业加点钳到 99 上限；技能名一刀切规则书正名（躲闪→闪避、会计学→会计 等）；老存档 migrateSheet 自动升级补全字段',
+    ],
+  },
   {
     version: 'v1.11.11',
     label: '修更新日志在手机端被自适应缩放放大溢出屏幕',
@@ -455,26 +487,63 @@ const RELEASES: Release[] = [
   },
 ];
 
+// CURRENT_VERSION 派生自 RELEASES[0]：消灭「忘改 CURRENT_VERSION 致老用户不弹窗」一类 drift
+// （v1.12.0 发版时漏改 CURRENT_VERSION 致整版玩家没收到弹窗，靠这条派生根治）
+export const CURRENT_VERSION = RELEASES[0].version;
+
+// 比较两个 vX.Y.Z 字符串：a 比 b 新返回 true。任意位非数字按 0 处理（容忍 'v1.10' 这类位数不齐）。
+function isNewerVersion(a: string, b: string): boolean {
+  const parts = (v: string) => v.replace(/^v/i, '').split('.').map((n) => Number(n) || 0);
+  const aP = parts(a);
+  const bP = parts(b);
+  for (let i = 0; i < Math.max(aP.length, bP.length); i++) {
+    const ai = aP[i] ?? 0;
+    const bi = bP[i] ?? 0;
+    if (ai > bi) return true;
+    if (ai < bi) return false;
+  }
+  return false;
+}
+
 export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
+  // 区分「升级自动弹」与「footer 主动重看」——只有前者关闭时才把 CURRENT_VERSION 写回 kv，
+  // 后者写 kv 会吞掉下一次升级弹窗。
+  const [autoOpened, setAutoOpened] = useState(false);
   const isMobile = useIsMobile();
   // v1.11.6: 弹窗用 ... 表达式自适应 — 不再需要订阅 uiScale。
   // v1.11.11: 手机端的 auto-zoom < 1 会把 `calc(... / auto-zoom)` 放大成几倍于屏幕,
   //          导致弹窗遮住整个手机屏。手机端改走直接 vw/vh 表达式,不除 auto-zoom。
 
   useEffect(() => {
-    const seen = kvGet(CHANGELOG_KEY);
-    if (seen !== CURRENT_VERSION) {
-      setVisible(true);
-    }
+    let cancelled = false;
+    // 等 IndexedDB → cache 同步完再读 seen，否则首次刷新 cache 未 init，
+    // 已升级过的老用户会被错判为新用户每次都弹一次。initKvCache 幂等可重复 await。
+    (async () => {
+      await initKvCache();
+      if (cancelled) return;
+      const seen = kvGet(CHANGELOG_KEY);
+      // 用 semver 比较而非字符串相等：Vercel 紧急回退 deploy 时（老 build 的 CURRENT_VERSION
+      // < kv 里 seen），不再「弹了又弹」。seen 不存在 → 新用户/迁移用户，弹。
+      if (!seen || isNewerVersion(CURRENT_VERSION, seen)) {
+        setVisible(true);
+        setAutoOpened(true);
+      }
+    })();
 
-    const handler = () => setVisible(true);
+    const handler = () => {
+      setVisible(true);
+      setAutoOpened(false);
+    };
     document.addEventListener('show-changelog', handler);
-    return () => document.removeEventListener('show-changelog', handler);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('show-changelog', handler);
+    };
   }, []);
 
   const close = () => {
-    kvSet(CHANGELOG_KEY, CURRENT_VERSION);
+    if (autoOpened) kvSet(CHANGELOG_KEY, CURRENT_VERSION);
     setVisible(false);
   };
 
@@ -539,7 +608,7 @@ export function ChangelogModal() {
                 opacity: ri === 0 ? 1 : 0.78,
               }}>
                 {rel.items.map((f, i) => (
-                  <li key={i} style={{
+                  <li key={`${rel.version}-${i}`} style={{
                     fontSize: isMobile
                       ? 'calc(12px * var(--system-ratio, 1))'
                       : 'calc(13px * var(--system-ratio, 1))',
