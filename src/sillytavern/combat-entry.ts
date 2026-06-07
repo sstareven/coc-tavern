@@ -105,10 +105,10 @@ export async function enterCombat(opts: EnterCombatOpts): Promise<void> {
   const aidStart = useChatStore.getState().activeId;
   try {
     const s = useSettingsStore.getState();
-    const useMvu = !!(s.mvuUseIndependentApi && s.mvuApiKey?.trim());
-    const base = (useMvu ? s.mvuApiBaseUrl : s.apiBaseUrl) ?? '';
-    const key = (useMvu ? s.mvuApiKey : s.apiKey) ?? '';
-    const model = (useMvu ? s.mvuApiModel : s.apiModel) ?? '';
+    const useMvu = !!(s.mvuUseIndependentApi && s.getEffectiveMvuApi().apiKey?.trim());
+    const base = (useMvu ? s.getEffectiveMvuApi().baseUrl : s.getEffectiveMainApi().baseUrl) ?? '';
+    const key = (useMvu ? s.getEffectiveMvuApi().apiKey : s.getEffectiveMainApi().apiKey) ?? '';
+    const model = (useMvu ? s.getEffectiveMvuApi().model : s.getEffectiveMainApi().model) ?? '';
 
     let enc: Encounter | null = null;
     if (base.trim() && key.trim() && model.trim()) {

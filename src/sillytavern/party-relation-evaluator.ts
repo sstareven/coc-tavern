@@ -76,9 +76,7 @@ export async function evaluatePartyRelations(ctx: EvaluatePartyRelationsCtx): Pr
     return;
   }
 
-  const s = useSettingsStore.getState() as {
-    apiBaseUrl: string; apiKey: string; apiModel: string;
-  };
+  const s = useSettingsStore.getState().getEffectiveMainApi();
 
   const dynamic = [
     '【当前关系图】',
@@ -92,9 +90,9 @@ export async function evaluatePartyRelations(ctx: EvaluatePartyRelationsCtx): Pr
   let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number } | undefined;
   try {
     const resp = await callDsSubagent({
-      apiBaseUrl: s.apiBaseUrl,
+      apiBaseUrl: s.baseUrl,
       apiKey: s.apiKey,
-      model: s.apiModel,
+      model: s.model,
       label: 'party-relation-eval',
       maxTokens: 20000,
       temperature: 0.4,
@@ -117,7 +115,7 @@ export async function evaluatePartyRelations(ctx: EvaluatePartyRelationsCtx): Pr
     if (pageIdx >= 0 && usage) {
       useBookStore.getState().addPageSubCallStat(pageIdx, {
         label: '关系评估',
-        model: s.apiModel,
+        model: s.model,
         hit: usage.prompt_cache_hit_tokens,
         miss: usage.prompt_cache_miss_tokens,
         promptTokens: usage.prompt_tokens,

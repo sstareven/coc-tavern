@@ -59,7 +59,7 @@ export class ScenarioJsonParseError extends Error {
 async function callJson<T>(label: string, user: string, signal?: AbortSignal): Promise<T> {
   // 调用前先检查 abort,避免无意义发起
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-  const { apiBaseUrl, apiKey, apiModel } = useSettingsStore.getState();
+  const { baseUrl: apiBaseUrl, apiKey, model: apiModel } = useSettingsStore.getState().getEffectiveMainApi();
   let parsed: Record<string, unknown> | null = null;
   let parseError: string | undefined;
   let content = '';

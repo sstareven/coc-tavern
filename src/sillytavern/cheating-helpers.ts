@@ -85,6 +85,26 @@ export function pickRollForResult(
 }
 
 /**
+ * 预检每个档位在当前 target/sanCheck 下是否可生成合法点数。
+ * 返回一个 Set，包含不可用的档位（pickRollForResult 会返回 null）。
+ * 在 UI 渲染前调用，以便 CheatingGrid 禁用不可用档位。
+ * 用 rng=0 取区间最小值验证合法性（区间是否非空不依赖随机值）。
+ */
+export function getCheatingDisabledTypes(
+  target: number,
+  sanCheck: boolean,
+): Set<DiceResultType> {
+  const disabled = new Set<DiceResultType>();
+  const rng = () => 0; // 任意固定值，只关心 null 与否
+  for (const type of CHEATING_RESULT_TYPES) {
+    if (pickRollForResult(type, target, sanCheck, rng) === null) {
+      disabled.add(type);
+    }
+  }
+  return disabled;
+}
+
+/**
  * 调试用：验证 pickRollForResult 的返回值喂回 determineResult 是否同档。
  * 单测 verify round-trip 必查项。
  */

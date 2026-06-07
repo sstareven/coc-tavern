@@ -8,7 +8,7 @@
 // 所有判定逻辑在 src/sillytavern/option-staging.ts（纯函数，独立测试）。
 // 复用 dice-panel-state 的 previewLuckResult / commitButtonLabel / maxLuckSpend —— 与 DicePanel 子状态机同款。
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOptionStagingStore } from '../../stores/useOptionStagingStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
@@ -28,7 +28,7 @@ import {
   maxLuckSpend,
 } from '../Dice/dice-panel-state';
 import { IconLuck, IconPush } from '../Layout/TabIcons';
-import { pickRollForResult } from '../../sillytavern/cheating-helpers';
+import { pickRollForResult, getCheatingDisabledTypes } from '../../sillytavern/cheating-helpers';
 import { CheatingGrid } from '../Dice/CheatingGrid';
 import type { DiceRecord, DiceResultType } from '../../types';
 
@@ -58,6 +58,7 @@ export function OptionResolutionOverlay() {
   const [mode, setMode] = useState<'choose' | 'luck-slider'>('choose');
 
   const cheatingEnabled = useSettingsStore((s) => s.cheatingEnabled);
+  const disabledTypes = useMemo(() => pending ? getCheatingDisabledTypes(pending.target, pending.sanCheck) : new Set<DiceResultType>(), [pending]);
 
   // 重置子态：浮层关闭/换 trigger 时回到「choose」
   const visible = !!pending;
@@ -82,12 +83,17 @@ export function OptionResolutionOverlay() {
   }, [pending, resolveStore]);
 
   /** 赐福刻印：玩家手动选择期望的检定结果，取代当前 staging 结果后直接落账。 */
-  const handleCheatingPick = useCallback((type: string) => {
+  const handleCheatingPick = useCallback((type: DiceResultType) => {
     const trigger = pending;
     if (!trigger) return;
 
-    const roll = pickRollForResult(type as DiceResultType, trigger.target, trigger.sanCheck);
-    if (roll === null) return;
+    const roll = pickRollForResult(type, trigger.target, trigger.sanCheck);
+    if (roll === null) {
+      window.dispatchEvent(new CustomEvent('coc:toast', {
+        detail: { type: 'warn', message: '该档位在当前目标值下无法实现' },
+      }));
+      return;
+    }
 
     const label = RESULT_LABEL[type] || type;
     const rollStr = String(roll).padStart(2, '0');
@@ -97,7 +103,7 @@ export function OptionResolutionOverlay() {
     const newRecord: DiceRecord = {
       ...trigger.record,
       roll: rollStr,
-      type: type as DiceResultType,
+      type,
       time: Date.now(),
     };
 
@@ -298,11 +304,12 @@ export function OptionResolutionOverlay() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  style={{ overflow: 'hidden', marginBottom: 12 }}
+                  style={{ marginBottom: 12 }}
                 >
                   <CheatingGrid
                     onSelect={handleCheatingPick}
                     ratioVar="--text-ratio"
+                    disabledTypes={disabledTypes}
                   />
                 </motion.div>
               )}

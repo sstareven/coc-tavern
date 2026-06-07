@@ -89,9 +89,9 @@ export async function expandPrologueToPage(
   ].join('\n');
 
   const req: DsSubagentRequest = {
-    apiBaseUrl: s.apiBaseUrl,
-    apiKey: s.apiKey,
-    model: s.apiModel,
+    apiBaseUrl: s.getEffectiveMainApi().baseUrl,
+    apiKey: s.getEffectiveMainApi().apiKey,
+    model: s.getEffectiveMainApi().model,
     temperature: 0.85,
     maxTokens: 20000,
     rpmLane: 'rewrite',
@@ -158,7 +158,7 @@ export async function expandPrologueToPage(
       cacheHitTokens,
       cacheMissTokens,
       at,
-      model: s.apiModel,
+      model: s.getEffectiveMainApi().model,
     },
   };
 }

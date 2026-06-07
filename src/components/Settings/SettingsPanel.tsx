@@ -9,7 +9,8 @@ import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconQuill, IconClose } from '../Layout/TabIcons';
-import { ModelEndpointConfig } from './ModelEndpointConfig';
+import { ApiModelPicker } from './ApiModelPicker';
+import { ApiManagementTab } from './ApiManagementTab';
 import { TavernHelperContent } from './TavernHelperContent';
 import { PromptTemplateContent } from './PromptTemplateContent';
 import { CheatingContent } from './CheatingContent';
@@ -33,7 +34,7 @@ const PP_OPTIONS = [
 ];
 
 // ── Section type ──
-type SettingsSection = 'general' | 'regex' | 'extensions' | 'tavernHelper' | 'promptTemplate' | 'cheating';
+type SettingsSection = 'general' | 'apiManagement' | 'regex' | 'extensions' | 'tavernHelper' | 'promptTemplate' | 'cheating';
 
 interface Props {
   visible: boolean;
@@ -320,6 +321,7 @@ interface SidebarItem {
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'general', label: '基本设置', icon: <IconGear size={14} /> },
+  { key: 'apiManagement', label: 'API 管理', icon: <IconExtension size={14} /> },
   { key: 'regex', label: '正则脚本', icon: <IconRegex size={14} /> },
   { key: 'extensions', label: '扩展管理', icon: <IconExtension size={14} /> },
   { key: 'tavernHelper', label: '酒馆助手', icon: <IconFlask size={14} /> },
@@ -385,27 +387,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const dsCache = useSettingsStore((s) => s.dsCache);
   const setDsCache = useSettingsStore((s) => s.setDsCache);
   const dsUltraActive = useSettingsStore((s) => s.dsUltraActive);
-  const apiBaseUrl = useSettingsStore((s) => s.apiBaseUrl);
-  const apiModel = useSettingsStore((s) => s.apiModel);
-  const setApiModel = useSettingsStore((s) => s.setApiModel);
-  const setApiBaseUrl = useSettingsStore((s) => s.setApiBaseUrl);
   const promptPostProcessing = useSettingsStore((s) => s.promptPostProcessing);
   const setPromptPostProcessing = useSettingsStore((s) => s.setPromptPostProcessing);
-  const apiKey = useSettingsStore((s) => s.apiKey);
-  const setApiKey = useSettingsStore((s) => s.setApiKey);
-  const availableModels = useSettingsStore((s) => s.availableModels);
-  const setAvailableModels = useSettingsStore((s) => s.setAvailableModels);
 
   const mvuUseIndependentApi = useSettingsStore((s) => s.mvuUseIndependentApi);
   const setMvuUseIndependentApi = useSettingsStore((s) => s.setMvuUseIndependentApi);
   const mvuForceAlways = useSettingsStore((s) => s.mvuForceAlways);
   const setMvuForceAlways = useSettingsStore((s) => s.setMvuForceAlways);
-  const mvuApiBaseUrl = useSettingsStore((s) => s.mvuApiBaseUrl);
-  const setMvuApiBaseUrl = useSettingsStore((s) => s.setMvuApiBaseUrl);
-  const mvuApiModel = useSettingsStore((s) => s.mvuApiModel);
-  const setMvuApiModel = useSettingsStore((s) => s.setMvuApiModel);
-  const mvuApiKey = useSettingsStore((s) => s.mvuApiKey);
-  const setMvuApiKey = useSettingsStore((s) => s.setMvuApiKey);
   const mvuTemperature = useSettingsStore((s) => s.mvuTemperature);
   const setMvuTemperature = useSettingsStore((s) => s.setMvuTemperature);
   const mvuRetryCount = useSettingsStore((s) => s.mvuRetryCount);
@@ -419,13 +407,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const mvuSelfCorrectRetries = useSettingsStore((s) => s.mvuSelfCorrectRetries);
   const setMvuSelfCorrectRetries = useSettingsStore((s) => s.setMvuSelfCorrectRetries);
 
-  const [localApiUrl, setLocalApiUrl] = useState(apiBaseUrl);
-  const [localApiModel, setLocalApiModel] = useState(apiModel);
-  const [localApiKey, setLocalApiKey] = useState(apiKey);
-  const [localMvuUrl, setLocalMvuUrl] = useState(mvuApiBaseUrl);
-  const [localMvuModel, setLocalMvuModel] = useState(mvuApiModel);
-  const [localMvuKey, setLocalMvuKey] = useState(mvuApiKey);
-
   const rewriteUseIndependentApi = useSettingsStore((s) => s.rewriteUseIndependentApi);
   const setRewriteUseIndependentApi = useSettingsStore((s) => s.setRewriteUseIndependentApi);
   const rewriteLite = useSettingsStore((s) => s.rewriteLite);
@@ -433,19 +414,6 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const rewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.rewriteLiteIncludeMatchedLore);
   const setRewriteLiteIncludeMatchedLore = useSettingsStore((s) => s.setRewriteLiteIncludeMatchedLore);
   const lastRewriteSaving = usePromptViewerStore((s) => s.lastRewriteSaving);
-  const rewriteApiBaseUrl = useSettingsStore((s) => s.rewriteApiBaseUrl);
-  const setRewriteApiBaseUrl = useSettingsStore((s) => s.setRewriteApiBaseUrl);
-  const rewriteApiModel = useSettingsStore((s) => s.rewriteApiModel);
-  const setRewriteApiModel = useSettingsStore((s) => s.setRewriteApiModel);
-  const rewriteApiKey = useSettingsStore((s) => s.rewriteApiKey);
-  const setRewriteApiKey = useSettingsStore((s) => s.setRewriteApiKey);
-  const [localRewriteUrl, setLocalRewriteUrl] = useState(rewriteApiBaseUrl);
-  const [localRewriteModel, setLocalRewriteModel] = useState(rewriteApiModel);
-  const [localRewriteKey, setLocalRewriteKey] = useState(rewriteApiKey);
-  const mvuAvailableModels = useSettingsStore((s) => s.mvuAvailableModels);
-  const setMvuAvailableModels = useSettingsStore((s) => s.setMvuAvailableModels);
-  const rewriteAvailableModels = useSettingsStore((s) => s.rewriteAvailableModels);
-  const setRewriteAvailableModels = useSettingsStore((s) => s.setRewriteAvailableModels);
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
 
   const handleReturnToMenu = () => {
@@ -1027,16 +995,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 <div style={{ marginTop: 4 }}>
                   <CategoryBar label="主 API 配置" />
 
-                  <ModelEndpointConfig
-                    apiKey={localApiKey}
-                    setApiKey={(v) => { setLocalApiKey(v); setApiKey(v); }}
-                    url={localApiUrl}
-                    setUrl={(v) => { setLocalApiUrl(v); setApiBaseUrl(v); }}
-                    model={localApiModel}
-                    setModel={(v) => { setLocalApiModel(v); setApiModel(v); }}
-                    availableModels={availableModels}
-                    setAvailableModels={setAvailableModels}
-                  />
+                  <ApiModelPicker channel="main" />
                 </div>
 
                 {/* Prompt Post-Processing */}
@@ -1141,16 +1100,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
 
                   {mvuUseIndependentApi && (
                     <>
-                      <ModelEndpointConfig
-                        apiKey={localMvuKey}
-                        setApiKey={(v) => { setLocalMvuKey(v); setMvuApiKey(v); }}
-                        url={localMvuUrl}
-                        setUrl={(v) => { setLocalMvuUrl(v); setMvuApiBaseUrl(v); }}
-                        model={localMvuModel}
-                        setModel={(v) => { setLocalMvuModel(v); setMvuApiModel(v); }}
-                        availableModels={mvuAvailableModels}
-                        setAvailableModels={setMvuAvailableModels}
-                      />
+                      <ApiModelPicker channel="mvu" />
 
                       <SliderRow
                         label="温度"
@@ -1211,16 +1161,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     </>
                   )}
                   {rewriteUseIndependentApi && (
-                    <ModelEndpointConfig
-                      apiKey={localRewriteKey}
-                      setApiKey={(v) => { setLocalRewriteKey(v); setRewriteApiKey(v); }}
-                      url={localRewriteUrl}
-                      setUrl={(v) => { setLocalRewriteUrl(v); setRewriteApiBaseUrl(v); }}
-                      model={localRewriteModel}
-                      setModel={(v) => { setLocalRewriteModel(v); setRewriteApiModel(v); }}
-                      availableModels={rewriteAvailableModels}
-                      setAvailableModels={setRewriteAvailableModels}
-                    />
+                    <ApiModelPicker channel="rewrite" />
                   )}
                 </div>
 
@@ -1236,6 +1177,12 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 >
                   返回主菜单
                 </button>
+              </motion.div>
+            )}
+
+            {section === 'apiManagement' && (
+              <motion.div key="apiManagement" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+                <ApiManagementTab />
               </motion.div>
             )}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatPipeline } from '../../hooks/useChatPipeline';
-import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { useNpcStore } from '../../stores/useNpcStore';
@@ -23,7 +23,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 export function InputBar() {
   const [input, setInput] = useState('');
   const [wandOpen, setWandOpen] = useState(false);
-  const apiModel = useSettingsStore((s) => s.apiModel);
+  const apiModel = useApiProfilesStore((s) => s.selectedMainModel);
   const isMobile = useIsMobile();
 
   // 手机端任一全屏面板开启时(背包/角色/名册/地图),隐藏 ActionSheet 入口,避免与浮层叠加。

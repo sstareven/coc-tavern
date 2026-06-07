@@ -51,6 +51,7 @@ export function App() {
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
   // Konami 序列（↑↑↓↓←→←→BA）解锁「领受赐福」作弊 tab —— 持久化到 useSettingsStore，
   // 后续会话从 store 读 cheatingUnlocked 直接显示 tab，无需再输。
+  const cheatingUnlocked = useSettingsStore((s) => s.cheatingUnlocked);
   useKonamiCode(() => {
     const { cheatingUnlocked, unlockCheating } = useSettingsStore.getState();
     if (cheatingUnlocked) return;
@@ -60,7 +61,7 @@ export function App() {
         detail: { type: 'success', message: '✦ 深渊的祝福已显现于设置中 ✦' },
       }));
     } catch { /* SSR/非浏览器忽略 */ }
-  });
+  }, { enabled: !cheatingUnlocked });
   const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'rosterPick' | 'rosterPreview' | 'creator' | 'game'>('landing');
   const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
   const [activating, setActivating] = useState(false); // 剧本激活中(扩首页 LLM 调用)的 loading 覆盖层

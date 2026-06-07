@@ -12,9 +12,9 @@ import type { ScenarioCustomSkill, ScenarioMeta } from '../../types/scenario';
 vi.mock('../../stores/useSettingsStore', () => ({
   useSettingsStore: {
     getState: () => ({
-      apiBaseUrl: 'https://api.example.com',
-      apiKey: 'k',
-      apiModel: 'deepseek-chat',
+      getEffectiveMainApi: () => ({ baseUrl: 'https://api.example.com', apiKey: 'k', model: 'deepseek-chat' }),
+      getEffectiveMvuApi: () => ({ baseUrl: 'https://api.example.com', apiKey: 'k', model: 'deepseek-chat' }),
+      getEffectiveRewriteApi: () => ({ baseUrl: 'https://api.example.com', apiKey: 'k', model: 'deepseek-chat' }),
     }),
   },
 }));

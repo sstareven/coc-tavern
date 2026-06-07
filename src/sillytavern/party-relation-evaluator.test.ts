@@ -12,13 +12,13 @@ vi.mock('./subagent-call', () => ({
 }));
 import { callDsSubagent } from './subagent-call';
 
-// 桩 useSettingsStore —— 提供最低限的 api 三件套 + apiModel
+// 桩 useSettingsStore —— 提供最低限的 effective API selector
 vi.mock('../stores/useSettingsStore', () => ({
   useSettingsStore: {
     getState: () => ({
-      apiBaseUrl: 'https://api.test',
-      apiKey: 'k',
-      apiModel: 'test-model',
+      getEffectiveMainApi: () => ({ baseUrl: 'https://api.test', apiKey: 'k', model: 'test-model' }),
+      getEffectiveMvuApi: () => ({ baseUrl: 'https://api.test', apiKey: 'k', model: 'test-model' }),
+      getEffectiveRewriteApi: () => ({ baseUrl: 'https://api.test', apiKey: 'k', model: 'test-model' }),
     }),
   },
 }));

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SUBAGENT_SHARED_SYSTEM, wrapSubagentMessages } from './subagent-shared';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useApiProfilesStore } from '../stores/useApiProfilesStore';
 import { DEFAULT_DS_CACHE_CONFIG } from './deepseek-cache';
 
 const DS_ON_CONFIG = {
@@ -9,12 +10,31 @@ const DS_ON_CONFIG = {
   targetSources: 'deepseek,custom',
 };
 
+/** v1.14.0 起 model 改由 useApiProfilesStore 承载 — 测试用 helper 模拟主线 profile+model。 */
+function setMockMainModel(model: string): void {
+  useApiProfilesStore.setState({
+    apiProfiles: [{
+      id: 'test', label: 'test', apiBaseUrl: 'https://test',
+      apiKey: 'test', availableModels: [model],
+      createdAt: 0, updatedAt: 0,
+    }],
+    selectedMainApiProfileId: 'test',
+    selectedMainModel: model,
+  });
+}
+
 beforeEach(() => {
-  useSettingsStore.setState({ dsCache: { ...DEFAULT_DS_CACHE_CONFIG }, apiModel: 'deepseek-v4-pro' });
+  useSettingsStore.setState({ dsCache: { ...DEFAULT_DS_CACHE_CONFIG } });
+  setMockMainModel('deepseek-v4-pro');
 });
 
 afterEach(() => {
   useSettingsStore.setState({ dsCache: { ...DEFAULT_DS_CACHE_CONFIG } });
+  useApiProfilesStore.setState({
+    apiProfiles: [],
+    selectedMainApiProfileId: null,
+    selectedMainModel: '',
+  });
 });
 
 describe('wrapSubagentMessages', () => {
@@ -44,8 +64,8 @@ describe('wrapSubagentMessages', () => {
   it('非 DS 模型也会包装(跨 API 通用)：targetSources 不再起限制作用', () => {
     useSettingsStore.setState({
       dsCache: { ...DS_ON_CONFIG, targetSources: 'openai' }, // 任何 sources 都不影响
-      apiModel: 'gpt-4o',
     });
+    setMockMainModel('gpt-4o');
     const input = [
       { role: 'system' as const, content: 'ORIG_SYS' },
       { role: 'user' as const, content: 'ORIG_USER' },
@@ -56,7 +76,8 @@ describe('wrapSubagentMessages', () => {
   });
 
   it('开关开启 + DS 模型 → 包装：system 换为 SHARED；原 system 下沉到 user 头部', () => {
-    useSettingsStore.setState({ dsCache: DS_ON_CONFIG, apiModel: 'deepseek-v4-pro' });
+    useSettingsStore.setState({ dsCache: DS_ON_CONFIG });
+    setMockMainModel('deepseek-v4-pro');
     const input = [
       { role: 'system' as const, content: 'ORIG_SYS_CONTENT' },
       { role: 'user' as const, content: 'ORIG_USER_CONTENT' },
@@ -81,7 +102,8 @@ describe('wrapSubagentMessages', () => {
   });
 
   it('多次包装相同输入 → messages[0].content 字节级稳定（缓存友好性核心保证）', () => {
-    useSettingsStore.setState({ dsCache: DS_ON_CONFIG, apiModel: 'deepseek-v4-pro' });
+    useSettingsStore.setState({ dsCache: DS_ON_CONFIG });
+    setMockMainModel('deepseek-v4-pro');
     const a = wrapSubagentMessages(
       [
         { role: 'system' as const, content: 'A_SYS' },
@@ -102,14 +124,16 @@ describe('wrapSubagentMessages', () => {
   });
 
   it('无 system 或无 user → 边界保守原样返回', () => {
-    useSettingsStore.setState({ dsCache: DS_ON_CONFIG, apiModel: 'deepseek-v4-pro' });
+    useSettingsStore.setState({ dsCache: DS_ON_CONFIG });
+    setMockMainModel('deepseek-v4-pro');
     expect(wrapSubagentMessages([{ role: 'user', content: 'U' }], 't')[0].content).toBe('U');
     expect(wrapSubagentMessages([{ role: 'system', content: 'S' }], 't')[0].content).toBe('S');
     expect(wrapSubagentMessages([], 't')).toEqual([]);
   });
 
   it('多条 messages(含 assistant prefill) → 保留 assistant 在末尾', () => {
-    useSettingsStore.setState({ dsCache: DS_ON_CONFIG, apiModel: 'deepseek-v4-pro' });
+    useSettingsStore.setState({ dsCache: DS_ON_CONFIG });
+    setMockMainModel('deepseek-v4-pro');
     const input = [
       { role: 'system' as const, content: 'S' },
       { role: 'user' as const, content: 'U' },

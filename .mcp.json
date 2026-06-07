@@ -7,6 +7,10 @@
         "serve",
         "--mcp"
       ]
+    },
+    "chrome-mcp-server": {
+      "type": "stdio",
+      "command": "mcp-chrome-stdio"
     }
   }
 }

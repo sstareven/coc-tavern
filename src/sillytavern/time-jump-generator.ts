@@ -59,11 +59,7 @@ const STATIC_PREFIX: Record<TimeJumpReason, string> = {
  * 上层不愿处理异常。网络/解析失败一律退到空结果。
  */
 export async function generateTimeJump(req: TimeJumpRequest): Promise<TimeJumpResult> {
-  const s = useSettingsStore.getState() as {
-    apiBaseUrl: string;
-    apiKey: string;
-    apiModel: string;
-  };
+  const s = useSettingsStore.getState().getEffectiveMainApi();
   const dynamic = [
     req.tableEntry ? `tableEntry: ${req.tableEntry}` : '',
     req.durationHint ? `durationHint: ${req.durationHint}` : '',
@@ -75,9 +71,9 @@ export async function generateTimeJump(req: TimeJumpRequest): Promise<TimeJumpRe
 
   try {
     const resp = await callDsSubagent({
-      apiBaseUrl: s.apiBaseUrl,
+      apiBaseUrl: s.baseUrl,
       apiKey: s.apiKey,
-      model: s.apiModel,
+      model: s.model,
       label: `time-jump/${req.reason}`,
       maxTokens: 20000,
       temperature: 0.8,
