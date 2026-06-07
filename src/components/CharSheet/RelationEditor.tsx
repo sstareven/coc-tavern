@@ -108,6 +108,8 @@ export function RelationEditor({
   return (
     <div
       className="scenario-editor"
+      data-testid="relation-editor"
+      data-current-char-id={currentCharId}
       style={{
         display: 'flex',
         gap: 14,

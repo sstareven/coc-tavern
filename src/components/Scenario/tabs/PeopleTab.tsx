@@ -7,6 +7,7 @@ import { defaultSheet } from '../../../stores/useCharSheetStore';
 import { useScenarioStore } from '../../../stores/useScenarioStore';
 import { buildCharSheetDescription } from '../../../data/scenarios/_npc-helpers';
 import { EntryListPane } from './EntryListPane';
+import { RelationEditor } from '../../CharSheet/RelationEditor';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -49,6 +50,7 @@ const ROLE_LABELS: Record<ScenarioCharacter['role'], string> = {
 export function PeopleTab({ scn, onChange, onToast }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bgExpanded, setBgExpanded] = useState(false);
+  const [relExpanded, setRelExpanded] = useState(false);
   const selected = selectedId ? scn.characters.find((c) => c.id === selectedId) ?? null : null;
 
   const commitChars = (next: ScenarioCharacter[]): void => {
@@ -371,6 +373,37 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                       onChange={(e) => patchBgField('initialItemsRaw', e.target.value)}
                     />
                   </Row>
+                </ExpandableSection>
+
+                {/* 折叠区: 该角色对剧本其它角色的关系出边 */}
+                <ExpandableSection
+                  title="人际关系"
+                  hint="该角色对剧本其它角色的关系出边 — 双向语义由 relation-graph 自动补全"
+                  expanded={relExpanded}
+                  onToggle={() => setRelExpanded((v) => !v)}
+                >
+                  <RelationEditor
+                    scenarioDoc={scn}
+                    currentCharId={selected.id}
+                    relations={selected.relations ?? []}
+                    presentAtStart={
+                      scn.characters
+                        .filter((c) => c.presentAtStart === true)
+                        .map((c) => c.id)
+                    }
+                    onChange={(nextRelations, nextPresent) => {
+                      const updatedSelected: ScenarioCharacter = { ...selected, relations: nextRelations };
+                      const presentSet = new Set(nextPresent);
+                      const newCharacters = scn.characters.map((c) => {
+                        if (c.id === selected.id) return updatedSelected;
+                        const shouldBePresent = presentSet.has(c.id);
+                        if (c.presentAtStart === true && !shouldBePresent) return { ...c, presentAtStart: false };
+                        if (c.presentAtStart !== true && shouldBePresent) return { ...c, presentAtStart: true };
+                        return c;
+                      });
+                      commitChars(newCharacters);
+                    }}
+                  />
                 </ExpandableSection>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
