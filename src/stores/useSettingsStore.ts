@@ -407,8 +407,21 @@ export const useSettingsStore = create<SettingsStore>()(
       // 反序列化时给 dsCache 做深合并:zustand 默认顶层 shallow merge,会让老存档里缺失的
       // dsCache 子字段(如 v1.8 没有的 restructure/experimentalPrefixDiagnostics 等)整块覆盖
       // 默认值——结果 UI 的 `!== false` 显 ON、管线的 `=== true` 视 OFF,功能形同未启用。
+      //
+      // v1.14+ 迁移: cc6dd64 将 blessingUnlocked/blessingEnabled 重命名为
+      // cheatingUnlocked/cheatingEnabled,老存档含旧 key,merge 时自动搬过来。
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<SettingsStore>;
+        const p = (persisted ?? {}) as Partial<SettingsStore> & {
+          blessingUnlocked?: boolean;
+          blessingEnabled?: boolean;
+        };
+        // 旧 key → 新 key 迁移
+        if (p.blessingUnlocked !== undefined && p.cheatingUnlocked === undefined) {
+          p.cheatingUnlocked = p.blessingUnlocked;
+        }
+        if (p.blessingEnabled !== undefined && p.cheatingEnabled === undefined) {
+          p.cheatingEnabled = p.blessingEnabled;
+        }
         return {
           ...current,
           ...p,

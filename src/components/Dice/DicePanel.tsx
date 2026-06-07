@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDiceStore, canStartPush } from '../../stores/useDiceStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
@@ -20,7 +20,7 @@ import {
   sfxCritFailure,
 } from '../../audio/sfx';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { pickRollForResult } from '../../sillytavern/cheating-helpers';
+import { pickRollForResult, getCheatingDisabledTypes } from '../../sillytavern/cheating-helpers';
 import { CheatingGrid } from './CheatingGrid';
 
 const resultLabel: Record<DiceResultType, string> = {
@@ -187,6 +187,7 @@ export function DicePanel() {
   const cheatingEnabled = useSettingsStore((s) => s.cheatingEnabled);
   const [cheatingOpen, setCheatingOpen] = useState(false);
   const [pendingCheatingType, setPendingCheatingType] = useState<DiceResultType | null>(null);
+  const disabledTypes = useMemo(() => getCheatingDisabledTypes(Number(target), sanCheck), [target, sanCheck]);
 
   useEffect(() => {
     setLocalTarget(String(target));
@@ -511,12 +512,12 @@ export function DicePanel() {
           </div>
 
           {/* Roll button */}
-          <motion.button onClick={handleRoll} whileTap={{ scale: 0.96 }}
+          <motion.button onClick={cheatingOpen ? undefined : handleRoll} disabled={cheatingOpen} whileTap={cheatingOpen ? undefined : { scale: 0.96 }}
             style={{
               width: '100%', padding: '12px 0', border: '1px solid var(--gold)',
               borderRadius: 4, background: 'rgba(196,168,85,0.12)', color: 'var(--gold)',
               fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--system-ratio, 1))', letterSpacing: 8,
-              cursor: 'pointer', transition: 'var(--transition-smooth)', marginBottom: 16,
+              cursor: cheatingOpen ? 'not-allowed' : 'pointer', opacity: cheatingOpen ? 0.3 : 1, transition: 'var(--transition-smooth)', marginBottom: 16,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.25)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.12)'; }}
@@ -555,6 +556,7 @@ export function DicePanel() {
                 selectedType={pendingCheatingType}
                 onSelect={(type) => setPendingCheatingType(pendingCheatingType === type ? null : type)}
                 animated
+                disabledTypes={disabledTypes}
               />
 
               {/* Bottom action buttons */}
@@ -568,9 +570,8 @@ export function DicePanel() {
                 {pendingCheatingType && (
                   <button
                     onClick={() => {
-                      const target = localTarget || 50;
-                      const sanCheck = useDiceStore.getState().sanCheck;
-                      const roll = pickRollForResult(pendingCheatingType, Number(target), sanCheck);
+                      const store = useDiceStore.getState();
+                      const roll = pickRollForResult(pendingCheatingType, store.target, store.sanCheck);
                       if (roll !== null) {
                         setDisplayFinal(roll);
                         setLocalResult(pendingCheatingType);
