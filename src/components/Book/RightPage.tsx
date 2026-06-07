@@ -464,7 +464,6 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
             fontStyle: 'italic',
             color: 'var(--ink-subtle)',
             lineHeight: 1.7,
-            transition: 'all 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             ...fadeStyle,
           }}
         >
