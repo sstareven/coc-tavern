@@ -112,7 +112,7 @@ export function GameView({ onReturnToMenu }: Props) {
       {isMobile ? (
         <div style={{
           display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
-          padding: '4px 10px', background: '#14100b',
+          padding: '2px 10px', background: '#14100b',
           borderBottom: '1px solid rgba(196,168,85,0.08)',
         }}>
           <TeamSidebar />

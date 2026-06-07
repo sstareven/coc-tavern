@@ -45,10 +45,10 @@ export function ActionSheet() {
         <button
           onClick={() => setOpen(true)}
           style={{
-            flexShrink: 0, margin: '0 10px 6px', padding: '10px',
+            flexShrink: 0, margin: '0 10px 3px', padding: '8px',
             borderRadius: 8, border: 'none',
             background: 'linear-gradient(180deg, #c4a855, #a8893f)',
-            color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'calc(16px * var(--text-ratio, 1))', letterSpacing: 3,
+            color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'calc(15px * var(--text-ratio, 1))', letterSpacing: 3,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             boxShadow: '0 3px 9px rgba(0,0,0,0.4)', cursor: 'pointer',
             transition: 'transform 0.2s cubic-bezier(0.4,0,0.2,1), filter 0.2s cubic-bezier(0.4,0,0.2,1)',

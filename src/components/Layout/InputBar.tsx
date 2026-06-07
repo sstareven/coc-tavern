@@ -198,7 +198,7 @@ export function InputBar() {
             display: 'flex',
             alignItems: 'center',
             gap: isMobile ? 6 : 8,
-            padding: isMobile ? '8px 10px' : '10px 24px',
+            padding: isMobile ? '5px 10px' : '10px 24px',
           }}
         >
           {/* Magic wand button with popup menu */}

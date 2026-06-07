@@ -83,7 +83,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   if (compact) {
     return (
       <div style={{
-        display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center',
+        display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center',
         fontFamily: 'var(--font-display)', fontSize: 'calc(12px * var(--text-ratio, 1))',
         color: 'var(--parchment)', userSelect: 'none', width: '100%',
       }}>

@@ -97,7 +97,7 @@ export function MobileNoteView() {
           style={{
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', minHeight: 0,
-            margin: 10, padding: '16px 16px 12px', borderRadius: 8,
+            margin: 4, padding: '10px 12px 8px', borderRadius: 8,
             background: 'linear-gradient(160deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
             color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75,
