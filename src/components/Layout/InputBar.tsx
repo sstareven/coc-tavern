@@ -8,6 +8,8 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { useMapStore } from '../../stores/useMapStore';
+import { useInventoryStore } from '../../stores/useInventoryStore';
+import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { resolveButtonMode } from '../../sillytavern/choice-match';
@@ -15,11 +17,22 @@ import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { StreamingPreview } from '../Shared/StreamingPreview';
+import { ActionSheet } from '../Book/ActionSheet';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export function InputBar() {
   const [input, setInput] = useState('');
   const [wandOpen, setWandOpen] = useState(false);
   const apiModel = useSettingsStore((s) => s.apiModel);
+  const isMobile = useIsMobile();
+
+  // 手机端任一全屏面板开启时(背包/角色/名册/地图),隐藏 ActionSheet 入口,避免与浮层叠加。
+  const inventoryOpen = useInventoryStore((s) => s.isOpen);
+  const charSheetOpen = useCharSheetStore((s) => s.isOpen);
+  const npcOpen = useNpcStore((s) => s.isOpen);
+  const mapOpen = useMapStore((s) => s.isOpen);
+  const anyMobileOverlay = inventoryOpen || charSheetOpen || npcOpen || mapOpen;
+  const showMobileActionSheet = isMobile && !anyMobileOverlay;
 
   const currentPage = useBookStore((s) => s.pages[s.pageIndex]);
   const currentChoices = currentPage
@@ -150,8 +163,12 @@ export function InputBar() {
           borderTop: '1px solid rgba(196,168,85,0.15)',
           background: 'rgba(13,10,7,0.85)',
           backdropFilter: 'blur(8px)',
+          position: 'relative', // ActionSheet 抽屉以此为锚向上展开
+          zIndex: 11,           // 高于 ActionSheet 遮罩(8)/抽屉(9),确保 InputBar 始终可触发
         }}
       >
+        {/* 手机端: 选择行动入口 / 抽屉,放在 footer 顶部贴住 InputBar 输入行上方 */}
+        {showMobileActionSheet && <ActionSheet />}
         <style>{`.inputbar-textarea::-webkit-scrollbar{width:5px}.inputbar-textarea::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
         {pipeline.error && (
           <div

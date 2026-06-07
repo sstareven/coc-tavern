@@ -28,24 +28,24 @@ export function ActionSheet() {
 
   return (
     <>
-      {/* 叙事变暗遮罩 */}
+      {/* 叙事变暗遮罩 —— 全屏 fixed,InputBar 通过更高 z-index(11) 浮在其上保持可触发 */}
       <AnimatePresence>
         {open && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             onClick={() => setOpen(false)}
-            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.42)', zIndex: 8 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.42)', zIndex: 8 }}
           />
         )}
       </AnimatePresence>
 
-      {/* 入口条（收起态） */}
+      {/* 入口条(收起态) —— 紧贴 footer 顶部,作为 InputBar footer 的第一个 flex item */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
           style={{
-            flexShrink: 0, margin: '0 10px 8px', padding: '10px',
+            flexShrink: 0, margin: '0 10px 6px', padding: '10px',
             borderRadius: 8, border: 'none',
             background: 'linear-gradient(180deg, #c4a855, #a8893f)',
             color: '#1a1410', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'calc(16px * var(--text-ratio, 1))', letterSpacing: 3,
@@ -61,17 +61,18 @@ export function ActionSheet() {
         </button>
       )}
 
-      {/* 抽屉（展开态） */}
+      {/* 抽屉(展开态) —— bottom:100% 锚到 footer 顶部往上展开,max-height 限制不触及顶部状态栏 */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
             transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
             style={{
-              position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 9,
-              margin: '0 8px 8px', padding: '9px 9px 5px',
+              position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 9,
+              margin: '0 8px 6px', padding: '9px 9px 5px',
               background: 'rgba(13,10,7,0.95)', border: '1px solid var(--gold)',
               borderRadius: '12px 12px 8px 8px', boxShadow: '0 -10px 26px rgba(0,0,0,0.6)',
+              maxHeight: '52vh', display: 'flex', flexDirection: 'column',
             }}
           >
             {/* grip */}
@@ -94,11 +95,11 @@ export function ActionSheet() {
               >收起 ▼</span>
             </div>
 
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
               <div
                 ref={scrollRef}
                 onScroll={(e) => { if (e.currentTarget.scrollTop > 4) setScrolled(true); }}
-                style={{ maxHeight: '42vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: showCue ? 28 : 0, WebkitOverflowScrolling: 'touch' }}
+                style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: showCue ? 28 : 0, WebkitOverflowScrolling: 'touch' }}
               >
                 {allChoices.map((ch) => <ChoiceButton key={`${ch.num}-${ch.text}`} choice={ch} variant="dark" />)}
               </div>
