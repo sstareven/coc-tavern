@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { ScenarioDoc, ScenarioCharacter } from '../../../types/scenario';
 import { defaultSheet } from '../../../stores/useCharSheetStore';
+import { useScenarioStore } from '../../../stores/useScenarioStore';
 import { buildCharSheetDescription } from '../../../data/scenarios/_npc-helpers';
 import { EntryListPane } from './EntryListPane';
 
@@ -37,11 +38,12 @@ function makeBlankCharacter(): ScenarioCharacter {
   };
 }
 
-// role 三档显示标签
+// role 四档显示标签
 const ROLE_LABELS: Record<ScenarioCharacter['role'], string> = {
   protagonist: '推荐视角',
   optional: '配角可玩',
   locked_npc: '钉死 NPC',
+  player_created: '玩家创建',
 };
 
 export function PeopleTab({ scn, onChange, onToast }: Props) {
@@ -146,35 +148,71 @@ export function PeopleTab({ scn, onChange, onToast }: Props) {
                 color: 'rgba(196,168,85,0.55)', fontSize: 12, fontFamily: 'var(--font-ui)',
               }}>暂无角色</div>
             ) : (
-              scn.characters.map((c) => {
-                const active = c.id === selectedId;
-                const name = c.sheet?.identity?.name || c.npcAttrs.identityTag || '未命名';
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedId(c.id)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', gap: 3,
-                      width: '100%', textAlign: 'left',
-                      padding: '8px 12px',
-                      background: active ? 'rgba(196,168,85,0.14)' : 'transparent',
-                      border: 'none',
-                      borderLeft: active ? '2px solid var(--brass)' : '2px solid transparent',
-                      color: 'var(--text-light, #d0c2a0)',
-                      fontFamily: 'var(--font-ui)',
-                      cursor: 'pointer',
-                      transition: `background 180ms ${EASE}`,
-                    }}
-                    onMouseEnter={(ev) => { if (!active) ev.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
-                    onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <div style={{ fontSize: 12.5, color: active ? 'var(--gold)' : 'var(--text-light)' }}>{name}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.55)' }}>
-                      {ROLE_LABELS[c.role]}
+              <>
+                {/* 玩家位占位:始终首位,disabled+tooltip,关系由 CharCreator 步骤 5 编辑 */}
+                <button
+                  key="__player_placeholder"
+                  type="button"
+                  disabled
+                  title="玩家关系由 CharCreator 步骤 5 编辑,此处不可改"
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 3,
+                    width: '100%', textAlign: 'left',
+                    padding: '8px 12px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderLeft: '2px solid transparent',
+                    color: 'rgba(196,168,85,0.4)',
+                    fontFamily: 'var(--font-ui)',
+                    cursor: 'not-allowed',
+                    opacity: 0.7,
+                  }}
+                >
+                  <div style={{ fontSize: 12.5 }}>@创建调查员</div>
+                  <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.4)' }}>玩家位</div>
+                </button>
+                {scn.characters.map((c) => {
+                  const active = c.id === selectedId;
+                  const name = c.sheet?.identity?.name || c.npcAttrs.identityTag || '未命名';
+                  const isPlayerCreated = c.role === 'player_created';
+                  return (
+                    <div key={c.id} style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => setSelectedId(c.id)}
+                        style={{
+                          display: 'flex', flexDirection: 'column', gap: 3,
+                          width: '100%', textAlign: 'left',
+                          padding: isPlayerCreated ? '8px 32px 8px 12px' : '8px 12px',
+                          background: active ? 'rgba(196,168,85,0.14)' : 'transparent',
+                          border: 'none',
+                          borderLeft: active ? '2px solid var(--brass)' : '2px solid transparent',
+                          color: 'var(--text-light, #d0c2a0)',
+                          fontFamily: 'var(--font-ui)',
+                          cursor: 'pointer',
+                          transition: `background 180ms ${EASE}`,
+                        }}
+                        onMouseEnter={(ev) => { if (!active) ev.currentTarget.style.background = 'rgba(196,168,85,0.06)'; }}
+                        onMouseLeave={(ev) => { if (!active) ev.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <div style={{ fontSize: 12.5, color: active ? 'var(--gold)' : 'var(--text-light)' }}>{name}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(196,168,85,0.55)' }}>
+                          {ROLE_LABELS[c.role]}
+                        </div>
+                      </button>
+                      {isPlayerCreated && (
+                        <DeletePlayerCreatedBtn
+                          name={name}
+                          onConfirm={() => {
+                            useScenarioStore.getState().applyPatch(scn.id, { removeCharacterIds: [c.id] });
+                            if (selectedId === c.id) setSelectedId(null);
+                            onToast?.(`已删除自创卡 ${name}`);
+                          }}
+                        />
+                      )}
                     </div>
-                  </button>
-                );
-              })
+                  );
+                })}
+              </>
             )}
           </div>
 
@@ -475,5 +513,40 @@ function ExpandableSection({
         </div>
       )}
     </div>
+  );
+}
+
+/** player_created 角色行右上角的小型删除按钮 — hover 红边 + 二次确认 */
+function DeletePlayerCreatedBtn({ name, onConfirm }: { name: string; onConfirm: () => void }) {
+  const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const scale = pressed ? 0.92 : hover ? 1.1 : 1;
+  return (
+    <button
+      type="button"
+      aria-label="删除自创卡"
+      title={`删除自创卡 ${name}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (window.confirm(`确定删除自创卡「${name}」?此操作不可撤销。`)) onConfirm();
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPressed(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      style={{
+        position: 'absolute', right: 6, top: 8,
+        width: 20, height: 20, padding: 0,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: hover ? 'rgba(177,74,74,0.18)' : 'transparent',
+        border: `1px solid ${hover ? '#b14a4a' : 'rgba(196,168,85,0.25)'}`,
+        borderRadius: 2,
+        color: hover ? '#d97676' : 'rgba(196,168,85,0.6)',
+        fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1,
+        cursor: 'pointer',
+        transform: `scale(${scale})`,
+        transition: `transform 160ms ${EASE}, background 160ms ${EASE}, color 160ms ${EASE}, border-color 160ms ${EASE}`,
+      }}
+    >×</button>
   );
 }
