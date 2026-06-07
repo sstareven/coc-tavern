@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.13.1';
+export const CURRENT_VERSION = 'v1.13.2';
 
 interface Release {
   version: string;
@@ -19,6 +19,16 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.13.2',
+    label: '首屏读取速度优化:BGM 延迟加载 · 启动序列两阶段 · 世界书 rehydrate 改 O(N)',
+    items: [
+      '【首屏·BGM 不再抢带宽】LandingScreen 一进就 subscribeBgmLoadProgress 触发 getAudio(),浏览器立刻按 preload=auto 拉 38MB BGM.mp3,与 Dexie/IDB 抢主线程和网络带宽,使首屏渲染 + 数据库初始化变慢。现 audio.preload 改为 metadata(只拉头部 ~几十 KB,完整下载延后到 startBgm() 内 audio.play() 触发,此时已是用户手势之后);LandingScreen 订阅再延迟 1.2 秒等首屏渲染稳定;BgmLoadingBar 文案去掉百分比(从「BGM 缓冲 N%」→「BGM 缓冲中」),避免让玩家误以为必须等到 100% 才能玩',
+      '【启动序列·两阶段并行】App.tsx 旧版把 initKvCache → seedFusionPreset → migrateFromLocalStorage → db.open → loadConversation 5 步全串行 await,期间整页只有一个旋转 spinner、首屏完全失明。现拆成两阶段:Stage 1 只阻塞 initKvCache + db.open(总 ~50-300ms),完成立刻 setReady(true) 让 LandingScreen 可见;Stage 2 把 seedFusionPreset + migrateFromLocalStorage 改 Promise.all 并行后台跑,完成后再 loadConversation 恢复活跃会话(全程不阻塞首屏)',
+      '【世界书 rehydrate·O(N×M²) → O(N+M)】useLorebookStore.onRehydrateStorage 旧版为每条内置条目都做 `merged[bookId] = {...book, entries:{...book.entries, [eid]: ...}}` 双层 spread —— 100+ 条目意味着 100+ 次「整本 entries map 全量浅拷」,Zustand 首次 rehydrate 时阻塞主线程 60-150ms。现改为单遍 in-place:每本书只浅拷一次 entries map,内层条目直接赋值;复杂度从 O(N×M²) 降到 O(N+M),同时少几百个临时对象减轻 GC 压力',
+      '【全局诊断】出本版前做了 6 路并行诊断(启动序列 / store rehydrate / BGM / bundle 拆分 / 世界书引擎 / React render),综合 47 个 hotspot 排出 ROI Top 5。本版落地了 Top 1 / Top 2 / Top 4 三项 small + low risk;Top 3(Vite manualChunks + 12 个 overlay panel lazy)和 Top 5(SettingsPanel 68 个 selector 合并)留下版迭代',
+    ],
+  },
   {
     version: 'v1.13.1',
     label: '手机端 UX 大修 · 程序化 BGM 接入 · 设置面板 UI 风格统一',

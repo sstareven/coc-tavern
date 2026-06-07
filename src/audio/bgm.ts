@@ -52,7 +52,9 @@ function getAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio(BGM_SRC);
     audio.loop = true;
-    audio.preload = 'auto';
+    // preload='metadata' 而非 'auto' —— 首屏只拉 mp3 头部(~几十 KB),不抢 38MB 的带宽。
+    // 完整下载推迟到 startBgm() 内 audio.play() 触发,此时已是用户手势之后。
+    audio.preload = 'metadata';
     audio.crossOrigin = 'anonymous';
     audio.addEventListener('error', () => { loadFailed = true; }, { once: true });
   }

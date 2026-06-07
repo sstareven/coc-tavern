@@ -24,7 +24,6 @@ export function BgmLoadingBar({ progress, visible }: Props) {
   if (!mounted) return null;
 
   const pct = Math.max(0, Math.min(1, progress));
-  const pctText = `${Math.floor(pct * 100)}`;
 
   return (
     <div
@@ -57,7 +56,7 @@ export function BgmLoadingBar({ progress, visible }: Props) {
         />
       </div>
 
-      {/* 文字 */}
+      {/* 文字 —— 不显示百分比避免「必须等到 100% 才能玩」的误导,只标识 BGM 在后台缓冲。 */}
       <span
         style={{
           fontFamily: 'var(--font-ui)',
@@ -66,9 +65,10 @@ export function BgmLoadingBar({ progress, visible }: Props) {
           letterSpacing: 1,
           whiteSpace: 'nowrap',
           minWidth: 84, textAlign: 'right',
+          opacity: 0.7,
         }}
       >
-        BGM 缓冲 {pctText}%
+        BGM 缓冲中
       </span>
     </div>
   );

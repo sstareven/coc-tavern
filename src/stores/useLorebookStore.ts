@@ -600,47 +600,39 @@ export const useLorebookStore = create<LorebookStore>()(
           preventRecursion: true, delayUntilRecursion: false, excludeRecursion: false,
           ignoreReplyLimit: false,
         };
-        const merged = { ...state.books };
+        // 单遍 in-place 合并 —— 旧实现对每个 entry 都做 {...book, entries:{...book.entries, [eid]: ...}}
+        // 双层 spread,N 本书 × M 条目复杂度 O(N×M²)(每条 entry 触发整本 entries map 浅拷)。
+        // 改为:每本书只浅拷一次 entries map,内层 in-place 赋值。复杂度 O(N+M)。
+        const merged: typeof state.books = { ...state.books };
         for (const [bookId, defaultBook] of Object.entries(defaultBooks)) {
-          if (!merged[bookId]) {
+          const existingBook = merged[bookId];
+          if (!existingBook) {
             merged[bookId] = defaultBook;
-          } else {
-            for (const [entryId, defaultEntry] of Object.entries(defaultBook.entries)) {
-              const existing = merged[bookId].entries[entryId];
-              if (!existing) {
-                // 缺失的内置条目：补入最新默认
-                merged[bookId] = {
-                  ...merged[bookId],
-                  entries: { ...merged[bookId].entries, [entryId]: defaultEntry },
-                };
-              } else {
-                // 已存在的内置条目：强制同步系统 content（随版本更新，如世界书条件解锁改造），
-                // 仅保留用户的启用/禁用状态，避免老存档停留在旧的「无条件吐全文」版本
-                merged[bookId] = {
-                  ...merged[bookId],
-                  entries: {
-                    ...merged[bookId].entries,
-                    [entryId]: { ...defaultEntry, disabled: existing.disabled },
-                  },
-                };
-              }
-            }
+            continue;
           }
+          const nextEntries: Record<string, LoreEntry> = { ...existingBook.entries };
+          for (const [entryId, defaultEntry] of Object.entries(defaultBook.entries)) {
+            const existing = nextEntries[entryId];
+            // 已存在的内置条目:强制同步系统 content(随版本更新),仅保留用户的 disabled 状态
+            // 避免老存档停留在旧版「无条件吐全文」版本。缺失则补入最新默认。
+            nextEntries[entryId] = existing
+              ? { ...defaultEntry, disabled: existing.disabled }
+              : defaultEntry;
+          }
+          merged[bookId] = { ...existingBook, entries: nextEntries };
         }
-        // Migrate old logic values and fill new fields for ALL entries
+        // Migrate old logic values + 补全新字段(ALL entries, 含用户自创书)
         for (const book of Object.values(merged)) {
-          for (const [eid, entry] of Object.entries(book.entries)) {
-            const raw = entry as unknown as Record<string, unknown>;
-            if (LOGIC_MAP[raw.logic as string]) {
-              raw.logic = LOGIC_MAP[raw.logic as string];
+          for (const eid in book.entries) {
+            const raw = book.entries[eid] as unknown as Record<string, unknown>;
+            const mappedLogic = LOGIC_MAP[raw.logic as string];
+            if (mappedLogic) raw.logic = mappedLogic;
+            for (const k in NEW_DEFAULTS) {
+              if (raw[k] === undefined) raw[k] = (NEW_DEFAULTS as Record<string, unknown>)[k];
             }
-            for (const [k, v] of Object.entries(NEW_DEFAULTS)) {
-              if (raw[k] === undefined) raw[k] = v;
-            }
-            book.entries[eid] = raw as unknown as LoreEntry;
           }
         }
-        // 已废弃的内置书：从老存档清理（洛夫克拉夫特文风已并入双人成行预设；每回合推进约束由 format-instruction 承担）。
+        // 已废弃的内置书:从老存档清理(洛夫克拉夫特文风已并入双人成行预设;每回合推进约束由 format-instruction 承担)。
         delete merged['coc_style'];
         state.books = merged;
       },
