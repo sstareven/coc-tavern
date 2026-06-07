@@ -1,10 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { btnBase, btnDisabled } from './styles';
-import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useVariableStore } from '../../stores/useVariableStore';
-import { createInitialStatData } from '../../sillytavern/mvu-initial-statdata';
-import { startNewConversation, saveConversation } from '../../stores/sessionLifecycle';
 import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
@@ -46,7 +42,6 @@ interface Props {
 }
 
 export function CharacterCreator({ onComplete, onClose }: Props) {
-  const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
   // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 ...
   // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
@@ -528,17 +523,40 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         initialItemsRaw: initialItemsRaw,
       };
 
-    // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
-    // 杜绝逐个手动清空时漏掉某个 store（历史上漏清 clues/npc/map 致「开新游戏继承旧档」的跨档泄漏）。
-    const newId = startNewConversation(sheet.identity.name || '未命名调查员');
-    // MVU ZOD：种入初始 statData 叙事树(世界/剧情/战斗;调查员.* 归角色卡故排除)。
-    // 在 startNewConversation 内 clearAllGameState(statData={}) 之后执行。
-    useVariableStore.getState().setStatData(createInitialStatData());
-    // 次序关键：clearAllGameState 会把角色卡重置为默认，故 setSheet 必须在 startNewConversation 之后，
-    // 否则 saveConversation 读到默认卡 → isDefaultSheet → 跳过持久化 → 新人物角色卡丢失。
-    setSheet(sheet);
-    // 持久化新会话（含刚 setSheet 的角色卡 + 序章页）到关系表，避免未交互即返回主菜单时丢档。
-    void saveConversation(newId);
+    // M4: 不再 startNewConversation / setSheet / saveConversation /(后续 activateScenario)。
+    // 改为把自创卡作为 player_created 角色 applyPatch 写入剧本 characters[],
+    // CharCreator 关闭后由 App.tsx 回到 RosterPicker,玩家在 RosterPicker 选他/别人才真正进游戏。
+    const lastPickedScn = useScenarioStore.getState().lastPicked;
+    if (lastPickedScn) {
+      useScenarioStore.getState().applyPatch(lastPickedScn, {
+        patchCharacters: [{
+          id: charId,
+          role: 'player_created',
+          sheet,
+          npcAttrs: {
+            identityTag: '',
+            attitudeDefault: 0,
+            relationshipDefault: '',
+            locationDefault: '',
+            publicBio: '',
+            hiddenBio: '',
+            // 把 8 段背景独立字段也同步带上,与 PeopleTab 编辑路径对齐
+            description,
+            beliefs,
+            significantPeople,
+            meaningfulLocations,
+            treasuredPossessions,
+            traits,
+            injuries,
+            backgroundFears,
+            initialItemsRaw,
+          },
+          createdAt: Date.now(),
+        }],
+      });
+    } else {
+      console.warn('[CharacterCreator] lastPicked 为空,无法把自创卡写入剧本 — 跳过 applyPatch');
+    }
     onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
@@ -546,7 +564,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     description, beliefs, significantPeople, meaningfulLocations,
     treasuredPossessions, traits, injuries, backgroundFears,
     ageDeductSCD, ageDeductSS,
-    setSheet, onComplete,
+    initialItemsRaw,
+    onComplete,
   ]);
 
   /* ---- Nav ---- */
