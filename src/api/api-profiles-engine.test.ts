@@ -1,4 +1,6 @@
-// api-profiles-engine 单测:覆盖 CRUD/校验/脱敏 纯函数核心路径
+// api-profiles-engine 单测:覆盖 CRUD/校验 纯函数核心路径
+// 注:v1.14.1 起 stripApiKeysForExport / validateImportNoSecrets 已永久删除
+// (用户决策:绝不实现导入/导出功能,防止密钥外泄面再有任何 entry)。
 import { describe, it, expect } from 'vitest';
 import {
   createApiProfile,
@@ -6,8 +8,6 @@ import {
   deleteApiProfileById,
   resolveProfileById,
   validateApiProfileForm,
-  stripApiKeysForExport,
-  validateImportNoSecrets,
   type ApiProfile,
 } from './api-profiles-engine';
 
@@ -106,29 +106,5 @@ describe('validateApiProfileForm', () => {
   });
   it('apiKey 允许为空(本地无鉴权代理)', () => {
     expect(validateApiProfileForm({ label: 'x', apiBaseUrl: 'https://x', apiKey: '' }).ok).toBe(true);
-  });
-});
-
-describe('stripApiKeysForExport', () => {
-  it('剔除所有 apiKey(置空) + 其余字段保留', () => {
-    const list = [makeProfile({ id: 'a', apiKey: 'k1' }), makeProfile({ id: 'b', apiKey: 'k2' })];
-    const stripped = stripApiKeysForExport(list);
-    expect(stripped[0].apiKey).toBe('');
-    expect(stripped[1].apiKey).toBe('');
-    expect(stripped[0].label).toBe(list[0].label);
-    expect(stripped[0].apiBaseUrl).toBe(list[0].apiBaseUrl);
-  });
-});
-
-describe('validateImportNoSecrets', () => {
-  it('非数组 → 失败', () => {
-    expect(validateImportNoSecrets({ a: 1 }).ok).toBe(false);
-    expect(validateImportNoSecrets('string').ok).toBe(false);
-  });
-  it('空 apiKey 全部 → ok', () => {
-    expect(validateImportNoSecrets([{ apiKey: '' }, { apiKey: '' }]).ok).toBe(true);
-  });
-  it('任一含明文 apiKey → 失败', () => {
-    expect(validateImportNoSecrets([{ apiKey: '' }, { apiKey: 'sk-x' }]).ok).toBe(false);
   });
 });

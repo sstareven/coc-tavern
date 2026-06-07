@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.14.0';
+export const CURRENT_VERSION = 'v1.14.1';
 
 interface Release {
   version: string;
@@ -19,6 +19,16 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.14.1',
+    label: 'API 三段统一搬到「API 管理」· 模型选择加左右标签',
+    items: [
+      '【API 三段统一】以前主 API、MVU 变量引擎、行动补写三段配置散落在「基本设置」最底下,跟其他设置混在一起,改 API 还得翻好几屏。现在三段连同各自的独立通道开关、温度、重试、轻量补写等子项一起整段搬进「API 管理」标签——加配置、选模型、调参数全在一个地方。',
+      '【基本设置留跳转】打开「基本设置」滚到底,会看到「主 API / MVU / 行动补写的配置与模型选择已迁移至 → API 管理」的提示按钮,一点就跳过去,不会找不着。',
+      '【模型选择左右布局】以前「选模型」的下拉按钮孤零零一行,没有标签;现在跟其他设置项一样左边是「模型使用」标签、右边是下拉,视觉对齐。还没添加配置时,右边直接显示「请先在『添加 API』处加入配置」纯文案,不再显示空着的下拉按钮。',
+      '【永远不实现密钥导入/导出】上一版公告里说过的「导出/导入会脱敏」是虚假承诺(根本没接 UI)。这一版彻底删掉那两个相关工具函数,公开承诺永不实现这两个功能——密钥不会通过本应用流出本机。',
+    ],
+  },
   {
     version: 'v1.14.0',
     label: 'API 管理重构 · 多套配置共存 · 一键切换',
