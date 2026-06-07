@@ -8,7 +8,7 @@ function sheet(): CharacterSheet {
     secondary: { hp: { current: 10, max: 12 }, san: { current: 60, max: 80 }, mp: { current: 8, max: 8 }, luck: 55 },
     skills: { 侦查: { base: 25, current: 40 } },
     identity: { name: '调查员', occupation: '记者', age: 30, gender: '男', residence: '', birthplace: '' },
-    greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
+    description: '', 
   } as unknown as CharacterSheet;
 }
 

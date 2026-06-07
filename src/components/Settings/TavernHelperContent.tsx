@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useTavernHelperStore, uid, BUILTIN_TH_IDS } from '../../stores/useTavernHelperStore';
 import type { THScriptTree, THScript, THScriptFolder, THCodeCollapse } from '../../types';
+import { rowStyle, labelStyle, numInputStyle, Toggle, HelpIcon } from './_shared';
+import { IconFolder, IconScript, IconPencil, IconClose, IconCheck, IconChevronDown } from '../Layout/TabIcons';
 
 type SubTab = 'scripts' | 'render' | 'optimize';
 
@@ -33,51 +35,20 @@ export function TavernHelperContent() {
   );
 }
 
-// ── Help Popup ──
+// ── Help Popup —— 代理给 _shared.HelpIcon(hover + portal + tooltipDelay 一致行为) ──
 function HelpPopup({ content }: { content: string }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <span onClick={() => setShow(!show)} style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 15, height: 15, borderRadius: '50%', border: '1px solid var(--brass)',
-        color: 'var(--ink-subtle)', cursor: 'pointer', fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 'bold',
-        fontFamily: 'var(--font-ui)', marginLeft: 4, flexShrink: 0,
-      }}>?</span>
-      {show && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setShow(false)} />
-          <div style={{
-            position: 'absolute', top: '120%', left: 0, zIndex: 1000,
-            background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
-            padding: '10px 14px', minWidth: 280, maxWidth: 360,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-            fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.6,
-            fontFamily: 'var(--font-ui)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          }}>
-            {content}
-          </div>
-        </>
-      )}
-    </span>
-  );
+  return <HelpIcon text={content} />;
 }
 
-// ── Toggle Switch ──
+// ── Toggle Switch —— 代理给 _shared.Toggle(药丸样式 + hover/active 反馈一致) ──
 function ToggleRow({ label, enabled, onChange, help }: { label: string; enabled: boolean; onChange: (v: boolean) => void; help?: string }) {
   return (
     <div style={rowStyle}>
-      <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+      <span style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 2 }}>
         {label}
         {help && <HelpPopup content={help} />}
       </span>
-      <button onClick={() => onChange(!enabled)} style={{
-        padding: '5px 18px', borderRadius: 3, cursor: 'pointer',
-        border: enabled ? '1px solid var(--success)' : '1px solid var(--ink-faded)',
-        background: enabled ? 'rgba(58,107,90,0.15)' : 'rgba(0,0,0,0.2)',
-        color: enabled ? 'var(--success)' : 'var(--ink-faded)',
-        fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 2,
-      }}>{enabled ? 'ON' : 'OFF'}</button>
+      <Toggle on={enabled} onChange={() => onChange(!enabled)} />
     </div>
   );
 }
@@ -174,8 +145,8 @@ function ScriptTab() {
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             <input value={editForm.name || ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="名称" style={{ ...inputStyle, flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))' }} />
             {item.type === 'script' && <input value={editForm.info || ''} onChange={(e) => setEditForm({ ...editForm, info: e.target.value })} placeholder="描述" style={{ ...inputStyle, flex: 1, fontSize: 'calc(10px * var(--system-ratio, 1))' }} />}
-            <button onClick={saveEdit} style={miniBtnGreen}>✓</button>
-            <button onClick={() => setEditingId(null)} style={miniBtn}>✕</button>
+            <button onClick={saveEdit} style={miniBtnGreen} title="保存"><IconCheck size={11} /></button>
+            <button onClick={() => setEditingId(null)} style={miniBtn} title="取消"><IconClose size={11} /></button>
           </div>
           {item.type === 'script' && <textarea value={editForm.content || ''} onChange={(e) => setEditForm({ ...editForm, content: e.target.value })} placeholder="脚本内容（JavaScript代码）" style={{ ...textareaStyle, minHeight: 80 }} />}
         </div>
@@ -184,15 +155,15 @@ function ScriptTab() {
     return (
       <div key={item.id}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', marginLeft: depth * 16, borderBottom: '1px solid rgba(196,168,85,0.06)', opacity: (item.type === 'script' ? item.enabled : true) ? 1 : 0.4 }}>
-          <span style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', width: 18, textAlign: 'center', color: isFolder ? (item as THScriptFolder).color : 'var(--ink-faded)' }}>{isFolder ? '📁' : '📄'}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, color: isFolder ? (item as THScriptFolder).color : 'var(--ink-faded)' }}>{isFolder ? <IconFolder size={13} /> : <IconScript size={13} />}</span>
           <span style={{ flex: 1, fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--text-light)', cursor: 'pointer' }} onClick={() => startEdit(item)}>
             {item.name}
             {item.type === 'script' && item.enabled && <span style={{ fontSize: 'calc(8px * var(--system-ratio, 1))', color: 'var(--success)', marginLeft: 6 }}>ON</span>}
           </span>
           {item.type === 'script' && <button onClick={() => handleToggle(item)} style={{ ...miniBtn, padding: '1px 8px', fontSize: 'calc(9px * var(--system-ratio, 1))', color: item.enabled ? 'var(--success)' : 'var(--ink-faded)' }}>{item.enabled ? 'ON' : 'OFF'}</button>}
-          <button onClick={() => startEdit(item)} style={iconBtn} title="编辑">✎</button>
+          <button onClick={() => startEdit(item)} style={iconBtn} title="编辑"><IconPencil size={11} /></button>
           {!BUILTIN_TH_IDS.has(item.id) && (
-            <button onClick={() => { if (confirm(`删除 "${item.name}"？`)) deleteItem(item.id); }} style={{ ...iconBtn, color: 'var(--blood)' }} title="删除">✕</button>
+            <button onClick={() => { if (confirm(`删除 "${item.name}"？`)) deleteItem(item.id); }} style={{ ...iconBtn, color: 'var(--blood)' }} title="删除"><IconClose size={11} /></button>
           )}
         </div>
         {isFolder && (item as THScriptFolder).children.map((child) => renderItem(child, depth + 1))}
@@ -209,7 +180,7 @@ function ScriptTab() {
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         <DropdownMenu label="+ 添加脚本" items={[{ label: '全局脚本库', action: () => handleAddScript('global') }, { label: '预设脚本库', action: () => handleAddScript('preset') }]} />
-        <DropdownMenu label="📁 添加文件夹" items={[{ label: '全局脚本库', action: () => handleAddFolder('global') }, { label: '预设脚本库', action: () => handleAddFolder('preset') }]} />
+        <DropdownMenu label={<><IconFolder size={11} /> 添加文件夹</>} items={[{ label: '全局脚本库', action: () => handleAddFolder('global') }, { label: '预设脚本库', action: () => handleAddFolder('preset') }]} />
         <DropdownMenu label="导入" items={[{ label: '导入到全局脚本库', action: () => { importScopeRef.current = 'global'; fileRef.current?.click(); } }, { label: '导入到预设脚本库', action: () => { importScopeRef.current = 'preset'; fileRef.current?.click(); } }]} />
         <input type="file" accept=".json" ref={fileRef} onChange={() => handleImport(importScopeRef.current)} style={{ display: 'none' }} />
         <button onClick={() => handleExport(scope)} style={toolBtn}>导出</button>
@@ -240,7 +211,7 @@ function RenderTab() {
       <div style={rowStyle}>
         <span style={labelStyle}>渲染深度</span>
         <input type="number" value={render.renderDepth} onChange={(e) => setRender({ renderDepth: Number(e.target.value) || 0 })} min={0}
-          style={{ ...numInput, width: 60 }} />
+          style={numInputStyle} />
       </div>
       <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', marginBottom: 8, marginTop: 2 }}>
         限制书本保留的页数，从最新页开始计数。为0时保留全部。需配合优化→消息加载优化启用
@@ -289,11 +260,14 @@ function OptimizeTab() {
 }
 
 // ── DropdownMenu ──
-function DropdownMenu({ label, items }: { label: string; items: { label: string; action: () => void }[] }) {
+function DropdownMenu({ label, items }: { label: React.ReactNode; items: { label: string; action: () => void }[] }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(!open)} style={toolBtn}>{label} ▼</button>
+      <button onClick={() => setOpen(!open)} style={{ ...toolBtn, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{label}</span>
+        <IconChevronDown size={9} />
+      </button>
       {open && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
@@ -309,16 +283,13 @@ function DropdownMenu({ label, items }: { label: string; items: { label: string;
   );
 }
 
-// ── Shared styles ──
-const rowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)' };
-const labelStyle: React.CSSProperties = { fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1 };
+// ── Shared styles (本地按钮专用,公用样式从 _shared 导入) ──
 const inputStyle: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', outline: 'none', caretColor: 'var(--gold)' };
 const textareaStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', minHeight: 50, resize: 'vertical' as const, outline: 'none', caretColor: 'var(--gold)' };
-const numInput: React.CSSProperties = { padding: '4px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center' as const, outline: 'none' };
-const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer' };
-const toolBtn: React.CSSProperties = { padding: '4px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', whiteSpace: 'nowrap' as const };
-const miniBtn: React.CSSProperties = { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer' };
+const miniSelect: React.CSSProperties = { padding: '3px 6px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: 'calc(10px * var(--system-ratio, 1))', outline: 'none', cursor: 'pointer', transition: 'var(--transition-smooth)' };
+const toolBtn: React.CSSProperties = { padding: '4px 10px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', whiteSpace: 'nowrap' as const, transition: 'var(--transition-smooth)' };
+const miniBtn: React.CSSProperties = { padding: '3px 8px', border: '1px solid var(--brass)', borderRadius: 3, background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', cursor: 'pointer', transition: 'var(--transition-smooth)' };
 const miniBtnGreen: React.CSSProperties = { ...miniBtn, color: 'var(--success)', borderColor: 'var(--success)' };
-const iconBtn: React.CSSProperties = { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', fontSize: 'calc(12px * var(--system-ratio, 1))', cursor: 'pointer', opacity: 0.6 };
-const scopeBtn: React.CSSProperties = { padding: '4px 12px', borderRadius: 3, cursor: 'pointer', border: '1px solid rgba(196,168,85,0.12)', background: 'rgba(0,0,0,0.15)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1 };
+const iconBtn: React.CSSProperties = { width: 24, height: 24, display: 'inline-flex' as const, alignItems: 'center' as const, justifyContent: 'center' as const, border: '1px solid transparent', borderRadius: 3, background: 'transparent', color: 'var(--ink-subtle)', cursor: 'pointer', opacity: 0.6, transition: 'var(--transition-smooth)' };
+const scopeBtn: React.CSSProperties = { padding: '4px 12px', borderRadius: 3, cursor: 'pointer', border: '1px solid rgba(196,168,85,0.12)', background: 'rgba(0,0,0,0.15)', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1, transition: 'var(--transition-smooth)' };
 const scopeBtnActive: React.CSSProperties = { ...scopeBtn, border: '1px solid var(--gold)', background: 'rgba(196,168,85,0.12)', color: 'var(--gold)' };

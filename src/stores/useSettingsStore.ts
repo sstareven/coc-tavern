@@ -101,7 +101,9 @@ interface SettingsState {
    * 原来那样。
    */
   dsUltraActive: boolean;
-  blessingEnabled: boolean;
+  cheatingEnabled: boolean;
+  /** 「领受赐福」tab 是否已被 Konami 序列解锁；默认 false 隐藏 tab，输完彩蛋后 true 永久持久化。 */
+  cheatingUnlocked: boolean;
 }
 
 /**
@@ -222,7 +224,11 @@ interface SettingsStore extends SettingsState {
    * 清 snapshot。snapshot 为 undefined 时是 no-op。
    */
   revertDeepSeekUltraPreset: () => void;
-  toggleBlessing: () => void;
+  toggleCheating: () => void;
+  /** Konami 序列匹配成功时调，永久解锁「领受赐福」tab 显示。 */
+  unlockCheating: () => void;
+  /** 调试用：还原到未解锁状态（同时关 cheatingEnabled，避免「藏 tab 但作弊仍生效」）。 */
+  lockCheating: () => void;
 }
 
 const defaults: SettingsState = {
@@ -253,7 +259,7 @@ const defaults: SettingsState = {
   rewriteAvailableModels: [],
   mvuTemperature: 1,
   mvuRetryCount: 1,
-  mvuMaxTokens: 8096,
+  mvuMaxTokens: 32768,
   mvuAvailableModels: [],
   maxSummaryEntries: 20,
   npcMemoryKeep: 6,
@@ -278,7 +284,8 @@ const defaults: SettingsState = {
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
   dsUltraActive: false,
-  blessingEnabled: false,
+  cheatingEnabled: false,
+  cheatingUnlocked: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -289,8 +296,8 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
       setDarkMode: (v) => set({ darkMode: v }),
-      setTooltipDelay: (d) => set({ tooltipDelay: d }),
-      setMusicVolume: (v) => set({ musicVolume: v }),
+      setTooltipDelay: (d) => set({ tooltipDelay: Math.max(0, Math.min(3000, Math.round(d))) }),
+      setMusicVolume: (v) => set({ musicVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setSfxVolume: (v) => set({ sfxVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
       setNpcAutoTendency: (v) => set({ npcAutoTendency: v }),
@@ -311,18 +318,19 @@ export const useSettingsStore = create<SettingsStore>()(
       setRewriteApiModel: (model) => set({ rewriteApiModel: model }),
       setRewriteApiKey: (key) => set({ rewriteApiKey: key }),
       setRewriteAvailableModels: (models) => set({ rewriteAvailableModels: models }),
-      setMvuTemperature: (t) => set({ mvuTemperature: t }),
-      setMvuRetryCount: (n) => set({ mvuRetryCount: n }),
-      setMvuMaxTokens: (n) => set({ mvuMaxTokens: n }),
+      setMvuTemperature: (t) => set({ mvuTemperature: Math.max(0, Math.min(2, t)) }),
+      setMvuRetryCount: (n) => set({ mvuRetryCount: Math.max(1, Math.min(5, Math.floor(n))) }),
+      // max_tokens 下限 20000(避免 thinking 模型 JSON 截断),上限 65536
+      setMvuMaxTokens: (n) => set({ mvuMaxTokens: Math.max(20000, Math.min(65536, Math.floor(n))) }),
       setMvuAvailableModels: (models) => set({ mvuAvailableModels: models }),
-      setMaxSummaryEntries: (n) => set({ maxSummaryEntries: n }),
+      setMaxSummaryEntries: (n) => set({ maxSummaryEntries: Math.max(0, Math.min(50, Math.floor(n))) }),
       setNpcMemoryKeep: (n) => set({ npcMemoryKeep: Math.max(3, Math.min(12, Math.floor(n))) }),
-      setContextPageDepth: (n) => set({ contextPageDepth: n }),
+      setContextPageDepth: (n) => set({ contextPageDepth: Math.max(0, Math.min(50, Math.floor(n))) }),
       setGlobalCaseSensitive: (v) => set({ globalCaseSensitive: v }),
       setGlobalMatchWholeWord: (v) => set({ globalMatchWholeWord: v }),
-      setMaxRecursionSteps: (n) => set({ maxRecursionSteps: n }),
+      setMaxRecursionSteps: (n) => set({ maxRecursionSteps: Math.max(0, Math.min(20, Math.floor(n))) }),
       setIncludeNames: (v) => set({ includeNames: v }),
-      setWiBudget: (n) => set({ wiBudget: n }),
+      setWiBudget: (n) => set({ wiBudget: Math.max(0, Math.min(99999, Math.floor(n))) }),
       setAlertOnOverflow: (v) => set({ alertOnOverflow: v }),
       setWorldInfoStrategy: (v) => set({ worldInfoStrategy: v }),
       setJsonRetryCount: (n) => set({ jsonRetryCount: Math.max(0, Math.min(5, Math.floor(n))) }),
@@ -389,7 +397,9 @@ export const useSettingsStore = create<SettingsStore>()(
       revertDeepSeekUltraPreset: () => {
         set({ dsUltraActive: false });
       },
-      toggleBlessing: () => set((s) => ({ blessingEnabled: !s.blessingEnabled })),
+      toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
+      unlockCheating: () => set({ cheatingUnlocked: true }),
+      lockCheating: () => set({ cheatingUnlocked: false, cheatingEnabled: false }),
     }),
     {
       name: 'coc_settings_v2',

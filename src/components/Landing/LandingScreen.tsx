@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 import { LoadGameModal } from './LoadGameModal';
 import { CURRENT_VERSION } from './ChangelogModal';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { subscribeBgmLoadProgress } from '../../audio/bgm';
+import { BgmLoadingBar } from '../Shared/BgmLoadingBar';
 
 interface Props { onStart: () => void; onLoadGame: () => void }
 
@@ -10,6 +12,11 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showLoad, setShowLoad] = useState(false);
   const [showApiWarn, setShowApiWarn] = useState(false);
+  const [bgmProgress, setBgmProgress] = useState(0);
+
+  // 订阅 BGM 缓冲进度,缓冲到 100% 后 BgmLoadingBar 自行淡出。
+  // subscribeBgmLoadProgress 会立即推一次当前值,无需手动初始化。
+  useEffect(() => subscribeBgmLoadProgress(setBgmProgress), []);
 
   // 开始游戏前校验：未配置 API Key 则拦截并引导去设置——没有 AI 接口无法生成任何叙事。
   const handleStart = () => {
@@ -70,7 +77,13 @@ export function LandingScreen({ onStart, onLoadGame }: Props) {
               onMouseUp={(e) => { e.currentTarget.style.filter = 'brightness(1.3)'; e.currentTarget.style.transform = 'scale(1.03)'; }}
             >设 置</button>
           </div>
-          <p style={{ marginTop: 64, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 3, opacity: 0.5 }}>
+
+          {/* BGM 缓冲进度条:加载完后自动淡出消失,不抢主视觉。 */}
+          <div style={{ marginTop: 24 }}>
+            <BgmLoadingBar progress={bgmProgress} visible={bgmProgress < 1} />
+          </div>
+
+          <p style={{ marginTop: 40, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', letterSpacing: 3, opacity: 0.5 }}>
             {CURRENT_VERSION} · COC 7th Edition · <span onClick={() => document.dispatchEvent(new CustomEvent('show-changelog'))} style={{ cursor: 'pointer', borderBottom: '1px dotted var(--ink-subtle)' }}>更新日志</span>
           </p>
         </div>

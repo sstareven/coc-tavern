@@ -7,7 +7,6 @@ export interface CharacterPresetData {
   name: string;
   player: string;
   occupation: string;
-  customOccupation: string;
   age: number;
   sex: string;
   residence: string;

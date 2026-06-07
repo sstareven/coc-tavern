@@ -48,7 +48,6 @@ export function buildAbilityBrief(): string {
     .map(([name, s]) => `${name}(${qualitativeSkill(s.current)})`);
   const skillStr = topSkills.length ? topSkills.join('、') : '无特别突出的专长';
   const parts = [`属性——${attrs}`, `擅长技能(技能值≥50)——${skillStr}`];
-  if (sheet.personality?.trim()) parts.push(`性格——${sheet.personality.trim()}`);
   if (sheet.posture && sheet.posture !== '站立') parts.push(`当前姿态——${sheet.posture}`);
   if (sheet.statusConditions.length) parts.push(`当前状态——${sheet.statusConditions.map((c) => c.name).join('、')}`);
   return parts.join('；');
@@ -88,10 +87,6 @@ export function buildCharacterVariables(): Record<string, string> {
         String(skill.current),
       ]),
     ),
-    greeting: sheet.greeting || '',
     description: sheet.description || '',
-    personality: sheet.personality || '',
-    scenario: sheet.scenario || '',
-    personaDescription: sheet.personaDescription || '',
   };
 }

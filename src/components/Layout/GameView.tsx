@@ -100,15 +100,33 @@ export function GameView({ onReturnToMenu }: Props) {
   const isMobile = useIsMobile();
   const viewportH = useViewportHeight();
   // 手机端用可视视口高度（软键盘弹出时收缩，输入栏随之顶到键盘上方）；桌面回退 100dvh。
-  // 桌面除以 --ui-scale：界面缩放(zoom)下 dvh 不收缩，100dvh 会渲染成 scale×视口、撑出溢出令书本/状态栏下移；
-  // 100dvh 经 zoom 放大后渲染高恰为真实视口，保持垂直居中（未缩放时 var 回落 1=100dvh）。
-  const appHeight = isMobile && viewportH ? `${viewportH}px` : 'calc(100dvh / var(--auto-zoom, 1))';
+  // 两条路径都除以 --auto-zoom：根容器 zoom=0.75 时若直接给 ${viewportH}px,
+  // 渲染高 = 1307 × 0.75 = 980,卡片够不到屏幕底部留 326px 空白。
+  // 除以 zoom 之后 layout box = viewportH/zoom,渲染回 viewportH 恰好满屏。
+  const appHeight = isMobile && viewportH
+    ? `calc(${viewportH}px / var(--auto-zoom, 1))`
+    : 'calc(100dvh / var(--auto-zoom, 1))';
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: appHeight }}>
       <TopBar onReturnToMenu={onReturnToMenu} />
-      <CurrentScenarioBadge />
-      <TeamSidebar />
+      {/* 手机端:剧本+队伍胶囊包成 TopBar 下方一行,避免 fixed 浮在 MobileTabBar/StatusBar 之上遮挡。
+          桌面端:沿用各自 fixed 浮在左上角(top:56/92),不占布局。 */}
+      {isMobile ? (
+        <div style={{
+          display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          padding: '2px 10px', background: '#14100b',
+          borderBottom: '1px solid rgba(196,168,85,0.08)',
+        }}>
+          <TeamSidebar />
+          <CurrentScenarioBadge />
+        </div>
+      ) : (
+        <>
+          <CurrentScenarioBadge />
+          <TeamSidebar />
+        </>
+      )}
 
       {isMobile ? (
         <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>

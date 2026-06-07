@@ -24,7 +24,7 @@ function blankSheet(): CharacterSheet {
     secondary: { hp: { current: 10, max: 10 }, san: { current: 50, max: 99 }, mp: { current: 10, max: 10 }, luck: 50, mov: 8, db: '0', build: 0 },
     skills: {},
     identity: { name: '', occupation: '', age: 25, gender: '', birthplace: '', residence: '', id: '' },
-    greeting: '', description: '', personality: '', scenario: '', personaDescription: '',
+    description: '', 
     posture: '站立', statusConditions: [],
     dailySanLoss: 0,
     temporaryInsanity: { active: false, roundsLeft: 0 },

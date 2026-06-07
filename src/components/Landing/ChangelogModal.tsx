@@ -4,14 +4,31 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
 
+// 字面量 export（vite HMR 友好，避免 "派生自模块内部变量" 的 export 被
+// hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
+// 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
+// —— 任何一处忘改 CI 立刻 fail。
+export const CURRENT_VERSION = 'v1.13.1';
+
 interface Release {
   version: string;
   label: string;
   items: string[];
 }
 
-// 版本倒序：最新在最前。新增版本时只需在数组顶部插入，CURRENT_VERSION 自动派生自 RELEASES[0]。
-const RELEASES: Release[] = [
+// 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
+// （vitest changelog-version 用例会拒绝两者不一致）。
+export const RELEASES: Release[] = [
+  {
+    version: 'v1.13.1',
+    label: '手机端 UX 大修：正文区扩展 · 字号自动补偿 · 滚动条全局化',
+    items: [
+      '【手机端·正文区扩展】GameView 手机端 appHeight 表达式只给了 `${viewportH}px` 没除以 `--auto-zoom`，根容器 zoom=0.75 把 1307px 渲染成 980px、视口底下露 327px 空白，叙事卡片被压扁。两条路径(手机/桌面)统一用 `calc(... / var(--auto-zoom, 1))`，正文卡片自动延伸到视口底部，可用面积增加约 327px',
+      '【手机端·字号自动补偿】useResponsiveZoom 在窄屏(<1280px)兜底到 MIN_ZOOM=0.75，所有 px 字号渲染压成原值 75%——11px 提示文字最终只剩 8.25px、16.5px 正文最终只剩 12.4px，读不清。useTextRatios hook 现在检测手机端时自动叠加 4/3 ≈ 1.333 补偿因子完全抵消 zoom 缩放，设置面板的「100%」在手机/桌面渲染出相同物理字号；桌面端不受影响',
+      '【滚动条·全局铜版风】铜版风滚动条样式之前只挂 `.scenario-editor *` 子树，MobileNoteView 等 inline-style 的滚动容器漏出浏览器默认黑色滚动条。现改成 `html` + `::-webkit-scrollbar` 全局选择器，所有 overflow:auto/scroll 元素自动套铜金色细滚动条，包括手机端叙事卷轴',
+      '【手机端·叙事便条松绑】MobileNoteView 卡片 padding 10/12/8 → 14/18/12（左右内边距增加 6px），正文字号 calc(15px*ratio) → calc(16.5px*ratio)，行高 1.75 → 1.8，段落间距 12/8 → 14/12。叙事阅读区不再贴边、字号舒展、段落清晰',
+    ],
+  },
   {
     version: 'v1.13.0',
     label: '设置新增「领受赐福」骰子祝福作弊系统 · 构建热修 · 更新日志机制加固',
@@ -486,10 +503,6 @@ const RELEASES: Release[] = [
     ],
   },
 ];
-
-// CURRENT_VERSION 派生自 RELEASES[0]：消灭「忘改 CURRENT_VERSION 致老用户不弹窗」一类 drift
-// （v1.12.0 发版时漏改 CURRENT_VERSION 致整版玩家没收到弹窗，靠这条派生根治）
-export const CURRENT_VERSION = RELEASES[0].version;
 
 // 比较两个 vX.Y.Z 字符串：a 比 b 新返回 true。任意位非数字按 0 处理（容忍 'v1.10' 这类位数不齐）。
 function isNewerVersion(a: string, b: string): boolean {

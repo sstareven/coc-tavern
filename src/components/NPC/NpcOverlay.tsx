@@ -39,12 +39,41 @@ function FavBar({ value }: { value: number }) {
   );
 }
 
-function Section({ title, body }: { title: string; body: string }) {
+/** 折叠版 Section — title 一行可点击，body 跟着 expanded 显隐。
+ *  parchment 主题（米色羊皮纸背景），与 NpcCard 一致；与公共深色 ExpandableSection 区分。 */
+function FoldedSection({ title, body, expanded, onToggle }: { title: string; body: string; expanded: boolean; onToggle: () => void }) {
   if (!body?.trim()) return null;
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>{title}</div>
-      <div style={{ fontSize: 'calc(12px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{body}</div>
+    <div style={{ marginTop: 6 }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          width: '100%', padding: '4px 0',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          fontSize: 'calc(10px * var(--system-ratio, 1))',
+          fontFamily: 'var(--font-ui)', color: 'var(--gold)',
+          letterSpacing: 1.2, textAlign: 'left',
+          borderBottom: '1px dashed rgba(var(--ink-faded-rgb), 0.2)',
+        }}
+      >
+        <span style={{
+          display: 'inline-block', width: 10, textAlign: 'center',
+          transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+          color: 'var(--ink-faded)',
+        }}>▶</span>
+        <span style={{ fontWeight: 500 }}>{title}</span>
+      </button>
+      {expanded && (
+        <div style={{
+          padding: '6px 0 4px 16px',
+          fontSize: 'calc(12px * var(--system-ratio, 1))',
+          fontFamily: 'var(--font-body)', color: 'var(--ink)',
+          lineHeight: 1.65, whiteSpace: 'pre-wrap',
+        }}>{body}</div>
+      )}
     </div>
   );
 }
@@ -144,6 +173,16 @@ function InteractionMenu({ npc }: { npc: NpcProfile }) {
 function NpcCard({ npc }: { npc: NpcProfile }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // 6 段背景独立折叠态，默认全收起；玩家点哪段展开哪段
+  const [foldedOpen, setFoldedOpen] = useState<Set<string>>(new Set());
+  const toggleFolded = (key: string) => {
+    setFoldedOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   const skillStr = npc.skills ? Object.entries(npc.skills).map(([n, v]) => `${n}${v}`).join('、') : '';
   return (
     <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
@@ -174,12 +213,12 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
       {open && (
         <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>
           <NpcRecordSheet npc={npc} />
-          <Section title="性格" body={npc.personality} />
-          <Section title="动机/秘密（KP视角）" body={npc.innerThoughts} />
-          <Section title="背景故事" body={npc.backstory} />
-          <Section title="人物经历" body={npc.experience} />
-          {skillStr && <Section title="技能" body={skillStr} />}
-          {npc.possessions.length > 0 && <Section title="随身物品" body={npc.possessions.join('、')} />}
+          <FoldedSection title="性格" body={npc.personality} expanded={foldedOpen.has('personality')} onToggle={() => toggleFolded('personality')} />
+          <FoldedSection title="动机/秘密（KP视角）" body={npc.innerThoughts} expanded={foldedOpen.has('inner')} onToggle={() => toggleFolded('inner')} />
+          <FoldedSection title="背景故事" body={npc.backstory} expanded={foldedOpen.has('backstory')} onToggle={() => toggleFolded('backstory')} />
+          <FoldedSection title="人物经历" body={npc.experience} expanded={foldedOpen.has('experience')} onToggle={() => toggleFolded('experience')} />
+          {skillStr && <FoldedSection title="技能" body={skillStr} expanded={foldedOpen.has('skills')} onToggle={() => toggleFolded('skills')} />}
+          {npc.possessions.length > 0 && <FoldedSection title="随身物品" body={npc.possessions.join('、')} expanded={foldedOpen.has('possessions')} onToggle={() => toggleFolded('possessions')} />}
           {(npc.memorySummary || npc.memories.length > 0) && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)', color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>互动记忆</div>

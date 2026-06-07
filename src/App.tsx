@@ -24,6 +24,7 @@ import { StatusToast } from './components/Shared/StatusToast';
 import { ScenarioScreen } from './components/Scenario/ScenarioScreen';
 import { ScenarioEditor } from './components/Scenario/ScenarioEditor';
 import { RosterPicker } from './components/Landing/RosterPicker';
+import { RosterPreview } from './components/Landing/RosterPreview';
 import { activateScenario } from './scenario/scenario-engine';
 import { useScenarioStore } from './stores/useScenarioStore';
 import { startNewConversation } from './stores/sessionLifecycle';
@@ -39,14 +40,33 @@ import { useBookStore } from './stores/useBookStore';
 import { useTextRatios } from './hooks/useTextRatios';
 import { useResponsiveZoom } from './hooks/useResponsiveZoom';
 import { useButtonSounds } from './hooks/useButtonSounds';
+import { useKonamiCode } from './hooks/useKonamiCode';
+import { useSettingsStore } from './stores/useSettingsStore';
+import { useCombatStore } from './stores/useCombatStore';
+import { startBgm, setBgmTrack, setBgmVolume } from './audio/bgm';
 
 export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
   useTextRatios(); // 文字倍率：把 textRatio/systemRatio 挂到 :root CSS 变量供 calc(... * var(...)) 使用
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
-  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'rosterPick' | 'creator' | 'game'>('landing');
+  // Konami 序列（↑↑↓↓←→←→BA）解锁「领受赐福」作弊 tab —— 持久化到 useSettingsStore，
+  // 后续会话从 store 读 cheatingUnlocked 直接显示 tab，无需再输。
+  useKonamiCode(() => {
+    const { cheatingUnlocked, unlockCheating } = useSettingsStore.getState();
+    if (cheatingUnlocked) return;
+    unlockCheating();
+    try {
+      window.dispatchEvent(new CustomEvent('coc:toast', {
+        detail: { type: 'success', message: '✦ 深渊的祝福已显现于设置中 ✦' },
+      }));
+    } catch { /* SSR/非浏览器忽略 */ }
+  });
+  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'rosterPick' | 'rosterPreview' | 'creator' | 'game'>('landing');
   const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
   const [activating, setActivating] = useState(false); // 剧本激活中(扩首页 LLM 调用)的 loading 覆盖层
+  // 预览阶段记选了哪个角色 + mode；onConfirm 时把这两个透传给 activateScenario。
+  // newChar 模式不走预览（CharacterCreator 7 步已经预览过），preset 才进 rosterPreview。
+  const [previewPick, setPreviewPick] = useState<{ charIdx: number; mode: 'preset' | 'newChar' } | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -123,6 +143,46 @@ export function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [closeAll]);
 
+  // ── BGM：首次用户手势启动 + screen/战斗状态切轨 + musicVolume 联动 ──
+  // 浏览器自动播放策略要求 AudioContext.resume 必须在用户手势后。监听一次 pointerdown/keydown
+  // 即可解锁,之后 setBgmTrack 都能直接发声(BgmSystem 复用 sfx.ts 的 ctx,同一手势全打开)。
+  useEffect(() => {
+    const initial = useSettingsStore.getState();
+    setBgmVolume(initial.musicVolume / 100);
+    if (!initial.soundEnabled) setBgmVolume(0);
+    const onFirstGesture = () => {
+      startBgm('menu');
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+    };
+    window.addEventListener('pointerdown', onFirstGesture, { once: true });
+    window.addEventListener('keydown', onFirstGesture, { once: true });
+    // 订阅 musicVolume / soundEnabled 变化
+    const unsubSettings = useSettingsStore.subscribe((s, prev) => {
+      if (s.musicVolume !== prev.musicVolume || s.soundEnabled !== prev.soundEnabled) {
+        setBgmVolume(s.soundEnabled ? s.musicVolume / 100 : 0);
+      }
+    });
+    return () => {
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+      unsubSettings();
+    };
+  }, []);
+
+  // 根据 screen + 战斗状态切换 BGM 主题。
+  // screen!='game' → menu;screen='game' 看 useCombatStore.encounter:有则 combat,无则 investigation。
+  const encounter = useCombatStore((s) => s.encounter);
+  useEffect(() => {
+    if (screen !== 'game') {
+      setBgmTrack('menu');
+    } else if (encounter) {
+      setBgmTrack('combat');
+    } else {
+      setBgmTrack('investigation');
+    }
+  }, [screen, encounter]);
+
   if (!ready) {
     return (
       <div style={{
@@ -171,17 +231,56 @@ export function App() {
             onBack={() => setScreen('scenarioPick')}
             onAddNewCharacter={() => setScreen('creator')}
             onPickChar={(charIdx, mode) => {
+              // newChar 模式跳过预览 — CharacterCreator 7 步已让玩家审视过自己的卡
+              if (mode === 'newChar') {
+                void (async () => {
+                  startNewConversation('新游戏');
+                  setActivating(true);
+                  try {
+                    await activateScenario(scnId, mode, charIdx);
+                  } catch (err) {
+                    console.error('[App] 激活剧本失败:', err);
+                  } finally {
+                    setActivating(false);
+                  }
+                  setScreen('game');
+                })();
+              } else {
+                // preset 模式先到预览页，玩家点「确认入局」才真正 startNewConversation
+                setPreviewPick({ charIdx, mode });
+                setScreen('rosterPreview');
+              }
+            }}
+          />
+        );
+      })()}
+      {screen === 'rosterPreview' && (() => {
+        const scnId = useScenarioStore.getState().lastPicked;
+        if (!scnId || !previewPick) {
+          setScreen('rosterPick');
+          return null;
+        }
+        return (
+          <RosterPreview
+            scenarioId={scnId}
+            charIdx={previewPick.charIdx}
+            onCancel={() => { setPreviewPick(null); setScreen('rosterPick'); }}
+            onConfirm={() => {
+              const { charIdx, mode } = previewPick;
               void (async () => {
                 startNewConversation('新游戏');
                 setActivating(true);
                 try {
                   await activateScenario(scnId, mode, charIdx);
+                  setPreviewPick(null);
+                  setScreen('game');
                 } catch (err) {
                   console.error('[App] 激活剧本失败:', err);
+                  // 失败回退到预览页，玩家可重试或回到选角列表
+                  setScreen('rosterPreview');
                 } finally {
                   setActivating(false);
                 }
-                setScreen('game');
               })();
             }}
           />

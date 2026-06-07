@@ -13,7 +13,6 @@ interface Props {
   name: string;
   player: string;
   occupation: string;
-  customOccupation: string;
   age: number;
   sex: string;
   residence: string;
@@ -61,7 +60,6 @@ export function StepReview({
   name,
   player,
   occupation,
-  customOccupation,
   age,
   sex,
   residence,
@@ -106,7 +104,7 @@ export function StepReview({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 'calc(12px * var(--system-ratio, 1))' }}>
           <Row label="姓名" value={name || '--'} />
           <Row label="玩家" value={player || '--'} />
-          <Row label="职业" value={occupation === '__custom__' ? (customOccupation || '--') : (occupation || '--')} />
+          <Row label="职业" value={occupation || '--'} />
           <Row label="年龄" value={String(age)} />
           <Row label="性别" value={sex || '--'} />
           <Row label="居住地" value={residence || '--'} />

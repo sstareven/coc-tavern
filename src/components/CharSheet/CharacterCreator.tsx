@@ -63,7 +63,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [name, setName] = useState('');
   const [player, setPlayer] = useState('');
   const [occupation, setOccupation] = useState('');
-  const [customOccupation, setCustomOccupation] = useState('');
   const [age, setAge] = useState(25);
   const [sex, setSex] = useState('男');
   const [residence, setResidence] = useState('');
@@ -380,13 +379,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const prevOccRef = useRef(occupation);
 
   const saveCurrentPreset = useCallback(() => {
-    const data = { name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears };
+    const data = { name, player, occupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears };
     savePreset(data);
-  }, [savePreset, name, player, occupation, customOccupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears]);
+  }, [savePreset, name, player, occupation, age, sex, residence, birthplace, charValues, luckValue, creditRating, occSkills, occPoints, interestSkills, interestPoints, description, beliefs, significantPeople, meaningfulLocations, treasuredPossessions, traits, injuries, backgroundFears]);
 
   const loadPreset = useCallback((preset: CharacterPreset) => {
     const d = preset.data;
-    setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setCustomOccupation(d.customOccupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
+    setName(d.name||''); setPlayer(d.player||''); setOccupation(d.occupation||''); setAge(d.age??25); setSex(d.sex||'男'); setResidence(d.residence||''); setBirthplace(d.birthplace||'');
     setCharValues(d.charValues||DEFAULT_CHARS); setLuckValue(d.luckValue??null); setCreditRating(d.creditRating??0); setOccSkills(d.occSkills||[]); setOccPoints(d.occPoints||{}); setInterestSkills(d.interestSkills||[]); setInterestPoints(d.interestPoints||{});
     // 兼容老预设：backgroundFears 是新键名（A0.1 重命名），phobias 是 legacy 键；优先读新键，回退老键。
     setDescription(d.description||''); setBeliefs(d.beliefs||''); setSignificantPeople(d.significantPeople||''); setMeaningfulLocations(d.meaningfulLocations||''); setTreasuredPossessions(d.treasuredPossessions||''); setTraits(d.traits||''); setInjuries(d.injuries||''); setBackgroundFears(d.backgroundFears || d.phobias || '');
@@ -483,7 +482,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
     const charId = editingCharIdRef.current;
 
-    const finalOccupation = occupation === '__custom__' ? (customOccupation || '调查员') : (occupation || '调查员');
+    const finalOccupation = occupation || '调查员';
 
       // Combine background fields into a rich description
       const bgParts: string[] = [];
@@ -519,11 +518,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           residence,
           id: charId,
         },
-        greeting: '',
         description: combinedDesc,
-        personality: '',
-        scenario: '',
-        personaDescription: '',
         posture: '站立',
         statusConditions: [],
         dailySanLoss: 0,
@@ -589,7 +584,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
-    luckValue, name, player, occupation, customOccupation, age, sex, residence, birthplace,
+    luckValue, name, player, occupation, age, sex, residence, birthplace,
     description, beliefs, significantPeople, meaningfulLocations,
     treasuredPossessions, traits, injuries, backgroundFears,
     ageDeductSCD, ageDeductSS,
@@ -612,11 +607,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   };
 
   const randomAllocate = () => {
-    const selectedOcc = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
+    const selectedOcc = occupation ? occupationPool.find((o) => o.name === occupation) : null;
     const suggested = selectedOcc?.skills || [];
     const crMin = selectedOcc?.crMin ?? 0;
     const crMax = selectedOcc?.crMax ?? 99;
-    const isCustomOcc = occupation === '__custom__';
     const getBaseVal = (name: string) => {
       const sk = skillPool.find((x) => x.name === name);
       if (!sk) return 0;
@@ -642,31 +636,22 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     };
     const shuffled = (arr: string[]) => arr.sort(() => Math.random() - 0.5);
 
-    if (isCustomOcc) {
-      // 自定义职业：保留玩家已选的职业/兴趣技能，仅重新分配点数（不清空选择）。
-      const cr = Math.min(creditRating, occPointPool);
-      setCreditRating(cr);
-      const occPoolForSkills = occPointPool - cr;
-      setOccPoints(occSkills.length > 0 && occPoolForSkills > 0 ? allocLoop({}, occSkills, occPoolForSkills) : {});
-      setInterestPoints(interestSkills.length > 0 && intPointPool > 0 ? allocLoop({}, interestSkills, intPointPool) : {});
-    } else {
-      // 预定义职业：用推荐技能、随机选兴趣技能并随机信用评级。
-      const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
-      setCreditRating(cr);
-      setOccSkills([...suggested]);
-      const occPoolForSkills = occPointPool - cr;
-      setOccPoints(suggested.length > 0 && occPoolForSkills > 0 ? allocLoop({}, suggested, occPoolForSkills) : {});
-      const usedNames = new Set(suggested);
-      const intPool = skillPool.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
-      const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
-      setInterestSkills(pickInt);
-      setInterestPoints(pickInt.length > 0 && intPointPool > 0 ? allocLoop({}, pickInt, intPointPool) : {});
-    }
+    // 预定义职业：用推荐技能、随机选兴趣技能并随机信用评级。
+    const cr = Math.floor(Math.random() * (Math.min(crMax, occPointPool) - crMin + 1)) + crMin;
+    setCreditRating(cr);
+    setOccSkills([...suggested]);
+    const occPoolForSkills = occPointPool - cr;
+    setOccPoints(suggested.length > 0 && occPoolForSkills > 0 ? allocLoop({}, suggested, occPoolForSkills) : {});
+    const usedNames = new Set(suggested);
+    const intPool = skillPool.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
+    const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
+    setInterestSkills(pickInt);
+    setInterestPoints(pickInt.length > 0 && intPointPool > 0 ? allocLoop({}, pickInt, intPointPool) : {});
   };
 
   // 重置技能分配（清空职业/兴趣技能与点数，信用评级回到该职业最低基础值），允许重新分配。
   const resetAllocation = () => {
-    const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
+    const occObj = occupation ? occupationPool.find((o) => o.name === occupation) : null;
     setOccSkills([]); setOccPoints({});
     setInterestSkills([]); setInterestPoints({});
     setCreditRating(occObj?.crMin ?? 0);
@@ -676,8 +661,8 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const prevStep = () => { if (step > 0) setStep(step - 1); };
   useEffect(() => {
     if (occupation !== prevOccRef.current) {
-      // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)，自定义职业为 0。
-      const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
+      // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)。
+      const occObj = occupation ? occupationPool.find((o) => o.name === occupation) : null;
       setOccSkills([]); setOccPoints({});
       setInterestSkills([]); setInterestPoints({});
       setCreditRating(occObj?.crMin ?? 0);
@@ -710,7 +695,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setBackstoryError('');
     setBgFilling(true);
     try {
-      const occText = occupation === '__custom__' ? customOccupation : occupation;
+      const occText = occupation;
       const occObj = occupationPool.find((o) => o.name === occupation);
 
       const charLines: string[] = [];
@@ -906,8 +891,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           <StepSkills
             occupation={occupation}
             onSetOccupation={setOccupation}
-            customOccupation={customOccupation}
-            onSetCustomOccupation={setCustomOccupation}
             occSkills={occSkills}
             interestSkills={interestSkills}
             occPoints={occPoints}
@@ -981,7 +964,6 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             name={name}
             player={player}
             occupation={occupation}
-            customOccupation={customOccupation}
             age={age}
             sex={sex}
             residence={residence}

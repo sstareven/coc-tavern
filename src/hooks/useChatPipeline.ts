@@ -273,16 +273,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         maxRecursionSteps: settingsNow.maxRecursionSteps ?? 0,
         includeNames: settingsNow.includeNames ?? true,
         tokenBudget: settingsNow.wiBudget ?? 0,
+        onOverflow: (dropped: number, total: number) => {
+          // alertOnOverflow:wiBudget 把若干条目挤出注入时,弹 toast 提醒玩家(可在设置面板关闭)。
+          if (settingsNow.alertOnOverflow && dropped > 0) {
+            try {
+              useStatusToastStore.getState().markDone(`世界书 Token 溢出:有 ${dropped}/${total} 条被预算裁剪`);
+            } catch { /* toast 失败不影响主流程 */ }
+          }
+        },
         charName: charVars['charName'] ?? '',
         generationType: 'normal' as const,
         charTags: [] as string[],   // COC 暂无角色标签来源
         matchSources: {
-          personaDescription: charVars.personaDescription || '',
+          personaDescription: '',       // COC 投影下与 identity+description 重复，已删
           characterDescription: charVars.description || '',
-          characterPersonality: charVars.personality || '',
-          characterDepthPrompt: '',   // COC 无对应来源
-          scenario: charVars.scenario || '',
-          creatorNotes: '',           // COC 无对应来源
+          characterPersonality: '',     // 性格已并入 description「特质」段
+          characterDepthPrompt: '',     // COC 无对应来源
+          scenario: '',                 // 已被剧本系统接管
+          creatorNotes: '',             // COC 无对应来源
         },
       };
       let matchedKeyword = matchLoreEntries(matchCtx, otherEntries, matchSettings);
@@ -2156,11 +2164,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         generationType: 'normal',
         charTags: [],
         matchSources: {
-          personaDescription: tcCharVars.personaDescription || '',
+          personaDescription: '',
           characterDescription: tcCharVars.description || '',
-          characterPersonality: tcCharVars.personality || '',
+          characterPersonality: '',
           characterDepthPrompt: '',
-          scenario: tcCharVars.scenario || '',
+          scenario: '',
           creatorNotes: '',
         },
       });

@@ -26,6 +26,8 @@ export interface MatchContext {
   maxRecursionSteps: number;
   includeNames: boolean;
   tokenBudget: number;
+  /** 可选: 当 tokenBudget>0 且有条目被裁掉时触发,用于 UI 溢出告警(alertOnOverflow)。 */
+  onOverflow?: (droppedCount: number, totalCandidates: number) => void;
   charName: string;
   generationType: 'normal' | 'continue' | 'regenerate' | 'quiet';
   charTags?: string[];
@@ -282,6 +284,11 @@ export function matchLoreEntries(
       used += tokens;
       final.push(e);
     }
+    // 上报溢出:被预算挤掉的条目数 > 0 时调用回调,供 UI(setting面板的 alertOnOverflow)弹 toast。
+    const dropped = resolved.length - final.length;
+    if (dropped > 0 && matchCtx?.onOverflow) {
+      try { matchCtx.onOverflow(dropped, resolved.length); } catch { /* UI 回调失败不影响主流程 */ }
+    }
   }
 
   // Phase 5: Update sticky/cooldown state
@@ -327,21 +334,25 @@ function resolveMarkerContent(
     case 'worldInfoAfter':
       return worldInfoAfter;
     case 'personaDescription':
-      return charVars.personaDescription || '';
+      // 字段已删（玩家 Persona 在 COC 投影下与 sheet.identity+description 重复）；
+      // marker 保留接收 ST 老预设导入，渲染为空。
+      return '';
     case 'charDescription':
       return charVars.description || '';
     case 'charPersonality':
-      return charVars.personality || '';
+      // 字段已删（性格由 CharCreator「特质」段写进 description 8 段）
+      return '';
     case 'scenario':
-      return charVars.scenario || '';
+      // 字段已删（场景由剧本系统 prologueSeed + entries + scenario-engine 接管）
+      return '';
     case 'enhanceDefinitions':
     case 'auxiliary':
       return preset.auxiliaryPrompt || '';
     case 'postHistoryInstructions':
       return preset.postHistoryPrompt || '';
     case 'dialogueExamples':
-      // Chat examples — from character greeting, skip if none
-      return charVars.greeting || '';
+      // 字段已删（COC 翻页式叙事没有「角色第一句话」语义）
+      return '';
     default:
       return '';
   }

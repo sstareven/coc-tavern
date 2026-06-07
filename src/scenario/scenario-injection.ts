@@ -4,6 +4,7 @@
 import type { LoreEntry } from '../types';
 import type { ScenarioEntry, ScenarioCharacter, ScenarioDoc } from '../types/scenario';
 import type { NpcProfile } from '../types';
+import { splitInitialItems } from './items-splitter';
 
 // 与 LorebookEditor EMPTY_ENTRY 同字段默认；只列「非显然 WHY」必要的注释
 const EMPTY_LORE_ENTRY: LoreEntry = {
@@ -92,14 +93,11 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
       )
     : undefined;
 
-  // 解析 NPC 随身物品: sheet.initialItemsRaw 是逗号/顿号/换行/分号分隔的自由文本,
-  // 拆成 possessions string[]。TeamSidebar 从中识别武器(/剑|刀|枪|弓|斧|锤|弹|匕/);
-  // CombatPanel 的 buildCombatantFromNpc 也用 possessions 派生 weapons。
+  // 解析 NPC 随身物品: sheet.initialItemsRaw 是顿号/逗号/换行/分号分隔的自由文本。
+  // 括号内的分隔符保留（防「皮质药囊(含药草、亚麻绷带)」被切成 2 项导致 TeamSidebar
+  // 武器列 regex 误把「亚麻绷带)」当武器名）。详见 src/scenario/items-splitter.ts。
   const itemsRaw = (sheet.initialItemsRaw as string | undefined) ?? '';
-  const possessions = itemsRaw
-    .split(/[、,，;；\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const possessions = splitInitialItems(itemsRaw);
 
   return {
     id: c.id,
@@ -108,7 +106,7 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
     favorability: c.npcAttrs.attitudeDefault,
     // 外观快览: 公开身份说明(剧本作者写的一句话),NpcOverlay 顶部显示
     appearance: c.npcAttrs.publicBio,
-    personality: typeof sheet.personality === 'string' ? sheet.personality : '',
+    personality: c.npcAttrs.traits ?? '',
     innerThoughts: c.npcAttrs.hiddenBio, // 隐藏简历 = KP 视角动机/秘密
     memories: [],
     experience: '',
