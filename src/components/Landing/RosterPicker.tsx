@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useScenarioStore } from '../../stores/useScenarioStore';
-import type { ScenarioCharacter } from '../../types/scenario';
+import { groupRoster, type RosterRow } from '../../scenario/roster-engine';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -49,6 +49,28 @@ function IconTrash({ size = 12 }: { size?: number }) {
       <path d="M6 7l1 13h10l1-13" />
       <path d="M10 11v6M14 11v6" />
     </svg>
+  );
+}
+
+// 「作者预设」内部「推荐主角 / 配角」子分区小标题（含可选副标题）。
+function SubLabel({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'baseline', gap: 10,
+      margin: '0 0 8px', padding: '2px 2px 6px',
+      borderBottom: '1px dashed rgba(196,168,85,0.18)',
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--gold)',
+        letterSpacing: 3, fontWeight: 600,
+      }}>{title}</span>
+      {subtitle && (
+        <span style={{
+          fontFamily: 'var(--font-ui)', fontSize: 10,
+          color: 'rgba(196,168,85,0.55)', letterSpacing: 1,
+        }}>{subtitle}</span>
+      )}
+    </div>
   );
 }
 
@@ -111,16 +133,19 @@ export function RosterPicker({ scenarioId, onPickChar, onBack, onAddNewCharacter
   const upsert = useScenarioStore((s) => s.upsert);
   const scn = getById(scenarioId);
 
-  // 按 characters[] 原序保留 idx,然后再分组(分组只影响渲染顺序,onPickChar 传的 charIdx 仍是原序 idx)
-  const grouped = useMemo(() => {
-    if (!scn) return { preset: [], userCreated: [] };
-    const indexed: { c: ScenarioCharacter; idx: number }[] = scn.characters.map((c, idx) => ({ c, idx }));
-    const preset = indexed.filter(({ c }) => c.role === 'protagonist' || c.role === 'optional');
-    const userCreated = indexed
-      .filter(({ c }) => c.role === 'player_created')
-      .sort((a, b) => (b.c.createdAt ?? 0) - (a.c.createdAt ?? 0));
-    return { preset, userCreated };
-  }, [scn]);
+  // 分组逻辑下沉到 src/scenario/roster-engine.ts (纯函数 + 单元测试)。
+  // 三段都保留 scn.characters 原序 idx,onPickChar 传 charIdx 仍是原序。
+  const grouped = useMemo(() => groupRoster(scn), [scn]);
+  const hasPreset = grouped.protagonists.length + grouped.optionals.length > 0;
+
+  // ESC 关闭整面板（与 header「← 返回选剧本」等价，承担全屏 dialog 的键盘退出）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onBack();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onBack]);
 
   if (!scn) {
     return (
@@ -146,7 +171,7 @@ export function RosterPicker({ scenarioId, onPickChar, onBack, onAddNewCharacter
     upsert(next);
   };
 
-  const renderRow = ({ c, idx }: { c: ScenarioCharacter; idx: number }, isUserCreated: boolean) => {
+  const renderRow = ({ c, idx }: RosterRow, isUserCreated: boolean) => {
     const name = c.sheet?.identity?.name || c.npcAttrs.identityTag || '未命名';
     const occ = c.sheet?.identity?.occupation || '';
     const roleHint = c.role === 'protagonist' ? '推荐主角' : (c.role === 'optional' ? '配角' : '你的角色');
@@ -264,15 +289,30 @@ export function RosterPicker({ scenarioId, onPickChar, onBack, onAddNewCharacter
             borderBottom: '1px solid rgba(196,168,85,0.25)',
             paddingBottom: 6,
           }}>作者预设</h3>
-          {grouped.preset.length === 0 ? (
+          {!hasPreset ? (
             <div style={{
               padding: 20, textAlign: 'center',
               color: 'rgba(196,168,85,0.5)', fontFamily: 'var(--font-ui)', fontSize: 12,
             }}>本剧本未预设可选角色</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {grouped.preset.map((row) => renderRow(row, false))}
-            </div>
+            <>
+              {grouped.protagonists.length > 0 && (
+                <div style={{ marginBottom: grouped.optionals.length > 0 ? 18 : 0 }}>
+                  <SubLabel title="主角视角" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {grouped.protagonists.map((row) => renderRow(row, false))}
+                  </div>
+                </div>
+              )}
+              {grouped.optionals.length > 0 && (
+                <div>
+                  <SubLabel title="配角视角" subtitle="作者未为你专门调谐" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {grouped.optionals.map((row) => renderRow(row, false))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
 

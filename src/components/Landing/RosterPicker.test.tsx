@@ -81,6 +81,71 @@ describe('RosterPicker', () => {
     expect(screen.getByText('你创建的')).toBeInTheDocument();
   });
 
+  it('「作者预设」内按 role 分子分区：「主角视角」与「配角视角 — 作者未为你专门调谐」', () => {
+    const scn = makeScenario([
+      makeChar('p1', '以利亚', 'protagonist'),
+      makeChar('o1', '哈丽特', 'optional'),
+    ]);
+    useScenarioStore.setState({ userScenarios: [scn] });
+    render(
+      <RosterPicker
+        scenarioId={scn.id}
+        onPickChar={vi.fn()}
+        onBack={vi.fn()}
+        onAddNewCharacter={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('主角视角')).toBeInTheDocument();
+    expect(screen.getByText('配角视角')).toBeInTheDocument();
+    expect(screen.getByText('作者未为你专门调谐')).toBeInTheDocument();
+  });
+
+  it('仅 protagonist 时不渲染「配角视角」子分区', () => {
+    const scn = makeScenario([makeChar('p1', '以利亚', 'protagonist')]);
+    useScenarioStore.setState({ userScenarios: [scn] });
+    render(
+      <RosterPicker
+        scenarioId={scn.id}
+        onPickChar={vi.fn()}
+        onBack={vi.fn()}
+        onAddNewCharacter={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('主角视角')).toBeInTheDocument();
+    expect(screen.queryByText('配角视角')).toBeNull();
+  });
+
+  it('仅 optional 时不渲染「主角视角」子分区', () => {
+    const scn = makeScenario([makeChar('o1', '哈丽特', 'optional')]);
+    useScenarioStore.setState({ userScenarios: [scn] });
+    render(
+      <RosterPicker
+        scenarioId={scn.id}
+        onPickChar={vi.fn()}
+        onBack={vi.fn()}
+        onAddNewCharacter={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('主角视角')).toBeNull();
+    expect(screen.getByText('配角视角')).toBeInTheDocument();
+  });
+
+  it('按 ESC 触发 onBack', () => {
+    const scn = makeScenario([makeChar('p1', '以利亚', 'protagonist')]);
+    useScenarioStore.setState({ userScenarios: [scn] });
+    const onBack = vi.fn();
+    render(
+      <RosterPicker
+        scenarioId={scn.id}
+        onPickChar={vi.fn()}
+        onBack={onBack}
+        onAddNewCharacter={vi.fn()}
+      />,
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
   it('player_created 按 createdAt 倒序排列', () => {
     const scn = makeScenario([
       makeChar('u1', '老卡', 'player_created', 1000),

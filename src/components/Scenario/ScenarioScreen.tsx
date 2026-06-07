@@ -1,18 +1,13 @@
 // 剧本选择全屏 — 见 docs/specs/2026-06-06-scenario-system-design.md §A1
-// 主体: builtins ∪ userScenarios grid;onPick 把选中剧本+角色选择回报给宿主路由
+// 主体: builtins ∪ userScenarios grid；点剧本卡 → onPick(id) 直跳 RosterPicker
 import { useState } from 'react';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import { pickAndImportScenario } from '../../scenario/scenario-io';
-import { defaultSheet } from '../../stores/useCharSheetStore';
-import type { ScenarioDoc, ScenarioCharacter } from '../../types/scenario';
+import type { ScenarioDoc } from '../../types/scenario';
 import { ScenarioCard } from './ScenarioCard';
 
-export type ScenarioPickChoice =
-  | { mode: 'newChar' }
-  | { mode: 'preset'; charIdx: number };
-
 interface Props {
-  onPick: (id: string, choice: ScenarioPickChoice) => void;
+  onPick: (id: string) => void;
   onClose: () => void;
   onOpenEditor: (id: string) => void;
 }
@@ -80,14 +75,6 @@ function IconClose({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
-function IconUser({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5.5 20a6.5 6.5 0 0113 0" />
-    </svg>
-  );
-}
 
 // 工具栏按钮(hover/active 含放大+按压)
 function ToolbarButton({
@@ -130,204 +117,10 @@ function ToolbarButton({
   );
 }
 
-// ── 角色选择抽屉(modal in modal) ──
-// 角色按钮 — 在主角分区与配角分区两处复用,样式由 variant 控制。
-function CharacterPickButton({
-  ch, idx, variant, onPick,
-}: {
-  ch: ScenarioCharacter;
-  idx: number;
-  variant: 'protagonist' | 'optional';
-  onPick: (c: ScenarioPickChoice) => void;
-}) {
-  const name = ch.sheet?.identity?.name || defaultSheet.identity?.name || '未命名调查员';
-  const occ = ch.sheet?.identity?.occupation ?? '';
-  const bio = ch.npcAttrs.publicBio;
-  const isProto = variant === 'protagonist';
-  return (
-    <button
-      onClick={() => onPick({ mode: 'preset', charIdx: idx })}
-      style={{
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-        padding: '12px 16px',
-        background: isProto ? 'rgba(196,168,85,0.06)' : 'rgba(255,255,255,0.02)',
-        border: isProto
-          ? '1px solid rgba(196,168,85,0.45)'
-          : '1px solid rgba(196,168,85,0.18)',
-        borderRadius: 3,
-        color: 'var(--text-light, #d0c2a0)',
-        fontFamily: 'var(--font-ui)', textAlign: 'left',
-        cursor: 'pointer',
-        opacity: isProto ? 1 : 0.85,
-        transition: `background 200ms ${EASE}, transform 180ms ${EASE}, border-color 200ms ${EASE}, opacity 200ms ${EASE}`,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = isProto ? 'rgba(196,168,85,0.14)' : 'rgba(196,168,85,0.08)';
-        e.currentTarget.style.borderColor = 'var(--brass)';
-        e.currentTarget.style.opacity = '1';
-        e.currentTarget.style.transform = 'translateX(2px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = isProto ? 'rgba(196,168,85,0.06)' : 'rgba(255,255,255,0.02)';
-        e.currentTarget.style.borderColor = isProto ? 'rgba(196,168,85,0.45)' : 'rgba(196,168,85,0.18)';
-        e.currentTarget.style.opacity = isProto ? '1' : '0.85';
-        e.currentTarget.style.transform = 'translateX(0)';
-      }}
-    >
-      <IconUser size={20} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, color: 'var(--gold)', marginBottom: 2 }}>
-          {name}{occ ? ` · ${occ}` : ''}
-        </div>
-        {bio && (
-          <div style={{
-            fontSize: 11.5, lineHeight: 1.5, opacity: 0.75,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>{bio}</div>
-        )}
-      </div>
-    </button>
-  );
-}
-
-// 分区标题(铜版小字 + 横线尾随)
-function SectionLabel({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'baseline', gap: 8,
-      padding: '4px 2px', marginTop: 4,
-      borderBottom: '1px solid rgba(196,168,85,0.18)',
-    }}>
-      <span style={{
-        fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-ui)',
-        letterSpacing: 3, fontWeight: 600,
-      }}>{title}</span>
-      {subtitle && (
-        <span style={{
-          fontSize: 10, color: 'var(--text-light, #d4c4a0)', opacity: 0.6,
-          fontFamily: 'var(--font-ui)', letterSpacing: 1,
-        }}>{subtitle}</span>
-      )}
-    </div>
-  );
-}
-
-function CharacterPickerDrawer({
-  scn, onPick, onCancel,
-}: { scn: ScenarioDoc; onPick: (c: ScenarioPickChoice) => void; onCancel: () => void }) {
-  // 三分区: protagonist 顶部加金边、optional 下沉灰边、locked_npc 不出现
-  const protagonists = scn.characters
-    .map((ch, idx) => ({ ch, idx }))
-    .filter(({ ch }) => ch.role === 'protagonist');
-  const optionals = scn.characters
-    .map((ch, idx) => ({ ch, idx }))
-    .filter(({ ch }) => ch.role === 'optional');
-  const hasAnyPickable = protagonists.length + optionals.length > 0;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onCancel}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(8,5,2,0.78)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 'min(560px, 100%)',
-          maxHeight: '80dvh',
-          minHeight: 0,
-          display: 'flex', flexDirection: 'column',
-          background: 'linear-gradient(180deg, #1e1610, #110c07)',
-          border: '1px solid var(--brass)',
-          borderRadius: 4,
-          boxShadow: '0 24px 60px rgba(0,0,0,0.7)',
-          overflow: 'hidden',
-        }}
-      >
-        <header style={{
-          padding: '14px 18px',
-          borderBottom: '1px solid rgba(196,168,85,0.25)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <h3 style={{
-            margin: 0, fontSize: 15, color: 'var(--gold)',
-            fontFamily: 'var(--font-ui)', letterSpacing: 2, fontWeight: 600,
-          }}>选择调查员 — {scn.meta.name}</h3>
-          <ToolbarButton icon={<IconClose size={14} />} label="取消" onClick={onCancel} />
-        </header>
-
-        <div style={{
-          flex: 1, overflowY: 'auto', padding: 16,
-          display: 'flex', flexDirection: 'column', gap: 10,
-        }}>
-          {/* 新建角色 选项(始终首位) */}
-          <button
-            onClick={() => onPick({ mode: 'newChar' })}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '12px 16px',
-              background: 'rgba(196,168,85,0.08)',
-              border: '1px dashed var(--brass)', borderRadius: 3,
-              color: 'var(--gold)', fontFamily: 'var(--font-ui)',
-              fontSize: 13, letterSpacing: 1, cursor: 'pointer',
-              transition: `background 200ms ${EASE}, transform 180ms ${EASE}`,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.18)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(196,168,85,0.08)'; e.currentTarget.style.transform = 'translateX(0)'; }}
-          >
-            <IconPlus size={18} />
-            <div style={{ textAlign: 'left' }}>
-              <div>新建角色</div>
-              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>进入角色卡向导</div>
-            </div>
-          </button>
-
-          {/* 推荐视角(protagonist) */}
-          {protagonists.length > 0 && (
-            <>
-              <SectionLabel title="推荐视角" />
-              {protagonists.map(({ ch, idx }) => (
-                <CharacterPickButton key={ch.id} ch={ch} idx={idx} variant="protagonist" onPick={onPick} />
-              ))}
-            </>
-          )}
-
-          {/* 配角视角(optional) — 作者未为玩家专门调谐 */}
-          {optionals.length > 0 && (
-            <>
-              <SectionLabel title="配角视角" subtitle="作者未为你专门调谐" />
-              {optionals.map(({ ch, idx }) => (
-                <CharacterPickButton key={ch.id} ch={ch} idx={idx} variant="optional" onPick={onPick} />
-              ))}
-            </>
-          )}
-
-          {!hasAnyPickable && (
-            <div style={{
-              padding: '24px 16px', textAlign: 'center',
-              color: 'var(--text-light, #d4c4a0)', opacity: 0.65,
-              fontSize: 12, fontFamily: 'var(--font-ui)',
-            }}>本剧本未配置可选角色 — 请「新建角色」</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
   const builtins = useScenarioStore(s => s.builtins);
   const userScenarios = useScenarioStore(s => s.userScenarios);
   const upsert = useScenarioStore(s => s.upsert);
-  const [pickerFor, setPickerFor] = useState<ScenarioDoc | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string): void => {
@@ -420,7 +213,7 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
               <ScenarioCard
                 key={scn.id}
                 scn={scn}
-                onPlay={() => setPickerFor(scn)}
+                onPlay={() => onPick(scn.id)}
                 onEdit={() => onOpenEditor(scn.id)}
               />
             ))}
@@ -438,15 +231,6 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
           pointerEvents: 'none',
         }}>{toast}</div>
-      )}
-
-      {/* 角色选择抽屉 */}
-      {pickerFor && (
-        <CharacterPickerDrawer
-          scn={pickerFor}
-          onPick={(choice) => { const id = pickerFor.id; setPickerFor(null); onPick(id, choice); }}
-          onCancel={() => setPickerFor(null)}
-        />
       )}
     </div>
   );
