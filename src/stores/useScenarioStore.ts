@@ -111,6 +111,10 @@ function mergePatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
     for (const b of patch.upsertBadEndings) map.set(b.id, b);
     next.badEndings = Array.from(map.values());
   }
+  if (patch.removeCharacterIds?.length) {
+    const drop = new Set(patch.removeCharacterIds);
+    next.characters = next.characters.filter(c => !drop.has(c.id));
+  }
   if (patch.patchCharacters?.length) {
     const map = new Map(next.characters.map(c => [c.id, c]));
     for (const c of patch.patchCharacters) {

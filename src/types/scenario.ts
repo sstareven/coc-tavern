@@ -165,6 +165,8 @@ export interface ScenarioPatch {
   upsertBadEndings?: BadEnding[];
   patchMeta?: Partial<ScenarioMeta>;
   patchCharacters?: ScenarioCharacter[];
+  /** 移除指定 id 的 character;与 patchCharacters 同 patch 时先移除再 upsert。 */
+  removeCharacterIds?: string[];
 
   // 时代化职业/技能/技能黑名单变更 — 全部按 name 去重(同 name 覆盖,异 name 追加)
   upsertOccupations?: Occupation[];

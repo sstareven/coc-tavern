@@ -227,3 +227,43 @@ describe('useScenarioStore.applyRelationDelta', () => {
     expect(updated.characters.find(c => c.id === 'cA')!.relations).toEqual([{ targetId: 'cB', type: 'friend' }]);
   });
 });
+
+describe('ScenarioPatch.removeCharacterIds', () => {
+  beforeEach(resetStore);
+
+  it('应该移除指定 id 的 character', () => {
+    const doc = makeDoc({
+      id: 'scn_rm1',
+      characters: [makeChar('c1', '甲'), makeChar('c2', '乙', { role: 'player_created' }), makeChar('c3', '丙')],
+    });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyPatch('scn_rm1', { removeCharacterIds: ['c2'] });
+
+    const after = useScenarioStore.getState().getById('scn_rm1')!;
+    expect(after.characters.map(c => c.id)).toEqual(['c1', 'c3']);
+  });
+
+  it('removeCharacterIds 与 patchCharacters 同 patch 内时，先移除再 upsert', () => {
+    const doc = makeDoc({ id: 'scn_rm2', characters: [makeChar('c1', '甲'), makeChar('c2', '乙')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyPatch('scn_rm2', {
+      removeCharacterIds: ['c1'],
+      patchCharacters: [makeChar('c3', '丙')],
+    });
+
+    const after = useScenarioStore.getState().getById('scn_rm2')!;
+    expect(after.characters.map(c => c.id).sort()).toEqual(['c2', 'c3']);
+  });
+
+  it('removeCharacterIds 未命中任何 id 应是 no-op', () => {
+    const doc = makeDoc({ id: 'scn_rm3', characters: [makeChar('c1', '甲')] });
+    useScenarioStore.setState({ userScenarios: [doc] });
+
+    useScenarioStore.getState().applyPatch('scn_rm3', { removeCharacterIds: ['nope'] });
+
+    const after = useScenarioStore.getState().getById('scn_rm3')!;
+    expect(after.characters.map(c => c.id)).toEqual(['c1']);
+  });
+});
