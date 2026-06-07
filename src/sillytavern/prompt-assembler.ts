@@ -26,6 +26,8 @@ export interface MatchContext {
   maxRecursionSteps: number;
   includeNames: boolean;
   tokenBudget: number;
+  /** 可选: 当 tokenBudget>0 且有条目被裁掉时触发,用于 UI 溢出告警(alertOnOverflow)。 */
+  onOverflow?: (droppedCount: number, totalCandidates: number) => void;
   charName: string;
   generationType: 'normal' | 'continue' | 'regenerate' | 'quiet';
   charTags?: string[];
@@ -281,6 +283,11 @@ export function matchLoreEntries(
       if (used + tokens > tokenBudget) continue;
       used += tokens;
       final.push(e);
+    }
+    // 上报溢出:被预算挤掉的条目数 > 0 时调用回调,供 UI(setting面板的 alertOnOverflow)弹 toast。
+    const dropped = resolved.length - final.length;
+    if (dropped > 0 && matchCtx?.onOverflow) {
+      try { matchCtx.onOverflow(dropped, resolved.length); } catch { /* UI 回调失败不影响主流程 */ }
     }
   }
 

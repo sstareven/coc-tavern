@@ -97,28 +97,34 @@ export function MobileNoteView() {
           style={{
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', minHeight: 0,
-            margin: 10, padding: '16px 16px 12px', borderRadius: 8,
+            margin: 4, padding: '14px 18px 12px', borderRadius: 8,
             background: 'linear-gradient(160deg, var(--parchment) 0%, var(--parchment-deep) 100%)',
             boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
-            color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75,
+            color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(16.5px * var(--text-ratio, 1))', lineHeight: 1.8,
           }}
         >
-          {/* 标题 + 骰子记录 */}
-          <div style={{ flexShrink: 0, marginBottom: 10, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 3, margin: 0 }}>{page.leftHeader}</h3>
-            {dice.slice(0, 2).map((d, i) => {
-              const c = RESULT_COLORS[d.type] || RESULT_COLORS.failure;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                  <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${c}55)` }} />
-                  <span style={{ fontSize: 'calc(9px * var(--text-ratio, 1))', fontFamily: 'var(--font-ui)', color: c, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>
-                    {d.skill} {RESULT_LABELS[d.type] || d.type}
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${c}55)` }} />
-                </div>
-              );
-            })}
-            {/* 小总结（剧情回顾）—— 与检定结果一起冻结在顶部 */}
+          {/* 标题 + 骰子记录 —— 检定记录用 chip 徽章列展示,与标题视觉分层,不再像副标题下划线 */}
+          <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 2, margin: 0 }}>{page.leftHeader}</h3>
+            {dice.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {dice.slice(0, 2).map((d, i) => {
+                  const c = RESULT_COLORS[d.type] || RESULT_COLORS.failure;
+                  return (
+                    <span key={i} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '2px 8px', borderRadius: 10,
+                      border: `1px solid ${c}55`, background: `${c}14`,
+                      fontSize: 'calc(10px * var(--text-ratio, 1))',
+                      fontFamily: 'var(--font-ui)', color: c, letterSpacing: 1,
+                    }}>
+                      {d.skill} · {RESULT_LABELS[d.type] || d.type}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {/* 小总结(剧情回顾) —— 与检定记录一起冻结在顶部 */}
             {page.summary && (
               <p style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
                 {page.summary}
@@ -130,9 +136,9 @@ export function MobileNoteView() {
             {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
             <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
             {rendered.length === 1 && typeof rendered[0] === 'string'
-              ? <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(rendered[0])}</p>
+              ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(rendered[0])}</p>
               : rendered.map((node, i) => typeof node === 'string'
-                  ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
+                  ? <p key={i} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
                   : <span key={i}>{node}</span>)}
             {renderedRight && (
               <>
@@ -143,9 +149,9 @@ export function MobileNoteView() {
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
                 {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
-                  ? <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedRight[0])}</p>
+                  ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedRight[0])}</p>
                   : renderedRight.map((node, i) => typeof node === 'string'
-                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 8, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
+                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
                       : <span key={`r${i}`}>{node}</span>)}
               </>
             )}
@@ -157,7 +163,7 @@ export function MobileNoteView() {
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
                 </div>
-                <p style={{ textIndent: '2em', marginBottom: 12, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
+                <p style={{ textIndent: '2em', marginBottom: 14, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
               </>
             )}
           </div>

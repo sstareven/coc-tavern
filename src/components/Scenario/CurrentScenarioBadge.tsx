@@ -7,6 +7,7 @@ import { useScenarioStore } from '../../stores/useScenarioStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { IconToc, IconClose } from '../Layout/TabIcons';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { DarkPhase } from '../../types/scenario';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -51,6 +52,7 @@ export function CurrentScenarioBadge() {
   const sessions = useChatStore((s) => s.sessions);
   const getById = useScenarioStore((s) => s.getById);
   const statData = useVariableStore((s) => s.statData);
+  const isMobile = useIsMobile();
 
   const session = sessions.find((c) => c.id === activeSessionId);
   const scenarioId = session?.scenarioId;
@@ -69,6 +71,7 @@ export function CurrentScenarioBadge() {
           fontFamily: 'var(--font-ui)',
           fontSize: 'calc(11px * var(--system-ratio, 1))',
           letterSpacing: 1, userSelect: 'none',
+          flexShrink: 0,
         }}
         title="未选择剧本(自由探索模式)"
       >
@@ -87,6 +90,7 @@ export function CurrentScenarioBadge() {
       <BadgeButton
         name={doc.meta.name}
         progress={progress}
+        isMobile={isMobile}
         onClick={() => setOpen(true)}
       />
       {open ? (
@@ -102,15 +106,17 @@ export function CurrentScenarioBadge() {
   );
 }
 
-function BadgeButton({ name, progress, onClick }: { name: string; progress: number; onClick: () => void }) {
+function BadgeButton({ name, progress, isMobile, onClick }: { name: string; progress: number; isMobile: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`查看剧本「${name}」详情(暗线 ${progress}/100)`}
       style={{
-        // 左上角铜版胶囊 — 与 TeamSidebar 胶囊(top:56)样式一致,位置下移到 92
-        position: 'fixed', top: 92, left: 14, zIndex: 49,
+        // 桌面端:左上角 fixed 胶囊;手机端:relative 由 GameView 包到 TopBar 下方一行,避免遮挡 StatusBar
+        ...(isMobile
+          ? { position: 'relative', flexShrink: 0 }
+          : { position: 'fixed', top: 92, left: 14, zIndex: 49 }),
         display: 'inline-flex', alignItems: 'center', gap: 8,
         padding: '6px 14px', borderRadius: 18,
         background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',

@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.13.0';
+export const CURRENT_VERSION = 'v1.13.2';
 
 interface Release {
   version: string;
@@ -19,6 +19,28 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.13.2',
+    label: '首屏读取速度优化:BGM 延迟加载 · 启动序列两阶段 · 世界书 rehydrate 改 O(N)',
+    items: [
+      '【首屏·BGM 不再抢带宽】LandingScreen 一进就 subscribeBgmLoadProgress 触发 getAudio(),浏览器立刻按 preload=auto 拉 38MB BGM.mp3,与 Dexie/IDB 抢主线程和网络带宽,使首屏渲染 + 数据库初始化变慢。现 audio.preload 改为 metadata(只拉头部 ~几十 KB,完整下载延后到 startBgm() 内 audio.play() 触发,此时已是用户手势之后);LandingScreen 订阅再延迟 1.2 秒等首屏渲染稳定;BgmLoadingBar 文案去掉百分比(从「BGM 缓冲 N%」→「BGM 缓冲中」),避免让玩家误以为必须等到 100% 才能玩',
+      '【启动序列·两阶段并行】App.tsx 旧版把 initKvCache → seedFusionPreset → migrateFromLocalStorage → db.open → loadConversation 5 步全串行 await,期间整页只有一个旋转 spinner、首屏完全失明。现拆成两阶段:Stage 1 只阻塞 initKvCache + db.open(总 ~50-300ms),完成立刻 setReady(true) 让 LandingScreen 可见;Stage 2 把 seedFusionPreset + migrateFromLocalStorage 改 Promise.all 并行后台跑,完成后再 loadConversation 恢复活跃会话(全程不阻塞首屏)',
+      '【世界书 rehydrate·O(N×M²) → O(N+M)】useLorebookStore.onRehydrateStorage 旧版为每条内置条目都做 `merged[bookId] = {...book, entries:{...book.entries, [eid]: ...}}` 双层 spread —— 100+ 条目意味着 100+ 次「整本 entries map 全量浅拷」,Zustand 首次 rehydrate 时阻塞主线程 60-150ms。现改为单遍 in-place:每本书只浅拷一次 entries map,内层条目直接赋值;复杂度从 O(N×M²) 降到 O(N+M),同时少几百个临时对象减轻 GC 压力',
+      '【全局诊断】出本版前做了 6 路并行诊断(启动序列 / store rehydrate / BGM / bundle 拆分 / 世界书引擎 / React render),综合 47 个 hotspot 排出 ROI Top 5。本版落地了 Top 1 / Top 2 / Top 4 三项 small + low risk;Top 3(Vite manualChunks + 12 个 overlay panel lazy)和 Top 5(SettingsPanel 68 个 selector 合并)留下版迭代',
+    ],
+  },
+  {
+    version: 'v1.13.1',
+    label: '手机端 UX 大修 · 程序化 BGM 接入 · 设置面板 UI 风格统一',
+    items: [
+      '【BGM·全新接入】WebAudio 程序化 BGM 系统起步，随后切换为 /public/BGM.mp3（ffmpeg libmp3lame 把原 67MB 320kbps 压到 38MB 96kbps 立体声，54 分钟氛围 BGM 听感无损）流式播放。4 个 track 共用同一音源走不同 BiquadFilter 链按场景差异化：menu 直通（清亮）/ investigation 低通 5kHz Q=0.5（温柔）/ combat 低通 1.5kHz + 高架 -3dB（压抑紧张）/ mythos 低通 700Hz + 低架 +4dB（深沉，邪神/坏结局）。LandingScreen 显示 BGM 缓冲进度条，加载失败优雅回退不刷错；SettingsPanel 新增「音乐音量」滑块联动 musicVolume',
+      '【设置面板·UI 风格统一】抽出 SliderRow 共享组件（label / help / range / 数值后缀）替代 11 处重复滑块写法；音乐音量补 % 单位；温度/重试/maxTokens 统一 gap/width/字号/颜色；6 tab emoji 全换为铜版线描 SVG icon；关闭按钮 ✕ 换 IconClose；mvuMaxTokens UI 上限 16384 → 65536、默认 8096 → 32768、setter clamp 下限 20000；多个 setter 补 clamp（setMusicVolume / setTooltipDelay / setMvuTemperature / setMaxRecursionSteps 等）',
+      '【手机端·正文区扩展（v1.13.1 收尾）】GameView 手机端 appHeight 表达式只给了 `${viewportH}px` 没除以 `--auto-zoom`，根容器 zoom=0.75 把 1307px 渲染成 980px、视口底下露 327px 空白。两条路径（手机/桌面）统一用 `calc(... / var(--auto-zoom, 1))`，正文卡片自动延伸到视口底部，可用面积增加约 327px。叠加同期完成的 ActionSheet 钉视口底 + 截图 bug 修复 + 顶部/底部固定区压缩，手机端纵向阅读空间彻底释放',
+      '【手机端·字号自动补偿】useResponsiveZoom 在窄屏（<1280px）兜底到 MIN_ZOOM=0.75，所有 px 字号渲染压成原值 75%——11px 提示文字最终只剩 8.25px、16.5px 正文最终只剩 12.4px，读不清。useTextRatios hook 现在检测手机端时自动叠加 4/3 ≈ 1.333 补偿因子完全抵消 zoom 缩放，设置面板的「100%」在手机/桌面渲染出相同物理字号；桌面端不受影响',
+      '【滚动条·全局铜版风】铜版风滚动条样式之前只挂 .scenario-editor * 子树，MobileNoteView 等 inline-style 的滚动容器漏出浏览器默认黑色滚动条。现改成 html + ::-webkit-scrollbar 全局选择器，所有 overflow:auto/scroll 元素自动套铜金色细滚动条，包括手机端叙事卷轴',
+      '【手机端·叙事便条松绑】MobileNoteView 卡片 padding 10/12/8 → 14/18/12（左右内边距增加 6px），正文字号 calc(15px*ratio) → calc(16.5px*ratio)，行高 1.75 → 1.8，段落间距 12/8 → 14/12。叙事阅读区不再贴边、字号舒展、段落清晰',
+    ],
+  },
   {
     version: 'v1.13.0',
     label: '设置新增「领受赐福」骰子祝福作弊系统 · 构建热修 · 更新日志机制加固',

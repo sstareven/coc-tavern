@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore, TEXT_RATIO_MIN, TEXT_RATIO_MAX } from '../../stores/useSettingsStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
@@ -8,14 +8,14 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconQuill } from '../Layout/TabIcons';
+import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconQuill, IconClose } from '../Layout/TabIcons';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { PromptTemplateContent } from './PromptTemplateContent';
 import { CheatingContent } from './CheatingContent';
 import {
-  rowStyle, labelStyle, numInputStyle, helpIconStyle,
-  CategoryBar, Toggle, HelpIcon,
+  rowStyle, labelStyle, numInputStyle,
+  CategoryBar, Toggle, HelpIcon, SliderRow,
 } from './_shared';
 import type { RegexScript, RegexScriptType, RegexPlacement } from '../../types';
 
@@ -535,7 +535,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; }}
           >
-            <span>✕</span>
+            <IconClose size={12} />
             <span>关闭</span>
           </button>
         </div>
@@ -576,39 +576,27 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 </div>
 
                 {/* Music volume */}
-                <div style={rowStyle}>
-                  <span style={labelStyle}>音乐音量</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="range" min={0} max={100} value={musicVolume}
-                      onChange={(e) => setMusicVolume(Number(e.target.value))}
-                      style={{ width: 100, accentColor: 'var(--gold)' }}
-                    />
-                  </div>
-                </div>
+                <SliderRow
+                  label="音乐音量"
+                  help={'后台 BGM 主音量。BGM 在你与页面发生首次交互(鼠标/键盘)后才会启动,以符合浏览器自动播放策略。'}
+                  value={musicVolume} onChange={setMusicVolume}
+                  min={0} max={100} unit="%"
+                />
 
                 {/* SFX volume */}
-                <div style={rowStyle}>
-                  <span style={labelStyle}>音效音量</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="range" min={0} max={100} value={sfxVolume}
-                      onChange={(e) => setSfxVolume(Number(e.target.value))}
-                      style={{ width: 100, accentColor: 'var(--gold)' }}
-                    />
-                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{sfxVolume}%</span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="音效音量"
+                  value={sfxVolume} onChange={setSfxVolume}
+                  min={0} max={100} unit="%"
+                />
 
-                {/* Tooltip delay */}
-                <div style={rowStyle}>
-                  <span style={labelStyle}>提示延迟</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="range" min={200} max={2000} step={100} value={tooltipDelay}
-                      onChange={(e) => setTooltipDelay(Number(e.target.value))}
-                      style={{ width: 100, accentColor: 'var(--gold)' }}
-                    />
-                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{tooltipDelay}ms</span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="提示延迟"
+                  help={'HelpIcon (问号) 悬停后显示说明的延迟时间(毫秒)。0 = 立即显示。'}
+                  value={tooltipDelay} onChange={setTooltipDelay}
+                  min={0} max={2000} step={100}
+                  unit="ms"
+                />
 
                 {/* Auto-submit choice */}
                 <div style={rowStyle}>
@@ -616,64 +604,32 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <Toggle on={autoSubmitChoice} onChange={() => setAutoSubmitChoice(!autoSubmitChoice)} />
                 </div>
 
-                {/* v1.11.7: 文字倍率（取代旧「界面缩放」整页 zoom） — 分正文/系统两类独立调节。
-                    几何尺寸(按钮宽高/面板大小)由 CSS 响应式表达式(clamp/vw/vh)驱动,这里只动字号。 */}
-                <div style={rowStyle}>
-                  <span style={{ ...labelStyle, position: 'relative' }}>
-                    正文文字大小
-                    <HelpIcon text={'调节叙事/对话/线索/关键词等「剧情可读性」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n几何尺寸(书页/按钮宽高)由响应式 CSS 驱动,会跟随浏览器窗口大小自动调整,不受这里影响。'} />
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range"
-                      min={Math.round(TEXT_RATIO_MIN * 100)}
-                      max={Math.round(TEXT_RATIO_MAX * 100)}
-                      step={5}
-                      value={Math.round(textRatio * 100)}
-                      onChange={(e) => setTextRatio(Number(e.target.value) / 100)}
-                      style={{ width: 140 }}
-                    />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
-                      {Math.round(textRatio * 100)}%
-                    </span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="正文文字大小"
+                  help={'调节叙事/对话/线索/关键词等「剧情可读性」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n几何尺寸(书页/按钮宽高)由响应式 CSS 驱动,会跟随浏览器窗口大小自动调整,不受这里影响。'}
+                  value={Math.round(textRatio * 100)}
+                  onChange={(v) => setTextRatio(v / 100)}
+                  min={Math.round(TEXT_RATIO_MIN * 100)} max={Math.round(TEXT_RATIO_MAX * 100)} step={5}
+                  unit="%" rangeWidth={140}
+                />
 
-                <div style={rowStyle}>
-                  <span style={{ ...labelStyle, position: 'relative' }}>
-                    系统文字大小
-                    <HelpIcon text={'调节按钮/菜单/设置面板/状态栏等「系统 UI」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n与正文文字独立——可以正文调大方便沉浸阅读、系统保持 100% 紧凑显示。'} />
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range"
-                      min={Math.round(TEXT_RATIO_MIN * 100)}
-                      max={Math.round(TEXT_RATIO_MAX * 100)}
-                      step={5}
-                      value={Math.round(systemRatio * 100)}
-                      onChange={(e) => setSystemRatio(Number(e.target.value) / 100)}
-                      style={{ width: 140 }}
-                    />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', minWidth: 36, textAlign: 'right' }}>
-                      {Math.round(systemRatio * 100)}%
-                    </span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="系统文字大小"
+                  help={'调节按钮/菜单/设置面板/状态栏等「系统 UI」文字的字号倍率。\n80% ~ 150%,默认 100%。\n\n与正文文字独立——可以正文调大方便沉浸阅读、系统保持 100% 紧凑显示。'}
+                  value={Math.round(systemRatio * 100)}
+                  onChange={(v) => setSystemRatio(v / 100)}
+                  min={Math.round(TEXT_RATIO_MIN * 100)} max={Math.round(TEXT_RATIO_MAX * 100)} step={5}
+                  unit="%" rangeWidth={140}
+                />
 
                 <CategoryBar label="上下文" />
                 {/* Max summary entries */}
-                <div style={rowStyle}>
-                  <span style={{ ...labelStyle, position: 'relative' }}>
-                    上下文总结上限
-                    <HelpIcon text={'上下文注意力有限，回顾总结条目过多可能导致LLM注意力分散，\n引发剧情混乱或遗忘近期事件。建议保持在20条以内。\n\n此设置控制每次生成时最多注入多少条「剧情回顾」摘要到LLM上下文中。'} />
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range" min={5} max={50} step={5}
-                      value={maxSummaryEntries}
-                      onChange={(e) => setMaxSummaryEntries(Number(e.target.value))}
-                      style={{ width: 100, accentColor: 'var(--gold)' }}
-                    />
-                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 30 }}>{maxSummaryEntries}</span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="上下文总结上限"
+                  help={'上下文注意力有限，回顾总结条目过多可能导致LLM注意力分散，\n引发剧情混乱或遗忘近期事件。建议保持在20条以内。\n\n此设置控制每次生成时最多注入多少条「剧情回顾」摘要到LLM上下文中。'}
+                  value={maxSummaryEntries} onChange={setMaxSummaryEntries}
+                  min={5} max={50} step={5}
+                />
 
                 <div style={rowStyle}>
                   <span style={labelStyle}>
@@ -690,19 +646,12 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </div>
                 </div>
 
-                <div style={rowStyle}>
-                  <span style={labelStyle}>
-                    NPC 记忆保留条数
-                    <HelpIcon text={'每个 NPC 的「互动记忆」在被 AI 折叠成「记忆梗概」后，保留的最近原始记忆条数。\n\n数值越小越紧凑、越省 token；越大保留越多近期逐字细节。\n\n更早的记忆会被浓缩进梗概，不会丢失语义。默认 6 条。'} />
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="range" min={3} max={12} step={1} value={npcMemoryKeep}
-                      onChange={(e) => setNpcMemoryKeep(Number(e.target.value))}
-                      style={{ width: 100, accentColor: 'var(--gold)' }}
-                    />
-                    <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 28 }}>{npcMemoryKeep}</span>
-                  </div>
-                </div>
+                <SliderRow
+                  label="NPC 记忆保留条数"
+                  help={'每个 NPC 的「互动记忆」在被 AI 折叠成「记忆梗概」后，保留的最近原始记忆条数。\n\n数值越小越紧凑、越省 token；越大保留越多近期逐字细节。\n\n更早的记忆会被浓缩进梗概，不会丢失语义。默认 6 条。'}
+                  value={npcMemoryKeep} onChange={setNpcMemoryKeep}
+                  min={3} max={12}
+                />
 
                 <CategoryBar label="生成与稳定性" />
                 <div style={rowStyle}>
@@ -1168,19 +1117,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <Toggle on={mvuSelfCorrectEnabled} onChange={() => setMvuSelfCorrectEnabled(!mvuSelfCorrectEnabled)} onLabel="开启" offLabel="关闭" />
                   </div>
                   {mvuSelfCorrectEnabled && (
-                    <div style={{ ...rowStyle, paddingLeft: 16 }}>
-                      <span style={labelStyle}>
-                        ↳ 自纠重试预算
-                        <HelpIcon text={'每回合最多向 AI 请求修正变量更新的次数（0–3，默认 1）。这是 RPM 死线的硬上限——无论失败多少项，本回合自纠请求数都不超过此值，且每次都走 MVU 桶排队限流。设为 0 等价于关闭自纠。'} />
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <input type="range" min={0} max={3} step={1} value={mvuSelfCorrectRetries}
-                          onChange={(e) => setMvuSelfCorrectRetries(Number(e.target.value))}
-                          style={{ width: 100, accentColor: 'var(--gold)' }}
-                        />
-                        <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuSelfCorrectRetries}</span>
-                      </div>
-                    </div>
+                    <SliderRow
+                      indent
+                      label="↳ 自纠重试预算"
+                      help={'每回合最多向 AI 请求修正变量更新的次数（0–3，默认 1）。这是 RPM 死线的硬上限——无论失败多少项，本回合自纠请求数都不超过此值，且每次都走 MVU 桶排队限流。设为 0 等价于关闭自纠。'}
+                      value={mvuSelfCorrectRetries} onChange={setMvuSelfCorrectRetries}
+                      min={0} max={3}
+                    />
                   )}
 
                   {/* 严格 JSON Object 模式：子调用 API 请求附加 response_format: { type: 'json_object' },
@@ -1209,38 +1152,25 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                         setAvailableModels={setMvuAvailableModels}
                       />
 
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>温度</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <input type="range" min={0} max={2} step={0.1} value={mvuTemperature}
-                            onChange={(e) => setMvuTemperature(Number(e.target.value))}
-                            style={{ width: 100, accentColor: 'var(--gold)' }}
-                          />
-                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 24 }}>{mvuTemperature}</span>
-                        </div>
-                      </div>
+                      <SliderRow
+                        label="温度"
+                        value={mvuTemperature} onChange={setMvuTemperature}
+                        min={0} max={2} step={0.1}
+                        formatValue={(v) => v.toFixed(1)}
+                      />
 
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>重试次数</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <input type="range" min={1} max={5} step={1} value={mvuRetryCount}
-                            onChange={(e) => setMvuRetryCount(Number(e.target.value))}
-                            style={{ width: 100, accentColor: 'var(--gold)' }}
-                          />
-                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 16 }}>{mvuRetryCount}</span>
-                        </div>
-                      </div>
+                      <SliderRow
+                        label="重试次数"
+                        value={mvuRetryCount} onChange={setMvuRetryCount}
+                        min={1} max={5}
+                      />
 
-                      <div style={rowStyle}>
-                        <span style={labelStyle}>最大回复长度 (Token)</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <input type="range" min={512} max={16384} step={512} value={mvuMaxTokens}
-                            onChange={(e) => setMvuMaxTokens(Number(e.target.value))}
-                            style={{ width: 100, accentColor: 'var(--gold)' }}
-                          />
-                          <span style={{ fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-mono)', color: 'var(--gold)', width: 36 }}>{mvuMaxTokens}</span>
-                        </div>
-                      </div>
+                      <SliderRow
+                        label="最大回复长度 (Token)"
+                        help={'MVU 子调用单次最大回复 token 数。低于 20000 容易让 thinking 模型在思考链占满预算后 JSON 截断,默认 32768 是安全起点。'}
+                        value={mvuMaxTokens} onChange={setMvuMaxTokens}
+                        min={20000} max={65536} step={1024}
+                      />
                     </>
                   )}
                 </div>

@@ -107,3 +107,23 @@ export function IconScroll({ size = 14 }: IconProps) {
 export function IconQuill({ size = 14 }: IconProps) {
   return (<svg {...base(size)}><path d="M3 21l5-5" /><path d="M20 4c-5 0-9 3-11 8a6 6 0 015 5c5-2 8-6 8-11l-2-2z" /><path d="M8 16l3-3" /></svg>);
 }
+
+/** 文件夹：经典文件夹轮廓（替代 emoji 📁） */
+export function IconFolder({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M3 6.5a1.5 1.5 0 011.5-1.5h4l2 2.5h10A1.5 1.5 0 0122 9v9a1.5 1.5 0 01-1.5 1.5h-17A1.5 1.5 0 013 18V6.5z" /></svg>);
+}
+
+/** 脚本/文件：折角文档（替代 emoji 📄） */
+export function IconScript({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M6 3h8l4 4v14H6V3z" /><path d="M14 3v4h4M9 12h6M9 15.5h6M9 9h3" /></svg>);
+}
+
+/** 编辑：铅笔（替代 emoji ✎） */
+export function IconPencil({ size = 12 }: IconProps) {
+  return (<svg {...base(size)}><path d="M14.5 3.5l6 6L9 21l-6 1 1-6 10.5-12.5z" /><path d="M13 5l6 6" /></svg>);
+}
+
+/** 下三角箭头：dropdown 触发器（替代字符 ▼） */
+export function IconChevronDown({ size = 10 }: IconProps) {
+  return (<svg {...base(size)}><path d="M6 9l6 6 6-6" /></svg>);
+}

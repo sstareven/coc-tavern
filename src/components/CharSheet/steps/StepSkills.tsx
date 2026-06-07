@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { COC7Characteristic } from '../../../types';
 import { DarkSelect } from '../../Shared/DarkSelect';
-import { sectionTitle, inputStyle, editBtn } from '../styles';
+import { sectionTitle, editBtn } from '../styles';
 import { RecommendedSkillsChips } from '../../Scenario/RecommendedSkillsChips';
 import { useScenarioStore } from '../../../stores/useScenarioStore';
 import {

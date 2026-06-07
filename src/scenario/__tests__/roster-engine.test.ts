@@ -24,7 +24,7 @@ function makeScn(chars: ScenarioCharacter[]): ScenarioDoc {
   return {
     id: 'scn-test',
     builtin: false,
-    meta: { name: 't', type: '调查', durationHint: '', difficulty: 1, headcountHint: '', sanLossHint: '低', blurb: '' },
+    meta: { name: 't', type: '调查', durationHint: '1-2h', difficulty: 1, headcountHint: '', sanLossHint: '低', blurb: '' },
     prologueSeed: '',
     recommendedSkills: [],
     recommendedOccupations: [],

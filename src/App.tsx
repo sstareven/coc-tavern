@@ -42,6 +42,8 @@ import { useResponsiveZoom } from './hooks/useResponsiveZoom';
 import { useButtonSounds } from './hooks/useButtonSounds';
 import { useKonamiCode } from './hooks/useKonamiCode';
 import { useSettingsStore } from './stores/useSettingsStore';
+import { useCombatStore } from './stores/useCombatStore';
+import { startBgm, setBgmTrack, setBgmVolume } from './audio/bgm';
 
 export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
@@ -71,31 +73,37 @@ export function App() {
   useEffect(() => {
     initBuiltinCommands();
     (async () => {
+      // Stage 1 阻塞路径 —— 必须完成才能让 LandingScreen 渲染:
+      //   initKvCache(KV 缓存预热, ~几十 ms) → db.open(Dexie v2 升级, ~50-200ms)
       await initKvCache();
-      // 幂等种入「双人成行融合预设」并设为默认（只写预设存储，不碰会话/存档表）。
-      await seedFusionPreset();
-      // 一次性 localStorage → Dexie 迁移（幂等）。Dexie v2 .upgrade() 在 db 打开时自动运行。
-      await migrateFromLocalStorage();
-      // 触碰 db 确保 v2 升级已执行；若升级失败标志已写入则告警（降级路径尽力而为）。
       try {
         await db.open();
-        const failed = await db.kvStore.get(V2_UPGRADE_FAILED);
-        if (failed?.value === 'true') {
-          console.warn('[DB] v2 迁移曾失败，部分历史存档可能未完全迁移到关系表。');
-        }
       } catch (err) {
-        console.error('[DB] 打开数据库失败：', err);
+        console.error('[DB] 打开数据库失败:', err);
       }
-      // 启动恢复活跃会话的完整状态（pages + gameState 各域）自关系表。
-      const activeId = useChatStore.getState().activeId;
-      if (activeId) {
+      setReady(true); // ★ LandingScreen 立刻可见,后续都不再阻塞首屏
+
+      // Stage 2 后台并行 —— 不阻塞首屏,失败不影响 LandingScreen 可交互:
+      //   seedFusionPreset(种入「双人成行」融合预设,纯预设表写入)
+      //   migrateFromLocalStorage(老 localStorage → Dexie kvStore,幂等)
+      // 两者完成后再做活跃会话恢复(loadConversation),不阻塞 LandingScreen 但保证用户
+      // 点「读取游戏」前 BookStore 等已恢复到上次活跃会话。
+      void (async () => {
+        await Promise.all([
+          seedFusionPreset().catch((e) => console.error('[seed] fusion preset 失败:', e)),
+          migrateFromLocalStorage().catch((e) => console.error('[mig] localStorage 迁移失败:', e)),
+        ]);
         try {
-          await loadConversation(activeId);
+          const failed = await db.kvStore.get(V2_UPGRADE_FAILED);
+          if (failed?.value === 'true') {
+            console.warn('[DB] v2 迁移曾失败,部分历史存档可能未完全迁移到关系表。');
+          }
+          const activeId = useChatStore.getState().activeId;
+          if (activeId) await loadConversation(activeId);
         } catch (err) {
-          console.error('[DB] 启动恢复会话失败：', err);
+          console.error('[DB] 后台活跃会话恢复失败:', err);
         }
-      }
-      setReady(true);
+      })();
     })();
   }, []);
 
@@ -141,6 +149,46 @@ export function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [closeAll]);
+
+  // ── BGM：首次用户手势启动 + screen/战斗状态切轨 + musicVolume 联动 ──
+  // 浏览器自动播放策略要求 AudioContext.resume 必须在用户手势后。监听一次 pointerdown/keydown
+  // 即可解锁,之后 setBgmTrack 都能直接发声(BgmSystem 复用 sfx.ts 的 ctx,同一手势全打开)。
+  useEffect(() => {
+    const initial = useSettingsStore.getState();
+    setBgmVolume(initial.musicVolume / 100);
+    if (!initial.soundEnabled) setBgmVolume(0);
+    const onFirstGesture = () => {
+      startBgm('menu');
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+    };
+    window.addEventListener('pointerdown', onFirstGesture, { once: true });
+    window.addEventListener('keydown', onFirstGesture, { once: true });
+    // 订阅 musicVolume / soundEnabled 变化
+    const unsubSettings = useSettingsStore.subscribe((s, prev) => {
+      if (s.musicVolume !== prev.musicVolume || s.soundEnabled !== prev.soundEnabled) {
+        setBgmVolume(s.soundEnabled ? s.musicVolume / 100 : 0);
+      }
+    });
+    return () => {
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+      unsubSettings();
+    };
+  }, []);
+
+  // 根据 screen + 战斗状态切换 BGM 主题。
+  // screen!='game' → menu;screen='game' 看 useCombatStore.encounter:有则 combat,无则 investigation。
+  const encounter = useCombatStore((s) => s.encounter);
+  useEffect(() => {
+    if (screen !== 'game') {
+      setBgmTrack('menu');
+    } else if (encounter) {
+      setBgmTrack('combat');
+    } else {
+      setBgmTrack('investigation');
+    }
+  }, [screen, encounter]);
 
   if (!ready) {
     return (
