@@ -1,10 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { btnBase, btnDisabled } from './styles';
-import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useVariableStore } from '../../stores/useVariableStore';
-import { createInitialStatData } from '../../sillytavern/mvu-initial-statdata';
-import { startNewConversation, saveConversation } from '../../stores/sessionLifecycle';
 import { useCharacterPresetsStore, type CharacterPreset } from '../../stores/useCharacterPresetsStore';
 import { sendChatCompletion } from '../../sillytavern/api-router';
 import { DEFAULT_INPUT_PRESET } from '../../constants/presets';
@@ -15,21 +11,28 @@ import {
   clampSkillPointAlloc,
 } from '../../sillytavern/coc-rules';
 import {
-  STEPS, CHAR_ORDER, type SkillCat, ALL_SKILLS, SKILL_DESC, COC_OCCUPATIONS,
+  STEPS, CHAR_ORDER, type SkillCat,
   DEFAULT_CHARS, POOL_VALUES,
 } from '../../sillytavern/coc-data';
+import { useScenarioStore } from '../../stores/useScenarioStore';
+import {
+  getScenarioOccupationPool, getScenarioSkillPool, getScenarioSkillDescMap,
+  type ScenarioSkillPoolEntry,
+} from '../../scenario/scenario-pools';
 import { StepIdentity } from './steps/StepIdentity';
 import { StepCharacteristics } from './steps/StepCharacteristics';
 import { StepDerivedStats } from './steps/StepDerivedStats';
 import { StepSkills } from './steps/StepSkills';
 import { StepBackground } from './steps/StepBackground';
 import { StepReview } from './steps/StepReview';
+import { RelationEditor } from './RelationEditor';
+import type { ScenarioRelation } from '../../types/scenario';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 /* ============================== Helpers ============================== */
 
-function getBaseForSkill(sk: typeof ALL_SKILLS[number], charValues: Record<COC7Characteristic, number>): number {
-  // 取值这层保留在本地（从 ALL_SKILLS 项取 base spec），spec→base 解析委托给 resolveSkillBase 统一规则。
+function getBaseForSkill(sk: ScenarioSkillPoolEntry, charValues: Record<COC7Characteristic, number>): number {
+  // 取值这层保留在本地（从池中取每条 base spec），spec→base 解析委托给 resolveSkillBase 统一规则。
   return resolveSkillBase(sk.base, charValues);
 }
 
@@ -41,12 +44,20 @@ interface Props {
 }
 
 export function CharacterCreator({ onComplete, onClose }: Props) {
-  const setSheet = useCharSheetStore((s) => s.setSheet);
   const isMobile = useIsMobile();
   // 人物创建面板不随「界面缩放」放大（太大）—— v1.11.6 改用 ...
   // 让 layout box 自适应屏幕大小，渲染后正好填满 viewport 不溢出。
   // 不再订阅 uiScale ——CSS 变量 --ui-scale 直接由 applyUiScale 维护，组件不需要 React state。
   const [step, setStep] = useState(0);
+
+  // 当前激活剧本(若有)— 决定 StepSkills 看到的职业/技能池
+  // ScenarioScreen.onPick 在玩家选剧本时 setLastPicked,所以 lastPicked 等同于"当前剧本"
+  const lastPickedScn = useScenarioStore((s) => s.lastPicked);
+  const activeScenario = useScenarioStore((s) => (lastPickedScn ? s.getById(lastPickedScn) : undefined));
+  const skillPool = useMemo(() => getScenarioSkillPool(activeScenario), [activeScenario]);
+  const occupationPool = useMemo(() => getScenarioOccupationPool(activeScenario), [activeScenario]);
+  const skillDescMap = useMemo(() => getScenarioSkillDescMap(activeScenario), [activeScenario]);
+
 
   /* ---- Step 1: Identity ---- */
   const [name, setName] = useState('');
@@ -287,7 +298,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const cur = p[skillName] ?? 0;
       const used = Object.values(p).reduce((a, b) => a + b, 0) + crRef.current;
       const remaining = occPointPool - used;
-      const sk = ALL_SKILLS.find((s) => s.name === skillName);
+      const sk = skillPool.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
       const otherAlloc = intPointsRef.current[skillName] ?? 0;
       const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
@@ -300,7 +311,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const cur = p[skillName] ?? 0;
       const used = Object.values(p).reduce((a, b) => a + b, 0);
       const remaining = intPointPool - used;
-      const sk = ALL_SKILLS.find((s) => s.name === skillName);
+      const sk = skillPool.find((s) => s.name === skillName);
       const base = sk ? getBaseForSkill(sk, charValues) : 0;
       const otherAlloc = occPointsRef.current[skillName] ?? 0;
       const newVal = clampSkillPointAlloc(cur, delta, base, otherAlloc, remaining);
@@ -323,7 +334,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const occRemaining = occPointPool - occTotalAllocated;
   const intRemaining = intPointPool - intTotalAllocated;
   // Invariant guard (BUG1): no single skill may exceed base+occ+int ≤ 99 — final defense before Step5.
-  const allSkillsUnderCap = ALL_SKILLS.every((sk) => {
+  const allSkillsUnderCap = skillPool.every((sk) => {
     const occ = occPoints[sk.name] ?? 0;
     const int = interestPoints[sk.name] ?? 0;
     if (occ === 0 && int === 0) return true;
@@ -341,10 +352,25 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [traits, setTraits] = useState('');
   const [injuries, setInjuries] = useState('');
   const [backgroundFears, setBackgroundFears] = useState('');
+  const [initialItemsRaw, setInitialItemsRaw] = useState('');
   const [bgFilling, setBgFilling] = useState(false);
   const [backstoryError, setBackstoryError] = useState('');
   const [backstoryDraft, setBackstoryDraft] = useState('');
   const [bgConfirm, setBgConfirm] = useState(false);
+
+  /* ---- Step 5b (新): Relations ---- */
+  // CharCreator 编辑模式（编辑现有 player_created 卡）会通过 props 拿到 charId；
+  // 新建模式下用临时 id（handleConfirm 时已 charId = `INV-...` 之前 random 出新 id 写入 sheet.identity.id）。
+  // 这里 currentCharId 取 sheet 上的 identity.id 作占位即可——存盘前 RelationEditor 视角下 currentCharId
+  // 必须稳定且与剧本中其他 character.id 不冲突，所以一开就生成且复用至 handleConfirm。
+  const editingCharIdRef = useRef<string>(`INV-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`);
+  const [relations, setRelations] = useState<ScenarioRelation[]>([]);
+  const [presentAtStart, setPresentAtStart] = useState<string[]>([]);
+
+  const handleRelationsChange = useCallback((nextRel: ScenarioRelation[], nextPresent: string[]) => {
+    setRelations(nextRel);
+    setPresentAtStart(nextPresent);
+  }, []);
 
   /* ---- Presets ---- */
   const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
@@ -439,7 +465,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
     // Occupation skills
     for (const skillName of occSkills) {
-      const spec = ALL_SKILLS.find((s) => s.name === skillName);
+      const spec = skillPool.find((s) => s.name === skillName);
       const base = spec ? resolveSkillBase(spec.base, chars) : 0;
       const occAlloc = occPoints[skillName] ?? 0;
       const intAlloc = interestPoints[skillName] ?? 0;
@@ -449,15 +475,13 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     // Personal interest skills
     for (const skillName of interestSkills) {
       if (occSkills.includes(skillName)) continue;
-      const spec = ALL_SKILLS.find((s) => s.name === skillName);
+      const spec = skillPool.find((s) => s.name === skillName);
       const base = spec ? resolveSkillBase(spec.base, chars) : 0;
       const intAlloc = interestPoints[skillName] ?? 0;
       skills[skillName] = { base, current: Math.min(99, base + intAlloc) };
     }
 
-    const charId = `INV-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0')}`;
+    const charId = editingCharIdRef.current;
 
     const finalOccupation = occupation === '__custom__' ? (customOccupation || '调查员') : (occupation || '调查员');
 
@@ -510,19 +534,58 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         manias: [],
         known_spells: [],
         recovery: {},
+        initialItemsRaw: initialItemsRaw,
       };
 
-    // 清空所有按会话隔离的旧态并创建新会话——隔离不变量集中在 startNewConversation，
-    // 杜绝逐个手动清空时漏掉某个 store（历史上漏清 clues/npc/map 致「开新游戏继承旧档」的跨档泄漏）。
-    const newId = startNewConversation(sheet.identity.name || '未命名调查员');
-    // MVU ZOD：种入初始 statData 叙事树(世界/剧情/战斗;调查员.* 归角色卡故排除)。
-    // 在 startNewConversation 内 clearAllGameState(statData={}) 之后执行。
-    useVariableStore.getState().setStatData(createInitialStatData());
-    // 次序关键：clearAllGameState 会把角色卡重置为默认，故 setSheet 必须在 startNewConversation 之后，
-    // 否则 saveConversation 读到默认卡 → isDefaultSheet → 跳过持久化 → 新人物角色卡丢失。
-    setSheet(sheet);
-    // 持久化新会话（含刚 setSheet 的角色卡 + 序章页）到关系表，避免未交互即返回主菜单时丢档。
-    void saveConversation(newId);
+    // M4: 不再 startNewConversation / setSheet / saveConversation /(后续 activateScenario)。
+    // 改为把自创卡作为 player_created 角色 applyPatch 写入剧本 characters[],
+    // CharCreator 关闭后由 App.tsx 回到 RosterPicker,玩家在 RosterPicker 选他/别人才真正进游戏。
+    // M5：扩展为同时写入 relations + presentAtStart,并把"玩家勾选与某 NPC 一起开场"
+    // 反向应用到目标 NPC.presentAtStart=true(M10 activateScenario 会读 character.presentAtStart 决定 isPresent)。
+    const lastPickedScn = useScenarioStore.getState().lastPicked;
+    if (lastPickedScn) {
+      const playerScenarioChar = {
+        id: charId,
+        role: 'player_created' as const,
+        sheet,
+        npcAttrs: {
+          identityTag: '玩家',
+          attitudeDefault: 0,
+          relationshipDefault: '',
+          locationDefault: '',
+          publicBio: '',
+          hiddenBio: '',
+          // 把 8 段背景独立字段也同步带上,与 PeopleTab 编辑路径对齐
+          description,
+          beliefs,
+          significantPeople,
+          meaningfulLocations,
+          treasuredPossessions,
+          traits,
+          injuries,
+          backgroundFears,
+          initialItemsRaw,
+        },
+        relations,
+        presentAtStart: presentAtStart.includes(charId), // 玩家自身的 presentAtStart 不由此处决定; 本字段反向用于"其它角色对玩家"
+        createdAt: Date.now(),
+      };
+      useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: [playerScenarioChar] });
+      // 把"玩家勾选与某 NPC 一起开场"的反向也作为该 NPC 的 presentAtStart 来源——
+      // M10 activateScenario 会读 character.presentAtStart 决定 isPresent;这里把玩家勾过的
+      // 目标 NPC.presentAtStart 设 true(不动其它字段)。
+      const targetDoc = useScenarioStore.getState().getById(lastPickedScn);
+      if (targetDoc) {
+        const updates = targetDoc.characters
+          .filter((c) => presentAtStart.includes(c.id))
+          .map((c) => ({ ...c, presentAtStart: true }));
+        if (updates.length > 0) {
+          useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: updates });
+        }
+      }
+    } else {
+      console.warn('[CharacterCreator] lastPicked 为空,无法把自创卡写入剧本 — 跳过 applyPatch');
+    }
     onComplete();
   }, [
     charValues, creditRating, occSkills, occPoints, interestSkills, interestPoints,
@@ -530,7 +593,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     description, beliefs, significantPeople, meaningfulLocations,
     treasuredPossessions, traits, injuries, backgroundFears,
     ageDeductSCD, ageDeductSS,
-    setSheet, onComplete,
+    initialItemsRaw,
+    relations, presentAtStart,
+    onComplete,
   ]);
 
   /* ---- Nav ---- */
@@ -541,18 +606,19 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       case 2: return luckValue !== null;
       case 3: return canProceedStep4;
       case 4: return true;
+      case 5: return true;
       default: return true;
     }
   };
 
   const randomAllocate = () => {
-    const selectedOcc = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    const selectedOcc = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
     const suggested = selectedOcc?.skills || [];
     const crMin = selectedOcc?.crMin ?? 0;
     const crMax = selectedOcc?.crMax ?? 99;
     const isCustomOcc = occupation === '__custom__';
     const getBaseVal = (name: string) => {
-      const sk = ALL_SKILLS.find((x) => x.name === name);
+      const sk = skillPool.find((x) => x.name === name);
       if (!sk) return 0;
       if (typeof sk.base === 'number') return sk.base;
       if (sk.base === 'DEX_HALF') return Math.floor((charValues.DEX ?? 50) / 2);
@@ -591,7 +657,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       const occPoolForSkills = occPointPool - cr;
       setOccPoints(suggested.length > 0 && occPoolForSkills > 0 ? allocLoop({}, suggested, occPoolForSkills) : {});
       const usedNames = new Set(suggested);
-      const intPool = ALL_SKILLS.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
+      const intPool = skillPool.filter((s) => !usedNames.has(s.name) && s.name !== '克苏鲁神话');
       const pickInt = shuffled(intPool.map((x) => x.name)).slice(0, 4);
       setInterestSkills(pickInt);
       setInterestPoints(pickInt.length > 0 && intPointPool > 0 ? allocLoop({}, pickInt, intPointPool) : {});
@@ -600,7 +666,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
   // 重置技能分配（清空职业/兴趣技能与点数，信用评级回到该职业最低基础值），允许重新分配。
   const resetAllocation = () => {
-    const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+    const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
     setOccSkills([]); setOccPoints({});
     setInterestSkills([]); setInterestPoints({});
     setCreditRating(occObj?.crMin ?? 0);
@@ -611,7 +677,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   useEffect(() => {
     if (occupation !== prevOccRef.current) {
       // 切换职业（含首次选定）：清空技能分配，信用评级回到该职业的最低基础值(crMin)，自定义职业为 0。
-      const occObj = occupation && occupation !== '__custom__' ? COC_OCCUPATIONS.find((o) => o.name === occupation) : null;
+      const occObj = occupation && occupation !== '__custom__' ? occupationPool.find((o) => o.name === occupation) : null;
       setOccSkills([]); setOccPoints({});
       setInterestSkills([]); setInterestPoints({});
       setCreditRating(occObj?.crMin ?? 0);
@@ -645,7 +711,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setBgFilling(true);
     try {
       const occText = occupation === '__custom__' ? customOccupation : occupation;
-      const occObj = COC_OCCUPATIONS.find((o) => o.name === occupation);
+      const occObj = occupationPool.find((o) => o.name === occupation);
 
       const charLines: string[] = [];
       for (const { key, zh } of CHAR_ORDER) {
@@ -660,10 +726,10 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
 
       const occSkillLines: string[] = [];
       for (const s of occSkills) {
-        const sk = ALL_SKILLS.find((x) => x.name === s);
+        const sk = skillPool.find((x) => x.name === s);
         const base = sk ? resolveSkillBase(sk.base, charValues as Record<COC7Characteristic, number>) : 0;
         const pts = (occPoints[s] ?? 0) + (interestPoints[s] ?? 0);
-        const desc = SKILL_DESC[s] || '';
+        const desc = skillDescMap[s] || '';
         occSkillLines.push(`- ${s}：${Math.min(99, base + pts)}%${desc ? ` — ${desc}` : ''}`);
       }
 
@@ -878,6 +944,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
             traits={traits} onSetTraits={setTraits}
             injuries={injuries} onSetInjuries={setInjuries}
             backgroundFears={backgroundFears} onSetBackgroundFears={setBackgroundFears}
+            initialItemsRaw={initialItemsRaw} onSetInitialItemsRaw={setInitialItemsRaw}
             backstoryDraft={backstoryDraft}
             onSetBackstoryDraft={setBackstoryDraft}
             bgFilling={bgFilling}
@@ -892,6 +959,20 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           />
         );
       case 5:
+        return activeScenario ? (
+          <RelationEditor
+            scenarioDoc={activeScenario}
+            currentCharId={editingCharIdRef.current}
+            relations={relations}
+            presentAtStart={presentAtStart}
+            onChange={handleRelationsChange}
+          />
+        ) : (
+          <div style={{ color: 'var(--ink-subtle)', fontSize: 12, padding: 14 }}>
+            未选择剧本，无法编辑关系。点【下一步】跳过。
+          </div>
+        );
+      case 6:
         return (
           <StepReview
             charValues={charValues}

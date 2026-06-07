@@ -40,3 +40,10 @@ test-results/
 
 # 版权规则书临时抽取文本（设计调研用，绝不入库）
 .tmp_combat_research/
+
+# 设计阶段一次性预览页（HTML sketch，等 spec 落地即删，不入 build/commit）
+tmp_preview/
+
+# 剧本回填脚本中间产物（一次性 LLM 生成,人工核对后 paste 回 src/data/scenarios/<scn>.ts；
+# 见 scripts/backfill-scenario-pools.ts 与 spec §7.1）
+scripts/.backfill-output/

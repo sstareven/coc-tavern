@@ -23,7 +23,7 @@ import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/comb
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
 import { evaluateKeyClues } from '../sillytavern/key-clue-evaluator';
-import { generateStartingItems } from '../sillytavern/starting-items-generator';
+// generateStartingItems 已废弃 — 剧本系统 activateScenario 统一处理初始物品(commit removed)
 import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { extractLocationElements } from '../sillytavern/location-element-extractor';
 import { integrateLocationElements } from '../sillytavern/location-element-integrator';
@@ -68,12 +68,15 @@ import { DEFAULT_INPUT_PRESET, DEFAULT_PRESETS, ensureFormatInstructionMarker } 
 import { FORMAT_INSTRUCTION, CHOICE_FIT_RULE, SAVE_WORLD_INSTRUCTION, PROLOGUE_GOAL_INSTRUCTION } from '../sillytavern/format-instruction';
 import { buildThinkingMarker } from '../sillytavern/deepseek-cache';
 import { restructureMessages, isDeepSeekSource, buildDynamicTail, hasDynamicMarker, leanStatData, type DsRestructureConfig } from '../sillytavern/deepseek-cache-restructure';
+import { isRenderStable } from '../sillytavern/deepseek-cache-stable-sink';
 import { diagnosePrefixDrift, formatDiagnosticLine } from '../sillytavern/prefix-cache-diagnostics';
 import { parseLlmResponse, parseRewriteResponse, detectNpcMissing } from '../sillytavern/llm-response-parser';
 import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu-jsonpatch';
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
+import { evaluatePartyRelations } from '../sillytavern/party-relation-evaluator';
+import { useNarrationStore } from '../stores/useNarrationStore';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -667,13 +670,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       macroItemPositions.forEach((pos, k) => { newItems[pos].content = macroResults[k].text; });
 
       // 自动下沉：把标记了 _sinkToDynamicTail 的 promptItem 从主 messages 剔除,
-      // 渲染后内容收集到 sunkPromptContents,稍后注入到 dynamicTail。
-      const sunkPromptContents: string[] = [];
+      // 渲染后内容按"跨回合稳定性"分桶:
+      //   - 稳定项(setvar 渲染后空 / getvar 未赋值 / 注释类) → 追加到 resolvedFormat 末尾回到静态前缀
+      //   - 不稳定项(含 lastusermessage / 跨回合变化的 var) → 留在 dynamicTail
+      // 首回合 hash 无样本 → 全部保守视为不稳定(留 dynamicTail);第 2 回合起开始享受命中。
+      // 不动用户预设内容,纯运行时基于渲染结果检测。
+      const stableSunkContents: string[] = [];
+      const unstableSunkContents: string[] = [];
+      const sessionIdForHash = useChatStore.getState().activeId ?? '__no_session__';
       if (autoSinkDynamicPromptItem) {
         const kept: typeof newItems = [];
         for (const it of newItems) {
           if ((it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail) {
-            sunkPromptContents.push(it.content);
+            const itemId = it.id ?? `${it.role ?? 'system'}_${it.kind ?? 'unknown'}`;
+            if (isRenderStable(sessionIdForHash, 'pi', itemId, it.content)) {
+              stableSunkContents.push(it.content);
+            } else {
+              unstableSunkContents.push(it.content);
+            }
           } else {
             kept.push(it);
           }
@@ -691,6 +705,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       macroProcessedInput = macroResults[base + 1 + processedLore.length].text;
       const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
       const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
+
+      // 稳定 sunk 追加到 resolvedFormat 末尾 → 进入静态前缀缓存。trim 后非空才追加,
+      // 避免 setvar 渲染后空字符串拼接成大段空行污染观感。
+      const stableSunkAppendix = stableSunkContents
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .join('\n\n');
+      const finalFormat = stableSunkAppendix
+        ? `${resolvedFormat}\n\n${stableSunkAppendix}`
+        : resolvedFormat;
+
+      if (dsCfg.debugLog === true && (stableSunkContents.length > 0 || unstableSunkContents.length > 0)) {
+        const stableNonEmpty = stableSunkContents.filter((s) => s && s.trim()).length;
+        const unstableNonEmpty = unstableSunkContents.filter((s) => s && s.trim()).length;
+        console.log(
+          `[ds-cache-stable-sink] 下沉项稳定性: ${stableNonEmpty} 稳定项前置静态前缀 / ${unstableNonEmpty} 不稳定项留 dynamicTail ` +
+          `(空内容自动过滤; 首回合无 hash 样本时所有项均视为不稳定,第 2 回合起开始命中)`,
+        );
+      }
 
       // Persist macro var mutations back to store
       const mutationStore = useTavernHelperStore.getState();
@@ -733,7 +766,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const SEP = '\n--§--\n';
         const segSystem = processedPreset.systemPrompt;
         const segWbBefore = wbBefore;
-        const segFormat = resolvedFormat;
+        const segFormat = finalFormat;
         const segWbAfter = wbAfter;
         // segment offsets — 跳过零长度段:它们与下个段差距仅 SEP.length,会让 inferSegment 把缝隙处误判为空段
         const offsets: Record<string, number> = { systemPrompt: 0 };
@@ -745,7 +778,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const sessionId = useChatStore.getState().activeId ?? '__no_session__';
         const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
         const line = formatDiagnosticLine(result);
-        if (dsCfg.debugLog === true) console.log(line);
+        console.log(line); // experimentalPrefixDiagnostics 已是外层 gate；让 console-capture 可收
         if (!result.prefixStable) {
           // 命中漂移：在主日志面板写一条 warn，提醒用户排查
           pushLog('warn', line, 'system');
@@ -765,7 +798,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         processedPreset,
         loreForAssemble,
         {},
-        resolvedFormat,
+        finalFormat,
         { before: wbBefore, after: wbAfter },
       );
 
@@ -781,10 +814,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // sunkPromptContents（从 system 区剥离的含动态宏 promptItem 渲染后内容）放在
         // dynamicFormatParts 最前面——保持与原 system 区相对靠前的注意力位置;
         // 后接项目的 dynamicFormatParts（调查员能力概览/物品/NPC 等）。
+        // 优化(C): 仅"不稳定"的 sunk 项进 dynamicTail; 稳定项已前置到 finalFormat 静态前缀。
         const dynamicTail = buildDynamicTail({
           dynamicLoreContents: sortedDynamic.map((e) => e.content),
           dynamicFormatParts: [
-            ...sunkPromptContents,
+            ...unstableSunkContents,
             ...(resolvedDynamicFormat ? [resolvedDynamicFormat] : []),
           ],
         });
@@ -1077,6 +1111,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             patchReport,
             applyCorrectiveOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
           });
+
+          // M9 关系演化评估器(spec §8 / §4.2 R4)。
+          // 接现有 post-settle 链, 在 sanity/bout 之后、newPage 写入派生状态之前跑。
+          // 失败永不阻塞主流程(party-relation-evaluator 内已包 try/catch)。
+          {
+            const chatNow2 = useChatStore.getState();
+            const session2 = chatNow2.sessions.find((c) => c.id === chatNow2.activeId);
+            const scenarioId = session2?.scenarioId;
+            if (scenarioId && scenarioId !== '__free') {
+              await evaluatePartyRelations({
+                scenarioId,
+                narrative: hookProcessedContent,
+                sessionId: chatNow2.activeId ?? '',
+                playerId: useCharSheetStore.getState().sheet.identity.name || 'player',
+              });
+            }
+          }
         };
 
         const newPage = result.page;
@@ -1096,6 +1147,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
+        // M9: 把本回合 party-relation-evaluator 等子评估器追加的旁白固化进本页, 随页持久化。
+        const drainedNarration = useNarrationStore.getState().drainPending();
+        if (drainedNarration.length > 0) newPage.narration = drainedNarration;
         // A2 重设: 本页 SAN check 气泡数组(随页持久化, 删页时一并随页移除, 不污染剩余页面)
         if (result.sanityCheckPrompts) newPage.sanityCheckPrompts = result.sanityCheckPrompts;
 
@@ -1106,9 +1160,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // Parse dice results from the user input (e.g., "[侦查 d100=42/60 成功]")
         const diceFromInput = parseDiceResultsFromInput(lastInputRef.current);
         if (diceFromInput.length > 0) {
-          // 标注检定发生时的页码（与实时检定记录的 pageIndex+1 一致），随页面持久化、供读档重建带页码。
-          const checkPage = useBookStore.getState().pageIndex + 1;
-          newPage.diceResults = diceFromInput.map((r) => ({ ...r, page: r.page ?? checkPage }));
+          // 修 Bug #3: 标注检定属于【新页】而非触发选项时的旧页号
+          // ----------------------------------------------------
+          // 本段执行时 newPage 尚未 appendPage,store.pageIndex 仍是旧页索引(N-1)。
+          //   - append 模式: newPage 即将成为第 N+1 页 → page 应为 baseIdx+2
+          //   - replace 模式: newPage 替换当前页,页号不变 → page 应为 baseIdx+1
+          // 与 useDiceStore.commitPending 改写 history record.page 的修复对齐。
+          const baseIdx = useBookStore.getState().pageIndex;
+          const checkPage = replace ? baseIdx + 1 : baseIdx + 2;
+          newPage.diceResults = diceFromInput.map((r) => ({ ...r, page: checkPage }));
         }
 
         // Validate generation quality
@@ -1336,58 +1396,26 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
 
-        // 序章首回合「起始装备」：页面插入后【fire-and-forget】独立 LLM 调用，绝不阻塞翻页（曾同步 await 致卡顿 ~30s）。
-        // 背包是「页锚定」派生态：异步拿到物品后须 (a) setPageInventoryChanges 写回该首页（删页重放据此恢复）、
-        // (b) applyChanges 入背包（主回合 applyChanges 早已跑完，这里必须自行入库）、(c) 重新持久化。全程 activeId 守卫防串档。
-        // 按【捕获的插入 index】定位该页（appendPage 不赋 id，不能用 findIndex(id)）：append 取 pages 末位、replace 取被替换位；
-        // setPageInventoryChanges 自带越界守卫，期间该页若被删则静默放弃。skipInventoryNarrativeCheck 即 pages.length<=1 序章首回合标志。
-        if (
-          skipInventoryNarrativeCheck &&
-          (!newPage.inventoryChanges || newPage.inventoryChanges.length === 0) &&
-          settings.apiKey?.trim() && settings.apiBaseUrl?.trim() && settings.apiModel?.trim()
-        ) {
-          const aidSI = useChatStore.getState().activeId;
-          const siPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
-          const sheet = useCharSheetStore.getState().sheet;
-          const prologue = useBookStore.getState().pages[0];
-          const opening = [prologue?.leftContent, newPage.leftContent].filter(Boolean).join('\n').slice(0, 1500);
-          const ctx = `调查员：${sheet.identity?.name || '无名'}（${sheet.identity?.occupation || '职业不详'}）\n开场情境：\n${opening}`;
-          pendingVisibleSubcalls.push((async () => {
-            try {
-              // 走 MVU API（若已配置）/ 主 API（fallback）+ mvu RPM 桶 —— 起始物品是
-              // 短 JSON 子调用，无需主回合的 Pro 大模型，走 Flash 更快更便宜。
-              const useMvuSI = !!(settings.mvuUseIndependentApi && settings.mvuApiKey?.trim());
-              const siBase = (useMvuSI ? settings.mvuApiBaseUrl : settings.apiBaseUrl) ?? '';
-              const siKey = (useMvuSI ? settings.mvuApiKey : settings.apiKey) ?? '';
-              const siModel = (useMvuSI ? settings.mvuApiModel : settings.apiModel) ?? '';
-              const { changes, usage: siUsage } = await generateStartingItems(ctx, siBase, siKey, siModel);
-              // 缓存命中历史：起始物品调用统计追加进 page.genStats.subCalls
-              if (siUsage && useChatStore.getState().activeId === aidSI) {
-                useBookStore.getState().addPageSubCallStat(siPageIdx, {
-                  label: '起始物品',
-                  model: siModel,
-                  hit: siUsage.prompt_cache_hit_tokens,
-                  miss: siUsage.prompt_cache_miss_tokens,
-                  promptTokens: siUsage.prompt_tokens,
-                  output: siUsage.completion_tokens,
-                  at: Date.now(),
-                });
-              }
-              if (changes.length === 0 || useChatStore.getState().activeId !== aidSI) return;
-              useBookStore.getState().setPageInventoryChanges(siPageIdx, changes);
-              useInventoryStore.getState().applyChanges(changes);
-              if (useChatStore.getState().activeId === aidSI) useChatStore.getState().savePages(useBookStore.getState().pages);
-              if (aidSI && useChatStore.getState().activeId === aidSI) await saveConversation(aidSI);
-              pushLog('info', `[起始物品] 已为序章配备 ${changes.length} 件起始随身物品：${changes.map((c) => c.name).join('、')}`, 'system');
-            } catch (e) {
-              pushLog('warn', `[起始物品] 生成失败（本局无起始装备）：${e instanceof Error ? e.message : String(e)}`, 'api');
-            }
-          })());
-        }
+        // 序章首回合「起始装备」LLM 子调用已废弃 (commit removed) — 剧本系统的 activateScenario
+        // step 4 已统一用 extractInitialItems 处理初始物品(sheet.initialItemsRaw → 入 inventoryStore
+        // + 写 page[0].acquiredItems/inventoryChanges),这里再跑 generateStartingItems 会重复入库
+        // 一堆"初始物品"。整段删除,不再 fire-and-forget。
+        //
+        // 若 sheet.initialItemsRaw 为空(老存档/玩家未填)→ 序章背包为空是预期行为,玩家应在剧本
+        // 推进中靠 LLM 翻页时的 inventoryChanges 获取物品,而非靠这条遗留子调用补救。
 
         // 剧情已真正推进（新页已写入并保存）——把本回合在 RightPage 暂存的检定记录落入 history。
         // 此前点选项时只 stash 不记录，故未提交/提交失败的掷骰不会污染检定记录面板。
-        useDiceStore.getState().commitPending();
+        //
+        // Fix #9: append 模式下此刻 pageIndex 仍是旧 N-1（autoFlipForward 还没跑），不传显式
+        // 页号会让 commitPending 内部 fallback=pageIndex+1=N 错位一页（同回合 diceFromInput 用的
+        // checkPage 是 N+1，stash 暂存反而落 N，记录被拆到两个页号）。把上面 checkPage 同源计算
+        // 重算一遍传进去：append→baseIdx+2、replace→baseIdx+1（replace 时 fallback 也等价）。
+        {
+          const commitBaseIdx = useBookStore.getState().pageIndex;
+          const commitPage = replace ? commitBaseIdx + 1 : commitBaseIdx + 2;
+          useDiceStore.getState().commitPending(commitPage);
+        }
 
         // 累积 LLM 本页产出的关键词释义入会话级 DB（addKeywords 保留首见去重）——
         // 供 KeywordTooltip 悬停显示，并经 buildKeywordInjection 在后续回合回灌给 LLM。

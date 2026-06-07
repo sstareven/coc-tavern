@@ -62,6 +62,8 @@ export interface CharacterSheet {
   known_spells: string[];
   /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
   recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
+  /** Step 5 玩家填写的「初始物品」原文，进游戏前由 LLM 抽取入 useInventoryStore；preset 模式下空字符串 */
+  initialItemsRaw?: string;
 }
 
 /** 角色的持续状态条件（如中毒、着火、极度口渴）。 */
@@ -95,6 +97,8 @@ export interface BookPage {
   keywords?: Record<string, string>;
   diceResults?: DiceRecord[];
   inventoryChanges?: InventoryChange[];
+  /** 本回合 post-settle 子评估器追加的旁白行(关系演化脱队/事件等)。随页持久化,删页一并随页移除。 */
+  narration?: string[];
   rewrite?: RewriteBlock;
   /** 行动补写拾取已直接入库的物品名，用于阻止后续正文 API 对同名物品重复计数。随页面持久化。 */
   acquiredItems?: string[];
@@ -190,6 +194,8 @@ export interface ClueInput {
 
 export interface NpcUpdate {
   name: string;
+  /** 指定 NPC id（剧本注入路径用，保留剧本固定 id；缺省由 store 在新建档时分配 UUID） */
+  id?: string;
   identity?: string;
   faction?: string;
   gender?: string;
@@ -213,6 +219,10 @@ export interface NpcUpdate {
   hpDelta?: number;
   sanDelta?: number;
   mpDelta?: number;
+  /** 剧本预设锚点：scenarioCharacterToNpc 注入时为 true；applyUpdates 据此跳过 backstory/innerThoughts 覆盖，防 KP 暗线被 LLM 主回合覆写。 */
+  isScenarioPreset?: boolean;
+  /** 剧本 hiddenBio 保护副本（KP 视角动机/秘密）：与 innerThoughts 同源但锁定不被 LLM 覆写。 */
+  scenarioHiddenBio?: string;
 }
 
 export interface MapUpdates {
@@ -410,14 +420,25 @@ export interface NpcProfile {
   backstory: string;
   /** 随身物品 */
   possessions: string[];
-  /** 是否在场 */
+  /** 是否在场(场景内,可被旁白引用/对话/上下文注入) */
   isPresent: boolean;
+  /**
+   * 是否在玩家小队(显式同队标记,与 isPresent 解耦)。
+   * - undefined/false: 不在小队,仅"在场"或"缺席"
+   * - true: 玩家显式邀请入队;LLM 主回合 npcUpdates 不会改此字段(避免抢权)
+   * 仅玩家 UI 操作 + post-settle party-relation-evaluator 自动脱队评估器可写。
+   */
+  inParty?: boolean;
   /** 状态：活跃/昏迷/重伤/已死亡/失踪 等 */
   status?: string;
   /** 当前生命/理智/魔法值（缺省=按属性推算的最大值；最大值仍由 parseNpcDerived 现算）。受 npcUpdates 的 hp/san/mpDelta 与战斗结算回写更新。 */
   hpCurrent?: number;
   sanCurrent?: number;
   mpCurrent?: number;
+  /** 剧本预设锚点：scenarioCharacterToNpc 写入；applyUpdates 据此跳过 backstory/innerThoughts，防止 LLM 主回合覆盖 KP 暗线核心。 */
+  isScenarioPreset?: boolean;
+  /** 剧本 hiddenBio 保护副本（KP 视角动机/秘密）：与 innerThoughts 同源但锁定不被 LLM 覆写。 */
+  scenarioHiddenBio?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -638,6 +659,8 @@ export interface ChatSession {
   pageCount?: number;
   /** In-memory only; gameState is persisted per-conversation in relational child tables (Dexie v2), not in the chat blob. */
   gameState?: SessionGameState;
+  /** 当前会话激活的剧本 id（剧本系统）；老会话 / 「自由探索」可为 undefined 或 '__free'。持久化随 chat blob。 */
+  scenarioId?: string;
 }
 
 // ===== Extensions =====
@@ -797,6 +820,8 @@ export interface Combatant {
   fighting: number;
   dodge: number;
   firearm?: number;
+  /** 急救技能(COC7e 起始 30%);供 ally 在队友濒死时尝试急救。缺省 = 30。 */
+  firstAid?: number;
   /** 伤害加值骰式（如 '1d4' / '0' / '-1'）；近战伤害结算时叠加。 */
   damageBonus?: string;
   hp: number;

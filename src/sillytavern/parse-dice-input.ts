@@ -13,6 +13,42 @@ const LABEL_TO_TYPE: Record<string, DiceResultType> = {
 };
 
 /**
+ * 剥掉结果 label 末尾的圆括号注解，支持嵌套和未闭合的情况。
+ * 旧实现 `/\s*\([^()]*\)\s*$/` 在以下两种情况会失效：
+ *  1) 嵌套： `成功(孤注一掷(幸运扣2点))` 仅剥掉内层 → 残留 `成功(孤注一掷`
+ *  2) 未闭合： `成功(有奖励骰`  正则不匹配 → 整段保留
+ * 二者都会让 LABEL_TO_TYPE 查不到而回退成 'failure'，与玩家实际成功相反。
+ */
+function stripTrailingParenAnnotation(s: string): string {
+  let result = s;
+  // 1) 反复剥掉成对的尾部 (…) 直到末尾不再是 ')'
+  while (true) {
+    if (!result.trimEnd().endsWith(')')) break;
+    const trimmed = result.trimEnd();
+    let depth = 0;
+    let openIdx = -1;
+    for (let i = trimmed.length - 1; i >= 0; i--) {
+      const c = trimmed[i];
+      if (c === ')') depth++;
+      else if (c === '(') {
+        depth--;
+        if (depth === 0) {
+          openIdx = i;
+          break;
+        }
+      }
+    }
+    if (openIdx < 0) break; // 末尾 ')' 没有匹配的 '('，保持原样退出
+    result = result.slice(0, openIdx);
+  }
+  // 2) 剥掉尾部一个未闭合的 '('（其后没有 ')'）
+  const lastOpen = result.lastIndexOf('(');
+  const lastClose = result.lastIndexOf(')');
+  if (lastOpen > lastClose) result = result.slice(0, lastOpen);
+  return result.trim();
+}
+
+/**
  * 从用户输入里解析掷骰结果方括号，支持两种格式：
  *  - 普通检定 "[侦查 d100=42/60 成功]" 或 "[侦查 d100=16/61 奖励骰 困难成功]"
  *  - 对抗检定 "[侦查对抗 玩家d100=16/61(困难成功) vs 对手d100=45/50(失败) → 胜利]"
@@ -51,7 +87,11 @@ export function parseDiceResultsFromInput(input: string): DiceRecord[] {
     // 暗骰技能（心理学等）不进 page.diceResults：LeftPage/检定记录不显示，
     // 但其真实结果仍在用户输入文本里被 LLM 读到。
     if (isHiddenRollSkill(m[1])) continue;
-    const label = m[4].trim().split(/\s+/).pop() ?? '';
+    // 剥掉尾部圆括号注解再取 label。常见后缀如 `(孤注一掷)` `(幸运扣N点)`,
+    // 也可能嵌套 `(孤注一掷(幸运扣2点))` 或写漏右括号 `(有奖励骰`。
+    // 若不剥掉,split/pop 会把整段当成 label,LABEL_TO_TYPE 查不到 → fallback 'failure'。
+    const cleaned = stripTrailingParenAnnotation(m[4]);
+    const label = cleaned.split(/\s+/).pop() ?? '';
     out.push({
       skill: m[1],
       roll: m[2],

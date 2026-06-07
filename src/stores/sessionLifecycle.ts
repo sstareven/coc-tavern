@@ -14,10 +14,12 @@ import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
 import { useSanityBubbleStore } from './useSanityBubbleStore';
+import { useNarrationStore } from './useNarrationStore';
 import { useVariableStore } from './useVariableStore';
 import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
+import { useScenarioStore } from './useScenarioStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
@@ -44,8 +46,14 @@ const STAT_DATA_ROW_NAME = '__statData__';
 /**
  * 清空所有按会话隔离的内存态。P0-1：角色卡也必须重置为 defaultSheet——
  * 否则切到无角色卡行的会话时残留上一会话角色（且后续 save 会把它写进当前会话行 = 数据污染）。
+ *
+ * M1 — 隐式时序耦合修复：剧本卸载的 prevScenarioId 改为可选参数。
+ *   以前内部根据 activeId 反查 sessions 拿 scenarioId,隐式依赖「clearAllGameState 必须早于
+ *   createSession/setActive 调」——若调用方颠倒顺序(先切到新会话),反查会拿到新会话的空 scenarioId,
+ *   旧剧本 book 永不卸载。改成显式传参后,调用方读旧 scenarioId 再传入,顺序解耦。
+ *   省略参数时回落到旧行为(从 activeId 反查),保持向后兼容。
  */
-export function clearAllGameState() {
+export function clearAllGameState(prevScenarioId?: string) {
   useCharSheetStore.getState().setSheet(defaultSheet);
   useCharSheetStore.getState().close();
   useInventoryStore.getState().clearAll();
@@ -67,9 +75,39 @@ export function clearAllGameState() {
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
   useSanityBubbleStore.getState().reset();
+  // M9: 关系评估器旁白队列(in-memory)——切档/新游戏/删会话都清空,
+  // 防止上一会话未消费的旁白漏到新会话第一页。
+  useNarrationStore.getState().clearPending();
+  // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。
+  // 优先用显式传参；缺省时回落到从 activeId 反查(向后兼容)。
+  const scenarioIdToUnload = prevScenarioId ?? useChatStore.getState().sessions.find(
+    (s) => s.id === useChatStore.getState().activeId,
+  )?.scenarioId;
+  if (scenarioIdToUnload) {
+    // **同步**直接 removeBook,而非走 dynamic import('../scenario/scenario-engine')
+    // 的 fire-and-forget。否则 activateScenario A2 守卫(books[bookId]?.enabled)
+    // 在 dynamic import 还没 resolve 时读到 enabled=true → 跳过激活 → page0
+    // 残留 defaultPages[0]"梦剧本"(Bug: 返回菜单后再选 NPC 进梦境)。
+    const SCENARIO_BOOK_PREFIX = '__scenario_';
+    try {
+      useLorebookStore.getState().removeBook(SCENARIO_BOOK_PREFIX + scenarioIdToUnload);
+    } catch (rmErr) {
+      console.warn('[sessionLifecycle] 同步卸载剧本 book 失败:', rmErr);
+    }
+  }
   // 书本页面也必须重置——否则删活跃会话(无后续 loadConversation)后旧页面残留,
   // 下次发消息经 buildContextFromPages 注入 LLM = 跨会话混档。回退到全新序章。
   useBookStore.getState().resetToPrologue();
+  // A1：剧本 fork 映射也是按会话隔离不变量——清掉防上一会话已 fork 的副本 id 泄漏到新会话,
+  // 否则新会话再 upsert 同一内置剧本会就地更新旧会话遗留副本(违反 session-isolation invariant)。
+  useScenarioStore.getState().clearForkMap();
+}
+
+/** 读当前活跃会话挂载的 scenarioId(若有),供调用方在切档/新游戏前先捕获、再传给 clearAllGameState,
+ *  防御 activeId 已被外部同步改写后再清旧剧本拿不到旧 id 的隐式时序耦合(M1)。 */
+function readActiveScenarioId(): string | undefined {
+  const { sessions, activeId } = useChatStore.getState();
+  return sessions.find((s) => s.id === activeId)?.scenarioId;
 }
 
 /** 从本会话页面重建剧情摘要世界书条目（与 useChatPipeline 每回合写摘要逻辑一致）。
@@ -88,12 +126,15 @@ function rebuildSummariesFromPages(pages: BookPage[]): void {
 export function cleanupOrphanGameState() {
   const { sessions, activeId } = useChatStore.getState();
   if (sessions.length === 0 || !activeId) {
-    clearAllGameState();
+    // M1：activeId 缺失/sessions 为空时旧剧本可能仍挂着,先反查再传入(此处 readActiveScenarioId 会
+    // 返回 undefined,但保持调用形态一致,后续若改成按 lorebook 全扫旧 book 也容易接入)。
+    clearAllGameState(readActiveScenarioId());
     return;
   }
   const sessionExists = sessions.some((s) => s.id === activeId);
   if (!sessionExists) {
-    clearAllGameState();
+    // 当前 activeId 已不存在于 sessions(孤儿态):提前捕获旧 scenarioId,防御 clear 内反查拿不到。
+    clearAllGameState(readActiveScenarioId());
   }
 }
 
@@ -107,9 +148,13 @@ export function cleanupOrphanGameState() {
  * 注：上一会话的数据已由每回合 auto-save（persistActiveGameState）持久化到关系表，此处【刻意不再快照
  * 上一会话】——若先 enqueue 保存旧会话、再同步 clearAllGameState，被入队的保存会在 clear 之后才执行、
  * 读到已清空的内存 → 反而把旧存档清空。故只清不存，与既有 new-game 语义一致。
+ *
+ * M1：先读旧 scenarioId 再传给 clearAllGameState,防御「调用方颠倒顺序(若有人先 createSession 再清)
+ * 时反查 activeId 指到新会话、旧剧本 book 永不卸载」的隐式时序耦合。
  */
 export function startNewConversation(name: string): string {
-  clearAllGameState();
+  const prevScenarioId = readActiveScenarioId();
+  clearAllGameState(prevScenarioId);
   clearAllDiagnostics(); // 旧 sessionId 的前缀诊断快照对新游戏无意义,清掉防 stateBySession Map 累积
   // 种子化世界/剧情/暗线 statData 树——否则 LLM 的 世界.*、剧情.暗线.* JSONPatch replace 会因 path 不存在而失败。
   // 覆盖所有新开局路径(含 ChatlistPanel「新建对话」);CharacterCreator 之后的显式 setStatData 仍幂等。
@@ -288,14 +333,22 @@ export function saveConversation(cid: string): Promise<void> {
  *
  * Inner（未入队）版本——供 switchConversation 复用。
  */
-async function loadConversationInner(cid: string): Promise<void> {
+async function loadConversationInner(cid: string, prevScenarioIdHint?: string): Promise<void> {
   if (!cid) return;
 
   // 先清空所有按会话隔离的内存态，杜绝跨对话泄漏——【必须在任何 DB 读取之前】：
   // 若读取事务抛错（DB 损坏/迁移不全），clearAllGameState 仍已执行，不会残留上一会话内存态。
   // 同步把 activeId 切到目标会话，使「已清空内存 ↔ activeId」形成原子步：即便随后的读事务抛错，
   // 内存(空)与 activeId(=cid) 仍一致，不会出现「activeId 指向旧会话、内存却已清空」的撕裂。
-  clearAllGameState();
+  //
+  // M1：先读旧 scenarioId 再显式传给 clearAllGameState——下一行 setActive(cid) 会把 activeId 改成新会话,
+  // 若 clear 内部反查 activeId 会拿到新会话的空 scenarioId,旧剧本 book 永不卸载。这里改成显式传参,
+  // 不再依赖「先 clear 再 setActive」的顺序假设。
+  //
+  // A5: switchConversation 入参在调用入口同步捕获 prevScenarioId 并显式传入,完全跳过
+  // 此处的反查;独立 loadConversation 入口仍走 readActiveScenarioId(向后兼容)。
+  const prevScenarioId = prevScenarioIdHint ?? readActiveScenarioId();
+  clearAllGameState(prevScenarioId);
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
@@ -431,6 +484,24 @@ async function loadConversationInner(cid: string): Promise<void> {
   // 同步内存会话的 pages/pageCount，供 getActivePages 与会话列表使用。
   // （activeId 已在函数开头清空内存后同步设置，此处只需同步 pages。）
   useChatStore.getState().savePages(pages);
+
+  // B6 — 读档重挂剧本 lorebook book(+ 地图地点):clearAllGameState 已把前一会话的 scenarioBook
+  // 卸掉,但 loadConversation 的所有 replaceAll 都不挂书。结果切到/切回某剧本会话后,world-info
+  // 条目全空,LLM 看不到剧本设定,行为退化成自由模式。这里读 cid 对应的 scenarioId(已由
+  // useChatStore.setActive(cid) 切到目标会话,sessions 仍是同一份)并显式重挂。
+  // 动态 import 维持现状,避免与 scenario-engine 互引(scenario-engine 也 import 本文件外的 stores)。
+  // '__free' 走自由模式,无剧本 book,跳过;找不到剧本 mountScenarioBook 内部静默处理。
+  const loadedScenarioId = useChatStore.getState().sessions.find((s) => s.id === cid)?.scenarioId;
+  if (loadedScenarioId && loadedScenarioId !== '__free') {
+    try {
+      const m = await import('../scenario/scenario-engine');
+      await m.mountScenarioBook(loadedScenarioId);
+    } catch (err) {
+      // 重挂失败不阻断读档完成(玩家仍能进游戏,只是 world-info 缺剧本条目);
+      // 控制台留痕便于诊断「读档后 LLM 像没剧本」类反馈。
+      console.warn('[sessionLifecycle] mountScenarioBook 失败,剧本 lorebook 未重挂:', { cid, scenarioId: loadedScenarioId, err });
+    }
+  }
 }
 
 /** 公共入口：经 enqueue 串行化。 */
@@ -447,7 +518,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -466,6 +537,8 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();
       await db.macroVars.where('conversationId').equals(cid).delete();
+      // 项目命名空间 console 日志 (consoleLogs 表用 sessionId 列名 = conversationId 语义,见 db schema)
+      await db.consoleLogs.where('sessionId').equals(cid).delete();
     },
   );
   clearDiagnosticsFor(cid); // 释放该会话的前缀诊断快照(违反 session-isolation invariant 的修复)
@@ -486,6 +559,10 @@ export function switchConversation(id: string): Promise<void> {
   // P1-5：在此同步捕获 prevId——并发的 createSession 会在链外同步改 activeId，
   // 若在 .then 内才读 activeId 会读到那个更新的 id，导致保存错会话（prev 永不保存）。
   const prevId = useChatStore.getState().activeId;
+  // A5: 同步捕获 prevScenarioId——避免并发的 createSession / setActive 在 enqueue 排队
+  // 期间把 activeId / sessions 改写,导致 loadConversationInner 里的 readActiveScenarioId
+  // 读到错误的 scenarioId,旧剧本 book 永不卸载。显式串行传递,完全解耦时序。
+  const prevScenarioId = useChatStore.getState().sessions.find((s) => s.id === prevId)?.scenarioId;
   // 单次 enqueue 覆盖 save(prev)+load(next)，整个切换是一条原子链步；内部用 *Inner（未入队）
   // 版本，避免等待本步已持有的同一条链而自死锁。
   return enqueue(async () => {
@@ -493,13 +570,31 @@ export function switchConversation(id: string): Promise<void> {
     if (pendingTarget !== id) return;
 
     if (prevId && prevId !== id) {
-      await saveConversationInner(prevId);
+      // A5: saveConversationInner 抛错不再静默吞掉——以前 enqueue 的 .catch 会把异常吞了,
+      // 玩家「切档前保存」失败时毫无知觉,等读档发现进度丢失才意识到。这里显式 console.error
+      // + 玩家可见 toast 警告,但不阻断切档(切了就切了,继续走完 load 流程)。
+      try {
+        await saveConversationInner(prevId);
+      } catch (saveErr) {
+        console.error('[sessionLifecycle] switchConversation: 切档前保存旧会话失败', { prevId, err: saveErr });
+        try {
+          window.dispatchEvent(
+            new CustomEvent('coc:toast', {
+              detail: { type: 'warning', message: '切档前未保存,可能丢失进度' },
+            }),
+          );
+        } catch {
+          /* SSR / 非浏览器环境忽略 */
+        }
+      }
     }
     // 再次检查 latest-wins（save 期间可能又来新请求）
     if (pendingTarget !== id) return;
 
     useChatStore.getState().setActive(id);
-    await loadConversationInner(id);
+    // A5: 显式传 prevScenarioId 给 loadConversationInner——避免它内部走 readActiveScenarioId
+    // 反查时拿到已被 setActive 改写的新 activeId 对应的空 scenarioId。
+    await loadConversationInner(id, prevScenarioId);
   });
 }
 

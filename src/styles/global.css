@@ -13,3 +13,49 @@ html, body {
 
 /* 渲染隔断：长列表行用浏览器原生 content-visibility 跳过视口外行的布局/绘制 */
 .cv-row { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+
+/* 全局 spinner keyframes — 给所有 inline animation: 'spin Xs linear infinite' 用。
+ * 之前只在 App.tsx splash 屏内 <style> 注册,splash 不渲染时其他 spinner(如剧本激活
+ * loading 覆盖层)就静止;提到全局解此死锁。 */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 技能行高亮闪烁 — StepSkills 推荐技能 chip 点击时,滚动到对应行 + 应用 .skill-pulse
+ * 1.4s 后移除。视觉上 2 次铜光波动,引导玩家在密集技能网格中找到推荐技能。 */
+@keyframes skill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196,168,85,0); background-color: transparent; }
+  50%      { box-shadow: 0 0 0 4px rgba(196,168,85,0.45); background-color: rgba(196,168,85,0.22); }
+}
+.skill-pulse { animation: skill-pulse 0.7s cubic-bezier(0.4, 0, 0.2, 1) 2; }
+
+/* 剧本编辑器铜版风滚动条 — 所有 .scenario-editor 子元素自动套用
+ * 替代浏览器默认丑陋滚动条;触发点是元素 overflow:auto/scroll 时显示。
+ * Firefox 用 scrollbar-color/scrollbar-width;WebKit 用 ::-webkit-scrollbar 伪元素。 */
+.scenario-editor,
+.scenario-editor * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196,168,85,0.32) transparent;
+}
+.scenario-editor::-webkit-scrollbar,
+.scenario-editor *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scenario-editor::-webkit-scrollbar-track,
+.scenario-editor *::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.18);
+  border-radius: 2px;
+}
+.scenario-editor::-webkit-scrollbar-thumb,
+.scenario-editor *::-webkit-scrollbar-thumb {
+  background: rgba(196,168,85,0.32);
+  border-radius: 2px;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scenario-editor::-webkit-scrollbar-thumb:hover,
+.scenario-editor *::-webkit-scrollbar-thumb:hover {
+  background: rgba(196,168,85,0.55);
+}
+.scenario-editor::-webkit-scrollbar-corner,
+.scenario-editor *::-webkit-scrollbar-corner {
+  background: transparent;
+}

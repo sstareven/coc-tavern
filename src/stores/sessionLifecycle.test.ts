@@ -14,6 +14,7 @@ import { useAnchorStore } from './useAnchorStore';
 import { useCombatStore } from './useCombatStore';
 import { saveConversation, loadConversation, deleteConversation, cleanupOrphanGameState, clearAllGameState, startNewConversation, switchConversation } from './sessionLifecycle';
 import { persistActivePages } from './sessionLifecycle';
+import { useNarrationStore } from './useNarrationStore';
 import { db } from '../db/database';
 import type { BookPage, CharacterSheet } from '../types';
 
@@ -577,5 +578,25 @@ describe('拯救世界·关键线索(keyClues)持久化 + 跨会话隔离', () =
 
     await deleteConversation(a);
     expect(await db.keyClues.get(a)).toBeUndefined();
+  });
+});
+
+describe('M9 useNarrationStore 接入 sessionLifecycle (session-isolation-invariant)', () => {
+  beforeEach(async () => { await clearDb(); useNarrationStore.getState().clearPending(); });
+
+  it('clearAllGameState → narration pending 清空', () => {
+    useNarrationStore.getState().append('遗留旁白');
+    expect(useNarrationStore.getState().pending.length).toBe(1);
+    clearAllGameState();
+    expect(useNarrationStore.getState().pending).toEqual([]);
+  });
+
+  it('loadConversation → narration pending 清空(通过 clearAllGameState)', async () => {
+    const a = startNewConversation('A');
+    await saveConversation(a);
+    useNarrationStore.getState().append('上会话残留');
+    expect(useNarrationStore.getState().pending.length).toBe(1);
+    await loadConversation(a);
+    expect(useNarrationStore.getState().pending).toEqual([]);
   });
 });

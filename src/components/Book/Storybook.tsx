@@ -398,12 +398,12 @@ export function Storybook() {
                 {direction === 'forward' ? (
                   /* [B] flips to the left — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="forward">
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} />
                   </CSSFlipPage>
                 ) : (
                   /* Backward: [B] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
+                    <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} />
                   </FadingPage>
                 )}
               </div>
@@ -412,7 +412,7 @@ export function Storybook() {
               <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} />
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} />
               </AppearPage>
             )}
           </div>

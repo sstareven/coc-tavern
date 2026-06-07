@@ -19,6 +19,8 @@ interface Props {
   onSetInjuries: (v: string) => void;
   backgroundFears: string;
   onSetBackgroundFears: (v: string) => void;
+  initialItemsRaw: string;
+  onSetInitialItemsRaw: (v: string) => void;
   backstoryDraft: string;
   onSetBackstoryDraft: (v: string) => void;
   bgFilling: boolean;
@@ -48,6 +50,7 @@ export function StepBackground({
   traits, onSetTraits,
   injuries, onSetInjuries,
   backgroundFears, onSetBackgroundFears,
+  initialItemsRaw, onSetInitialItemsRaw,
   backstoryDraft, onSetBackstoryDraft,
   bgFilling,
   backstoryError,
@@ -76,6 +79,7 @@ export function StepBackground({
     { label: '重要之人', value: significantPeople, set: onSetSignificantPeople, hint: '例如：大学导师亨利·阿米蒂奇教授' },
     { label: '重要场所', value: meaningfulLocations, set: onSetMeaningfulLocations, hint: '例如：密斯卡塔尼克大学图书馆地下室' },
     { label: '珍贵之物', value: treasuredPossessions, set: onSetTreasuredPossessions, hint: '例如：父亲留下的银怀表' },
+    { label: '初始物品', value: initialItemsRaw, set: onSetInitialItemsRaw, hint: '开场即拥有的物品（逗号或换行分隔）。例：照相机一台、笔记本、手电筒、12 美元零钱' },
     { label: '特质', value: traits, set: onSetTraits, hint: '例如：缄默、固执、好奇心强' },
     { label: '伤口/伤痕', value: injuries, set: onSetInjuries, hint: '例如：右膝旧伤，雨天会隐隐作痛' },
     { label: '恐惧症/狂躁症', value: backgroundFears, set: onSetBackgroundFears, hint: '例如：幽闭恐惧症，无法忍受狭小封闭空间' },

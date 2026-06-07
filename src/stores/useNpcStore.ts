@@ -52,6 +52,9 @@ interface NpcStore {
   getAbsent: () => NpcProfile[];
   buildContextInjection: () => string;
   replaceAll: (profiles: NpcProfile[]) => void;
+  joinParty: (npcId: string) => void;
+  leaveParty: (npcId: string) => void;
+  getParty: () => NpcProfile[];
   clearAll: () => void;
 }
 
@@ -151,6 +154,8 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       }
       for (const u of updates) {
         if (!u.name?.trim()) continue;
+        // 防 LLM 抢权:inParty 仅玩家 UI/canJoinParty 通道可写。
+        delete (u as unknown as Record<string, unknown>).inParty;
         if (investigator && u.name.trim() === investigator) continue; // 调查员不入名册
         const now = Date.now();
         let id = findIdByName(profiles, u.name);
@@ -158,18 +163,39 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         if (id) {
           p = { ...profiles[id] };
         } else {
-          id = crypto.randomUUID();
+          // 剧本注入路径会指定固定 id（scenarioCharacterToNpc 用剧本 character.id）；
+          // 主回合 LLM 增量则不带 id，由系统生成 UUID。
+          id = u.id ?? crypto.randomUUID();
           p = {
             id, name: u.name.trim(), identity: '', favorability: 0,
             appearance: '', personality: '', innerThoughts: '',
             memories: [], experience: '', backstory: '', possessions: [],
             isPresent: u.isPresent ?? true, createdAt: now, updatedAt: now,
+            // 剧本预设锚点必须在「新建」这一回合就落到 profile 上；
+            // 老版本只看 SET_FIELDS 字符串字段，把这两个字段丢了 → isPreset 永远 false，
+            // 接踵而来的 npcUpdate 直接把 hiddenBio/publicBio 覆盖成空，KP 暗线骨架瞬间塌掉。
+            ...(u.isScenarioPreset === true ? { isScenarioPreset: true } : {}),
+            ...(typeof u.scenarioHiddenBio === 'string' && u.scenarioHiddenBio.trim()
+              ? { scenarioHiddenBio: u.scenarioHiddenBio }
+              : {}),
           };
         }
         // 直接覆盖的文本字段
         const uRec = u as unknown as Record<string, unknown>;
         const pRec = p as unknown as Record<string, unknown>;
+        // 保护剧本预设 NPC 的 KP 暗线核心 hiddenBio 不被 LLM 主回合 npcUpdate 覆盖：
+        // backstory(=publicBio) 与 innerThoughts(=hiddenBio) 是剧本作者写定的暗线骨架，
+        // 主模型应只产生 favorabilityDelta/isPresent/addMemory/skills/status 等增量；
+        // 但若作者刻意留空（想让 LLM 在首次登场时填入初印象），则首次写入仍应放行，
+        // 故 guard 只在「目标字段已非空」时跳过覆盖。
+        const isPreset = p.isScenarioPreset === true;
         for (const f of SET_FIELDS) {
+          if (
+            isPreset
+            && (f === 'backstory' || f === 'innerThoughts')
+            && typeof pRec[f as string] === 'string'
+            && (pRec[f as string] as string).trim()
+          ) continue;
           const v = uRec[f as string];
           if (typeof v === 'string' && v.trim()) pRec[f as string] = v;
         }
@@ -261,5 +287,26 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     }
     return { profiles };
   }),
+
+  joinParty: (npcId) => {
+    set((s) => {
+      const p = s.profiles[npcId];
+      if (!p) return {};
+      return { profiles: { ...s.profiles, [npcId]: { ...p, inParty: true, updatedAt: Date.now() } } };
+    });
+  },
+
+  leaveParty: (npcId) => {
+    set((s) => {
+      const p = s.profiles[npcId];
+      if (!p) return {};
+      return { profiles: { ...s.profiles, [npcId]: { ...p, inParty: false, updatedAt: Date.now() } } };
+    });
+  },
+
+  getParty: () => Object.values(get().profiles)
+    .filter((p) => p.isPresent && p.inParty)
+    .sort((a, b) => b.updatedAt - a.updatedAt),
+
   clearAll: () => set({ profiles: {} }),
 }));

@@ -55,7 +55,13 @@ interface DiceStore {
   // 剧情选项的检定先暂存，待剧情真正推进后由 commitPending 落入 history，
   // 避免「点了选项但没提交/提交失败」时留下永不成真的记录。手动骰子面板(roll)不走这条。
   stashRecord: (r: DiceRecord) => void;
-  commitPending: () => void;
+  /**
+   * 把暂存的 pending 检定记录刷进 history。
+   * @param explicitPage 显式指定页号——append 模式下调用方传 baseIdx+2（新页号），
+   *   因为此刻 useBookStore.pageIndex 仍是旧页 N-1（autoFlipForward 还没跑）。
+   *   省略则走 fallback：useBookStore.pageIndex + 1（仅 replace/手测场景安全）。
+   */
+  commitPending: (explicitPage?: number) => void;
   clearPending: () => void;
   /** 用一组记录替换历史（newest-first，取前 20）——供读档/删页从页面 diceResults 重建。 */
   setHistory: (records: DiceRecord[]) => void;
@@ -208,10 +214,26 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   },
   addRecord: (r) => set((s) => ({ history: [r, ...s.history].slice(0, 20) })),
   stashRecord: (r) => set((s) => ({ pending: [...s.pending, r] })),
-  commitPending: () => set((s) => ({
-    history: [...[...s.pending].reverse(), ...s.history].slice(0, 20),
-    pending: [],
-  })),
+  commitPending: (explicitPage) => set((s) => {
+    if (s.pending.length === 0) return s;
+    // 修 Bug #3 / Fix #9: 检定记录页码对齐新页号
+    // ----------------------------------
+    // stashRecord 时 record.page 来自 fillInputBar 取的 pageIndex+1 = 触发选项时的【旧页号 N】,
+    // 但 commitPending 由 useChatPipeline 在新页 appendPage 之后调用,此刻这条检定的结果实际
+    // 应当归属【新页 N+1】(玩家看到第 N+1 页时检定记录显示 N 会显得错位)。
+    //
+    // append 模式下 appendPage 不动 pageIndex（autoFlipForward 才动），所以读 store 仍是
+    // 旧 N-1 → fallback(pageIndex+1)=N 仍错位一页。调用方需把 baseIdx+2（与同回合 diceFromInput
+    // 用的 checkPage 同源）作为 explicitPage 显式传入，确保 stash 暂存 + 主输入解析两条通路
+    // 落到同一页号。replace 模式 / 手测场景 explicitPage 省略，走 fallback。
+    const fallback = useBookStore.getState().pageIndex + 1;
+    const currentPage = typeof explicitPage === 'number' ? explicitPage : fallback;
+    const pendingFixed = s.pending.map((r) => ({ ...r, page: currentPage }));
+    return {
+      history: [...pendingFixed.reverse(), ...s.history].slice(0, 20),
+      pending: [],
+    };
+  }),
   clearPending: () => set({ pending: [] }),
   setHistory: (records) => set({
     history: records.slice(0, 20),

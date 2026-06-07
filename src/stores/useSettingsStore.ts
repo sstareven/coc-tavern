@@ -27,6 +27,12 @@ interface SettingsState {
   /** 音效音量 0-100（按钮点击/骰子/翻页等所有合成音的主增益）。 */
   sfxVolume: number;
   autoSubmitChoice: boolean;
+  /** 战斗中 ally NPC 队友的自动行动倾向(影响 decideAiAction):
+   *  - 'attack' 纯攻击,不急救
+   *  - 'support' 优先急救濒死队友
+   *  - 'mixed'(默认) HP<40% 50% 急救/50% 攻击;dying 状态 80% 急救
+   */
+  npcAutoTendency: 'attack' | 'support' | 'mixed';
   apiBaseUrl: string;
   apiModel: string;
   apiKey: string;
@@ -158,6 +164,7 @@ interface SettingsStore extends SettingsState {
   setMusicVolume: (v: number) => void;
   setSfxVolume: (v: number) => void;
   setAutoSubmitChoice: (v: boolean) => void;
+  setNpcAutoTendency: (v: 'attack' | 'support' | 'mixed') => void;
   setApiBaseUrl: (url: string) => void;
   setApiModel: (model: string) => void;
   setApiKey: (k: string) => void;
@@ -223,6 +230,7 @@ const defaults: SettingsState = {
   musicVolume: 40,
   sfxVolume: 100,
   autoSubmitChoice: false,
+  npcAutoTendency: 'mixed',
   apiBaseUrl: 'https://api.deepseek.com',
   apiModel: 'deepseek-v4-pro',
   apiKey: '',
@@ -282,6 +290,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMusicVolume: (v) => set({ musicVolume: v }),
       setSfxVolume: (v) => set({ sfxVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setAutoSubmitChoice: (v) => set({ autoSubmitChoice: v }),
+      setNpcAutoTendency: (v) => set({ npcAutoTendency: v }),
       setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
       setApiModel: (model) => set({ apiModel: model }),
       setApiKey: (k) => set({ apiKey: k }),

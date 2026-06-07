@@ -98,8 +98,8 @@
 ### 步骤
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/sstareven/coc-tavern.git
+# 1. 克隆仓库（指定 master 分支，拿到稳定版；省略 -b 会拿到默认的 beta 开发分支）
+git clone -b master https://github.com/sstareven/coc-tavern.git
 cd coc-tavern
 
 # 2. 安装依赖

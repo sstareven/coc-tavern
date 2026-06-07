@@ -64,6 +64,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
   const fighting = skill(sheet, ['格斗(斗殴)'], 25);
   const dodge = skill(sheet, ['闪避'], Math.floor(c.DEX / 2));
   const firearm = skill(sheet, ['射击(手枪)'], 20);
+  const firstAid = skill(sheet, ['急救'], 30);
   const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
   return {
     id: 'player',
@@ -71,7 +72,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     faction: 'player',
     controlledBy: 'player',
     dex: c.DEX, str: c.STR, siz: c.SIZ, con: c.CON, mov: sheet.secondary.mov,
-    fighting, dodge, firearm,
+    fighting, dodge, firearm, firstAid,
     damageBonus: sheet.secondary.db || '0',
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: 0,
@@ -113,7 +114,7 @@ const FIREARM_KEYS = ['射击(手枪)', '射击(步枪)', '射击(霰弹枪)'];
  * 属性缺 50，技能按别名兜底（fighting 40 / dodge 25），HP/DB/MOV 走 parseNpcDerived（解析不到再推算），
  * 武器由 possessions 经武器表映射 + 恒在的徒手。倾向据 favorability：≤-30 好斗，否则中性。
  */
-export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
+export function buildCombatantFromNpc(npc: NpcProfile, faction: CombatFaction = 'enemy'): Combatant {
   const ch = npc.characteristics ?? {};
   const derived = parseNpcDerived(npc);
   const resolve = (keys: string[], fallback: number): number => {
@@ -131,19 +132,25 @@ export function buildCombatantFromNpc(npc: NpcProfile): Combatant {
   const db = derived.db ?? buildAndDamageBonus(STR, SIZ).db;
   const unarmed: CombatWeapon = { name: '徒手', skill: fighting, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 };
   const aggressive = npc.favorability <= -30;
+  // ally 队友倾向稳定输出(不会乱跑);enemy 看 favorability
+  const tendency = faction === 'ally'
+    ? { attack: 75, flee: 15 }
+    : (aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 });
+  const idPrefix = faction === 'ally' ? 'ally' : 'npc';
+  const firstAid = resolve(['急救', '医学', '草药学'], 30);
   return {
-    id: `npc-${npc.id}`,
-    name: npc.name || 'NPC',
-    faction: 'enemy',
+    id: `${idPrefix}-${npc.id}`,
+    name: npc.name || (faction === 'ally' ? '同伴' : 'NPC'),
+    faction,
     controlledBy: 'ai',
     dex: DEX, str: STR, siz: SIZ, con: CON, mov: derived.mov ?? 8,
-    fighting, dodge, firearm,
+    fighting, dodge, firearm, firstAid,
     damageBonus: db,
     hp, maxHp: hp,
     armor: 0,
     weapons: [unarmed, ...mapNamesToWeapons(npc.possessions ?? [], resolve)],
     flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
-    tendency: aggressive ? { attack: 85, flee: 10 } : { attack: 60, flee: 30 },
+    tendency,
     roundDefenses: 0,
   };
 }

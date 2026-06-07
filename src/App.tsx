@@ -21,6 +21,12 @@ import { DebugLog } from './components/Shared/DebugLog';
 import { DebugConsole } from './components/Shared/DebugConsole';
 import { ErrorModal } from './components/Shared/ErrorModal';
 import { StatusToast } from './components/Shared/StatusToast';
+import { ScenarioScreen } from './components/Scenario/ScenarioScreen';
+import { ScenarioEditor } from './components/Scenario/ScenarioEditor';
+import { RosterPicker } from './components/Landing/RosterPicker';
+import { activateScenario } from './scenario/scenario-engine';
+import { useScenarioStore } from './stores/useScenarioStore';
+import { startNewConversation } from './stores/sessionLifecycle';
 import { usePanelStore } from './stores/usePanelStore';
 import { initBuiltinCommands } from './sillytavern/slash-commands';
 import { initKvCache } from './db/kv';
@@ -38,7 +44,9 @@ export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
   useTextRatios(); // 文字倍率：把 textRatio/systemRatio 挂到 :root CSS 变量供 calc(... * var(...)) 使用
   useButtonSounds(); // 全局按钮音效（柔和木质点击，按 soundEnabled 门控）
-  const [screen, setScreen] = useState<'landing' | 'creator' | 'game'>('landing');
+  const [screen, setScreen] = useState<'landing' | 'scenarioPick' | 'rosterPick' | 'creator' | 'game'>('landing');
+  const [editorScenarioId, setEditorScenarioId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false); // 剧本激活中(扩首页 LLM 调用)的 loading 覆盖层
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -127,7 +135,6 @@ export function App() {
           border: '2px solid rgba(196,168,85,0.15)', borderTopColor: 'var(--gold)',
           animation: 'spin 0.9s linear infinite',
         }} />
-        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
       </div>
     );
   }
@@ -137,17 +144,91 @@ export function App() {
     <>
       {screen === 'landing' && (
         <LandingScreen
-          onStart={() => setScreen('creator')}
+          onStart={() => setScreen('scenarioPick')}
           onLoadGame={() => setScreen('game')}
         />
       )}
+      {screen === 'scenarioPick' && (
+        <ScenarioScreen
+          onPick={(scenarioId) => {
+            // 选完剧本统一跳 RosterPicker(不再区分 preset/newChar — 角色选择由 RosterPicker 决定)
+            useScenarioStore.getState().setLastPicked(scenarioId);
+            setScreen('rosterPick');
+          }}
+          onClose={() => setScreen('landing')}
+          onOpenEditor={(id) => setEditorScenarioId(id)}
+        />
+      )}
+      {screen === 'rosterPick' && (() => {
+        const scnId = useScenarioStore.getState().lastPicked;
+        if (!scnId) {
+          setScreen('scenarioPick');
+          return null;
+        }
+        return (
+          <RosterPicker
+            scenarioId={scnId}
+            onBack={() => setScreen('scenarioPick')}
+            onAddNewCharacter={() => setScreen('creator')}
+            onPickChar={(charIdx, mode) => {
+              void (async () => {
+                startNewConversation('新游戏');
+                setActivating(true);
+                try {
+                  await activateScenario(scnId, mode, charIdx);
+                } catch (err) {
+                  console.error('[App] 激活剧本失败:', err);
+                } finally {
+                  setActivating(false);
+                }
+                setScreen('game');
+              })();
+            }}
+          />
+        );
+      })()}
+      {editorScenarioId && (
+        <ScenarioEditor
+          scenarioId={editorScenarioId}
+          onClose={() => setEditorScenarioId(null)}
+        />
+      )}
       {screen === 'creator' && (
-        <CharacterCreator onComplete={() => setScreen('game')} onClose={() => setScreen('landing')} />
+        <CharacterCreator
+          onComplete={() => {
+            // M4: CharCreator.handleConfirm 已把自创卡 applyPatch 写进剧本,这里只回 RosterPicker 让玩家选他进游戏
+            setScreen('rosterPick');
+          }}
+          onClose={() => setScreen('rosterPick')}
+        />
       )}
       {screen === 'game' && (
         <GameView onReturnToMenu={returnToMenu} />
       )}
       <ChangelogModal />
+
+      {/* 剧本激活中的全屏 loading 覆盖层 — 创角完成 / preset 选角时 LLM 扩首页期间显示 */}
+      {activating && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9995,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
+          background: 'rgba(8,6,4,0.92)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            border: '2px solid rgba(196,168,85,0.15)', borderTopColor: 'var(--gold)',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+          <div style={{
+            fontFamily: 'var(--font-display)', color: 'var(--gold)',
+            fontSize: 'calc(14px * var(--system-ratio, 1))', letterSpacing: 3,
+          }}>正在书写序章…</div>
+          <div style={{
+            fontFamily: 'var(--font-ui)', color: 'var(--ink-faded)',
+            fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1, maxWidth: 360, textAlign: 'center',
+          }}>守秘人正在根据剧本背景为你扩写第一页，请稍候。</div>
+        </div>
+      )}
 
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
       <DicePanel />

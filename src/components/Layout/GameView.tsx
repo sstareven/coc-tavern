@@ -6,6 +6,8 @@ import { StatusBar } from '../Book/StatusBar';
 import { DiceAnimation, PolyRollAnimation } from '../Shared/DiceAnimation';
 import { OptionResolutionOverlay } from '../Book/OptionResolutionOverlay';
 import { SanityCheckPanel } from '../Book/SanityCheckPanel';
+import { CurrentScenarioBadge } from '../Scenario/CurrentScenarioBadge';
+import { TeamSidebar } from './TeamSidebar';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useViewportHeight } from '../../hooks/useViewportHeight';
@@ -105,6 +107,8 @@ export function GameView({ onReturnToMenu }: Props) {
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: appHeight }}>
       <TopBar onReturnToMenu={onReturnToMenu} />
+      <CurrentScenarioBadge />
+      <TeamSidebar />
 
       {isMobile ? (
         <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>

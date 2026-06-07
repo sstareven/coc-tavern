@@ -389,3 +389,33 @@ describe('upgradeV2 failure safety', () => {
     reopened.close();
   });
 });
+
+describe('v11: consoleLogs table', () => {
+  beforeEach(async () => {
+    await db.consoleLogs.clear();
+  });
+
+  it('exposes consoleLogs table with the new schema', async () => {
+    expect(db.consoleLogs).toBeDefined();
+
+    const row = {
+      sessionId: 's1',
+      pageIndex: 3,
+      ts: 1000,
+      level: 'log' as const,
+      message: '[cache-diag] hello',
+    };
+    const id = await db.consoleLogs.add(row);
+    expect(typeof id).toBe('number');
+
+    const fetched = await db.consoleLogs
+      .where('[sessionId+pageIndex]')
+      .equals(['s1', 3])
+      .first();
+    expect(fetched?.message).toBe('[cache-diag] hello');
+
+    await db.consoleLogs.where('sessionId').equals('s1').delete();
+    const count = await db.consoleLogs.where('sessionId').equals('s1').count();
+    expect(count).toBe(0);
+  });
+});

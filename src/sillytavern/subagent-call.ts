@@ -154,8 +154,11 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
       signal,
     });
 
-  let response = await doFetch(wantJsonObject);
+  // A5 — AbortError 自动透传:fetch 抛 AbortError 时调用栈直接冒泡,无需额外包 try/catch
+  //      (历史的 rethrowIfAborted 两个分支都 throw err,等价于不包,2026-06-06 清理)。
+  let response: Response;
   let usedJsonObject = wantJsonObject;
+  response = await doFetch(wantJsonObject);
 
   if (!response.ok && wantJsonObject) {
     // 探测是不是 response_format 不被支持 —— 是则缓存 model + fallback 重发
@@ -178,6 +181,8 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
 
   if (!response.ok) throw new DsSubagentHttpError(label, response.status);
 
+  // A5 — abort 也可能在 response.json() 期间触发,提前透传
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
   // 解析按实际请求模式分流：json_object 模式走 strictJsonParse，否则走 coerceJsonObject。

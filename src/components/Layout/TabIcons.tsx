@@ -48,3 +48,32 @@ export function IconLuck({ size = 18 }: IconProps) {
 export function IconPush({ size = 18 }: IconProps) {
   return (<svg {...base(size)}><circle cx="12" cy="12" r="8" /><path d="M9 9h-3v-3M15 15h3v3M8 14.5a5 5 0 008 1.5M16 9.5a5 5 0 00-8-1.5" /></svg>);
 }
+/** 难度星：五芒星轮廓；filled 时以 currentColor 实心 */
+export function IconStar({ size = 12, filled = false }: IconProps & { filled?: boolean }) {
+  const props = base(size);
+  return (<svg {...props} fill={filled ? 'currentColor' : 'none'}><path d="M12 3l2.6 6.1 6.6.5-5 4.4 1.5 6.5L12 17.3 5.3 20.5l1.5-6.5-5-4.4 6.6-.5L12 3z" /></svg>);
+}
+/** 关闭：斜十字 ×（铜版线描，替代字符 ×） */
+export function IconClose({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M6 6l12 12M18 6L6 18" /></svg>);
+}
+/** 勾选：对勾 ✓（替代字符 ✓） */
+export function IconCheck({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M5 12.5l4.5 4.5L19 7" /></svg>);
+}
+/** 闪光：四芒星火花（替代 emoji ✨，标识 LLM 生成） */
+export function IconSparkle({ size = 12 }: IconProps) {
+  return (<svg {...base(size)}><path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3" /></svg>);
+}
+/** 刷新/清空：循环箭头（替代 emoji ♻） */
+export function IconRefresh({ size = 12 }: IconProps) {
+  return (<svg {...base(size)}><path d="M4 12a8 8 0 0114-5.3L20 9M20 4v5h-5M20 12a8 8 0 01-14 5.3L4 15M4 20v-5h5" /></svg>);
+}
+/** 邀请入队：人像 + 加号（铜版线描，与 IconNpc 同语言） */
+export function IconUserPlus({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M17 6v6M14 9h6" /></svg>);
+}
+/** 请求退队：人像 + 减号 */
+export function IconUserMinus({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M14 9h6" /></svg>);
+}
