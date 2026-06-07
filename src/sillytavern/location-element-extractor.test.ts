@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { extractLocationElements } from './location-element-extractor';
 
 function mockFetchOnce(content: string) {
@@ -9,6 +10,7 @@ function mockFetchOnce(content: string) {
 }
 
 describe('extractLocationElements', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析 {"elements":[...]} 为 LocationElementInput[]，并填入传入的 locationName', async () => {

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { generateBadEnding } from './bad-ending-generator';
 
 function mockFetchOnce(content: string) {
@@ -18,6 +19,7 @@ const OK = JSON.stringify({
 });
 
 describe('generateBadEnding', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析坏结局 + 3 真相支柱', async () => {

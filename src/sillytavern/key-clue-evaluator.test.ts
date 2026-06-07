@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { evaluateKeyClues } from './key-clue-evaluator';
 
 function mockFetchOnce(content: string) {
@@ -20,6 +21,7 @@ const CLUES = [
 ];
 
 describe('evaluateKeyClues', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析 {"matches":[...]}：过滤越界 pillarId、同 pillarId 去重', async () => {

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { integrateLocationElements } from './location-element-integrator';
 
 function mockFetchOnce(content: string) {
@@ -9,6 +10,7 @@ function mockFetchOnce(content: string) {
 }
 
 describe('integrateLocationElements', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('把多条元素归纳为 ≤5 条，填入传入的 locationName，超 5 条被 slice', async () => {

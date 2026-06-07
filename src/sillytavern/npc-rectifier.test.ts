@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { rectifyMissingNpcs } from './npc-rectifier';
 
 function mockFetchOnce(content: string) {
@@ -16,6 +17,7 @@ const SAMPLE_OK = JSON.stringify({
 });
 
 describe('rectifyMissingNpcs — BUG2 Part 2 补写 API 重纠', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析返回的 npcUpdates 数组（含字符串字段、isPresent）', async () => {

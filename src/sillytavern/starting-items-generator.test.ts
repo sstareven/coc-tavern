@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { generateStartingItems } from './starting-items-generator';
 
 function mockFetchOnce(content: string) {
@@ -9,6 +10,7 @@ function mockFetchOnce(content: string) {
 }
 
 describe('generateStartingItems', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析 {"items":[...]} 为 add 变更', async () => {

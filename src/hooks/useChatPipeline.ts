@@ -1361,6 +1361,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               // addEntry 入参字段名是 details（映射 development）——与正常路径 :947-952 一致。
               useDarkThreadStore.getState().addEntry({ progress: dt.progress, threatLevel: dt.threatLevel, details: dt.development, foreshadowing: dt.foreshadowing });
               useBookStore.getState().setPageDarkThread(dtPageIdx, { development: dt.development, progress: dt.progress, threatLevel: dt.threatLevel, foreshadowing: dt.foreshadowing });
+              if (dt.usage) {
+                useBookStore.getState().addPageSubCallStat(dtPageIdx, {
+                  label: '暗线生成',
+                  model: settings.getEffectiveMainApi().model,
+                  hit: dt.usage.prompt_cache_hit_tokens,
+                  miss: dt.usage.prompt_cache_miss_tokens,
+                  promptTokens: dt.usage.prompt_tokens,
+                  output: dt.usage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               useChatStore.getState().savePages(useBookStore.getState().pages);
               if (aidDT) await saveConversation(aidDT);
               pushLog('info', `[暗线] 主生成遗漏，已定向补生成: 进度${dt.progress}/100（${dt.threatLevel}）— ${dt.development}`, 'system');
@@ -1397,6 +1408,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 // 写回该页 npcUpdates + 刷新 npcSnapshot——保证删页快照回溯不丢补写出来的 NPC。
                 const snap = structuredClone(useNpcStore.getState().profiles);
                 useBookStore.getState().setPageNpcRectification(nrPageIdx, rectified.npcUpdates, snap);
+                if (rectified.usage) {
+                  useBookStore.getState().addPageSubCallStat(nrPageIdx, {
+                    label: 'NPC缺失补写',
+                    model: rwModel,
+                    hit: rectified.usage.prompt_cache_hit_tokens,
+                    miss: rectified.usage.prompt_cache_miss_tokens,
+                    promptTokens: rectified.usage.prompt_tokens,
+                    output: rectified.usage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 useChatStore.getState().savePages(useBookStore.getState().pages);
                 if (aidNR) await saveConversation(aidNR);
                 pushLog('info', `[NPC缺失] 补写 API 已重纠 ${rectified.npcUpdates.length} 个 NPC：${rectified.npcUpdates.map((n) => n.name).join('、')}`, 'system');
@@ -1455,9 +1477,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               const aidKM = useChatStore.getState().activeId;
               pendingVisibleSubcalls.push((async () => {
                 try {
-                  const { meanings } = await extractKeywordMeanings(narrative, unknown, kmBase, kmKey, kmModel);
+                  const { meanings, usage: kmUsage } = await extractKeywordMeanings(narrative, unknown, kmBase, kmKey, kmModel);
                   if (Object.keys(meanings).length === 0 || useChatStore.getState().activeId !== aidKM) return;
                   useKeywordStore.getState().addKeywords(meanings);
+                  if (kmUsage) {
+                    const kmPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                    useBookStore.getState().addPageSubCallStat(kmPageIdx, {
+                      label: '关键词释义',
+                      model: kmModel,
+                      hit: kmUsage.prompt_cache_hit_tokens,
+                      miss: kmUsage.prompt_cache_miss_tokens,
+                      promptTokens: kmUsage.prompt_tokens,
+                      output: kmUsage.completion_tokens,
+                      at: Date.now(),
+                    });
+                  }
                   if (aidKM && useChatStore.getState().activeId === aidKM) await saveConversation(aidKM);
                   pushLog('info', `[关键词释义] 已为 ${Object.keys(meanings).length}/${unknown.length} 个未知关键词补释义：${Object.keys(meanings).join('、')}`, 'system');
                 } catch (e) {
@@ -1569,6 +1603,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 if (!anchors || useChatStore.getState().activeId !== aidAN) return; // 失败或切档 → 放弃
                 if (useAnchorStore.getState().anchors.nodes.length > 0) return; // 期间已生成 → 不覆盖
                 useAnchorStore.getState().setAnchors(anchors);
+                if (anchors.usage) {
+                  const anchorPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                  useBookStore.getState().addPageSubCallStat(anchorPageIdx, {
+                    label: '剧情锚点',
+                    model: settings.getEffectiveMainApi().model,
+                    hit: anchors.usage.prompt_cache_hit_tokens,
+                    miss: anchors.usage.prompt_cache_miss_tokens,
+                    promptTokens: anchors.usage.prompt_tokens,
+                    output: anchors.usage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 if (aidAN) await saveConversation(aidAN);
                 pushLog('info', `[剧情锚点] 本局剧情蓝图已生成（守秘人机密）：${anchors.nodes.map((n) => n.title).join(' → ')}`, 'system');
               } catch (e) {
@@ -1603,6 +1649,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 const anchorPages = useBookStore.getState().pages;
                 enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
                 useCombatStore.getState().start(enc);
+                if (enc.usage) {
+                  const cdPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                  useBookStore.getState().addPageSubCallStat(cdPageIdx, {
+                    label: '战斗检测',
+                    model: cdModel,
+                    hit: enc.usage.prompt_cache_hit_tokens,
+                    miss: enc.usage.prompt_cache_miss_tokens,
+                    promptTokens: enc.usage.prompt_tokens,
+                    output: enc.usage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 if (aidCB) await saveConversation(aidCB);
                 pushLog('info', `[战斗] 进入即时战斗：${enc.combatants.filter((c) => c.faction === 'enemy').map((c) => c.name).join('、')}`, 'system');
               } catch (e) {
@@ -1678,7 +1736,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const aidAtTrigger = useChatStore.getState().activeId;
           pendingVisibleSubcalls.push((async () => {
             try {
-              const { clues: summaries } = await integrateClues(
+              const { clues: summaries, usage: ciUsage } = await integrateClues(
                 activeClues.map((c) => ({ name: c.name, summary: c.summary, discoveryNarrative: c.discoveryNarrative, relatedTo: c.relatedTo, tags: c.tags })),
                 settings.getEffectiveMainApi().baseUrl, settings.getEffectiveMainApi().apiKey, settings.getEffectiveMainApi().model,
               );
@@ -1689,6 +1747,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 return;
               }
               useClueStore.getState().consolidateClues(summaries, activeClues.map((c) => c.id));
+              if (ciUsage) {
+                const ciPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                useBookStore.getState().addPageSubCallStat(ciPageIdx, {
+                  label: '线索整合',
+                  model: settings.getEffectiveMainApi().model,
+                  hit: ciUsage.prompt_cache_hit_tokens,
+                  miss: ciUsage.prompt_cache_miss_tokens,
+                  promptTokens: ciUsage.prompt_tokens,
+                  output: ciUsage.completion_tokens,
+                  at: Date.now(),
+                });
+              }
               if (aidAtTrigger) await saveConversation(aidAtTrigger);
               useStatusToastStore.getState().markDone(`线索已自动归并为 ${summaries.length} 条总结（原线索可在线索页历史回溯）`);
               pushLog('info', `[线索整合] 线索超过 ${CLUE_ACTIVE_CAP} 条，已自动归并 ${activeClues.length} → ${summaries.length} 条（原线索归档可回溯）`, 'api');
@@ -1738,12 +1808,23 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const narrative = `${newPage.leftContent}\n${newPage.rightContent}`;
             pendingVisibleSubcalls.push((async () => {
               try {
-                const { elements } = await extractLocationElements(locName, existingNames, narrative, leBase, leKey, leModel);
+                const { elements, usage: leUsage } = await extractLocationElements(locName, existingNames, narrative, leBase, leKey, leModel);
                 if (elements.length === 0 || useChatStore.getState().activeId !== aidLE) return;
                 useLocationElementStore.getState().applyExtracted(elements);
                 // 页锚定写回：直接覆写本页 locationElements（与 setPageInventoryChanges 一致；
                 // 每页每回合仅一次抽取，regenerate 时应替换而非堆叠）。
                 useBookStore.getState().setPageLocationElements(ledPageIdx, elements);
+                if (leUsage) {
+                  useBookStore.getState().addPageSubCallStat(ledPageIdx, {
+                    label: '地点元素',
+                    model: leModel,
+                    hit: leUsage.prompt_cache_hit_tokens,
+                    miss: leUsage.prompt_cache_miss_tokens,
+                    promptTokens: leUsage.prompt_tokens,
+                    output: leUsage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
                 useChatStore.getState().savePages(useBookStore.getState().pages);
                 if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
                 pushLog('info', `[地点元素] 「${locName}」抽取 ${elements.length} 个新元素：${elements.map((e) => e.name).join('、')}`, 'system');
@@ -1752,13 +1833,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 // 不写回页面——consolidation 跨全地点，与「每页 historical locationElements」语义不同；删页重放走原始元素、下回合再重整。
                 const curList = useLocationElementStore.getState().getByLocation(locName);
                 if (curList.length > LOCATION_ELEMENT_CAP) {
-                  const { elements: mergedEls } = await integrateLocationElements(
+                  const { elements: mergedEls, usage: liUsage } = await integrateLocationElements(
                     locName,
                     curList.map((e) => ({ name: e.name, category: e.category, description: e.description })),
                     leBase, leKey, leModel,
                   );
                   if (mergedEls.length > 0 && useChatStore.getState().activeId === aidLE) {
                     useLocationElementStore.getState().consolidateLocation(locName, mergedEls);
+                    if (liUsage) {
+                      useBookStore.getState().addPageSubCallStat(ledPageIdx, {
+                        label: '地点元素整合',
+                        model: leModel,
+                        hit: liUsage.prompt_cache_hit_tokens,
+                        miss: liUsage.prompt_cache_miss_tokens,
+                        promptTokens: liUsage.prompt_tokens,
+                        output: liUsage.completion_tokens,
+                        at: Date.now(),
+                      });
+                    }
                     if (aidLE && useChatStore.getState().activeId === aidLE) await saveConversation(aidLE);
                     pushLog('info', `[地点元素整合] 「${locName}」元素超过 ${LOCATION_ELEMENT_CAP} 个，已归纳收敛为 ${mergedEls.length} 个`, 'system');
                   }
@@ -1810,6 +1902,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                     if (rc.addEdges.length) parts.push(`补 ${rc.addEdges.length} 条缺失边`);
                     pushLog('info', `[地图自检] 已纠正：${parts.join('，')}`, 'system');
                     if (aidRC && useChatStore.getState().activeId === aidRC) await saveConversation(aidRC);
+                  }
+                  if (rc.usage) {
+                    const rcPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                    useBookStore.getState().addPageSubCallStat(rcPageIdx, {
+                      label: '地图自检',
+                      model: rcModel,
+                      hit: rc.usage.prompt_cache_hit_tokens,
+                      miss: rc.usage.prompt_cache_miss_tokens,
+                      promptTokens: rc.usage.prompt_tokens,
+                      output: rc.usage.completion_tokens,
+                      at: Date.now(),
+                    });
                   }
                 } catch (e) {
                   pushLog('warn', `[地图自检] 失败：${e instanceof Error ? e.message : String(e)}`, 'api');

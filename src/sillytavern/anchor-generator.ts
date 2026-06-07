@@ -1,5 +1,6 @@
 import { callDsSubagent } from './subagent-call';
 import type { PlotAnchors } from '../types';
+import type { TokenUsage } from './stream-parser';
 
 /**
  * 开局「剧情蓝图」生成提示词：据开场情境 + 已生成的坏结局/真相支柱，产出本局必经骨架节点 +
@@ -37,7 +38,7 @@ export async function generateAnchors(
   temperature = 0.9,
   maxTokens = 20000, // 思考型模型防截断（项目硬下限 ≥20000）
   retries = 3,
-): Promise<PlotAnchors | null> {
+): Promise<(PlotAnchors & { usage?: TokenUsage }) | null> {
   const pillarText = pillars.length
     ? pillars.map((p, i) => `${i + 1}. ${p.title}：${p.secret}`).join('\n')
     : '（暂无）';
@@ -47,7 +48,7 @@ export async function generateAnchors(
     if (signal?.aborted) return null;
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
     if (signal?.aborted) return null;
-    const { parsed } = await callDsSubagent({
+    const { parsed, usage } = await callDsSubagent({
       apiBaseUrl, apiKey, model, signal, temperature, maxTokens, rpmLane: 'main',
       label: '剧情锚点生成',
       messages: [
@@ -73,7 +74,7 @@ export async function generateAnchors(
         .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
         .map((d) => d.trim())
         .slice(0, 8);
-      if (nodes.length > 0) return { nodes, constraints, threatDependencies };
+      if (nodes.length > 0) return { nodes, constraints, threatDependencies, usage };
     }
     // parsed 为 null 或无有效 nodes → 继续重试。
   }
