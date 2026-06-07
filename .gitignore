@@ -51,3 +51,4 @@ tmp_preview/
 # 剧本回填脚本中间产物（一次性 LLM 生成,人工核对后 paste 回 src/data/scenarios/<scn>.ts；
 # 见 scripts/backfill-scenario-pools.ts 与 spec §7.1）
 scripts/.backfill-output/
+.mcfast/
