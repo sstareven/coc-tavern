@@ -1,6 +1,7 @@
 import { parseStreamChunk, type TokenUsage } from './stream-parser';
 import { rpmAcquire, type RpmKind } from './rpm-limiter';
 import type { ChatPreset } from '../types';
+import { applyExtraParamsRules } from '../api/api-extra-params-engine';
 
 /**
  * 应用署名 header：让中转站/服务端在日志与面板里能识别请求来源（署名 coc-tavern）。
@@ -66,11 +67,29 @@ export async function sendChatCompletion(
   onToken?: (token: string) => void,
   signal?: AbortSignal,
   rpmKind: RpmKind = 'main',
+  /** v1.14.x:ApiProfile 级 extraParams 规则文本(- 禁用 / + 添加),最后 apply 到 body 解决 DS 等模型字段冲突。 */
+  extraParams: string = '',
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
   // RPM 限流：达到上限则排队等待（按 kind 分桶）
   await rpmAcquire(rpmKind);
+
+  // 构造 body 字面量 → 应用 extraParams 规则 → JSON.stringify
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: preset.temperature,
+    top_p: preset.topP,
+    frequency_penalty: preset.frequencyPenalty,
+    presence_penalty: preset.presencePenalty,
+    // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
+    ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
+    max_tokens: preset.maxTokens,
+    stream,
+    ...(stream ? { stream_options: { include_usage: true } } : {}),
+  };
+  const finalBody = applyExtraParamsRules(body, extraParams);
 
   let response: Response;
   try {
@@ -81,19 +100,7 @@ export async function sendChatCompletion(
         Authorization: `Bearer ${apiKey}`,
         ...appIdHeaders(),
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: preset.temperature,
-        top_p: preset.topP,
-        frequency_penalty: preset.frequencyPenalty,
-        presence_penalty: preset.presencePenalty,
-        // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
-        ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
-        max_tokens: preset.maxTokens,
-        stream,
-        ...(stream ? { stream_options: { include_usage: true } } : {}),
-      }),
+      body: JSON.stringify(finalBody),
       signal,
     });
   } catch (err) {

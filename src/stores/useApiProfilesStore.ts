@@ -122,8 +122,16 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
       name: 'coc_api_profiles_v1',
       storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state),
-      // 顶层 shallow merge 足够(本 store 无嵌套对象需深合并)。
-      merge: (persisted, current) => ({ ...current, ...((persisted ?? {}) as Partial<ApiProfilesStore>) }),
+      // 顶层 shallow merge + 老 profile 字段兜底(v1.14.x 新增的 extraParams 补 '')。
+      merge: (persisted, current) => {
+        const merged = { ...current, ...((persisted ?? {}) as Partial<ApiProfilesStore>) } as ApiProfilesStore;
+        // 给老 profile 兜底 extraParams 默认值,防下游 undefined.trim() 等崩
+        merged.apiProfiles = (merged.apiProfiles ?? []).map((p) => ({
+          ...p,
+          extraParams: typeof p.extraParams === 'string' ? p.extraParams : '',
+        }));
+        return merged;
+      },
     },
   ),
 );

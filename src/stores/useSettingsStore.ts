@@ -215,16 +215,17 @@ interface SettingsStore extends SettingsState {
   /**
    * v1.14.0 起的统一调用入口:主叙事 API 当前 effective 凭证。
    * 跨 store 同步读 useApiProfilesStore 的 selectedMainApiProfileId + selectedMainModel,
-   * 解析得 {baseUrl, apiKey, model}。未选 profile → 三段都空,下游应给「请到 API 管理」提示。
+   * 解析得 {baseUrl, apiKey, model, extraParams}。未选 profile → 全空,下游应给「请到 API 管理」提示。
+   * extraParams 用于 applyExtraParamsRules — 每个 profile 可独立配置移除/添加请求 body 字段。
    */
-  getEffectiveMainApi: () => { baseUrl: string; apiKey: string; model: string };
+  getEffectiveMainApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
   /**
    * MVU 提取 API 当前 effective 凭证。
    * mvuUseIndependentApi=false 时回退主线(profile + model 全套);=true 时用 selectedMvuApiProfileId/Model。
    */
-  getEffectiveMvuApi: () => { baseUrl: string; apiKey: string; model: string };
+  getEffectiveMvuApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
   /** 行动补写 API,逻辑同 Mvu。rewriteUseIndependentApi 控制是否独立。 */
-  getEffectiveRewriteApi: () => { baseUrl: string; apiKey: string; model: string };
+  getEffectiveRewriteApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
 }
 
 const defaults: SettingsState = {
@@ -383,6 +384,7 @@ export const useSettingsStore = create<SettingsStore>()(
           baseUrl: profile?.apiBaseUrl ?? '',
           apiKey: profile?.apiKey ?? '',
           model: ap.selectedMainModel,
+          extraParams: profile?.extraParams ?? '',
         };
       },
       getEffectiveMvuApi: () => {
@@ -396,6 +398,7 @@ export const useSettingsStore = create<SettingsStore>()(
           baseUrl: profile?.apiBaseUrl ?? '',
           apiKey: profile?.apiKey ?? '',
           model,
+          extraParams: profile?.extraParams ?? '',
         };
       },
       getEffectiveRewriteApi: () => {
@@ -408,6 +411,7 @@ export const useSettingsStore = create<SettingsStore>()(
           baseUrl: profile?.apiBaseUrl ?? '',
           apiKey: profile?.apiKey ?? '',
           model,
+          extraParams: profile?.extraParams ?? '',
         };
       },
     }),

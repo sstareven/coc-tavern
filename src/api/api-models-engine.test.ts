@@ -12,9 +12,9 @@ import type { ApiProfile } from './api-profiles-engine';
 
 const profiles: ApiProfile[] = [
   { id: 'p1', label: 'DeepSeek', apiBaseUrl: 'https://api.deepseek.com', apiKey: 'k1',
-    availableModels: ['deepseek-v4-pro', 'deepseek-chat'], createdAt: 0, updatedAt: 0 },
+    availableModels: ['deepseek-v4-pro', 'deepseek-chat'], createdAt: 0, updatedAt: 0, extraParams: '' },
   { id: 'p2', label: 'OpenRouter', apiBaseUrl: 'https://openrouter.ai', apiKey: 'k2',
-    availableModels: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet'], createdAt: 0, updatedAt: 0 },
+    availableModels: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet'], createdAt: 0, updatedAt: 0, extraParams: '' },
 ];
 
 describe('collectAllProfileModels', () => {

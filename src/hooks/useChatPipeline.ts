@@ -960,6 +960,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             streamRenderEnabled,
             streamRenderEnabled ? onToken : undefined,
             controller.signal,
+            'main',
+            settings.getEffectiveMainApi().extraParams,
           ),
           parse: (content) => parseLlmResponse(content, { skipInventoryNarrativeCheck }),
         });
@@ -1085,6 +1087,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                   const scBase = (useMvuSC ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
                   const scKey = (useMvuSC ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
                   const scModel = (useMvuSC ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
+                  const scExtra = useMvuSC ? settings.getEffectiveMvuApi().extraParams : settings.getEffectiveMainApi().extraParams;
                   const r = await sendChatCompletion(
                     applyPostProcessing(msgs, settings.promptPostProcessing),
                     presetForApi,
@@ -1095,6 +1098,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                     undefined,
                     controller.signal,
                     'mvu',
+                    scExtra,
                   );
                   return { content: r.content, usage: r.usage };
                 },
@@ -2003,6 +2007,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const baseUrl = useIndep ? settings.getEffectiveRewriteApi().baseUrl : settings.getEffectiveMainApi().baseUrl;
       const apiKey = useIndep ? settings.getEffectiveRewriteApi().apiKey : settings.getEffectiveMainApi().apiKey;
       const model = useIndep ? settings.getEffectiveRewriteApi().model : settings.getEffectiveMainApi().model;
+      const rwExtra = useIndep ? settings.getEffectiveRewriteApi().extraParams : settings.getEffectiveMainApi().extraParams;
       if (!apiKey) {
         useStatusToastStore.getState().showError('请先在设置中配置API');
         setError('请先在设置中配置API');
@@ -2085,6 +2090,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           undefined,
           controller.signal,
           'rewrite',
+          rwExtra,
         ),
         parse: (content) => parseRewriteResponse(content),
       });
