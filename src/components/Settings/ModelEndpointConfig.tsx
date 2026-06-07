@@ -1,6 +1,7 @@
 import { useState, useId } from 'react';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { fetchModelList } from '../../sillytavern/api-router';
+import { rowStyle, labelStyle } from './_shared';
 
 interface Props {
   apiKey: string;
@@ -12,15 +13,6 @@ interface Props {
   availableModels: string[];
   setAvailableModels: (models: string[]) => void;
 }
-
-const rowStyle: React.CSSProperties = {
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.02)',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-};
 
 const inputStyle: React.CSSProperties = {
   width: 200, maxWidth: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
@@ -85,7 +77,22 @@ export function ModelEndpointConfig({
               background: 'rgba(0,0,0,0.2)', color: 'var(--text-light)',
               fontFamily: 'var(--font-ui)', fontSize: 'calc(10px * var(--system-ratio, 1))', letterSpacing: 1, cursor: 'pointer',
               opacity: connStatus === 'testing' ? 0.5 : 1,
-            }}>
+              transition: 'var(--transition-smooth)',
+            }}
+            onMouseEnter={(e) => {
+              if (connStatus === 'testing') return;
+              e.currentTarget.style.borderColor = 'var(--gold)';
+              e.currentTarget.style.color = 'var(--gold)';
+              e.currentTarget.style.background = 'rgba(196,168,85,0.08)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--brass)';
+              e.currentTarget.style.color = 'var(--text-light)';
+              e.currentTarget.style.background = 'rgba(0,0,0,0.2)';
+            }}
+            onMouseDown={(e) => { if (connStatus !== 'testing') e.currentTarget.style.transform = 'scale(0.97)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >
             {connStatus === 'testing' ? '...' : '连接'}
           </button>
           {connStatus === 'connected' && (

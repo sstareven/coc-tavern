@@ -1,8 +1,9 @@
 // 设置面板内共享样式与组件 — 抽出原 SettingsPanel 内 80 行重复实现，让 CheatingContent
 // 等新增 tab 直接复用，避免每加一个 tab 就抄一遍 HelpIcon/Toggle/CategoryBar。
-import { useRef, useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getAutoZoom } from '../../hooks/useResponsiveZoom';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 
 /** 行容器：左侧 label/help 右侧控件，淡描底线。 */
 export const rowStyle: CSSProperties = {
@@ -72,6 +73,7 @@ export function HelpIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number; below: boolean }>({ x: 0, y: 0, below: true });
   const ref = useRef<HTMLSpanElement>(null);
+  const showTimer = useRef<number | null>(null);
 
   const onEnter = () => {
     const el = ref.current;
@@ -88,7 +90,19 @@ export function HelpIcon({ text }: { text: string }) {
       const yRaw = below ? r.bottom + 6 : r.top - 6;
       setPos({ x: x / s, y: yRaw / s, below });
     }
-    setShow(true);
+    // 按设置面板「提示延迟」延后显示。0 = 立即。store 直接 getState,避免每次 hover 都订阅。
+    const delay = useSettingsStore.getState().tooltipDelay;
+    if (showTimer.current !== null) window.clearTimeout(showTimer.current);
+    if (delay <= 0) {
+      setShow(true);
+    } else {
+      showTimer.current = window.setTimeout(() => { setShow(true); showTimer.current = null; }, delay);
+    }
+  };
+
+  const onLeave = () => {
+    if (showTimer.current !== null) { window.clearTimeout(showTimer.current); showTimer.current = null; }
+    setShow(false);
   };
 
   return (
@@ -96,7 +110,7 @@ export function HelpIcon({ text }: { text: string }) {
       ref={ref}
       style={{ display: 'inline-flex', verticalAlign: 'middle' }}
       onMouseEnter={onEnter}
-      onMouseLeave={() => setShow(false)}
+      onMouseLeave={onLeave}
       onClick={(e) => e.preventDefault()}
     >
       <span style={helpIconStyle}>?</span>
@@ -115,5 +129,69 @@ export function HelpIcon({ text }: { text: string }) {
         document.body,
       )}
     </span>
+  );
+}
+
+/**
+ * 统一的「滑块行」：label + 可选 HelpIcon + range + 数值后缀（百分号/单位/自定义文案）。
+ * 抽出原 SettingsPanel 内 10+ 处重复实现的滑块行，统一 gap/width/accentColor/数值字号与颜色，
+ * 让音乐音量/音效音量/温度/重试/maxTokens 等全部走同一模板。
+ *
+ * 默认尺寸：range 宽 120、数值后缀宽 48、calc(11px * --system-ratio) gold 显示。
+ */
+export function SliderRow({
+  label, help, value, onChange, min, max, step = 1,
+  suffix, suffixWidth,
+  rangeWidth = 120, accentColor = 'var(--gold)',
+  indent = false,
+  /** 数值后缀展示文案；省略时显示 `{value}{unit}` */
+  formatValue,
+  unit = '',
+}: {
+  label: ReactNode;
+  help?: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+  /** 若给出 suffix(ReactNode) 直接展示该节点；否则按 formatValue/unit 自动生成。 */
+  suffix?: ReactNode;
+  suffixWidth?: number;
+  rangeWidth?: number;
+  accentColor?: string;
+  indent?: boolean;
+  formatValue?: (v: number) => string;
+  unit?: string;
+}) {
+  const displayText = formatValue ? formatValue(value) : `${value}${unit}`;
+  // 估算后缀宽度（按字符 *7 + 4）保持各行右端对齐；外部可覆盖
+  const w = suffixWidth ?? Math.max(28, Math.min(60, displayText.length * 7 + 4));
+  return (
+    <div style={{ ...rowStyle, ...(indent ? { paddingLeft: 16 } : null) }}>
+      <span style={labelStyle}>
+        {label}
+        {help && <HelpIcon text={help} />}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <input
+          type="range" min={min} max={max} step={step} value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ width: rangeWidth, accentColor }}
+        />
+        {suffix !== undefined ? suffix : (
+          <span style={{
+            fontSize: 'calc(11px * var(--system-ratio, 1))',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--gold)',
+            width: w,
+            textAlign: 'right',
+            whiteSpace: 'nowrap',
+          }}>
+            {displayText}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

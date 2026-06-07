@@ -22,6 +22,12 @@ export function setSfxVolume(v: number): void {
   if (masterGain) masterGain.gain.value = sfxVolume;
 }
 
+/** 取得共享 AudioContext（懒创建 + suspended 自动 resume）。供 bgm.ts 复用，
+ *  保证 BGM 与 SFX 走同一上下文，避免后台 resume / 用户手势状态各自分裂。 */
+export function getAudioContext(): AudioContext {
+  return getCtx();
+}
+
 export function sfxPageFlip() {
   const c = getCtx(); const now = c.currentTime;
   const buf = c.createBuffer(1, c.sampleRate * 0.6, c.sampleRate);

@@ -42,6 +42,8 @@ import { useResponsiveZoom } from './hooks/useResponsiveZoom';
 import { useButtonSounds } from './hooks/useButtonSounds';
 import { useKonamiCode } from './hooks/useKonamiCode';
 import { useSettingsStore } from './stores/useSettingsStore';
+import { useCombatStore } from './stores/useCombatStore';
+import { startBgm, setBgmTrack, setBgmVolume } from './audio/bgm';
 
 export function App() {
   useResponsiveZoom(); // 整页自动 zoom：根据浏览器窗口宽度自动缩放(1280px 基准, 0.75~1.5)
@@ -140,6 +142,46 @@ export function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [closeAll]);
+
+  // ── BGM：首次用户手势启动 + screen/战斗状态切轨 + musicVolume 联动 ──
+  // 浏览器自动播放策略要求 AudioContext.resume 必须在用户手势后。监听一次 pointerdown/keydown
+  // 即可解锁,之后 setBgmTrack 都能直接发声(BgmSystem 复用 sfx.ts 的 ctx,同一手势全打开)。
+  useEffect(() => {
+    const initial = useSettingsStore.getState();
+    setBgmVolume(initial.musicVolume / 100);
+    if (!initial.soundEnabled) setBgmVolume(0);
+    const onFirstGesture = () => {
+      startBgm('menu');
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+    };
+    window.addEventListener('pointerdown', onFirstGesture, { once: true });
+    window.addEventListener('keydown', onFirstGesture, { once: true });
+    // 订阅 musicVolume / soundEnabled 变化
+    const unsubSettings = useSettingsStore.subscribe((s, prev) => {
+      if (s.musicVolume !== prev.musicVolume || s.soundEnabled !== prev.soundEnabled) {
+        setBgmVolume(s.soundEnabled ? s.musicVolume / 100 : 0);
+      }
+    });
+    return () => {
+      window.removeEventListener('pointerdown', onFirstGesture);
+      window.removeEventListener('keydown', onFirstGesture);
+      unsubSettings();
+    };
+  }, []);
+
+  // 根据 screen + 战斗状态切换 BGM 主题。
+  // screen!='game' → menu;screen='game' 看 useCombatStore.encounter:有则 combat,无则 investigation。
+  const encounter = useCombatStore((s) => s.encounter);
+  useEffect(() => {
+    if (screen !== 'game') {
+      setBgmTrack('menu');
+    } else if (encounter) {
+      setBgmTrack('combat');
+    } else {
+      setBgmTrack('investigation');
+    }
+  }, [screen, encounter]);
 
   if (!ready) {
     return (

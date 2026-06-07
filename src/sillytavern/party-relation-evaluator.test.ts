@@ -65,7 +65,7 @@ function makeDoc(chars: ScenarioCharacter[]): ScenarioDoc {
 
 function makeNpc(id: string, name: string, inParty: boolean): NpcProfile {
   return {
-    id, name, identity: '', favorability: 0,
+    id, name, identity: '', personality: '', favorability: 0,
     appearance: '', innerThoughts: '',
     memories: [], experience: '', backstory: '', possessions: [],
     isPresent: true, inParty, createdAt: 0, updatedAt: 0,
