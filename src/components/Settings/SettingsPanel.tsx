@@ -8,7 +8,7 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { IconSparkle } from '../Layout/TabIcons';
+import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconScroll, IconQuill } from '../Layout/TabIcons';
 import { ModelEndpointConfig } from './ModelEndpointConfig';
 import { TavernHelperContent } from './TavernHelperContent';
 import { BackgroundSettings } from './BackgroundSettings';
@@ -320,12 +320,12 @@ interface SidebarItem {
 }
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'general', label: '基本设置', icon: '⚙' },
-  { key: 'regex', label: '正则脚本', icon: '✧' },
-  { key: 'extensions', label: '扩展管理', icon: '⊞' },
-  { key: 'tavernHelper', label: '酒馆助手', icon: '🍶' },
-  { key: 'background', label: '背景设定', icon: '📜' },
-  { key: 'promptTemplate', label: '提示词模板', icon: '📝' },
+  { key: 'general', label: '基本设置', icon: <IconGear size={14} /> },
+  { key: 'regex', label: '正则脚本', icon: <IconRegex size={14} /> },
+  { key: 'extensions', label: '扩展管理', icon: <IconExtension size={14} /> },
+  { key: 'tavernHelper', label: '酒馆助手', icon: <IconFlask size={14} /> },
+  { key: 'background', label: '背景设定', icon: <IconScroll size={14} /> },
+  { key: 'promptTemplate', label: '提示词模板', icon: <IconQuill size={14} /> },
   { key: 'cheating', label: '领受赐福', icon: <IconSparkle size={14} /> },
 ];
 
@@ -518,7 +518,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
               onMouseEnter={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--text-light)'; e.currentTarget.style.background = 'rgba(196,168,85,0.04)'; } }}
               onMouseLeave={(e) => { if (section !== item.key) { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.background = 'transparent'; } }}
             >
-              <span style={{ fontSize: 'calc(14px * var(--system-ratio, 1))' }}>{item.icon}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, flexShrink: 0 }}>{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}

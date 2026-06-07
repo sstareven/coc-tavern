@@ -77,3 +77,33 @@ export function IconUserPlus({ size = 14 }: IconProps) {
 export function IconUserMinus({ size = 14 }: IconProps) {
   return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M14 9h6" /></svg>);
 }
+
+/** 齿轮：通用「设置」（替代 emoji ⚙） */
+export function IconGear({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19.07 4.93l-2.12 2.12M7.05 16.95l-2.12 2.12M19.07 19.07l-2.12-2.12M7.05 7.05L4.93 4.93" /></svg>);
+}
+
+/** 正则脚本：< / > 斜杠 + 中点（替代 ✧；体现「匹配模式」语义） */
+export function IconRegex({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M8 5l-4 7 4 7M16 5l4 7-4 7" /><circle cx="12" cy="12" r="1.4" fill="currentColor" /></svg>);
+}
+
+/** 扩展管理：拼图块（替代 emoji ⊞） */
+export function IconExtension({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M4 7h3.5a2 2 0 104 0H15v3.5a2 2 0 100 4V18H4v-3.5a2 2 0 100-4V7z" /></svg>);
+}
+
+/** 酒馆助手：经典酒馆酒壶轮廓（替代 emoji 🍶） */
+export function IconFlask({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M9 3h6v3l2.5 4.2A6 6 0 0112 21a6 6 0 01-5.5-10.8L9 6V3z" /><path d="M9 6h6" /></svg>);
+}
+
+/** 背景设定：卷轴（替代 emoji 📜；与 IconCharSheet 直线笔记区分用卷边波浪） */
+export function IconScroll({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M6 4h11a2 2 0 012 2v0a2 2 0 01-2 2H7v10a2 2 0 002 2h11" /><path d="M6 4a2 2 0 00-2 2v12a2 2 0 002 2h0" /><path d="M10 10h7M10 14h5" /></svg>);
+}
+
+/** 提示词模板：鹅毛笔（替代 emoji 📝） */
+export function IconQuill({ size = 14 }: IconProps) {
+  return (<svg {...base(size)}><path d="M3 21l5-5" /><path d="M20 4c-5 0-9 3-11 8a6 6 0 015 5c5-2 8-6 8-11l-2-2z" /><path d="M8 16l3-3" /></svg>);
+}
