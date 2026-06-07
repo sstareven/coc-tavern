@@ -469,6 +469,8 @@ interface LorebookStore {
   upsertSummaryEntry: (pageId: string, keys: string, content: string, name: string) => void;
   removeSummaryEntry: (pageId: string) => void;
   clearSummaryEntries: () => void;
+  /** 按前缀替换 book 内的若干 entries（剧本关系条目用）：删除所有 id 以 prefix 开头的旧条目，再把新条目写入。book 不存在则静默跳过。 */
+  upsertEntries: (bookId: string, entries: Record<string, LoreEntry>, opts: { prefix: string }) => void;
 }
 
 export const useLorebookStore = create<LorebookStore>()(
@@ -568,6 +570,18 @@ export const useLorebookStore = create<LorebookStore>()(
         const book = s.books[AUTO_SUMMARY_BOOK_ID];
         if (!book) return s;
         return { books: { ...s.books, [AUTO_SUMMARY_BOOK_ID]: { ...book, entries: {} } } };
+      }),
+      upsertEntries: (bookId, entries, opts) => set((s) => {
+        const book = s.books[bookId];
+        if (!book) return s;
+        const filtered: Record<string, LoreEntry> = {};
+        for (const [eid, entry] of Object.entries(book.entries)) {
+          if (!eid.startsWith(opts.prefix)) filtered[eid] = entry;
+        }
+        for (const [eid, entry] of Object.entries(entries)) {
+          filtered[eid] = entry;
+        }
+        return { books: { ...s.books, [bookId]: { ...book, entries: filtered } } };
       }),
     }),
     {
