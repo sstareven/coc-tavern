@@ -2,7 +2,7 @@ import type { COC7Characteristic } from '../types';
 
 /* ============================== Constants ============================== */
 
-export const STEPS = ['身份信息', '基础属性', '衍生属性', '职业与技能', '背景故事', '确认创建'];
+export const STEPS = ['身份信息', '基础属性', '衍生属性', '职业与技能', '背景故事', '关系', '确认创建'];
 
 // CHAR_ORDER 保留 en（STR/CON/POW...）— 7e 国际通用术语缩写，非译名。
 export const CHAR_ORDER: { key: COC7Characteristic; zh: string; en: string }[] = [

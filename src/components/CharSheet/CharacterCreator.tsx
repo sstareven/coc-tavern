@@ -25,6 +25,8 @@ import { StepDerivedStats } from './steps/StepDerivedStats';
 import { StepSkills } from './steps/StepSkills';
 import { StepBackground } from './steps/StepBackground';
 import { StepReview } from './steps/StepReview';
+import { RelationEditor } from './RelationEditor';
+import type { ScenarioRelation } from '../../types/scenario';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 /* ============================== Helpers ============================== */
@@ -356,6 +358,20 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
   const [backstoryDraft, setBackstoryDraft] = useState('');
   const [bgConfirm, setBgConfirm] = useState(false);
 
+  /* ---- Step 5b (新): Relations ---- */
+  // CharCreator 编辑模式（编辑现有 player_created 卡）会通过 props 拿到 charId；
+  // 新建模式下用临时 id（handleConfirm 时已 charId = `INV-...` 之前 random 出新 id 写入 sheet.identity.id）。
+  // 这里 currentCharId 取 sheet 上的 identity.id 作占位即可——存盘前 RelationEditor 视角下 currentCharId
+  // 必须稳定且与剧本中其他 character.id 不冲突，所以一开就生成且复用至 handleConfirm。
+  const editingCharIdRef = useRef<string>(`INV-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`);
+  const [relations, setRelations] = useState<ScenarioRelation[]>([]);
+  const [presentAtStart, setPresentAtStart] = useState<string[]>([]);
+
+  const handleRelationsChange = useCallback((nextRel: ScenarioRelation[], nextPresent: string[]) => {
+    setRelations(nextRel);
+    setPresentAtStart(nextPresent);
+  }, []);
+
   /* ---- Presets ---- */
   const { presets, savePreset, deletePreset } = useCharacterPresetsStore();
   const [showPresetLoad, setShowPresetLoad] = useState(false);
@@ -465,9 +481,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       skills[skillName] = { base, current: Math.min(99, base + intAlloc) };
     }
 
-    const charId = `INV-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0')}`;
+    const charId = editingCharIdRef.current;
 
     const finalOccupation = occupation === '__custom__' ? (customOccupation || '调查员') : (occupation || '调查员');
 
@@ -526,34 +540,49 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     // M4: 不再 startNewConversation / setSheet / saveConversation /(后续 activateScenario)。
     // 改为把自创卡作为 player_created 角色 applyPatch 写入剧本 characters[],
     // CharCreator 关闭后由 App.tsx 回到 RosterPicker,玩家在 RosterPicker 选他/别人才真正进游戏。
+    // M5：扩展为同时写入 relations + presentAtStart,并把"玩家勾选与某 NPC 一起开场"
+    // 反向应用到目标 NPC.presentAtStart=true(M10 activateScenario 会读 character.presentAtStart 决定 isPresent)。
     const lastPickedScn = useScenarioStore.getState().lastPicked;
     if (lastPickedScn) {
-      useScenarioStore.getState().applyPatch(lastPickedScn, {
-        patchCharacters: [{
-          id: charId,
-          role: 'player_created',
-          sheet,
-          npcAttrs: {
-            identityTag: '',
-            attitudeDefault: 0,
-            relationshipDefault: '',
-            locationDefault: '',
-            publicBio: '',
-            hiddenBio: '',
-            // 把 8 段背景独立字段也同步带上,与 PeopleTab 编辑路径对齐
-            description,
-            beliefs,
-            significantPeople,
-            meaningfulLocations,
-            treasuredPossessions,
-            traits,
-            injuries,
-            backgroundFears,
-            initialItemsRaw,
-          },
-          createdAt: Date.now(),
-        }],
-      });
+      const playerScenarioChar = {
+        id: charId,
+        role: 'player_created' as const,
+        sheet,
+        npcAttrs: {
+          identityTag: '玩家',
+          attitudeDefault: 0,
+          relationshipDefault: '',
+          locationDefault: '',
+          publicBio: '',
+          hiddenBio: '',
+          // 把 8 段背景独立字段也同步带上,与 PeopleTab 编辑路径对齐
+          description,
+          beliefs,
+          significantPeople,
+          meaningfulLocations,
+          treasuredPossessions,
+          traits,
+          injuries,
+          backgroundFears,
+          initialItemsRaw,
+        },
+        relations,
+        presentAtStart: presentAtStart.includes(charId), // 玩家自身的 presentAtStart 不由此处决定; 本字段反向用于"其它角色对玩家"
+        createdAt: Date.now(),
+      };
+      useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: [playerScenarioChar] });
+      // 把"玩家勾选与某 NPC 一起开场"的反向也作为该 NPC 的 presentAtStart 来源——
+      // M10 activateScenario 会读 character.presentAtStart 决定 isPresent;这里把玩家勾过的
+      // 目标 NPC.presentAtStart 设 true(不动其它字段)。
+      const targetDoc = useScenarioStore.getState().getById(lastPickedScn);
+      if (targetDoc) {
+        const updates = targetDoc.characters
+          .filter((c) => presentAtStart.includes(c.id))
+          .map((c) => ({ ...c, presentAtStart: true }));
+        if (updates.length > 0) {
+          useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: updates });
+        }
+      }
     } else {
       console.warn('[CharacterCreator] lastPicked 为空,无法把自创卡写入剧本 — 跳过 applyPatch');
     }
@@ -565,6 +594,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     treasuredPossessions, traits, injuries, backgroundFears,
     ageDeductSCD, ageDeductSS,
     initialItemsRaw,
+    relations, presentAtStart,
     onComplete,
   ]);
 
@@ -576,6 +606,7 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
       case 2: return luckValue !== null;
       case 3: return canProceedStep4;
       case 4: return true;
+      case 5: return true;
       default: return true;
     }
   };
@@ -928,6 +959,20 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
           />
         );
       case 5:
+        return activeScenario ? (
+          <RelationEditor
+            scenarioDoc={activeScenario}
+            currentCharId={editingCharIdRef.current}
+            relations={relations}
+            presentAtStart={presentAtStart}
+            onChange={handleRelationsChange}
+          />
+        ) : (
+          <div style={{ color: 'var(--ink-subtle)', fontSize: 12, padding: 14 }}>
+            未选择剧本，无法编辑关系。点【下一步】跳过。
+          </div>
+        );
+      case 6:
         return (
           <StepReview
             charValues={charValues}
