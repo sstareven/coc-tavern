@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { useNpcStore } from '../../stores/useNpcStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
@@ -113,7 +114,20 @@ export function CombatPanel() {
   if (!encounter) return null;
   const enc = encounter;
   const player = enc.combatants.find((c) => c.faction === 'player');
-  const enemies = enc.combatants.filter((c) => c.faction === 'enemy');
+  // M8 攻击保护：从敌人列表里剔除 inParty=true 的队友——兜底防 LLM 把队友判进 enemy 阵营。
+  // 队友 Combatant.id 形如 "npc-<npcId>" / "ally-<npcId>"（见 buildCombatantFromNpc），匹配队友 npcId 即剔除。
+  const partyMembers = useNpcStore.getState().getParty();
+  const partyIdSet = new Set(partyMembers.map((p) => p.id));
+  const partyNameSet = new Set(partyMembers.map((p) => p.name));
+  const isPartyMember = (c: { id: string; name: string }): boolean => {
+    // 解 "npc-<npcId>" / "ally-<npcId>" 前缀 → 取出 npcId 对比
+    const m = c.id.match(/^(?:npc|ally)-(.+)$/);
+    const npcId = m ? m[1] : c.id;
+    if (partyIdSet.has(npcId)) return true;
+    // 同名兜底（如果 LLM 重建了 combatant 但没用对 id）
+    return partyNameSet.has(c.name);
+  };
+  const enemies = enc.combatants.filter((c) => c.faction === 'enemy' && !isPartyMember(c));
   const allies = enc.combatants.filter((c) => c.faction === 'ally');
   const sheet = useCharSheetStore.getState().sheet;
   const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active';
