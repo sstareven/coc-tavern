@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.13.2';
+export const CURRENT_VERSION = 'v1.13.3';
 
 interface Release {
   version: string;
@@ -19,6 +19,18 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.13.3',
+    label: '领受赐福 cheat 系统缺陷修复 + 禁用档位 + 悬浮溢出修正',
+    items: [
+      '【赐福刻印·悬浮裁边修复】OptionResolutionOverlay 内 CheatingGrid 外层容器误设 `overflow:hidden`，导致左右两端的「大成功/大失败」按钮 hover scale(1.04) 时被容器边界裁掉。现去掉该 overflow 限制，左右按钮放大后正常展开',
+      '【赐福刻印·禁用档位】CheatingGrid 新增 `disabledTypes` prop，`getCheatingDisabledTypes()` 纯函数预检每个档位在当前 target/sanCheck 下能否生成合法点数（如 target<2 时无法取到「成功」区间）。不可用的档位自动灰显、not-allowed 光标、hover 无反应，避免玩家点了无效档位导致 toast 提示',
+      '【赐福刻印·DicePanel 防冲突】赐福面板打开时掷骰按钮变为不可点击（灰显 + not-allowed），避免在赐福面板开启时误点掷骰导致状态错乱',
+      '【存储迁移·blessing->cheating 旧 key】cc6dd64 将 blessingUnlocked/blessingEnabled 字段重命名为 cheatingUnlocked/cheatingEnabled 后，老用户 IndexedDB 里的旧 key 被静默丢弃，导致之前已解锁「领受赐福」tab 的用户刷新后永久丢失该 tab。现 persist merge 中加入旧 key→新 key 自动迁移：`blessingUnlocked → cheatingUnlocked`、`blessingEnabled → cheatingEnabled`',
+      '【Konami 门控·已解锁后不再监听】App.tsx 中 `useKonamiCode` 的 `enabled` 参数现在关联 `cheatingUnlocked` 状态——用户一旦解锁过该功能，后续会话不再浪费 CPU 监听键盘事件',
+      '【构建·移除 .mcfast 索引文件】.mcfast/ 目录下的 SQLite 自动生成索引文件（最大 57MB）已从 Git 追踪中移除并加入 .gitignore，减小仓库体积',
+    ],
+  },
   {
     version: 'v1.13.2',
     label: '首屏读取速度优化:BGM 延迟加载 · 启动序列两阶段 · 世界书 rehydrate 改 O(N)',
