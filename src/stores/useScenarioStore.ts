@@ -103,7 +103,12 @@ function mergePatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
   }
   if (patch.patchCharacters?.length) {
     const map = new Map(next.characters.map(c => [c.id, c]));
-    for (const c of patch.patchCharacters) map.set(c.id, c);
+    for (const c of patch.patchCharacters) {
+      const existing = map.get(c.id);
+      // 浅合并:patch 里出现的字段覆盖旧字段,未出现的字段保留旧值;
+      // 完整新建(无 existing)时直接 set 整条。
+      map.set(c.id, existing ? { ...existing, ...c } : c);
+    }
     next.characters = Array.from(map.values());
   }
   next.updatedAt = now();
