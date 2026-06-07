@@ -10,7 +10,7 @@ export async function initKvCache(): Promise<void> {
   // Also pull in existing localStorage keys and migrate them
   const migrateKeys = [
     'coc_presets_v1', 'coc_last_preset',
-    'coc_ext_v1', 'coc_changelog_seen', 'coc_presets_migrated_v3',
+    'coc_ext_v1', 'coc-changelog-seen', 'coc_presets_migrated_v3',
   ];
   for (const key of migrateKeys) {
     const val = localStorage.getItem(key);

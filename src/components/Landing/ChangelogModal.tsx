@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { kvGet, kvSet } from '../../db/kv';
+import { initKvCache, kvGet, kvSet } from '../../db/kv';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 const CHANGELOG_KEY = 'coc-changelog-seen';
-export const CURRENT_VERSION = 'v1.13.0';
 
 interface Release {
   version: string;
@@ -11,15 +10,16 @@ interface Release {
   items: string[];
 }
 
-// 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION。
+// 版本倒序：最新在最前。新增版本时只需在数组顶部插入，CURRENT_VERSION 自动派生自 RELEASES[0]。
 const RELEASES: Release[] = [
   {
     version: 'v1.13.0',
-    label: '设置新增「领受赐福」骰子祝福作弊系统 · 构建热修',
+    label: '设置新增「领受赐福」骰子祝福作弊系统 · 构建热修 · 更新日志机制加固',
     items: [
       '【领受赐福·新增】设置面板新增「领受赐福」标签页——一套骰子祝福作弊系统。可开关并调节祝福强度，为检定骰子施加不同程度的幸运偏斜，适合想轻松体验剧情或测试极端骰运的玩家。配有开关与帮助图标，默认关闭不影响正常游玩',
       '【领受赐福·接线】检定骰运行时（DicePanel）与选项结算覆盖层（OptionResolutionOverlay）接入祝福强度——开启后每一次手投/推骰/孤注一掷的骰值会按强度档位向有利结果偏移；记录里仍保留真实骰值便于排查',
       '【构建·热修】关系图测试（relation-graph.test）TS2783 重复 transition 与 TS2339 联合类型收窄编译失败已修；RightPage 一处多余声明顺手清掉，Vercel 构建恢复',
+      '【更新日志机制·根治漏弹】v1.12.0 发版时 package.json bump 了但 CURRENT_VERSION 漏改，导致整版玩家没收到弹窗（本版才补登记）。现在 CURRENT_VERSION 直接从 RELEASES[0] 派生，再也不存在「两个真值源对不齐」的可能。同时把弹窗判定从字符串相等换成 semver 比较，Vercel 紧急回退 deploy 不会再让玩家「弹了又弹」；useEffect 改为等 IndexedDB 缓存就绪再读取，避免首次刷新把已升级用户错判为新用户重复弹窗；footer 主动「重看更新日志」关闭时不再覆盖弹窗已读标记，下一次升级仍会自动弹出。底层 kv 迁移列表里的 `coc_changelog_seen` 拼写错位（应为 `coc-changelog-seen`）一并修正，老 localStorage 数据真正能迁到 IndexedDB',
     ],
   },
   {
@@ -487,26 +487,63 @@ const RELEASES: Release[] = [
   },
 ];
 
+// CURRENT_VERSION 派生自 RELEASES[0]：消灭「忘改 CURRENT_VERSION 致老用户不弹窗」一类 drift
+// （v1.12.0 发版时漏改 CURRENT_VERSION 致整版玩家没收到弹窗，靠这条派生根治）
+export const CURRENT_VERSION = RELEASES[0].version;
+
+// 比较两个 vX.Y.Z 字符串：a 比 b 新返回 true。任意位非数字按 0 处理（容忍 'v1.10' 这类位数不齐）。
+function isNewerVersion(a: string, b: string): boolean {
+  const parts = (v: string) => v.replace(/^v/i, '').split('.').map((n) => Number(n) || 0);
+  const aP = parts(a);
+  const bP = parts(b);
+  for (let i = 0; i < Math.max(aP.length, bP.length); i++) {
+    const ai = aP[i] ?? 0;
+    const bi = bP[i] ?? 0;
+    if (ai > bi) return true;
+    if (ai < bi) return false;
+  }
+  return false;
+}
+
 export function ChangelogModal() {
   const [visible, setVisible] = useState(false);
+  // 区分「升级自动弹」与「footer 主动重看」——只有前者关闭时才把 CURRENT_VERSION 写回 kv，
+  // 后者写 kv 会吞掉下一次升级弹窗。
+  const [autoOpened, setAutoOpened] = useState(false);
   const isMobile = useIsMobile();
   // v1.11.6: 弹窗用 ... 表达式自适应 — 不再需要订阅 uiScale。
   // v1.11.11: 手机端的 auto-zoom < 1 会把 `calc(... / auto-zoom)` 放大成几倍于屏幕,
   //          导致弹窗遮住整个手机屏。手机端改走直接 vw/vh 表达式,不除 auto-zoom。
 
   useEffect(() => {
-    const seen = kvGet(CHANGELOG_KEY);
-    if (seen !== CURRENT_VERSION) {
-      setVisible(true);
-    }
+    let cancelled = false;
+    // 等 IndexedDB → cache 同步完再读 seen，否则首次刷新 cache 未 init，
+    // 已升级过的老用户会被错判为新用户每次都弹一次。initKvCache 幂等可重复 await。
+    (async () => {
+      await initKvCache();
+      if (cancelled) return;
+      const seen = kvGet(CHANGELOG_KEY);
+      // 用 semver 比较而非字符串相等：Vercel 紧急回退 deploy 时（老 build 的 CURRENT_VERSION
+      // < kv 里 seen），不再「弹了又弹」。seen 不存在 → 新用户/迁移用户，弹。
+      if (!seen || isNewerVersion(CURRENT_VERSION, seen)) {
+        setVisible(true);
+        setAutoOpened(true);
+      }
+    })();
 
-    const handler = () => setVisible(true);
+    const handler = () => {
+      setVisible(true);
+      setAutoOpened(false);
+    };
     document.addEventListener('show-changelog', handler);
-    return () => document.removeEventListener('show-changelog', handler);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('show-changelog', handler);
+    };
   }, []);
 
   const close = () => {
-    kvSet(CHANGELOG_KEY, CURRENT_VERSION);
+    if (autoOpened) kvSet(CHANGELOG_KEY, CURRENT_VERSION);
     setVisible(false);
   };
 
@@ -571,7 +608,7 @@ export function ChangelogModal() {
                 opacity: ri === 0 ? 1 : 0.78,
               }}>
                 {rel.items.map((f, i) => (
-                  <li key={i} style={{
+                  <li key={`${rel.version}-${i}`} style={{
                     fontSize: isMobile
                       ? 'calc(12px * var(--system-ratio, 1))'
                       : 'calc(13px * var(--system-ratio, 1))',
