@@ -19,6 +19,8 @@ import {
   sfxCritSuccess,
   sfxCritFailure,
 } from '../../audio/sfx';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { pickRollForResult } from '../../sillytavern/blessing-helpers';
 
 const resultLabel: Record<DiceResultType, string> = {
   'crit-success': '大成功！',
@@ -181,6 +183,9 @@ export function DicePanel() {
   const [uiState, setUiState] = useState<DicePanelSubState>('idle');
   const [stagedOriginalRoll, setStagedOriginalRoll] = useState(0);
   const [luckSpend, setLuckSpend] = useState(0);
+  const blessingEnabled = useSettingsStore((s) => s.blessingEnabled);
+  const [blessingOpen, setBlessingOpen] = useState(false);
+  const [pendingBlessingType, setPendingBlessingType] = useState<DiceResultType | null>(null);
 
   useEffect(() => {
     setLocalTarget(String(target));
@@ -517,6 +522,117 @@ export function DicePanel() {
           >
             掷 骰
           </motion.button>
+
+          {/* Blessing ✦ button — only when blessing is ON, not yet rolled, and panel not open */}
+          {blessingEnabled && uiState === 'idle' && !blessingOpen && (
+            <button
+              onClick={() => setBlessingOpen(true)}
+              style={{
+                ...stagingBtnStyle,
+                width: 40, padding: '8px 0', flexShrink: 0,
+                opacity: 0.4,
+                transition: 'var(--transition-smooth)',
+                marginBottom: 16,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              ✦
+            </button>
+          )}
+
+          {/* Blessing result selection panel */}
+          {blessingOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25, mass: 0.8 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}
+            >
+              <div style={{
+                color: 'var(--gold)', fontFamily: 'var(--font-ui)',
+                fontSize: 'calc(10px * var(--system-ratio, 1))',
+                letterSpacing: 3, marginBottom: 4, opacity: 0.7,
+              }}>
+                赐福刻印
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                {(['crit-success', 'extreme-success', 'hard-success', 'success', 'failure', 'crit-failure'] as DiceResultType[]).map((type, i) => (
+                  <motion.button
+                    key={type}
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, type: 'spring', stiffness: 250, damping: 20 }}
+                    onClick={() => {
+                      setPendingBlessingType(pendingBlessingType === type ? null : type);
+                    }}
+                    style={{
+                      padding: '8px 4px', borderRadius: 4,
+                      border: `1px solid ${pendingBlessingType === type ? resultColor[type] : 'var(--brass)'}`,
+                      background: pendingBlessingType === type ? `${resultColor[type]}18` : 'rgba(0,0,0,0.15)',
+                      color: pendingBlessingType === type ? resultColor[type] : 'var(--ink-subtle)',
+                      fontFamily: 'var(--font-ui)', fontSize: 'calc(11px * var(--system-ratio, 1))',
+                      letterSpacing: 1, cursor: 'pointer', textAlign: 'center',
+                      transition: 'var(--transition-smooth)',
+                      boxShadow: pendingBlessingType === type ? `0 0 10px ${resultColor[type]}40` : 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (pendingBlessingType !== type) {
+                        e.currentTarget.style.background = `${resultColor[type]}20`;
+                      }
+                      e.currentTarget.style.transform = 'scale(1.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = pendingBlessingType === type ? `${resultColor[type]}18` : 'rgba(0,0,0,0.15)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)'; }}
+                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                  >
+                    {resultLabel[type]}
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Bottom action buttons */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <button
+                  onClick={() => { setBlessingOpen(false); setPendingBlessingType(null); }}
+                  style={{ ...stagingBtnSubtleStyle, flex: 1, justifyContent: 'center' }}
+                >
+                  取消
+                </button>
+                {pendingBlessingType && (
+                  <button
+                    onClick={() => {
+                      const target = localTarget || 50;
+                      const sanCheck = useDiceStore.getState().sanCheck;
+                      const roll = pickRollForResult(pendingBlessingType, Number(target), sanCheck);
+                      if (roll !== null) {
+                        setDisplayFinal(roll);
+                        setLocalResult(pendingBlessingType);
+                        // Transition uiState from 'idle' → 'rolled' / 'pushable'
+                        // so staging buttons (推骰/花费幸运/直接落账) appear
+                        const nextState = deriveUiStateAfterRoll({
+                          resultType: pendingBlessingType,
+                          sanCheck,
+                          mode,
+                        });
+                        setUiState(nextState);
+                        setBlessingOpen(false);
+                        setPendingBlessingType(null);
+                      }
+                    }}
+                    style={{ ...stagingBtnStyle, flex: 1, justifyContent: 'center' }}
+                  >
+                    确认
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
 
           {/* Result bar with crit animation */}
           <AnimatePresence mode="wait">
