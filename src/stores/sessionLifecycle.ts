@@ -14,6 +14,7 @@ import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
 import { useSanityBubbleStore } from './useSanityBubbleStore';
+import { useNarrationStore } from './useNarrationStore';
 import { useVariableStore } from './useVariableStore';
 import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
@@ -74,6 +75,9 @@ export function clearAllGameState(prevScenarioId?: string) {
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
   useSanityBubbleStore.getState().reset();
+  // M9: 关系评估器旁白队列(in-memory)——切档/新游戏/删会话都清空,
+  // 防止上一会话未消费的旁白漏到新会话第一页。
+  useNarrationStore.getState().clearPending();
   // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。
   // 优先用显式传参；缺省时回落到从 activeId 反查(向后兼容)。
   const scenarioIdToUnload = prevScenarioId ?? useChatStore.getState().sessions.find(
