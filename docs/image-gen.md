@@ -136,6 +136,7 @@
    - 复制 `pst-xxx` 开头的 Token（30 天有效，可以重新生成）
 2. profile 配 NovelAI：
    - **地址**：`https://image.novelai.net`（**不带 `/v1/`**）
+   - **第三方 NovelAI 中转裸域**（地址里既不含 `novelai` 子串、也不含 `/ai/generate-image` 端点路径）：在地址末尾**手动补上 `/ai/generate-image`** 即可被自动识别为 NovelAI,也能避免 engine 端点拼接出现重复路径
    - **API Key**：粘贴 pst-xxx
 3. 图像生成 API：
    - **模型**：手填 `nai-diffusion-4-5-full`（推荐）/ `nai-diffusion-4-5-curated` / `nai-diffusion-4-full` / `nai-diffusion-3` / `nai-diffusion-furry-3`

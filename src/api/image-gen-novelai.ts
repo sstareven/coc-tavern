@@ -35,11 +35,20 @@ export const NOVELAI_KNOWN_MODELS: ReadonlyArray<string> = [
   'nai-diffusion-furry-3',
 ];
 
-/** 判定 baseUrl 是否指向 NovelAI(含官方域 image.novelai.net 与所有含 novelai 子串的中转透传)。
- *  宽容匹配 — 覆盖大小写差异、尾斜杠、子路径透传别名。 */
+/** 判定 baseUrl 是否指向 NovelAI(含官方域 image.novelai.net 与所有 NovelAI 协议代理)。
+ *  两种通用信号任一命中即识别为 NovelAI:
+ *  1. URL 任意位置含 'novelai' 子串(覆盖官方域、子路径透传别名等)
+ *  2. URL 路径含 '/ai/generate-image'(NovelAI 协议专有路径,业界无冲突,最强信号)
+ *
+ *  无识别特征的第三方中转裸域(无 novelai 子串、无端点路径)请在 baseUrl 末尾
+ *  补 '/ai/generate-image' 后再保存 — 既能触发路径识别,也能让 engine 端点拼接幂等。
+ *  全部小写比较,空值与非字符串安全返回 false。 */
 export function isNovelAiBaseUrl(url: string): boolean {
-  if (typeof url !== 'string') return false;
-  return url.toLowerCase().includes('novelai');
+  if (typeof url !== 'string' || !url) return false;
+  const u = url.toLowerCase();
+  if (u.includes('novelai')) return true;
+  if (u.includes('/ai/generate-image')) return true;
+  return false;
 }
 
 /** 返回 NovelAI 已知模型清单的可写副本(给 fetchModelList: Promise<string[]> 调用方填 availableModels)。 */

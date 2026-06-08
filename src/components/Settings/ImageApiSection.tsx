@@ -34,7 +34,7 @@ const PAYLOAD_MODE_BRIEF: Record<ImagePayloadMode, string> = {
   'sd-compat':         '自建 SD WebUI 或透传中转 · 发完整 SD 五件套 · 保留自由尺寸',
   'pollinations':      'Pollinations(MVP 同 openai-strict 行为)',
   'chat-completions':  '/v1/chat/completions 假流式中转 · messages 包 prompt · markdown 图链回吐',
-  'novelai':           '/ai/generate-image 嵌套 parameters · ZIP 响应 · 需 832×1216 推荐尺寸 + 64 倍数',
+  'novelai':           '/ai/generate-image 嵌套 parameters · ZIP 响应 · 推荐 832×1216 + 64 倍数 · 中转裸域请在 baseUrl 末尾补 /ai/generate-image',
 };
 
 export function ImageApiSection() {
@@ -266,12 +266,12 @@ function PayloadModeRow() {
             '不同后端对 OpenAI 兼容 /v1/images/generations 协议的字段集要求差异巨大。',
             '',
             '【auto】(默认推荐) 自动探测:',
+            '  · baseUrl 含 novelai 或路径 /ai/generate-image → novelai',
             '  · model 含 nano-banana / 假流式 / gemini+image → chat-completions',
             '  · URL 含 openai.com 或 model 是 dall-e* → openai-strict',
             '  · model 是 gpt-image* → gpt-image-1',
             '  · 其他 → sd-compat',
             '  · 首次 400 自动降级 openai-strict 重试一次',
-            '  · novelai 不进 auto,必须显式选',
             '',
             '【openai-strict】OpenAI 官方 / DALL-E 3:仅发 model/prompt/size/n/response_format,size 自动映射到 1024×1024/1792×1024/1024×1792',
             '',
@@ -285,6 +285,7 @@ function PayloadModeRow() {
             '',
             '【novelai】NovelAI 官方 /ai/generate-image:body 走 {input/model/action/parameters} 嵌套结构,响应是 ZIP 内含 PNG。',
             '  · baseUrl 填 https://image.novelai.net(不带 /v1/)',
+            '  · 第三方 NovelAI 中转裸域(无 novelai 子串、无端点路径)请在 baseUrl 末尾补 /ai/generate-image,即可自动识别并避免重复路径',
             '  · apiKey 填 NovelAI Web → 设置 → 账户 → Get Persistent API Token(pst-xxx 格式)',
             '  · model 推荐 nai-diffusion-4-5-full / nai-diffusion-4-5-curated / nai-diffusion-3',
             '  · Opus 免费档:尺寸 ≤ 1024×1024 + 步数 ≤ 28 + 张数 1;超出按 Anlas 计费',

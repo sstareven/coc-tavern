@@ -196,12 +196,12 @@ export function ApiManagementTab() {
       try {
         models = await fetchModelList(urlTrim, addKey);
       } catch {
-        setAddError('连接失败,请检查地址和 Key');
+        setAddError('连接失败,请检查地址和 Key · 如这是 NovelAI 中转(无 /v1/models 端点),baseUrl 末尾补 /ai/generate-image 即可识别');
         setAddSaveStatus('failed');
         return;
       }
       if (models.length === 0) {
-        setAddError('已连接但未拉到任何模型,请检查 API');
+        setAddError('已连接但未拉到任何模型,请检查 API · 如这是 NovelAI 中转,baseUrl 末尾补 /ai/generate-image 即可识别');
         setAddSaveStatus('failed');
         return;
       }
@@ -701,12 +701,12 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
     try {
       models = await onTestAndSaveModels(urlTrim, effectiveKey);
     } catch {
-      setError('连接失败,请检查地址和 Key');
+      setError('连接失败,请检查地址和 Key · 如这是 NovelAI 中转(无 /v1/models 端点),baseUrl 末尾补 /ai/generate-image 即可识别');
       setSaveStatus('failed');
       return;
     }
     if (models.length === 0) {
-      setError('已连接但未拉到任何模型,请检查 API');
+      setError('已连接但未拉到任何模型,请检查 API · 如这是 NovelAI 中转,baseUrl 末尾补 /ai/generate-image 即可识别');
       setSaveStatus('failed');
       return;
     }

@@ -19,14 +19,19 @@ describe('isNovelAiBaseUrl — 宽容判定 NovelAI baseUrl', () => {
     expect(isNovelAiBaseUrl('https://IMAGE.NOVELAI.NET')).toBe(true);
     expect(isNovelAiBaseUrl('HTTPS://image.NovelAI.net')).toBe(true);
   });
-  it('中转透传别名命中', () => {
+  it('中转透传别名(含 novelai 子串)命中', () => {
     expect(isNovelAiBaseUrl('https://relay.example.com/novelai/v1')).toBe(true);
     expect(isNovelAiBaseUrl('https://my-cloudflare-worker.workers.dev/novelai-proxy')).toBe(true);
+  });
+  it('含 /ai/generate-image 路径(无 novelai 子串的中转)命中', () => {
+    expect(isNovelAiBaseUrl('https://relay.example.com/ai/generate-image')).toBe(true);
+    expect(isNovelAiBaseUrl('https://relay.example.com/ai/generate-image/')).toBe(true);
+    expect(isNovelAiBaseUrl('https://proxy.example.com/v1/ai/generate-image')).toBe(true);
   });
   it('普通 OpenAI 兼容 baseUrl 不命中', () => {
     expect(isNovelAiBaseUrl('https://api.deepseek.com')).toBe(false);
     expect(isNovelAiBaseUrl('https://api.openai.com/v1')).toBe(false);
-    expect(isNovelAiBaseUrl('https://cdn.moe-atelier.site/v1')).toBe(false);
+    expect(isNovelAiBaseUrl('https://relay.example.com/v1')).toBe(false);
   });
   it('空值与非字符串安全兜底', () => {
     expect(isNovelAiBaseUrl('')).toBe(false);
