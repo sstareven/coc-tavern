@@ -50,7 +50,10 @@ interface NpcStore {
   applyCombatResult: (combatants: { id: string; hp: number; maxHp: number; flags?: { dead?: boolean; unconscious?: boolean; majorWound?: boolean } }[]) => void;
   getPresent: () => NpcProfile[];
   getAbsent: () => NpcProfile[];
-  buildContextInjection: () => string;
+  buildContextInjection: (currentLocationName?: string) => string;
+  /** 地图自检合并地点时,把 NPC.locationName 中匹配 from 的统一改为 to。
+   *  对齐 useLocationElementStore.renameLocation 的语义。 */
+  renameLocation: (from: string, to: string) => void;
   replaceAll: (profiles: NpcProfile[]) => void;
   joinParty: (npcId: string) => void;
   leaveParty: (npcId: string) => void;
@@ -133,7 +136,20 @@ function clampFav(n: number): number {
 const SET_FIELDS: (keyof NpcProfile)[] = [
   'identity', 'faction', 'gender', 'appearanceAge', 'derived',
   'appearance', 'personality', 'innerThoughts', 'experience', 'backstory', 'status',
+  'locationName',
 ];
+
+const IMPORTANCE_VALUES = new Set<NpcProfile['importance']>(['核心', '重要', '路人']);
+function normalizeImportance(v: unknown, fallback: NpcProfile['importance']): NpcProfile['importance'] {
+  if (typeof v !== 'string') return fallback;
+  const t = v.trim();
+  if (IMPORTANCE_VALUES.has(t as NpcProfile['importance'])) return t as NpcProfile['importance'];
+  // 兼容 LLM 偶发非标准词:'主要/关键' → '核心';'次要/常驻/支线' → '重要';'群众/过客/普通' → '路人'。
+  if (t === '主要' || t === '关键') return '核心';
+  if (t === '次要' || t === '常驻' || t === '支线') return '重要';
+  if (t === '群众' || t === '过客' || t === '普通') return '路人';
+  return fallback;
+}
 
 export const useNpcStore = create<NpcStore>()((set, get) => ({
   isOpen: false,
@@ -171,6 +187,12 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
             appearance: '', personality: '', innerThoughts: '',
             memories: [], experience: '', backstory: '', possessions: [],
             isPresent: u.isPresent ?? true, createdAt: now, updatedAt: now,
+            // 新增字段默认值: locationName 取 u.locationName 或空串;
+            // importance 取 u.importance 钳制结果,默认 '重要' — 安全侧:LLM 不显式判定时
+            // 保持 NPC 可见,避免新 NPC 因默认值意外退到「过路 NPC」桶导致身份/记忆/动机丢失。
+            // 仅 LLM 显式写 '路人' 才降级。剧本预设 NPC (isScenarioPreset) 同走 '重要' 默认。
+            locationName: typeof u.locationName === 'string' ? u.locationName.trim() : '',
+            importance: normalizeImportance(u.importance, '重要'),
             // 剧本预设锚点必须在「新建」这一回合就落到 profile 上；
             // 老版本只看 SET_FIELDS 字符串字段，把这两个字段丢了 → isPreset 永远 false，
             // 接踵而来的 npcUpdate 直接把 hiddenBio/publicBio 覆盖成空，KP 暗线骨架瞬间塌掉。
@@ -204,6 +226,11 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         if (Array.isArray(u.possessions)) p.possessions = u.possessions;
         if (typeof u.favorabilityDelta === 'number') p.favorability = clampFav(p.favorability + u.favorabilityDelta);
         if (typeof u.isPresent === 'boolean') p.isPresent = u.isPresent;
+        // 重要性钳制:LLM 偶发写"主要/次要/群众"等非标准词,normalizeImportance 转标准 3 值;
+        // 不允许通过 npcUpdate 把已有 NPC 的 importance 静默回退到 fallback——传 undefined 时保持原值。
+        if (u.importance !== undefined) {
+          p.importance = normalizeImportance(u.importance, p.importance);
+        }
         if (u.addMemory?.trim()) p.memories = [...p.memories, u.addMemory.trim()];
         if (u.memorySummary?.trim()) {
           p.memorySummary = u.memorySummary.trim();
@@ -256,13 +283,29 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
   getPresent: () => Object.values(get().profiles).filter((p) => p.isPresent).sort((a, b) => b.updatedAt - a.updatedAt),
   getAbsent: () => Object.values(get().profiles).filter((p) => !p.isPresent).sort((a, b) => b.updatedAt - a.updatedAt),
 
-  buildContextInjection: () => {
-    const present = get().getPresent();
-    if (present.length === 0) return '';
+  buildContextInjection: (currentLocationName) => {
+    const all = Object.values(get().profiles);
+    if (all.length === 0) return '';
     const keep = useSettingsStore.getState().npcMemoryKeep ?? MEMORY_RECENT_KEEP;
-    const lines = present.map((p) => {
+    const curLoc = currentLocationName?.trim() ?? '';
+
+    // 重要 NPC (核心/重要): 不论是否在场都注入完整身份/位置/介绍/记忆。
+    // 路人: 仅 isPresent=true 且 locationName 匹配当前地点(或地点缺失=兼容老数据)时,注入简略身份+位置行。
+    const importantList = all
+      .filter((p) => p.importance === '核心' || p.importance === '重要')
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const passersList = all
+      .filter((p) => p.importance === '路人' && p.isPresent)
+      .filter((p) => !curLoc || !p.locationName || p.locationName.trim() === curLoc)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    if (importantList.length === 0 && passersList.length === 0) return '';
+
+    const formatImportant = (p: NpcProfile): string => {
       const fav = p.favorability > 30 ? '友好' : p.favorability < -30 ? '敌对' : '中立';
-      const parts = [`- ${p.name}（${p.identity || '身份不明'}，对调查员好感度${p.favorability}/${fav}）`];
+      const loc = p.locationName?.trim() ? `,所在地点:${p.locationName.trim()}` : '';
+      const presence = p.isPresent ? '在场' : '离场';
+      const parts = [`- ${p.name}（${p.importance}·${presence}·${p.identity || '身份不明'}${loc},对调查员好感度${p.favorability}/${fav}）`];
       if (p.personality) parts.push(`  性格：${p.personality}`);
       if (p.innerThoughts) parts.push(`  动机/秘密(KP视角)：${p.innerThoughts}`);
       if (p.memorySummary) parts.push(`  记忆梗概：${p.memorySummary}`);
@@ -270,8 +313,47 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       // 仅当原始记忆既达到折叠阈值、又确实超出保留窗口时才提示——避免 keep 调高(>阈值)时每回合反复催促折叠
       if (p.memories.length >= MEMORY_FOLD_THRESHOLD && p.memories.length > keep) parts.push(`  （"${p.name}"的互动记忆已较多，请本回合在其 npcUpdates 提供 memorySummary 浓缩既往关键互动以便归纳）`);
       return parts.join('\n');
-    });
-    return `[在场NPC——请严格按各自的身份、性格、动机、好感度与记忆一致地扮演]\n${lines.join('\n')}`;
+    };
+    const formatPasser = (p: NpcProfile): string => {
+      const loc = p.locationName?.trim() ? `,${p.locationName.trim()}` : '';
+      return `- ${p.name}（${p.identity || '身份不明'}${loc}）`;
+    };
+
+    const sections: string[] = [];
+    if (importantList.length > 0) {
+      sections.push(
+        `[重要NPC——核心与重要角色,无论是否在场都需在剧情中保持身份/位置/动机一致;若该 NPC 当前地点与调查员一致即视为在场,可直接互动]\n${importantList.map(formatImportant).join('\n')}`,
+      );
+    }
+    if (passersList.length > 0) {
+      const locLabel = curLoc ? `当前地点「${curLoc}」` : '当前场景';
+      sections.push(
+        `[${locLabel}的过路 NPC ——仅在场时出现,身份与位置如下;无需深入扮演]\n${passersList.map(formatPasser).join('\n')}`,
+      );
+    }
+
+    // 伙伴/在场角色行动硬约束:仅在有队友或在场核心/重要 NPC 时挂载,空场景零增量。
+    // 队友(★)= getParty 返回的 isPresent && inParty;在场重要 NPC(·)= importantList 中 isPresent 但不在队友列表。
+    const partyList = all.filter((p) => p.isPresent && p.inParty)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const partyIdSet = new Set(partyList.map((p) => p.id));
+    const presentImportantList = importantList
+      .filter((p) => p.isPresent && !partyIdSet.has(p.id));
+    if (partyList.length > 0 || presentImportantList.length > 0) {
+      const lines: string[] = [];
+      for (const p of partyList) lines.push(`- ★ ${p.name}`);
+      for (const p of presentImportantList) lines.push(`- · ${p.name}`);
+      sections.push(
+        [
+          '[在场角色行动·硬约束]',
+          '本回合 leftContent / rightContent 中,以下角色【必须】至少有一处可观察的具体动作或对话(★=玩家小队队友;·=在场的核心/重要 NPC):',
+          lines.join('\n'),
+          '要求:①每个上述角色至少出现一次具体动作(肢体/移动/查看/操作物件)或台词,不可仅被名字提及或仅作为背景陈设;②他们的当回合行动应能【约束、辅助、对抗、干扰】调查员的潜在选项,生成的 choices 必须将这些角色当下的状态与意图纳入前提(例如队友若已在突进,选项中至少有一条与其协同或制止);③遵守姿态/状态条件的物理约束,倒下/昏迷/被束缚者不能做该状态下物理上不可能的事;④队友身份(inParty)由玩家在 UI 手动管理,严禁通过 npcUpdates 改写 inParty 字段。',
+        ].join('\n'),
+      );
+    }
+
+    return sections.join('\n\n');
   },
 
   replaceAll: (list) => set(() => {
@@ -283,7 +365,14 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     for (const p of deduped) {
       if (investigator && p.name.trim() === investigator) continue; // 调查员不入名册（清理历史脏数据）
       const fixed = withDefaultChars(p); // 缺基础属性则补确定性默认值
-      profiles[fixed.id] = fixed;
+      // 老存档兜底:新字段 locationName/importance 若缺失,设为安全默认 — 不写迁移代码(beta-no-backward-compat),
+      // 但 zustand persist 老存档加载时该字段仍可能是 undefined,这里在内存里补上以满足 NpcProfile 类型约束。
+      const withNew: NpcProfile = {
+        ...fixed,
+        locationName: typeof fixed.locationName === 'string' ? fixed.locationName : '',
+        importance: IMPORTANCE_VALUES.has(fixed.importance) ? fixed.importance : '重要',
+      };
+      profiles[withNew.id] = withNew;
     }
     return { profiles };
   }),
@@ -307,6 +396,22 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
   getParty: () => Object.values(get().profiles)
     .filter((p) => p.isPresent && p.inParty)
     .sort((a, b) => b.updatedAt - a.updatedAt),
+
+  renameLocation: (from, to) => set((s) => {
+    const f = from?.trim(); const t = to?.trim();
+    if (!f || !t || f === t) return {};
+    let changed = false;
+    const profiles: Record<string, NpcProfile> = {};
+    for (const [pid, p] of Object.entries(s.profiles)) {
+      if (p.locationName?.trim() === f) {
+        profiles[pid] = { ...p, locationName: t, updatedAt: Date.now() };
+        changed = true;
+      } else {
+        profiles[pid] = p;
+      }
+    }
+    return changed ? { profiles } : {};
+  }),
 
   clearAll: () => set({ profiles: {} }),
 }));

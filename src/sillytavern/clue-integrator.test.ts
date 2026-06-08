@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { _resetRpm } from './rpm-limiter';
 import { integrateClues } from './clue-integrator';
 
 function mockFetchOnce(content: string) {
@@ -9,6 +10,7 @@ function mockFetchOnce(content: string) {
 }
 
 describe('integrateClues', () => {
+  beforeEach(_resetRpm);
   afterEach(() => vi.restoreAllMocks());
 
   it('解析模型返回为合成推理线索（强制带「推理」标签 + synthesized）', async () => {

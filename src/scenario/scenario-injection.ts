@@ -129,6 +129,9 @@ export function scenarioCharacterToNpc(c: ScenarioCharacter): NpcProfile {
     // scenarioHiddenBio 留作 hiddenBio 的锁定副本，便于必要时回滚校验。
     isScenarioPreset: true,
     scenarioHiddenBio: c.npcAttrs.hiddenBio,
+    // 剧本注入 NPC 的位置默认沿用剧本中的 locationDefault(若有);importance 剧本预设 NPC 默认 '重要'。
+    locationName: (c.npcAttrs.locationDefault ?? '').trim(),
+    importance: '重要',
     createdAt: now,
     updatedAt: now,
   };

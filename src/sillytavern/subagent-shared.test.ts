@@ -16,7 +16,7 @@ function setMockMainModel(model: string): void {
     apiProfiles: [{
       id: 'test', label: 'test', apiBaseUrl: 'https://test',
       apiKey: 'test', availableModels: [model],
-      createdAt: 0, updatedAt: 0,
+      createdAt: 0, updatedAt: 0, extraParams: '',
     }],
     selectedMainApiProfileId: 'test',
     selectedMainModel: model,

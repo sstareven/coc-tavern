@@ -6,8 +6,10 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { InventoryChangesBar } from './RightPage';
+import { PageBanner } from './PageBanner';
 import { resolveSwipe } from './swipe';
 import { sfxPageFlip } from '../../audio/sfx';
+import { triggerImageGenForPage } from '../../api/image-gen-trigger';
 import type { DiceRecord } from '../../types';
 
 const RESULT_COLORS: Record<string, string> = {
@@ -131,6 +133,16 @@ export function MobileNoteView() {
               </p>
             )}
           </div>
+          {/* 文生图 banner(2026-06-08):位于标题/小总结之下、正文之上 */}
+          {(page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
+            <PageBanner
+              src={page.imageUrl}
+              pageId={page.id}
+              alt={page.leftHeader}
+              status={page.imageGenStatus}
+              onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
+            />
+          )}
           {/* 叙事卷轴 */}
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
             {/* 物品获取提示（手机端不可点，仅展示，防误触） */}

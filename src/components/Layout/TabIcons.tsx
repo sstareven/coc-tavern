@@ -69,6 +69,14 @@ export function IconSparkle({ size = 12 }: IconProps) {
 export function IconRefresh({ size = 12 }: IconProps) {
   return (<svg {...base(size)}><path d="M4 12a8 8 0 0114-5.3L20 9M20 4v5h-5M20 12a8 8 0 01-14 5.3L4 15M4 20v-5h5" /></svg>);
 }
+/** 图片占位：相框 + 山岭 + 小太阳(铜版线描,用于 PageBanner 加载骨架) */
+export function IconImage({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="M3 17l5-5 4 4 3-3 6 6" /></svg>);
+}
+/** 警示三角(用于失败兜底) */
+export function IconAlert({ size = 18 }: IconProps) {
+  return (<svg {...base(size)}><path d="M12 4l10 17H2L12 4z" /><path d="M12 10v5M12 18v0.01" /></svg>);
+}
 /** 邀请入队：人像 + 加号（铜版线描，与 IconNpc 同语言） */
 export function IconUserPlus({ size = 14 }: IconProps) {
   return (<svg {...base(size)}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M17 6v6M14 9h6" /></svg>);

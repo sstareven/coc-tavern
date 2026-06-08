@@ -20,14 +20,12 @@ export const AUTO_SUMMARY_BOOK_ID = '__auto_summaries';
 const defaultBooks: Record<string, LoreBook> = {
   [AUTO_SUMMARY_BOOK_ID]: { name: '剧情回顾 (自动)', enabled: true, entries: {} },
   mvu_rules: { name: 'MVU规则系统', enabled: true, entries: {
-    mvu_core: e({ name: 'MVU变量规范', keys: 'MVU, var', logic: 'AND_ANY', priority: 920, constant: true,
-      content: '【变量更新 · JSON Patch】在回复末尾用 <UpdateVariable><JSONPatch>[...]</JSONPatch></UpdateVariable> 输出本回合所有状态变化。JSONPatch 是操作对象数组，op 取值：replace(替换已存在路径)、delta(数值增减，如理智-5)、insert(新增对象键或数组元素，数组用 /- 追加)、remove(删除)。路径用 JSON Pointer：调查员状态写 /调查员/生命值/当前、/调查员/理智值/当前；世界写 /世界/时间、/世界/地点；剧情写 /剧情/阶段、/剧情/线索/-。示例：[{"op":"delta","path":"/调查员/理智值/当前","value":-5},{"op":"replace","path":"/世界/地点","value":"地下室"}]。不要再用 <var>/{{set}} 旧格式。' }),
     skill_check: e({ name: 'CoC检定规则', keys: '检定, d100, 大成功', logic: 'AND_ANY', priority: 900, constant: true,
       content: '【CoC 7th检定】成功=d100≤技能，困难≤半值，极难≤1/5，大成功=01，大失败=100(技能≥50)或96-100(技能<50)。有利→奖励骰(双十面取优)，不利→惩罚骰(取差)。\n侦查系：查账→会计，变装→乔装，查资料→图书馆使用，偷听→聆听，开锁→锁匠，藏东西→妙手，搜证→侦查，暗处→潜行，追迹→追踪，拍照→摄影。\n交涉系：魅力→取悦，欺瞒→话术，威吓→恐吓，辩论→说服，读心→心理学。\n战斗系：近战→格斗(斗殴)，手枪→射击(手枪)，步枪→射击(步枪)，霰弹枪→射击(霰弹枪)。\n运动系：攀爬→攀爬，闪躲→闪避，跳过沟→跳跃，骑马→骑术，渡水→游泳，扔东西→投掷。\n护理系：止血→急救，治病→医学，心理→精神分析。\n生活系：看文化→人类学，估价→估价，挖遗迹→考古学，创作→艺术与手艺，用电脑→计算机使用，开车→汽车驾驶，修电器→电气维修，修电路→电子学，回想→历史，读外语→语言(其他)，打官司→法律，修机器→机械维修，认动物→博物学，找方向→导航，辨灵异→神秘学，开起重机→操作重型机械，开飞机→驾驶，荒野→生存，炸东西→爆破，邪神知识→克苏鲁神话(掉SAN)。日常无需检定。' }),
     combat: e({ name: '战斗规则', keys: '战斗, 格斗(斗殴), 闪避', logic: 'AND_ANY', priority: 895, constant: true,
       content: '【CoC战斗】先攻=按DEX数值高低排序(高者先动)，持火器者先攻视为+50DEX。每轮攻击/闪避/移动。格斗(斗殴)→目标可闪避或反击。火器→近距正常、中距困难、远距极难。伤害=武器+DB。HP≤0→昏迷。选项：I攻击 II防御 III撤退 IV特殊，标注检定。' }),
     sanity: e({ name: '理智系统', keys: 'SAN, 理智, 疯狂', logic: 'AND_ANY', priority: 890, constant: true,
-      content: '【SAN规则】SAN=POW。损失：尸体0/1D2，怪物0/1D6，大恐怖1D10/1D100。单次损失≥5→智力(INT)检定，掷骰≤INT(通过，领会恐怖真相)→陷入临时疯狂，>INT(失败)→心智暂时压抑，不立即疯狂。SAN≤0→永久疯狂。恢复：完成调查+1D6，精神分析+1D3，休息一月+1D3。' }),
+      content: '【SAN 数值规则·7e】初始 SAN = POW。单次损失≥5→智力(INT)检定,通过=领会真相陷入临时疯狂,失败=心智暂时压抑不立即疯狂。SAN≤0→永久疯狂。SAN 上限随克苏鲁神话技能提升而下降(SAN_max = 99 - 克苏鲁神话)。恢复:精神分析+1D3,长期休息+1D3,完成调查里程碑+1D6。具体扣损触发表(尸体/怪物/大恐怖/典籍/真相级线索/不可名状)参见世界书 san_bubble_trigger_spec 条目,本条不重复。' }),
 
     // ── MVU 变量系统 ──
     mvu_update_rules: e({ name: '[mvu_update]变量更新规则', keys: 'mvu_update, 变量更新', logic: 'AND_ANY', priority: 915, constant: true, depth: 0,
@@ -293,37 +291,6 @@ _元数据:
   _变量版本: '1.0'
 ` }),
 
-    mvu_output_format: e({ name: '[mvu_update]变量输出格式', keys: 'mvu_update, 输出格式', logic: 'AND_ANY', priority: 910, constant: true, depth: 0,
-      content: `---
-变量输出格式:
-  rule:
-    - you must output the update analysis and the actual update commands at once in the end of the next reply
-    - the update commands works like the JSON Patch (RFC 6902) standard, must be a valid JSON array containing operation objects, but supports the following operations instead:
-      - replace: replace the value of existing paths
-      - delta: update the value of existing number paths by a delta value
-      - insert: insert new items into an object or array
-      - remove
-    - don't update field names starts with _ as they are readonly, such as _元数据
-    - to remove a named entry from a keyed collection (状态条件/线索/NPC/任务/敌人 etc.), remove by its NAME path (e.g. /调查员/状态条件/<名称>), NOT by array index
-    - numeric values must be bare numbers (e.g. "value": -5), never quoted strings
-  format: |-
-    <UpdateVariable>
-    <Analysis>\${IN ENGLISH, no more than 80 words}
-    - \${calculate time passed: ...}
-    - \${decide whether dramatic updates are allowed: yes/no}
-    - \${analyze every variable based on its corresponding check: ...}
-    </Analysis>
-    <JSONPatch>
-    [
-      { "op": "replace", "path": "\${/path/to/variable}", "value": \${new_value} },
-      { "op": "delta", "path": "\${/path/to/number/variable}", "value": \${positive_or_negative_delta} },
-      { "op": "insert", "path": "\${/path/to/object/new_key}", "value": \${new_value} },
-      { "op": "remove", "path": "\${/path/to/named_or_existing_key}" }
-    ]
-    </JSONPatch>
-    </UpdateVariable>
-` }),
-
     mvu_var_list: e({ name: '变量列表', keys: '变量, variable, stat', logic: 'AND_ANY', priority: 50, depth: 0, constant: true,
       content: '<status_current_variable>\n调查员.生命值: {{调查员.生命值.当前}}/{{调查员.生命值.最大}}\n调查员.理智值: {{调查员.理智值.当前}}/{{调查员.理智值.最大}}\n调查员.魔法值: {{调查员.魔法值.当前}}/{{调查员.魔法值.最大}}\n调查员.幸运: {{调查员.幸运}}\n调查员.技能: 侦查={{调查员.技能.侦查}} | 图书馆使用={{调查员.技能.图书馆使用}} | 话术={{调查员.技能.话术}} | 聆听={{调查员.技能.聆听}} | 心理学={{调查员.技能.心理学}} | 潜行={{调查员.技能.潜行}} | 说服={{调查员.技能.说服}} | 汽车驾驶={{调查员.技能.汽车驾驶}}\n世界.日期: {{世界.日期}} | 世界.时间: {{世界.时间}}\n世界.地点: {{世界.地点}} | 世界.天气: {{世界.天气}}\n剧情.当前章节: {{剧情.当前章节}}\n剧情.阶段: {{剧情.阶段}} | 暗线进度: {{剧情.暗线.进度}} ({{剧情.暗线.威胁等级}})\n</status_current_variable>' }),
 
@@ -414,7 +381,7 @@ _元数据:
     ejs_hp_state: e({ name: 'EJS·生命状态', keys: '生命值, HP, 受伤, 伤害', logic: 'AND_ANY', priority: 149, constant: true,
       content: '<%\nconst hp = parseInt(getvar(\'调查员.生命值.当前\') || \'99\');\nconst hpMax = parseInt(getvar(\'调查员.生命值.最大\') || \'99\');\n%>\n<% if (hp <= 0) { %>\n【濒死状态】调查员已倒下，生命垂危。无法进行任何主动行动。若不在1D6轮内接受急救(困难急救检定)，调查员将死亡。描写时强调意识模糊、视野变暗、身体失去知觉。\n<% } else if (hp <= 2) { %>\n【重伤】调查员伤势严重(HP:<%= hp %>/<%= hpMax %>)。每次行动都伴随剧痛。移动速度减半，所有物理技能检定增加一级难度。血迹会暴露行踪。需要尽快接受医疗救治。\n<% } else if (hp < hpMax * 0.4) { %>\n【负伤】调查员带着明显的伤势(HP:<%= hp %>/<%= hpMax %>)。疼痛影响注意力，某些需要体力的行动可能受到影响。外伤明显可见(渗血、绷带、行动迟缓)，会暴露其负伤状态。\n<% } %>' }),
     ejs_combat: e({ name: 'EJS·战斗模式', keys: '战斗, 格斗(斗殴), 攻击', logic: 'AND_ANY', priority: 148, constant: true,
-      content: '<% if (getvar(\'战斗.是否战斗中\') === \'true\') { %>\n【战斗进行中】当前处于战斗状态(第<%= getvar(\'战斗.回合数\') || \'?\' %>回合)。规则要求：\n- 每轮按DEX顺序行动：攻击/闪避/移动选一\n- 格斗(斗殴)攻击后目标可选闪避或反击\n- 火器：近距正常、中距困难、远距极难\n- 选项必须包含：攻击/防御/撤退/特殊行动，标注所需检定\n- 战斗状态变化在回复末尾用 <UpdateVariable><JSONPatch> 输出（如 {"op":"delta","path":"/调查员/生命值/当前","value":-3} 或敌人生命值变化）\n- 描写战斗时注重紧张感和细节——武器碰撞的声响、鲜血的气味、对手的动作与攻势(招式、破绽、退避)\n<% } %>' }),
+      content: '<% if (getvar(\'战斗.是否战斗中\') === \'true\') { %>\n【战斗进行中·当前状态】第 <%= getvar(\'战斗.回合数\') || \'?\' %> 回合;敌人 / 弹药 / 距离的具体数值见上方 statSnapshot 战斗节点。战斗规则细节(DEX 先攻/格斗反击/火器距离/选项 4 类)由 mvu_rules.combat 统一定义,本条不重复。本回合叙事重点:武器碰撞的声响、鲜血气味、对手的招式与破绽、距离与掩体的变化。\n<% } %>' }),
     ejs_time_atmosphere: e({ name: 'EJS·时间氛围', keys: '时间, 氛围, 环境', logic: 'AND_ANY', priority: 145, constant: true,
       content: '<%\nconst time = getvar(\'世界.时间\') || \'\';\nconst weather = getvar(\'世界.天气\') || \'\';\n%>\n<% if (time === \'深夜\' || time === \'夜晚\' || time === \'黄昏\') { %>\n【夜间/昏暗氛围】当前是<%= time %>。描写时强调：昏暗的光线(月光/煤油灯/手电筒的有限照明)、拉长的阴影、远处不明的声响、夜行生物的动静。视觉类检定(侦查/导航)增加难度。黑暗中的未知比白天更加压迫人心。\n<% } %>\n<% if (weather.includes(\'暴\') || weather.includes(\'雷\')) { %>\n【恶劣天气】当前天气：<%= weather %>。风雨/风雪遮蔽视听，户外行动的所有检定增加难度。雷声可能掩盖其他声响，也可能在关键时刻制造惊吓。淋湿的衣物、泥泞的道路、能见度降低——这些都会影响调查员的行动和判断。\n<% } else if (weather.includes(\'雨\') || weather.includes(\'雪\')) { %>\n【阴雨风雪】当前天气：<%= weather %>。淅沥的雨水或纷飞的风雪打湿、阻滞着行程，能见度下降、声响被掩盖；户外行动与远距观察的检定可酌情增加难度，湿冷也消磨着调查员的耐心。\n<% } else if (weather.includes(\'雾\')) { %>\n【雾中迷途】<%= weather %>笼罩着周围的一切。能见度大幅降低，远处的轮廓模糊不清。方向感变得不可靠——导航检定增加难度。雾会同时遮蔽调查员与他人的视听，雾中的声音被扭曲、难以判断来源与距离。\n<% } %>' }),
     ejs_human_needs: e({ name: 'EJS·调查员生理常识', keys: '生理, 常识, 困倦, 饥饿, 口渴, 疲惫, 凌晨, 困意', logic: 'AND_ANY', priority: 144, constant: true,
@@ -634,6 +601,14 @@ export const useLorebookStore = create<LorebookStore>()(
         }
         // 已废弃的内置书:从老存档清理(洛夫克拉夫特文风已并入双人成行预设;每回合推进约束由 format-instruction 承担)。
         delete merged['coc_style'];
+        // 已废弃的内置条目:从老存档清理(MVU 协议双写 mvu_core/mvu_output_format 已归 format-instruction 唯一所有,
+        // SAN 触发表归 san_bubble_trigger_spec,见 commit 「三处指令去重」)。
+        if (merged['mvu_rules']?.entries) {
+          const e = { ...merged['mvu_rules'].entries };
+          delete e['mvu_core'];
+          delete e['mvu_output_format'];
+          merged['mvu_rules'] = { ...merged['mvu_rules'], entries: e };
+        }
         state.books = merged;
       },
     }

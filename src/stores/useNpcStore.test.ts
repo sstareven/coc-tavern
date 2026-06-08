@@ -40,14 +40,68 @@ describe('useNpcStore.applyUpdates', () => {
     expect(absent[0].memories).toEqual(['盘问了调查员', '收下了贿赂']);
   });
 
-  it('buildContextInjection 只含在场 NPC', () => {
+  it('buildContextInjection: 路人 NPC 仅在场时出现;重要 NPC 不论是否在场都出现', () => {
     useNpcStore.getState().applyUpdates([
-      { name: '在场甲', identity: '医生', isPresent: true },
-      { name: '离场乙', identity: '记者', isPresent: false },
+      { name: '路人在场甲', identity: '医生', isPresent: true, importance: '路人' },
+      { name: '路人离场乙', identity: '记者', isPresent: false, importance: '路人' },
+      { name: '重要在场丙', identity: '神父', isPresent: true, importance: '重要' },
+      { name: '重要离场丁', identity: '侦探', isPresent: false, importance: '重要' },
     ]);
     const ctx = useNpcStore.getState().buildContextInjection();
-    expect(ctx).toContain('在场甲');
-    expect(ctx).not.toContain('离场乙');
+    expect(ctx).toContain('路人在场甲');
+    expect(ctx).not.toContain('路人离场乙');
+    expect(ctx).toContain('重要在场丙');
+    expect(ctx).toContain('重要离场丁');
+  });
+
+  it('buildContextInjection: 空 NPC 列表 → 不挂硬约束段', () => {
+    const ctx = useNpcStore.getState().buildContextInjection();
+    expect(ctx).toBe('');
+  });
+
+  it('buildContextInjection: 队友(inParty) → 行动硬约束段含★前缀+队友名+必须有可观察行动', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '同伴艾米', identity: '助手', isPresent: true, importance: '重要' },
+    ]);
+    const aimee = Object.values(useNpcStore.getState().profiles).find((p) => p.name === '同伴艾米')!;
+    useNpcStore.getState().joinParty(aimee.id);
+    const ctx = useNpcStore.getState().buildContextInjection();
+    expect(ctx).toContain('[在场角色行动·硬约束]');
+    expect(ctx).toContain('★ 同伴艾米');
+    expect(ctx).toContain('必须');
+    expect(ctx).toContain('可观察');
+    expect(ctx).toContain('inParty');
+  });
+
+  it('buildContextInjection: 在场重要 NPC 非队友 → 行动硬约束段含·前缀+硬约束;同一 NPC 不重复标★与·', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '馆员霍尔姆斯', identity: '管理员', isPresent: true, importance: '重要' },
+      { name: '神父莫里森', identity: '神职', isPresent: true, importance: '核心' },
+    ]);
+    const ctx = useNpcStore.getState().buildContextInjection();
+    expect(ctx).toContain('[在场角色行动·硬约束]');
+    expect(ctx).toContain('· 馆员霍尔姆斯');
+    expect(ctx).toContain('· 神父莫里森');
+    expect(ctx).not.toContain('★ 馆员霍尔姆斯');
+    expect(ctx).not.toContain('★ 神父莫里森');
+    // 队友与重要在场互斥:把馆员加入队友后,他应在★出现,不再在·重复出现
+    const holmes = Object.values(useNpcStore.getState().profiles).find((p) => p.name === '馆员霍尔姆斯')!;
+    useNpcStore.getState().joinParty(holmes.id);
+    const ctx2 = useNpcStore.getState().buildContextInjection();
+    expect(ctx2).toContain('★ 馆员霍尔姆斯');
+    expect(ctx2).not.toContain('· 馆员霍尔姆斯');
+    expect(ctx2).toContain('· 神父莫里森');
+  });
+
+  it('buildContextInjection: 离场队友(isPresent=false 即便 inParty=true) → 不计入硬约束段', () => {
+    useNpcStore.getState().applyUpdates([
+      { name: '队友外出', identity: '猎人', isPresent: true, importance: '重要' },
+    ]);
+    const p = Object.values(useNpcStore.getState().profiles).find((x) => x.name === '队友外出')!;
+    useNpcStore.getState().joinParty(p.id);
+    useNpcStore.getState().applyUpdates([{ name: '队友外出', isPresent: false }]);
+    const ctx = useNpcStore.getState().buildContextInjection();
+    expect(ctx).not.toContain('[在场角色行动·硬约束]');
   });
 
   it('新建 NPC 自动获得 8 项基础属性（确定性，同 id 稳定）', () => {
@@ -233,6 +287,8 @@ function makeProfile(over: Partial<NpcProfile>): NpcProfile {
     backstory: over.backstory ?? '',
     possessions: over.possessions ?? [],
     isPresent: over.isPresent ?? true,
+    locationName: over.locationName ?? '',
+    importance: over.importance ?? '路人',
     createdAt: over.createdAt ?? 0,
     updatedAt: over.updatedAt ?? 0,
     ...over,

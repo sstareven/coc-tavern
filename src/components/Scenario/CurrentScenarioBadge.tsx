@@ -81,7 +81,7 @@ export function CurrentScenarioBadge() {
     );
   }
 
-  const progress = Math.max(0, Math.min(100, readNum(statData, '剧情.暗线进度', 0)));
+  const progress = Math.max(0, Math.min(100, readNum(statData, '剧情.暗线.进度', 0)));
   const phase = currentDarkPhase(doc.darkTimeline, progress);
   const unlocked = readUnlockedKeys(statData);
 

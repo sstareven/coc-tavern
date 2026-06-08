@@ -35,6 +35,12 @@ interface ApiProfilesState {
   /** 行动补写 API 使用哪条 profile;null=回退主线(配合 settings.rewriteUseIndependentApi=false)。 */
   selectedRewriteApiProfileId: string | null;
   selectedRewriteModel: string;
+
+  /** 图像生成 API 使用哪条 profile;null=未配,文生图功能不启用(无回退主线 — 图像与文本端点通常不同源)。 */
+  selectedImageApiProfileId: string | null;
+  selectedImageModel: string;
+  /** 图像生成协议模式(2026-06-08):'auto' 自动探测;'openai-strict' / 'gpt-image-1' / 'sd-compat' / 'pollinations' / 'chat-completions' 显式锁定。默认 'auto'。 */
+  selectedImagePayloadMode: 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions';
 }
 
 interface ApiProfilesStore extends ApiProfilesState {
@@ -50,6 +56,8 @@ interface ApiProfilesStore extends ApiProfilesState {
   setSelectedMain: (profileId: string | null, model: string) => void;
   setSelectedMvu: (profileId: string | null, model: string) => void;
   setSelectedRewrite: (profileId: string | null, model: string) => void;
+  setSelectedImage: (profileId: string | null, model: string) => void;
+  setSelectedImagePayloadMode: (mode: 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions') => void;
 }
 
 const defaults: ApiProfilesState = {
@@ -60,6 +68,9 @@ const defaults: ApiProfilesState = {
   selectedMvuModel: '',
   selectedRewriteApiProfileId: null,
   selectedRewriteModel: '',
+  selectedImageApiProfileId: null,
+  selectedImageModel: '',
+  selectedImagePayloadMode: 'auto',
 };
 
 export const useApiProfilesStore = create<ApiProfilesStore>()(
@@ -96,6 +107,10 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
           cascade.selectedRewriteApiProfileId = null;
           cascade.selectedRewriteModel = '';
         }
+        if (s.selectedImageApiProfileId === id) {
+          cascade.selectedImageApiProfileId = null;
+          cascade.selectedImageModel = '';
+        }
         set(cascade);
       },
 
@@ -116,14 +131,28 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
       setSelectedRewrite: (profileId, model) => {
         set({ selectedRewriteApiProfileId: profileId, selectedRewriteModel: model });
       },
+      setSelectedImage: (profileId, model) => {
+        set({ selectedImageApiProfileId: profileId, selectedImageModel: model });
+      },
+      setSelectedImagePayloadMode: (mode) => {
+        set({ selectedImagePayloadMode: mode });
+      },
     }),
     {
       // v1.14.0 起新增的 store。版本号 v1 留作日后 schema 迁移用。
       name: 'coc_api_profiles_v1',
       storage: createJSONStorage(createDexieStorage),
       partialize: (state) => stripFunctions(state),
-      // 顶层 shallow merge 足够(本 store 无嵌套对象需深合并)。
-      merge: (persisted, current) => ({ ...current, ...((persisted ?? {}) as Partial<ApiProfilesStore>) }),
+      // 顶层 shallow merge + 老 profile 字段兜底(v1.14.x 新增的 extraParams 补 '')。
+      merge: (persisted, current) => {
+        const merged = { ...current, ...((persisted ?? {}) as Partial<ApiProfilesStore>) } as ApiProfilesStore;
+        // 给老 profile 兜底 extraParams 默认值,防下游 undefined.trim() 等崩
+        merged.apiProfiles = (merged.apiProfiles ?? []).map((p) => ({
+          ...p,
+          extraParams: typeof p.extraParams === 'string' ? p.extraParams : '',
+        }));
+        return merged;
+      },
     },
   ),
 );

@@ -153,6 +153,48 @@ export interface ScenarioDoc {
   schemaVersion: number;
   createdAt: number;
   updatedAt: number;
+
+  /** 文生图覆盖配置(2026-06-08)。剧本作者可在剧本编辑器覆盖默认生图风格/prompt 模板/采样参数。
+   *  三层 merge:settings.imageDefaults 基线 → scn.imageGen 覆盖 → 运行时 ImageRenderContext;
+   *  全部 optional,未填字段沿用上一层。schemaVersion 不升(memory: beta-no-backward-compat)。 */
+  imageGen?: ScenarioImageGen;
+}
+
+/** 10 种风格预设 key。custom 时优先用 stylePromptOverride 自填风格描述。 */
+export type ScenarioImageStyle =
+  | 'vintage_photo'  // 1920 复古胶片
+  | 'oil_painting'   // 油画
+  | 'ink_wash'       // 水墨
+  | 'watercolor'     // 水彩
+  | 'engraving'      // 铜版画
+  | 'cinematic'      // 电影摄影
+  | 'sepia_film'     // 怀旧胶片
+  | 'photoreal'      // 写实
+  | 'anime'          // 动漫
+  | 'custom';        // 用户自填
+
+/** 剧本侧生图覆盖层。全部 optional,与 settings.imageDefaults 三层 merge。 */
+export interface ScenarioImageGen {
+  /** 风格预设 key;'custom' 时优先用 stylePromptOverride。 */
+  style?: ScenarioImageStyle;
+  /** 'custom' style 下用户自填的风格描述 prompt。 */
+  stylePromptOverride?: string;
+  /** 正向 prompt 模板,支持 {{location}}/{{time}}/{{weather}}/{{characters}}/{{san}} 占位。 */
+  promptTemplate?: string;
+  /** 负面 prompt 追加项(与 settings 基线逗号合并去重,不是覆盖)。 */
+  negativePromptAppend?: string;
+  /** 风格锚定标签数组,末尾追加到 prompt。 */
+  styleAnchors?: string[];
+  /** 像素覆盖,留空走全局基线。 */
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfgScale?: number;
+  sampler?: string;
+  /** 模型 id 覆盖。 */
+  modelOverride?: string;
+  /** 三态:undefined=继承 settings;true=本剧本强开;false=本剧本强关。 */
+  enabled?: boolean;
 }
 
 // CompanionChat LLM 返回的统一变更包
@@ -175,6 +217,9 @@ export interface ScenarioPatch {
   removeCustomSkillNames?: string[];
   addToBlacklist?: string[];
   removeFromBlacklist?: string[];
+
+  /** 文生图配置覆盖(浅合并;styleAnchors 整块替换;留空字段=保留原值)。 */
+  patchImageGen?: Partial<ScenarioImageGen>;
 }
 
 // ---- 类型守卫（手写，不引 zod） ----
@@ -317,5 +362,28 @@ export function isValidScenarioDoc(x: unknown): x is ScenarioDoc {
   if (!isStr(x.authorNotes)) return false;
   if (typeof x.schemaVersion !== 'number' || !SUPPORTED_SCHEMA_VERSIONS.includes(x.schemaVersion)) return false;
   if (!isNum(x.createdAt) || !isNum(x.updatedAt)) return false;
+  if (x.imageGen !== undefined && !isImageGenLike(x.imageGen)) return false;
+  return true;
+}
+
+const VALID_IMAGE_STYLES: ScenarioImageStyle[] = [
+  'vintage_photo', 'oil_painting', 'ink_wash', 'watercolor', 'engraving',
+  'cinematic', 'sepia_film', 'photoreal', 'anime', 'custom',
+];
+
+export function isImageGenLike(x: unknown): x is ScenarioImageGen {
+  if (!isObj(x)) return false;
+  if (x.style !== undefined && !VALID_IMAGE_STYLES.includes(x.style as ScenarioImageStyle)) return false;
+  if (x.stylePromptOverride !== undefined && !isStr(x.stylePromptOverride)) return false;
+  if (x.promptTemplate !== undefined && !isStr(x.promptTemplate)) return false;
+  if (x.negativePromptAppend !== undefined && !isStr(x.negativePromptAppend)) return false;
+  if (x.styleAnchors !== undefined && !isStrArr(x.styleAnchors)) return false;
+  if (x.width !== undefined && !isNum(x.width)) return false;
+  if (x.height !== undefined && !isNum(x.height)) return false;
+  if (x.steps !== undefined && !isNum(x.steps)) return false;
+  if (x.cfgScale !== undefined && !isNum(x.cfgScale)) return false;
+  if (x.sampler !== undefined && !isStr(x.sampler)) return false;
+  if (x.modelOverride !== undefined && !isStr(x.modelOverride)) return false;
+  if (x.enabled !== undefined && typeof x.enabled !== 'boolean') return false;
   return true;
 }

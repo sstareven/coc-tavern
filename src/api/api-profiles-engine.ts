@@ -21,6 +21,14 @@ export interface ApiProfile {
   createdAt: number;
   /** 最近编辑时间(ms epoch)。 */
   updatedAt: number;
+  /**
+   * 额外参数高级选项(v1.14.x)。每行一条规则:
+   *   - field            禁用字段(如 `- top_p` 解决 DeepSeek 报错)
+   *   + field value      添加/覆盖(支持嵌套 + 自动类型识别)
+   *   # 任意注释
+   * 解析+应用见 src/api/api-extra-params-engine.ts。默认空串。
+   */
+  extraParams: string;
 }
 
 /** 新建/编辑表单输入(无 ID、无时间戳、无 availableModels)。 */
@@ -28,6 +36,7 @@ export interface ApiProfileForm {
   label: string;
   apiBaseUrl: string;
   apiKey: string;
+  extraParams?: string;
 }
 
 /** 编辑时的部分更新载荷;apiKey 缺省=保持原值(防误清空)。 */
@@ -36,6 +45,7 @@ export interface ApiProfilePatch {
   apiBaseUrl?: string;
   apiKey?: string;
   availableModels?: string[];
+  extraParams?: string;
 }
 
 /** 生成新 ID。优先 crypto.randomUUID;降级时间戳+随机串(老浏览器/SSR fallback)。 */
@@ -57,6 +67,7 @@ export function createApiProfile(form: ApiProfileForm): ApiProfile {
     availableModels: [],
     createdAt: now,
     updatedAt: now,
+    extraParams: form.extraParams ?? '',
   };
 }
 
@@ -68,6 +79,7 @@ export function updateApiProfile(existing: ApiProfile, patch: ApiProfilePatch): 
     ...(patch.apiBaseUrl !== undefined ? { apiBaseUrl: patch.apiBaseUrl.trim() } : null),
     ...(patch.apiKey !== undefined ? { apiKey: patch.apiKey } : null),
     ...(patch.availableModels !== undefined ? { availableModels: patch.availableModels } : null),
+    ...(patch.extraParams !== undefined ? { extraParams: patch.extraParams } : null),
     updatedAt: Date.now(),
   };
 }

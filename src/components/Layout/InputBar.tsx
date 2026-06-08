@@ -17,6 +17,9 @@ import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { StreamingPreview } from '../Shared/StreamingPreview';
+import { TurnProgressBar } from '../Shared/TurnProgressBar';
+import { RpmCooldownBar } from '../Shared/RpmCooldownBar';
+import { useRpmCooldown } from '../../hooks/useRpmCooldown';
 import { ActionSheet } from '../Book/ActionSheet';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
@@ -42,6 +45,8 @@ export function InputBar() {
 
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
+  // 桶满 (used >= limit) 时 lock 推进/补写/输入框,跟 rpmAcquire 的真实限流语义对齐
+  const { ready: rpmReady } = useRpmCooldown();
 
   // ── Textarea 自增长：高度由 input state 驱动，提交/回填/补全后自动回缩 ──
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -170,6 +175,8 @@ export function InputBar() {
         {/* 手机端: 选择行动入口 / 抽屉,放在 footer 顶部贴住 InputBar 输入行上方 */}
         {showMobileActionSheet && <ActionSheet />}
         <style>{`.inputbar-textarea::-webkit-scrollbar{width:5px}.inputbar-textarea::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+        <TurnProgressBar />
+        <RpmCooldownBar />
         {pipeline.error && (
           <div
             style={{
@@ -422,7 +429,7 @@ export function InputBar() {
                 }
               }}
               placeholder="输入行动或对话..."
-              disabled={pipeline.loading}
+              disabled={pipeline.loading || !rpmReady}
               rows={1}
               style={{
                 flex: 1,
@@ -465,7 +472,7 @@ export function InputBar() {
           >
             <button
               onClick={handleSubmit}
-              disabled={pipeline.loading || buttonMode !== 'advance'}
+              disabled={pipeline.loading || !rpmReady || buttonMode !== 'advance'}
               title="推进剧情"
               data-sfx="primary"
               style={dualBtnStyle(buttonMode === 'advance', pipeline.loading, isMobile)}
@@ -493,7 +500,7 @@ export function InputBar() {
             <div style={{ height: 1, background: 'rgba(196,168,85,0.25)' }} />
             <button
               onClick={handleRewrite}
-              disabled={pipeline.loading || buttonMode !== 'rewrite'}
+              disabled={pipeline.loading || !rpmReady || buttonMode !== 'rewrite'}
               title="补写当前自定义行动，生成新候选选项"
               style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading, isMobile)}
               onMouseEnter={(e) => {

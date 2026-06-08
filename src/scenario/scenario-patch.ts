@@ -11,7 +11,9 @@ import type {
   DarkPhase,
   BadEnding,
   ScenarioMeta,
+  ScenarioImageGen,
 } from '../types/scenario';
+import { isImageGenLike } from '../types/scenario';
 import type { Occupation } from '../sillytavern/coc-data';
 import { ALL_SKILLS } from '../sillytavern/coc-data';
 import type { SkillCat } from '../sillytavern/coc-data';
@@ -31,6 +33,7 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
   let customOccupations = doc.customOccupations;
   let customSkills = doc.customSkills;
   let skillBlacklist = doc.skillBlacklist;
+  let imageGen: ScenarioImageGen | undefined = doc.imageGen;
 
   // 1) upsertEntries — 按 id upsert，否则 push 末尾
   if (patch.upsertEntries && patch.upsertEntries.length > 0) {
@@ -149,6 +152,17 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     skillBlacklist = skillBlacklist.filter((n) => !removeSet.has(n));
   }
 
+  // 15) patchImageGen — 浅合并(styleAnchors 整块替换);若 patch 字段为 null/undefined 会删除该字段
+  if (patch.patchImageGen) {
+    const cur: ScenarioImageGen = imageGen ?? {};
+    const next: ScenarioImageGen = { ...cur, ...patch.patchImageGen };
+    // 显式 undefined 表示删该字段(LLM 可发 {style: undefined} 取消该项)
+    (Object.keys(patch.patchImageGen) as (keyof ScenarioImageGen)[]).forEach((k) => {
+      if (patch.patchImageGen![k] === undefined) delete next[k];
+    });
+    imageGen = Object.keys(next).length === 0 ? undefined : next;
+  }
+
   return {
     ...doc,
     meta,
@@ -159,6 +173,7 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     customOccupations,
     customSkills,
     skillBlacklist,
+    imageGen,
     updatedAt: Date.now(),
   };
 }
@@ -279,6 +294,9 @@ export function validateScenarioPatch(p: unknown): p is ScenarioPatch {
   }
   if (obj.removeFromBlacklist !== undefined) {
     if (!Array.isArray(obj.removeFromBlacklist) || !obj.removeFromBlacklist.every(isStr)) return false;
+  }
+  if (obj.patchImageGen !== undefined) {
+    if (!isImageGenLike(obj.patchImageGen)) return false;
   }
 
   return true;

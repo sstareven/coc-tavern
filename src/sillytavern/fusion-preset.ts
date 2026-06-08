@@ -26,6 +26,14 @@ const INJECTED_IDS = new Set(['coc_kp_system', 'formatInstruction', 'postHistory
 // 其 cot 思考主体始终 getvar 推进变量、关着就渲染为空。COC 每回合须实质推进，故强制开。
 const PLOT_PUSH_NAMES = new Set(['🚒// COT //推剧情']);
 
+// 视角组(FUSION_MENU[0].subs[0])单选项的 name —— 双人成行作者默认开「🕑第二人称」,
+// 但 COC 守秘人语境下,叙事正文与 npcUpdates.innerThoughts/CHOICE_FIT_RULE/clues.discoveryNarrative
+// 等字段一律走 KP 第三人称视角(主语为「调查员」,user 抽离),与开场白 action/format-instruction
+// 一致。这里强制关掉所有非「群像视角」的选项,强制开「🕒群像视角」(其 hint:AI完全无视笑脸,
+// 只支配角色卡里的人物 = user 抽离 + 第三人称,与 COC 的『调查员主语,玩家完全抽离』模型契合)。
+const VIEW_KILL_NAMES = new Set(['🕐第一人称', '🕑第二人称', '🕒第三人称', ' 👑上帝模式', '🕒自定义视角']);
+const VIEW_FORCE_OPEN_NAMES = new Set(['🕒群像视角']);
+
 // 按名字关掉的两类（DS版/向斜阳版 id 不同，故用名字匹配，两版通用）：
 // ① 美化结构/前端生成——与 COC JSON 双页冲突；② NSFW。
 const KILL_NAME = /Core|输出格式|锋芒|前端|视觉交互|日期卡片|顶部日期|小剧场|快捷回复|播放器|状态面板|htm1|自定义前端|变量更新强调|大总结|防掉格式/;
@@ -81,6 +89,10 @@ export function buildFusionPreset(stJson: string, presetId: string, presetName: 
       if (STYLE_NAMES.has(p.name)) enabled = p.name === LOVECRAFT_NAME;
       if (p.id === 'main') enabled = true; // 双人成行核心人设(Atri&Deach)默认开启（与 COC 守秘人共存）
       if (PLOT_PUSH_NAMES.has(p.name)) enabled = true; // 强制开启双人成行原生剧情推进 cot（作者默认关）
+      // 视角组单选:强关非群像视角(第一人称/第二人称/第三人称名义/上帝模式/自定义),强开群像视角。
+      // 与 format-instruction.ts:19 唯一第三人称指令对齐,消除『setvar 第二人称 vs FORMAT 第三人称』双轨拉扯。
+      if (VIEW_KILL_NAMES.has(p.name)) enabled = false;
+      if (VIEW_FORCE_OPEN_NAMES.has(p.name)) enabled = true;
       return { ...p, enabled };
     });
 

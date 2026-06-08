@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { usePromptViewerStore } from '../../stores/usePromptViewerStore';
+import { summarizeExtraParamsRules } from '../../api/api-extra-params-engine';
 import {
   type ApiProfile,
   type ApiProfileForm,
@@ -23,6 +24,7 @@ import {
 import { maskApiKey, displayHostFromUrl } from '../../api/api-models-engine';
 import { fetchModelList } from '../../sillytavern/api-router';
 import { ApiModelPicker } from './ApiModelPicker';
+import { ImageApiSection } from './ImageApiSection';
 import {
   CategoryBar, rowStyle, labelStyle, Toggle, HelpIcon, SliderRow,
 } from './_shared';
@@ -40,6 +42,14 @@ const PP_OPTIONS = [
   { label: '严格(强制对话角色交替、用户最先) (Claude/Gemini 推荐)', value: 'strict' },
   { label: '单一用户消息 (无工具) (Claude/Gemini 推荐)', value: 'single_user' },
 ];
+
+/** v1.14.x:textarea placeholder 文案,教用户语法。 */
+const EXTRA_PARAMS_PLACEHOLDER = `每行一条规则(# 开头为注释,空行忽略)
+
+- top_p              移除字段
++ top_p 0.9          添加或覆盖(自动识别数字/布尔/JSON)
++ stream_options.include_usage true   支持点号嵌套
+# DeepSeek:禁用 top_p 避免 400 冲突`;
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '7px 9px', border: '1px solid var(--brass)', borderRadius: 3,
@@ -143,6 +153,7 @@ export function ApiManagementTab() {
   const [addLabel, setAddLabel] = useState('');
   const [addUrl, setAddUrl] = useState('https://api.deepseek.com');
   const [addKey, setAddKey] = useState('');
+  const [addExtraParams, setAddExtraParams] = useState('');
   /** 保存按钮态:idle / saving / ok / failed。failed 时 errorText 显示在按钮右边。 */
   const [addSaveStatus, setAddSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'failed'>('idle');
   const [addError, setAddError] = useState<string | null>(null);
@@ -162,7 +173,7 @@ export function ApiManagementTab() {
    */
   const handleAddSave = async () => {
     setAddError(null);
-    const form: ApiProfileForm = { label: addLabel, apiBaseUrl: addUrl, apiKey: addKey };
+    const form: ApiProfileForm = { label: addLabel, apiBaseUrl: addUrl, apiKey: addKey, extraParams: addExtraParams };
     const v = validateApiProfileForm(form);
     if (!v.ok) {
       setAddError(v.error ?? '表单无效');
@@ -189,6 +200,7 @@ export function ApiManagementTab() {
     setAddLabel('');
     setAddUrl('https://api.deepseek.com');
     setAddKey('');
+    setAddExtraParams('');
     setAddSaveStatus('ok');
     // 短暂显示「已保存」,1.5s 后回 idle
     window.setTimeout(() => setAddSaveStatus('idle'), 1500);
@@ -249,6 +261,25 @@ export function ApiManagementTab() {
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
           />
+        </div>
+        {/* 额外参数 — 整行,跨满 grid */}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelInForm}>额外参数(可选)</label>
+          <textarea
+            value={addExtraParams}
+            onChange={(e) => setAddExtraParams(e.target.value)}
+            placeholder={EXTRA_PARAMS_PLACEHOLDER}
+            spellCheck={false}
+            style={{
+              ...inputStyle,
+              minHeight: 110,
+              lineHeight: 1.55,
+              resize: 'vertical',
+              whiteSpace: 'pre',
+              overflowX: 'auto',
+            }}
+          />
+          <ExtraParamsHint text={addExtraParams} />
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -500,6 +531,8 @@ export function ApiManagementTab() {
         )}
       </div>
 
+      <ImageApiSection />
+
       {/* ────────── 编辑模态 ────────── */}
       <AnimatePresence>
         {editingId && (
@@ -601,7 +634,7 @@ function ProfileRow({ profile, confirmDelete, onAskDelete, onCancelDelete, onCon
 interface EditModalProps {
   profile: ApiProfile;
   onClose: () => void;
-  onSave: (patch: { label?: string; apiBaseUrl?: string; apiKey?: string }) => void;
+  onSave: (patch: { label?: string; apiBaseUrl?: string; apiKey?: string; extraParams?: string }) => void;
   onTestAndSaveModels: (url: string, key: string) => Promise<string[]>;
 }
 
@@ -610,6 +643,7 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
   const [url, setUrl] = useState(profile.apiBaseUrl);
   // apiKey 输入框默认是空 — 留空=保持原值(决策点 3:防误清空)
   const [keyInput, setKeyInput] = useState('');
+  const [extraParamsInput, setExtraParamsInput] = useState(profile.extraParams ?? '');
   const [revealOriginal, setRevealOriginal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'failed'>('idle');
@@ -653,6 +687,7 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
       apiBaseUrl: urlTrim,
       // keyInput 留空 → 不传 apiKey → updateApiProfile 保持原值
       ...(keyInput.length > 0 ? { apiKey: keyInput } : null),
+      extraParams: extraParamsInput,
     });
   };
 
@@ -723,6 +758,25 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
           </div>
         </div>
 
+        <div>
+          <label style={labelInForm}>额外参数(可选)</label>
+          <textarea
+            value={extraParamsInput}
+            onChange={(e) => setExtraParamsInput(e.target.value)}
+            placeholder={EXTRA_PARAMS_PLACEHOLDER}
+            spellCheck={false}
+            style={{
+              ...inputStyle,
+              minHeight: 110,
+              lineHeight: 1.55,
+              resize: 'vertical',
+              whiteSpace: 'pre',
+              overflowX: 'auto',
+            }}
+          />
+          <ExtraParamsHint text={extraParamsInput} />
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
           <button onClick={handleSave} disabled={saveStatus === 'saving'}
             style={{
@@ -752,5 +806,24 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ────────── 额外参数提示 ──────────
+
+/** 实时展示 extraParams 已识别/跳过条目数。无内容时不渲染。 */
+function ExtraParamsHint({ text }: { text: string }) {
+  if (!text.trim()) return null;
+  const { ok, skipped, firstError } = summarizeExtraParamsRules(text);
+  if (ok === 0 && skipped === 0) return null;
+  const color = skipped > 0 ? 'var(--blood)' : 'var(--gold)';
+  return (
+    <div style={{
+      marginTop: 4,
+      fontFamily: 'var(--font-ui)', fontSize: 'calc(9.5px * var(--system-ratio,1))',
+      color, letterSpacing: 1, opacity: 0.85,
+    }}>
+      已识别 {ok} 条规则{skipped > 0 ? ` · 跳过 ${skipped} 条(${firstError ?? '坏行'})` : ''}
+    </div>
   );
 }

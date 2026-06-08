@@ -3,6 +3,7 @@ import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
+import { PageBanner } from './PageBanner';
 import type { DiceRecord, SanityCheckPrompt } from '../../types';
 import React from 'react';
 
@@ -29,9 +30,15 @@ interface Props {
   diceResults?: DiceRecord[];
   /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目, 用来把 <san id="N"/> 替换成 React 组件。 */
   sanityCheckPrompts?: SanityCheckPrompt[];
+  /** 文生图(2026-06-08):本页插画 URL('blob://<pageId>' 或远程 URL),空=无图不渲染 PageBanner。 */
+  imageUrl?: string;
+  /** blob:// 占位需要 pageId 去 db.pageImages 取 Blob。 */
+  imagePageId?: string;
+  imageGenStatus?: 'pending' | 'done' | 'failed' | 'skipped';
+  onRegenerateImage?: () => void;
 }
 
-export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts }: Props) {
+export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts, imageUrl, imagePageId, imageGenStatus, onRegenerateImage }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -87,6 +94,16 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
           }}>{summary}</p>
         )}
       </div>
+      {(imageUrl || imageGenStatus === 'pending' || imageGenStatus === 'failed') && (
+        <PageBanner
+          src={imageUrl}
+          pageId={imagePageId}
+          alt={header}
+          isFlipping={isFlipping}
+          status={imageGenStatus}
+          onRegenerate={onRegenerateImage}
+        />
+      )}
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}

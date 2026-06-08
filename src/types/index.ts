@@ -113,6 +113,16 @@ export interface BookPage {
   /** A2 重设: 本页 LLM 输出的 SAN check 气泡条目(对应叙事正文里嵌的 <san id="N"/> 标签)。
    *  随页持久化, 删页/翻页时 SanityBubble 列表据此重建; 玩家点击解决态在 useSanityBubbleStore.resolved。 */
   sanityCheckPrompts?: SanityCheckPrompt[];
+  /** 文生图机制(2026-06-08):本页 LeftPage 顶部插画 URL。
+   *  存储模式 'indexeddb-blob' 时为 `blob://<pageId>` 占位字符串,真图在 db.pageImages 表;
+   *  存储模式 'remote-url' 时为 https://... 真 URL。老存档 undefined → PageBanner 不渲染。 */
+  imageUrl?: string;
+  /** 拼好的最终 SD prompt,玩家手动重生成时回填修改起点,亦用作幂等去重。 */
+  imagePrompt?: string;
+  /** 图像生成完成时刻 epoch ms,失败重试节流参考。 */
+  imageGenAt?: number;
+  /** 图像生成状态。pending=骨架,done=显示,failed=显示重生成入口,skipped=未生成不显示。 */
+  imageGenStatus?: 'pending' | 'done' | 'failed' | 'skipped';
 }
 
 /** 单页的生成记录：优先 API 真实 usage，拿不到时为按字数估算（estimated=true）。 */
@@ -216,6 +226,12 @@ export interface NpcUpdate {
   isScenarioPreset?: boolean;
   /** 剧本 hiddenBio 保护副本（KP 视角动机/秘密）：与 innerThoughts 同源但锁定不被 LLM 覆写。 */
   scenarioHiddenBio?: string;
+  /** NPC 当前所在地点名(与 useMapStore.locations 的 name / LocationElement.locationName 对齐)。
+   *  空串=未绑定地点(可跨场景出现)。重要 NPC 强烈建议提供以杜绝"同时出现在两地"。 */
+  locationName?: string;
+  /** 重要性等级:'核心'=主线关键 NPC 总注入身份/位置/介绍/记忆;'重要'=支线常驻 NPC 总注入;
+   *  '路人'=仅在场时注入身份+位置一行,介绍/记忆省略以节省 token。LLM 自动判定,首次登场需给出。 */
+  importance?: '核心' | '重要' | '路人';
 }
 
 export interface MapUpdates {
@@ -432,6 +448,13 @@ export interface NpcProfile {
   isScenarioPreset?: boolean;
   /** 剧本 hiddenBio 保护副本（KP 视角动机/秘密）：与 innerThoughts 同源但锁定不被 LLM 覆写。 */
   scenarioHiddenBio?: string;
+  /** 当前所在地点名(与 useMapStore.locations[].name / LocationElement.locationName 对齐)。
+   *  空串=未绑定地点。地图自检合并地点时,useNpcStore.renameLocation 会跟随改名。 */
+  locationName: string;
+  /** 重要性:'核心'/'重要' → buildContextInjection 总注入完整身份/位置/介绍/记忆;
+   *  '路人' → 仅在 isPresent && locationName 匹配当前地点时注入简略身份+位置行。
+   *  LLM 自动判定;剧本预设 NPC (isScenarioPreset=true) 默认 '重要'。 */
+  importance: '核心' | '重要' | '路人';
   createdAt: number;
   updatedAt: number;
 }

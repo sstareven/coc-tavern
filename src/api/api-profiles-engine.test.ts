@@ -15,7 +15,7 @@ function makeProfile(over: Partial<ApiProfile> = {}): ApiProfile {
   return {
     id: 'p1', label: 'DeepSeek', apiBaseUrl: 'https://api.deepseek.com',
     apiKey: 'sk-abcd1234', availableModels: ['deepseek-v4-pro'],
-    createdAt: 100, updatedAt: 100, ...over,
+    createdAt: 100, updatedAt: 100, extraParams: '', ...over,
   };
 }
 

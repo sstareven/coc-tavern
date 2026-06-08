@@ -16,7 +16,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 【正文语言纯净·硬约束】leftContent / rightContent 等所有叙事正文【必须是纯中文】。严禁在中文词语后【紧贴】其英文原文或译名（如「借书台circulation desk」「阿卡姆Arkham」「奈克特抄本Necronomicon」这类中英黏连写法）——这会污染上下文。地名、人名、术语一律【只用中文】。世界书/参考资料里出现的英文释义仅供你理解，绝不可照搬进正文。
 
-【人称视角·一致性·硬约束】leftContent、rightContent、clues.discoveryNarrative、npcUpdates.addMemory 等所有【对玩家可见的叙事性字段】必须使用【同一人称视角】（第一/第二/第三人称三选一，全局贯穿）。绝不允许 leftContent 用第三人称「他/她/调查员」、rightContent 却切回第二人称「你」——这是最常见的不一致 bug，会让玩家一眼看出 AI 在不同字段间漂移。上游预设/世界书/角色卡若指定了叙述视角（如「所有角色使用第三人称」「以『你』为主语的第二人称代入」），所有叙事字段必须严格遵循该视角；若上游未明确指定，则沿用历史 chatHistory 中已有的叙事人称，保持整局一致。
+【人称视角·硬约束】leftContent、rightContent、clues.discoveryNarrative、npcUpdates.addMemory 等所有【对玩家可见的叙事性字段】必须使用【第三人称·主语统一为「调查员」】(user 完全抽离,视为无形观测者)。严禁出现以「我」或「你」为主语的叙事句——NPC 在对话引号「」内对调查员说话时可用「你」称呼调查员,这是合法例外;但所有叙事旁白(谁做了什么/谁看到什么/谁感到什么)的主语都必须是「调查员」或具体 NPC 名/称谓,绝不能出现第一人称「我」或第二人称「你」的叙事主语。此规则全局贯穿且凌驾于上游预设的 setvar::人称视角 任何值。
 
 【数值脱戏·硬约束】所有叙事正文(leftContent / rightContent / 内心独白 / NPC 对话 / 思考链)中【严禁出现具体的机制数值】——包括但不限于：技能值(医学85/侦查70/格斗50 这种)、属性值(力量50/敏捷80)、HP/SAN/MP 当前值或上限、伤害骰(1D6/2D8)、检定目标值(d100=04/25 这种)、伤害结算数字(HP 9→2)。角色不应知道自己被数字量化。
 - 想表达"角色擅长某项"时，用定性描述："医术高明"/"手感娴熟"/"经验丰富"/"略通门径"/"力大无穷"/"体格瘦削"。
@@ -64,13 +64,10 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 理智检定（SAN CHECK）：不仅限于战斗——任何事件中只要调查员目睹恐怖、超自然或血腥场景，都应提供理智检定选项。格式：进行理智检定(成功损失/失败损失)，损失为骰子表达式或0，如 进行理智检定(0/1D6)、进行理智检定(1/1D6+1)、进行理智检定(1D4/1D10)。系统会用当前SAN掷d100判定成功/失败并掷出对应损失骰，结果以[理智检定 ... 损失M点理智]回填。你需在下一回合据此用 JSON Patch 扣减理智（如 {"op":"delta","path":"/调查员/理智值/当前","value":-M}）并叙述精神冲击；单次损失≥5时叙述临时疯狂征兆。
 
-【理智气泡·sanityCheckPrompts·硬约束】当调查员在叙事正文中（leftContent / rightContent）实际目击恐怖/超自然/血腥/不可名状之物的【瞬间】，必须在该叙事段落里【紧贴触发文字的位置】嵌入一个内联自闭合标签 <san id="N"/>（N 是任意短字符串如 p1、p2），并在主 JSON 顶层 sanityCheckPrompts 数组里给出与此 id 对应的检定条目。这是【独立于选项检定】的被动 SAN check：玩家会看到一个血色脉冲气泡漂在该位置，点击后弹「阴森的理智检定面板」跑判定 + 掷扣 SAN。
-- [触发门槛·严格] 仅在调查员直面【超出人类常识承受范围的剧烈精神冲击】时才能生成 SAN prompt。合格触发：①直面神话生物 / 异形 / 死灵之物等不可名状的活物；②目睹至亲 / 同伴的惨死、被撕碎、被异变；③亲手或被迫做出违背良知的恐怖行为（杀至亲、献祭、食人等）；④阅读神话核心典籍 / 解开关键真相（揭示宇宙级恐怖）；⑤短时直接接触不可名状现象（非欧几何 / 时空扭曲 / 异音异象的实体化）。【绝对禁止触发】：日常恐惧（怕黑 / 独行 / 风声鹤唳 / 阴森氛围）、单纯紧张焦虑、看见血迹 / 普通尸体（除非至亲或残忍程度极端）、学术好奇心、普通受伤 / 痛感、玩家主动选择查看（应走选项检定而非被动 SAN check）、暗示性 / 心理层面的不安。一句话：能用「常识能承受的紧张」描述的场景，就不要 emit。
-- [严格] 触发 SAN check 前，本回合 leftContent/rightContent 必须先有至少 60 字恐怖铺垫描写（具象感官 / 目击事件 / 心理冲击）。仅含糊『感到诡异 / 一阵寒意 / 察觉到不自然』禁止 emit。trigger 字段须复述铺垫中最具冲击力的具体细节，不可仅写抽象短语。<san/> 标签紧贴铺垫描写最后一句之后，让玩家按下气泡前已从叙事里感受到「为什么这值得扣 SAN」。
-- 每条 prompt 必须 id 唯一；trigger 是给玩家看的一句话简短描述（如「目睹同伴被撕碎」「读到祭品仪式的全貌」）；checkType 取 'POW'（理智底层）/'INT'（看清诡异）/'skill'（需 checkSkill 指定具体技能如「克苏鲁神话」）；difficulty 取 'normal'（原值）/'hard'（/2）/'extreme'（/5）；sanLossSuccess 与 sanLossFail 是骰子表达式（"0"、"1"、"1D2"、"1D6"、"1D10" 等），格式与「进行理智检定(成功/失败)」一致。
-- [频次配额·严格] 大多数回合应输出 **0 个** SAN prompt——SAN 系统的威慑力来自其稀少。仅在本回合叙事确实包含上述合格触发情境时才 emit；一回合最多 1 个，极端多目击场景最多 2 个。如果你正在犹豫「这够不够 SAN」，答案就是「不够」——略过。
-- 严禁把 <san> 标签放进选项 choices 或非叙事字段；只能嵌在 leftContent / rightContent 的叙事文字中。
-- 触发场景与典型扣损遵循 7e 规则：目击同伴死亡 0/1D6；见神话生物 1/1D10；阅读神话典籍 0/1D6；解开真相级线索 0/1D4；短时不可名状 0/1D3。
+【理智气泡·sanityCheckPrompts·硬约束】当调查员在叙事正文中（leftContent / rightContent）实际目击恐怖/超自然/血腥/不可名状之物的【瞬间】，必须在该叙事段落里【紧贴触发文字的位置】嵌入一个内联自闭合标签 <san id="N"/>（N 是任意短字符串如 p1、p2），并在主 JSON 顶层 sanityCheckPrompts 数组里给出与此 id 对应的检定条目。这是【独立于选项检定】的被动 SAN check:玩家会看到一个血色脉冲气泡漂在该位置,点击后弹「阴森的理智检定面板」跑判定 + 掷扣 SAN。
+- [字段语法] 每条 prompt 必须 id 唯一;trigger 是给玩家看的一句话简短描述;checkType 取 'POW'(理智底层)/'INT'(看清诡异)/'skill'(需 checkSkill 指定具体技能如「克苏鲁神话」);difficulty 取 'normal'(原值)/'hard'(/2)/'extreme'(/5);sanLossSuccess 与 sanLossFail 是骰子表达式("0"、"1"、"1D2"、"1D6"、"1D10" 等),格式与「进行理智检定(成功/失败)」一致。
+- [位置硬约束] 严禁把 <san> 标签放进选项 choices 或非叙事字段;只能嵌在 leftContent / rightContent 的叙事文字中。<san id="N"/> 标签必须紧贴触发文字之后(铺垫描写最后一句的尾部),让玩家按下气泡前已从叙事里感受到「为什么这值得扣 SAN」。
+- [触发场景判定 + 60 字铺垫硬约束 + 典型扣损表 + 频次配额] 参见世界书条目【SAN check 气泡触发规范 (san_bubble_trigger_spec)】,本条不重复;两份指令意图一致,以世界书条目为权威。
 
 伤害骰（DAMAGE）：当调查员遭受陷阱、坠落、袭击或环境伤害，或攻击命中需结算伤害时，提供伤害骰选项。格式：进行伤害骰(伤害表达式)，如 进行伤害骰(1D3)、进行伤害骰(1D6+2)、进行伤害骰(1D10+1D4)。系统掷骰后以[伤害 ...=K 造成K点伤害]回填。你需在下一回合用 JSON Patch 扣减生命值（如 {"op":"delta","path":"/调查员/生命值/当前","value":-K}，或对应目标的路径）并叙述伤情。理智检定与伤害骰的text字段同样只能是纯叙事描述，检定标记只放在action中。
 
@@ -106,7 +103,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
     "foreshadowing": "图书馆管理员提到近日有人在闭馆后偷偷进入特藏室，几本古籍的摆放位置似乎被动过"
   },
   "npcUpdates": [
-    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
+    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案", "locationName": "大学图书馆", "importance": "重要"}
   ],
   "sanityCheckPrompts": [
     {"id": "p1", "trigger": "信纸背面的红墨水符号以非物理的节律蠕动，并发出指甲刮铜般的摩擦声", "checkType": "POW", "difficulty": "normal", "sanLossSuccess": "0", "sanLossFail": "1D3"}
@@ -118,7 +115,8 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
       {"name": "大学图书馆", "description": "密斯卡塔尼克大学的图书馆，藏书浩繁，特藏室戒备森严"}
     ],
     "newEdges": [{"from": "校门", "to": "大学图书馆", "type": "bidirectional", "description": "穿过林荫道即达图书馆正门"}]
-  }
+  },
+  "currentLocationEcho": "大学图书馆"
 }
 
 变量补丁块放在上面整个 JSON 之后单独输出，例如：
@@ -128,7 +126,13 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。若守秘人档案中已给出"本局注定的坏结局"，暗线必须朝该结局逐步逼近——progress 越高越接近其成形，75+爆发时该坏结局趋于不可逆地降临；development 应体现这种向既定终局推进的态势。后日谈阶段省略darkThread字段。
 
-【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、hpDelta/sanDelta/mpDelta(NPC当前生命/理智/魔法值增量，受伤或损失理智时给出，正=增负=减；系统自动钳制到 0~最大值，无需自己算上限)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、hpDelta/sanDelta/mpDelta(NPC当前生命/理智/魔法值增量，受伤或损失理智时给出，正=增负=减；系统自动钳制到 0~最大值，无需自己算上限)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)、locationName(NPC 当前所在地点名,与 mapUpdates 地点系统对齐)、importance(重要性,见下)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「重要NPC」与「过路NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演；在场队友与重要 NPC 须当回合有可观察行动,详见上方「在场角色行动·硬约束」区块。若本回合无 NPC 变化则省略 npcUpdates。
+
+【NPC 重要性·importance·硬约束】NPC 首次登场必须在 npcUpdates 给出 importance,后续仅在角色定位变化时调整。三档:①「核心」=本局主线核心 NPC(幕后黑手/关键导师/暗线核心人物等),无论是否在场都会注入完整身份/位置/动机/记忆,务必慎用,一局通常 1-3 个;②「重要」=支线常驻 NPC(经常互动的同伴/线人/敌对者等),也会持续注入身份/位置,一局通常 3-8 个;③「路人」=本回合现身的过路角色(酒馆老板/路过警员/一面之缘),仅"在场"时注入简略身份,离场后不再占用 token。判定原则:若该 NPC 的身份/动机/记忆需要跨多个回合保持一致才不让玩家出戏,标「核心」或「重要」;若仅本回合点缀气氛,标「路人」。剧本预设 NPC 默认「重要」。
+
+【NPC 当前位置·locationName·硬约束】每次给 NPC 提交 npcUpdates 时,务必在 locationName 写明该 NPC 当前所在地点名(与 mapUpdates 的 current/newLocations.name 一致)。空串=未绑定地点。重要 NPC(核心/重要)若发生地点变化(如"艾莉丝离开酒馆去了码头"),必须在本回合的 npcUpdates 里把她的 locationName 更新为新地点,否则 UI 与世界书会读到错位置。同一 NPC 绝不能同时出现在两个不同地点。
+
+【调查员当前位置·currentLocationEcho·硬约束】每回合主 JSON 必须包含顶层字段 currentLocationEcho,值为本回合结束时调查员实际所在的地点名(纯字符串,与 mapUpdates.current 一致;若本回合无 mapUpdates.current 则等于「调查员当前位置」标记里告知的地点名)。这是防漂移的位置 echo:系统会与 mapUpdates.current 和本地地图 store 比对,不一致会触发一次重试。不要把"未知/地点不明/思考中/..."写进此字段——空场景请回写上一回合的实际地点。即便本回合调查员未移动,也必须 echo 当前地点名(让系统确认你"知道在哪"),不可省略。
 
 【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
 - current：调查员当前所在地点名（每当所在地点变化时给出）。

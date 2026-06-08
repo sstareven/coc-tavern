@@ -16,6 +16,7 @@ import { coerceJsonObject } from './llm-response-parser';
 import { strictJsonParse } from './strict-json-parser';
 import { wrapSubagentMessages, type SubagentMessage } from './subagent-shared';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { applyExtraParamsRules } from '../api/api-extra-params-engine';
 import type { TokenUsage } from './stream-parser';
 
 export interface DsSubagentRequest {
@@ -38,6 +39,8 @@ export interface DsSubagentRequest {
    * 显式传 false 可单调用 opt-out(罕见,仅当某子调用确实需要非 JSON 输出时)。
    */
   jsonObject?: boolean;
+  /** v1.14.x:ApiProfile 级 extraParams 规则文本,apply 到 body(解决模型字段冲突)。 */
+  extraParams?: string;
 }
 
 export interface DsSubagentResponse {
@@ -130,6 +133,16 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
     (req.jsonObject ?? settingsForceJsonObject) &&
     !unsupportedJsonObjectModels.has(model);
 
+  // v1.14.x:extraParams 优先取 req 显式,否则按 rpmLane 自动从对应 effective profile 取。
+  // 这样 17 个 generator 不用每处手动透传 — 都自动享受到对应通道 profile 的 extraParams。
+  const effectiveExtraParams = req.extraParams ?? (
+    rpmLane === 'mvu'
+      ? useSettingsStore.getState().getEffectiveMvuApi().extraParams
+      : rpmLane === 'rewrite'
+        ? useSettingsStore.getState().getEffectiveRewriteApi().extraParams
+        : useSettingsStore.getState().getEffectiveMainApi().extraParams
+  );
+
   const baseBody: Record<string, unknown> = {
     model,
     messages: wrapSubagentMessages(messages, label),
@@ -144,15 +157,20 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
 
   await rpmAcquire(rpmLane);
 
-  const doFetch = (withJsonObject: boolean): Promise<Response> =>
-    fetch(url, {
+  const doFetch = (withJsonObject: boolean): Promise<Response> => {
+    // 先按 wantJsonObject 合并 response_format,再过 extraParams(允许 `- response_format` 局部禁用,
+    // 也让自动 fallback 重发路径(withJsonObject=false)同样过 apply)。
+    const merged = withJsonObject
+      ? { ...baseBody, response_format: { type: 'json_object' } }
+      : baseBody;
+    const finalBody = applyExtraParamsRules(merged, effectiveExtraParams);
+    return fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(
-        withJsonObject ? { ...baseBody, response_format: { type: 'json_object' } } : baseBody,
-      ),
+      body: JSON.stringify(finalBody),
       signal,
     });
+  };
 
   // A5 — AbortError 自动透传:fetch 抛 AbortError 时调用栈直接冒泡,无需额外包 try/catch
   //      (历史的 rethrowIfAborted 两个分支都 throw err,等价于不包,2026-06-06 清理)。

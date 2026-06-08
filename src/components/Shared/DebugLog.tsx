@@ -5,7 +5,7 @@ import type { LogLevel, LogCategory } from '../../stores/useLogStore';
 
 const levelColors: Record<LogLevel, string> = { info: 'var(--ink-subtle)', warn: '#c4a855', error: '#c45543', debug: '#7b9fc1' };
 const levelLabels: Record<LogLevel, string> = { info: 'INFO', warn: 'WARN', error: 'ERR', debug: 'DBG' };
-const categoryLabels: Record<LogCategory, string> = { api: 'API', preset: '预设', worldbook: '世界书', regex: '正则', variable: '变量', system: '系统', general: '通用' };
+const categoryLabels: Record<LogCategory, string> = { api: 'API', preset: '预设', worldbook: '世界书', regex: '正则', variable: '变量', system: '系统', general: '通用', 'image-gen': '文生图' };
 
 export function DebugLog() {
   const visible = useLogStore((s) => s.visible);

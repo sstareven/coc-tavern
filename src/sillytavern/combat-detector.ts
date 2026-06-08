@@ -2,6 +2,7 @@ import { callDsSubagent } from './subagent-call';
 import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
 import { parseNpcDerived } from './npc-derived';
+import type { TokenUsage } from './stream-parser';
 import type {
   CharacterSheet, InventoryItem, Combatant, CombatWeapon, CombatBystander, Encounter, CombatFaction, NpcProfile,
 } from '../types';
@@ -236,12 +237,12 @@ export async function detectAndBuildEncounter(
   temperature = 0.6,
   maxTokens = 20000,
   retries = 2,
-): Promise<Encounter | null> {
+): Promise<(Encounter & { usage?: TokenUsage }) | null> {
   for (let attempt = 0; attempt < retries; attempt++) {
     if (signal?.aborted) return null;
     if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
     if (signal?.aborted) return null;
-    const { parsed } = await callDsSubagent({
+    const { parsed, usage } = await callDsSubagent({
       apiBaseUrl, apiKey, model, signal, temperature, maxTokens, rpmLane: 'mvu',
       label: '战斗检测',
       messages: [
@@ -270,6 +271,7 @@ export async function detectAndBuildEncounter(
       log: [{ kind: 'narrative', text: '战斗爆发！' }],
       diceRecords: [],
       status: 'active',
+      usage,
     };
   }
   return null;

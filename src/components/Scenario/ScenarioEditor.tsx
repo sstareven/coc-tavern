@@ -18,6 +18,7 @@ import { FactionsTab } from './tabs/FactionsTab';
 import { ItemsTab } from './tabs/ItemsTab';
 import { DarkThreadsTab } from './tabs/DarkThreadsTab';
 import { SecretsTab } from './tabs/SecretsTab';
+import { ImageGenTab } from './tabs/ImageGenTab';
 import { DarkTimelineTab } from './tabs/DarkTimelineTab';
 import { BadEndingsTab } from './tabs/BadEndingsTab';
 
@@ -30,7 +31,7 @@ interface Props {
 
 type TabKey =
   | 'meta' | 'locations' | 'people' | 'occupations' | 'skills' | 'factions'
-  | 'items' | 'dark' | 'secrets' | 'darkTimeline' | 'badEndings';
+  | 'items' | 'dark' | 'secrets' | 'imageGen' | 'darkTimeline' | 'badEndings';
 
 interface TabDef { key: TabKey; label: string; hidden?: boolean }
 
@@ -44,6 +45,7 @@ const TABS: TabDef[] = [
   { key: 'items', label: '物品线索' },
   { key: 'dark', label: '暗线' },
   { key: 'secrets', label: '秘密与解锁' },
+  { key: 'imageGen', label: '生图' },
   { key: 'darkTimeline', label: '暗线时间线', hidden: true },
   { key: 'badEndings', label: '坏结局矩阵', hidden: true },
 ];
@@ -206,6 +208,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       case 'items': return <ItemsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'dark': return <DarkThreadsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'secrets': return <SecretsTab scn={working} onChange={onChange} onToast={passToast} />;
+      case 'imageGen': return <ImageGenTab scn={working} onChange={onChange} />;
       case 'darkTimeline': return <DarkTimelineTab scn={working} onChange={onChange} />;
       case 'badEndings': return <BadEndingsTab scn={working} onChange={onChange} />;
     }

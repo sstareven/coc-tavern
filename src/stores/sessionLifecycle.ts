@@ -10,6 +10,7 @@ import { useAnchorStore } from './useAnchorStore';
 import { useCombatStore, isOrphanedEncounter } from './useCombatStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
+import { useTurnProgressStore } from './useTurnProgressStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
@@ -66,6 +67,7 @@ export function clearAllGameState(prevScenarioId?: string) {
   useLocationElementStore.getState().clearAll();
   useDiceStore.getState().clearAll();
   useChoiceLockStore.getState().unlock();
+  useTurnProgressStore.getState().endTurn();
   useDarkThreadStore.getState().clearAll();
   useKeyClueStore.getState().clearAll();
   useAnchorStore.getState().clearAll();
@@ -378,10 +380,17 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
     );
 
   // 书本页面（按 index 排序还原顺序，剥离关系键）
-  const pages = pageRows
+  const pagesRaw = pageRows
     .slice()
     .sort((a, b) => a.index - b.index)
     .map(({ conversationId: _cid, index: _index, ...page }) => page);
+  // 读档清洗:imageGenStatus='pending' 在内存里是 in-flight 状态,但持久化进 db 后
+  // 进程已退出,没有 Promise 在等返回。读档时把 pending → failed 让玩家看到重生成按钮。
+  // 不能改成 undefined — PageBanner 对 undefined+无 imageUrl 直接 return null,
+  // 玩家就看不到『可重生成』入口。
+  const pages = pagesRaw.map((p) =>
+    p.imageGenStatus === 'pending' ? { ...p, imageGenStatus: 'failed' as const } : p,
+  );
   useBookStore.getState().setPages(pages);
 
   // 检定历史：从各页 diceResults 重建（newest-first），并补上页码（与实时游戏 pageIndex+1 编号一致），
@@ -518,7 +527,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -539,6 +548,8 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.macroVars.where('conversationId').equals(cid).delete();
       // 项目命名空间 console 日志 (consoleLogs 表用 sessionId 列名 = conversationId 语义,见 db schema)
       await db.consoleLogs.where('sessionId').equals(cid).delete();
+      // 文生图本页插画 blob(2026-06-08) — pageImages 表
+      await db.pageImages.where('conversationId').equals(cid).delete();
     },
   );
   clearDiagnosticsFor(cid); // 释放该会话的前缀诊断快照(违反 session-isolation invariant 的修复)

@@ -1,6 +1,7 @@
 import { parseStreamChunk, type TokenUsage } from './stream-parser';
-import { rpmAcquire, type RpmKind } from './rpm-limiter';
+import { rpmAcquire, RpmQueueExhaustedError, type RpmKind } from './rpm-limiter';
 import type { ChatPreset } from '../types';
+import { applyExtraParamsRules } from '../api/api-extra-params-engine';
 
 /**
  * 应用署名 header：让中转站/服务端在日志与面板里能识别请求来源（署名 coc-tavern）。
@@ -66,95 +67,170 @@ export async function sendChatCompletion(
   onToken?: (token: string) => void,
   signal?: AbortSignal,
   rpmKind: RpmKind = 'main',
+  /** v1.14.x:ApiProfile 级 extraParams 规则文本(- 禁用 / + 添加),最后 apply 到 body 解决 DS 等模型字段冲突。 */
+  extraParams: string = '',
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-  // RPM 限流：达到上限则排队等待（按 kind 分桶）
-  await rpmAcquire(rpmKind);
+  // 构造 body 字面量 → 应用 extraParams 规则 → JSON.stringify
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: preset.temperature,
+    top_p: preset.topP,
+    frequency_penalty: preset.frequencyPenalty,
+    presence_penalty: preset.presencePenalty,
+    // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
+    ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
+    max_tokens: preset.maxTokens,
+    stream,
+    ...(stream ? { stream_options: { include_usage: true } } : {}),
+  };
+  const finalBody = applyExtraParamsRules(body, extraParams);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: preset.temperature,
-        top_p: preset.topP,
-        frequency_penalty: preset.frequencyPenalty,
-        presence_penalty: preset.presencePenalty,
-        // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
-        ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
-        max_tokens: preset.maxTokens,
-        stream,
-        ...(stream ? { stream_options: { include_usage: true } } : {}),
-      }),
-      signal,
-    });
-  } catch (err) {
-    throw new Error(describeFetchError(err, baseUrl), { cause: err });
-  }
+  // 中转站可能把上游 429 改装成 HTTP 200 + 短限流文本,或直接返 HTTP 429/502/503。
+  // 都视为"等等再试"的暂态错误,在此层透明 backoff 重试,直到拿到真 LLM 输出或 abort。
+  // 用户偏好:不兜底假装成功,等也没关系——所以无 retry 上限,wait 封顶 300s。
+  const backoffSchedule = [15, 30, 60, 120, 240];
+  let busyRetries = 0;
 
-  if (!response.ok) {
-    let detail = '';
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (signal?.aborted) throw new Error('请求已中止');
+
+    // RPM 限流：达到上限则排队等待（按 kind 分桶）。每次 retry 都过桶,保证不超 RPM。
+    // RpmQueueExhaustedError(本地排队轮次用尽)视为 transient,跟 HTTP 429 同等待遇 backoff,
+    // 跟 commit 0571ade 「等也要拿到真 LLM 输出」承诺对齐。
     try {
-      const errorBody = await response.json();
-      detail = errorBody?.error?.message ?? JSON.stringify(errorBody);
-    } catch {
-      try {
-        detail = await response.text();
-      } catch {
-        // ignore
+      await rpmAcquire(rpmKind);
+    } catch (err) {
+      if (err instanceof RpmQueueExhaustedError) {
+        const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+        console.warn(`[api-router] 本地 RPM 桶满 (${err.message}),${wait}s 后重试 (#${busyRetries + 1})`);
+        busyRetries++;
+        await sleepWithAbort(wait * 1000, signal);
+        continue;
       }
+      throw err;
     }
-    throw new Error(
-      `API错误 ${response.status}${detail ? `: ${detail}` : ''}`
-    );
-  }
 
-  if (stream && response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullContent = '';
-    let buffer = '';
-    let streamDone = false;
-    let streamUsage: TokenUsage | undefined;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          ...appIdHeaders(),
+        },
+        body: JSON.stringify(finalBody),
+        signal,
+      });
+    } catch (err) {
+      throw new Error(describeFetchError(err, baseUrl), { cause: err });
+    }
 
-    while (!streamDone) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    if (!response.ok) {
+      const transient = response.status === 429 || response.status === 502 || response.status === 503;
+      let detail = '';
+      try {
+        const errorBody = await response.json();
+        detail = errorBody?.error?.message ?? JSON.stringify(errorBody);
+      } catch {
+        try { detail = await response.text(); } catch { /* ignore */ }
+      }
+      if (transient) {
+        const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+        console.warn(`[api-router] HTTP ${response.status},${wait}s 后重试 (#${busyRetries + 1}): ${detail.slice(0, 120)}`);
+        busyRetries++;
+        await sleepWithAbort(wait * 1000, signal);
+        continue;
+      }
+      throw new Error(`API错误 ${response.status}${detail ? `: ${detail}` : ''}`);
+    }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+    let result: ChatCompletionResponse;
+    if (stream && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let buffer = '';
+      let streamDone = false;
+      let streamUsage: TokenUsage | undefined;
 
-      for (const line of lines) {
-        if (streamDone) break;
-        const tokens = parseStreamChunk(line);
-        for (const token of tokens) {
-          if (token.content) {
-            fullContent += token.content;
-            if (onToken) onToken(token.content);
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (streamDone) break;
+          const tokens = parseStreamChunk(line);
+          for (const token of tokens) {
+            if (token.content) {
+              fullContent += token.content;
+              if (onToken) onToken(token.content);
+            }
+            if (token.usage) streamUsage = token.usage;
+            if (token.done) { streamDone = true; break; }
           }
-          if (token.usage) streamUsage = token.usage;
-          if (token.done) { streamDone = true; break; }
         }
       }
+
+      console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
+      result = { content: fullContent, usage: streamUsage };
+    } else {
+      const json = await response.json();
+      const content: string = json.choices?.[0]?.message?.content ?? '';
+      console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
+      result = { content, model: json.model, usage: json.usage };
     }
 
-    console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
-    return { content: fullContent, usage: streamUsage };
-  }
+    // 嗅探中转站假装包(HTTP 200 + 短限流文本):透明退避重试,不兜底也不抛错
+    if (isRelayBusyPayload(result.content)) {
+      const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+      console.warn(`[api-router] 中转站假装包 "${result.content.trim().slice(0, 80)}",${wait}s 后重试 (#${busyRetries + 1})`);
+      busyRetries++;
+      await sleepWithAbort(wait * 1000, signal);
+      continue;
+    }
 
-  const json = await response.json();
-  const content: string = json.choices?.[0]?.message?.content ?? '';
-  console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
-  return { content, model: json.model, usage: json.usage };
+    return result;
+  }
+}
+
+/**
+ * 嗅探中转站把上游 429/限流伪装成 HTTP 200 + 短文本 body 的情形。
+ * 严格规则避免误伤合法 LLM 输出:
+ * - 空串视为 busy
+ * - 长度 >= 200 字符或含 `{` 直接放行(真叙事/JSON 候选)
+ * - 否则匹配限流/服务故障关键词才视为 busy
+ */
+function isRelayBusyPayload(content: string): boolean {
+  const text = content.trim();
+  if (text.length === 0) return true;
+  if (text.length >= 200) return false;
+  if (text.includes('{')) return false;
+  return /(429|503|502|繁忙|too\s*many|rate.?limit|busy|gateway|网关|服务不可用|service\s+unavailable)/i.test(text);
+}
+
+/** 支持 abort 的 sleep:abort 时立即抛错并清理 timer/listener,无泄漏 */
+function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(new Error('请求已中止'));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error('请求已中止'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**

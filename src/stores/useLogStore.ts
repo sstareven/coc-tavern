@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
-export type LogCategory = 'api' | 'preset' | 'worldbook' | 'regex' | 'variable' | 'system' | 'general';
+export type LogCategory = 'api' | 'preset' | 'worldbook' | 'regex' | 'variable' | 'system' | 'general' | 'image-gen';
 
 export interface LogEntry {
   id: number;
