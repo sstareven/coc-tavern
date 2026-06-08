@@ -89,11 +89,6 @@ function resolveStyleTokens(style: ScenarioImageStyle, override: string | undefi
   return table[style] ?? '';
 }
 
-/** 占位符填充:{{key}} → value(缺失替空字符串,避免 prompt 里出现孤立 {{xxx}})。 */
-function fillPlaceholders(template: string, ctx: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, k) => ctx[k] ?? '');
-}
-
 /** Prompt 模板渲染上下文 — 含占位符变量 + 条件变量。
  *  字段名同时是 {{key}} 占位符的 key 与 EJS 块里的标识符,玩家可两种语法混用:
  *    <%= isNovelAi ? "anime style" : "realistic" %>, {{location}}, {{time}}
