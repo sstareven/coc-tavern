@@ -34,12 +34,18 @@ function writeU32(buf: Uint8Array, offset: number, v: number) {
 
 /** 拼一个含单 entry 的最小 ZIP(只有 LFH + 数据,无 central directory)。
  *  本项目的 extractFirstPngFromZip 只扫 LFH,不需要 central dir。 */
-function buildZipEntry(filename: string, data: Uint8Array, method: 0 | 8, uncompressedSize: number): Uint8Array {
+function buildZipEntry(
+  filename: string,
+  data: Uint8Array,
+  method: 0 | 8,
+  uncompressedSize: number,
+  flags = 0,
+): Uint8Array {
   const nameBytes = new TextEncoder().encode(filename);
   const out = new Uint8Array(30 + nameBytes.length + data.length);
   writeU32(out, 0, 0x04034b50);    // LFH signature
   writeU16(out, 4, 20);            // version needed
-  writeU16(out, 6, 0);             // flags
+  writeU16(out, 6, flags);         // general purpose flags
   writeU16(out, 8, method);        // method
   writeU16(out, 10, 0);            // mtime
   writeU16(out, 12, 0);            // mdate
@@ -399,6 +405,67 @@ describe('extractFirstPngFromZip', () => {
   });
   it('字节流过短抛错', async () => {
     await expect(extractFirstPngFromZip(new Uint8Array(10))).rejects.toThrow(/ZIP 字节流过短/);
+  });
+});
+
+describe('inflateRaw fallback 与诊断错误', () => {
+  // Adler-32(RFC 1950 zlib wrapper 尾部需要正确 adler32 校验和)
+  function adler32(data: Uint8Array): number {
+    let a = 1, b = 0;
+    for (let i = 0; i < data.length; i++) {
+      a = (a + data[i]) % 65521;
+      b = (b + a) % 65521;
+    }
+    return ((b << 16) | a) >>> 0;
+  }
+  // 拼 zlib wrapper:0x78 0x9C header + raw deflate + 4 字节 big-endian adler32
+  async function zlibWrap(raw: Uint8Array): Promise<Uint8Array> {
+    const compressed = await deflateRaw(raw);
+    const out = new Uint8Array(2 + compressed.length + 4);
+    out[0] = 0x78; out[1] = 0x9c;
+    out.set(compressed, 2);
+    const sum = adler32(raw);
+    const tail = 2 + compressed.length;
+    out[tail] = (sum >>> 24) & 0xff;
+    out[tail + 1] = (sum >>> 16) & 0xff;
+    out[tail + 2] = (sum >>> 8) & 0xff;
+    out[tail + 3] = sum & 0xff;
+    return out;
+  }
+
+  it('method=8 + zlib-wrapped 数据 → fallback 到 deflate 成功', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const wrapped = await zlibWrap(PNG_SIGNATURE);
+    const zip = buildZipEntry('image_0.png', wrapped, 8, PNG_SIGNATURE.length);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('method=8 + 损坏字节 → 抛错信息含 method/size/head 诊断字段', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const garbage = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    const zip = buildZipEntry('image_0.png', garbage, 8, 8);
+    const err = await extractFirstPngFromZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toMatch(/method=8/);
+    expect(err.message).toMatch(/compSize=/);
+    expect(err.message).toMatch(/size=/);
+    expect(err.message).toMatch(/head=/);
+  });
+
+  it('method=8 + 未压缩字节(误标 method)→ 双错信息透传', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    // 用 PNG 原文当 method=8 的"压缩"数据 — 既不是 raw deflate 也不是 zlib
+    const zip = buildZipEntry('image_0.png', PNG_SIGNATURE, 8, PNG_SIGNATURE.length);
+    const err = await extractFirstPngFromZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toMatch(/deflate-raw:/);
+    expect(err.message).toMatch(/deflate-fallback:/);
+  });
+
+  it('flag bit0(加密位)置位 → 抛专属错', async () => {
+    const zip = buildZipEntry('image_0.png', PNG_SIGNATURE, 0, PNG_SIGNATURE.length, 0x0001);
+    await expect(extractFirstPngFromZip(zip)).rejects.toThrow(/ZIP entry 被加密/);
   });
 });
 

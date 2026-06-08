@@ -232,9 +232,9 @@ export function novelAiRecoveryHint(status: number): string | undefined {
 
 const ZIP_LFH_MAGIC = 0x04034b50; // 'PK\x03\x04' little-endian uint32
 
-/** 从 NovelAI ZIP 响应中抽取首个 PNG entry 的字节流。
- *  支持 method=0(store)/method=8(deflate-raw);其他方法抛错。
- *  无 PNG entry 抛 'ZIP 内未找到 PNG entry'。 */
+/** 从 ZIP 响应中抽取首个 PNG entry 的字节流。
+ *  支持 method=0(store)/method=8(deflate);其他方法或加密 entry 抛错。
+ *  抛错信息含 method/compSize/头部 hex 等诊断字段,帮玩家上报。 */
 export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Array> {
   if (!zip || zip.length < 30) throw new Error('ZIP 字节流过短');
   const dv = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
@@ -250,9 +250,22 @@ export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Arra
     const name = new TextDecoder().decode(nameBytes);
     const dataStart = p + 30 + nameLen + extraLen;
     if (/\.png$/i.test(name)) {
+      // 加密位(flag bit0):本项目不支持加密 ZIP,直接给专属错
+      if (flags & 0x0001) {
+        throw new Error(`ZIP entry 被加密 flag=0x${flags.toString(16)} — 上游可能误用了密码保护`);
+      }
       const data = zip.subarray(dataStart, dataStart + compSize);
       if (method === 0) return data;
-      if (method === 8) return await inflateRaw(data);
+      if (method === 8) {
+        try {
+          return await inflateRaw(data);
+        } catch (e) {
+          // 把 method/compSize 上下文 + inflateRaw 内部诊断合并往上抛,
+          // 避免玩家只看到 "Failed to fetch" 无从下手
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(`ZIP entry 解压失败 method=8 compSize=${compSize}: ${msg}`);
+        }
+      }
       throw new Error(`不支持的 ZIP 压缩方法 method=${method}`);
     }
     // Data Descriptor(flag bit3 置位)时头部 compSize=0,需扫描下个 PK 签名
@@ -267,16 +280,52 @@ export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Arra
   throw new Error('ZIP 内未找到 PNG entry');
 }
 
-/** 浏览器原生 DecompressionStream('deflate-raw') 解 deflate 压缩字节流。 */
-export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  const ds = new DecompressionStream('deflate-raw');
-  // 用一份独立的 ArrayBuffer 包装,避免 Blob 引用底层共享缓冲区(Node.js Buffer 视图等场景)
+/** 把 Uint8Array 前 N 字节渲染成空格分隔的小写 hex,用于错误诊断输出。 */
+function hexHead(data: Uint8Array, n = 32): string {
+  const len = Math.min(n, data.length);
+  let s = '';
+  for (let i = 0; i < len; i++) {
+    if (i > 0) s += ' ';
+    s += data[i].toString(16).padStart(2, '0');
+  }
+  return s;
+}
+
+/** 单次按指定 format 尝试 inflate;构造错与 consume 错合并抛出。 */
+async function tryInflate(data: Uint8Array, format: 'deflate-raw' | 'deflate'): Promise<Uint8Array> {
+  // 每次都新建 Blob — Blob 流被首次 consume 后不可复用
   const copy = new Uint8Array(data.byteLength);
   copy.set(data);
+  const ds = new DecompressionStream(format);
   const blob = new Blob([copy]);
   const stream = blob.stream().pipeThrough(ds);
   const ab = await new Response(stream).arrayBuffer();
   return new Uint8Array(ab);
+}
+
+/** 解压 ZIP method=8 数据:先试 deflate-raw(RFC 1951,ZIP 规范标准),
+ *  失败再试 deflate(RFC 1950 zlib wrapper)兜底中转/代理可能包了 zlib header 的情况。
+ *  两次都失败时抛诊断错(含 size + 前 32 字节 hex + 两次错信息),便于上报。 */
+export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  let rawErr: unknown;
+  try {
+    return await tryInflate(data, 'deflate-raw');
+  } catch (e) {
+    rawErr = e;
+  }
+  // fallback:zlib wrapper 形态
+  let wrapErr: unknown;
+  try {
+    return await tryInflate(data, 'deflate');
+  } catch (e) {
+    wrapErr = e;
+  }
+  const rawMsg = rawErr instanceof Error ? rawErr.message : String(rawErr);
+  const wrapMsg = wrapErr instanceof Error ? wrapErr.message : String(wrapErr);
+  throw new Error(
+    `inflate 失败 size=${data.length} head=[${hexHead(data)}] `
+    + `(deflate-raw: ${rawMsg}; deflate-fallback: ${wrapMsg})`,
+  );
 }
 
 /** Uint8Array → base64 字符串。分块避免 1-2MB PNG 触发 RangeError(arg limit)。 */
