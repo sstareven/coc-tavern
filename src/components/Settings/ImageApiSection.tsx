@@ -14,7 +14,7 @@ import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
 import { ApiModelPicker } from './ApiModelPicker';
 import {
   CategoryBar, rowStyle, labelStyle, Toggle, HelpIcon, SliderRow, SubLabel,
-  numInputStyle, selectStyle,
+  numInputStyle, BrassSelect, type BrassSelectOption,
 } from './_shared';
 import { SAMPLER_OPTIONS, IMAGE_STYLE_LABELS } from '../../api/image-style-data';
 import type { ScenarioImageStyle } from '../../types/scenario';
@@ -87,14 +87,15 @@ export function ImageApiSection() {
               存储方式
               <HelpIcon text={'本地 blob=图存在 IndexedDB pageImages 表,30 页约 6MB,断网仍可看;远程 URL=BookPage.imageUrl 直接存 https:// URL,体积 0 但中转站 URL 可能 7 天过期失效。\n\n默认 本地 blob。'} />
             </span>
-            <select
+            <BrassSelect
               value={storageMode}
-              onChange={(e) => setStorageMode(e.target.value as 'indexeddb-blob' | 'remote-url')}
-              style={selectStyle}
-            >
-              <option value="indexeddb-blob">本地 blob</option>
-              <option value="remote-url">远程 URL</option>
-            </select>
+              onChange={(v) => setStorageMode(v as 'indexeddb-blob' | 'remote-url')}
+              options={[
+                { value: 'indexeddb-blob', label: '本地 blob', brief: '存 IndexedDB,断网仍可看' },
+                { value: 'remote-url', label: '远程 URL', brief: '存中转返回的 URL,体积 0 但可能过期' },
+              ]}
+              width={200}
+            />
           </div>
 
           {storageMode === 'indexeddb-blob' && (
@@ -186,15 +187,12 @@ export function ImageApiSection() {
               采样器
               <HelpIcon text={'SD 主流采样算法。DPM++ 2M Karras 质量稳定,Euler a 速度快,DDIM 适合写实。\n\n各模式适配:\n· DALL-E / 官方 OpenAI 端点 → 忽略此字段\n· novelai → 自动映射到 NovelAI 的 k_* 系列(Euler a → k_euler_ancestral 等)'} />
             </span>
-            <select
+            <BrassSelect
               value={imageDefaults.sampler}
-              onChange={(e) => setImageDefaults({ sampler: e.target.value })}
-              style={selectStyle}
-            >
-              {SAMPLER_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setImageDefaults({ sampler: v })}
+              options={SAMPLER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              width={200}
+            />
           </div>
 
           {/* ──── 风格与负面 prompt ──── */}
@@ -205,15 +203,12 @@ export function ImageApiSection() {
               默认风格
               <HelpIcon text={'全局默认风格预设。剧本编辑器可单独覆盖本剧本的风格。\n\n10 种风格各对应一段英文 SD prompt 片段(SD 模型对英文响应远好于中文)。custom=用 stylePromptOverride 自填。'} />
             </span>
-            <select
+            <BrassSelect
               value={imageDefaults.style}
-              onChange={(e) => setImageDefaults({ style: e.target.value as ScenarioImageStyle })}
-              style={selectStyle}
-            >
-              {STYLE_KEYS.map((k) => (
-                <option key={k} value={k}>{IMAGE_STYLE_LABELS[k]}</option>
-              ))}
-            </select>
+              onChange={(v) => setImageDefaults({ style: v as ScenarioImageStyle })}
+              options={STYLE_KEYS.map((k) => ({ value: k, label: IMAGE_STYLE_LABELS[k] }))}
+              width={200}
+            />
           </div>
 
           <div style={{ ...rowStyle, alignItems: 'flex-start' }}>
@@ -251,6 +246,17 @@ export function ImageApiSection() {
 function PayloadModeRow() {
   const mode = useApiProfilesStore((s) => s.selectedImagePayloadMode);
   const setMode = useApiProfilesStore((s) => s.setSelectedImagePayloadMode);
+
+  const options: BrassSelectOption[] = [
+    { value: 'auto',             label: 'auto · 自动探测',                  brief: PAYLOAD_MODE_BRIEF['auto'] },
+    { value: 'openai-strict',    label: 'openai-strict · OpenAI / DALL-E 3', brief: PAYLOAD_MODE_BRIEF['openai-strict'] },
+    { value: 'gpt-image-1',      label: 'gpt-image-1',                       brief: PAYLOAD_MODE_BRIEF['gpt-image-1'] },
+    { value: 'chat-completions', label: 'chat-completions · 假流式 / nano-banana', brief: PAYLOAD_MODE_BRIEF['chat-completions'] },
+    { value: 'sd-compat',        label: 'sd-compat · 自建 SD / 透传中转',    brief: PAYLOAD_MODE_BRIEF['sd-compat'] },
+    { value: 'novelai',          label: 'novelai · NovelAI 官方插画',        brief: PAYLOAD_MODE_BRIEF['novelai'] },
+    { value: 'pollinations',     label: 'pollinations',                      brief: PAYLOAD_MODE_BRIEF['pollinations'] },
+  ];
+
   return (
     <div style={{ ...rowStyle, flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -290,19 +296,13 @@ function PayloadModeRow() {
             '遇 HTTP 400 invalid_request:多半是字段不被接受或 size 越界,先尝试切到 openai-strict;若响应里有 message.content 含 markdown 图链接则切 chat-completions。',
           ].join('\n')} />
         </span>
-        <select
+        <BrassSelect
           value={mode}
-          onChange={(e) => setMode(e.target.value as ImagePayloadMode)}
-          style={selectStyle}
-        >
-          <option value="auto">auto · 自动探测</option>
-          <option value="openai-strict">openai-strict · OpenAI / DALL-E 3</option>
-          <option value="gpt-image-1">gpt-image-1</option>
-          <option value="chat-completions">chat-completions · 假流式 / nano-banana</option>
-          <option value="sd-compat">sd-compat · 自建 SD / 透传中转</option>
-          <option value="novelai">novelai · NovelAI 官方插画</option>
-          <option value="pollinations">pollinations</option>
-        </select>
+          onChange={(v) => setMode(v as ImagePayloadMode)}
+          options={options}
+          width={260}
+          popoverMaxHeight={420}
+        />
       </div>
       <div style={{
         fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)',

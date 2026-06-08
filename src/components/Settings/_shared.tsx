@@ -1,6 +1,6 @@
 // 设置面板内共享样式与组件 — 抽出原 SettingsPanel 内 80 行重复实现，让 CheatingContent
 // 等新增 tab 直接复用，避免每加一个 tab 就抄一遍 HelpIcon/Toggle/CategoryBar。
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getAutoZoom } from '../../hooks/useResponsiveZoom';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -227,3 +227,161 @@ export function SliderRow({
     </div>
   );
 }
+
+// ─── BrassSelect:铜版风自定义下拉(替代原生 <select>) ──────────────────────
+// 原生 <select> 展开后的下拉列表走系统主题(白底黑字),无法 CSS 控制。
+// BrassSelect 用 absolute popover 复现 SearchableModelSelect 的视觉,
+// 让协议模式/存储方式/采样器/风格等下拉与整体铜版风一致。
+//
+// 接口刻意贴近原生 <select>:value/onChange/options[{value,label,brief?}]。
+// brief 字段会在 popover 每行选项标题下方以小灰字显示一行说明,适合协议模式这种需要释义的场景。
+
+export interface BrassSelectOption {
+  value: string;
+  label: string;
+  /** 每项下方的小灰字说明(协议模式释义之类)。可选。 */
+  brief?: string;
+}
+
+interface BrassSelectProps {
+  value: string;
+  onChange: (v: string) => void;
+  options: BrassSelectOption[];
+  /** trigger 宽度(px),popover 最少宽 220。默认 'auto'(随内容)。 */
+  width?: number | 'auto';
+  /** popover 最大高度,默认 320。 */
+  popoverMaxHeight?: number;
+  /** 占位文案(value 不在 options 时显示)。 */
+  placeholder?: string;
+}
+
+export function BrassSelect({
+  value, onChange, options,
+  width = 'auto', popoverMaxHeight = 320, placeholder = '请选择',
+}: BrassSelectProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const current = options.find((o) => o.value === value);
+  const triggerLabel = current ? current.label : placeholder;
+
+  return (
+    <div
+      ref={rootRef}
+      style={{
+        position: 'relative',
+        width: width === 'auto' ? undefined : width,
+        minWidth: 160,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: '100%',
+          padding: '5px 10px',
+          border: `1px solid ${open ? 'var(--gold)' : 'var(--brass)'}`,
+          borderRadius: 3,
+          background: 'rgba(0,0,0,0.3)',
+          color: current ? 'var(--text-light)' : 'var(--ink-faded)',
+          fontFamily: 'var(--font-ui)',
+          fontSize: 'calc(11px * var(--system-ratio, 1))',
+          letterSpacing: 1,
+          cursor: 'pointer',
+          textAlign: 'left',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          transition: 'all 200ms cubic-bezier(0.4,0,0.2,1)',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = open ? 'var(--gold)' : 'var(--brass)'; }}
+      >
+        <span style={{
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+        }}>{triggerLabel}</span>
+        <span style={{ color: 'var(--gold)', fontSize: 9, opacity: 0.7 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            right: 0,
+            minWidth: 'max(220px, 100%)',
+            zIndex: 50,
+            background: 'linear-gradient(180deg, #1a130a 0%, #0e0a06 100%)',
+            border: '1px solid var(--gold)',
+            borderRadius: 4,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(196,168,85,0.1)',
+            padding: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: popoverMaxHeight,
+            overflowY: 'auto',
+          }}
+        >
+          {options.map((opt) => {
+            const selected = opt.value === value;
+            return (
+              <div
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  background: selected ? 'rgba(196,168,85,0.18)' : 'transparent',
+                  borderLeft: selected ? '2px solid var(--gold)' : '2px solid transparent',
+                  color: selected ? 'var(--gold)' : 'var(--text-light)',
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: 'calc(11px * var(--system-ratio, 1))',
+                  letterSpacing: 1,
+                  transition: 'background 150ms cubic-bezier(0.4,0,0.2,1), color 150ms',
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected) e.currentTarget.style.background = 'rgba(196,168,85,0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected) e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <div>{opt.label}</div>
+                {opt.brief && (
+                  <div style={{
+                    fontSize: 'calc(9px * var(--system-ratio, 1))',
+                    color: selected ? 'rgba(196,168,85,0.75)' : 'var(--ink-faded)',
+                    fontFamily: 'var(--font-ui)',
+                    lineHeight: 1.5,
+                    marginTop: 2,
+                    letterSpacing: 0.5,
+                  }}>
+                    {opt.brief}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
