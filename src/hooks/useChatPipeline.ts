@@ -711,18 +711,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const resolvedFormat = macroResults[base + 1 + processedLore.length + 1].text;
       const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
 
-      // 稳定 sunk 追加到 resolvedFormat 末尾 → 进入静态前缀缓存。trim 后非空才追加,
-      // 避免 setvar 渲染后空字符串拼接成大段空行污染观感。按 itemId 字典序排序后再 join,
-      // 保证「集合相等⇒字节相等」(防止 promptItem 顺序抖动让 stableSunkAppendix 漂移)。
+      // 稳定 sunk 收集后按 itemId 字典序排序拼接,保证「集合相等⇒字节相等」(防 promptItem
+      // 顺序抖动让 stableSunkAppendix 漂移)。trim 后非空才入选,避免 setvar 渲染后空字符串。
       const stableSunkAppendix = stableSunkPairs
         .slice()
         .sort((a, b) => (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0))
         .map((p) => p.content.trim())
         .filter((s) => s.length > 0)
         .join('\n\n');
-      const finalFormat = stableSunkAppendix
-        ? `${resolvedFormat}\n\n${stableSunkAppendix}`
-        : resolvedFormat;
+      // 关键: finalFormat 不再拼接 stableSunkAppendix → segFormat 段跨页恒定,
+      // 不再因 sunk 迁移挤压 wbAfter / 后续 system markers 的字节位 → cache 命中区不被截断。
+      const finalFormat = resolvedFormat;
+      // 上轮诊断: stableSunkAppendix 嵌入 finalFormat 末尾,第2回合 hash 命中即整组前置,
+      // 把 wbAfter / 后续 markers / postHistory 全部右移,cache 从 byte 27014 处断流,命中率 99%→38.8%。
+      // 本轮: 把 sunk 内容改为一条 order=max(非 postHistory)+1 的【合成 system promptItem】注入
+      // processedPreset.promptItems 末段 (worldInfoAfter 等 markers 之后,postHistoryInstructions 之前)。
+      // 这样 sunk 段是"追加到静态前缀末端",cache 命中区在 sunk 之前的所有 bytes,
+      // miss 仅 sunk 本体 + postHistory + 用户输入,预期 page 2 命中率提升到 70%+。
+      // [SYSTEM-SUNK] 标签包裹避免 LLM 把 sunk 当成 lorebook 条目延续。
+      if (stableSunkAppendix) {
+        const otherOrders = processedPreset.promptItems
+          .filter((it) => it.id !== 'postHistoryInstructions')
+          .map((it) => it.order ?? 100);
+        const maxOrderBeforePost = otherOrders.length > 0 ? Math.max(...otherOrders) : 100;
+        const syntheticSunkOrder = maxOrderBeforePost + 1;
+        processedPreset.promptItems.push({
+          id: '__synthetic_static_sunk__',
+          name: 'Static Sunk Appendix',
+          role: 'system',
+          trigger: [],
+          position: 'relative',
+          depth: 0,
+          order: syntheticSunkOrder,
+          content: `[SYSTEM-SUNK]\n${stableSunkAppendix}`,
+          enabled: true,
+          kind: 'prompt',
+        });
+      }
 
       if (dsCfg.debugLog === true && (stableSunkPairs.length > 0 || unstableSunkContents.length > 0)) {
         const stableNonEmpty = stableSunkPairs.filter((p) => p.content && p.content.trim()).length;
@@ -767,8 +792,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const wbAfter = afterEntries.map((e) => e.content).join('\n');
 
       // 实验性：跨回合静态前缀漂移诊断（借鉴 claude-code-best PROMPT_CACHE_BREAK_DETECTION）。
-      // 把"理论上应每回合相等"的静态字段(systemPrompt + wbBefore + processedFormat + wbAfter)
-      // 拼成字符串，跨回合对比 → 找出第一处字节差异点 + 启发式定位是哪段污染。
+      // 把"理论上应每回合相等"的静态字段拼成字符串，跨回合对比 → 找出第一处字节差异点 + 启发式定位是哪段污染。
+      // 段顺序: systemPrompt → wbBefore → processedFormat → wbAfter → stableSunk (合成 system promptItem)。
       // 仅 dsRestructureOn && experimentalPrefixDiagnostics 同时开启时生效，写到 console + pushLog。
       if (dsRestructureOn && dsCfg.experimentalPrefixDiagnostics === true) {
         const SEP = '\n--§--\n';
@@ -776,13 +801,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const segWbBefore = wbBefore;
         const segFormat = finalFormat;
         const segWbAfter = wbAfter;
+        const segSunk = stableSunkAppendix;
         // segment offsets — 跳过零长度段:它们与下个段差距仅 SEP.length,会让 inferSegment 把缝隙处误判为空段
         const offsets: Record<string, number> = { systemPrompt: 0 };
         let acc = segSystem.length + SEP.length;
         if (segWbBefore.length) { offsets.wbBefore = acc; acc += segWbBefore.length + SEP.length; }
         if (segFormat.length)   { offsets.processedFormat = acc; acc += segFormat.length + SEP.length; }
-        if (segWbAfter.length)  { offsets.wbAfter = acc; }
-        const staticPrefix = [segSystem, segWbBefore, segFormat, segWbAfter].join(SEP);
+        if (segWbAfter.length)  { offsets.wbAfter = acc; acc += segWbAfter.length + SEP.length; }
+        if (segSunk.length)     { offsets.stableSunk = acc; }
+        const staticPrefix = [segSystem, segWbBefore, segFormat, segWbAfter, segSunk].join(SEP);
         const sessionId = useChatStore.getState().activeId ?? '__no_session__';
         const result = diagnosePrefixDrift(staticPrefix, sessionId, offsets);
         const line = formatDiagnosticLine(result);
@@ -790,6 +817,21 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (!result.prefixStable) {
           // 命中漂移：在主日志面板写一条 warn，提醒用户排查
           pushLog('warn', line, 'system');
+        }
+        // 额外诊断: 输出各段长度 + sunk/wbAfter 的 hash,便于跨页对比定位漂移源。
+        // segFormat 应跨页恒定(除首页 PROLOGUE_GOAL_INSTRUCTION 例外);
+        // segSunk 单调非递减(滞回防抖后);segWbAfter 漂移说明 lorebook 匹配不稳。
+        if (dsCfg.debugLog === true) {
+          const djb2 = (text: string): string => {
+            let h = 5381;
+            for (let i = 0; i < text.length; i++) h = ((h << 5) + h) ^ text.charCodeAt(i);
+            return (h >>> 0).toString(36);
+          };
+          console.log(
+            `[cache-diag] 段长度: system=${segSystem.length} wbBefore=${segWbBefore.length} ` +
+            `format=${segFormat.length} wbAfter=${segWbAfter.length} sunk=${segSunk.length} ` +
+            `· hash: wbAfter=${djb2(segWbAfter)} sunk=${djb2(segSunk)}`,
+          );
         }
       }
 
@@ -822,7 +864,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // sunkPromptContents（从 system 区剥离的含动态宏 promptItem 渲染后内容）放在
         // dynamicFormatParts 最前面——保持与原 system 区相对靠前的注意力位置;
         // 后接项目的 dynamicFormatParts（调查员能力概览/物品/NPC 等）。
-        // 优化(C): 仅"不稳定"的 sunk 项进 dynamicTail; 稳定项已前置到 finalFormat 静态前缀。
+        // 优化(C): 仅"不稳定"的 sunk 项进 dynamicTail; 稳定项改注入为合成 system promptItem
+        // (order=max+1, 在 worldInfoAfter 之后/postHistoryInstructions 之前) 进入静态前缀末段。
         const dynamicTail = buildDynamicTail({
           dynamicLoreContents: sortedDynamic.map((e) => e.content),
           dynamicFormatParts: [
