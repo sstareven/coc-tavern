@@ -111,6 +111,9 @@ interface SettingsState {
   cheatingEnabled: boolean;
   /** 「领受赐福」tab 是否已被 Konami 序列解锁；默认 false 隐藏 tab，输完彩蛋后 true 永久持久化。 */
   cheatingUnlocked: boolean;
+  /** 流式刻印渲染:主推进走 SSE 真流式,首 chunk 触发翻页,leftContent 按汉字 40ms 逐字「高光→黑字」刻印。
+   *  与 TavernHelper.render.allowStreamRender(raw 回显,调试用)解耦。默认关。 */
+  streamingPrintEnabled: boolean;
 }
 
 /**
@@ -230,6 +233,7 @@ interface SettingsStore extends SettingsState {
   unlockCheating: () => void;
   /** 调试用:还原到未解锁状态(同时关 cheatingEnabled,避免「藏 tab 但作弊仍生效」)。 */
   lockCheating: () => void;
+  setStreamingPrintEnabled: (v: boolean) => void;
 
   /**
    * v1.14.0 起的统一调用入口:主叙事 API 当前 effective 凭证。
@@ -298,6 +302,7 @@ const defaults: SettingsState = {
   dsUltraActive: false,
   cheatingEnabled: false,
   cheatingUnlocked: false,
+  streamingPrintEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -406,6 +411,7 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
       unlockCheating: () => set({ cheatingUnlocked: true }),
       lockCheating: () => set({ cheatingUnlocked: false, cheatingEnabled: false }),
+      setStreamingPrintEnabled: (v) => set({ streamingPrintEnabled: v }),
 
       // ───────────── v1.14.0:effective API selector(跨 store 读 useApiProfilesStore) ─────────────
       // 同步读取,非订阅式 — 给 useChatPipeline / subagent-call 等纯逻辑调用站点用。
