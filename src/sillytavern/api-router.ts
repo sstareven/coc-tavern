@@ -72,9 +72,6 @@ export async function sendChatCompletion(
 ): Promise<ChatCompletionResponse> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-  // RPM 限流：达到上限则排队等待（按 kind 分桶）
-  await rpmAcquire(rpmKind);
-
   // 构造 body 字面量 → 应用 extraParams 规则 → JSON.stringify
   const body: Record<string, unknown> = {
     model,
@@ -91,101 +88,136 @@ export async function sendChatCompletion(
   };
   const finalBody = applyExtraParamsRules(body, extraParams);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        ...appIdHeaders(),
-      },
-      body: JSON.stringify(finalBody),
-      signal,
-    });
-  } catch (err) {
-    throw new Error(describeFetchError(err, baseUrl), { cause: err });
-  }
+  // 中转站可能把上游 429 改装成 HTTP 200 + 短限流文本,或直接返 HTTP 429/502/503。
+  // 都视为"等等再试"的暂态错误,在此层透明 backoff 重试,直到拿到真 LLM 输出或 abort。
+  // 用户偏好:不兜底假装成功,等也没关系——所以无 retry 上限,wait 封顶 300s。
+  const backoffSchedule = [15, 30, 60, 120, 240];
+  let busyRetries = 0;
 
-  if (!response.ok) {
-    let detail = '';
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (signal?.aborted) throw new Error('请求已中止');
+
+    // RPM 限流：达到上限则排队等待（按 kind 分桶）。每次 retry 都过桶,保证不超 RPM
+    await rpmAcquire(rpmKind);
+
+    let response: Response;
     try {
-      const errorBody = await response.json();
-      detail = errorBody?.error?.message ?? JSON.stringify(errorBody);
-    } catch {
-      try {
-        detail = await response.text();
-      } catch {
-        // ignore
-      }
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          ...appIdHeaders(),
+        },
+        body: JSON.stringify(finalBody),
+        signal,
+      });
+    } catch (err) {
+      throw new Error(describeFetchError(err, baseUrl), { cause: err });
     }
-    throw new Error(
-      `API错误 ${response.status}${detail ? `: ${detail}` : ''}`
-    );
-  }
 
-  if (stream && response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullContent = '';
-    let buffer = '';
-    let streamDone = false;
-    let streamUsage: TokenUsage | undefined;
+    if (!response.ok) {
+      const transient = response.status === 429 || response.status === 502 || response.status === 503;
+      let detail = '';
+      try {
+        const errorBody = await response.json();
+        detail = errorBody?.error?.message ?? JSON.stringify(errorBody);
+      } catch {
+        try { detail = await response.text(); } catch { /* ignore */ }
+      }
+      if (transient) {
+        const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+        console.warn(`[api-router] HTTP ${response.status},${wait}s 后重试 (#${busyRetries + 1}): ${detail.slice(0, 120)}`);
+        busyRetries++;
+        await sleepWithAbort(wait * 1000, signal);
+        continue;
+      }
+      throw new Error(`API错误 ${response.status}${detail ? `: ${detail}` : ''}`);
+    }
 
-    while (!streamDone) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    let result: ChatCompletionResponse;
+    if (stream && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let buffer = '';
+      let streamDone = false;
+      let streamUsage: TokenUsage | undefined;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      for (const line of lines) {
-        if (streamDone) break;
-        const tokens = parseStreamChunk(line);
-        for (const token of tokens) {
-          if (token.content) {
-            fullContent += token.content;
-            if (onToken) onToken(token.content);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (streamDone) break;
+          const tokens = parseStreamChunk(line);
+          for (const token of tokens) {
+            if (token.content) {
+              fullContent += token.content;
+              if (onToken) onToken(token.content);
+            }
+            if (token.usage) streamUsage = token.usage;
+            if (token.done) { streamDone = true; break; }
           }
-          if (token.usage) streamUsage = token.usage;
-          if (token.done) { streamDone = true; break; }
         }
       }
+
+      console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
+      result = { content: fullContent, usage: streamUsage };
+    } else {
+      const json = await response.json();
+      const content: string = json.choices?.[0]?.message?.content ?? '';
+      console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
+      result = { content, model: json.model, usage: json.usage };
     }
 
-    console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
-    detectRelayBusyPayload(fullContent);
-    return { content: fullContent, usage: streamUsage };
-  }
+    // 嗅探中转站假装包(HTTP 200 + 短限流文本):透明退避重试,不兜底也不抛错
+    if (isRelayBusyPayload(result.content)) {
+      const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+      console.warn(`[api-router] 中转站假装包 "${result.content.trim().slice(0, 80)}",${wait}s 后重试 (#${busyRetries + 1})`);
+      busyRetries++;
+      await sleepWithAbort(wait * 1000, signal);
+      continue;
+    }
 
-  const json = await response.json();
-  const content: string = json.choices?.[0]?.message?.content ?? '';
-  console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
-  detectRelayBusyPayload(content);
-  return { content, model: json.model, usage: json.usage };
+    return result;
+  }
 }
 
 /**
- * 嗅探中转站把上游 429/限流伪装成 HTTP 200 + 短文本 body 的情形,直接抛错。
- * 否则 parseLlmResponse 拿到非 JSON 内容会触发 sendWithJsonRetry 跑满 jsonRetryCount
- * 次(每次几十秒到几分钟),用户感知为"等了 9 分钟没结果"。
- *
- * 严格匹配规则(避免误伤合法 LLM 输出):
- * - 长度 < 200 字符(真叙事都比这长)
- * - 不含 `{`(排除任何 JSON 候选)
- * - 匹配限流/服务故障关键词
+ * 嗅探中转站把上游 429/限流伪装成 HTTP 200 + 短文本 body 的情形。
+ * 严格规则避免误伤合法 LLM 输出:
+ * - 空串视为 busy
+ * - 长度 >= 200 字符或含 `{` 直接放行(真叙事/JSON 候选)
+ * - 否则匹配限流/服务故障关键词才视为 busy
  */
-function detectRelayBusyPayload(content: string): void {
+function isRelayBusyPayload(content: string): boolean {
   const text = content.trim();
-  if (text.length === 0) {
-    throw new Error('上游返回空内容(可能是中转站拒答或网关问题)');
-  }
-  if (text.length >= 200) return;
-  if (text.includes('{')) return;
-  if (/(429|503|502|繁忙|too\s*many|rate.?limit|busy|gateway|网关|服务不可用|service\s+unavailable)/i.test(text)) {
-    throw new Error(`上游限流/服务故障: ${text.slice(0, 120)}`);
-  }
+  if (text.length === 0) return true;
+  if (text.length >= 200) return false;
+  if (text.includes('{')) return false;
+  return /(429|503|502|繁忙|too\s*many|rate.?limit|busy|gateway|网关|服务不可用|service\s+unavailable)/i.test(text);
+}
+
+/** 支持 abort 的 sleep:abort 时立即抛错并清理 timer/listener,无泄漏 */
+function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(new Error('请求已中止'));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error('请求已中止'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
