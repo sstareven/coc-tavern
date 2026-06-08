@@ -1032,10 +1032,27 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       let alreadyFlipped = false;
       let activeField: 'leftHeader' | 'leftContent' | null = null;
       let headerAccum = '';
+      let placeholderPageIndex = -1; // 流式模式下占位页的 index;-1 表示未启用
 
       if (wantStreamingPrint) {
         printer.reset();
         useStreamingPrintStore.getState().startStreamingPrint();
+        // 立即 append 占位页 + autoFlipForward — 让翻页动画在 SSE 还没开始来字时就启动。
+        // 翻页结束(1.5s)时 streamingSegments 已积累若干字,玩家进入新页就看到正文在刻。
+        // 之后 JSON 解析成功时改 replacePage(placeholderPageIndex, newPage) 而不是再 append。
+        const blankPage = {
+          leftHeader: '',
+          leftContent: '',
+          leftPage: '',
+          rightPage: '',
+          rightHeader: '',
+          rightContent: '',
+          rightChoices: [],
+        };
+        useBookStore.getState().appendPage(blankPage);
+        placeholderPageIndex = useBookStore.getState().pages.length - 1;
+        useBookStore.getState().autoFlipForward();
+        alreadyFlipped = true;
       }
 
       const effectiveOnToken = !useStream
@@ -1044,12 +1061,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             if (streamRenderEnabled) onToken(chunk); // 旧的 raw 回显(调试用)保留
             if (!wantStreamingPrint || !walker || !mask) return;
 
-            if (!alreadyFlipped) {
-              alreadyFlipped = true;
-              // 首 chunk 触发翻页 — appendPage 还没跑(在下面),用 microtask 推迟到当前同步代码结束
-              queueMicrotask(() => useBookStore.getState().autoFlipForward());
-            }
-
+            // 翻页已在流式分支开头触发,此处只管 walker → mask → printer
             const walkerEvents = walker.feed(chunk);
             const allMaskEvents: MaskEvent[] = [];
             for (const ev of walkerEvents) {
@@ -1565,13 +1577,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
         const bookStore = useBookStore.getState();
         // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。
-        const rewriteSourceIdx = bookStore.pageIndex;
+        // 流式模式下:占位页已被 append 并翻过去,真"上一页"是 placeholderPageIndex - 1。
+        const rewriteSourceIdx = wantStreamingPrint && placeholderPageIndex >= 0
+          ? placeholderPageIndex - 1
+          : bookStore.pageIndex;
         if (replace) {
           bookStore.replacePage(bookStore.pageIndex, newPage);
           pushLog('info', `页面已重新生成 — ${newPage.leftHeader}`);
           pushLog(
             'debug',
             `[页面内容/替换] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}`,
+            'system',
+          );
+        } else if (wantStreamingPrint && placeholderPageIndex >= 0) {
+          // 流式模式:占位页已在流开始时 append + autoFlipForward,这里 replace 写入真实内容
+          bookStore.replacePage(placeholderPageIndex, newPage);
+          pushLog('info', `占位页已替换为正文 — ${newPage.leftHeader}`);
+          pushLog(
+            'debug',
+            `[页面内容/流式] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}\n选项: ${newPage.rightChoices.map((c: { text: string }) => c.text).join(' | ')}`,
             'system',
           );
         } else {
