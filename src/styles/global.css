@@ -27,6 +27,19 @@ html, body {
 }
 .skill-pulse { animation: skill-pulse 0.7s cubic-bezier(0.4, 0, 0.2, 1) 2; }
 
+/* 流式刻印 — 字进入 DOM 时高光金色,缓慢落定为正文黑字。
+ * 用在 LeftPage isStreamingPrint 分支中每个新出现的字符 span 上。
+ * 时长 0.45s,缓动用项目标准 cubic-bezier(0.4, 0, 0.2, 1)。 */
+@keyframes streaming-ink {
+  0%   { color: rgba(196, 168, 85, 1); text-shadow: 0 0 8px rgba(196, 168, 85, 0.6); }
+  60%  { color: rgba(196, 168, 85, 0.6); text-shadow: 0 0 4px rgba(196, 168, 85, 0.3); }
+  100% { color: var(--ink); text-shadow: none; }
+}
+.streaming-ink-char {
+  animation: streaming-ink 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  display: inline;
+}
+
 /* 铜版风滚动条 — 全局默认替换浏览器默认丑陋滚动条
  * Firefox 用 scrollbar-color/scrollbar-width;WebKit 用 ::-webkit-scrollbar 伪元素。
  * 历史曾仅作用于 .scenario-editor 子树,后扩成全局(手机端 MobileNoteView 等 inline-style
