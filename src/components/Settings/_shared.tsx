@@ -23,6 +23,38 @@ export const numInputStyle: CSSProperties = {
   fontSize: 'calc(11px * var(--system-ratio, 1))', textAlign: 'center', outline: 'none',
 };
 
+/** 统一的下拉选择框样式(与 numInputStyle 同色调,铜版风边框)。 */
+export const selectStyle: CSSProperties = {
+  padding: '5px 10px', border: '1px solid var(--brass)', borderRadius: 3,
+  background: 'rgba(0,0,0,0.3)', color: 'var(--text-light)', fontFamily: 'var(--font-ui)',
+  fontSize: 'calc(11px * var(--system-ratio, 1))', letterSpacing: 1, outline: 'none',
+  cursor: 'pointer', minWidth: 140,
+};
+
+/** 子分组小标题(比 CategoryBar 轻,无横线,左侧短铜条作分隔)。 */
+export function SubLabel({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      margin: '14px 0 6px',
+    }}>
+      <span style={{
+        width: 3, height: 12, background: 'var(--brass)', borderRadius: 1, flexShrink: 0,
+      }} />
+      <span style={{
+        fontSize: 'calc(9px * var(--system-ratio, 1))', fontWeight: 600,
+        letterSpacing: 2, color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)',
+      }}>{label}</span>
+      {hint && (
+        <span style={{
+          fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)',
+          fontFamily: 'var(--font-ui)', letterSpacing: 0.5,
+        }}>· {hint}</span>
+      )}
+    </div>
+  );
+}
+
 /** 问号 icon 样式（圆形铜边）。 */
 export const helpIconStyle: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

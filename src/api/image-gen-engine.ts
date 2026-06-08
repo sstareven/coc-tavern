@@ -16,11 +16,20 @@
 //      匹配 ^(dall-e|gpt-image) → openai 系;model 匹配 gpt-image → gpt-image-1;其他 → sd-compat。
 
 import { applyExtraParamsRules } from './api-extra-params-engine';
+import {
+  buildNovelAiBody,
+  extractFirstPngFromZip,
+  uint8ToBase64,
+  novelAiRecoveryHint,
+  NOVELAI_ENDPOINT_PATH,
+} from './image-gen-novelai';
 
 const DEFAULT_TIMEOUT_MS = 90_000;
+/** NovelAI v4/v4.5 模型实测 30-90s + 队列,放宽超时。 */
+const NOVELAI_TIMEOUT_MS = 180_000;
 
 /** 协议模式 — 控制 callImageApi 构造 body 的字段集与 size 映射。 */
-export type ImagePayloadMode = 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions';
+export type ImagePayloadMode = 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions' | 'novelai';
 
 export interface CallImageApiRequest {
   apiBaseUrl: string;
@@ -149,6 +158,13 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
       // 部分中转读 temperature/max_tokens,留默认值不破坏
       temperature: 0.7,
     };
+  }
+
+  if (mode === 'novelai') {
+    // NovelAI 官方 /ai/generate-image:body 嵌套 {input, model, action, parameters},响应是 ZIP
+    return buildNovelAiBody({
+      model, prompt, negativePrompt, width, height, steps, cfgScale, sampler,
+    });
   }
 
   if (mode === 'openai-strict' || mode === 'gpt-image-1') {
@@ -394,7 +410,6 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
   const {
     apiBaseUrl, apiKey, signal,
     extraParams = '',
-    timeoutMs = DEFAULT_TIMEOUT_MS,
     payloadMode = 'auto',
     responseFormat = 'b64_json',
   } = req;
@@ -406,9 +421,17 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
     ? detectPayloadMode(apiBaseUrl, req.model)
     : payloadMode;
 
-  // 不同 mode 走不同端点 suffix
-  const endpointSuffix = resolvedMode === 'chat-completions' ? 'chat/completions' : 'images/generations';
-  const endpoint = buildEndpoint(apiBaseUrl, endpointSuffix);
+  // NovelAI 默认 timeout 放宽到 180s(v4 模型 30-90s + 队列)
+  const timeoutMs = req.timeoutMs ?? (resolvedMode === 'novelai' ? NOVELAI_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+
+  // 不同 mode 走不同端点:novelai 走专有路径,chat-completions 走 chat/completions,其余 images/generations
+  let endpoint: string;
+  if (resolvedMode === 'novelai') {
+    endpoint = apiBaseUrl.replace(/\/+$/, '') + NOVELAI_ENDPOINT_PATH;
+  } else {
+    const endpointSuffix = resolvedMode === 'chat-completions' ? 'chat/completions' : 'images/generations';
+    endpoint = buildEndpoint(apiBaseUrl, endpointSuffix);
+  }
 
   let body = buildBody(req, resolvedMode);
   if (extraParams.trim()) {
@@ -450,10 +473,33 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
   if (!resp.ok) {
     let errText = '';
     try { errText = await resp.text(); } catch { /* ignore */ }
+    const hint = resolvedMode === 'novelai' ? novelAiRecoveryHint(resp.status) : undefined;
     throw new ImageGenError(
       `HTTP ${resp.status} (mode=${resolvedMode}, body 含 [${bodyKeys.join(',')}]): ${errText.slice(0, 1500)}`,
-      { status: resp.status, endpoint, bodyKeys },
+      { status: resp.status, endpoint, bodyKeys, recoveryHint: hint },
     );
+  }
+
+  // NovelAI 响应是 application/x-zip-compressed 内含 PNG — 必须在 SSE/JSON 解析前 short-circuit
+  if (resolvedMode === 'novelai') {
+    let buf: ArrayBuffer;
+    try { buf = await resp.arrayBuffer(); }
+    catch (err) {
+      throw new ImageGenError(
+        `NovelAI 响应读取失败: ${err instanceof Error ? err.message : String(err)}`,
+        { endpoint, bodyKeys, recoveryHint: '检查 NovelAI 服务状态 https://status.novelai.net/' },
+      );
+    }
+    let pngBytes: Uint8Array;
+    try { pngBytes = await extractFirstPngFromZip(new Uint8Array(buf)); }
+    catch (err) {
+      throw new ImageGenError(
+        `NovelAI ZIP 解析失败: ${err instanceof Error ? err.message : String(err)}`,
+        { endpoint, bodyKeys, recoveryHint: 'NovelAI 返回非预期格式 — 可能 v4 模型协议变更,尝试切回 nai-diffusion-3 或更新协议适配' },
+      );
+    }
+    const b64 = uint8ToBase64(pngBytes);
+    return { b64Data: b64, durationMs: Date.now() - t0, resolvedMode };
   }
 
   // 假流式 SSE 防御:即便 body 传 stream:false,部分国内中转仍按 text/event-stream 返回。
