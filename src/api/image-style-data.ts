@@ -66,11 +66,22 @@ export const DEFAULT_NEGATIVE_PROMPT_NOVELAI =
 export const DEFAULT_PROMPT_TEMPLATE =
   '{{style}}, {{location}}, {{time}}, {{weather}}, {{characters}}, {{style_anchors}}, masterpiece, best quality, detailed';
 
-/** NovelAI 专属正向 prompt 模板。
- *  顺序调整:主体(characters/location)前置 + 风格在后 — Danbooru 习惯把主体 tag 放前面,
- *  避免风格 tokens 喧宾夺主。末尾加 NovelAI 标准的质量增强 tag。 */
+/** NovelAI 专属正向 prompt 模板(支持 EJS 条件)。
+ *  顺序:主体(characters/location)前置 + 风格在后 — Danbooru 习惯把主体 tag 放前面;
+ *  EJS 条件:
+ *    · {{characters}}/{{location}}/{{weather}} 字段空时不输出空逗号占位
+ *    · V4/V4.5(isV4)末尾加 'very aesthetic, absurdres'(NovelAI 标准 V4 质量 tag)
+ *    · V3 末尾加 'best quality, amazing quality'(NovelAI 标准 V3 质量 tag)
+ *    · scene_brief(LLM 输出的中文场景简述)放进 v4_prompt 也只在 isV4 时附加。 */
 export const DEFAULT_PROMPT_TEMPLATE_NOVELAI =
-  '{{characters}}, {{location}}, {{time}}, {{weather}}, {{style}}, {{style_anchors}}, detailed background, scenic, masterpiece, best quality, very aesthetic, absurdres';
+  '<% if (characters) { %>{{characters}}, <% } %>'
+  + '<% if (location) { %>{{location}}, <% } %>'
+  + '<% if (time) { %>{{time}}, <% } %>'
+  + '<% if (weather) { %>{{weather}}, <% } %>'
+  + '{{style}}'
+  + '<% if (style_anchors) { %>, {{style_anchors}}<% } %>'
+  + ', detailed background, scenic, '
+  + '<% if (isV4) { %>masterpiece, best quality, very aesthetic, absurdres<% } else { %>best quality, amazing quality<% } %>';
 
 /** 默认像素 832x224(SD 8 倍数友好,接近 7.43:2 横幅,UI 显示用 834x227 aspectRatio 自适应)。 */
 export const DEFAULT_IMAGE_WIDTH = 832;

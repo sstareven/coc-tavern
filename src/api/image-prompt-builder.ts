@@ -81,8 +81,8 @@ export function buildImageSpecFromPage(
   settingsBase: SettingsImageDefaults,
   settingsEnabled: boolean,
   sheetSnapshot?: CharacterSheet,
-  isNovelAi = false,
+  renderHints?: { protocol?: string; model?: string },
 ): ResolvedImageGenSpec {
   const ctx = buildImageRenderContext(page, sheetSnapshot);
-  return resolveImageGen(settingsBase, scenarioDoc?.imageGen, ctx, settingsEnabled, isNovelAi);
+  return resolveImageGen(settingsBase, scenarioDoc?.imageGen, ctx, settingsEnabled, renderHints);
 }

@@ -80,11 +80,16 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   }
 
   const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
-  // 提前判定本次实际跑的是不是 NovelAI(影响 prompt 风格 tokens 选择):
-  // 显式 'novelai' 命中,或 'auto' 模式下 detectPayloadMode/isNovelAiBaseUrl 命中
-  const willUseNovelAi = payloadMode === 'novelai'
-    || (payloadMode === 'auto' && (isNovelAiBaseUrl(imgApi.baseUrl) || detectPayloadMode(imgApi.baseUrl, imgApi.model) === 'novelai'));
-  const spec = buildImageSpecFromPage(page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot, willUseNovelAi);
+  // 提前 resolve 出本次实际跑的协议(显式或 auto 探测后),让 buildImageSpecFromPage
+  // 的 EJS 模板能按 isNovelAi/isSd/isV4 等条件分支拼出适配该模型的 prompt。
+  const resolvedProtocol = payloadMode === 'auto'
+    ? (isNovelAiBaseUrl(imgApi.baseUrl) ? 'novelai' : detectPayloadMode(imgApi.baseUrl, imgApi.model))
+    : payloadMode;
+  const effectiveModel = imgApi.model;
+  const spec = buildImageSpecFromPage(
+    page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot,
+    { protocol: resolvedProtocol, model: effectiveModel },
+  );
   if (!spec.enabled) return;
 
   const aid = useChatStore.getState().activeId;

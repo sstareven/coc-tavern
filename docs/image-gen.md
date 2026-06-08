@@ -19,6 +19,7 @@
   - [Pollinations](#pollinations)
 - [生成参数与风格](#生成参数与风格)
 - [存储与限速](#存储与限速)
+- [prompt 模板按模型条件分支（EJS）](#prompt-模板按模型条件分支ejs)
 - [extraParams 进阶](#extraparams-进阶)
 - [失败时怎么办](#失败时怎么办)
 - [已知限制](#已知限制)
@@ -217,6 +218,70 @@ Pollinations.ai 是免费免登录的图像 API。
 | **存储方式** | 本地 blob | `本地 blob` = 存 IndexedDB（断网仍可看，30 页约 6 MB）；`远程 URL` = 直接存中转返回的 https URL（体积 0 但可能 7 天过期失效） |
 | **单张图最大字节** | 2 MB | 本地 blob 模式下超过此尺寸跳过保存，防 IndexedDB 单 row 膨胀；超限时日志会精确告诉你"调到 X MB 以上" |
 | **图像 RPM** | 0 不限 | 每分钟最多请求数（独立桶，不与主/MVU/补写共享）。DALL-E 3 约 5-15 RPM；SD-WebUI 本地无限制；NovelAI 自 2024-03 禁并发，建议设 1 |
+
+---
+
+## prompt 模板按模型条件分支（EJS）
+
+剧本编辑器的「prompt 模板」字段（也就是 `imageDefaults.promptTemplate` 与 `scenarioDoc.imageGen.promptTemplate`）除了支持旧的 `{{key}}` 占位符,从 v1.15.x 起也支持 **EJS 条件块**,让玩家按图像模型分支:
+
+**可用的条件变量**:
+
+| 变量 | 类型 | 含义 |
+|---|---|---|
+| `protocol` | string | 实际生效的协议(auto 探测后),`'novelai'` / `'sd-compat'` / `'openai-strict'` / `'gpt-image-1'` / `'chat-completions'` / `'pollinations'` |
+| `model` | string | 图像模型 ID(如 `'nai-diffusion-4-5-full'` / `'dall-e-3'` / 自建 SD checkpoint 名) |
+| `isNovelAi` | boolean | `protocol === 'novelai'` |
+| `isV4` | boolean | NovelAI V4/V4.5 系列(`model` 以 `nai-diffusion-4` 开头) |
+| `isSd` | boolean | `protocol === 'sd-compat'` |
+| `isOpenAi` | boolean | `'openai-strict'` 或 `'gpt-image-1'` |
+| `isChatCompletions` | boolean | 假流式中转(`nano-banana` / `gemini-pro-image`) |
+
+**可用的占位符变量**(同时可用于 `{{key}}` 和 `<%= key %>`):
+
+`style` / `style_anchors` / `location` / `time` / `weather` / `characters` / `san` / `scene` / `scene_brief`
+
+**EJS 语法**(子集):
+
+```
+<% if (...) { %> ... <% } %>     条件块,块内文本按条件输出
+<%= expr %>                       输出表达式结果(字符串)
+{{key}}                           旧占位符(向后兼容)
+```
+
+**实例**:
+
+按 NovelAI / SD / 通用走不同风格 prompt:
+
+```
+<% if (isNovelAi) { %>
+  {{characters}}, anime style, {{location}}, masterpiece, very aesthetic, absurdres
+<% } else if (isOpenAi) { %>
+  A detailed scene of {{characters}} in {{location}} at {{time}}, cinematic, dramatic lighting
+<% } else { %>
+  {{characters}}, {{location}}, {{time}}, {{style}}, {{style_anchors}}, masterpiece, best quality
+<% } %>
+```
+
+NovelAI V4 与 V3 出不同的质量 tag:
+
+```
+{{characters}}, {{location}}, {{style}},
+<% if (isV4) { %> very aesthetic, absurdres <% } else { %> best quality, amazing quality <% } %>
+```
+
+字段空时不输出空逗号占位:
+
+```
+<% if (characters) { %>{{characters}}, <% } %>
+<% if (location) { %>{{location}}, <% } %>
+{{style}}
+```
+
+**注意**:
+- EJS 编译/执行失败会自动 fallback 到只做 `{{key}}` 替换,模板写错不会让生图崩溃
+- 默认 NovelAI 模板(玩家没改 `promptTemplate` 时)已经用 EJS 条件按 V4/V3 自动分支
+- 模板里别写 `setvar`/`getvar`/`getwi` 之类的 MVU API — image prompt 模板的 EJS 上下文只暴露上面表里的变量,与世界书/主回合的 EJS 引擎是独立的
 
 ---
 

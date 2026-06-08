@@ -94,6 +94,120 @@ function fillPlaceholders(template: string, ctx: Record<string, string>): string
   return template.replace(/\{\{(\w+)\}\}/g, (_, k) => ctx[k] ?? '');
 }
 
+/** Prompt 模板渲染上下文 — 含占位符变量 + 条件变量。
+ *  字段名同时是 {{key}} 占位符的 key 与 EJS 块里的标识符,玩家可两种语法混用:
+ *    <%= isNovelAi ? "anime style" : "realistic" %>, {{location}}, {{time}}
+ *    <% if (isV4) { %> very aesthetic, absurdres <% } %> */
+export interface PromptTemplateContext {
+  // ── 占位符变量(向后兼容 {{key}} 与新 <%= key %> 双语法) ─────────────
+  style: string;
+  style_anchors: string;
+  location: string;
+  time: string;
+  weather: string;
+  characters: string;
+  san: string;
+  scene: string;
+  scene_brief: string;
+  // ── 条件变量(新 EJS <% if (xxx) %> 用) ──────────────────────────────
+  /** 图像协议(payloadMode 实际命中值,auto 模式下是 detect 后的结果)。 */
+  protocol: string;
+  /** 图像模型 ID(如 'nai-diffusion-4-5-full' / 'dall-e-3' / 自建 SD checkpoint 名)。 */
+  model: string;
+  /** protocol === 'novelai'。 */
+  isNovelAi: boolean;
+  /** isNovelAi 且 model 以 'nai-diffusion-4' 开头(V4 / V4.5 系列)。 */
+  isV4: boolean;
+  /** protocol === 'sd-compat'。 */
+  isSd: boolean;
+  /** protocol === 'openai-strict' / 'gpt-image-1'。 */
+  isOpenAi: boolean;
+  /** protocol === 'chat-completions'(假流式中转,如 nano-banana / gemini-pro-image)。 */
+  isChatCompletions: boolean;
+}
+
+/** EJS 模板解析的中间表示。 */
+type EjsPart =
+  | { type: 'text'; content: string }
+  | { type: 'output'; content: string }   // <%= expr %>
+  | { type: 'code'; content: string };    // <% code %>
+
+/** 切分 EJS 模板:<% %> / <%= %> 与文本段。<%- %> 这种"unescaped 输出"在 image prompt
+ *  里没意义(都是纯文本拼接),按 <%= %> 同等处理。 */
+function parseEjsTemplate(text: string): EjsPart[] {
+  const parts: EjsPart[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const open = text.indexOf('<%', i);
+    if (open < 0) {
+      parts.push({ type: 'text', content: text.slice(i) });
+      break;
+    }
+    if (open > i) parts.push({ type: 'text', content: text.slice(i, open) });
+    const close = text.indexOf('%>', open + 2);
+    if (close < 0) {
+      // 未闭合 — 当文本兜底
+      parts.push({ type: 'text', content: text.slice(open) });
+      break;
+    }
+    const tag = text.slice(open + 2, close);
+    if (tag.startsWith('=') || tag.startsWith('-')) {
+      parts.push({ type: 'output', content: tag.slice(1).trim() });
+    } else {
+      parts.push({ type: 'code', content: tag });
+    }
+    i = close + 2;
+  }
+  return parts;
+}
+
+/** 渲染 image prompt 模板。先做 {{key}} 占位符替换(向后兼容),再做 EJS 块渲染。
+ *  EJS 块通过 new Function(...keys, body) 注入 ctx 全字段为形参,
+ *  模板里可直接用 `isNovelAi` / `model` 等标识符(无 with,strict-safe)。
+ *  解析或执行失败 → 退回到只做 {{key}} 替换的结果,fail-open。 */
+export function renderPromptTemplate(template: string, ctx: PromptTemplateContext): string {
+  // 1. 旧 {{key}} 占位符(向后兼容玩家既有模板)
+  const placeholdersOnly: Record<string, string> = {
+    style: ctx.style,
+    style_anchors: ctx.style_anchors,
+    location: ctx.location,
+    time: ctx.time,
+    weather: ctx.weather,
+    characters: ctx.characters,
+    san: ctx.san,
+    scene: ctx.scene,
+    scene_brief: ctx.scene_brief,
+  };
+  const filled = template.replace(/\{\{(\w+)\}\}/g, (_, k) => placeholdersOnly[k] ?? '');
+
+  // 2. 若模板不含 EJS 标签,直接返回
+  if (!/<%/.test(filled)) return filled;
+
+  // 3. EJS 块渲染 — 编译 + 执行
+  const parts = parseEjsTemplate(filled);
+  let body = 'let __o = "";\n';
+  for (const part of parts) {
+    if (part.type === 'text') {
+      body += `__o += ${JSON.stringify(part.content)};\n`;
+    } else if (part.type === 'output') {
+      body += `try { __o += String((${part.content}) ?? ""); } catch (e) {}\n`;
+    } else {
+      body += `${part.content}\n`;
+    }
+  }
+  body += 'return __o;';
+
+  const keys = Object.keys(ctx);
+  const values = keys.map((k) => (ctx as unknown as Record<string, unknown>)[k]);
+  try {
+    const fn = new Function(...keys, body);
+    const out = fn(...values);
+    return typeof out === 'string' ? out : String(out ?? '');
+  } catch {
+    return filled; // 编译/执行失败 — 退回到只做占位符替换的结果
+  }
+}
+
 /** 默认基线(settings 字段未初始化时的 fallback,主要给单测/老存档兜底)。 */
 export const DEFAULT_SETTINGS_IMAGE_DEFAULTS: SettingsImageDefaults = {
   width: DEFAULT_IMAGE_WIDTH,
@@ -114,16 +228,23 @@ export const DEFAULT_SETTINGS_IMAGE_DEFAULTS: SettingsImageDefaults = {
  * @param scnOverride 剧本覆盖层(scenarioDoc.imageGen),undefined 等价无覆盖
  * @param ctx 运行时上下文(sceneInfo + leftContent 摘要 + 在场 NPC)
  * @param settingsEnabled 全局总开关(useSettingsStore.imageGenerationEnabled)
- * @param isNovelAi 是否走 NovelAI 协议(影响风格 tokens / 默认负面 / 默认模板的选择)
+ * @param renderHints 模板渲染额外上下文(protocol/model),决定 EJS 条件分支与默认风格选择
  */
 export function resolveImageGen(
   settingsBase: SettingsImageDefaults,
   scnOverride: ScenarioImageGen | undefined,
   ctx: ImageRenderContext,
   settingsEnabled: boolean,
-  isNovelAi = false,
+  renderHints?: { protocol?: string; model?: string },
 ): ResolvedImageGenSpec {
   const scn = scnOverride ?? {};
+  const protocol = renderHints?.protocol ?? '';
+  const model = renderHints?.model ?? '';
+  const isNovelAi = protocol === 'novelai';
+  const isV4 = isNovelAi && /^nai-diffusion-4/i.test(model);
+  const isSd = protocol === 'sd-compat';
+  const isOpenAi = protocol === 'openai-strict' || protocol === 'gpt-image-1';
+  const isChatCompletions = protocol === 'chat-completions';
 
   // 标量字段 — scn 非 undefined 优先
   const width = scn.width ?? settingsBase.width;
@@ -157,8 +278,8 @@ export function resolveImageGen(
   // 风格片段(按 NovelAI 走两套不同 tokens)
   const styleTokens = resolveStyleTokens(style, scn.stylePromptOverride, isNovelAi);
 
-  // 占位符填充
-  const placeholders: Record<string, string> = {
+  // 模板渲染上下文 — 占位符变量 + EJS 条件变量
+  const tplCtx: PromptTemplateContext = {
     style: styleTokens,
     style_anchors: styleAnchors.join(', '),
     location: ctx.location ?? '',
@@ -168,8 +289,10 @@ export function resolveImageGen(
     san: ctx.san !== undefined ? String(ctx.san) : '',
     scene: ctx.sceneBrief ?? '',
     scene_brief: ctx.sceneBrief ?? '',
+    protocol, model,
+    isNovelAi, isV4, isSd, isOpenAi, isChatCompletions,
   };
-  const filled = fillPlaceholders(template, placeholders);
+  const filled = renderPromptTemplate(template, tplCtx);
 
   // 清理:连续 ", , " → ", ";首尾标点
   const prompt = filled
