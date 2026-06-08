@@ -114,29 +114,18 @@ export interface BuildNovelAiBodyInput {
   sampler: string;
 }
 
-/** 从通用入参构造 NovelAI POST /ai/generate-image 的 body。
- *
- *  默认走 Opus 免费档:n_samples=1 + sm=false + qualityToggle=true;
- *  尺寸 roundTo64 兜底(防 400 invalid request);
- *  steps clamp 到 [1, 50];
- *  scale 兜底 NaN/字符串/越界(后端字段是 float64);
- *  seed 客户端现取 uint32 非负整数(后端协议要求,且为 batch 留头);
- *  negative_prompt 强制 string(防 null/对象类型穿透);
- *  玩家可用 extraParams 的 'parameters.sm true'、'parameters.seed 12345' 等点号路径覆写嵌套字段。 */
-export function buildNovelAiBody(input: BuildNovelAiBodyInput): Record<string, unknown> {
-  const w = roundTo64(input.width || NOVELAI_DEFAULT_WIDTH);
-  const h = roundTo64(input.height || NOVELAI_DEFAULT_HEIGHT);
-  const scale = Number.isFinite(input.cfgScale)
-    ? Math.max(0, Math.min(input.cfgScale, 10))
-    : 5;
-  const parameters: Record<string, unknown> = {
-    width: w,
-    height: h,
-    scale,
-    sampler: mapToNovelAiSampler(input.sampler),
-    steps: Math.max(1, Math.min(input.steps || 28, 50)),
-    seed: randomNovelAiSeed(),
-    n_samples: 1,
+/** 判定 model 是否走 V4/V4.5 协议(嵌套 v4_prompt + characterPrompts 必填)。
+ *  覆盖 nai-diffusion-4-full / -4-curated-preview / -4-5-full / -4-5-curated 等。 */
+export function isV4Model(model: string): boolean {
+  if (typeof model !== 'string') return false;
+  return model.toLowerCase().startsWith('nai-diffusion-4');
+}
+
+/** V3 协议路径:flat parameters,含 sm/sm_dyn/ucPreset/qualityToggle/dynamic_thresholding。
+ *  对应 nai-diffusion-3 / nai-diffusion-furry-3 等老模型。 */
+function buildV3Parameters(input: BuildNovelAiBodyInput, common: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...common,
     ucPreset: 0,
     qualityToggle: true,
     sm: false,
@@ -144,9 +133,77 @@ export function buildNovelAiBody(input: BuildNovelAiBodyInput): Record<string, u
     dynamic_thresholding: false,
     negative_prompt: typeof input.negativePrompt === 'string' ? input.negativePrompt : '',
   };
+}
+
+/** V4/V4.5 协议路径:必填嵌套 v4_prompt / v4_negative_prompt + characterPrompts 空数组 +
+ *  params_version/legacy/cfg_rescale/noise_schedule/use_coords 等核心字段。
+ *  V3 残留(sm/sm_dyn/ucPreset/qualityToggle/dynamic_thresholding)在 V4 路径全部丢弃。
+ *  sampler='k_euler_ancestral' 时额外加 prefer_brownian/deliberate_euler_ancestral_bug。
+ *  顶层 input 字段仍保留(同时镜像 v4_prompt.caption.base_caption,双兼容)。 */
+function buildV4Parameters(input: BuildNovelAiBodyInput, common: Record<string, unknown>): Record<string, unknown> {
+  const neg = typeof input.negativePrompt === 'string' ? input.negativePrompt : '';
+  const params: Record<string, unknown> = {
+    ...common,
+    params_version: 3,
+    legacy: false,
+    legacy_v3_extend: false,
+    cfg_rescale: 0,
+    noise_schedule: 'karras',
+    use_coords: false,
+    characterPrompts: [],
+    negative_prompt: neg,
+    v4_prompt: {
+      caption: { base_caption: input.prompt, char_captions: [] },
+      use_coords: false,
+      use_order: true,
+    },
+    v4_negative_prompt: {
+      caption: { base_caption: neg, char_captions: [] },
+      use_coords: false,
+      use_order: false,
+    },
+  };
+  // k_euler_ancestral 采样器在 V4 推荐打开 prefer_brownian(社区共识)
+  if (common.sampler === 'k_euler_ancestral') {
+    params.prefer_brownian = true;
+    params.deliberate_euler_ancestral_bug = false;
+  }
+  return params;
+}
+
+/** 从通用入参构造 NovelAI POST /ai/generate-image 的 body。
+ *
+ *  按 model 前缀分流:'nai-diffusion-4*' → V4/V4.5 嵌套结构;其余 → V3 flat。
+ *  默认走 Opus 免费档:n_samples=1;
+ *  尺寸 roundTo64 兜底(防 400 invalid request);
+ *  steps clamp 到 [1, 50];
+ *  scale 兜底 NaN/字符串/越界(后端字段是 float64);
+ *  seed 客户端现取 uint32 非负整数(后端协议要求,且为 batch 留头);
+ *  negative_prompt 强制 string(防 null/对象类型穿透);
+ *  玩家可用 extraParams 的 'parameters.cfg_rescale 0.2'、'parameters.seed 12345' 等点号路径覆写嵌套字段。 */
+export function buildNovelAiBody(input: BuildNovelAiBodyInput): Record<string, unknown> {
+  const w = roundTo64(input.width || NOVELAI_DEFAULT_WIDTH);
+  const h = roundTo64(input.height || NOVELAI_DEFAULT_HEIGHT);
+  const scale = Number.isFinite(input.cfgScale)
+    ? Math.max(0, Math.min(input.cfgScale, 10))
+    : 5;
+  const model = input.model || NOVELAI_DEFAULT_MODEL;
+  // V3/V4 公共字段(width/height/scale/sampler/steps/seed/n_samples)
+  const common: Record<string, unknown> = {
+    width: w,
+    height: h,
+    scale,
+    sampler: mapToNovelAiSampler(input.sampler),
+    steps: Math.max(1, Math.min(input.steps || 28, 50)),
+    seed: randomNovelAiSeed(),
+    n_samples: 1,
+  };
+  const parameters = isV4Model(model)
+    ? buildV4Parameters(input, common)
+    : buildV3Parameters(input, common);
   return {
     input: input.prompt,
-    model: input.model || NOVELAI_DEFAULT_MODEL,
+    model,
     action: 'generate',
     parameters,
   };
