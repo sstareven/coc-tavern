@@ -27,6 +27,7 @@ import { useNpcStore } from '../stores/useNpcStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { extractVariablesWithLLM } from './mvu-extractor';
 import type { TokenUsage } from './stream-parser';
+import { setTreePath } from './mvu-var-access';
 
 // ────────── 阈值常量(代码侧判定触发) ──────────
 
@@ -520,6 +521,8 @@ export function dispatchMegaAgentResult(result: MegaAgentResult): DispatchSummar
   }
 
   // darkThread → useDarkThreadStore + useBookStore.setPageDarkThread(由 useChatPipeline 处理)
+  //               + statData 树同步(让 CurrentScenarioBadge / 世界书 EJS 等读 statData 的位点立刻
+  //                 跟上;否则后端 store 已有 progress=7,UI 仍读 statData 的 '剧情.暗线.进度' 初值 0)。
   if (result.darkThread && result.darkThread.development) {
     useDarkThreadStore.getState().addEntry({
       progress: result.darkThread.progress,
@@ -527,6 +530,12 @@ export function dispatchMegaAgentResult(result: MegaAgentResult): DispatchSummar
       details: result.darkThread.development,
       foreshadowing: result.darkThread.foreshadowing,
     });
+    const varStore = useVariableStore.getState();
+    const next: Record<string, unknown> = structuredClone(varStore.statData) ?? {};
+    setTreePath(next, '剧情.暗线.进度', result.darkThread.progress);
+    setTreePath(next, '剧情.暗线.威胁等级', result.darkThread.threatLevel);
+    setTreePath(next, '剧情.暗线.描述', result.darkThread.development);
+    varStore.setStatData(next);
     summary.darkThreadApplied = true;
   }
 
