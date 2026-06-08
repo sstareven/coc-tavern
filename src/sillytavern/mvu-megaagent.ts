@@ -599,3 +599,26 @@ export function dispatchMegaAgentResult(result: MegaAgentResult): DispatchSummar
 }
 // useNpcStore import 保留是为了未来 megaagent 扩展(目前未用,加 void 防 TS 未使用警告)
 void useNpcStore;
+
+// ────────── 工具函数 ──────────
+
+/**
+ * 从叙事文本中扫出所有 `<kw>X</kw>` 标签里的关键词(去重、保持首见顺序)。
+ * 原 keyword-meaning-extractor.ts 内的工具函数,v1.14.x 合并到此(megaagent 体系内自给自足)。
+ * 不识别孤立 `<kw>` 或 `</kw>` — 那些由 stripOrphanKwTags 兜底清理。
+ */
+export function extractKwTaggedKeywords(narrative: string): string[] {
+  if (!narrative) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const re = /<kw>([^<]+)<\/kw>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(narrative)) !== null) {
+    const k = m[1].trim();
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      out.push(k);
+    }
+  }
+  return out;
+}
