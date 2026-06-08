@@ -3,6 +3,7 @@
 // 与主/MVU/补写三个 CategoryBar 同款视觉。
 
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
 import { ApiModelPicker } from './ApiModelPicker';
 import { CategoryBar, rowStyle, labelStyle, Toggle, HelpIcon, SliderRow } from './_shared';
 import { SAMPLER_OPTIONS, IMAGE_STYLE_LABELS } from '../../api/image-style-data';
@@ -64,6 +65,8 @@ export function ImageApiSection() {
       {imgEnabled && (
         <>
           <ApiModelPicker channel="image" />
+
+          <PayloadModeRow />
 
           <div style={rowStyle}>
             <span style={labelStyle}>
@@ -224,6 +227,56 @@ export function ImageApiSection() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function PayloadModeRow() {
+  const mode = useApiProfilesStore((s) => s.selectedImagePayloadMode);
+  const setMode = useApiProfilesStore((s) => s.setSelectedImagePayloadMode);
+  return (
+    <div style={rowStyle}>
+      <span style={labelStyle}>
+        协议模式
+        <HelpIcon text={[
+          '不同后端对 OpenAI 兼容 /v1/images/generations 协议的字段集要求差异巨大。',
+          '',
+          '【auto】(默认推荐) 自动探测:',
+          '  · URL 含 openai.com 或 model 是 dall-e* → openai-strict',
+          '  · model 是 gpt-image* → gpt-image-1',
+          '  · 其他 → sd-compat',
+          '  · 首次 400 自动降级 openai-strict 重试一次',
+          '',
+          '【openai-strict】OpenAI 官方 / DALL-E 3:仅发 model/prompt/size/n/response_format,size 自动映射到 1024×1024/1792×1024/1024×1792',
+          '',
+          '【gpt-image-1】同 openai-strict 但额外剥 response_format(gpt-image-1 默认返回 b64_json,不接受显式参数)',
+          '',
+          '【sd-compat】自建 SD WebUI / SD 透传中转:发完整 SD 五件套(negative_prompt/steps/cfg_scale/sampler/seed),保留 832×224 等自由尺寸',
+          '',
+          '【pollinations】Pollinations(MVP 同 openai-strict 行为)',
+          '',
+          '遇 HTTP 400 invalid_request:多半是字段不被接受或 size 越界,先尝试切到 openai-strict。',
+        ].join('\n')} />
+      </span>
+      <select
+        value={mode}
+        onChange={(e) => setMode(e.target.value as 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations')}
+        style={{
+          background: 'rgba(0,0,0,0.15)',
+          border: '1px solid rgba(196,168,85,0.3)',
+          color: 'var(--ink)',
+          fontFamily: 'var(--font-ui)',
+          fontSize: 'calc(11px * var(--system-ratio, 1))',
+          padding: '4px 8px',
+          borderRadius: 3,
+        }}
+      >
+        <option value="auto">auto · 自动探测</option>
+        <option value="openai-strict">openai-strict · OpenAI / DALL-E 3</option>
+        <option value="gpt-image-1">gpt-image-1</option>
+        <option value="sd-compat">sd-compat · 自建 SD / 透传中转</option>
+        <option value="pollinations">pollinations</option>
+      </select>
     </div>
   );
 }

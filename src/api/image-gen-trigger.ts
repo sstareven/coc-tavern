@@ -12,11 +12,12 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useChatStore } from '../stores/useChatStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useScenarioStore } from '../stores/useScenarioStore';
+import { useApiProfilesStore } from '../stores/useApiProfilesStore';
 import { pushLog as pushLogRaw } from '../stores/useLogStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
 import { buildImageSpecFromPage } from './image-prompt-builder';
-import { callImageApiWithRetry, b64ToBlob } from './image-gen-engine';
+import { callImageApiWithRetry, b64ToBlob, ImageGenError } from './image-gen-engine';
 import { db } from '../db/database';
 
 export interface TriggerImageGenOpts {
@@ -97,6 +98,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   }
 
   try {
+    const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
     const resp = await callImageApiWithRetry({
       apiBaseUrl: imgApi.baseUrl,
       apiKey: imgApi.apiKey,
@@ -112,6 +114,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       responseFormat: s.imageStorageMode === 'remote-url' ? 'url' : 'b64_json',
       extraParams: imgApi.extraParams,
       signal,
+      payloadMode,
     });
     if (signal?.aborted) return;
     if (useChatStore.getState().activeId !== aid) return;
@@ -156,10 +159,14 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     });
     useChatStore.getState().savePages(useBookStore.getState().pages);
     if (aid) await saveConversation(aid);
-    pushLog('info', `${sourceTag} 插画已生成(${resp.durationMs}ms)`);
+    const modeNote = resp.resolvedMode ? ` mode=${resp.resolvedMode}` : '';
+    pushLog('info', `${sourceTag} 插画已生成(${resp.durationMs}ms${modeNote})`);
   } catch (err) {
     if (signal?.aborted) return;
     pushLog('warn', `${sourceTag} 失败:${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof ImageGenError && err.recoveryHint) {
+      pushLog('warn', `${sourceTag} 修复提示:${err.recoveryHint}`);
+    }
     useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
   }
 }

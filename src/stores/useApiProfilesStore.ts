@@ -39,6 +39,8 @@ interface ApiProfilesState {
   /** 图像生成 API 使用哪条 profile;null=未配,文生图功能不启用(无回退主线 — 图像与文本端点通常不同源)。 */
   selectedImageApiProfileId: string | null;
   selectedImageModel: string;
+  /** 图像生成协议模式(2026-06-08):'auto' 自动探测;'openai-strict' / 'gpt-image-1' / 'sd-compat' / 'pollinations' 显式锁定。默认 'auto'。 */
+  selectedImagePayloadMode: 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations';
 }
 
 interface ApiProfilesStore extends ApiProfilesState {
@@ -55,6 +57,7 @@ interface ApiProfilesStore extends ApiProfilesState {
   setSelectedMvu: (profileId: string | null, model: string) => void;
   setSelectedRewrite: (profileId: string | null, model: string) => void;
   setSelectedImage: (profileId: string | null, model: string) => void;
+  setSelectedImagePayloadMode: (mode: 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations') => void;
 }
 
 const defaults: ApiProfilesState = {
@@ -67,6 +70,7 @@ const defaults: ApiProfilesState = {
   selectedRewriteModel: '',
   selectedImageApiProfileId: null,
   selectedImageModel: '',
+  selectedImagePayloadMode: 'auto',
 };
 
 export const useApiProfilesStore = create<ApiProfilesStore>()(
@@ -129,6 +133,9 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
       },
       setSelectedImage: (profileId, model) => {
         set({ selectedImageApiProfileId: profileId, selectedImageModel: model });
+      },
+      setSelectedImagePayloadMode: (mode) => {
+        set({ selectedImagePayloadMode: mode });
       },
     }),
     {
