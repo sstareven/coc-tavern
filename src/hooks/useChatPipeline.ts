@@ -11,6 +11,7 @@ import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useKeyClueStore } from '../stores/useKeyClueStore';
 import { useAnchorStore } from '../stores/useAnchorStore';
 import { useChoiceLockStore } from '../stores/useChoiceLockStore';
+import { useTurnProgressStore } from '../stores/useTurnProgressStore';
 import { useKeywordStore } from '../stores/useKeywordStore';
 import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
@@ -134,8 +135,10 @@ async function sendWithJsonRetry<T>(opts: {
   send: (corrective: boolean) => Promise<{ content: string; usage?: TokenUsage }>;
   parse: (content: string) => T | null;
   logTag: string;
+  // 每次重试发请求【前】回调一次,attempt 从 1 开始。供 useTurnProgressStore 实时涨 m
+  onRetry?: (attempt: number) => void;
 }): Promise<{ result: T | null; attempts: number; lastContent: string; lastUsage?: TokenUsage }> {
-  const { maxRetries, send, parse, logTag } = opts;
+  const { maxRetries, send, parse, logTag, onRetry } = opts;
   let response = await send(false);
   pushLog('debug', `[${logTag}] 收到响应 — ${response.content.length}字 ===\n${response.content}`, 'api');
   let result = parse(response.content);
@@ -144,6 +147,7 @@ async function sendWithJsonRetry<T>(opts: {
   while (!result && attempt < maxRetries) {
     attempt++;
     pushLog('warn', `[${logTag}] 回复非合法JSON，自动重试 ${attempt}/${maxRetries}（要求只输出JSON）…`, 'system');
+    onRetry?.(attempt);
     response = await send(true);
     pushLog('debug', `[${logTag}] 重试响应(${attempt}) — ${response.content.length}字 ===\n${response.content}`, 'api');
     result = parse(response.content);
@@ -919,6 +923,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       setLoading(true);
       setError('');
       useStatusToastStore.getState().showProcessing('正在窥探深渊，等待档案浮现…');
+      // 进度条:必然阶段先排上,jsonRetry/自纠/NPC 补写触发时再 enqueueAfter 让 m 实时涨
+      useTurnProgressStore.getState().beginTurn([
+        { id: 'main', label: '正在窥探深渊' },
+        { id: 'mvu-mega', label: '正在解析状态变量' },
+        { id: 'finalize', label: '正在汇总书页' },
+      ]);
+      useTurnProgressStore.getState().start('main');
       pushLog(
         'info',
         `发送API请求 — 模型: ${settings.getEffectiveMainApi().model}, 消息数: ${editedMessages.length}, ~${estimateTokens(JSON.stringify(editedMessages))} tokens`,
@@ -955,7 +966,20 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             settings.getEffectiveMainApi().extraParams,
           ),
           parse: (content) => parseLlmResponse(content, { skipInventoryNarrativeCheck }),
+          onRetry: (k) => {
+            // 主回合每次重试在前一 stage 后插一个新 queued stage,m 实时 +1
+            const ps = useTurnProgressStore.getState();
+            const prev = k === 1 ? 'main' : `main-retry-${k - 1}`;
+            ps.finish(prev);
+            ps.enqueueAfter(prev, { id: `main-retry-${k}`, label: `主回合 重试 ${k}` });
+            ps.start(`main-retry-${k}`);
+          },
         });
+        // 主回合 stage 收尾:无论成功还是 retries 用尽,关掉最后那个跑过的 stage
+        {
+          const lastMainId = attempt === 0 ? 'main' : `main-retry-${attempt}`;
+          useTurnProgressStore.getState().finish(lastMainId);
+        }
 
         if (!result) {
           // 所有尝试均失败 → 不生成书页（各次解析报错已记入调试日志）
@@ -1027,6 +1051,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           // v1.14.x:综合 A 调用 — 替代原 7 个 fire-and-forget 子调用(暗线/关键词/线索整合/
           // 地点元素抽取+整合/地图自检/关键线索评估)+ MVU 变量提取本身。一次 mvu 桶调用拿全部结果。
           useStatusToastStore.getState().updateProcessing('正在解析状态变量…');
+          useTurnProgressStore.getState().start('mvu-mega');
           try {
             // 计算 isEpilogue(综合 A 触发 darkThread 字段要用);statData 已被前面 processResponse 写入。
             const currentStageEarly =
@@ -1080,12 +1105,18 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               `[MVU 综合] 失败(本回合变量与子任务字段全部跳过): ${err instanceof Error ? err.message : String(err)}`,
               'system',
             );
+          } finally {
+            useTurnProgressStore.getState().finish('mvu-mega');
           }
           // v1.11.8: 走 effective —— ULTRA active 时返回 preset 值,否则用户值。
           const mvuSelfCorrectEnabled = getEffectiveSetting(settings, 'mvuSelfCorrectEnabled');
           const mvuSelfCorrectRetries = getEffectiveSetting(settings, 'mvuSelfCorrectRetries');
           if (patchReport.failed.length > 0 && mvuSelfCorrectEnabled && (mvuSelfCorrectRetries ?? 0) > 0) {
             useStatusToastStore.getState().updateProcessing('正在校正状态变量…');
+            // 自纠条件命中 -> m 实时 +1。runMvuSelfCorrect 内部 budget 循环不暴露细粒度,聚合成 1 stage
+            const tp = useTurnProgressStore.getState();
+            tp.enqueueAfter('mvu-mega', { id: 'mvu-correct', label: '正在校正状态变量' });
+            tp.start('mvu-correct');
             // 自纠瘦上下文：不再重发整份主 prompt(editedMessages，最大上下文冗余)，只给本回合叙事 + 当前状态快照。
             const rawStat = useVariableStore.getState().statData;
             const visibleStat: Record<string, unknown> = {};
@@ -1130,6 +1161,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             if (sc.usage.total_tokens > 0 || sc.usage.prompt_tokens > 0 || sc.usage.completion_tokens > 0) {
               selfCorrectUsage = sc.usage;
             }
+            useTurnProgressStore.getState().finish('mvu-correct');
           }
 
           // ── G3: post-settle 评估器相位 ──
@@ -1376,7 +1408,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const nrPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
             const narrativeForRectify = `${newPage.leftContent}\n${newPage.rightContent}`;
             pushLog('info', `[NPC缺失] 检测到叙事里有 NPC 但 npcUpdates 缺失/空，已启动补写 API 重纠…`, 'system');
+            // 命中即插队,m +1。promise 内部 start/finish 包 try-finally 防错误漏 finish
+            useTurnProgressStore.getState().enqueueAfter('mvu-mega', { id: 'npc-fix', label: '正在补写缺失 NPC' });
             pendingVisibleSubcalls.push((async () => {
+              useTurnProgressStore.getState().start('npc-fix');
               try {
                 const rectified = await rectifyMissingNpcs(
                   narrativeForRectify, investigatorNameForRectify,
@@ -1406,6 +1441,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               } catch (e) {
                 if (controller.signal.aborted) return;
                 pushLog('warn', `[NPC缺失] 补写 API 重纠失败（已穷尽重试）：${e instanceof Error ? e.message : String(e)}`, 'api');
+              } finally {
+                useTurnProgressStore.getState().finish('npc-fix');
               }
             })());
           }
@@ -1620,6 +1657,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 地点元素 / 地图节点 / NPC / 物品等。用户中止（abort）则跳过 await 立即翻页，
         // 避免「点了中止还卡住等子调用」的反预期。守秘人机密 3 个 + 战斗检测仍 fire-and-forget。
         if (willAutoFlip) {
+          useTurnProgressStore.getState().start('finalize');
           if (pendingVisibleSubcalls.length > 0) {
             const abortPromise = new Promise<void>((resolve) => {
               if (controller.signal.aborted) { resolve(); return; }
@@ -1631,6 +1669,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             ]);
           }
           useBookStore.getState().autoFlipForward();
+          useTurnProgressStore.getState().finish('finalize');
         }
 
         // Persist full game state for this conversation into Dexie v2 relational
@@ -1664,6 +1703,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       } finally {
         endStream();
         setLoading(false);
+        // 进度条收尾:清空 stages -> isRunning=false -> 选项立刻解锁
+        useTurnProgressStore.getState().endTurn();
       }
     },
     [endStream, onToken, startStream, streamRenderEnabled, thHooks],

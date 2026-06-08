@@ -17,6 +17,7 @@ import { revealHiddenRolls } from '../../sillytavern/hidden-roll';
 import { TokenCounter } from '../Shared/TokenCounter';
 import { PromptViewer } from '../Settings/PromptViewer';
 import { StreamingPreview } from '../Shared/StreamingPreview';
+import { TurnProgressBar } from '../Shared/TurnProgressBar';
 import { ActionSheet } from '../Book/ActionSheet';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
@@ -170,6 +171,7 @@ export function InputBar() {
         {/* 手机端: 选择行动入口 / 抽屉,放在 footer 顶部贴住 InputBar 输入行上方 */}
         {showMobileActionSheet && <ActionSheet />}
         <style>{`.inputbar-textarea::-webkit-scrollbar{width:5px}.inputbar-textarea::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.inputbar-textarea::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
+        <TurnProgressBar />
         {pipeline.error && (
           <div
             style={{

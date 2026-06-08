@@ -10,6 +10,7 @@ import { useAnchorStore } from './useAnchorStore';
 import { useCombatStore, isOrphanedEncounter } from './useCombatStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
+import { useTurnProgressStore } from './useTurnProgressStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
 import { useBookStore } from './useBookStore';
@@ -66,6 +67,7 @@ export function clearAllGameState(prevScenarioId?: string) {
   useLocationElementStore.getState().clearAll();
   useDiceStore.getState().clearAll();
   useChoiceLockStore.getState().unlock();
+  useTurnProgressStore.getState().endTurn();
   useDarkThreadStore.getState().clearAll();
   useKeyClueStore.getState().clearAll();
   useAnchorStore.getState().clearAll();
