@@ -1,0 +1,191 @@
+// NovelAI 官方图像 API 适配器(2026-06-08):
+// 走专有端点 https://image.novelai.net/ai/generate-image,
+// body 走 {input, model, action, parameters} 嵌套结构,响应是 application/x-zip-compressed 的 ZIP 内含 PNG。
+//
+// 与 OpenAI 兼容协议完全异质 — 单独成文件以解耦合(decoupling-modularity-required):
+// - buildNovelAiBody:从 CallImageApi 通用入参构造 NovelAI body(含 SD sampler 字符串映射 + 64 倍数 round)
+// - extractFirstPngFromZip + inflateRaw:无新增 deps(jszip 80KB 不值得引入)
+//   用浏览器原生 DecompressionStream('deflate-raw') + 手解 ZIP local file header
+// - uint8ToBase64:分块 String.fromCharCode 避免 1-2MB PNG 触发 RangeError
+// - novelAiRecoveryHint:HTTP 状态码 → 中文修复提示(401/402/429/5xx)
+//
+// 设计原则:
+// - 默认参数走 Opus 免费档(尺寸 ≤ 1024²、steps ≤ 28、n_samples=1、不开 SMEA)
+// - 高级参数(sm/sm_dyn/ucPreset/cfg_rescale/seed 等)走 extraParams 的 'parameters.xxx' 点号路径
+// - 失败 ZIP 解析抛 Error → callImageApi 包成 ImageGenError 带 recoveryHint
+
+/** NovelAI 默认端点(image 子域,不是 api 子域)。 */
+export const NOVELAI_BASE_URL = 'https://image.novelai.net';
+
+/** NovelAI 端点路径(POST,Bearer auth)。 */
+export const NOVELAI_ENDPOINT_PATH = '/ai/generate-image';
+
+/** 默认 model:V4.5 Full(官方主推,2026 在售)。 */
+export const NOVELAI_DEFAULT_MODEL = 'nai-diffusion-4-5-full';
+
+/** NovelAI 在售模型清单(无 /v1/models 端点,UI 可作为 fallback 候选)。 */
+export const NOVELAI_KNOWN_MODELS: ReadonlyArray<string> = [
+  'nai-diffusion-4-5-full',
+  'nai-diffusion-4-5-curated',
+  'nai-diffusion-4-full',
+  'nai-diffusion-4-curated-preview',
+  'nai-diffusion-3',
+  'nai-diffusion-furry-3',
+];
+
+/** NovelAI 默认 sampler(免 Anlas 友好,适配 V4/V4.5)。 */
+export const NOVELAI_DEFAULT_SAMPLER = 'k_euler_ancestral';
+
+/** NovelAI 推荐默认尺寸(portrait,832×1216 ≈ 1MP)。 */
+export const NOVELAI_DEFAULT_WIDTH = 832;
+export const NOVELAI_DEFAULT_HEIGHT = 1216;
+
+/** SD 系 sampler 名 → NovelAI k_* sampler 字符串映射。 */
+const NOVELAI_SAMPLER_MAP: Record<string, string> = {
+  'DPM++ 2M Karras': 'k_dpmpp_2m',
+  'DPM++ SDE Karras': 'k_dpmpp_sde',
+  'DPM++ 2S Ancestral': 'k_dpmpp_2s_ancestral',
+  'Euler a': 'k_euler_ancestral',
+  'Euler': 'k_euler',
+  'DDIM': 'ddim_v3',
+  'UniPC': 'k_dpmpp_2m',
+  'LMS': 'k_euler',
+  'DPM2': 'k_dpm_2',
+  'DPM2 a': 'k_dpm_2_ancestral',
+};
+
+/** 把任意 sampler 字符串映射到 NovelAI 合法值(k_* 系列或 ddim_v3)。已是 k_* 透传。 */
+export function mapToNovelAiSampler(s: string): string {
+  if (!s) return NOVELAI_DEFAULT_SAMPLER;
+  if (s.startsWith('k_') || s === 'ddim_v3') return s;
+  return NOVELAI_SAMPLER_MAP[s] ?? NOVELAI_DEFAULT_SAMPLER;
+}
+
+/** 四舍五入到 64 的倍数(NovelAI 严格要求 width/height % 64 == 0)。最小 64。 */
+export function roundTo64(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 64;
+  return Math.max(64, Math.round(n / 64) * 64);
+}
+
+export interface BuildNovelAiBodyInput {
+  model: string;
+  prompt: string;
+  negativePrompt: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfgScale: number;
+  sampler: string;
+}
+
+/** 从通用入参构造 NovelAI POST /ai/generate-image 的 body。
+ *
+ *  默认走 Opus 免费档:n_samples=1 + sm=false + qualityToggle=true;
+ *  尺寸 roundTo64 兜底(防 400 invalid request);
+ *  steps clamp 到 [1, 50];
+ *  玩家可用 extraParams 的 'parameters.sm true' 等点号路径覆写嵌套字段。 */
+export function buildNovelAiBody(input: BuildNovelAiBodyInput): Record<string, unknown> {
+  const w = roundTo64(input.width || NOVELAI_DEFAULT_WIDTH);
+  const h = roundTo64(input.height || NOVELAI_DEFAULT_HEIGHT);
+  const parameters: Record<string, unknown> = {
+    width: w,
+    height: h,
+    scale: input.cfgScale ?? 5,
+    sampler: mapToNovelAiSampler(input.sampler),
+    steps: Math.max(1, Math.min(input.steps || 28, 50)),
+    seed: -1,
+    n_samples: 1,
+    ucPreset: 0,
+    qualityToggle: true,
+    sm: false,
+    sm_dyn: false,
+    dynamic_thresholding: false,
+    negative_prompt: input.negativePrompt ?? '',
+  };
+  return {
+    input: input.prompt,
+    model: input.model || NOVELAI_DEFAULT_MODEL,
+    action: 'generate',
+    parameters,
+  };
+}
+
+/** HTTP 状态码 → 中文修复提示(callImageApi 失败路径用)。 */
+export function novelAiRecoveryHint(status: number): string | undefined {
+  if (status === 401) {
+    return 'NovelAI Token 无效或过期 — 到 NovelAI Web → Settings → Account → Get Persistent API Token 重新获取(格式 pst-xxx)';
+  }
+  if (status === 402) {
+    return 'NovelAI Anlas 余额不足或订阅不覆盖本次配置 — 缩小尺寸到 1024×1024 以内、步数 ≤ 28、n_samples=1 可走 Opus 免费额度';
+  }
+  if (status === 429) {
+    return 'NovelAI 已禁用并发生成 — 等 30s 后重试,或在『图像 RPM』下调到 1';
+  }
+  if (status >= 500) {
+    return 'NovelAI 服务端错 — 查 https://status.novelai.net/';
+  }
+  return undefined;
+}
+
+// ─── ZIP 解析 ─────────────────────────────────────────────────────────────
+// NovelAI ZIP 极简:单 entry,通常 store(method=0)或 deflate(method=8),无 zip64/无加密。
+// 自写解析器约 50 行,避免引入 jszip ~80KB gzipped 仅为单功能。
+
+const ZIP_LFH_MAGIC = 0x04034b50; // 'PK\x03\x04' little-endian uint32
+
+/** 从 NovelAI ZIP 响应中抽取首个 PNG entry 的字节流。
+ *  支持 method=0(store)/method=8(deflate-raw);其他方法抛错。
+ *  无 PNG entry 抛 'ZIP 内未找到 PNG entry'。 */
+export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Array> {
+  if (!zip || zip.length < 30) throw new Error('ZIP 字节流过短');
+  const dv = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  let p = 0;
+  while (p + 30 <= zip.length) {
+    if (dv.getUint32(p, true) !== ZIP_LFH_MAGIC) break;
+    const flags = dv.getUint16(p + 6, true);
+    const method = dv.getUint16(p + 8, true);
+    const compSize = dv.getUint32(p + 18, true);
+    const nameLen = dv.getUint16(p + 26, true);
+    const extraLen = dv.getUint16(p + 28, true);
+    const nameBytes = zip.subarray(p + 30, p + 30 + nameLen);
+    const name = new TextDecoder().decode(nameBytes);
+    const dataStart = p + 30 + nameLen + extraLen;
+    if (/\.png$/i.test(name)) {
+      const data = zip.subarray(dataStart, dataStart + compSize);
+      if (method === 0) return data;
+      if (method === 8) return await inflateRaw(data);
+      throw new Error(`不支持的 ZIP 压缩方法 method=${method}`);
+    }
+    // Data Descriptor(flag bit3 置位)时头部 compSize=0,需扫描下个 PK 签名
+    if (compSize === 0 && (flags & 0x08)) {
+      let q = dataStart;
+      while (q + 4 <= zip.length && dv.getUint32(q, true) !== ZIP_LFH_MAGIC) q++;
+      p = q;
+    } else {
+      p = dataStart + compSize;
+    }
+  }
+  throw new Error('ZIP 内未找到 PNG entry');
+}
+
+/** 浏览器原生 DecompressionStream('deflate-raw') 解 deflate 压缩字节流。 */
+export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const ds = new DecompressionStream('deflate-raw');
+  // 用一份独立的 ArrayBuffer 包装,避免 Blob 引用底层共享缓冲区(Node.js Buffer 视图等场景)
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  const blob = new Blob([copy]);
+  const stream = blob.stream().pipeThrough(ds);
+  const ab = await new Response(stream).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+/** Uint8Array → base64 字符串。分块避免 1-2MB PNG 触发 RangeError(arg limit)。 */
+export function uint8ToBase64(bytes: Uint8Array): string {
+  let s = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    s += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(s);
+}
