@@ -95,19 +95,19 @@ export function ImageApiSection() {
             <div style={rowStyle}>
               <span style={labelStyle}>
                 单张图最大字节
-                <HelpIcon text={'本地 blob 模式下,单张图超过此尺寸跳过保存,防 IndexedDB 单 row 膨胀。832×224 JPEG 实测 80-180KB,默认 300KB 安全;PNG 可能更大,可上调到 800KB。'} />
+                <HelpIcon text={'本地 blob 模式下,单张图超过此尺寸跳过保存,防 IndexedDB 单 row 膨胀。\n\n参考实测:\n· 832×224 JPEG ≈ 80-180KB(sd-compat / openai-strict 模式)\n· 1024×1024 JPEG ≈ 200-400KB\n· 1024×1024 PNG ≈ 1-2MB(chat-completions 类网关常返回该尺寸 PNG)\n\n默认 2MB,可下调省存储或上调到 10MB 收最高清图。'} />
               </span>
               <input
                 type="number"
                 min={50_000}
-                max={5_000_000}
-                step={10_000}
+                max={10_000_000}
+                step={100_000}
                 value={maxBlobBytes}
-                onChange={(e) => setMaxBlobBytes(Number(e.target.value) || 300_000)}
+                onChange={(e) => setMaxBlobBytes(Number(e.target.value) || 2_000_000)}
                 style={numInputStyle}
               />
               <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--ink-faded)', marginLeft: 6 }}>
-                {Math.round(maxBlobBytes / 1024)}KB
+                {maxBlobBytes >= 1_000_000 ? `${(maxBlobBytes / 1_000_000).toFixed(1)}MB` : `${Math.round(maxBlobBytes / 1024)}KB`}
               </span>
             </div>
           )}

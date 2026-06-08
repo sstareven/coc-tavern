@@ -157,7 +157,14 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       progress.setStage(pageId, '写入存储');
       const blob = b64ToBlob(resp.b64Data, 'image/jpeg');
       if (blob.size > s.imageMaxBlobBytes) {
-        pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页图片 ${(blob.size / 1024).toFixed(0)}KB 超 imageMaxBlobBytes(${(s.imageMaxBlobBytes / 1024).toFixed(0)}KB),跳过保存`);
+        // 推算建议值:略大于实际尺寸的下一个整数 MB(至少 +0.5MB 余量)
+        const suggestedMB = Math.max(2, Math.ceil((blob.size / 1_000_000) + 0.5));
+        pushLog('warn',
+          `${sourceTag} 第 ${pageIdx + 1} 页图片 ${(blob.size / 1024).toFixed(0)}KB 超 imageMaxBlobBytes(${(s.imageMaxBlobBytes / 1024).toFixed(0)}KB),跳过保存`,
+        );
+        pushLog('warn',
+          `${sourceTag} 修复:打开『设置 → API 管理 → 图像生成 API → 单张图最大字节』调到 ${suggestedMB}MB 以上,然后点重生成按钮`,
+        );
         useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
         progress.clearStage(pageId);
         return;

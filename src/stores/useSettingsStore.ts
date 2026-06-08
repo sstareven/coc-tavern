@@ -286,7 +286,7 @@ const defaults: SettingsState = {
   imageGenerationEnabled: false,
   imageAutoGenerate: true,
   imageStorageMode: 'indexeddb-blob',
-  imageMaxBlobBytes: 300_000,
+  imageMaxBlobBytes: 2_000_000,
   imageDefaults: DEFAULT_SETTINGS_IMAGE_DEFAULTS,
   rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
@@ -342,7 +342,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setImageGenerationEnabled: (v) => set({ imageGenerationEnabled: v }),
       setImageAutoGenerate: (v) => set({ imageAutoGenerate: v }),
       setImageStorageMode: (v) => set({ imageStorageMode: v }),
-      setImageMaxBlobBytes: (n) => set({ imageMaxBlobBytes: Math.max(50_000, Math.min(5_000_000, Math.floor(n))) }),
+      setImageMaxBlobBytes: (n) => set({ imageMaxBlobBytes: Math.max(50_000, Math.min(10_000_000, Math.floor(n))) }),
       setImageDefaults: (patch) => set((s) => ({ imageDefaults: { ...s.imageDefaults, ...patch } })),
       setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
@@ -494,6 +494,13 @@ export const useSettingsStore = create<SettingsStore>()(
         if (rwL !== undefined) p.rewriteRpmLimit = rwL;
         const imgL = clampRpm(p.imageRpmLimit);
         if (imgL !== undefined) p.imageRpmLimit = imgL;
+        // imageMaxBlobBytes 老存档迁移:旧默认 300_000 是按 832×224 JPEG 估算,
+        // 但 chat-completions 模式后端常返回 1024×1024 PNG ≈ 1-2MB。
+        // 检测到老默认值时自动升到新默认 2MB,避免老用户被『超 imageMaxBlobBytes』卡住。
+        // 玩家自定义过的值(不等于 300_000)保持不动,尊重用户设置。
+        if (p.imageMaxBlobBytes === 300_000) {
+          p.imageMaxBlobBytes = 2_000_000;
+        }
         return {
           ...current,
           ...p,
