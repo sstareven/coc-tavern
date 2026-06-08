@@ -21,14 +21,14 @@ interface Release {
 export const RELEASES: Release[] = [
   {
     version: 'v1.16.0',
-    label: 'NovelAI 真正能用了 · 生图按剧情走 · 模板按图像模型分支',
+    label: 'NovelAI 真正能用了 · 生图按剧情走',
     items: [
-      '【插画·NovelAI 真正能用了】v1.15.1 接进了 NovelAI 协议,但当时很多细节没踩对:profile 保存被『连接失败』拦下、生图回来要么 500 要么解压报错『Failed to fetch』。这一版把整条链路修通了:保存 NovelAI profile 不再要求拉模型列表(NovelAI 本来就没这个端点),自动注入官方在售的 6 个模型清单;发请求按 V4/V4.5 协议把 prompt 嵌套到 v4_prompt 结构里(以前缺这个字段直接 500);seed 从硬编码 -1 改成客户端随机正整数(后端要求 uint64,负数会被 Go 拒掉);ZIP 解压失败时会尝试两种 deflate 格式 + 自动处理"流式生成"的 ZIP(compSize=0),打印诊断信息让玩家上报。',
-      '【插画·生图按剧情走】以前 NovelAI / SD 生成的图是"通用场景图"——只有"图书馆,黄昏,雨"这种零散标签 + 英文风格词,没有当页真正发生的剧情。现在生图前会跑一次主 API 子调用,把当页正文叙事翻译成图像模型友好的英文 prompt(NovelAI 走 Danbooru 短 tag,SD/OpenAI 走自然语言短句),让图片真实反映"调查员低头查阅古书 + 摇曳烛光 + 雨夜图书馆"这种具体画面。失败时自动 fallback 到旧逻辑,不阻塞生图。默认开启,代价是每次生图多 ~600 tokens 主 API 调用。',
-      '【插画·NovelAI 不再画一堆纸张纹理】以前选『1920 复古胶片』风格喂给 NovelAI,模型会忠实地把"破裂胶片边缘 / 褪色相册纹理 / 羊皮纸质感"这些词当主体画成纸张特写,场景人物全消失。原因:这些 SD 通用风格词在 NovelAI(动漫训练集)上没语义。这一版给 NovelAI 单独维护一套 Danbooru 短 tag 风格表,10 种风格全部去掉 texture/cracked/faded/parchment 这类纹理词,改成 period dress/sumi-e/vibrant 等模型认得的 tag。负面 prompt 也加了 bad hands/missing fingers/paper texture 等 Danbooru 风格瑕疵词。',
-      '【插画·prompt 模板按图像模型分支】prompt 模板新增 EJS 条件语法,玩家可以在剧本编辑器或全局模板里按图像模型分支:`<% if (isNovelAi) { %>tag 风格<% } else if (isOpenAi) { %>自然语言<% } %>`。可用变量:protocol/model/isNovelAi/isV4(NovelAI 4.5 系列)/isSd/isOpenAi/isChatCompletions。旧的 `{{key}}` 占位符仍兼容,失败自动 fallback 到只做占位符替换。详见 docs/image-gen.md。',
-      '【插画·第三方 NovelAI 中转支持】v1.15.1 只识别 baseUrl 含 novelai 子串的中转;有些社区中转域名不含 novelai 但 URL 路径带 /ai/generate-image — 现在路径含 /ai/generate-image 也自动识别为 NovelAI 协议;同时 engine 端点拼接做了幂等处理,baseUrl 已含完整端点不再重复拼接出 /ai/generate-image/ai/generate-image 的双重路径。完全无 NovelAI 关键词的中转裸域,在 baseUrl 末尾补上 /ai/generate-image 即可触发识别(错误提示里有引导)。',
-      '【插画·重新生成后真能看到新图】以前点重生成,图片在后台已经更新了,但 UI 上一直显示旧图、或者重生成后变成空白容器、必须刷新页面才能看见新图。两个问题:一是 PageBanner 没监听到时间戳变化不会重拉,二是 React effect 清理旧 URL 时跟浏览器渲染撞上 race condition、img 加载失败被误清状态。这版都修了。同时切换到"远程 URL"存储模式时会清掉本地残留的旧 IndexedDB blob,不再留孤儿占空间。',
+      '【插画·NovelAI 真正能用了】v1.15.1 接进 NovelAI 但很多细节没踩对。这版打通整条链路:保存 profile 不再要求拉模型清单,自动注入官方模型;请求按 V4/V4.5 协议走嵌套结构(以前直接 500);seed 改客户端随机正整数(以前传 -1 被后端拒);ZIP 解压双格式 fallback + 自动处理流式 ZIP。',
+      '【插画·按剧情走】以前 NovelAI/SD 出的图是"通用场景图",跟当页剧情无关。现在生图前跑一次主 API 子调用,把正文叙事转成图像模型友好的英文 prompt(NovelAI 走 Danbooru tag,SD/OpenAI 走自然语言)。失败自动 fallback。每次生图多 ~600 tokens 主 API 开销。',
+      '【插画·NovelAI 不再画纸张纹理】以前选"1920 复古胶片"喂 NovelAI 会把"破裂胶片边缘"当主体画成纸张特写。现在 NovelAI 单独维护一套 Danbooru 短 tag 风格表,10 种风格全部去掉纹理类词。',
+      '【插画·prompt 模板按图像模型分支】prompt 模板新增 EJS 条件:`<% if (isNovelAi) { %>tag 风格<% } else { %>自然语言<% } %>`。可用变量:isNovelAi/isV4/isSd/isOpenAi 等。旧 `{{key}}` 占位符仍兼容。详见 docs/image-gen.md。',
+      '【插画·第三方 NovelAI 中转】URL 路径含 /ai/generate-image 也能自动识别为 NovelAI;端点拼接幂等,不再出现重复路径。无关键词的中转裸域在地址末尾补 /ai/generate-image 即可识别。',
+      '【插画·重生成真能看到新图】以前点重生成图片不刷新、或变空白容器,必须 F5 才能看见。两个原因:UI 没监听到时间戳变化 + 清理旧 URL 跟浏览器渲染撞 race。这版都修了;切到远程 URL 模式时也会清掉本地残留的旧图。',
     ],
   },
   {
