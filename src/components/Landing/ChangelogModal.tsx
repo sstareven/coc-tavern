@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.15.1';
+export const CURRENT_VERSION = 'v1.15.2';
 
 interface Release {
   version: string;
@@ -19,6 +19,14 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.15.2',
+    label: '插画 429 配额耗尽 · 不再误判协议错误自动降级',
+    items: [
+      '【插画·配额耗尽提示对路了】以前生图遇到中转站返「配额耗尽」(HTTP 429)时,系统会误判为"协议不匹配"自动切到另一种协议再请求一次,结果又是错的,玩家看到的修复提示是"请显式选 openai-strict / sd-compat..."——完全跟真实原因(Key 余额没了/中转限速)对不上。现在收到 429 立刻停手,直接给出对路的中文提示「上游图像 API 配额耗尽,等 30-60 秒后再试,或在 API 管理换一个 Key/中转账号,或下调图像 RPM 限额」,也不会再多烧一次配额做无谓的降级尝试。',
+      '【文档·新增文生图详解】README 加了「文生图(左页插画)」章节,新增 docs/image-gen.md 长版指南:7 种协议的对照表、5 个服务商分步教程(DeepSeek 中转 / OpenAI / 自建 SD / NovelAI / Pollinations)、NovelAI 持久 Token 获取与 CORS 代理方案、extraParams 语法手册、失败排错三步法。',
+    ],
+  },
   {
     version: 'v1.15.1',
     label: '插画接入 NovelAI 官方 · 生图设置改头换面',
