@@ -57,7 +57,14 @@ export function PageBanner({ src, pageId, imageAt, alt, isFlipping, status = 'do
     })();
     return () => {
       revoked = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      // 推迟一帧 revoke:旧 createdUrl 此刻可能还在 React state 里、img.src 也还指向它,
+      // 立即 revoke 会让浏览器加载失败触发 <img onError>,把刚拉到的新 objectUrl 误清掉,
+      // 出现"重生成后什么都不显示,只有刷新才能看见新图"的 race。延迟到下一个 task 让
+      // React state 切换 + 浏览器换 src 引用先发生,再回收旧 URL 资源。
+      if (createdUrl) {
+        const u = createdUrl;
+        setTimeout(() => URL.revokeObjectURL(u), 0);
+      }
     };
   }, [src, pageId, imageAt]);
 
@@ -83,7 +90,6 @@ export function PageBanner({ src, pageId, imageAt, alt, isFlipping, status = 'do
           src={objectUrl}
           alt={alt ?? ''}
           loading="lazy"
-          onError={() => setObjectUrl(undefined)}
           style={{
             width: '100%',
             height: '100%',
