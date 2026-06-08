@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.15.0';
+export const CURRENT_VERSION = 'v1.15.1';
 
 interface Release {
   version: string;
@@ -19,6 +19,18 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.15.1',
+    label: '插画接入 NovelAI 官方 · 生图设置改头换面',
+    items: [
+      '【插画·新增 NovelAI 官方】以前左页插画只支持 OpenAI 系、自建 SD、假流式中转、Pollinations。现在加入 NovelAI 官方插画 API:在「设置 → API 管理 → 图像生成 API → 协议模式」下拉里选「novelai · NovelAI 官方插画」即可。NovelAI 持久 Token(pst-xxx)填 apiKey、地址填 https://image.novelai.net、推荐模型 nai-diffusion-4-5-full。注意 NovelAI 自 2024 起禁止并发,图像 RPM 建议设 1;前端直连有跨域限制,需用支持 NovelAI 透传的中转或自建代理才能跑通。',
+      '【插画·NovelAI 推荐尺寸一键预设】选 NovelAI 协议后,生成参数区会显示「纵向 832×1216 / 横向 1216×832 / 方形 1024×1024」三档官方推荐尺寸按钮,一键应用,免得自己算 64 倍数。当前选中尺寸会金色高亮。',
+      '【插画·NovelAI 失败提示中文化】NovelAI Token 失效会提示「到 NovelAI Web → Settings → Account → Get Persistent API Token 重新获取」;Anlas 余额不足会提示「缩小尺寸到 1024 以内、步数 ≤ 28」;并发被拒会提示「等 30 秒后重试」,不再只给一个英文报错。',
+      '【生图设置·大整理】以前生图设置一长串平铺,所有项堆在一起难找。现在分成「基础 / 存储与限速 / 生成参数 / 风格」四个子组,每组前面有铜条 + 小标题;「图像 RPM」从数字输入框改成滑块,跟其他设置滑块统一手感。',
+      '【生图设置·下拉换成铜版风】以前协议模式、存储方式、采样器、默认风格四个下拉用的是浏览器默认下拉(白底黑字弹窗),跟整体铜版风格格不入。现在全部换成统一的铜版风自定义下拉,边框金色 + 选中铜光 + 悬停淡铜底;协议模式展开能看到每个协议一句话说明,选了之后下方还会显示当前模式的特征,不用再点问号也能识别。',
+      '【问号气泡·超长内容可滚动】以前点协议模式问号 ?,说明文字超长会撑出屏幕外看不见,鼠标也滚不动。现在气泡会按屏幕剩余空间自动设置最大高度,内容超出自带滚动条,鼠标可以悬停到气泡里滚动查看完整说明。',
+    ],
+  },
   {
     version: 'v1.15.0',
     label: '左页插画上线 · MVU 综合调用 · 第三人称统一 · 稳定性大改',
