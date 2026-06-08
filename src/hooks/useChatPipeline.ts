@@ -67,7 +67,6 @@ import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
-import { evaluatePartyRelations } from '../sillytavern/party-relation-evaluator';
 import { useNarrationStore } from '../stores/useNarrationStore';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
@@ -787,10 +786,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
 
       // Apply regex scripts to user input (placement 1 = USER_INPUT)
-      const regexScripts = [
-        ...useRegexStore.getState().globalScripts,
-        ...useRegexStore.getState().presetScripts,
-      ];
+      const regexScripts = useRegexStore.getState().globalScripts;
       const regexProcessedInput = runAllRegexScripts(
         renderTemplate(macroProcessedInput, tmplOpts),
         1,
@@ -1124,10 +1120,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
         // ── 解析成功：在最终回复上跑显示regex / TH钩子 / 变量提取 ──
         const response = { content: lastContent };
-        const aiOutputRegexScripts = [
-          ...useRegexStore.getState().globalScripts,
-          ...useRegexStore.getState().presetScripts,
-        ];
+        const aiOutputRegexScripts = useRegexStore.getState().globalScripts;
         const regexProcessedContent = runAllRegexScripts(
           response.content,
           2,
@@ -1204,6 +1197,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               discoveryNarrative: c.discoveryNarrative,
             }));
 
+            const chatNow1 = useChatStore.getState();
+            const session1 = chatNow1.sessions.find((c) => c.id === chatNow1.activeId);
+            const megaScenarioId = (session1?.scenarioId && session1.scenarioId !== '__free') ? session1.scenarioId : null;
+            const megaPlayerId = megaScenarioId
+              ? (useCharSheetStore.getState().sheet.identity.name || 'player')
+              : null;
+
             const megaInput = buildMegaAgentInput({
               narrative: hookProcessedContent,
               isEpilogue: isEpilogueEarly,
@@ -1211,6 +1211,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               newLocations,
               newEdges,
               unknownKeywords: extractKwTaggedKeywords(hookProcessedContent).filter((k) => !knownKeywords.has(k)),
+              scenarioId: megaScenarioId,
+              playerId: megaPlayerId,
             });
 
             const eff = mvuSettings.getEffectiveMvuApi();
@@ -1221,14 +1223,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               signal: controller.signal,
             });
             mvuUsage = megaResult.usage;
-            const summary = dispatchMegaAgentResult(megaResult);
+            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId });
             pushLog(
               megaResult.fallback ? 'warn' : 'info',
               `[MVU 综合] ${megaResult.fallback ? '回退到 extractVariables 路径' : '一次综合调用'}:` +
                 ` 变量 ${summary.variablesApplied} / 暗线 ${summary.darkThreadApplied ? '✓' : '–'}` +
                 ` / 关键词 ${summary.keywordsAdded} / 支柱命中 ${summary.evaluateKeyCluesMatches}` +
                 ` / 地点元素 ${summary.locationElementsAdded} / 线索整合 ${summary.clueIntegrationCount}` +
-                ` / 地点整合 ${summary.locationIntegrationCount} / 地图修正 ${summary.mapReconcileActions}`,
+                ` / 地点整合 ${summary.locationIntegrationCount} / 地图修正 ${summary.mapReconcileActions}` +
+                ` / 关系演化 ${summary.partyRelationDeltasApplied} / 脱队 ${summary.partyConflictsResolved}`,
               'system',
             );
           } catch (err) {
@@ -1307,22 +1310,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             applyCorrectiveOps: (ops) => useVariableStore.getState().applyCorrectiveOps(ops),
           });
 
-          // M9 关系演化评估器(spec §8 / §4.2 R4)。
-          // 接现有 post-settle 链, 在 sanity/bout 之后、newPage 写入派生状态之前跑。
-          // 失败永不阻塞主流程(party-relation-evaluator 内已包 try/catch)。
-          {
-            const chatNow2 = useChatStore.getState();
-            const session2 = chatNow2.sessions.find((c) => c.id === chatNow2.activeId);
-            const scenarioId = session2?.scenarioId;
-            if (scenarioId && scenarioId !== '__free') {
-              await evaluatePartyRelations({
-                scenarioId,
-                narrative: hookProcessedContent,
-                sessionId: chatNow2.activeId ?? '',
-                playerId: useCharSheetStore.getState().sheet.identity.name || 'player',
-              });
-            }
-          }
+          // M9 关系演化:已并入 MVU 综合 A(2026-06-08),独立 evaluatePartyRelations 子调用已删除。
+          // dispatchMegaAgentResult 内消费 result.partyRelations.deltas → applyRelationDelta + detectPartyConflicts +
+          // 脱队旁白(useNarrationStore.append)。RPM 桶从 3 个回到 2 个(主+mvu),符合 mvu-api-owns-all-variables-2rpm-target。
         };
 
         const newPage = result.page;

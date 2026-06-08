@@ -331,6 +331,28 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         `[${locLabel}的过路 NPC ——仅在场时出现,身份与位置如下;无需深入扮演]\n${passersList.map(formatPasser).join('\n')}`,
       );
     }
+
+    // 伙伴/在场角色行动硬约束:仅在有队友或在场核心/重要 NPC 时挂载,空场景零增量。
+    // 队友(★)= getParty 返回的 isPresent && inParty;在场重要 NPC(·)= importantList 中 isPresent 但不在队友列表。
+    const partyList = all.filter((p) => p.isPresent && p.inParty)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const partyIdSet = new Set(partyList.map((p) => p.id));
+    const presentImportantList = importantList
+      .filter((p) => p.isPresent && !partyIdSet.has(p.id));
+    if (partyList.length > 0 || presentImportantList.length > 0) {
+      const lines: string[] = [];
+      for (const p of partyList) lines.push(`- ★ ${p.name}`);
+      for (const p of presentImportantList) lines.push(`- · ${p.name}`);
+      sections.push(
+        [
+          '[在场角色行动·硬约束]',
+          '本回合 leftContent / rightContent 中,以下角色【必须】至少有一处可观察的具体动作或对话(★=玩家小队队友;·=在场的核心/重要 NPC):',
+          lines.join('\n'),
+          '要求:①每个上述角色至少出现一次具体动作(肢体/移动/查看/操作物件)或台词,不可仅被名字提及或仅作为背景陈设;②他们的当回合行动应能【约束、辅助、对抗、干扰】调查员的潜在选项,生成的 choices 必须将这些角色当下的状态与意图纳入前提(例如队友若已在突进,选项中至少有一条与其协同或制止);③遵守姿态/状态条件的物理约束,倒下/昏迷/被束缚者不能做该状态下物理上不可能的事;④队友身份(inParty)由玩家在 UI 手动管理,严禁通过 npcUpdates 改写 inParty 字段。',
+        ].join('\n'),
+      );
+    }
+
     return sections.join('\n\n');
   },
 

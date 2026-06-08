@@ -4,7 +4,6 @@ import { LandingScreen } from './components/Landing/LandingScreen';
 import { ChangelogModal } from './components/Landing/ChangelogModal';
 import { CharacterCreator } from './components/CharSheet/CharacterCreator';
 import { GameView } from './components/Layout/GameView';
-import { DicePanel } from './components/Dice/DicePanel';
 import { DiceHistory } from './components/Dice/DiceHistory';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { WorldbookPanel } from './components/Settings/WorldbookPanel';
@@ -337,7 +336,6 @@ export function App() {
       )}
 
       {/* ── Global overlay panels — always mounted, self-managed via stores ── */}
-      <DicePanel />
       <PresetSwitchOverlay />
 
       {openPanel === 'settings' && (
