@@ -1,11 +1,12 @@
 import { useRpmCooldown } from '../../hooks/useRpmCooldown';
 import { useTurnProgressIsRunning } from '../../stores/useTurnProgressStore';
 
-// RPM 冷却条:LLM 调用全部结束后,等 60s 滑动窗口里最早 timestamp 过期才解锁选项
+// RPM 冷却条:只在桶满 (used >= limit) 时显示,等最早 timestamp 过期腾出名额。
+// 桶有余量时不渲染,推进按钮直接可用 — 跟 rpmAcquire 的真实限流语义一致。
 export function RpmCooldownBar() {
   const { cooldownSec, ready } = useRpmCooldown();
   const isRunning = useTurnProgressIsRunning();
-  // LLM 跑时让位给 TurnProgressBar,桶已空时不渲染
+  // LLM 跑时让位给 TurnProgressBar,桶有余量时不渲染
   if (isRunning || ready) return null;
 
   return (

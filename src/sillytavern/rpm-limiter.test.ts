@@ -150,7 +150,7 @@ describe('rpmAcquire — 排队上限抛 RpmQueueExhaustedError', () => {
   });
 });
 
-describe('getRpmCooldownSec — 桶清空倒计时', () => {
+describe('getRpmCooldownSec — 桶满才锁,有余量直接 0', () => {
   beforeEach(() => {
     _resetRpm();
     vi.useFakeTimers();
@@ -164,49 +164,93 @@ describe('getRpmCooldownSec — 桶清空倒计时', () => {
     _resetRpm();
   });
 
-  it('桶空时返回 0', () => {
+  it('桶空 → 0', () => {
     expect(getRpmCooldownSec()).toBe(0);
   });
 
-  it('刚 push 一条 timestamp 后,cooldown ≈ 60s', async () => {
+  it('used < limit → 0 (桶有余量,UI 不锁)', async () => {
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
-    await rpmAcquire('main');
-    expect(getRpmCooldownSec()).toBe(60);
+    await rpmAcquire('main'); // used=1, limit=3
+    expect(getRpmCooldownSec()).toBe(0);
+    await rpmAcquire('main'); // used=2
+    expect(getRpmCooldownSec()).toBe(0);
   });
 
-  it('30s 后 cooldown 降到 30s', async () => {
+  it('used == limit → 等【最早】 timestamp 过期', async () => {
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
     await rpmAcquire('main');
+    vi.setSystemTime(new Date('2026-06-08T00:00:10Z'));
+    await rpmAcquire('main');
+    vi.setSystemTime(new Date('2026-06-08T00:00:20Z'));
+    await rpmAcquire('main'); // used=3, 满
+    // 最早 ts=0:00:00,过 20s,还差 40s 过期
+    expect(getRpmCooldownSec()).toBe(40);
+  });
+
+  it('桶满后倒计时单调递减', async () => {
+    vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
+    await rpmAcquire('main');
+    await rpmAcquire('main');
+    await rpmAcquire('main'); // used=3 满, 最早=0
+    expect(getRpmCooldownSec()).toBe(60);
     vi.setSystemTime(new Date('2026-06-08T00:00:30Z'));
     expect(getRpmCooldownSec()).toBe(30);
   });
 
-  it('60s 后 timestamp 过期,cooldown 回 0', async () => {
+  it('最早 ts 过期 → 桶恢复余量, 回 0', async () => {
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
     await rpmAcquire('main');
-    vi.setSystemTime(new Date('2026-06-08T00:01:00Z'));
+    await rpmAcquire('main');
+    await rpmAcquire('main');
+    vi.setSystemTime(new Date('2026-06-08T00:01:01Z')); // 最早 ts 已过期
     expect(getRpmCooldownSec()).toBe(0);
   });
 
-  it('多 timestamp 取最晚的(保证倒计时单调递减不跳)', async () => {
+  it('limit=0 (不限制) → 始终 0, 即便桶里有 ts 也不锁', async () => {
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
     await rpmAcquire('main');
-    vi.setSystemTime(new Date('2026-06-08T00:00:20Z'));
     await rpmAcquire('main');
-    vi.setSystemTime(new Date('2026-06-08T00:00:30Z'));
-    // 最晚 timestamp 在 0:00:20,过 10s,还差 50s 过期
-    expect(getRpmCooldownSec()).toBe(50);
+    await rpmAcquire('main');
+    useSettingsStore.setState({ rpmLimit: 0 });
+    expect(getRpmCooldownSec()).toBe(0);
   });
 
-  it('perApiRpmEnabled=true 三桶都看,取最迟过期的桶', async () => {
-    useSettingsStore.setState({ perApiRpmEnabled: true, mvuRpmLimit: 3, rewriteRpmLimit: 3 });
+  it('用户场景: limit=10 + 7 个 ts → 余量 3, 不锁 (回归 ec50c0f 把 limit 放宽到 10 后的过严)', async () => {
+    useSettingsStore.setState({ rpmLimit: 10 });
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
-    await rpmAcquire('main');
+    for (let i = 0; i < 7; i += 1) await rpmAcquire('main');
+    expect(getRpmCooldownSec()).toBe(0);
+  });
+
+  it('perApiRpmEnabled=true: 仅满桶参与, 取最迟过期', async () => {
+    useSettingsStore.setState({
+      perApiRpmEnabled: true,
+      rpmLimit: 1,
+      mvuRpmLimit: 1,
+      rewriteRpmLimit: 1,
+    });
+    vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
+    await rpmAcquire('main'); // main 满, 最早=0
     vi.setSystemTime(new Date('2026-06-08T00:00:10Z'));
-    await rpmAcquire('mvu');
+    await rpmAcquire('mvu'); // mvu 满, 最早=10
+    // rewrite 桶空 → 不参与
     vi.setSystemTime(new Date('2026-06-08T00:00:30Z'));
-    // main 桶最早 ts=0,过 30s 还差 30s; mvu 桶最早 ts=10s,过 20s 还差 40s
-    // 取 max → 40s
+    // main 差 30s, mvu 差 40s → max = 40
+    expect(getRpmCooldownSec()).toBe(40);
+  });
+
+  it('perApiRpmEnabled=true: 一个桶满 + 一个桶有余量 → 只看满的那个', async () => {
+    useSettingsStore.setState({
+      perApiRpmEnabled: true,
+      rpmLimit: 1, // main 极小,容易满
+      mvuRpmLimit: 5, // mvu 宽,不会满
+      rewriteRpmLimit: 0,
+    });
+    vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
+    await rpmAcquire('main'); // main 满
+    await rpmAcquire('mvu'); // mvu 1/5, 余 4
+    vi.setSystemTime(new Date('2026-06-08T00:00:20Z'));
+    // main 差 40s; mvu 未满 → 不参与
     expect(getRpmCooldownSec()).toBe(40);
   });
 });

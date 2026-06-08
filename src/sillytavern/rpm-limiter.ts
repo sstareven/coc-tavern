@@ -137,30 +137,43 @@ export function getCurrentRpmTotal(): number {
 }
 
 /**
- * 取「桶里最晚 timestamp 距 60s 过期还有多少秒」(向上取整,封顶 60)。
- * 0 = 所有桶已空,可以发起下一次推进。
+ * 仅在「桶满」(used >= limit) 时返回剩余冷却秒数:等到桶里【最早】 timestamp 过期、
+ * 余量从 0 变 1 为止。桶有余量 (used < limit) 或 limit<=0 → 直接 0, UI 不锁。
  *
- * 用户偏好(2026-06-08):"3 RPM 墙必须包括下一次按推进的时间内" — 推进选项要在
- * RPM 桶完全清空才解锁,防止用户连按推进让 timestamp 累积撞死线。
+ * 与 rpmEvaluate 的真实限流语义对齐:它在 kept.length >= limit 时让新调用 wait
+ * 直到 kept[0] 过期;UI 也只在「下一次推进会立刻撞墙」时才显示倒计时。
+ * rpmAcquire 内还有 maxAttempts 自动排队兜底,即便恰好踩边界也不会撞死。
  *
- * 用【最晚】timestamp 而非最早:一次回合 4 次调用产生 4 个 timestamp,如果取最早
- * 那个,它过期后冷却数字会"跳回"下一个 timestamp 的更大剩余时间,UI 看起来像
- * 莫名倒退;取最晚保证倒计时单调递减直到 0。perApiRpmEnabled=true 时三桶取 max。
+ * 旧策略(改前):"桶里有任意 ts 就锁",源自 limit=3 时担心连按累计撞死线。
+ * 但 limit 放宽到 10 时余量充足却仍被锁死(用户场景:7 RPM 占用 + 3 RPM 余量,
+ * 仍被强锁 60s)。新策略对 limit 自适应:limit=3 时桶 3 个 ts 就锁、limit=10 时
+ * 必须填满 10 个才锁,既保留 limit=3 的"防撞死"原意,也消除 limit=10 的过严。
+ *
+ * perApiRpmEnabled=true 时三桶独立,取「下一次解锁最晚的那个满桶」即取 max。
  */
 export function getRpmCooldownSec(): number {
   const s = useSettingsStore.getState();
-  const buckets: RpmKind[] = s.perApiRpmEnabled
-    ? ['main', 'mvu', 'rewrite']
-    : ['main'];
+  const entries: { kind: RpmKind; limit: number }[] = s.perApiRpmEnabled
+    ? [
+        { kind: 'main', limit: s.rpmLimit ?? 0 },
+        { kind: 'mvu', limit: s.mvuRpmLimit ?? 0 },
+        { kind: 'rewrite', limit: s.rewriteRpmLimit ?? 0 },
+      ]
+    : [{ kind: 'main', limit: s.rpmLimit ?? 0 }];
   const now = Date.now();
   let maxRemainMs = 0;
-  for (const b of buckets) {
-    let latest = -Infinity;
-    for (const t of histories[b]) {
-      if (now - t < WINDOW_MS && t > latest) latest = t;
+  for (const { kind, limit } of entries) {
+    if (limit <= 0) continue; // 不限制 → 不锁
+    let earliest = Infinity;
+    let count = 0;
+    for (const t of histories[kind]) {
+      if (now - t < WINDOW_MS) {
+        count += 1;
+        if (t < earliest) earliest = t;
+      }
     }
-    if (latest === -Infinity) continue;
-    const remain = WINDOW_MS - (now - latest);
+    if (count < limit) continue; // 桶有余量 → 不锁
+    const remain = WINDOW_MS - (now - earliest);
     if (remain > maxRemainMs) maxRemainMs = remain;
   }
   return Math.max(0, Math.ceil(maxRemainMs / 1000));

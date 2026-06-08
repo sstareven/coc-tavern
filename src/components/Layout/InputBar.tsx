@@ -45,7 +45,7 @@ export function InputBar() {
 
   // ── Pipeline hook ──
   const pipeline = useChatPipeline(() => {});
-  // RPM 桶清空前 lock 推进/补写/输入框,跟「3 RPM 必须包括下一次推进」语义对齐
+  // 桶满 (used >= limit) 时 lock 推进/补写/输入框,跟 rpmAcquire 的真实限流语义对齐
   const { ready: rpmReady } = useRpmCooldown();
 
   // ── Textarea 自增长：高度由 input state 驱动，提交/回填/补全后自动回缩 ──

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { getRpmCooldownSec } from '../sillytavern/rpm-limiter';
 
 /**
- * 每秒轮询 rpm-limiter 桶,反馈 60s 滑动窗口里最早 timestamp 还有多久过期。
- * cooldownSec === 0 → 桶完全空,可以发起下一次推进。
+ * 每秒轮询 rpm-limiter,反馈「桶满才需要等多少秒解锁」。
+ * cooldownSec === 0 → 桶有余量(或不限制),可以发起下一次推进。
  *
  * 实现说明:rpm-limiter histories 是 module-level 可变数组,无 subscribe 机制。
  * 用 setInterval 轮询;setState 相同值不会触发 re-render,性能可接受。
