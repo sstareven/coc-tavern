@@ -13,6 +13,7 @@ import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
+import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { useKeyClueStore } from '../../stores/useKeyClueStore';
 import { useCombatStore } from '../../stores/useCombatStore';
@@ -43,6 +44,9 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
+  const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const streamingSegments = useStreamingPrintStore((s) => s.segments);
+  const streamingHeader = useStreamingPrintStore((s) => s.headerText);
   const encounter = useCombatStore((s) => s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
@@ -377,7 +381,7 @@ export function Storybook() {
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} isStreamingPrint={isStreamingPrint} streamingSegments={streamingSegments} streamingHeader={streamingHeader} />
               </AppearPage>
             )}
           </div>
