@@ -100,12 +100,20 @@ export function Toggle({ on, onChange, onLabel = 'ON', offLabel = 'OFF' }: {
 }
 
 /** 悬浮显示说明的问号图标。提示窗用 portal 渲染到 body、fixed 定位，
- *  脱离面板溢出裁剪、可超出窗口、不会撑出滚动条。 */
+ *  脱离面板溢出裁剪、可超出窗口、不会撑出滚动条。
+ *  超长内容自带 maxHeight + overflowY,鼠标可移入 tooltip 滚动(hover bridge 防瞬时关闭)。 */
 export function HelpIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number; below: boolean }>({ x: 0, y: 0, below: true });
+  const [pos, setPos] = useState<{ x: number; y: number; below: boolean; maxH: number }>(
+    { x: 0, y: 0, below: true, maxH: 500 },
+  );
   const ref = useRef<HTMLSpanElement>(null);
   const showTimer = useRef<number | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+  };
 
   const onEnter = () => {
     const el = ref.current;
@@ -114,14 +122,20 @@ export function HelpIcon({ text }: { text: string }) {
       // 把可视坐标除以 auto-zoom 换回布局坐标,否则问号 tooltip 跑右下角。
       const s = getAutoZoom();
       const r = el.getBoundingClientRect();
-      const W = 300 * s;
+      const W = 320 * s;
       let x = r.left;
       if (x + W > window.innerWidth - 8) x = window.innerWidth - W - 8;
       x = Math.max(8, x);
       const below = r.bottom < window.innerHeight * 0.55;
       const yRaw = below ? r.bottom + 6 : r.top - 6;
-      setPos({ x: x / s, y: yRaw / s, below });
+      // 按上下方向算余量(留 16px 安全边),tooltip 内部 overflowY 自带滚动
+      const headroom = below
+        ? window.innerHeight - r.bottom - 22
+        : r.top - 22;
+      const maxH = Math.max(120, headroom / s);
+      setPos({ x: x / s, y: yRaw / s, below, maxH });
     }
+    cancelClose();
     // 按设置面板「提示延迟」延后显示。0 = 立即。store 直接 getState,避免每次 hover 都订阅。
     const delay = useSettingsStore.getState().tooltipDelay;
     if (showTimer.current !== null) window.clearTimeout(showTimer.current);
@@ -134,7 +148,9 @@ export function HelpIcon({ text }: { text: string }) {
 
   const onLeave = () => {
     if (showTimer.current !== null) { window.clearTimeout(showTimer.current); showTimer.current = null; }
-    setShow(false);
+    // hover bridge:延迟 150ms 关闭,允许鼠标从问号挪到 tooltip 滚动
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => { setShow(false); closeTimer.current = null; }, 150);
   };
 
   return (
@@ -147,15 +163,23 @@ export function HelpIcon({ text }: { text: string }) {
     >
       <span style={helpIconStyle}>?</span>
       {show && createPortal(
-        <div style={{
-          position: 'fixed', left: pos.x, top: pos.y, zIndex: 2000,
-          ...(pos.below ? {} : { transform: 'translateY(-100%)' }),
-          width: 300, maxWidth: 'calc(100vw - 16px)', padding: '8px 10px',
-          background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-          fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.8,
-          fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line', pointerEvents: 'none',
-        }}>
+        <div
+          onMouseEnter={cancelClose}
+          onMouseLeave={() => setShow(false)}
+          style={{
+            position: 'fixed', left: pos.x, top: pos.y, zIndex: 2000,
+            ...(pos.below ? {} : { transform: 'translateY(-100%)' }),
+            width: 320, maxWidth: 'calc(100vw - 16px)',
+            maxHeight: pos.maxH,
+            overflowY: 'auto',
+            padding: '10px 12px',
+            background: 'var(--leather)', border: '1px solid var(--gold)', borderRadius: 4,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+            fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--text-light)', lineHeight: 1.8,
+            fontFamily: 'var(--font-ui)', whiteSpace: 'pre-line',
+            pointerEvents: 'auto',
+          }}
+        >
           {text}
         </div>,
         document.body,
