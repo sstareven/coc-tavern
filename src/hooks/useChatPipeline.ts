@@ -1040,13 +1040,15 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 立即 append 占位页 + autoFlipForward — 让翻页动画在 SSE 还没开始来字时就启动。
         // 翻页结束(1.5s)时 streamingSegments 已积累若干字,玩家进入新页就看到正文在刻。
         // 之后 JSON 解析成功时改 replacePage(placeholderPageIndex, newPage) 而不是再 append。
+        // rightHeader/rightContent 填占位文案让玩家知道右页正在等 LLM 完成,避免误以为系统挂了
+        // (右页要等主流 [DONE] + MVU 完成才有完整数据,通常 5-15s)。replacePage 时被真实数据覆盖。
         const blankPage = {
           leftHeader: '',
           leftContent: '',
           leftPage: '',
           rightPage: '',
-          rightHeader: '',
-          rightContent: '',
+          rightHeader: '生成中',
+          rightContent: '守秘人正在编写本回合的引导与选项,请稍候。',
           rightChoices: [],
         };
         useBookStore.getState().appendPage(blankPage);
