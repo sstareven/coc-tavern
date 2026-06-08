@@ -241,7 +241,7 @@ Pollinations.ai 是免费免登录的图像 API。
 
 `style` / `style_anchors` / `location` / `time` / `weather` / `characters` / `san` / `scene` / `scene_brief` / `image_hint`
 
-`image_hint` 由 LLM 子调用产出 — 当 **设置 → 图像生成 API → LLM 提取 prompt** 开启时(默认开),生图前会跑一次主 API 子调用把当页正文叙事转成英文 image prompt(NovelAI → Danbooru tag,SD/OpenAI → 自然语言短句),让图片真正反映剧情。失败时回退空串。
+`image_hint` 由 LLM 子调用产出 — 协议为 `novelai` / `sd-compat` / `openai-strict` / `gpt-image-1` / `pollinations` 时(英文 only 训练或英文效果更好),生图前会自动跑一次主 API 子调用把当页正文叙事转成英文 image prompt(NovelAI → Danbooru tag,其他 → 自然语言短句),让图片真正反映剧情。协议为 `chat-completions`(Gemini / nano-banana 假流式)时跳过(Gemini 系原生支持中文叙事)。失败时回退空串。
 
 **EJS 语法**(子集):
 

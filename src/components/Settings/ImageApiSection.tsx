@@ -50,8 +50,6 @@ export function ImageApiSection() {
   const setRpmLimit = useSettingsStore((s) => s.setImageRpmLimit);
   const imageDefaults = useSettingsStore((s) => s.imageDefaults);
   const setImageDefaults = useSettingsStore((s) => s.setImageDefaults);
-  const enableLlmHint = useSettingsStore((s) => s.imageEnableLlmPromptHint);
-  const setEnableLlmHint = useSettingsStore((s) => s.setImageEnableLlmPromptHint);
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -79,14 +77,6 @@ export function ImageApiSection() {
               <HelpIcon text={'打开=主回合写入新页后自动生图(默认);关闭=只在玩家点击重生成按钮时才生成。\n\n建议先用关闭体验剧情,确认满意再开自动。'} />
             </span>
             <Toggle on={autoGen} onChange={() => setAutoGen(!autoGen)} onLabel="自动" offLabel="手动" />
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>
-              LLM 提取 prompt
-              <HelpIcon text={'打开(默认)=生图前跑一次 LLM 子调用,把当页正文叙事转成英文 image prompt(NovelAI 走 Danbooru tag,SD/OpenAI 走自然语言短句)。让图片真正反映当前剧情场景。\n\n关闭=只用 sceneInfo 中文(地点/时间/天气/在场角色)+ 风格 tokens,NovelAI/SD 等英文模型会大概率生成与剧情脱离的"通用场景图"。\n\n代价:每次生图多一次主 API 调用(约 600 tokens 上下),走主 RPM 桶。\n\nLLM 子调用失败时自动 fallback 到旧逻辑,不阻塞生图。'} />
-            </span>
-            <Toggle on={enableLlmHint} onChange={() => setEnableLlmHint(!enableLlmHint)} onLabel="开" offLabel="关" />
           </div>
 
           {/* ──── 存储 ──── */}

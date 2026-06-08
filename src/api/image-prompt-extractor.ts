@@ -62,6 +62,18 @@ const SYSTEM_GENERAL = [
   '6. Output ONLY a JSON object: {"prompt": "sentence."}',
 ].join('\n');
 
+/** 按协议自动判定是否需要跑 LLM 子调用提取英文 image prompt:
+ *  - 'chat-completions'(Gemini / nano-banana 假流式中转)→ 不需要,Gemini 系原生支持中文叙事
+ *  - 其他协议(novelai / sd-compat / openai-strict / gpt-image-1 / pollinations)→ 需要,
+ *    SD/NovelAI 是英文 only 训练,DALL-E/GPT-image-1 也是英文效果显著更好
+ *  - 'auto' / '' / 未识别 → 按需要处理(保守开启)
+ *
+ *  本函数纯逻辑、不依赖 store/网络,可独立单测。 */
+export function needsLlmEnglishHint(protocol: string | undefined): boolean {
+  if (protocol === 'chat-completions') return false;
+  return true;
+}
+
 function buildUserPayload(input: ImagePromptExtractInput): string {
   const lines: string[] = [];
   if (input.location) lines.push(`Scene location: ${input.location}`);

@@ -22,7 +22,7 @@ import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
 import { buildImageSpecFromPage } from './image-prompt-builder';
 import { callImageApiWithRetry, b64ToBlob, ImageGenError, detectPayloadMode } from './image-gen-engine';
 import { isNovelAiBaseUrl } from './image-gen-novelai';
-import { extractImagePromptHint } from './image-prompt-extractor';
+import { extractImagePromptHint, needsLlmEnglishHint } from './image-prompt-extractor';
 import { db } from '../db/database';
 
 export interface TriggerImageGenOpts {
@@ -96,8 +96,9 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   useBookStore.getState().setPageImageStatus(pageIdx, 'pending');
 
   // 跑 LLM 子调用把当页正文转英文 image prompt(NovelAI → Danbooru tag;其他 → 自然语言短句)。
-  // 失败/未启用返空串,模板渲染时 fall back 到中文 ctx。
-  const useLlmHint = s.imageEnableLlmPromptHint !== false; // 默认开
+  // 按 protocol 自动判定:chat-completions(Gemini 系)原生支持中文叙事,跳过;其他英文模型都跑。
+  // 失败/不需要返空串,模板渲染时 fall back 到中文 ctx。
+  const useLlmHint = needsLlmEnglishHint(resolvedProtocol);
   let imageHint = '';
   if (useLlmHint) {
     progress.setStage(pageId, '提取图像 prompt');
