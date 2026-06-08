@@ -599,9 +599,11 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
 
 /**
  * 重试包装:
+ * - HTTP 429(上游配额耗尽):立即抛带中文 hint。不 sleep / 不烧 RPM / 不重试 / 不降级。
+ *   上游 quota 通常按分钟级重置,2s 等待无意义且会再烧一次 RPM 配额加剧问题。
  * - 5xx / 网络错:【等 retryDelayMs】+【onBeforeRetry 节流(rpmAcquire)】+ 重试 1 次。
- * - 4xx 且 payloadMode==='auto':同样【等 retryDelayMs】+【onBeforeRetry 节流】后,以 openai-strict 重试 1 次;
- *   仍 4xx 才真抛错。给玩家"auto 探测命中 400 已自动降级"提示。
+ * - 4xx(非 429)且 payloadMode==='auto':同样【等 retryDelayMs】+【onBeforeRetry 节流】后,
+ *   以 openai-strict 重试 1 次;仍 4xx 才真抛错。给玩家"auto 探测命中 400 已自动降级"提示。
  * - 4xx 且 payloadMode 显式非 auto:不重试,玩家自己改设置。
  * - onBeforeRetry 抛(如 RpmQueueExhaustedError)→ 放弃重试,把首次错原样抛出。
  */
@@ -614,6 +616,21 @@ export async function callImageApiWithRetry(
     return await callImageApi(req);
   } catch (err) {
     if (req.signal?.aborted) throw err;
+
+    // 429 = 上游配额耗尽。不是协议错也不是瞬时网络错 — 重试 2s 后大概率仍 429,且会再烧 RPM。
+    // 直接抛带中文 hint,玩家手动隔半分钟再生成或换 Key/中转。
+    if (err instanceof ImageGenError && err.status === 429) {
+      throw new ImageGenError(
+        `${err.message} · 上游配额耗尽(HTTP 429)`,
+        {
+          status: 429,
+          endpoint: err.endpoint,
+          bodyKeys: err.bodyKeys,
+          recoveryHint: '上游图像 API 配额耗尽(HTTP 429,通常按分钟/小时计)。等 30-60 秒后再试,或在 API 管理换一个 Key/中转账号,或下调图像 RPM 限额。立即重生成会再次触发并可能延长封禁。',
+        },
+      );
+    }
+
     const is4xx = err instanceof ImageGenError && err.status && err.status >= 400 && err.status < 500;
     const is5xx = err instanceof ImageGenError && err.status && err.status >= 500;
 
