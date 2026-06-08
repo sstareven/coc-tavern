@@ -510,7 +510,9 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     const leftHeader = cleanHeader(String(parsed.leftHeader ?? '探索')) || '探索';
     let leftContent = stripMvu(unescapeLiteralNewlines(String(parsed.leftContent ?? raw)));
     const rightHeader = cleanHeader(String(parsed.rightHeader ?? '行动')) || '行动';
-    const rightContent = stripMvu(unescapeLiteralNewlines(String(parsed.rightContent ?? '接下来你打算怎么做？')));
+    // 空串也走兜底文案,否则 LLM 返 rightContent: "" 时右页完全空白(?? 不接管空串)
+    const rightContentRaw = String(parsed.rightContent ?? '').trim();
+    const rightContent = stripMvu(unescapeLiteralNewlines(rightContentRaw || '接下来你打算怎么做？'));
 
     let choices = Array.isArray(parsed.choices)
       ? parsed.choices.map((c: unknown, i: number) => {

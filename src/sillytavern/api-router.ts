@@ -155,13 +155,37 @@ export async function sendChatCompletion(
     }
 
     console.log('[api-router] Stream ended — fullContent length:', fullContent.length);
+    detectRelayBusyPayload(fullContent);
     return { content: fullContent, usage: streamUsage };
   }
 
   const json = await response.json();
   const content: string = json.choices?.[0]?.message?.content ?? '';
   console.log('[api-router] Non-stream — content length:', content.length, 'model:', json.model);
+  detectRelayBusyPayload(content);
   return { content, model: json.model, usage: json.usage };
+}
+
+/**
+ * 嗅探中转站把上游 429/限流伪装成 HTTP 200 + 短文本 body 的情形,直接抛错。
+ * 否则 parseLlmResponse 拿到非 JSON 内容会触发 sendWithJsonRetry 跑满 jsonRetryCount
+ * 次(每次几十秒到几分钟),用户感知为"等了 9 分钟没结果"。
+ *
+ * 严格匹配规则(避免误伤合法 LLM 输出):
+ * - 长度 < 200 字符(真叙事都比这长)
+ * - 不含 `{`(排除任何 JSON 候选)
+ * - 匹配限流/服务故障关键词
+ */
+function detectRelayBusyPayload(content: string): void {
+  const text = content.trim();
+  if (text.length === 0) {
+    throw new Error('上游返回空内容(可能是中转站拒答或网关问题)');
+  }
+  if (text.length >= 200) return;
+  if (text.includes('{')) return;
+  if (/(429|503|502|繁忙|too\s*many|rate.?limit|busy|gateway|网关|服务不可用|service\s+unavailable)/i.test(text)) {
+    throw new Error(`上游限流/服务故障: ${text.slice(0, 120)}`);
+  }
 }
 
 /**
