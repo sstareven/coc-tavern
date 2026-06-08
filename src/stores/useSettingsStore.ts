@@ -77,6 +77,10 @@ interface SettingsState {
   imageMaxBlobBytes: number;
   /** 图像生成默认参数(SettingsImageDefaults 三层 merge 的基线)。 */
   imageDefaults: import('../api/image-gen-merge').SettingsImageDefaults;
+  /** 生图前是否跑 LLM 子调用,把当页正文转英文 image prompt(NovelAI → Danbooru tag;
+   *  其他 → 自然语言短句)。默认 true,关闭后 image prompt 只用 sceneInfo 中文 ctx,
+   *  NovelAI/SD 等英文模型会大概率生成"通用场景图"。 */
+  imageEnableLlmPromptHint: boolean;
   /**
    * 单次 rpmAcquire 调用允许的最大「排队等待轮次」：达到即抛 RpmQueueExhaustedError，
    * 由调用方 fail-open（静默降级丢这次请求），防 setTimeout 死循环卡住整条管线。
@@ -205,6 +209,7 @@ interface SettingsStore extends SettingsState {
   setImageStorageMode: (v: 'indexeddb-blob' | 'remote-url') => void;
   setImageMaxBlobBytes: (n: number) => void;
   setImageDefaults: (patch: Partial<import('../api/image-gen-merge').SettingsImageDefaults>) => void;
+  setImageEnableLlmPromptHint: (v: boolean) => void;
   setRpmMaxQueueAttempts: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
@@ -288,6 +293,7 @@ const defaults: SettingsState = {
   imageStorageMode: 'indexeddb-blob',
   imageMaxBlobBytes: 2_000_000,
   imageDefaults: DEFAULT_SETTINGS_IMAGE_DEFAULTS,
+  imageEnableLlmPromptHint: true,
   rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
@@ -344,6 +350,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setImageStorageMode: (v) => set({ imageStorageMode: v }),
       setImageMaxBlobBytes: (n) => set({ imageMaxBlobBytes: Math.max(50_000, Math.min(10_000_000, Math.floor(n))) }),
       setImageDefaults: (patch) => set((s) => ({ imageDefaults: { ...s.imageDefaults, ...patch } })),
+      setImageEnableLlmPromptHint: (v) => set({ imageEnableLlmPromptHint: v }),
       setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),

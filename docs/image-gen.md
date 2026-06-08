@@ -239,7 +239,9 @@ Pollinations.ai 是免费免登录的图像 API。
 
 **可用的占位符变量**(同时可用于 `{{key}}` 和 `<%= key %>`):
 
-`style` / `style_anchors` / `location` / `time` / `weather` / `characters` / `san` / `scene` / `scene_brief`
+`style` / `style_anchors` / `location` / `time` / `weather` / `characters` / `san` / `scene` / `scene_brief` / `image_hint`
+
+`image_hint` 由 LLM 子调用产出 — 当 **设置 → 图像生成 API → LLM 提取 prompt** 开启时(默认开),生图前会跑一次主 API 子调用把当页正文叙事转成英文 image prompt(NovelAI → Danbooru tag,SD/OpenAI → 自然语言短句),让图片真正反映剧情。失败时回退空串。
 
 **EJS 语法**(子集):
 

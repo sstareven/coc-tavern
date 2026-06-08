@@ -109,6 +109,9 @@ export interface PromptTemplateContext {
   san: string;
   scene: string;
   scene_brief: string;
+  /** LLM 子调用(image-prompt-extractor)产出的英文 image prompt;空串表示未启用/失败。
+   *  默认模板优先用 image_hint 主导主体描述,空时回退到 characters/location/... 中文 ctx。 */
+  image_hint: string;
   // ── 条件变量(新 EJS <% if (xxx) %> 用) ──────────────────────────────
   /** 图像协议(payloadMode 实际命中值,auto 模式下是 detect 后的结果)。 */
   protocol: string;
@@ -177,6 +180,7 @@ export function renderPromptTemplate(template: string, ctx: PromptTemplateContex
     san: ctx.san,
     scene: ctx.scene,
     scene_brief: ctx.scene_brief,
+    image_hint: ctx.image_hint,
   };
   const filled = template.replace(/\{\{(\w+)\}\}/g, (_, k) => placeholdersOnly[k] ?? '');
 
@@ -228,14 +232,14 @@ export const DEFAULT_SETTINGS_IMAGE_DEFAULTS: SettingsImageDefaults = {
  * @param scnOverride 剧本覆盖层(scenarioDoc.imageGen),undefined 等价无覆盖
  * @param ctx 运行时上下文(sceneInfo + leftContent 摘要 + 在场 NPC)
  * @param settingsEnabled 全局总开关(useSettingsStore.imageGenerationEnabled)
- * @param renderHints 模板渲染额外上下文(protocol/model),决定 EJS 条件分支与默认风格选择
+ * @param renderHints 模板渲染额外上下文(protocol/model/imageHint),决定 EJS 条件分支与默认风格选择
  */
 export function resolveImageGen(
   settingsBase: SettingsImageDefaults,
   scnOverride: ScenarioImageGen | undefined,
   ctx: ImageRenderContext,
   settingsEnabled: boolean,
-  renderHints?: { protocol?: string; model?: string },
+  renderHints?: { protocol?: string; model?: string; imageHint?: string },
 ): ResolvedImageGenSpec {
   const scn = scnOverride ?? {};
   const protocol = renderHints?.protocol ?? '';
@@ -289,6 +293,7 @@ export function resolveImageGen(
     san: ctx.san !== undefined ? String(ctx.san) : '',
     scene: ctx.sceneBrief ?? '',
     scene_brief: ctx.sceneBrief ?? '',
+    image_hint: renderHints?.imageHint ?? '',
     protocol, model,
     isNovelAi, isV4, isSd, isOpenAi, isChatCompletions,
   };

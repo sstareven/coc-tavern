@@ -16,6 +16,7 @@ function makeCtx(overrides: Partial<PromptTemplateContext> = {}): PromptTemplate
     san: '50',
     scene: '',
     scene_brief: '',
+    image_hint: '',
     protocol: 'sd-compat',
     model: 'sd-1.5',
     isNovelAi: false,
@@ -132,5 +133,36 @@ describe('renderPromptTemplate — 混合语法', () => {
     expect(renderPromptTemplate(tpl, makeCtx({
       model: 'sd-checkpoint',
     }))).toBe('investigator, realistic, sd-checkpoint');
+  });
+});
+
+describe('renderPromptTemplate — image_hint(LLM 子调用产出的英文主体描述)', () => {
+  it('image_hint 非空时主导主体描述,中文 ctx 被跳过', () => {
+    const tpl =
+      '<% if (image_hint) { %>{{image_hint}}, <% } else { %>'
+      + '<% if (characters) { %>{{characters}}, <% } %>'
+      + '<% if (location) { %>{{location}}, <% } %>'
+      + '<% } %>'
+      + '{{style}}';
+    const out = renderPromptTemplate(tpl, makeCtx({
+      image_hint: '1girl, looking at viewer, dimly lit library',
+      characters: '调查员',
+      location: '图书馆',
+    }));
+    expect(out).toBe('1girl, looking at viewer, dimly lit library, vintage style');
+  });
+  it('image_hint 空时回退到中文 ctx', () => {
+    const tpl =
+      '<% if (image_hint) { %>{{image_hint}}, <% } else { %>'
+      + '<% if (characters) { %>{{characters}}, <% } %>'
+      + '<% if (location) { %>{{location}}, <% } %>'
+      + '<% } %>'
+      + '{{style}}';
+    const out = renderPromptTemplate(tpl, makeCtx({
+      image_hint: '',
+      characters: 'investigator',
+      location: 'library',
+    }));
+    expect(out).toBe('investigator, library, vintage style');
   });
 });

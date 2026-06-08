@@ -22,6 +22,7 @@ import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
 import { buildImageSpecFromPage } from './image-prompt-builder';
 import { callImageApiWithRetry, b64ToBlob, ImageGenError, detectPayloadMode } from './image-gen-engine';
 import { isNovelAiBaseUrl } from './image-gen-novelai';
+import { extractImagePromptHint } from './image-prompt-extractor';
 import { db } from '../db/database';
 
 export interface TriggerImageGenOpts {
@@ -86,19 +87,59 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     ? (isNovelAiBaseUrl(imgApi.baseUrl) ? 'novelai' : detectPayloadMode(imgApi.baseUrl, imgApi.model))
     : payloadMode;
   const effectiveModel = imgApi.model;
+  const isNovelAi = resolvedProtocol === 'novelai';
+  const isV4 = isNovelAi && /^nai-diffusion-4/i.test(effectiveModel);
+
+  // 先建好 aid + progress 句柄(LLM 子调用和后续 fetch 都用),UI 立即标 pending
+  const aid = useChatStore.getState().activeId;
+  const progress = useImageGenProgressStore.getState();
+  useBookStore.getState().setPageImageStatus(pageIdx, 'pending');
+
+  // 跑 LLM 子调用把当页正文转英文 image prompt(NovelAI → Danbooru tag;其他 → 自然语言短句)。
+  // 失败/未启用返空串,模板渲染时 fall back 到中文 ctx。
+  const useLlmHint = s.imageEnableLlmPromptHint !== false; // 默认开
+  let imageHint = '';
+  if (useLlmHint) {
+    progress.setStage(pageId, '提取图像 prompt');
+    const mainApi = useSettingsStore.getState().getEffectiveMainApi();
+    const characters = (page.npcUpdates ?? [])
+      .filter((u) => u.name && u.isPresent !== false && (!u.importance || u.importance === '核心' || u.importance === '重要'))
+      .map((u) => u.name as string)
+      .slice(0, 3);
+    const sceneInfo = page.sceneInfo;
+    const sanCurrent = page.sheetSnapshot?.secondary?.san?.current;
+    const hint = await extractImagePromptHint(
+      {
+        leftContent: page.leftContent ?? '',
+        location: sceneInfo?.location,
+        time: sceneInfo?.time,
+        weather: sceneInfo?.weather,
+        characters,
+        san: sanCurrent,
+        isNovelAi,
+        isV4,
+      },
+      {
+        apiBaseUrl: mainApi.baseUrl,
+        apiKey: mainApi.apiKey,
+        model: mainApi.model,
+        extraParams: mainApi.extraParams,
+        signal,
+      },
+    );
+    if (hint) imageHint = hint;
+    if (signal?.aborted) { progress.clearStage(pageId); return; }
+    if (useChatStore.getState().activeId !== aid) { progress.clearStage(pageId); return; }
+  }
+
   const spec = buildImageSpecFromPage(
     page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot,
-    { protocol: resolvedProtocol, model: effectiveModel },
+    { protocol: resolvedProtocol, model: effectiveModel, imageHint },
   );
   if (!spec.enabled) return;
 
-  const aid = useChatStore.getState().activeId;
-  const progress = useImageGenProgressStore.getState();
-
-  // UI 占位
-  useBookStore.getState().setPageImageStatus(pageIdx, 'pending');
   progress.setStage(pageId, '准备中');
-  pushLog('info', `${sourceTag} 第 ${pageIdx + 1} 页开始生成 · model=${spec.modelOverride ?? imgApi.model} · ${spec.width}×${spec.height} · payloadMode=${payloadMode}`);
+  pushLog('info', `${sourceTag} 第 ${pageIdx + 1} 页开始生成 · model=${spec.modelOverride ?? imgApi.model} · ${spec.width}×${spec.height} · payloadMode=${payloadMode}${useLlmHint && imageHint ? ' · 含 LLM hint' : ''}`);
 
   progress.setStage(pageId, '排队中');
   try {

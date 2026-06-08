@@ -67,17 +67,20 @@ export const DEFAULT_PROMPT_TEMPLATE =
   '{{style}}, {{location}}, {{time}}, {{weather}}, {{characters}}, {{style_anchors}}, masterpiece, best quality, detailed';
 
 /** NovelAI 专属正向 prompt 模板(支持 EJS 条件)。
- *  顺序:主体(characters/location)前置 + 风格在后 — Danbooru 习惯把主体 tag 放前面;
+ *  顺序:主体(image_hint / characters/location)前置 + 风格在后 — Danbooru 习惯把主体 tag 放前面;
  *  EJS 条件:
- *    · {{characters}}/{{location}}/{{weather}} 字段空时不输出空逗号占位
+ *    · {{image_hint}}(LLM 子调用产出的英文 Danbooru tag)优先用于主体描述
+ *    · image_hint 空时回退到中文 ctx({{characters}}/{{location}}/{{time}}/{{weather}})
+ *    · 单字段空时跳过(不输出空逗号占位)
  *    · V4/V4.5(isV4)末尾加 'very aesthetic, absurdres'(NovelAI 标准 V4 质量 tag)
- *    · V3 末尾加 'best quality, amazing quality'(NovelAI 标准 V3 质量 tag)
- *    · scene_brief(LLM 输出的中文场景简述)放进 v4_prompt 也只在 isV4 时附加。 */
+ *    · V3 末尾加 'best quality, amazing quality'(NovelAI 标准 V3 质量 tag) */
 export const DEFAULT_PROMPT_TEMPLATE_NOVELAI =
-  '<% if (characters) { %>{{characters}}, <% } %>'
+  '<% if (image_hint) { %>{{image_hint}}, <% } else { %>'
+  + '<% if (characters) { %>{{characters}}, <% } %>'
   + '<% if (location) { %>{{location}}, <% } %>'
   + '<% if (time) { %>{{time}}, <% } %>'
   + '<% if (weather) { %>{{weather}}, <% } %>'
+  + '<% } %>'
   + '{{style}}'
   + '<% if (style_anchors) { %>, {{style_anchors}}<% } %>'
   + ', detailed background, scenic, '
