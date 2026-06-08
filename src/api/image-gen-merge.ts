@@ -14,8 +14,11 @@
 import type { ScenarioImageGen, ScenarioImageStyle } from '../types/scenario';
 import {
   IMAGE_STYLE_PROMPTS,
+  IMAGE_STYLE_PROMPTS_NOVELAI,
   DEFAULT_NEGATIVE_PROMPT,
+  DEFAULT_NEGATIVE_PROMPT_NOVELAI,
   DEFAULT_PROMPT_TEMPLATE,
+  DEFAULT_PROMPT_TEMPLATE_NOVELAI,
   DEFAULT_IMAGE_WIDTH,
   DEFAULT_IMAGE_HEIGHT,
   DEFAULT_IMAGE_STEPS,
@@ -78,10 +81,12 @@ function dedupeCsv(parts: string[]): string {
   return out.join(', ');
 }
 
-/** 解析 style + 用户自填 override → SD prompt 风格片段。 */
-function resolveStyleTokens(style: ScenarioImageStyle, override: string | undefined): string {
+/** 解析 style + 用户自填 override → prompt 风格片段。
+ *  isNovelAi=true 时用 NovelAI 专属 Danbooru tag 风格映射,避免 SD 通用纹理词被当主体。 */
+function resolveStyleTokens(style: ScenarioImageStyle, override: string | undefined, isNovelAi: boolean): string {
   if (style === 'custom') return (override ?? '').trim();
-  return IMAGE_STYLE_PROMPTS[style] ?? '';
+  const table = isNovelAi ? IMAGE_STYLE_PROMPTS_NOVELAI : IMAGE_STYLE_PROMPTS;
+  return table[style] ?? '';
 }
 
 /** 占位符填充:{{key}} → value(缺失替空字符串,避免 prompt 里出现孤立 {{xxx}})。 */
@@ -109,12 +114,14 @@ export const DEFAULT_SETTINGS_IMAGE_DEFAULTS: SettingsImageDefaults = {
  * @param scnOverride 剧本覆盖层(scenarioDoc.imageGen),undefined 等价无覆盖
  * @param ctx 运行时上下文(sceneInfo + leftContent 摘要 + 在场 NPC)
  * @param settingsEnabled 全局总开关(useSettingsStore.imageGenerationEnabled)
+ * @param isNovelAi 是否走 NovelAI 协议(影响风格 tokens / 默认负面 / 默认模板的选择)
  */
 export function resolveImageGen(
   settingsBase: SettingsImageDefaults,
   scnOverride: ScenarioImageGen | undefined,
   ctx: ImageRenderContext,
   settingsEnabled: boolean,
+  isNovelAi = false,
 ): ResolvedImageGenSpec {
   const scn = scnOverride ?? {};
 
@@ -130,17 +137,25 @@ export function resolveImageGen(
   // enabled 三态
   const enabled = scn.enabled !== undefined ? scn.enabled : settingsEnabled;
 
-  // negative:逗号合并去重
-  const negativePrompt = dedupeCsv([settingsBase.negativePrompt, scn.negativePromptAppend ?? '']);
+  // negative:逗号合并去重。settings.negativePrompt 若是默认值(SD 通用),NovelAI 走专属负面;
+  // 玩家显式改过的 settings.negativePrompt 不动(玩家意图优先)
+  const baseNegative = (isNovelAi && settingsBase.negativePrompt === DEFAULT_NEGATIVE_PROMPT)
+    ? DEFAULT_NEGATIVE_PROMPT_NOVELAI
+    : settingsBase.negativePrompt;
+  const negativePrompt = dedupeCsv([baseNegative, scn.negativePromptAppend ?? '']);
 
   // styleAnchors:scn 非 undefined 整块替换,否则用 settings(scn 给空数组 = 显式清空)
   const styleAnchors = scn.styleAnchors !== undefined ? scn.styleAnchors : settingsBase.styleAnchors;
 
-  // prompt 模板:scn 优先,否则 settings,否则默认
-  const template = scn.promptTemplate ?? settingsBase.promptTemplate ?? DEFAULT_PROMPT_TEMPLATE;
+  // prompt 模板:scn 优先,否则 settings(若是默认 SD 模板且 NovelAI,换 NovelAI 默认),否则默认
+  const settingsTemplate = (isNovelAi && settingsBase.promptTemplate === DEFAULT_PROMPT_TEMPLATE)
+    ? DEFAULT_PROMPT_TEMPLATE_NOVELAI
+    : settingsBase.promptTemplate;
+  const fallback = isNovelAi ? DEFAULT_PROMPT_TEMPLATE_NOVELAI : DEFAULT_PROMPT_TEMPLATE;
+  const template = scn.promptTemplate ?? settingsTemplate ?? fallback;
 
-  // 风格片段
-  const styleTokens = resolveStyleTokens(style, scn.stylePromptOverride);
+  // 风格片段(按 NovelAI 走两套不同 tokens)
+  const styleTokens = resolveStyleTokens(style, scn.stylePromptOverride, isNovelAi);
 
   // 占位符填充
   const placeholders: Record<string, string> = {

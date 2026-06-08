@@ -20,7 +20,8 @@ import { pushLog as pushLogRaw } from '../stores/useLogStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
 import { buildImageSpecFromPage } from './image-prompt-builder';
-import { callImageApiWithRetry, b64ToBlob, ImageGenError } from './image-gen-engine';
+import { callImageApiWithRetry, b64ToBlob, ImageGenError, detectPayloadMode } from './image-gen-engine';
+import { isNovelAiBaseUrl } from './image-gen-novelai';
 import { db } from '../db/database';
 
 export interface TriggerImageGenOpts {
@@ -78,11 +79,15 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     return;
   }
 
-  const spec = buildImageSpecFromPage(page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot);
+  const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
+  // 提前判定本次实际跑的是不是 NovelAI(影响 prompt 风格 tokens 选择):
+  // 显式 'novelai' 命中,或 'auto' 模式下 detectPayloadMode/isNovelAiBaseUrl 命中
+  const willUseNovelAi = payloadMode === 'novelai'
+    || (payloadMode === 'auto' && (isNovelAiBaseUrl(imgApi.baseUrl) || detectPayloadMode(imgApi.baseUrl, imgApi.model) === 'novelai'));
+  const spec = buildImageSpecFromPage(page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot, willUseNovelAi);
   if (!spec.enabled) return;
 
   const aid = useChatStore.getState().activeId;
-  const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
   const progress = useImageGenProgressStore.getState();
 
   // UI 占位
