@@ -105,16 +105,6 @@ export function MobileNoteView() {
             color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(16.5px * var(--text-ratio, 1))', lineHeight: 1.8,
           }}
         >
-          {/* 文生图 banner(2026-06-08):仅 imageUrl 存在或 pending/failed 状态时显示。 */}
-          {(page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
-            <PageBanner
-              src={page.imageUrl}
-              pageId={page.id}
-              alt={page.leftHeader}
-              status={page.imageGenStatus}
-              onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
-            />
-          )}
           {/* 标题 + 骰子记录 —— 检定记录用 chip 徽章列展示,与标题视觉分层,不再像副标题下划线 */}
           <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 2, margin: 0 }}>{page.leftHeader}</h3>
@@ -143,6 +133,16 @@ export function MobileNoteView() {
               </p>
             )}
           </div>
+          {/* 文生图 banner(2026-06-08):位于标题/小总结之下、正文之上 */}
+          {(page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
+            <PageBanner
+              src={page.imageUrl}
+              pageId={page.id}
+              alt={page.leftHeader}
+              status={page.imageGenStatus}
+              onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
+            />
+          )}
           {/* 叙事卷轴 */}
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
             {/* 物品获取提示（手机端不可点，仅展示，防误触） */}

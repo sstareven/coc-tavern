@@ -380,10 +380,17 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
     );
 
   // 书本页面（按 index 排序还原顺序，剥离关系键）
-  const pages = pageRows
+  const pagesRaw = pageRows
     .slice()
     .sort((a, b) => a.index - b.index)
     .map(({ conversationId: _cid, index: _index, ...page }) => page);
+  // 读档清洗:imageGenStatus='pending' 在内存里是 in-flight 状态,但持久化进 db 后
+  // 进程已退出,没有 Promise 在等返回。读档时把 pending → failed 让玩家看到重生成按钮。
+  // 不能改成 undefined — PageBanner 对 undefined+无 imageUrl 直接 return null,
+  // 玩家就看不到『可重生成』入口。
+  const pages = pagesRaw.map((p) =>
+    p.imageGenStatus === 'pending' ? { ...p, imageGenStatus: 'failed' as const } : p,
+  );
   useBookStore.getState().setPages(pages);
 
   // 检定历史：从各页 diceResults 重建（newest-first），并补上页码（与实时游戏 pageIndex+1 编号一致），

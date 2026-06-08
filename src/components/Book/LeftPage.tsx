@@ -67,16 +67,6 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
       fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative',
     }}>
-      {(imageUrl || imageGenStatus === 'pending' || imageGenStatus === 'failed') && (
-        <PageBanner
-          src={imageUrl}
-          pageId={imagePageId}
-          alt={header}
-          isFlipping={isFlipping}
-          status={imageGenStatus}
-          onRegenerate={onRegenerateImage}
-        />
-      )}
       <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, ...fadeStyle }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
         {diceResults && diceResults.length > 0 && diceResults.slice(0, 2).map((d, i) => {
@@ -104,6 +94,16 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
           }}>{summary}</p>
         )}
       </div>
+      {(imageUrl || imageGenStatus === 'pending' || imageGenStatus === 'failed') && (
+        <PageBanner
+          src={imageUrl}
+          pageId={imagePageId}
+          alt={header}
+          isFlipping={isFlipping}
+          status={imageGenStatus}
+          onRegenerate={onRegenerateImage}
+        />
+      )}
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
