@@ -68,6 +68,7 @@ import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
 import { useNarrationStore } from '../stores/useNarrationStore';
+import { triggerImageGenForPage } from '../api/image-gen-trigger';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
@@ -1567,6 +1568,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 useTurnProgressStore.getState().finish('npc-fix');
               }
             })());
+          }
+        }
+
+        // 文生图(2026-06-08):完全 fire-and-forget,**不入 pendingVisibleSubcalls**。
+        // 图片体积大、延迟高(20-60s),若入 pendingVisibleSubcalls 会阻塞 autoFlipForward。
+        // 触发逻辑统一在 image-gen-trigger.ts,manual 重生成也走同款入口。
+        {
+          const imgPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+          if (imgPageIdx >= 0) {
+            void triggerImageGenForPage({ pageIdx: imgPageIdx, signal: controller.signal, source: 'auto' });
           }
         }
 

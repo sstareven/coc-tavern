@@ -24,6 +24,7 @@ import {
 import { maskApiKey, displayHostFromUrl } from '../../api/api-models-engine';
 import { fetchModelList } from '../../sillytavern/api-router';
 import { ApiModelPicker } from './ApiModelPicker';
+import { ImageApiSection } from './ImageApiSection';
 import {
   CategoryBar, rowStyle, labelStyle, Toggle, HelpIcon, SliderRow,
 } from './_shared';
@@ -529,6 +530,8 @@ export function ApiManagementTab() {
           <ApiModelPicker channel="rewrite" />
         )}
       </div>
+
+      <ImageApiSection />
 
       {/* ────────── 编辑模态 ────────── */}
       <AnimatePresence>

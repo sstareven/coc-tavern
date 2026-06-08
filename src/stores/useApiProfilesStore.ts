@@ -35,6 +35,10 @@ interface ApiProfilesState {
   /** 行动补写 API 使用哪条 profile;null=回退主线(配合 settings.rewriteUseIndependentApi=false)。 */
   selectedRewriteApiProfileId: string | null;
   selectedRewriteModel: string;
+
+  /** 图像生成 API 使用哪条 profile;null=未配,文生图功能不启用(无回退主线 — 图像与文本端点通常不同源)。 */
+  selectedImageApiProfileId: string | null;
+  selectedImageModel: string;
 }
 
 interface ApiProfilesStore extends ApiProfilesState {
@@ -50,6 +54,7 @@ interface ApiProfilesStore extends ApiProfilesState {
   setSelectedMain: (profileId: string | null, model: string) => void;
   setSelectedMvu: (profileId: string | null, model: string) => void;
   setSelectedRewrite: (profileId: string | null, model: string) => void;
+  setSelectedImage: (profileId: string | null, model: string) => void;
 }
 
 const defaults: ApiProfilesState = {
@@ -60,6 +65,8 @@ const defaults: ApiProfilesState = {
   selectedMvuModel: '',
   selectedRewriteApiProfileId: null,
   selectedRewriteModel: '',
+  selectedImageApiProfileId: null,
+  selectedImageModel: '',
 };
 
 export const useApiProfilesStore = create<ApiProfilesStore>()(
@@ -96,6 +103,10 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
           cascade.selectedRewriteApiProfileId = null;
           cascade.selectedRewriteModel = '';
         }
+        if (s.selectedImageApiProfileId === id) {
+          cascade.selectedImageApiProfileId = null;
+          cascade.selectedImageModel = '';
+        }
         set(cascade);
       },
 
@@ -115,6 +126,9 @@ export const useApiProfilesStore = create<ApiProfilesStore>()(
       },
       setSelectedRewrite: (profileId, model) => {
         set({ selectedRewriteApiProfileId: profileId, selectedRewriteModel: model });
+      },
+      setSelectedImage: (profileId, model) => {
+        set({ selectedImageApiProfileId: profileId, selectedImageModel: model });
       },
     }),
     {

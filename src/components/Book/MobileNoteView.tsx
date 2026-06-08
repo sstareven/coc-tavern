@@ -6,8 +6,10 @@ import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { InventoryChangesBar } from './RightPage';
+import { PageBanner } from './PageBanner';
 import { resolveSwipe } from './swipe';
 import { sfxPageFlip } from '../../audio/sfx';
+import { triggerImageGenForPage } from '../../api/image-gen-trigger';
 import type { DiceRecord } from '../../types';
 
 const RESULT_COLORS: Record<string, string> = {
@@ -103,6 +105,16 @@ export function MobileNoteView() {
             color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(16.5px * var(--text-ratio, 1))', lineHeight: 1.8,
           }}
         >
+          {/* 文生图 banner(2026-06-08):仅 imageUrl 存在或 pending/failed 状态时显示。 */}
+          {(page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
+            <PageBanner
+              src={page.imageUrl}
+              pageId={page.id}
+              alt={page.leftHeader}
+              status={page.imageGenStatus}
+              onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
+            />
+          )}
           {/* 标题 + 骰子记录 —— 检定记录用 chip 徽章列展示,与标题视觉分层,不再像副标题下划线 */}
           <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 2, margin: 0 }}>{page.leftHeader}</h3>

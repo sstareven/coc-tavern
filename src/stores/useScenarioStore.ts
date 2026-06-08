@@ -125,6 +125,15 @@ function mergePatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
     }
     next.characters = Array.from(map.values());
   }
+  if (patch.patchImageGen) {
+    const cur = next.imageGen ?? {};
+    const merged = { ...cur, ...patch.patchImageGen };
+    // 显式 undefined 表示删该字段
+    (Object.keys(patch.patchImageGen) as (keyof typeof patch.patchImageGen)[]).forEach((k) => {
+      if (patch.patchImageGen![k] === undefined) delete merged[k];
+    });
+    next.imageGen = Object.keys(merged).length === 0 ? undefined : merged;
+  }
   next.updatedAt = now();
   return next;
 }

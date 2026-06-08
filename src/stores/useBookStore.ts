@@ -125,6 +125,12 @@ interface BookStore {
   setPageNpcRectification: (index: number, npcUpdates: NpcUpdate[], npcSnapshot: Record<string, NpcProfile>) => void;
   /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
   setPageCombatLog: (index: number, combatLog: CombatLog) => void;
+  /** 写入文生图结果(2026-06-08):url 走 storageMode 决定的格式,status 自动置 'done'。 */
+  setPageImage: (index: number, payload: { url: string; prompt: string; at: number }) => void;
+  /** 清空某页的图片字段(玩家手动删图或重新生成时清旧)。 */
+  clearPageImage: (index: number) => void;
+  /** 单独设置 imageGenStatus(用于 pending/failed/skipped 占位)。 */
+  setPageImageStatus: (index: number, status: 'pending' | 'done' | 'failed' | 'skipped') => void;
   addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
@@ -192,15 +198,24 @@ export const useBookStore = create<BookStore>((set, get) => ({
       if (removedIds.length) {
         const lore = useLorebookStore.getState();
         for (const id of removedIds) lore.removeSummaryEntry(id);
-        // 删页/回溯若删掉战斗锚定页 → 清掉这场悬空战斗，否则它非空却任何页都渲染不出面板(隐形)，
+        // 删页/回溯若删掉战斗锚定页 → 清掉这场悬空战斗,否则它非空却任何页都渲染不出面板(隐形),
         // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。
         const enc = useCombatStore.getState().encounter;
         if (enc?.anchorPageId && removedIds.includes(enc.anchorPageId)) useCombatStore.getState().clearCombat();
         // useSanityBubbleStore.resolved 是 in-memory 解决态(按 page.sanityCheckPrompts.id 标记)。
-        // 删页清掉气泡列表对应页 → resolved 也必须清，防新页 LLM 生成同 id(p1/p2/p3 是常见模板) 时
+        // 删页清掉气泡列表对应页 → resolved 也必须清,防新页 LLM 生成同 id(p1/p2/p3 是常见模板) 时
         // 被误判为"已触发"(SanityBubble 渲染为灰圆点、玩家点不开/不掉 SAN)。注释期望见 useSanityBubbleStore
-        // 顶部 page-delete-rollback-snapshot-pattern 段；此处兑现该不变量。
+        // 顶部 page-delete-rollback-snapshot-pattern 段;此处兑现该不变量。
         useSanityBubbleStore.getState().reset();
+        // 文生图本页插画 blob(2026-06-08):删页 → 删对应 pageImages 行
+        void (async () => {
+          try {
+            const { db } = await import('../db/database');
+            await db.pageImages.where('pageId').anyOf(removedIds).delete();
+          } catch (e) {
+            console.warn('[useBookStore.deletePage] pageImages 清理失败:', e);
+          }
+        })();
       }
       // ── 物品回滚：倒序撤销被删页的 inventoryChanges ──
       void (async () => {
@@ -452,6 +467,32 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], combatLog };
+    return { pages };
+  }),
+  setPageImage: (index, payload) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = {
+      ...pages[index],
+      imageUrl: payload.url,
+      imagePrompt: payload.prompt,
+      imageGenAt: payload.at,
+      imageGenStatus: 'done',
+    };
+    return { pages };
+  }),
+  clearPageImage: (index) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    const { imageUrl: _u, imagePrompt: _p, imageGenAt: _a, imageGenStatus: _st, ...rest } = pages[index];
+    void _u; void _p; void _a; void _st;
+    pages[index] = rest;
+    return { pages };
+  }),
+  setPageImageStatus: (index, status) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], imageGenStatus: status };
     return { pages };
   }),
   addDiceToCurrentPage: (record) => {

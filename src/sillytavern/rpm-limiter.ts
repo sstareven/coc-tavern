@@ -6,9 +6,9 @@ const WINDOW_MS = 60_000;
 export const RPM_QUEUE_ATTEMPTS_HARD_CAP = 10;
 
 /** 限流桶标识：按 API 用途分桶（开启「每个API独立RPM」时各自独立计窗）。 */
-export type RpmKind = 'main' | 'mvu' | 'rewrite';
+export type RpmKind = 'main' | 'mvu' | 'rewrite' | 'image';
 
-const histories: Record<RpmKind, number[]> = { main: [], mvu: [], rewrite: [] };
+const histories: Record<RpmKind, number[]> = { main: [], mvu: [], rewrite: [], image: [] };
 
 /**
  * 结构化错误：rpmAcquire 排队等待次数达到 settings.rpmMaxQueueAttempts（硬上限 10）后抛出。
@@ -48,11 +48,13 @@ export function rpmEvaluate(
 
 /**
  * 解析某 kind 实际使用的限流桶与上限：
- * - 关闭「每个API独立RPM」：所有调用统一走 main 桶 + rpmLimit（全局单一窗口，保持旧行为）。
- * - 开启：mvu/rewrite 各用自己的上限与独立窗口，其余归 main。
+ * - 关闭「每个API独立RPM」：所有 chat 类(main/mvu/rewrite)统一走 main 桶 + rpmLimit;
+ *   但 image 始终走自己的桶(图像 API 配额通常独立,不归 main)。
+ * - 开启：mvu/rewrite/image 各用自己的上限与独立窗口,其余归 main。
  */
 export function resolveBucket(kind: RpmKind): { bucket: RpmKind; limit: number } {
   const s = useSettingsStore.getState();
+  if (kind === 'image') return { bucket: 'image', limit: s.imageRpmLimit ?? 0 };
   if (!s.perApiRpmEnabled) return { bucket: 'main', limit: s.rpmLimit ?? 0 };
   if (kind === 'mvu') return { bucket: 'mvu', limit: s.mvuRpmLimit ?? 0 };
   if (kind === 'rewrite') return { bucket: 'rewrite', limit: s.rewriteRpmLimit ?? 0 };
@@ -102,6 +104,7 @@ export function _resetRpm(): void {
   histories.main = [];
   histories.mvu = [];
   histories.rewrite = [];
+  histories.image = [];
 }
 
 /**
@@ -119,21 +122,23 @@ export function getCurrentRpm(kind: RpmKind = 'main'): number {
 }
 
 /**
- * 取「现在 60 秒滑动窗口内」三个桶 (main + mvu + rewrite) 累加的总请求数。
+ * 取「现在 60 秒滑动窗口内」四个桶 (main + mvu + rewrite + image) 累加的总请求数。
  * 反映系统真实总繁忙度——TokenDisplay 右下角用它显示「当时发了 N 次请求」,涵盖
- * 主回合 + MVU 提取 + 起始物品/坏结局/关键线索等所有 LLM 调用。
+ * 主回合 + MVU 提取 + 起始物品/坏结局/关键线索 + 文生图等所有 API 调用。
  *
- * 当 perApiRpmEnabled=false：所有 rpmAcquire 调用都被路由到 main 桶, mvu/rewrite
- * 数组永远空,只需读 main 即可拿到全部;true 时三桶独立简单累加。
+ * 当 perApiRpmEnabled=false：所有 chat 类 rpmAcquire 调用都被路由到 main 桶,
+ * mvu/rewrite 数组永远空,只需读 main + image 即可拿到全部;true 时四桶独立简单累加。
  */
 export function getCurrentRpmTotal(): number {
   const s = useSettingsStore.getState();
   const now = Date.now();
   const m = histories.main.filter((t) => now - t < WINDOW_MS).length;
-  if (!s.perApiRpmEnabled) return m;
+  const img = histories.image.filter((t) => now - t < WINDOW_MS).length;
+  if (!s.perApiRpmEnabled) return m + img;
   return m
     + histories.mvu.filter((t) => now - t < WINDOW_MS).length
-    + histories.rewrite.filter((t) => now - t < WINDOW_MS).length;
+    + histories.rewrite.filter((t) => now - t < WINDOW_MS).length
+    + img;
 }
 
 /**
@@ -158,8 +163,12 @@ export function getRpmCooldownSec(): number {
         { kind: 'main', limit: s.rpmLimit ?? 0 },
         { kind: 'mvu', limit: s.mvuRpmLimit ?? 0 },
         { kind: 'rewrite', limit: s.rewriteRpmLimit ?? 0 },
+        { kind: 'image', limit: s.imageRpmLimit ?? 0 },
       ]
-    : [{ kind: 'main', limit: s.rpmLimit ?? 0 }];
+    : [
+        { kind: 'main', limit: s.rpmLimit ?? 0 },
+        { kind: 'image', limit: s.imageRpmLimit ?? 0 }, // image 始终独立桶
+      ];
   const now = Date.now();
   let maxRemainMs = 0;
   for (const { kind, limit } of entries) {

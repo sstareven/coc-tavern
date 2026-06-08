@@ -520,7 +520,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -541,6 +541,8 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.macroVars.where('conversationId').equals(cid).delete();
       // 项目命名空间 console 日志 (consoleLogs 表用 sessionId 列名 = conversationId 语义,见 db schema)
       await db.consoleLogs.where('sessionId').equals(cid).delete();
+      // 文生图本页插画 blob(2026-06-08) — pageImages 表
+      await db.pageImages.where('conversationId').equals(cid).delete();
     },
   );
   clearDiagnosticsFor(cid); // 释放该会话的前缀诊断快照(违反 session-isolation invariant 的修复)

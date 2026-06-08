@@ -9,7 +9,7 @@ import { SearchableModelSelect } from './SearchableModelSelect';
 import { rowStyle, labelStyle } from './_shared';
 
 interface Props {
-  channel: 'main' | 'mvu' | 'rewrite';
+  channel: 'main' | 'mvu' | 'rewrite' | 'image';
   /** 左侧标签文案,默认「模型使用」。 */
   label?: string;
 }
@@ -17,25 +17,29 @@ interface Props {
 export function ApiModelPicker({ channel, label = '模型使用' }: Props) {
   const profiles = useApiProfilesStore((s) => s.apiProfiles);
 
-  // 三套 channel 分别订阅自己的 selectedXxxApiProfileId/Model
+  // 四套 channel 分别订阅自己的 selectedXxxApiProfileId/Model
   const selectedProfileId = useApiProfilesStore((s) =>
     channel === 'main' ? s.selectedMainApiProfileId
       : channel === 'mvu' ? s.selectedMvuApiProfileId
-      : s.selectedRewriteApiProfileId,
+      : channel === 'rewrite' ? s.selectedRewriteApiProfileId
+      : s.selectedImageApiProfileId,
   );
   const selectedModel = useApiProfilesStore((s) =>
     channel === 'main' ? s.selectedMainModel
       : channel === 'mvu' ? s.selectedMvuModel
-      : s.selectedRewriteModel,
+      : channel === 'rewrite' ? s.selectedRewriteModel
+      : s.selectedImageModel,
   );
 
   const setSelectedMain = useApiProfilesStore((s) => s.setSelectedMain);
   const setSelectedMvu = useApiProfilesStore((s) => s.setSelectedMvu);
   const setSelectedRewrite = useApiProfilesStore((s) => s.setSelectedRewrite);
+  const setSelectedImage = useApiProfilesStore((s) => s.setSelectedImage);
 
   const setSelected = channel === 'main' ? setSelectedMain
     : channel === 'mvu' ? setSelectedMvu
-    : setSelectedRewrite;
+    : channel === 'rewrite' ? setSelectedRewrite
+    : setSelectedImage;
 
   const items = collectAllProfileModels(profiles);
 

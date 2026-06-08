@@ -108,10 +108,10 @@ export interface CombatRow {
   encounter: Encounter;
 }
 
-// 项目命名空间 console.log 捕获（[cache-diag] 等）。
-// 跨会话保留，删会话时随 deleteConversationInner 事务同步清除。
-// 命名注：此表用 sessionId 而非全表惯用的 conversationId——本表会收 boot 期/无会话期日志
-//   (sessionId === '__no_session__' fallback)，语义比"对话"更宽，故沿用 chatStore 的 activeId 命名。
+// 项目命名空间 console.log 捕获([cache-diag] 等)。
+// 跨会话保留,删会话时随 deleteConversationInner 事务同步清除。
+// 命名注:此表用 sessionId 而非全表惯用的 conversationId——本表会收 boot 期/无会话期日志
+//   (sessionId === '__no_session__' fallback),语义比"对话"更宽,故沿用 chatStore 的 activeId 命名。
 export interface ConsoleLogRow {
   id?: number;
   sessionId: string;
@@ -119,6 +119,19 @@ export interface ConsoleLogRow {
   ts: number;
   level: 'log' | 'warn' | 'error' | 'info';
   message: string;
+}
+
+// 文生图本页插画原图(2026-06-08)。主键 pageId(BookPage.id),索引 conversationId 用于删档时一次性清。
+// 与 BookPage 分离存,避免几百 KB blob 把 db.pages 单行膨胀拖慢 saveConversation。
+// 删页:BookPage.id 不变 → 用 pageId 直接 delete;删档:where('conversationId').equals(cid).delete()。
+export interface PageImageRow {
+  pageId: string;
+  conversationId: string;
+  blob: Blob;
+  prompt: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: number;
 }
 
 export const db = new Dexie('abyssal_archive') as Dexie & {
@@ -141,6 +154,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
   combat: EntityTable<CombatRow, 'conversationId'>;
   consoleLogs: EntityTable<ConsoleLogRow, 'id'>;
+  pageImages: EntityTable<PageImageRow, 'pageId'>;
 };
 
 db.version(1).stores({
@@ -235,6 +249,14 @@ export const V11_SCHEMA = {
 } as const;
 
 db.version(11).stores(V11_SCHEMA);
+
+/** v12: 新增文生图本页插画 blob 表(主键 pageId,按 conversationId 索引)。无数据迁移。 */
+export const V12_SCHEMA = {
+  ...V11_SCHEMA,
+  pageImages: '&pageId, conversationId',
+} as const;
+
+db.version(12).stores(V12_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 

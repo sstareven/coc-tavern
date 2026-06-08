@@ -5,6 +5,7 @@ import { stripFunctions } from '../db/stripFunctions';
 import { type DsCacheConfig, DEFAULT_DS_CACHE_CONFIG } from '../sillytavern/deepseek-cache';
 import { useApiProfilesStore } from './useApiProfilesStore';
 import { resolveProfileById } from '../api/api-profiles-engine';
+import { DEFAULT_SETTINGS_IMAGE_DEFAULTS } from '../api/image-gen-merge';
 
 /**
  * 文字倍率上下界（80% ~ 150%）—— 超出会让 UI 错乱(过小看不清 / 过大溢出)。
@@ -64,6 +65,18 @@ interface SettingsState {
   perApiRpmEnabled: boolean;
   mvuRpmLimit: number;
   rewriteRpmLimit: number;
+  /** 图像生成 API 每分钟最多请求数(独立桶,与 main/mvu/rewrite 并列)。0 不限制,最大 10。 */
+  imageRpmLimit: number;
+  /** 文生图总开关(2026-06-08)。关闭=完全不触发生图调用;开启需配 image API profile。 */
+  imageGenerationEnabled: boolean;
+  /** 主回合 appendPage 后是否自动 fire-and-forget 生图。关闭=玩家只能手动重生成。 */
+  imageAutoGenerate: boolean;
+  /** 图片存储模式。'indexeddb-blob'=本地 db.pageImages 表;'remote-url'=BookPage.imageUrl 存远程 URL。 */
+  imageStorageMode: 'indexeddb-blob' | 'remote-url';
+  /** blob 模式下单张图最大字节,超过此尺寸跳过存储(防 IndexedDB 单 row 膨胀)。默认 300KB。 */
+  imageMaxBlobBytes: number;
+  /** 图像生成默认参数(SettingsImageDefaults 三层 merge 的基线)。 */
+  imageDefaults: import('../api/image-gen-merge').SettingsImageDefaults;
   /**
    * 单次 rpmAcquire 调用允许的最大「排队等待轮次」：达到即抛 RpmQueueExhaustedError，
    * 由调用方 fail-open（静默降级丢这次请求），防 setTimeout 死循环卡住整条管线。
@@ -186,6 +199,12 @@ interface SettingsStore extends SettingsState {
   setPerApiRpmEnabled: (v: boolean) => void;
   setMvuRpmLimit: (n: number) => void;
   setRewriteRpmLimit: (n: number) => void;
+  setImageRpmLimit: (n: number) => void;
+  setImageGenerationEnabled: (v: boolean) => void;
+  setImageAutoGenerate: (v: boolean) => void;
+  setImageStorageMode: (v: 'indexeddb-blob' | 'remote-url') => void;
+  setImageMaxBlobBytes: (n: number) => void;
+  setImageDefaults: (patch: Partial<import('../api/image-gen-merge').SettingsImageDefaults>) => void;
   setRpmMaxQueueAttempts: (n: number) => void;
   setMvuSelfCorrectEnabled: (v: boolean) => void;
   setMvuSelfCorrectRetries: (n: number) => void;
@@ -226,6 +245,8 @@ interface SettingsStore extends SettingsState {
   getEffectiveMvuApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
   /** 行动补写 API,逻辑同 Mvu。rewriteUseIndependentApi 控制是否独立。 */
   getEffectiveRewriteApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
+  /** 图像生成 API(独立通道,不回退主线;profile 缺配时 baseUrl/apiKey 为空,调用方据此跳过)。 */
+  getEffectiveImageApi: () => { baseUrl: string; apiKey: string; model: string; extraParams: string };
 }
 
 const defaults: SettingsState = {
@@ -261,6 +282,12 @@ const defaults: SettingsState = {
   perApiRpmEnabled: false,
   mvuRpmLimit: 3,
   rewriteRpmLimit: 3,
+  imageRpmLimit: 3,
+  imageGenerationEnabled: false,
+  imageAutoGenerate: true,
+  imageStorageMode: 'indexeddb-blob',
+  imageMaxBlobBytes: 300_000,
+  imageDefaults: DEFAULT_SETTINGS_IMAGE_DEFAULTS,
   rpmMaxQueueAttempts: 10,
   mvuSelfCorrectEnabled: false,
   mvuSelfCorrectRetries: 1,
@@ -311,6 +338,12 @@ export const useSettingsStore = create<SettingsStore>()(
       setPerApiRpmEnabled: (v) => set({ perApiRpmEnabled: v }),
       setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
       setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setImageRpmLimit: (n) => set({ imageRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setImageGenerationEnabled: (v) => set({ imageGenerationEnabled: v }),
+      setImageAutoGenerate: (v) => set({ imageAutoGenerate: v }),
+      setImageStorageMode: (v) => set({ imageStorageMode: v }),
+      setImageMaxBlobBytes: (n) => set({ imageMaxBlobBytes: Math.max(50_000, Math.min(5_000_000, Math.floor(n))) }),
+      setImageDefaults: (patch) => set((s) => ({ imageDefaults: { ...s.imageDefaults, ...patch } })),
       setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
@@ -414,6 +447,17 @@ export const useSettingsStore = create<SettingsStore>()(
           extraParams: profile?.extraParams ?? '',
         };
       },
+      getEffectiveImageApi: () => {
+        const ap = useApiProfilesStore.getState();
+        // 图像 API 与文本 endpoint 通常不同源,不回退主线 — 缺配 = 直接返回空,调用方据此跳过
+        const profile = resolveProfileById(ap.apiProfiles, ap.selectedImageApiProfileId);
+        return {
+          baseUrl: profile?.apiBaseUrl ?? '',
+          apiKey: profile?.apiKey ?? '',
+          model: ap.selectedImageModel,
+          extraParams: profile?.extraParams ?? '',
+        };
+      },
     }),
     {
       name: 'coc_settings_v2',
@@ -437,11 +481,10 @@ export const useSettingsStore = create<SettingsStore>()(
         if (p.blessingEnabled !== undefined && p.cheatingEnabled === undefined) {
           p.cheatingEnabled = p.blessingEnabled;
         }
-        // RPM 上限从 10 收紧到 3：老存档残留 > 3 的值在 merge 时截到 3，否则用户重开
-        // 看到的还是旧值 10，与新的 UI max=3 / setter 钳值不一致。
+        // RPM 上限钳值(0-10 与 setter 同步)。
         const clampRpm = (v: unknown): number | undefined => {
           if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
-          return Math.max(0, Math.min(3, Math.floor(v)));
+          return Math.max(0, Math.min(10, Math.floor(v)));
         };
         const rpmL = clampRpm(p.rpmLimit);
         if (rpmL !== undefined) p.rpmLimit = rpmL;
@@ -449,10 +492,14 @@ export const useSettingsStore = create<SettingsStore>()(
         if (mvuL !== undefined) p.mvuRpmLimit = mvuL;
         const rwL = clampRpm(p.rewriteRpmLimit);
         if (rwL !== undefined) p.rewriteRpmLimit = rwL;
+        const imgL = clampRpm(p.imageRpmLimit);
+        if (imgL !== undefined) p.imageRpmLimit = imgL;
         return {
           ...current,
           ...p,
           dsCache: { ...DEFAULT_DS_CACHE_CONFIG, ...(p.dsCache ?? {}) },
+          // imageDefaults 深合并:老存档缺整块 → 用默认;有部分字段 → 缺失字段兜底默认值
+          imageDefaults: { ...DEFAULT_SETTINGS_IMAGE_DEFAULTS, ...(p.imageDefaults ?? {}) },
         } as SettingsStore;
       },
     },
