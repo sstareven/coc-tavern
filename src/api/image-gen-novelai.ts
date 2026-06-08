@@ -230,7 +230,23 @@ export function novelAiRecoveryHint(status: number): string | undefined {
 // NovelAI ZIP 极简:单 entry,通常 store(method=0)或 deflate(method=8),无 zip64/无加密。
 // 自写解析器约 50 行,避免引入 jszip ~80KB gzipped 仅为单功能。
 
-const ZIP_LFH_MAGIC = 0x04034b50; // 'PK\x03\x04' little-endian uint32
+const ZIP_LFH_MAGIC = 0x04034b50; // 'PK\x03\x04' little-endian uint32(local file header)
+const ZIP_DD_MAGIC = 0x08074b50;  // 'PK\x07\x08'(data descriptor signature,可选)
+const ZIP_CD_MAGIC = 0x02014b50;  // 'PK\x01\x02'(central directory header)
+
+/** 扫描真实 compressed data 结束位置 — 用于 data descriptor 模式
+ *  (general purpose flag bit3 置位,LFH 里 compSize=0,真实大小在数据后面)。
+ *  按优先级找:PK\x07\x08 data descriptor signature → 下个 PK\x03\x04 LFH →
+ *  PK\x01\x02 central directory header。找不到返回 -1。 */
+function scanCompDataEnd(zip: Uint8Array, dv: DataView, from: number): number {
+  for (let q = from; q + 4 <= zip.length; q++) {
+    const sig = dv.getUint32(q, true);
+    if (sig === ZIP_DD_MAGIC || sig === ZIP_LFH_MAGIC || sig === ZIP_CD_MAGIC) {
+      return q;
+    }
+  }
+  return -1;
+}
 
 /** 从 ZIP 响应中抽取首个 PNG entry 的字节流。
  *  支持 method=0(store)/method=8(deflate);其他方法或加密 entry 抛错。
@@ -254,7 +270,17 @@ export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Arra
       if (flags & 0x0001) {
         throw new Error(`ZIP entry 被加密 flag=0x${flags.toString(16)} — 上游可能误用了密码保护`);
       }
-      const data = zip.subarray(dataStart, dataStart + compSize);
+      // Data descriptor 模式(flag bit3 置位):LFH 里 compSize=0,真实大小写在数据后面;
+      // 扫描下个 ZIP 签名(优先 PK\x07\x08)反推真实长度。
+      let actualCompSize = compSize;
+      if (compSize === 0 && (flags & 0x08)) {
+        const end = scanCompDataEnd(zip, dv, dataStart);
+        if (end < 0) {
+          throw new Error('ZIP data descriptor 模式但找不到结束位置(无 PK\\x07\\x08 / PK\\x03\\x04 / PK\\x01\\x02 签名)');
+        }
+        actualCompSize = end - dataStart;
+      }
+      const data = zip.subarray(dataStart, dataStart + actualCompSize);
       if (method === 0) return data;
       if (method === 8) {
         try {
@@ -263,16 +289,18 @@ export async function extractFirstPngFromZip(zip: Uint8Array): Promise<Uint8Arra
           // 把 method/compSize 上下文 + inflateRaw 内部诊断合并往上抛,
           // 避免玩家只看到 "Failed to fetch" 无从下手
           const msg = e instanceof Error ? e.message : String(e);
-          throw new Error(`ZIP entry 解压失败 method=8 compSize=${compSize}: ${msg}`);
+          throw new Error(`ZIP entry 解压失败 method=8 compSize=${actualCompSize}: ${msg}`);
         }
       }
       throw new Error(`不支持的 ZIP 压缩方法 method=${method}`);
     }
-    // Data Descriptor(flag bit3 置位)时头部 compSize=0,需扫描下个 PK 签名
+    // 非 PNG entry + data descriptor 模式:扫描下个 PK 签名跳过本 entry
     if (compSize === 0 && (flags & 0x08)) {
-      let q = dataStart;
-      while (q + 4 <= zip.length && dv.getUint32(q, true) !== ZIP_LFH_MAGIC) q++;
-      p = q;
+      const end = scanCompDataEnd(zip, dv, dataStart);
+      if (end < 0) break;
+      // 若命中 data descriptor signature(PK\x07\x08),跳过描述符自身 16 字节
+      // (signature + crc32 + compSize + uncompSize)到下个 entry;若是 LFH/CD 直接 p=end
+      p = dv.getUint32(end, true) === ZIP_DD_MAGIC ? end + 16 : end;
     } else {
       p = dataStart + compSize;
     }

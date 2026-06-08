@@ -469,6 +469,73 @@ describe('inflateRaw fallback 与诊断错误', () => {
   });
 });
 
+describe('extractFirstPngFromZip — data descriptor 模式(compSize=0 + flag bit3)', () => {
+  /** 构造 data descriptor 形态:LFH compSize=0 + flag=0x08,数据后追加 PK\x07\x08
+   *  + crc32 + compSize + uncompSize(共 16 字节,带签名形式)。 */
+  function buildDataDescriptorEntry(filename: string, data: Uint8Array, method: 0 | 8): Uint8Array {
+    const nameBytes = new TextEncoder().encode(filename);
+    // LFH(30 字节)+ name + data + descriptor(16 字节)
+    const out = new Uint8Array(30 + nameBytes.length + data.length + 16);
+    writeU32(out, 0, 0x04034b50);    // LFH signature
+    writeU16(out, 4, 20);            // version needed
+    writeU16(out, 6, 0x08);          // flag bit3 = data descriptor
+    writeU16(out, 8, method);
+    writeU16(out, 10, 0);            // mtime
+    writeU16(out, 12, 0);            // mdate
+    writeU32(out, 14, 0);            // crc32 占位
+    writeU32(out, 18, 0);            // compSize=0(data descriptor 模式)
+    writeU32(out, 22, 0);            // uncompSize=0(data descriptor 模式)
+    writeU16(out, 26, nameBytes.length);
+    writeU16(out, 28, 0);            // extra
+    out.set(nameBytes, 30);
+    out.set(data, 30 + nameBytes.length);
+    // 数据后追加 data descriptor:PK\x07\x08 + crc32 + compSize + uncompSize
+    const ddOffset = 30 + nameBytes.length + data.length;
+    writeU32(out, ddOffset, 0x08074b50);     // data descriptor signature
+    writeU32(out, ddOffset + 4, 0);          // crc32(忽略)
+    writeU32(out, ddOffset + 8, data.length); // 实际 compSize
+    writeU32(out, ddOffset + 12, data.length); // 实际 uncompSize(method=0 时与 compSize 相同)
+    return out;
+  }
+
+  it('method=0(store)+ data descriptor signature → 反推真实 size 成功', async () => {
+    const zip = buildDataDescriptorEntry('image_0.png', PNG_SIGNATURE, 0);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('method=8(deflate)+ data descriptor signature → 反推真实 size + inflate 成功', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const compressed = await deflateRaw(PNG_SIGNATURE);
+    const zip = buildDataDescriptorEntry('image_0.png', compressed, 8);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('data descriptor 模式 + 多 entry(非 PNG 在前)→ 跳过非 PNG entry,命中 PNG', async () => {
+    const txt = new TextEncoder().encode('hello');
+    const txtEntry = buildDataDescriptorEntry('metadata.txt', txt, 0);
+    const pngEntry = buildZipEntry('image_0.png', PNG_SIGNATURE, 0, PNG_SIGNATURE.length);
+    const png = await extractFirstPngFromZip(concat(txtEntry, pngEntry));
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('data descriptor 模式 + 找不到结束签名 → 抛专属错', async () => {
+    // 故意构造一个 compSize=0 + flag bit3,后面也没有任何 PK 签名 — 全 0 填充
+    const nameBytes = new TextEncoder().encode('image_0.png');
+    const garbage = new Uint8Array(100); // 全 0,无 PK 签名
+    const out = new Uint8Array(30 + nameBytes.length + garbage.length);
+    writeU32(out, 0, 0x04034b50);
+    writeU16(out, 6, 0x08);  // flag bit3
+    writeU16(out, 8, 8);     // method=8
+    writeU32(out, 18, 0);    // compSize=0
+    writeU16(out, 26, nameBytes.length);
+    out.set(nameBytes, 30);
+    out.set(garbage, 30 + nameBytes.length);
+    await expect(extractFirstPngFromZip(out)).rejects.toThrow(/data descriptor 模式但找不到结束位置/);
+  });
+});
+
 describe('uint8ToBase64', () => {
   it('小 buffer 正确编码', () => {
     const bytes = new Uint8Array([72, 101, 108, 108, 111]); // 'Hello'
