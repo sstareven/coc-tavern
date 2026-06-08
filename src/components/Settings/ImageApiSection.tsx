@@ -242,6 +242,7 @@ function PayloadModeRow() {
           '不同后端对 OpenAI 兼容 /v1/images/generations 协议的字段集要求差异巨大。',
           '',
           '【auto】(默认推荐) 自动探测:',
+          '  · model 含 nano-banana / 假流式 / gemini+image → chat-completions',
           '  · URL 含 openai.com 或 model 是 dall-e* → openai-strict',
           '  · model 是 gpt-image* → gpt-image-1',
           '  · 其他 → sd-compat',
@@ -253,14 +254,16 @@ function PayloadModeRow() {
           '',
           '【sd-compat】自建 SD WebUI / SD 透传中转:发完整 SD 五件套(negative_prompt/steps/cfg_scale/sampler/seed),保留 832×224 等自由尺寸',
           '',
+          '【chat-completions】"假流式"中转 / nano-banana / gemini-pro-image:走 /v1/chat/completions + messages 包 prompt,响应 content 用 markdown ![](url 或 dataURL) 给图',
+          '',
           '【pollinations】Pollinations(MVP 同 openai-strict 行为)',
           '',
-          '遇 HTTP 400 invalid_request:多半是字段不被接受或 size 越界,先尝试切到 openai-strict。',
+          '遇 HTTP 400 invalid_request:多半是字段不被接受或 size 越界,先尝试切到 openai-strict;若响应里有 message.content 含 markdown 图链接则切 chat-completions。',
         ].join('\n')} />
       </span>
       <select
         value={mode}
-        onChange={(e) => setMode(e.target.value as 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations')}
+        onChange={(e) => setMode(e.target.value as 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions')}
         style={{
           background: 'rgba(0,0,0,0.15)',
           border: '1px solid rgba(196,168,85,0.3)',
@@ -274,6 +277,7 @@ function PayloadModeRow() {
         <option value="auto">auto · 自动探测</option>
         <option value="openai-strict">openai-strict · OpenAI / DALL-E 3</option>
         <option value="gpt-image-1">gpt-image-1</option>
+        <option value="chat-completions">chat-completions · 假流式 / nano-banana / gemini-image</option>
         <option value="sd-compat">sd-compat · 自建 SD / 透传中转</option>
         <option value="pollinations">pollinations</option>
       </select>

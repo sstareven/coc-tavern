@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectPayloadMode, mapToOpenAiSize } from '../api/image-gen-engine';
+import { detectPayloadMode, mapToOpenAiSize, parseChatCompletionsImage } from '../api/image-gen-engine';
 
 describe('detectPayloadMode', () => {
   it('OpenAI 官方 URL → openai-strict', () => {
@@ -30,6 +30,24 @@ describe('detectPayloadMode', () => {
   it('空字符串安全', () => {
     expect(detectPayloadMode('', '')).toBe('sd-compat');
   });
+
+  describe('chat-completions 探测', () => {
+    it('"假流式-gemini-3-pro-image" → chat-completions', () => {
+      expect(detectPayloadMode('https://api.test.icu/v1', '假流式-gemini-3-pro-image')).toBe('chat-completions');
+    });
+    it('nano-banana 系 → chat-completions', () => {
+      expect(detectPayloadMode('https://relay.com/v1', 'nano-banana-2024')).toBe('chat-completions');
+    });
+    it('gemini-2.5-flash-image-preview → chat-completions', () => {
+      expect(detectPayloadMode('https://api.test.com/v1', 'gemini-2.5-flash-image-preview')).toBe('chat-completions');
+    });
+    it('URL 明确含 /chat/completions → chat-completions', () => {
+      expect(detectPayloadMode('https://api.test.com/v1/chat/completions', 'whatever-model')).toBe('chat-completions');
+    });
+    it('普通 gemini(不含 image) → 不走 chat-completions(回退 sd-compat)', () => {
+      expect(detectPayloadMode('https://api.test.com/v1', 'gemini-2.5-pro')).toBe('sd-compat');
+    });
+  });
 });
 
 describe('mapToOpenAiSize', () => {
@@ -55,3 +73,55 @@ describe('mapToOpenAiSize', () => {
     expect(mapToOpenAiSize(-1, 100)).toBe('1024x1024');
   });
 });
+
+describe('parseChatCompletionsImage', () => {
+  it('markdown ![](https://...) → url', () => {
+    const c = '这是生成的图: ![cat](https://cdn.x.com/cat.png) 满意吗?';
+    expect(parseChatCompletionsImage(c)).toEqual({ url: 'https://cdn.x.com/cat.png' });
+  });
+
+  it('markdown ![](data:image/png;base64,xxx) → b64Data 已剥 prefix', () => {
+    const c = '![img](data:image/png;base64,iVBORw0KGgoAAA==)';
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'iVBORw0KGgoAAA==' });
+  });
+
+  it('裸 data URL → b64Data', () => {
+    const c = 'here is your image: data:image/jpeg;base64,/9j/4AAQSkZJRg== done';
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: '/9j/4AAQSkZJRg==' });
+  });
+
+  it('裸 https png → url', () => {
+    const c = 'image link: https://example.com/img/abc.png?token=xyz';
+    expect(parseChatCompletionsImage(c)).toEqual({ url: 'https://example.com/img/abc.png?token=xyz' });
+  });
+
+  it('multimodal 数组 image_url(string) → url', () => {
+    const c = [
+      { type: 'text', text: 'here is' },
+      { type: 'image_url', image_url: 'https://cdn.x/y.jpg' },
+    ];
+    expect(parseChatCompletionsImage(c)).toEqual({ url: 'https://cdn.x/y.jpg' });
+  });
+
+  it('multimodal 数组 image_url{url:...} → url', () => {
+    const c = [
+      { type: 'image_url', image_url: { url: 'https://cdn.x/z.png' } },
+    ];
+    expect(parseChatCompletionsImage(c)).toEqual({ url: 'https://cdn.x/z.png' });
+  });
+
+  it('multimodal 数组 image_url{url: dataURL} → b64Data', () => {
+    const c = [
+      { type: 'image_url', image_url: { url: 'data:image/webp;base64,AAAA' } },
+    ];
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'AAAA' });
+  });
+
+  it('提不出图返回 null', () => {
+    expect(parseChatCompletionsImage('just plain text no image')).toBeNull();
+    expect(parseChatCompletionsImage('')).toBeNull();
+    expect(parseChatCompletionsImage(null)).toBeNull();
+    expect(parseChatCompletionsImage(undefined)).toBeNull();
+  });
+});
+

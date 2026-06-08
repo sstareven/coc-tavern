@@ -20,7 +20,7 @@ import { applyExtraParamsRules } from './api-extra-params-engine';
 const DEFAULT_TIMEOUT_MS = 90_000;
 
 /** 协议模式 — 控制 callImageApi 构造 body 的字段集与 size 映射。 */
-export type ImagePayloadMode = 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations';
+export type ImagePayloadMode = 'auto' | 'openai-strict' | 'sd-compat' | 'gpt-image-1' | 'pollinations' | 'chat-completions';
 
 export interface CallImageApiRequest {
   apiBaseUrl: string;
@@ -73,18 +73,42 @@ export class ImageGenError extends Error {
   }
 }
 
-/** 把 baseUrl 末尾 / 去掉,拼 /v1/images/generations。 */
-function buildEndpoint(baseUrl: string): string {
+/** 拼接 OpenAI 兼容端点路径。suffix = 'images/generations' 或 'chat/completions' 等。
+ *
+ *  适配 4 种 baseUrl 输入:
+ *  - https://xxx                          → https://xxx/v1/{suffix}
+ *  - https://xxx/v1                       → https://xxx/v1/{suffix}      ← 用户最常踩,自动适配
+ *  - https://xxx/v1/                      → https://xxx/v1/{suffix}      ← 尾斜杠去掉
+ *  - https://xxx/v1/{suffix} 或带尾斜杠   → 原样返回(已是完整路径) */
+function buildEndpoint(baseUrl: string, suffix = 'images/generations'): string {
   const trimmed = baseUrl.replace(/\/+$/, '');
-  if (/\/v\d+\/images\/generations\/?$/.test(trimmed)) return trimmed;
-  if (/\/v\d+\/?$/.test(trimmed)) return `${trimmed.replace(/\/$/, '')}/images/generations`;
-  return `${trimmed}/v1/images/generations`;
+  // 已是完整路径(含具体 suffix)
+  const fullPathRegex = new RegExp(`/${suffix.replace(/\//g, '\\/')}/?$`);
+  if (fullPathRegex.test(trimmed)) return trimmed;
+  // 以 /v\d+ 结尾(用户填了 https://xxx/v1)
+  if (/\/v\d+\/?$/.test(trimmed)) return `${trimmed}/${suffix}`;
+  // 啥都没有,默认补 /v1/{suffix}
+  return `${trimmed}/v1/${suffix}`;
 }
 
-/** 自动探测 PayloadMode。URL 含 openai.com / model 匹配 dall-e / gpt-image 一律走 openai 系。 */
+/** 自动探测 PayloadMode。优先级:chat-completions 特征 → gpt-image-1 → openai-strict → pollinations → sd-compat。
+ *
+ *  chat-completions 特征(国内"假流式"中转把图像 API 包装成 /v1/chat/completions):
+ *  - model 含 'gemini' 且含 'image' / 'pro-image'(如「假流式-gemini-3-pro-image」)
+ *  - model 名含 'nano-banana'
+ *  - model 名含 '假流式'(中文前缀的中转标记)
+ *  - URL 路径已带 /chat/completions(用户明确填了 chat 端点) */
 export function detectPayloadMode(baseUrl: string, model: string): Exclude<ImagePayloadMode, 'auto'> {
   const url = (baseUrl ?? '').toLowerCase();
   const m = (model ?? '').toLowerCase();
+  // chat-completions 包装的图像中转 — 必须先判,model 名典型含 image 但实际走 chat 端点
+  if (
+    url.includes('/chat/completions')
+    || m.includes('nano-banana')
+    || m.includes('假流式')
+    || (m.includes('gemini') && m.includes('image'))
+    || (m.includes('-image') && (m.includes('flash') || m.includes('pro') || m.includes('preview')))
+  ) return 'chat-completions';
   if (m.startsWith('gpt-image') || m === 'gpt-image-1') return 'gpt-image-1';
   if (url.includes('openai.com') || m.startsWith('dall-e')) return 'openai-strict';
   if (url.includes('pollinations')) return 'pollinations';
@@ -108,6 +132,20 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
     model, prompt, negativePrompt, width, height, steps, cfgScale, sampler,
     n = 1, responseFormat = 'b64_json',
   } = req;
+
+  if (mode === 'chat-completions') {
+    // /v1/chat/completions 风格中转("假流式"等):messages 包 prompt,响应 content 含图链接
+    return {
+      model,
+      messages: [
+        { role: 'user', content: prompt },
+      ],
+      // 部分中转支持 stream,但我们走非流式简化解析
+      stream: false,
+      // 部分中转读 temperature/max_tokens,留默认值不破坏
+      temperature: 0.7,
+    };
+  }
 
   if (mode === 'openai-strict' || mode === 'gpt-image-1') {
     const body: Record<string, unknown> = {
@@ -148,6 +186,56 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
   };
 }
 
+/** 从 chat-completions 响应的 content 字段提取图片。支持:
+ *  - markdown ![alt](URL 或 data:image/...;base64,...)
+ *  - 裸 data:image/...;base64,... 串
+ *  - 裸 https?:// URL
+ *  - multimodal content 数组 [{type:'image_url',image_url:{url}},...]
+ *  返回 {b64Data} 或 {url};都没找到返回 null。 */
+export function parseChatCompletionsImage(content: unknown): { b64Data?: string; url?: string } | null {
+  // multimodal 数组形态
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue;
+      const p = part as Record<string, unknown>;
+      const t = p.type;
+      if (t === 'image_url' || t === 'image') {
+        const imgUrl = p.image_url;
+        const urlStr = typeof imgUrl === 'string'
+          ? imgUrl
+          : (imgUrl && typeof imgUrl === 'object'
+              ? ((imgUrl as Record<string, unknown>).url as string | undefined)
+              : undefined);
+        if (typeof urlStr === 'string') {
+          if (urlStr.startsWith('data:')) return { b64Data: urlStr.replace(/^data:[^;]+;base64,/, '') };
+          if (/^https?:\/\//.test(urlStr)) return { url: urlStr };
+        }
+        if (typeof p.b64_json === 'string') return { b64Data: p.b64_json };
+      }
+    }
+    return null;
+  }
+  if (typeof content !== 'string') return null;
+  // markdown ![alt](xxx) — 取第一个出现的
+  const md = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/.exec(content);
+  if (md && md[1]) {
+    const target = md[1];
+    if (target.startsWith('data:')) return { b64Data: target.replace(/^data:[^;]+;base64,/, '') };
+    if (/^https?:\/\//.test(target)) return { url: target };
+  }
+  // 裸 data URL
+  const dataMatch = /(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/.exec(content);
+  if (dataMatch && dataMatch[1]) {
+    return { b64Data: dataMatch[1].replace(/^data:[^;]+;base64,/, '') };
+  }
+  // 裸 URL
+  const urlMatch = /(https?:\/\/[^\s"'<>)\]]+\.(?:png|jpe?g|webp|gif)(?:\?[^\s"'<>)\]]*)?)/i.exec(content);
+  if (urlMatch && urlMatch[1]) {
+    return { url: urlMatch[1] };
+  }
+  return null;
+}
+
 /** 单次调用图像 API。AbortController 90s 超时;失败抛 ImageGenError。 */
 export async function callImageApi(req: CallImageApiRequest): Promise<CallImageApiResponse> {
   const {
@@ -161,10 +249,13 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
   if (!apiBaseUrl) throw new ImageGenError('图像 API baseUrl 未配');
   if (!req.model) throw new ImageGenError('图像 API model 未选');
 
-  const endpoint = buildEndpoint(apiBaseUrl);
   const resolvedMode: Exclude<ImagePayloadMode, 'auto'> = payloadMode === 'auto'
     ? detectPayloadMode(apiBaseUrl, req.model)
     : payloadMode;
+
+  // 不同 mode 走不同端点 suffix
+  const endpointSuffix = resolvedMode === 'chat-completions' ? 'chat/completions' : 'images/generations';
+  const endpoint = buildEndpoint(apiBaseUrl, endpointSuffix);
 
   let body = buildBody(req, resolvedMode);
   if (extraParams.trim()) {
@@ -219,12 +310,37 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
     throw new ImageGenError(`JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`, { endpoint, bodyKeys });
   }
 
+  const durationMs = Date.now() - t0;
+
+  // chat-completions 风格响应:choices[0].message.content 含 markdown / dataURL / 裸 URL
+  if (resolvedMode === 'chat-completions') {
+    const choices = (json as { choices?: unknown[] })?.choices;
+    if (!Array.isArray(choices) || choices.length === 0) {
+      throw new ImageGenError('chat-completions 响应缺 choices 字段', { endpoint, bodyKeys });
+    }
+    const first = choices[0] as { message?: { content?: unknown } };
+    const content = first?.message?.content;
+    const extracted = parseChatCompletionsImage(content);
+    if (!extracted) {
+      const previewRaw = typeof content === 'string' ? content : JSON.stringify(content);
+      const preview = (previewRaw ?? '').slice(0, 300);
+      throw new ImageGenError(
+        `chat-completions content 中提不出图(无 markdown 图链接 / dataURL / 裸 URL):${preview}`,
+        { endpoint, bodyKeys },
+      );
+    }
+    if (extracted.b64Data) {
+      return { b64Data: extracted.b64Data, durationMs, resolvedMode };
+    }
+    return { url: extracted.url, durationMs, resolvedMode };
+  }
+
+  // images/generations 风格响应:data[0].b64_json / url
   const data = (json as { data?: unknown[] })?.data;
   if (!Array.isArray(data) || data.length === 0) {
     throw new ImageGenError('响应缺 data 字段', { endpoint, bodyKeys });
   }
   const first = data[0] as { b64_json?: string; url?: string; revised_prompt?: string };
-  const durationMs = Date.now() - t0;
 
   // gpt-image-1 默认返回 b64_json(无 response_format 字段),按 b64 解析
   const expectB64 = responseFormat === 'b64_json' || resolvedMode === 'gpt-image-1';
