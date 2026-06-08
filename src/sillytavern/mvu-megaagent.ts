@@ -585,12 +585,13 @@ export function dispatchMegaAgentResult(result: MegaAgentResult): DispatchSummar
     summary.locationIntegrationCount = result.locationIntegration.mergedElements.length;
   }
 
-  // mapReconcile → useMapStore + 同步 useLocationElementStore.renameLocation
+  // mapReconcile → useMapStore + 同步 useLocationElementStore.renameLocation + useNpcStore.renameLocation
   if (result.mapReconcile) {
     const map = useMapStore.getState();
     for (const m of result.mapReconcile.merges) {
       map.mergeLocations(m.keep, [m.drop]);
       useLocationElementStore.getState().renameLocation(m.drop, m.keep);
+      useNpcStore.getState().renameLocation(m.drop, m.keep);
     }
     if (result.mapReconcile.removeEdges.length > 0) {
       map.removeEdgesByName(result.mapReconcile.removeEdges);
@@ -606,8 +607,6 @@ export function dispatchMegaAgentResult(result: MegaAgentResult): DispatchSummar
 
   return summary;
 }
-// useNpcStore import 保留是为了未来 megaagent 扩展(目前未用,加 void 防 TS 未使用警告)
-void useNpcStore;
 
 // ────────── 工具函数 ──────────
 

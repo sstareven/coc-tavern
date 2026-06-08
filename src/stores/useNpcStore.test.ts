@@ -40,14 +40,18 @@ describe('useNpcStore.applyUpdates', () => {
     expect(absent[0].memories).toEqual(['盘问了调查员', '收下了贿赂']);
   });
 
-  it('buildContextInjection 只含在场 NPC', () => {
+  it('buildContextInjection: 路人 NPC 仅在场时出现;重要 NPC 不论是否在场都出现', () => {
     useNpcStore.getState().applyUpdates([
-      { name: '在场甲', identity: '医生', isPresent: true },
-      { name: '离场乙', identity: '记者', isPresent: false },
+      { name: '路人在场甲', identity: '医生', isPresent: true, importance: '路人' },
+      { name: '路人离场乙', identity: '记者', isPresent: false, importance: '路人' },
+      { name: '重要在场丙', identity: '神父', isPresent: true, importance: '重要' },
+      { name: '重要离场丁', identity: '侦探', isPresent: false, importance: '重要' },
     ]);
     const ctx = useNpcStore.getState().buildContextInjection();
-    expect(ctx).toContain('在场甲');
-    expect(ctx).not.toContain('离场乙');
+    expect(ctx).toContain('路人在场甲');
+    expect(ctx).not.toContain('路人离场乙');
+    expect(ctx).toContain('重要在场丙');
+    expect(ctx).toContain('重要离场丁');
   });
 
   it('新建 NPC 自动获得 8 项基础属性（确定性，同 id 稳定）', () => {
@@ -233,6 +237,8 @@ function makeProfile(over: Partial<NpcProfile>): NpcProfile {
     backstory: over.backstory ?? '',
     possessions: over.possessions ?? [],
     isPresent: over.isPresent ?? true,
+    locationName: over.locationName ?? '',
+    importance: over.importance ?? '路人',
     createdAt: over.createdAt ?? 0,
     updatedAt: over.updatedAt ?? 0,
     ...over,

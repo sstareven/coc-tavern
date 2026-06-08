@@ -557,10 +557,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const invSummary = useInventoryStore.getState().buildInventorySummary();
         addFormatPart(invSummary || '[调查员随身物品]\n（空——调查员目前身上没有任何物品）');
       }
-      // 注入在场 NPC 档案，让 LLM 一致地扮演他们。
+      // 注入在场 NPC 档案,让 LLM 一致地扮演他们。currentLocationName 传入用于过路 NPC 过滤。
       if (!formatOverride) {
-        const npcCtx = useNpcStore.getState().buildContextInjection();
+        const msNow = useMapStore.getState();
+        const curLocNameForNpc = msNow.locations.find((l) => l.id === msNow.currentLocationId)?.name ?? '';
+        const npcCtx = useNpcStore.getState().buildContextInjection(curLocNameForNpc);
         if (npcCtx) addFormatPart(npcCtx);
+      }
+      // 注入调查员位置 anchor:显式告知 LLM 当前所在地点(并对比上回合位置以加强位移感知)
+      // — 杜绝调查员"忘记自己在哪",配合 currentLocationEcho 字段做闭环 echo 校验。
+      if (!formatOverride) {
+        const ms = useMapStore.getState();
+        const curLocName = ms.locations.find((l) => l.id === ms.currentLocationId)?.name ?? '';
+        const pages = useBookStore.getState().pages;
+        const prevPage = pages.length >= 2 ? pages[pages.length - 2] : undefined;
+        const prevLocName = prevPage?.mapUpdates?.current?.trim() ?? '';
+        let anchorLine: string;
+        if (curLocName && prevLocName && prevLocName !== curLocName) {
+          anchorLine = `【调查员当前位置】「${curLocName}」(上回合在「${prevLocName}」,本回合已移动到「${curLocName}」)。若本回合发生位移,在 mapUpdates.current 写明目的地。本回合主 JSON 必须包含顶层字段 currentLocationEcho,值与调查员实际所在地点名一致——echo 不一致系统会触发一次重试。`;
+        } else if (curLocName) {
+          anchorLine = `【调查员当前位置】「${curLocName}」(与上回合相同)。若本回合发生位移,在 mapUpdates.current 写明目的地。本回合主 JSON 必须包含顶层字段 currentLocationEcho,值与调查员实际所在地点名一致——echo 不一致系统会触发一次重试。`;
+        } else {
+          anchorLine = `【调查员当前位置】(尚未确定)。若本回合调查员位于某地,务必在 mapUpdates.current 写明,并在顶层 currentLocationEcho 字段 echo 同一地点名。`;
+        }
+        addFormatPart(anchorLine);
       }
       // 注入当前地点已知的「地点元素」，让 LLM 与既有环境特征保持一致、不凭空矛盾。
       if (!formatOverride) {
@@ -998,7 +1018,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const skipInventoryNarrativeCheck = useBookStore.getState().pages.length <= 1;
 
         const genStart = performance.now();
-        const { result, attempts: attempt, lastContent, lastUsage } = await sendWithJsonRetry({
+        const sendRes = await sendWithJsonRetry({
           maxRetries,
           logTag: 'API',
           send: (corrective) => sendChatCompletion(
@@ -1023,10 +1043,74 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             ps.start(`main-retry-${k}`);
           },
         });
+        let { result } = sendRes;
+        const { attempts: attempt } = sendRes;
+        let { lastContent } = sendRes;
+        const { lastUsage } = sendRes;
         // 主回合 stage 收尾:无论成功还是 retries 用尽,关掉最后那个跑过的 stage
         {
           const lastMainId = attempt === 0 ? 'main' : `main-retry-${attempt}`;
           useTurnProgressStore.getState().finish(lastMainId);
+        }
+
+        // 调查员位置 echo 校验 + 单次重试:
+        // expected = result.mapUpdates.current 或 store.currentLocation.name;
+        // result.currentLocationEcho 与 expected 不一致 → 一次 sendChatCompletion 加纠正前缀。
+        // 重试响应解析失败/仍不一致 → 接受 mapUpdates.current 为权威(LLM 主 JSON 优先于 echo 字段)。
+        // 仅在 result 存在(JSON 解析成功)时进行;非阻塞,失败永远不抛错。
+        if (result) {
+          const msNow = useMapStore.getState();
+          const storeLoc = msNow.locations.find((l) => l.id === msNow.currentLocationId)?.name?.trim() ?? '';
+          const expectedLoc = (result.mapUpdates?.current?.trim() || storeLoc).trim();
+          const echo = result.currentLocationEcho?.trim() ?? '';
+          if (expectedLoc && (!echo || echo !== expectedLoc)) {
+            pushLog(
+              'warn',
+              `[Pipeline] 调查员位置 echo 不一致: 模型 echo=「${echo || '(缺失)'}」期望=「${expectedLoc}」, 触发一次重试`,
+              'system',
+            );
+            try {
+              const correctiveLoc = {
+                role: 'user' as const,
+                content: `【系统纠正·调查员位置 echo】你上一轮主 JSON 的 currentLocationEcho=「${echo || '(缺失)'}」与系统记录不一致。本回合调查员实际所在地点应为「${expectedLoc}」。请重新输出完整的主 JSON,其它字段保持本回合的叙事/选项/线索/NPC/暗线/sceneInfo 等不变,但务必让 mapUpdates.current 与顶层 currentLocationEcho 都明确等于「${expectedLoc}」(若本回合发生了实际位移,则两者均为新地点名)。`,
+              };
+              const ps = useTurnProgressStore.getState();
+              const echoStageId = `main-echo-retry`;
+              const prevStageId = attempt === 0 ? 'main' : `main-retry-${attempt}`;
+              ps.enqueueAfter(prevStageId, { id: echoStageId, label: '主回合 位置校验重试' });
+              ps.start(echoStageId);
+              const retryRsp = await sendChatCompletion(
+                applyPostProcessing([...editedMessages, correctiveLoc], settings.promptPostProcessing),
+                presetForApi,
+                settings.getEffectiveMainApi().baseUrl,
+                settings.getEffectiveMainApi().apiKey,
+                settings.getEffectiveMainApi().model,
+                false,
+                undefined,
+                controller.signal,
+                'main',
+                settings.getEffectiveMainApi().extraParams,
+              );
+              ps.finish(echoStageId);
+              const retryResult = parseLlmResponse(retryRsp.content, { skipInventoryNarrativeCheck });
+              const retryEcho = retryResult?.currentLocationEcho?.trim() ?? '';
+              const retryMapCur = retryResult?.mapUpdates?.current?.trim() ?? '';
+              const retryExpectedLoc = (retryMapCur || expectedLoc).trim();
+              if (retryResult && retryExpectedLoc && retryEcho === retryExpectedLoc) {
+                result = retryResult;
+                lastContent = retryRsp.content;
+                pushLog('info', `[Pipeline] 位置 echo 重试成功 (echo=「${retryEcho}」)`, 'system');
+              } else {
+                pushLog(
+                  'warn',
+                  `[Pipeline] 位置 echo 重试未通过 (retryEcho=「${retryEcho || '(缺失)'}」expected=「${retryExpectedLoc}」),沿用首次响应、以 mapUpdates.current 为权威`,
+                  'system',
+                );
+              }
+            } catch (e) {
+              pushLog('warn', `[Pipeline] 位置 echo 重试调用异常,沿用首次响应: ${String(e)}`, 'system');
+            }
+          }
         }
 
         if (!result) {

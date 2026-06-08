@@ -29,6 +29,10 @@ export interface ParsedLlmResult {
   mapUpdates?: MapUpdates;
   /** A2 重设: LLM 内联 <san id="N"/> 标签对应的检定条目数组(主 JSON 顶层 sanityCheckPrompts)。 */
   sanityCheckPrompts?: SanityCheckPrompt[];
+  /** 调查员位置 echo: LLM 必填字符串,表示本回合结束时调查员实际所在地点名。
+   *  pipeline 取 (mapUpdates.current ?? store.currentLocation.name) 与之比对;
+   *  不一致触发一次重试 (sendChatCompletion 加纠正前缀),仍不一致则以 mapUpdates 为准。 */
+  currentLocationEcho?: string;
 }
 
 function extractVarTags(text: string): Record<string, string> {
@@ -256,6 +260,7 @@ const KNOWN_TOP_FIELDS = [
   'sceneInfo', 'leftHeader', 'leftContent', 'rightHeader', 'rightContent',
   'choices', 'keywords', 'summary', 'darkThread', 'inventoryChanges',
   'clues', 'npcUpdates', 'mapUpdates', 'sanityCheckPrompts', 'badEnding',
+  'currentLocationEcho',
 ] as const;
 
 /**
@@ -732,6 +737,9 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
       npcUpdates,
       mapUpdates,
       sanityCheckPrompts,
+      currentLocationEcho: typeof parsed.currentLocationEcho === 'string' && parsed.currentLocationEcho.trim()
+        ? String(parsed.currentLocationEcho).trim()
+        : undefined,
     };
 }
 

@@ -68,7 +68,7 @@ function makeNpc(id: string, name: string, inParty: boolean): NpcProfile {
     id, name, identity: '', personality: '', favorability: 0,
     appearance: '', innerThoughts: '',
     memories: [], experience: '', backstory: '', possessions: [],
-    isPresent: true, inParty, createdAt: 0, updatedAt: 0,
+    isPresent: true, inParty, locationName: '', importance: '路人', createdAt: 0, updatedAt: 0,
   };
 }
 

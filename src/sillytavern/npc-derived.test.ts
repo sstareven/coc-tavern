@@ -6,7 +6,7 @@ function npc(over: Partial<NpcProfile>): NpcProfile {
   return {
     id: 'n', name: 'X', identity: '', personality: '', favorability: 0, appearance: '',
     innerThoughts: '', memories: [], experience: '', backstory: '', possessions: [],
-    isPresent: true, createdAt: 0, updatedAt: 0, ...over,
+    isPresent: true, locationName: '', importance: '路人', createdAt: 0, updatedAt: 0, ...over,
   };
 }
 

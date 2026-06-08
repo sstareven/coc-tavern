@@ -106,7 +106,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
     "foreshadowing": "图书馆管理员提到近日有人在闭馆后偷偷进入特藏室，几本古籍的摆放位置似乎被动过"
   },
   "npcUpdates": [
-    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案"}
+    {"name": "馆员霍尔姆斯", "identity": "图书馆管理员", "gender": "男", "appearanceAge": "六旬", "appearance": "驼背、戴着厚厚的圆框眼镜，手指因常年翻书而泛黄", "personality": "谨慎、健谈却闪烁其词", "innerThoughts": "不愿卷入特藏室的怪事，被追问时会回避、岔开话题", "isPresent": true, "favorabilityDelta": 5, "addMemory": "调查员礼貌地向他打听旧档案", "locationName": "大学图书馆", "importance": "重要"}
   ],
   "sanityCheckPrompts": [
     {"id": "p1", "trigger": "信纸背面的红墨水符号以非物理的节律蠕动，并发出指甲刮铜般的摩擦声", "checkType": "POW", "difficulty": "normal", "sanLossSuccess": "0", "sanLossFail": "1D3"}
@@ -118,7 +118,8 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
       {"name": "大学图书馆", "description": "密斯卡塔尼克大学的图书馆，藏书浩繁，特藏室戒备森严"}
     ],
     "newEdges": [{"from": "校门", "to": "大学图书馆", "type": "bidirectional", "description": "穿过林荫道即达图书馆正门"}]
-  }
+  },
+  "currentLocationEcho": "大学图书馆"
 }
 
 变量补丁块放在上面整个 JSON 之后单独输出，例如：
@@ -128,7 +129,13 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 暗线系统（darkThread）：当剧情.阶段不为"后日谈"时必须生成darkThread字段。development描述幕后正在发生的阴谋发展（玩家不可见，仅供守秘人记录连贯剧情），需延续之前的暗线内容。progress为暗线进度0-100。threatLevel与进度对应：0-25潜伏/25-50浮现/50-75紧迫/75+爆发。foreshadowing描述本回合通过环境变化、NPC行为异常等方式间接向玩家暗示的线索。若守秘人档案中已给出"本局注定的坏结局"，暗线必须朝该结局逐步逼近——progress 越高越接近其成形，75+爆发时该坏结局趋于不可逆地降临；development 应体现这种向既定终局推进的态势。后日谈阶段省略darkThread字段。
 
-【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、hpDelta/sanDelta/mpDelta(NPC当前生命/理智/魔法值增量，受伤或损失理智时给出，正=增负=减；系统自动钳制到 0~最大值，无需自己算上限)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「在场NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+【NPC 系统·npcUpdates】当剧情中出现、登场、离场或状态变化的 NPC（非玩家角色）时，用 npcUpdates 数组记录。每个元素以 name（NPC 名）为键，可含以下字段（仅给出有变化的）：identity(身份/职业)、faction(阵营)、gender、appearanceAge(外观年龄印象)、appearance(外观印象)、personality(性格)、innerThoughts(动机/秘密，KP视角：写该NPC行为背后的动机或隐瞒的秘密以保持其言行连贯，玩家不可直接得知；这是给KP的内部备注，严禁在 leftContent/rightContent 中复述为该NPC的第一人称心理独白——其想法只能通过外在言行、选择与回避间接透露)、backstory(背景故事)、experience(人物经历)、skills(技能名→值的对象，仅当 NPC 可能参战/检定时)、characteristics(STR/INT 等基础属性对象)、derived(衍生数值文本如「HP12 SAN55」)、possessions(随身物品名数组)、status(活跃/昏迷/重伤/已死亡/失踪)、hpDelta/sanDelta/mpDelta(NPC当前生命/理智/魔法值增量，受伤或损失理智时给出，正=增负=减；系统自动钳制到 0~最大值，无需自己算上限)、isPresent(布尔，是否在当前场景在场)、favorabilityDelta(好感度增量，正=变好负=变差；首次出现时作为初始好感度)、addMemory(追加一条与调查员的互动记忆)、memorySummary(当某 NPC 互动记忆较多、或上下文中提示需要归纳时，用 2-4 句浓缩此前所有关键互动——含已有的旧梗概——系统会据此精简逐条旧记忆，仅保留最近若干条)、locationName(NPC 当前所在地点名,与 mapUpdates 地点系统对齐)、importance(重要性,见下)。规则：NPC 首次登场必须给出 name+identity+appearance+personality 并设 isPresent:true；离开场景时设 isPresent:false；与调查员互动后用 favorabilityDelta 体现态度变化并用 addMemory 记录关键互动。上面「重要NPC」与「过路NPC」区块列出的角色，你必须严格按其身份、性格、动机、好感度与记忆一致地扮演。若本回合无 NPC 变化则省略 npcUpdates。
+
+【NPC 重要性·importance·硬约束】NPC 首次登场必须在 npcUpdates 给出 importance,后续仅在角色定位变化时调整。三档:①「核心」=本局主线核心 NPC(幕后黑手/关键导师/暗线核心人物等),无论是否在场都会注入完整身份/位置/动机/记忆,务必慎用,一局通常 1-3 个;②「重要」=支线常驻 NPC(经常互动的同伴/线人/敌对者等),也会持续注入身份/位置,一局通常 3-8 个;③「路人」=本回合现身的过路角色(酒馆老板/路过警员/一面之缘),仅"在场"时注入简略身份,离场后不再占用 token。判定原则:若该 NPC 的身份/动机/记忆需要跨多个回合保持一致才不让玩家出戏,标「核心」或「重要」;若仅本回合点缀气氛,标「路人」。剧本预设 NPC 默认「重要」。
+
+【NPC 当前位置·locationName·硬约束】每次给 NPC 提交 npcUpdates 时,务必在 locationName 写明该 NPC 当前所在地点名(与 mapUpdates 的 current/newLocations.name 一致)。空串=未绑定地点。重要 NPC(核心/重要)若发生地点变化(如"艾莉丝离开酒馆去了码头"),必须在本回合的 npcUpdates 里把她的 locationName 更新为新地点,否则 UI 与世界书会读到错位置。同一 NPC 绝不能同时出现在两个不同地点。
+
+【调查员当前位置·currentLocationEcho·硬约束】每回合主 JSON 必须包含顶层字段 currentLocationEcho,值为本回合结束时调查员实际所在的地点名(纯字符串,与 mapUpdates.current 一致;若本回合无 mapUpdates.current 则等于「调查员当前位置」标记里告知的地点名)。这是防漂移的位置 echo:系统会与 mapUpdates.current 和本地地图 store 比对,不一致会触发一次重试。不要把"未知/地点不明/思考中/..."写进此字段——空场景请回写上一回合的实际地点。即便本回合调查员未移动,也必须 echo 当前地点名(让系统确认你"知道在哪"),不可省略。
 
 【地图系统·mapUpdates】游戏维护一张地点连线网络。用 mapUpdates 对象记录地点与移动：
 - current：调查员当前所在地点名（每当所在地点变化时给出）。
