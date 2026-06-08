@@ -17,6 +17,7 @@
 - [新手上路](#新手上路)
 - [手机端支持](#手机端支持)
 - [DeepSeek 缓存命中优化](#deepseek-缓存命中优化)
+- [文生图（左页插画）](#文生图左页插画)
 - [技术栈与项目结构](#技术栈与项目结构)
 - [开发命令](#开发命令)
 - [已知限制](#已知限制)
@@ -44,6 +45,7 @@
 ### 叙事与世界
 
 - **双页故事书叙事**：原生 CSS 3D 翻页（`rotateY` + `preserve-3d`）的左右双页排版，配合卷轴粒子、桌面纹理与暗色档案馆风格 UI，把 AI 续写呈现为一本可翻阅的实体书；窄屏手机自动折叠为单页便条式阅读。
+- **左页 AI 插画**：每页正文顶部自动生成一张 834×227 的复古风插画（默认 1920 复古胶片风），支持 OpenAI / DALL-E / gpt-image-1 / 自建 SD WebUI / "假流式"中转（nano-banana / gemini-pro-image）/ Pollinations / **NovelAI 官方**等多种协议，默认自动探测；遇不兼容网关自动降级重试，失败完全不阻塞剧情，banner 右上角可手动重生成。配置详见 [文生图（左页插画）](#文生图左页插画)。
 - **世界书与关键词注入**：完整的世界书匹配引擎（全局 / 会话双作用域、大小写与全词匹配、递归触发、预算控制、`evenly`/`global-first`/`chat-first` 多种插入策略），叙事中的关键词可悬停查看释义。
 - **地点地图系统**：探索过的地点自动连成可视化网络（实线＝可自由往返、虚线箭头＝单向不可逆），双页浏览（左页地点清单与描述、右页连线图，当前所在地点高亮）；AI 的移动须沿已有连线，不可瞬移或逆行。
 - **独立线索库**：物品浮层右页为「线索」，每条线索含详细「发现细节」叙事，记录调查员从中察觉的蛛丝马迹。
@@ -277,6 +279,30 @@ DeepSeek 的输入 token 价目分两档：**缓存命中 ¥0.5/百万**、**未
 - 100 万 token 输入 80% 命中 = ¥0.8 × 80% + ¥2 × 20% = ¥**0.8** —— 省 60%
 
 如果命中率掉到 50% 以下，多半是某个动态宏污染了静态前缀——开「**前缀漂移诊断**」（默认开启），下回合的控制台日志会直接告诉你"漂移位置在 systemPrompt / wbBefore / processedFormat / wbAfter 段，第 X 字节，上下文是 ...XXX..."，定位非常直接。
+
+---
+
+## 文生图（左页插画）
+
+每页正文顶部自动生成一张 834×227 的复古风插画。**支持的协议**：
+
+| 协议 | 端点 | 适用场景 |
+|---|---|---|
+| `openai-strict` / `gpt-image-1` | `/v1/images/generations` | OpenAI 官方、DALL-E 3、gpt-image-1 |
+| `sd-compat` | `/v1/images/generations` | 自建 Stable Diffusion WebUI / SD.Next / 透传中转 |
+| `chat-completions` | `/v1/chat/completions` | nano-banana / gemini-pro-image / 国内"假流式"中转 |
+| `pollinations` | `/v1/images/generations` | Pollinations.ai |
+| `novelai` | `/ai/generate-image` | NovelAI 官方（V4/V4.5）— v1.15.1 新增 |
+| `auto` | 同上 | 按 URL/model 启发式自动选；首次 4xx 自动降级 openai-strict 重试 |
+
+**快速上手**：
+
+1. 打开「设置 → API 管理 → 图像生成 API」，先打开顶部「**总开关**」。
+2. 在「**模型选择**」下拉里挑一条已保存的 profile + 对应的模型（图像 API 和文本 API 的 profile 各自独立）。
+3. 「**协议模式**」选 `auto` 即可，遇到不兼容会自动降级重试；NovelAI 必须显式选 `novelai`（端点完全异质，不进 auto 探测）。
+4. 创建/翻页就能看到插画自动出现在左页顶部；失败完全不阻塞剧情，banner 右上角铜版风按钮可手动重生成。
+
+**详细配置**（包括各服务商分步骤教程、协议模式总览、extraParams 进阶语法、NovelAI Persistent Token 获取与 CORS 代理方案、失败码 → 中文提示对照表、已知限制等）见 **[docs/image-gen.md](docs/image-gen.md)**。
 
 ---
 
