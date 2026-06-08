@@ -123,6 +123,13 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       extraParams: imgApi.extraParams,
       signal,
       payloadMode,
+      // 重试前节流:让重试也占 RPM 桶 + UI 显示『降级重试』 + 日志记录原因
+      onBeforeRetry: async (attempt, reason) => {
+        const reasonZh = reason === 'http-4xx' ? '协议不匹配,准备降级' : reason === 'http-5xx' ? '服务端错' : '网络错';
+        pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页第 ${attempt} 次重试前(${reasonZh})— 已等待 2s,正在重新申请 image RPM 配额`);
+        progress.setStage(pageId, '降级重试');
+        await rpmAcquire('image'); // 重试也占 RPM 桶;桶满抛 RpmQueueExhaustedError,engine 据此放弃重试
+      },
     });
     if (signal?.aborted) { progress.clearStage(pageId); return; }
     if (useChatStore.getState().activeId !== aid) { progress.clearStage(pageId); return; }

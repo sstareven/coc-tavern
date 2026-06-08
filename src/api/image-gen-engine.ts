@@ -43,6 +43,10 @@ export interface CallImageApiRequest {
   timeoutMs?: number;
   /** 协议模式;'auto' 自动探测(默认)。 */
   payloadMode?: ImagePayloadMode;
+  /** 重试前的等待+节流钩子。callImageApiWithRetry 在【收到失败反馈】+ retryDelayMs 等待之后,
+   *  再调一次本钩子让 trigger 层重新 rpmAcquire('image')。
+   *  钩子抛错(如 RpmQueueExhaustedError)→ 放弃重试,把原错往上抛。 */
+  onBeforeRetry?: (attempt: number, reason: 'http-4xx' | 'http-5xx' | 'network') => Promise<void>;
 }
 
 export interface CallImageApiResponse {
@@ -360,10 +364,11 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
 
 /**
  * 重试包装:
- * - 5xx / 网络错:等待 retryDelayMs 重试 1 次(老行为)。
- * - 4xx 且 payloadMode==='auto'(或未指定):自动降级 openai-strict 最小集重试 1 次,
+ * - 5xx / 网络错:【等 retryDelayMs】+【onBeforeRetry 节流(rpmAcquire)】+ 重试 1 次。
+ * - 4xx 且 payloadMode==='auto':同样【等 retryDelayMs】+【onBeforeRetry 节流】后,以 openai-strict 重试 1 次;
  *   仍 4xx 才真抛错。给玩家"auto 探测命中 400 已自动降级"提示。
  * - 4xx 且 payloadMode 显式非 auto:不重试,玩家自己改设置。
+ * - onBeforeRetry 抛(如 RpmQueueExhaustedError)→ 放弃重试,把首次错原样抛出。
  */
 export async function callImageApiWithRetry(
   req: CallImageApiRequest,
@@ -374,36 +379,56 @@ export async function callImageApiWithRetry(
     return await callImageApi(req);
   } catch (err) {
     if (req.signal?.aborted) throw err;
-    if (err instanceof ImageGenError && err.status && err.status >= 400 && err.status < 500) {
-      // 4xx 客户端错误:仅 auto 模式尝试自动降级
-      if (declaredMode === 'auto') {
-        try {
-          const fallbackResp = await callImageApi({ ...req, payloadMode: 'openai-strict' });
-          // 成功 — 把降级提示信息塞进响应让 trigger 层 pushLog
-          return {
-            ...fallbackResp,
-            revisedPrompt: fallbackResp.revisedPrompt,
-          };
-        } catch (err2) {
-          // 二次失败:把两次错误拼一起抛
-          const firstMsg = err.message;
-          const secondMsg = err2 instanceof Error ? err2.message : String(err2);
-          throw new ImageGenError(
-            `首次(mode=auto→detected): ${firstMsg}  /  降级(mode=openai-strict): ${secondMsg}`,
-            {
-              status: err2 instanceof ImageGenError ? err2.status : err.status,
-              endpoint: err.endpoint,
-              bodyKeys: err.bodyKeys,
-              recoveryHint: '建议在 API 管理 → 图像 API 显式选择适合你网关的协议模式(openai-strict / sd-compat / gpt-image-1)',
-            },
-          );
-        }
-      }
-      throw err;
-    }
-    // 5xx / 网络错:走老的等待重试一次逻辑
+    const is4xx = err instanceof ImageGenError && err.status && err.status >= 400 && err.status < 500;
+    const is5xx = err instanceof ImageGenError && err.status && err.status >= 500;
+
+    // 4xx 且非 auto 模式:不重试(玩家显式选模式就尊重)
+    if (is4xx && declaredMode !== 'auto') throw err;
+    // 其他 4xx(auto)/ 5xx / 网络错:统一【等待 + onBeforeRetry 节流】后重试一次
+    const reason: 'http-4xx' | 'http-5xx' | 'network' = is4xx ? 'http-4xx' : is5xx ? 'http-5xx' : 'network';
+
+    // 1) 等对方明确反馈失败后再 sleep 一段(避免立刻试错刷 RPM 配额);若已中止则放弃
     await new Promise((r) => setTimeout(r, retryDelayMs));
     if (req.signal?.aborted) throw err;
+
+    // 2) onBeforeRetry 节流(trigger 层注入 rpmAcquire,让重试也占 RPM 桶);若 RPM 满 → 放弃重试
+    if (req.onBeforeRetry) {
+      try {
+        await req.onBeforeRetry(1, reason);
+      } catch (queueErr) {
+        // RPM 已满 / abort 等 — 不再重试,把首次错往上抛(附 hint)
+        const baseMsg = err instanceof Error ? err.message : String(err);
+        const queueMsg = queueErr instanceof Error ? queueErr.message : String(queueErr);
+        throw new ImageGenError(
+          `${baseMsg} · 重试前 RPM 节流失败,放弃:${queueMsg}`,
+          {
+            status: err instanceof ImageGenError ? err.status : undefined,
+            endpoint: err instanceof ImageGenError ? err.endpoint : undefined,
+            bodyKeys: err instanceof ImageGenError ? err.bodyKeys : undefined,
+          },
+        );
+      }
+    }
+    if (req.signal?.aborted) throw err;
+
+    // 3) 重试:4xx+auto 自动降级 openai-strict 最小集;5xx/网络错走原 req
+    if (is4xx) {
+      try {
+        return await callImageApi({ ...req, payloadMode: 'openai-strict' });
+      } catch (err2) {
+        const firstMsg = err.message;
+        const secondMsg = err2 instanceof Error ? err2.message : String(err2);
+        throw new ImageGenError(
+          `首次(mode=auto→detected): ${firstMsg}  /  降级(mode=openai-strict): ${secondMsg}`,
+          {
+            status: err2 instanceof ImageGenError ? err2.status : (err instanceof ImageGenError ? err.status : undefined),
+            endpoint: err instanceof ImageGenError ? err.endpoint : undefined,
+            bodyKeys: err instanceof ImageGenError ? err.bodyKeys : undefined,
+            recoveryHint: '建议在 API 管理 → 图像 API 显式选择适合你网关的协议模式(openai-strict / sd-compat / gpt-image-1 / chat-completions)',
+          },
+        );
+      }
+    }
     return await callImageApi(req);
   }
 }
