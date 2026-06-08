@@ -678,7 +678,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       //   - 不稳定项(含 lastusermessage / 跨回合变化的 var) → 留在 dynamicTail
       // 首回合 hash 无样本 → 全部保守视为不稳定(留 dynamicTail);第 2 回合起开始享受命中。
       // 不动用户预设内容,纯运行时基于渲染结果检测。
-      const stableSunkContents: string[] = [];
+      // 稳定项收集成 {itemId, content} 对 → 在 join 前按 itemId 字典序排序,
+      // 确保「集合相等⇒字节相等」(防止 newItems 顺序变动或子集变动造成 stableSunkAppendix 字节漂移)。
+      const stableSunkPairs: Array<{ itemId: string; content: string }> = [];
       const unstableSunkContents: string[] = [];
       const sessionIdForHash = useChatStore.getState().activeId ?? '__no_session__';
       if (autoSinkDynamicPromptItem) {
@@ -687,7 +689,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           if ((it as { _sinkToDynamicTail?: boolean })._sinkToDynamicTail) {
             const itemId = it.id ?? `${it.role ?? 'system'}_${it.kind ?? 'unknown'}`;
             if (isRenderStable(sessionIdForHash, 'pi', itemId, it.content)) {
-              stableSunkContents.push(it.content);
+              stableSunkPairs.push({ itemId, content: it.content });
             } else {
               unstableSunkContents.push(it.content);
             }
@@ -710,21 +712,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const resolvedDynamicFormat = macroResults[base + 1 + processedLore.length + 2].text;
 
       // 稳定 sunk 追加到 resolvedFormat 末尾 → 进入静态前缀缓存。trim 后非空才追加,
-      // 避免 setvar 渲染后空字符串拼接成大段空行污染观感。
-      const stableSunkAppendix = stableSunkContents
-        .map((s) => s.trim())
+      // 避免 setvar 渲染后空字符串拼接成大段空行污染观感。按 itemId 字典序排序后再 join,
+      // 保证「集合相等⇒字节相等」(防止 promptItem 顺序抖动让 stableSunkAppendix 漂移)。
+      const stableSunkAppendix = stableSunkPairs
+        .slice()
+        .sort((a, b) => (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0))
+        .map((p) => p.content.trim())
         .filter((s) => s.length > 0)
         .join('\n\n');
       const finalFormat = stableSunkAppendix
         ? `${resolvedFormat}\n\n${stableSunkAppendix}`
         : resolvedFormat;
 
-      if (dsCfg.debugLog === true && (stableSunkContents.length > 0 || unstableSunkContents.length > 0)) {
-        const stableNonEmpty = stableSunkContents.filter((s) => s && s.trim()).length;
+      if (dsCfg.debugLog === true && (stableSunkPairs.length > 0 || unstableSunkContents.length > 0)) {
+        const stableNonEmpty = stableSunkPairs.filter((p) => p.content && p.content.trim()).length;
         const unstableNonEmpty = unstableSunkContents.filter((s) => s && s.trim()).length;
         console.log(
           `[ds-cache-stable-sink] 下沉项稳定性: ${stableNonEmpty} 稳定项前置静态前缀 / ${unstableNonEmpty} 不稳定项留 dynamicTail ` +
-          `(空内容自动过滤; 首回合无 hash 样本时所有项均视为不稳定,第 2 回合起开始命中)`,
+          `(空内容自动过滤; 首回合无 hash 样本时所有项均视为不稳定,第 2 回合起开始命中; 已稳定项含滞回防抖,偶发失配不立即解锁)`,
         );
       }
 
