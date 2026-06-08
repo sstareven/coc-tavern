@@ -137,12 +137,15 @@ export function getCurrentRpmTotal(): number {
 }
 
 /**
- * 取「桶里最早 timestamp 距 60s 过期还有多少秒」(向上取整,封顶 60)。
+ * 取「桶里最晚 timestamp 距 60s 过期还有多少秒」(向上取整,封顶 60)。
  * 0 = 所有桶已空,可以发起下一次推进。
  *
  * 用户偏好(2026-06-08):"3 RPM 墙必须包括下一次按推进的时间内" — 推进选项要在
  * RPM 桶完全清空才解锁,防止用户连按推进让 timestamp 累积撞死线。
- * perApiRpmEnabled=true 时取三桶中最迟过期那个,严格语义。
+ *
+ * 用【最晚】timestamp 而非最早:一次回合 4 次调用产生 4 个 timestamp,如果取最早
+ * 那个,它过期后冷却数字会"跳回"下一个 timestamp 的更大剩余时间,UI 看起来像
+ * 莫名倒退;取最晚保证倒计时单调递减直到 0。perApiRpmEnabled=true 时三桶取 max。
  */
 export function getRpmCooldownSec(): number {
   const s = useSettingsStore.getState();
@@ -152,12 +155,12 @@ export function getRpmCooldownSec(): number {
   const now = Date.now();
   let maxRemainMs = 0;
   for (const b of buckets) {
-    let earliest = Infinity;
+    let latest = -Infinity;
     for (const t of histories[b]) {
-      if (now - t < WINDOW_MS && t < earliest) earliest = t;
+      if (now - t < WINDOW_MS && t > latest) latest = t;
     }
-    if (earliest === Infinity) continue;
-    const remain = WINDOW_MS - (now - earliest);
+    if (latest === -Infinity) continue;
+    const remain = WINDOW_MS - (now - latest);
     if (remain > maxRemainMs) maxRemainMs = remain;
   }
   return Math.max(0, Math.ceil(maxRemainMs / 1000));

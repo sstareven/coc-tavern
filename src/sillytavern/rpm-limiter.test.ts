@@ -188,14 +188,14 @@ describe('getRpmCooldownSec — 桶清空倒计时', () => {
     expect(getRpmCooldownSec()).toBe(0);
   });
 
-  it('多 timestamp 取最早的(它过期得最快也最远)', async () => {
+  it('多 timestamp 取最晚的(保证倒计时单调递减不跳)', async () => {
     vi.setSystemTime(new Date('2026-06-08T00:00:00Z'));
     await rpmAcquire('main');
     vi.setSystemTime(new Date('2026-06-08T00:00:20Z'));
     await rpmAcquire('main');
     vi.setSystemTime(new Date('2026-06-08T00:00:30Z'));
-    // 最早 timestamp 在 0:00:00,过 30s 还差 30s 过期
-    expect(getRpmCooldownSec()).toBe(30);
+    // 最晚 timestamp 在 0:00:20,过 10s,还差 50s 过期
+    expect(getRpmCooldownSec()).toBe(50);
   });
 
   it('perApiRpmEnabled=true 三桶都看,取最迟过期的桶', async () => {

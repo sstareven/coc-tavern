@@ -10,7 +10,8 @@ import { getRpmCooldownSec } from '../sillytavern/rpm-limiter';
  * 多个组件挂载会跑多个 interval(InputBar + RightPage),损耗忽略不计。
  */
 export function useRpmCooldown(): { cooldownSec: number; ready: boolean } {
-  const [cooldownSec, setCooldownSec] = useState(0);
+  // lazy initializer 挂载瞬间就拿一次值,避免 useState(0) + interval 第一帧前的 1s 空窗
+  const [cooldownSec, setCooldownSec] = useState(() => getRpmCooldownSec());
   useEffect(() => {
     const tick = () => setCooldownSec(getRpmCooldownSec());
     tick();
