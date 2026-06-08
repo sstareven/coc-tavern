@@ -8,6 +8,7 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useInventoryStore } from '../../stores/useInventoryStore';
 import { useChoiceLockStore } from '../../stores/useChoiceLockStore';
 import { useTurnProgressIsRunning } from '../../stores/useTurnProgressStore';
+import { useRpmCooldown } from '../../hooks/useRpmCooldown';
 import { useSanityBubbleStore } from '../../stores/useSanityBubbleStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { enterCombat } from '../../sillytavern/combat-entry';
@@ -656,7 +657,9 @@ export function ChoiceButton({ choice: ch, variant = 'light' }: { choice: Choice
   const sanityBlocked = sanityPending.some((id) => !sanityResolved.has(id));
   // 回合进度条跑完前禁止点选项,防 MVU 未结算就翻页致变量混乱
   const turnRunning = useTurnProgressIsRunning();
-  const effectivelyLocked = locked || sanityBlocked || turnRunning;
+  // RPM 桶清空前继续锁,跟「3 RPM 必须包括下一次推进」语义对齐
+  const { ready: rpmReady } = useRpmCooldown();
+  const effectivelyLocked = locked || sanityBlocked || turnRunning || !rpmReady;
   // BUG4: 优先解析 action 字段；当 LLM 把检定标记漂移到了 text 字段时回退尝试 text。
   const check = parseCheckAction(ch.action) ?? parseCheckAction(ch.text);
   const isCheck = check !== null;

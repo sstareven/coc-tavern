@@ -1,5 +1,5 @@
 import { parseStreamChunk, type TokenUsage } from './stream-parser';
-import { rpmAcquire, type RpmKind } from './rpm-limiter';
+import { rpmAcquire, RpmQueueExhaustedError, type RpmKind } from './rpm-limiter';
 import type { ChatPreset } from '../types';
 import { applyExtraParamsRules } from '../api/api-extra-params-engine';
 
@@ -98,8 +98,21 @@ export async function sendChatCompletion(
   while (true) {
     if (signal?.aborted) throw new Error('请求已中止');
 
-    // RPM 限流：达到上限则排队等待（按 kind 分桶）。每次 retry 都过桶,保证不超 RPM
-    await rpmAcquire(rpmKind);
+    // RPM 限流：达到上限则排队等待（按 kind 分桶）。每次 retry 都过桶,保证不超 RPM。
+    // RpmQueueExhaustedError(本地排队轮次用尽)视为 transient,跟 HTTP 429 同等待遇 backoff,
+    // 跟 commit 0571ade 「等也要拿到真 LLM 输出」承诺对齐。
+    try {
+      await rpmAcquire(rpmKind);
+    } catch (err) {
+      if (err instanceof RpmQueueExhaustedError) {
+        const wait = busyRetries < backoffSchedule.length ? backoffSchedule[busyRetries] : 300;
+        console.warn(`[api-router] 本地 RPM 桶满 (${err.message}),${wait}s 后重试 (#${busyRetries + 1})`);
+        busyRetries++;
+        await sleepWithAbort(wait * 1000, signal);
+        continue;
+      }
+      throw err;
+    }
 
     let response: Response;
     try {

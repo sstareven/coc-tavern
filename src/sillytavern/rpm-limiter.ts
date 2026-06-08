@@ -135,3 +135,30 @@ export function getCurrentRpmTotal(): number {
     + histories.mvu.filter((t) => now - t < WINDOW_MS).length
     + histories.rewrite.filter((t) => now - t < WINDOW_MS).length;
 }
+
+/**
+ * 取「桶里最早 timestamp 距 60s 过期还有多少秒」(向上取整,封顶 60)。
+ * 0 = 所有桶已空,可以发起下一次推进。
+ *
+ * 用户偏好(2026-06-08):"3 RPM 墙必须包括下一次按推进的时间内" — 推进选项要在
+ * RPM 桶完全清空才解锁,防止用户连按推进让 timestamp 累积撞死线。
+ * perApiRpmEnabled=true 时取三桶中最迟过期那个,严格语义。
+ */
+export function getRpmCooldownSec(): number {
+  const s = useSettingsStore.getState();
+  const buckets: RpmKind[] = s.perApiRpmEnabled
+    ? ['main', 'mvu', 'rewrite']
+    : ['main'];
+  const now = Date.now();
+  let maxRemainMs = 0;
+  for (const b of buckets) {
+    let earliest = Infinity;
+    for (const t of histories[b]) {
+      if (now - t < WINDOW_MS && t < earliest) earliest = t;
+    }
+    if (earliest === Infinity) continue;
+    const remain = WINDOW_MS - (now - earliest);
+    if (remain > maxRemainMs) maxRemainMs = remain;
+  }
+  return Math.max(0, Math.ceil(maxRemainMs / 1000));
+}
