@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.16.0';
+export const CURRENT_VERSION = 'v1.16.1';
 
 interface Release {
   version: string;
@@ -19,6 +19,13 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.16.1',
+    label: '修线上部署 · v1.16.0 改进真正生效',
+    items: [
+      '【线上同步】v1.16.0 推主线时一处代码细节挡掉了自动部署,玩家访问到的还是上一版的内容,看不到 NovelAI 真正能用、生图按剧情走那批改进。这版修好那处细节,让 v1.16.0 的改进真正出现在线上。本版自身不带任何新功能或修复,只是让上一版能落地。',
+    ],
+  },
   {
     version: 'v1.16.0',
     label: 'NovelAI 真正能用了 · 生图按剧情走',
