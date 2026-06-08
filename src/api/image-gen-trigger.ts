@@ -147,6 +147,8 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       }
       storedUrl = resp.url;
       storedSizeNote = ' · 存远程 URL';
+      // 切换到远程 URL 时,清掉可能残留的旧 IndexedDB blob 行(防 blob→url 模式切换后留孤儿占空间)
+      try { await db.pageImages.delete(pageId); } catch { /* 不存在或 IndexedDB 异常都不影响主流程 */ }
     } else {
       if (!resp.b64Data) {
         pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页 blob 模式响应缺 b64_json`);

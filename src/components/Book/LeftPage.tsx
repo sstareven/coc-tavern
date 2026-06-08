@@ -35,10 +35,12 @@ interface Props {
   /** blob:// 占位需要 pageId 去 db.pageImages 取 Blob。 */
   imagePageId?: string;
   imageGenStatus?: 'pending' | 'done' | 'failed' | 'skipped';
+  /** 文生图(2026-06-08):本页插画生成时间戳,重生成后变化触发 PageBanner 重新拉 Blob。 */
+  imageGenAt?: number;
   onRegenerateImage?: () => void;
 }
 
-export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts, imageUrl, imagePageId, imageGenStatus, onRegenerateImage }: Props) {
+export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts, imageUrl, imagePageId, imageGenStatus, imageGenAt, onRegenerateImage }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -98,6 +100,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
         <PageBanner
           src={imageUrl}
           pageId={imagePageId}
+          imageAt={imageGenAt}
           alt={header}
           isFlipping={isFlipping}
           status={imageGenStatus}

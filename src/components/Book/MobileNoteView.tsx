@@ -138,6 +138,7 @@ export function MobileNoteView() {
             <PageBanner
               src={page.imageUrl}
               pageId={page.id}
+              imageAt={page.imageGenAt}
               alt={page.leftHeader}
               status={page.imageGenStatus}
               onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
