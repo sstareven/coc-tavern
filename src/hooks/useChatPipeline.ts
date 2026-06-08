@@ -31,6 +31,10 @@ import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
+import { useStreamingPrinter } from './useStreamingPrinter';
+import { useStreamingPrintStore } from '../stores/useStreamingPrintStore';
+import { StreamingJsonWalker } from '../sillytavern/streaming-json-walker';
+import { StreamingTagMask, type MaskEvent } from '../sillytavern/streaming-tag-mask';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
@@ -155,6 +159,20 @@ async function sendWithJsonRetry<T>(opts: {
   return { result, attempts: attempt, lastContent: response.content, lastUsage: response.usage };
 }
 
+/** 进程级缓存：已知不支持 SSE 的中转站 baseUrl。
+ *  探测命中后写入；后续同 baseUrl 调用直接跳过 stream:true 尝试。刷新页面/重启进程后清空。 */
+const unsupportedStreamingEndpoints = new Set<string>();
+
+/** 判断 HTTP 错误是不是"端点不支持 stream"。模式参考 isResponseFormatUnsupported。 */
+function isLikelyStreamUnsupportedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const msg = String((err as Error).message || '').toLowerCase();
+  return (
+    msg.includes('stream') &&
+    (msg.includes('not supported') || msg.includes('unsupported') || msg.includes('invalid parameter'))
+  );
+}
+
 // ── Hook ──
 
 export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn {
@@ -174,6 +192,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const cooldownStateRef = useRef(new Map<string, number>());
 
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
+  const streamingPrintEnabled = useSettingsStore((s) => s.streamingPrintEnabled);
+  const printer = useStreamingPrinter();
   const allCommands = useMemo(() => getCommands(), []);
 
   // TH script hooks — refresh when global or preset scripts change
@@ -1002,6 +1022,51 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       startStream();
 
+      // ── 流式刻印管线初始化(每次 submit 都是新 closure,无跨回合污染) ──
+      const effectiveBaseUrl = settings.getEffectiveMainApi().baseUrl;
+      const wantStreamingPrint = streamingPrintEnabled
+        && !unsupportedStreamingEndpoints.has(effectiveBaseUrl);
+      const useStream = wantStreamingPrint || streamRenderEnabled;
+      const walker = wantStreamingPrint ? new StreamingJsonWalker() : null;
+      const mask = wantStreamingPrint ? new StreamingTagMask() : null;
+      let alreadyFlipped = false;
+      let activeField: 'leftHeader' | 'leftContent' | null = null;
+      let headerAccum = '';
+
+      if (wantStreamingPrint) {
+        printer.reset();
+        useStreamingPrintStore.getState().startStreamingPrint();
+      }
+
+      const effectiveOnToken = !useStream
+        ? undefined
+        : (chunk: string) => {
+            if (streamRenderEnabled) onToken(chunk); // 旧的 raw 回显(调试用)保留
+            if (!wantStreamingPrint || !walker || !mask) return;
+
+            if (!alreadyFlipped) {
+              alreadyFlipped = true;
+              // 首 chunk 触发翻页 — appendPage 还没跑(在下面),用 microtask 推迟到当前同步代码结束
+              queueMicrotask(() => useBookStore.getState().autoFlipForward());
+            }
+
+            const walkerEvents = walker.feed(chunk);
+            const allMaskEvents: MaskEvent[] = [];
+            for (const ev of walkerEvents) {
+              if (ev.kind === 'enterField') activeField = ev.field;
+              else if (ev.kind === 'exitField') activeField = null;
+              else if (ev.kind === 'narrativeChar') {
+                if (activeField === 'leftHeader') {
+                  headerAccum += ev.ch;
+                  useStreamingPrintStore.getState()._setHeaderText(headerAccum);
+                } else if (activeField === 'leftContent') {
+                  allMaskEvents.push(...mask.feed(ev.ch));
+                }
+              }
+            }
+            if (allMaskEvents.length > 0) printer.push(allMaskEvents);
+          };
+
       try {
         // ── 发送 + 解析；解析失败时按设置自动重试（要求只输出 JSON）──
         const correctiveMsg = {
@@ -1018,18 +1083,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const sendRes = await sendWithJsonRetry({
           maxRetries,
           logTag: 'API',
-          send: (corrective) => sendChatCompletion(
-            applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
-            presetForApi,
-            settings.getEffectiveMainApi().baseUrl,
-            settings.getEffectiveMainApi().apiKey,
-            settings.getEffectiveMainApi().model,
-            streamRenderEnabled,
-            streamRenderEnabled ? onToken : undefined,
-            controller.signal,
-            'main',
-            settings.getEffectiveMainApi().extraParams,
-          ),
+          send: async (corrective) => {
+            try {
+              return await sendChatCompletion(
+                applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
+                presetForApi,
+                settings.getEffectiveMainApi().baseUrl,
+                settings.getEffectiveMainApi().apiKey,
+                settings.getEffectiveMainApi().model,
+                useStream,
+                effectiveOnToken,
+                controller.signal,
+                'main',
+                settings.getEffectiveMainApi().extraParams,
+              );
+            } catch (err) {
+              // SSE 不支持降级:命中 → 缓存端点 + 清流式 state + 重发非流式
+              if (wantStreamingPrint && isLikelyStreamUnsupportedError(err)) {
+                unsupportedStreamingEndpoints.add(effectiveBaseUrl);
+                pushLog('warn', `[streaming-print] 中转站 ${effectiveBaseUrl} 不支持 SSE,静默降级为非流式`, 'api');
+                printer.reset();
+                useStreamingPrintStore.getState().reset();
+                return await sendChatCompletion(
+                  applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
+                  presetForApi,
+                  settings.getEffectiveMainApi().baseUrl,
+                  settings.getEffectiveMainApi().apiKey,
+                  settings.getEffectiveMainApi().model,
+                  false,
+                  undefined,
+                  controller.signal,
+                  'main',
+                  settings.getEffectiveMainApi().extraParams,
+                );
+              }
+              throw err;
+            }
+          },
           parse: (content) => parseLlmResponse(content, { skipInventoryNarrativeCheck }),
           onRetry: (k) => {
             // 主回合每次重试在前一 stage 后插一个新 queued stage,m 实时 +1
@@ -1801,7 +1891,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               abortPromise,
             ]);
           }
-          useBookStore.getState().autoFlipForward();
+          if (!alreadyFlipped) {
+            useBookStore.getState().autoFlipForward();
+          }
           useTurnProgressStore.getState().finish('finalize');
         }
 
@@ -1835,12 +1927,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return false;
       } finally {
         endStream();
+        if (wantStreamingPrint) {
+          // 注意:不在这里 reset segments — 流成功结束后 isStreamingPrint=false 让 Storybook 退回常规渲染,
+          // 此时 segments 留在 store 也无害,下次 submit 开头 printer.reset() + startStreamingPrint() 会清。
+          useStreamingPrintStore.getState().endStreamingPrint();
+        }
         setLoading(false);
         // 进度条收尾:清空 stages -> isRunning=false -> 选项立刻解锁
         useTurnProgressStore.getState().endTurn();
       }
     },
-    [endStream, onToken, startStream, streamRenderEnabled, thHooks],
+    [endStream, onToken, startStream, streamRenderEnabled, thHooks, streamingPrintEnabled, printer],
   );
 
   // ── submit ──
