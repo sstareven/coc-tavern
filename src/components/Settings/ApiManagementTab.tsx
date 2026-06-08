@@ -23,6 +23,7 @@ import {
 } from '../../api/api-profiles-engine';
 import { maskApiKey, displayHostFromUrl } from '../../api/api-models-engine';
 import { fetchModelList } from '../../sillytavern/api-router';
+import { isNovelAiBaseUrl, getNovelAiFallbackModels } from '../../api/image-gen-novelai';
 import { ApiModelPicker } from './ApiModelPicker';
 import { ImageApiSection } from './ImageApiSection';
 import {
@@ -157,6 +158,8 @@ export function ApiManagementTab() {
   /** 保存按钮态:idle / saving / ok / failed。failed 时 errorText 显示在按钮右边。 */
   const [addSaveStatus, setAddSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'failed'>('idle');
   const [addError, setAddError] = useState<string | null>(null);
+  /** 成功侧的中性提示(NovelAI 兜底注入等),与红字 addError 互斥。 */
+  const [addNotice, setAddNotice] = useState<string | null>(null);
   // 提示词后处理下拉
   const [ppDropdownOpen, setPpDropdownOpen] = useState(false);
 
@@ -173,6 +176,7 @@ export function ApiManagementTab() {
    */
   const handleAddSave = async () => {
     setAddError(null);
+    setAddNotice(null);
     const form: ApiProfileForm = { label: addLabel, apiBaseUrl: addUrl, apiKey: addKey, extraParams: addExtraParams };
     const v = validateApiProfileForm(form);
     if (!v.ok) {
@@ -181,18 +185,26 @@ export function ApiManagementTab() {
       return;
     }
     setAddSaveStatus('saving');
+    const urlTrim = addUrl.trim();
     let models: string[] = [];
-    try {
-      models = await fetchModelList(addUrl.trim(), addKey);
-    } catch {
-      setAddError('连接失败,请检查地址和 Key');
-      setAddSaveStatus('failed');
-      return;
-    }
-    if (models.length === 0) {
-      setAddError('已连接但未拉到任何模型,请检查 API');
-      setAddSaveStatus('failed');
-      return;
+    let novelAiShortcut = false;
+    if (isNovelAiBaseUrl(urlTrim)) {
+      // NovelAI 没有 /v1/models 端点,直接注入已知模型清单跳过远端探测
+      models = getNovelAiFallbackModels();
+      novelAiShortcut = true;
+    } else {
+      try {
+        models = await fetchModelList(urlTrim, addKey);
+      } catch {
+        setAddError('连接失败,请检查地址和 Key · 如这是 NovelAI 中转(无 /v1/models 端点),baseUrl 末尾补 /ai/generate-image 即可识别');
+        setAddSaveStatus('failed');
+        return;
+      }
+      if (models.length === 0) {
+        setAddError('已连接但未拉到任何模型,请检查 API · 如这是 NovelAI 中转,baseUrl 末尾补 /ai/generate-image 即可识别');
+        setAddSaveStatus('failed');
+        return;
+      }
     }
     const newProfile = addProfile(form);
     setProfileAvailableModels(newProfile.id, models);
@@ -202,8 +214,14 @@ export function ApiManagementTab() {
     setAddKey('');
     setAddExtraParams('');
     setAddSaveStatus('ok');
-    // 短暂显示「已保存」,1.5s 后回 idle
-    window.setTimeout(() => setAddSaveStatus('idle'), 1500);
+    if (novelAiShortcut) {
+      setAddNotice(`已保存 · 使用 NovelAI 已知模型清单 ${models.length} 个(NovelAI 无 /v1/models 端点,已跳过远端探测)`);
+      // NovelAI 提示信息量大,延长显示到 5s
+      window.setTimeout(() => { setAddSaveStatus('idle'); setAddNotice(null); }, 5000);
+    } else {
+      // 短暂显示「已保存」,1.5s 后回 idle
+      window.setTimeout(() => setAddSaveStatus('idle'), 1500);
+    }
   };
 
   return (
@@ -305,8 +323,13 @@ export function ApiManagementTab() {
         >{addSaveStatus === 'saving' ? '保存中...' : '保 存'}</button>
 
         {addSaveStatus === 'ok' && (
-          <span style={{ fontSize: 'calc(10px * var(--system-ratio,1))', color: 'var(--success)', letterSpacing: 1, fontFamily: 'var(--font-ui)' }}>
-            已保存
+          <span style={{
+            fontSize: 'calc(10px * var(--system-ratio,1))',
+            color: addNotice ? 'var(--ink-subtle)' : 'var(--success)',
+            letterSpacing: 1, fontFamily: 'var(--font-ui)',
+            lineHeight: 1.6,
+          }}>
+            {addNotice ?? '已保存'}
           </span>
         )}
         {addSaveStatus === 'failed' && addError && (
@@ -544,7 +567,13 @@ export function ApiManagementTab() {
               setEditingId(null);
             }}
             onTestAndSaveModels={async (url, key) => {
-              const list = await fetchModelList(url, key);
+              let list: string[];
+              if (isNovelAiBaseUrl(url)) {
+                // NovelAI 没有 /v1/models 端点,直接注入已知模型清单
+                list = getNovelAiFallbackModels();
+              } else {
+                list = await fetchModelList(url, key);
+              }
               setProfileAvailableModels(editingId, list);
               return list;
             }}
@@ -672,12 +701,12 @@ function EditProfileModal({ profile, onClose, onSave, onTestAndSaveModels }: Edi
     try {
       models = await onTestAndSaveModels(urlTrim, effectiveKey);
     } catch {
-      setError('连接失败,请检查地址和 Key');
+      setError('连接失败,请检查地址和 Key · 如这是 NovelAI 中转(无 /v1/models 端点),baseUrl 末尾补 /ai/generate-image 即可识别');
       setSaveStatus('failed');
       return;
     }
     if (models.length === 0) {
-      setError('已连接但未拉到任何模型,请检查 API');
+      setError('已连接但未拉到任何模型,请检查 API · 如这是 NovelAI 中转,baseUrl 末尾补 /ai/generate-image 即可识别');
       setSaveStatus('failed');
       return;
     }

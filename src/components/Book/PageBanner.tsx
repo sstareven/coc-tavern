@@ -19,6 +19,10 @@ interface Props {
   src: string | undefined;
   /** 当 src 为 blob:// 占位时,需要 pageId 去 db.pageImages 取 Blob。 */
   pageId?: string;
+  /** 本次插画的生成时间戳(BookPage.imageGenAt)。
+   *  关键:'blob://<pageId>' 是固定字符串,重生成后 src/pageId 都不变,
+   *  必须把 imageAt 加进 effect deps 才能触发重新拉新 Blob,否则显示旧图。 */
+  imageAt?: number;
   alt?: string;
   isFlipping?: boolean;
   status?: 'pending' | 'done' | 'failed' | 'skipped';
@@ -28,7 +32,7 @@ interface Props {
 
 const ANIM = 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
 
-export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRegenerate }: Props) {
+export function PageBanner({ src, pageId, imageAt, alt, isFlipping, status = 'done', onRegenerate }: Props) {
   // 若 src 是 blob:// 占位,从 IndexedDB 拉 Blob 转 objectURL;远程 URL 直接用
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined);
   // pending 时订阅当前阶段子标签(trigger 各节点 setStage 写入)
@@ -53,9 +57,16 @@ export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRe
     })();
     return () => {
       revoked = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      // 推迟一帧 revoke:旧 createdUrl 此刻可能还在 React state 里、img.src 也还指向它,
+      // 立即 revoke 会让浏览器加载失败触发 <img onError>,把刚拉到的新 objectUrl 误清掉,
+      // 出现"重生成后什么都不显示,只有刷新才能看见新图"的 race。延迟到下一个 task 让
+      // React state 切换 + 浏览器换 src 引用先发生,再回收旧 URL 资源。
+      if (createdUrl) {
+        const u = createdUrl;
+        setTimeout(() => URL.revokeObjectURL(u), 0);
+      }
     };
-  }, [src, pageId]);
+  }, [src, pageId, imageAt]);
 
   // skipped 状态等价无图,不渲染
   if (status === 'skipped' || (!src && status !== 'pending' && status !== 'failed')) return null;
@@ -79,7 +90,6 @@ export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRe
           src={objectUrl}
           alt={alt ?? ''}
           loading="lazy"
-          onError={() => setObjectUrl(undefined)}
           style={{
             width: '100%',
             height: '100%',

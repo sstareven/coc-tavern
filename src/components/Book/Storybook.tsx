@@ -366,18 +366,18 @@ export function Storybook() {
                 {direction === 'backward' ? (
                   /* [A] flips to the right — rotating + fading out */
                   <CSSFlipPage progress={flipProgress} direction="backward">
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
                   </CSSFlipPage>
                 ) : (
                   /* Forward: [A] stays static, text fades out gradually */
                   <FadingPage progress={flipProgress}>
-                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
+                    <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
                   </FadingPage>
                 )}
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
               </AppearPage>
             )}
           </div>

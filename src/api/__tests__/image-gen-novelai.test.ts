@@ -12,6 +12,9 @@ import {
   extractFirstPngFromZip,
   uint8ToBase64,
   novelAiRecoveryHint,
+  randomNovelAiSeed,
+  isV4Model,
+  NOVELAI_SEED_MAX,
   NOVELAI_DEFAULT_SAMPLER,
   NOVELAI_DEFAULT_MODEL,
 } from '../image-gen-novelai';
@@ -31,12 +34,18 @@ function writeU32(buf: Uint8Array, offset: number, v: number) {
 
 /** 拼一个含单 entry 的最小 ZIP(只有 LFH + 数据,无 central directory)。
  *  本项目的 extractFirstPngFromZip 只扫 LFH,不需要 central dir。 */
-function buildZipEntry(filename: string, data: Uint8Array, method: 0 | 8, uncompressedSize: number): Uint8Array {
+function buildZipEntry(
+  filename: string,
+  data: Uint8Array,
+  method: 0 | 8,
+  uncompressedSize: number,
+  flags = 0,
+): Uint8Array {
   const nameBytes = new TextEncoder().encode(filename);
   const out = new Uint8Array(30 + nameBytes.length + data.length);
   writeU32(out, 0, 0x04034b50);    // LFH signature
   writeU16(out, 4, 20);            // version needed
-  writeU16(out, 6, 0);             // flags
+  writeU16(out, 6, flags);         // general purpose flags
   writeU16(out, 8, method);        // method
   writeU16(out, 10, 0);            // mtime
   writeU16(out, 12, 0);            // mdate
@@ -113,7 +122,7 @@ describe('roundTo64', () => {
 });
 
 describe('buildNovelAiBody', () => {
-  it('嵌套结构与默认 Opus 免费档参数', () => {
+  it('默认 model(V4.5)走 V4 路径 — 嵌套结构与必填字段', () => {
     const body = buildNovelAiBody({
       model: 'nai-diffusion-4-5-full',
       prompt: 'a cat',
@@ -128,16 +137,119 @@ describe('buildNovelAiBody', () => {
     expect(body.model).toBe('nai-diffusion-4-5-full');
     expect(body.action).toBe('generate');
     const p = body.parameters as Record<string, unknown>;
+    // V4 公共字段
     expect(p.width).toBe(832);
     expect(p.height).toBe(1216);
     expect(p.scale).toBe(5);
     expect(p.sampler).toBe('k_euler_ancestral');
     expect(p.steps).toBe(28);
     expect(p.n_samples).toBe(1);
-    expect(p.sm).toBe(false);
-    expect(p.sm_dyn).toBe(false);
-    expect(p.qualityToggle).toBe(true);
+    // V4 必填新字段
+    expect(p.params_version).toBe(3);
+    expect(p.legacy).toBe(false);
+    expect(p.legacy_v3_extend).toBe(false);
+    expect(p.cfg_rescale).toBe(0);
+    expect(p.noise_schedule).toBe('karras');
+    expect(p.use_coords).toBe(false);
+    expect(p.characterPrompts).toEqual([]);
     expect(p.negative_prompt).toBe('blurry');
+    // v4_prompt 嵌套结构
+    const v4p = p.v4_prompt as Record<string, unknown>;
+    expect((v4p.caption as Record<string, unknown>).base_caption).toBe('a cat');
+    expect((v4p.caption as Record<string, unknown>).char_captions).toEqual([]);
+    expect(v4p.use_coords).toBe(false);
+    expect(v4p.use_order).toBe(true);
+    // v4_negative_prompt 嵌套结构
+    const v4np = p.v4_negative_prompt as Record<string, unknown>;
+    expect((v4np.caption as Record<string, unknown>).base_caption).toBe('blurry');
+    expect((v4np.caption as Record<string, unknown>).char_captions).toEqual([]);
+    // V3 残留字段不应出现在 V4 路径
+    expect(p).not.toHaveProperty('sm');
+    expect(p).not.toHaveProperty('sm_dyn');
+    expect(p).not.toHaveProperty('ucPreset');
+    expect(p).not.toHaveProperty('qualityToggle');
+    expect(p).not.toHaveProperty('dynamic_thresholding');
+  });
+  it('V4 + k_euler_ancestral 采样器加 prefer_brownian / deliberate_euler_ancestral_bug', () => {
+    const body = buildNovelAiBody({
+      model: 'nai-diffusion-4-5-full',
+      prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 5,
+      sampler: 'Euler a', // → k_euler_ancestral
+    });
+    const p = body.parameters as Record<string, unknown>;
+    expect(p.prefer_brownian).toBe(true);
+    expect(p.deliberate_euler_ancestral_bug).toBe(false);
+  });
+  it('V4 + 非 k_euler_ancestral 采样器不带 prefer_brownian', () => {
+    const body = buildNovelAiBody({
+      model: 'nai-diffusion-4-5-full',
+      prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 5,
+      sampler: 'DPM++ 2M Karras', // → k_dpmpp_2m
+    });
+    const p = body.parameters as Record<string, unknown>;
+    expect(p).not.toHaveProperty('prefer_brownian');
+    expect(p).not.toHaveProperty('deliberate_euler_ancestral_bug');
+  });
+  it('V4 全系列模型(4-full / 4-curated-preview / 4-5-curated)都走 V4 路径', () => {
+    const models = ['nai-diffusion-4-full', 'nai-diffusion-4-curated-preview', 'nai-diffusion-4-5-curated'];
+    for (const m of models) {
+      const body = buildNovelAiBody({
+        model: m, prompt: 'x', negativePrompt: '',
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      const p = body.parameters as Record<string, unknown>;
+      expect(p).toHaveProperty('v4_prompt');
+      expect(p).toHaveProperty('characterPrompts');
+      expect(p).not.toHaveProperty('sm');
+    }
+  });
+  it('V3 模型(nai-diffusion-3 / nai-diffusion-furry-3)走 V3 flat 路径', () => {
+    for (const m of ['nai-diffusion-3', 'nai-diffusion-furry-3']) {
+      const body = buildNovelAiBody({
+        model: m, prompt: 'a cat', negativePrompt: 'blurry',
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      const p = body.parameters as Record<string, unknown>;
+      // V3 字段保留
+      expect(p.sm).toBe(false);
+      expect(p.sm_dyn).toBe(false);
+      expect(p.qualityToggle).toBe(true);
+      expect(p.ucPreset).toBe(0);
+      expect(p.dynamic_thresholding).toBe(false);
+      expect(p.negative_prompt).toBe('blurry');
+      // V4 字段不应出现
+      expect(p).not.toHaveProperty('v4_prompt');
+      expect(p).not.toHaveProperty('v4_negative_prompt');
+      expect(p).not.toHaveProperty('characterPrompts');
+      expect(p).not.toHaveProperty('params_version');
+    }
+  });
+  it('V4 + negativePrompt 非字符串 → v4_negative_prompt.base_caption 空串', () => {
+    const cases: unknown[] = [null, undefined, [], {}, 123];
+    for (const v of cases) {
+      const body = buildNovelAiBody({
+        model: 'nai-diffusion-4-5-full',
+        prompt: 'x', negativePrompt: v as string,
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      const p = body.parameters as Record<string, unknown>;
+      const v4np = p.v4_negative_prompt as Record<string, unknown>;
+      expect((v4np.caption as Record<string, unknown>).base_caption).toBe('');
+      expect(p.negative_prompt).toBe('');
+    }
+  });
+  it('V4 顶层 input 与 v4_prompt.caption.base_caption 镜像', () => {
+    const body = buildNovelAiBody({
+      model: 'nai-diffusion-4-5-full',
+      prompt: '镜像测试 prompt', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+    });
+    expect(body.input).toBe('镜像测试 prompt');
+    const p = body.parameters as Record<string, unknown>;
+    const v4p = p.v4_prompt as Record<string, unknown>;
+    expect((v4p.caption as Record<string, unknown>).base_caption).toBe('镜像测试 prompt');
   });
   it('width/height 非 64 倍数自动 round', () => {
     const body = buildNovelAiBody({
@@ -155,12 +267,111 @@ describe('buildNovelAiBody', () => {
     });
     expect((body.parameters as Record<string, unknown>).steps).toBe(50);
   });
-  it('空 model 走默认 nai-diffusion-4-5-full', () => {
+  it('空 model 走默认 nai-diffusion-4-5-full(V4 路径)', () => {
     const body = buildNovelAiBody({
       model: '', prompt: 'x', negativePrompt: '',
       width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
     });
     expect(body.model).toBe(NOVELAI_DEFAULT_MODEL);
+    expect(body.parameters).toHaveProperty('v4_prompt');
+  });
+  it('seed 是 [1, NOVELAI_SEED_MAX] 内的整数(不再是 -1)', () => {
+    const body = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+    });
+    const seed = (body.parameters as Record<string, unknown>).seed as number;
+    expect(Number.isInteger(seed)).toBe(true);
+    expect(seed).toBeGreaterThanOrEqual(1);
+    expect(seed).toBeLessThanOrEqual(NOVELAI_SEED_MAX);
+    expect(seed).not.toBe(-1);
+  });
+  it('连续构造同入参 body,seed 至少有 2 个不同值(随机性)', () => {
+    const seeds = new Set<number>();
+    for (let i = 0; i < 10; i++) {
+      const body = buildNovelAiBody({
+        model: '', prompt: 'x', negativePrompt: '',
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      seeds.add((body.parameters as Record<string, unknown>).seed as number);
+    }
+    expect(seeds.size).toBeGreaterThanOrEqual(2);
+  });
+  it('cfgScale 非有限数(NaN/字符串)兜底 5', () => {
+    const cases: Array<[unknown, number]> = [
+      [NaN, 5],
+      ['abc' as unknown, 5],
+      [undefined as unknown, 5],
+      [null as unknown, 5],
+    ];
+    for (const [input, expected] of cases) {
+      const body = buildNovelAiBody({
+        model: '', prompt: 'x', negativePrompt: '',
+        width: 832, height: 1216, steps: 28,
+        cfgScale: input as number,
+        sampler: 'k_euler',
+      });
+      expect((body.parameters as Record<string, unknown>).scale).toBe(expected);
+    }
+  });
+  it('cfgScale 越界 clamp 到 [0, 10]', () => {
+    const b1 = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: -3, sampler: 'k_euler',
+    });
+    expect((b1.parameters as Record<string, unknown>).scale).toBe(0);
+    const b2 = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 25, sampler: 'k_euler',
+    });
+    expect((b2.parameters as Record<string, unknown>).scale).toBe(10);
+  });
+});
+
+describe('isV4Model', () => {
+  it('nai-diffusion-4* 全部命中', () => {
+    expect(isV4Model('nai-diffusion-4-full')).toBe(true);
+    expect(isV4Model('nai-diffusion-4-curated-preview')).toBe(true);
+    expect(isV4Model('nai-diffusion-4-5-full')).toBe(true);
+    expect(isV4Model('nai-diffusion-4-5-curated')).toBe(true);
+  });
+  it('大小写不敏感', () => {
+    expect(isV4Model('NAI-DIFFUSION-4-5-FULL')).toBe(true);
+  });
+  it('V3 / V2 / V1 / furry / safe 不命中', () => {
+    expect(isV4Model('nai-diffusion-3')).toBe(false);
+    expect(isV4Model('nai-diffusion-furry-3')).toBe(false);
+    expect(isV4Model('nai-diffusion-2')).toBe(false);
+    expect(isV4Model('nai-diffusion')).toBe(false);
+    expect(isV4Model('safe-diffusion')).toBe(false);
+    expect(isV4Model('furry')).toBe(false);
+  });
+  it('空值与非字符串兜底', () => {
+    expect(isV4Model('')).toBe(false);
+    // @ts-expect-error 故意传非字符串
+    expect(isV4Model(null)).toBe(false);
+    // @ts-expect-error 故意传非字符串
+    expect(isV4Model(undefined)).toBe(false);
+  });
+});
+
+describe('randomNovelAiSeed', () => {
+  it('每次返回 [1, NOVELAI_SEED_MAX] 内的整数', () => {
+    for (let i = 0; i < 50; i++) {
+      const s = randomNovelAiSeed();
+      expect(Number.isInteger(s)).toBe(true);
+      expect(s).toBeGreaterThanOrEqual(1);
+      expect(s).toBeLessThanOrEqual(NOVELAI_SEED_MAX);
+    }
+  });
+  it('NOVELAI_SEED_MAX 等于 2^32 - 8(对齐社区 SDK 给 batch 留 +7 头)', () => {
+    expect(NOVELAI_SEED_MAX).toBe(0xFFFFFFFF - 7);
+    expect(NOVELAI_SEED_MAX).toBe(4294967288);
+  });
+  it('1000 次采样去重 ≥ 990(随机性 smoke)', () => {
+    const seeds = new Set<number>();
+    for (let i = 0; i < 1000; i++) seeds.add(randomNovelAiSeed());
+    expect(seeds.size).toBeGreaterThanOrEqual(990);
   });
 });
 
@@ -194,6 +405,134 @@ describe('extractFirstPngFromZip', () => {
   });
   it('字节流过短抛错', async () => {
     await expect(extractFirstPngFromZip(new Uint8Array(10))).rejects.toThrow(/ZIP 字节流过短/);
+  });
+});
+
+describe('inflateRaw fallback 与诊断错误', () => {
+  // Adler-32(RFC 1950 zlib wrapper 尾部需要正确 adler32 校验和)
+  function adler32(data: Uint8Array): number {
+    let a = 1, b = 0;
+    for (let i = 0; i < data.length; i++) {
+      a = (a + data[i]) % 65521;
+      b = (b + a) % 65521;
+    }
+    return ((b << 16) | a) >>> 0;
+  }
+  // 拼 zlib wrapper:0x78 0x9C header + raw deflate + 4 字节 big-endian adler32
+  async function zlibWrap(raw: Uint8Array): Promise<Uint8Array> {
+    const compressed = await deflateRaw(raw);
+    const out = new Uint8Array(2 + compressed.length + 4);
+    out[0] = 0x78; out[1] = 0x9c;
+    out.set(compressed, 2);
+    const sum = adler32(raw);
+    const tail = 2 + compressed.length;
+    out[tail] = (sum >>> 24) & 0xff;
+    out[tail + 1] = (sum >>> 16) & 0xff;
+    out[tail + 2] = (sum >>> 8) & 0xff;
+    out[tail + 3] = sum & 0xff;
+    return out;
+  }
+
+  it('method=8 + zlib-wrapped 数据 → fallback 到 deflate 成功', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const wrapped = await zlibWrap(PNG_SIGNATURE);
+    const zip = buildZipEntry('image_0.png', wrapped, 8, PNG_SIGNATURE.length);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('method=8 + 损坏字节 → 抛错信息含 method/size/head 诊断字段', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const garbage = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    const zip = buildZipEntry('image_0.png', garbage, 8, 8);
+    const err = await extractFirstPngFromZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toMatch(/method=8/);
+    expect(err.message).toMatch(/compSize=/);
+    expect(err.message).toMatch(/size=/);
+    expect(err.message).toMatch(/head=/);
+  });
+
+  it('method=8 + 未压缩字节(误标 method)→ 双错信息透传', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    // 用 PNG 原文当 method=8 的"压缩"数据 — 既不是 raw deflate 也不是 zlib
+    const zip = buildZipEntry('image_0.png', PNG_SIGNATURE, 8, PNG_SIGNATURE.length);
+    const err = await extractFirstPngFromZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toMatch(/deflate-raw:/);
+    expect(err.message).toMatch(/deflate-fallback:/);
+  });
+
+  it('flag bit0(加密位)置位 → 抛专属错', async () => {
+    const zip = buildZipEntry('image_0.png', PNG_SIGNATURE, 0, PNG_SIGNATURE.length, 0x0001);
+    await expect(extractFirstPngFromZip(zip)).rejects.toThrow(/ZIP entry 被加密/);
+  });
+});
+
+describe('extractFirstPngFromZip — data descriptor 模式(compSize=0 + flag bit3)', () => {
+  /** 构造 data descriptor 形态:LFH compSize=0 + flag=0x08,数据后追加 PK\x07\x08
+   *  + crc32 + compSize + uncompSize(共 16 字节,带签名形式)。 */
+  function buildDataDescriptorEntry(filename: string, data: Uint8Array, method: 0 | 8): Uint8Array {
+    const nameBytes = new TextEncoder().encode(filename);
+    // LFH(30 字节)+ name + data + descriptor(16 字节)
+    const out = new Uint8Array(30 + nameBytes.length + data.length + 16);
+    writeU32(out, 0, 0x04034b50);    // LFH signature
+    writeU16(out, 4, 20);            // version needed
+    writeU16(out, 6, 0x08);          // flag bit3 = data descriptor
+    writeU16(out, 8, method);
+    writeU16(out, 10, 0);            // mtime
+    writeU16(out, 12, 0);            // mdate
+    writeU32(out, 14, 0);            // crc32 占位
+    writeU32(out, 18, 0);            // compSize=0(data descriptor 模式)
+    writeU32(out, 22, 0);            // uncompSize=0(data descriptor 模式)
+    writeU16(out, 26, nameBytes.length);
+    writeU16(out, 28, 0);            // extra
+    out.set(nameBytes, 30);
+    out.set(data, 30 + nameBytes.length);
+    // 数据后追加 data descriptor:PK\x07\x08 + crc32 + compSize + uncompSize
+    const ddOffset = 30 + nameBytes.length + data.length;
+    writeU32(out, ddOffset, 0x08074b50);     // data descriptor signature
+    writeU32(out, ddOffset + 4, 0);          // crc32(忽略)
+    writeU32(out, ddOffset + 8, data.length); // 实际 compSize
+    writeU32(out, ddOffset + 12, data.length); // 实际 uncompSize(method=0 时与 compSize 相同)
+    return out;
+  }
+
+  it('method=0(store)+ data descriptor signature → 反推真实 size 成功', async () => {
+    const zip = buildDataDescriptorEntry('image_0.png', PNG_SIGNATURE, 0);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('method=8(deflate)+ data descriptor signature → 反推真实 size + inflate 成功', async () => {
+    if (typeof DecompressionStream === 'undefined') return;
+    const compressed = await deflateRaw(PNG_SIGNATURE);
+    const zip = buildDataDescriptorEntry('image_0.png', compressed, 8);
+    const png = await extractFirstPngFromZip(zip);
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('data descriptor 模式 + 多 entry(非 PNG 在前)→ 跳过非 PNG entry,命中 PNG', async () => {
+    const txt = new TextEncoder().encode('hello');
+    const txtEntry = buildDataDescriptorEntry('metadata.txt', txt, 0);
+    const pngEntry = buildZipEntry('image_0.png', PNG_SIGNATURE, 0, PNG_SIGNATURE.length);
+    const png = await extractFirstPngFromZip(concat(txtEntry, pngEntry));
+    expect(png).toEqual(PNG_SIGNATURE);
+  });
+
+  it('data descriptor 模式 + 找不到结束签名 → 抛专属错', async () => {
+    // 故意构造一个 compSize=0 + flag bit3,后面也没有任何 PK 签名 — 全 0 填充
+    const nameBytes = new TextEncoder().encode('image_0.png');
+    const garbage = new Uint8Array(100); // 全 0,无 PK 签名
+    const out = new Uint8Array(30 + nameBytes.length + garbage.length);
+    writeU32(out, 0, 0x04034b50);
+    writeU16(out, 6, 0x08);  // flag bit3
+    writeU16(out, 8, 8);     // method=8
+    writeU32(out, 18, 0);    // compSize=0
+    writeU16(out, 26, nameBytes.length);
+    out.set(nameBytes, 30);
+    out.set(garbage, 30 + nameBytes.length);
+    await expect(extractFirstPngFromZip(out)).rejects.toThrow(/data descriptor 模式但找不到结束位置/);
   });
 });
 

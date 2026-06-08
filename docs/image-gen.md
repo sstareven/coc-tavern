@@ -19,6 +19,7 @@
   - [Pollinations](#pollinations)
 - [生成参数与风格](#生成参数与风格)
 - [存储与限速](#存储与限速)
+- [prompt 模板按模型条件分支（EJS）](#prompt-模板按模型条件分支ejs)
 - [extraParams 进阶](#extraparams-进阶)
 - [失败时怎么办](#失败时怎么办)
 - [已知限制](#已知限制)
@@ -136,6 +137,7 @@
    - 复制 `pst-xxx` 开头的 Token（30 天有效，可以重新生成）
 2. profile 配 NovelAI：
    - **地址**：`https://image.novelai.net`（**不带 `/v1/`**）
+   - **第三方 NovelAI 中转裸域**（地址里既不含 `novelai` 子串、也不含 `/ai/generate-image` 端点路径）：在地址末尾**手动补上 `/ai/generate-image`** 即可被自动识别为 NovelAI,也能避免 engine 端点拼接出现重复路径
    - **API Key**：粘贴 pst-xxx
 3. 图像生成 API：
    - **模型**：手填 `nai-diffusion-4-5-full`（推荐）/ `nai-diffusion-4-5-curated` / `nai-diffusion-4-full` / `nai-diffusion-3` / `nai-diffusion-furry-3`
@@ -219,6 +221,72 @@ Pollinations.ai 是免费免登录的图像 API。
 
 ---
 
+## prompt 模板按模型条件分支（EJS）
+
+剧本编辑器的「prompt 模板」字段（也就是 `imageDefaults.promptTemplate` 与 `scenarioDoc.imageGen.promptTemplate`）除了支持旧的 `{{key}}` 占位符,从 v1.15.x 起也支持 **EJS 条件块**,让玩家按图像模型分支:
+
+**可用的条件变量**:
+
+| 变量 | 类型 | 含义 |
+|---|---|---|
+| `protocol` | string | 实际生效的协议(auto 探测后),`'novelai'` / `'sd-compat'` / `'openai-strict'` / `'gpt-image-1'` / `'chat-completions'` / `'pollinations'` |
+| `model` | string | 图像模型 ID(如 `'nai-diffusion-4-5-full'` / `'dall-e-3'` / 自建 SD checkpoint 名) |
+| `isNovelAi` | boolean | `protocol === 'novelai'` |
+| `isV4` | boolean | NovelAI V4/V4.5 系列(`model` 以 `nai-diffusion-4` 开头) |
+| `isSd` | boolean | `protocol === 'sd-compat'` |
+| `isOpenAi` | boolean | `'openai-strict'` 或 `'gpt-image-1'` |
+| `isChatCompletions` | boolean | 假流式中转(`nano-banana` / `gemini-pro-image`) |
+
+**可用的占位符变量**(同时可用于 `{{key}}` 和 `<%= key %>`):
+
+`style` / `style_anchors` / `location` / `time` / `weather` / `characters` / `san` / `scene` / `scene_brief` / `image_hint`
+
+`image_hint` 由 LLM 子调用产出 — 协议为 `novelai` / `sd-compat` / `openai-strict` / `gpt-image-1` / `pollinations` 时(英文 only 训练或英文效果更好),生图前会自动跑一次主 API 子调用把当页正文叙事转成英文 image prompt(NovelAI → Danbooru tag,其他 → 自然语言短句),让图片真正反映剧情。协议为 `chat-completions`(Gemini / nano-banana 假流式)时跳过(Gemini 系原生支持中文叙事)。失败时回退空串。
+
+**EJS 语法**(子集):
+
+```
+<% if (...) { %> ... <% } %>     条件块,块内文本按条件输出
+<%= expr %>                       输出表达式结果(字符串)
+{{key}}                           旧占位符(向后兼容)
+```
+
+**实例**:
+
+按 NovelAI / SD / 通用走不同风格 prompt:
+
+```
+<% if (isNovelAi) { %>
+  {{characters}}, anime style, {{location}}, masterpiece, very aesthetic, absurdres
+<% } else if (isOpenAi) { %>
+  A detailed scene of {{characters}} in {{location}} at {{time}}, cinematic, dramatic lighting
+<% } else { %>
+  {{characters}}, {{location}}, {{time}}, {{style}}, {{style_anchors}}, masterpiece, best quality
+<% } %>
+```
+
+NovelAI V4 与 V3 出不同的质量 tag:
+
+```
+{{characters}}, {{location}}, {{style}},
+<% if (isV4) { %> very aesthetic, absurdres <% } else { %> best quality, amazing quality <% } %>
+```
+
+字段空时不输出空逗号占位:
+
+```
+<% if (characters) { %>{{characters}}, <% } %>
+<% if (location) { %>{{location}}, <% } %>
+{{style}}
+```
+
+**注意**:
+- EJS 编译/执行失败会自动 fallback 到只做 `{{key}}` 替换,模板写错不会让生图崩溃
+- 默认 NovelAI 模板(玩家没改 `promptTemplate` 时)已经用 EJS 条件按 V4/V3 自动分支
+- 模板里别写 `setvar`/`getvar`/`getwi` 之类的 MVU API — image prompt 模板的 EJS 上下文只暴露上面表里的变量,与世界书/主回合的 EJS 引擎是独立的
+
+---
+
 ## extraParams 进阶
 
 profile 编辑模态里的「**额外参数**」字段（textarea），支持每行一条规则，往请求 body 里 + 字段 / - 字段。
@@ -239,7 +307,7 @@ profile 编辑模态里的「**额外参数**」字段（textarea），支持每
 + parameters.sm_dyn true            # 开 SMEA Dynamic
 + parameters.cfg_rescale 0.2        # V4 Variety+
 + parameters.skip_cfg_above_sigma 19  # V4 Variety+
-+ parameters.seed 12345             # 固定 seed（默认 -1 随机）
++ parameters.seed 12345             # 固定 seed(默认每次随机 [1, 2^32-8])
 - parameters.qualityToggle          # 关质量 toggle
 + parameters.noise_schedule "karras"  # 噪声调度
 ```

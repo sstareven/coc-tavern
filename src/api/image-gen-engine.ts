@@ -21,6 +21,7 @@ import {
   extractFirstPngFromZip,
   uint8ToBase64,
   novelAiRecoveryHint,
+  isNovelAiBaseUrl,
   NOVELAI_ENDPOINT_PATH,
 } from './image-gen-novelai';
 
@@ -104,7 +105,9 @@ function buildEndpoint(baseUrl: string, suffix = 'images/generations'): string {
   return `${trimmed}/v1/${suffix}`;
 }
 
-/** 自动探测 PayloadMode。优先级:chat-completions 特征 → gpt-image-1 → openai-strict → pollinations → sd-compat。
+/** 自动探测 PayloadMode。优先级:novelai → chat-completions 特征 → gpt-image-1 → openai-strict → pollinations → sd-compat。
+ *
+ *  novelai 特征:URL 含 /ai/generate-image 路径或 novelai/gnai 子域(详见 isNovelAiBaseUrl)。
  *
  *  chat-completions 特征(国内"假流式"中转把图像 API 包装成 /v1/chat/completions):
  *  - model 含 'gemini' 且含 'image' / 'pro-image'(如「假流式-gemini-3-pro-image」)
@@ -112,6 +115,8 @@ function buildEndpoint(baseUrl: string, suffix = 'images/generations'): string {
  *  - model 名含 '假流式'(中文前缀的中转标记)
  *  - URL 路径已带 /chat/completions(用户明确填了 chat 端点) */
 export function detectPayloadMode(baseUrl: string, model: string): Exclude<ImagePayloadMode, 'auto'> {
+  // NovelAI 优先识别(端点与 body 完全异质,降级到任何 OpenAI 兼容 mode 都会失败)
+  if (isNovelAiBaseUrl(baseUrl)) return 'novelai';
   const url = (baseUrl ?? '').toLowerCase();
   const m = (model ?? '').toLowerCase();
   // chat-completions 包装的图像中转 — 必须先判,model 名典型含 image 但实际走 chat 端点
@@ -427,7 +432,12 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
   // 不同 mode 走不同端点:novelai 走专有路径,chat-completions 走 chat/completions,其余 images/generations
   let endpoint: string;
   if (resolvedMode === 'novelai') {
-    endpoint = apiBaseUrl.replace(/\/+$/, '') + NOVELAI_ENDPOINT_PATH;
+    const trimmedBase = apiBaseUrl.replace(/\/+$/, '');
+    // 幂等:若 baseUrl 已含 NovelAI 专有端点路径(第三方中转常见),不再追加 — 避免拼成
+    // '.../ai/generate-image/ai/generate-image' 双重路径
+    endpoint = /\/ai\/generate-image\/?$/i.test(trimmedBase)
+      ? trimmedBase
+      : trimmedBase + NOVELAI_ENDPOINT_PATH;
   } else {
     const endpointSuffix = resolvedMode === 'chat-completions' ? 'chat/completions' : 'images/generations';
     endpoint = buildEndpoint(apiBaseUrl, endpointSuffix);

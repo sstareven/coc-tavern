@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.15.2';
+export const CURRENT_VERSION = 'v1.16.0';
 
 interface Release {
   version: string;
@@ -19,6 +19,18 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.16.0',
+    label: 'NovelAI 真正能用了 · 生图按剧情走',
+    items: [
+      '【插画·NovelAI 真正能用了】v1.15.1 接进 NovelAI 但很多细节没踩对。这版打通整条链路:保存 profile 不再要求拉模型清单,自动注入官方模型;请求按 V4/V4.5 协议走嵌套结构(以前直接 500);seed 改客户端随机正整数(以前传 -1 被后端拒);ZIP 解压双格式 fallback + 自动处理流式 ZIP。',
+      '【插画·按剧情走】以前 NovelAI/SD 出的图是"通用场景图",跟当页剧情无关。现在生图前跑一次主 API 子调用,把正文叙事转成图像模型友好的英文 prompt(NovelAI 走 Danbooru tag,SD/OpenAI 走自然语言)。失败自动 fallback。每次生图多 ~600 tokens 主 API 开销。',
+      '【插画·NovelAI 不再画纸张纹理】以前选"1920 复古胶片"喂 NovelAI 会把"破裂胶片边缘"当主体画成纸张特写。现在 NovelAI 单独维护一套 Danbooru 短 tag 风格表,10 种风格全部去掉纹理类词。',
+      '【插画·prompt 模板按图像模型分支】prompt 模板新增 EJS 条件:`<% if (isNovelAi) { %>tag 风格<% } else { %>自然语言<% } %>`。可用变量:isNovelAi/isV4/isSd/isOpenAi 等。旧 `{{key}}` 占位符仍兼容。详见 docs/image-gen.md。',
+      '【插画·第三方 NovelAI 中转】URL 路径含 /ai/generate-image 也能自动识别为 NovelAI;端点拼接幂等,不再出现重复路径。无关键词的中转裸域在地址末尾补 /ai/generate-image 即可识别。',
+      '【插画·重生成真能看到新图】以前点重生成图片不刷新、或变空白容器,必须 F5 才能看见。两个原因:UI 没监听到时间戳变化 + 清理旧 URL 跟浏览器渲染撞 race。这版都修了;切到远程 URL 模式时也会清掉本地残留的旧图。',
+    ],
+  },
   {
     version: 'v1.15.2',
     label: '插画 429 配额耗尽 · 不再误判协议错误自动降级',
