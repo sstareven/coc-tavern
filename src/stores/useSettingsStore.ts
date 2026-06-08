@@ -307,10 +307,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setAlertOnOverflow: (v) => set({ alertOnOverflow: v }),
       setWorldInfoStrategy: (v) => set({ worldInfoStrategy: v }),
       setJsonRetryCount: (n) => set({ jsonRetryCount: Math.max(0, Math.min(5, Math.floor(n))) }),
-      setRpmLimit: (n) => set({ rpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setRpmLimit: (n) => set({ rpmLimit: Math.max(0, Math.min(3, Math.floor(n))) }),
       setPerApiRpmEnabled: (v) => set({ perApiRpmEnabled: v }),
-      setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
-      setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(10, Math.floor(n))) }),
+      setMvuRpmLimit: (n) => set({ mvuRpmLimit: Math.max(0, Math.min(3, Math.floor(n))) }),
+      setRewriteRpmLimit: (n) => set({ rewriteRpmLimit: Math.max(0, Math.min(3, Math.floor(n))) }),
       setRpmMaxQueueAttempts: (n) => set({ rpmMaxQueueAttempts: Math.max(0, Math.min(10, Math.floor(n))) }),
       setMvuSelfCorrectEnabled: (v) => set({ mvuSelfCorrectEnabled: v }),
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
@@ -437,6 +437,18 @@ export const useSettingsStore = create<SettingsStore>()(
         if (p.blessingEnabled !== undefined && p.cheatingEnabled === undefined) {
           p.cheatingEnabled = p.blessingEnabled;
         }
+        // RPM 上限从 10 收紧到 3：老存档残留 > 3 的值在 merge 时截到 3，否则用户重开
+        // 看到的还是旧值 10，与新的 UI max=3 / setter 钳值不一致。
+        const clampRpm = (v: unknown): number | undefined => {
+          if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+          return Math.max(0, Math.min(3, Math.floor(v)));
+        };
+        const rpmL = clampRpm(p.rpmLimit);
+        if (rpmL !== undefined) p.rpmLimit = rpmL;
+        const mvuL = clampRpm(p.mvuRpmLimit);
+        if (mvuL !== undefined) p.mvuRpmLimit = mvuL;
+        const rwL = clampRpm(p.rewriteRpmLimit);
+        if (rwL !== undefined) p.rewriteRpmLimit = rwL;
         return {
           ...current,
           ...p,

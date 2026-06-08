@@ -605,7 +605,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 {!perApiRpmEnabled && (
                   <RpmRow
                     label="全局 RPM 上限"
-                    help={'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 10。'}
+                    help={'每分钟最多向LLM发起的请求数（全局共享，主API、补写、独立mvuAPI等所有调用都计入）。\n\n达到上限时新请求会排队等待，直到一分钟窗口腾出名额，避免触发服务商限流。\n\n0 = 不限制，最大 3。'}
                     value={rpmLimit}
                     onChange={setRpmLimit}
                   />
@@ -615,19 +615,19 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   <>
                     <RpmRow
                       label="主 API RPM"
-                      help={'主对话生成（序章、整页生成等）每分钟最多请求数。\n\n0 = 不限制，最大 10。'}
+                      help={'主对话生成（序章、整页生成等）每分钟最多请求数。\n\n0 = 不限制，最大 3。'}
                       value={rpmLimit}
                       onChange={setRpmLimit}
                     />
                     <RpmRow
                       label="MVU RPM"
-                      help={'独立 MVU 变量提取 API 每分钟最多请求数（仅当 MVU 启用独立API时单独计窗）。\n\n0 = 不限制，最大 10。'}
+                      help={'独立 MVU 变量提取 API 每分钟最多请求数（仅当 MVU 启用独立API时单独计窗）。\n\n0 = 不限制，最大 3。'}
                       value={mvuRpmLimit}
                       onChange={setMvuRpmLimit}
                     />
                     <RpmRow
                       label="补写 RPM"
-                      help={'行动补写 API 每分钟最多请求数（含解析失败重试的额外请求）。\n\n0 = 不限制，最大 10。'}
+                      help={'行动补写 API 每分钟最多请求数（含解析失败重试的额外请求）。\n\n0 = 不限制，最大 3。'}
                       value={rewriteRpmLimit}
                       onChange={setRewriteRpmLimit}
                     />
@@ -1046,7 +1046,7 @@ const iconBtn: React.CSSProperties = {
   borderRadius: 3,
 };
 
-/** RPM 数字输入行（label + 帮助 + 0–10 number input + 「N 次/分」后缀）。去重 4 处近乎相同的 RPM 设置行。 */
+/** RPM 数字输入行（label + 帮助 + 0–3 number input + 「N 次/分」后缀）。去重 4 处近乎相同的 RPM 设置行。 */
 function RpmRow({ label, help, value, onChange }: {
   label: string;
   help: string;
@@ -1060,7 +1060,7 @@ function RpmRow({ label, help, value, onChange }: {
         <HelpIcon text={help} />
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="number" min={0} max={10} step={1}
+        <input type="number" min={0} max={3} step={1}
           value={value}
           onChange={(e) => onChange(Number(e.target.value) || 0)}
           style={numInputStyle}

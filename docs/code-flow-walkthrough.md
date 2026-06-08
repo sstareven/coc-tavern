@@ -97,7 +97,7 @@
 10. `src/hooks/useChatPipeline.ts:923` action-rewrite 调用点 — stream=false、onToken/signal 均 undefined、rpmKind='rewrite' → 走 rewrite 桶。结果喂 `parseRewriteResponse` + 重试。
 11. `src/components/CharSheet/CharacterCreator.tsx:664` `quickFill`（第三调用者）— 角色创建器快速填充也调用 `sendChatCompletion`，是聊天管线外的另一 `ChatCompletionResponse` 生产者。
 
-**触达的 store / DB**：`useSettingsStore`（getState() 只读：perApiRpmEnabled、rpmLimit、mvuRpmLimit、rewriteRpmLimit，均 clamp 0..10，0=无限）；模块级内存 `histories: Record<RpmKind, number[]>`（rpm-limiter.ts，由 rpmAcquire 写滑动窗口时间戳，**不持久化**，本流无 Dexie/DB 写）。
+**触达的 store / DB**：`useSettingsStore`（getState() 只读：perApiRpmEnabled、rpmLimit、mvuRpmLimit、rewriteRpmLimit，均 clamp 0..3，0=无限）；模块级内存 `histories: Record<RpmKind, number[]>`（rpm-limiter.ts，由 rpmAcquire 写滑动窗口时间戳，**不持久化**，本流无 Dexie/DB 写）。
 
 **关键类型**：`ChatCompletionRequest {messages; preset; stream?}`、`ChatCompletionResponse {content; model?}`、`RpmKind = 'main'|'mvu'|'rewrite'`、`rpmEvaluate → {kept:number[]; waitMs:number}`、`resolveBucket → {bucket:RpmKind; limit:number}`、`StreamToken {content?; done:boolean}`。
 

@@ -50,17 +50,17 @@ describe('rpmEvaluate — 滑动窗口 RPM 核心', () => {
 
 describe('resolveBucket — 每个API独立RPM分桶', () => {
   it('关闭独立RPM：所有 kind 都归 main 桶 + rpmLimit', () => {
-    useSettingsStore.setState({ perApiRpmEnabled: false, rpmLimit: 7, mvuRpmLimit: 3, rewriteRpmLimit: 2 });
-    expect(resolveBucket('main')).toEqual({ bucket: 'main', limit: 7 });
-    expect(resolveBucket('mvu')).toEqual({ bucket: 'main', limit: 7 });
-    expect(resolveBucket('rewrite')).toEqual({ bucket: 'main', limit: 7 });
+    useSettingsStore.setState({ perApiRpmEnabled: false, rpmLimit: 3, mvuRpmLimit: 2, rewriteRpmLimit: 1 });
+    expect(resolveBucket('main')).toEqual({ bucket: 'main', limit: 3 });
+    expect(resolveBucket('mvu')).toEqual({ bucket: 'main', limit: 3 });
+    expect(resolveBucket('rewrite')).toEqual({ bucket: 'main', limit: 3 });
   });
 
   it('开启独立RPM：各 kind 用各自上限与独立桶', () => {
-    useSettingsStore.setState({ perApiRpmEnabled: true, rpmLimit: 7, mvuRpmLimit: 3, rewriteRpmLimit: 2 });
-    expect(resolveBucket('main')).toEqual({ bucket: 'main', limit: 7 });
-    expect(resolveBucket('mvu')).toEqual({ bucket: 'mvu', limit: 3 });
-    expect(resolveBucket('rewrite')).toEqual({ bucket: 'rewrite', limit: 2 });
+    useSettingsStore.setState({ perApiRpmEnabled: true, rpmLimit: 3, mvuRpmLimit: 2, rewriteRpmLimit: 1 });
+    expect(resolveBucket('main')).toEqual({ bucket: 'main', limit: 3 });
+    expect(resolveBucket('mvu')).toEqual({ bucket: 'mvu', limit: 2 });
+    expect(resolveBucket('rewrite')).toEqual({ bucket: 'rewrite', limit: 1 });
   });
 });
 
