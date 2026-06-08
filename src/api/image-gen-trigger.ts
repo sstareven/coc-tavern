@@ -7,12 +7,15 @@
 // - AbortSignal 透传 fetch 取消
 // - 失败 fail-open,内部 try/catch + pushLog,不抛
 // - aid 守卫切档放弃
+// - 各关键节点 setStage(pageId, '阶段名') 让 PageBanner 显示进度条 sublabel
+// - 日志走 'image-gen' category,内容含 mode / size / duration / 失败原因
 
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useChatStore } from '../stores/useChatStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useScenarioStore } from '../stores/useScenarioStore';
 import { useApiProfilesStore } from '../stores/useApiProfilesStore';
+import { useImageGenProgressStore } from '../stores/useImageGenProgressStore';
 import { pushLog as pushLogRaw } from '../stores/useLogStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
@@ -29,24 +32,22 @@ export interface TriggerImageGenOpts {
 }
 
 const pushLog = (level: 'info' | 'warn' | 'error', msg: string) => {
-  pushLogRaw(level, msg, 'system');
+  pushLogRaw(level, msg, 'image-gen');
 };
 
 /**
  * 为指定页生成图片。完整生命周期:
  * 1. 检查总开关 / API 配置 / scn imageGen.enabled 三态
  * 2. setPageImageStatus('pending') 让 PageBanner 显示骨架
- * 3. rpmAcquire('image')(RPM 桶满 → 静默 fail-open setPageImageStatus('skipped'))
- * 4. buildImageSpecFromPage → callImageApiWithRetry
- * 5. 按 storageMode 'blob'/'remote-url' 写入
- * 6. 双守卫(aid/abort) + savePages + saveConversation
- * 7. 失败 setPageImageStatus('failed')
+ * 3. setStage('准备中') → '排队中'(rpmAcquire) → '连接 API' / '生成中'(callImageApi) → '解析响应' → '写入存储'
+ * 4. 失败 setPageImageStatus('failed') + clearStage
  *
  * 永不抛,玩家/管线层不需要 try/catch。
  */
 export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise<void> {
   const { pageIdx, signal, source = 'auto' } = opts;
-  const sourceTag = source === 'manual' ? '[文生图·手动]' : '[文生图]';
+  const sourceTag = source === 'manual' ? '[手动]' : '[自动]';
+  const startedAt = Date.now();
 
   const s = useSettingsStore.getState();
   if (!s.imageGenerationEnabled) {
@@ -63,7 +64,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   if (pageIdx < 0 || pageIdx >= pages.length) return;
   const page = pages[pageIdx];
   if (!page?.id) {
-    pushLog('warn', `${sourceTag} 页缺 id,无法关联 db.pageImages`);
+    pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页缺 id,无法关联 db.pageImages`);
     return;
   }
   const pageId = page.id;
@@ -81,24 +82,31 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   if (!spec.enabled) return;
 
   const aid = useChatStore.getState().activeId;
+  const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
+  const progress = useImageGenProgressStore.getState();
 
   // UI 占位
   useBookStore.getState().setPageImageStatus(pageIdx, 'pending');
+  progress.setStage(pageId, '准备中');
+  pushLog('info', `${sourceTag} 第 ${pageIdx + 1} 页开始生成 · model=${spec.modelOverride ?? imgApi.model} · ${spec.width}×${spec.height} · payloadMode=${payloadMode}`);
 
+  progress.setStage(pageId, '排队中');
   try {
     await rpmAcquire('image');
   } catch (err) {
+    progress.clearStage(pageId);
     if (err instanceof RpmQueueExhaustedError) {
-      pushLog('warn', `${sourceTag} image RPM 桶已满,跳过`);
+      pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页 image RPM 桶已满(limit=${err.limit}/分钟,等了 ${err.attempts} 轮),跳过 — 玩家可手动重生成`);
     } else {
-      pushLog('warn', `${sourceTag} rpmAcquire 失败:${err instanceof Error ? err.message : String(err)}`);
+      pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页 rpmAcquire 失败:${err instanceof Error ? err.message : String(err)}`);
     }
     useBookStore.getState().setPageImageStatus(pageIdx, 'skipped');
     return;
   }
 
+  progress.setStage(pageId, '连接 API');
+
   try {
-    const payloadMode = useApiProfilesStore.getState().selectedImagePayloadMode;
     const resp = await callImageApiWithRetry({
       apiBaseUrl: imgApi.baseUrl,
       apiKey: imgApi.apiKey,
@@ -116,27 +124,35 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       signal,
       payloadMode,
     });
-    if (signal?.aborted) return;
-    if (useChatStore.getState().activeId !== aid) return;
+    if (signal?.aborted) { progress.clearStage(pageId); return; }
+    if (useChatStore.getState().activeId !== aid) { progress.clearStage(pageId); return; }
+
+    progress.setStage(pageId, '解析响应');
 
     let storedUrl: string;
+    let storedSizeNote = '';
     if (s.imageStorageMode === 'remote-url') {
       if (!resp.url) {
-        pushLog('warn', `${sourceTag} remote-url 模式响应缺 url 字段`);
+        pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页 remote-url 模式响应缺 url 字段`);
         useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
+        progress.clearStage(pageId);
         return;
       }
       storedUrl = resp.url;
+      storedSizeNote = ' · 存远程 URL';
     } else {
       if (!resp.b64Data) {
-        pushLog('warn', `${sourceTag} blob 模式响应缺 b64_json`);
+        pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页 blob 模式响应缺 b64_json`);
         useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
+        progress.clearStage(pageId);
         return;
       }
+      progress.setStage(pageId, '写入存储');
       const blob = b64ToBlob(resp.b64Data, 'image/jpeg');
       if (blob.size > s.imageMaxBlobBytes) {
-        pushLog('warn', `${sourceTag} 图片 ${(blob.size / 1024).toFixed(0)}KB 超 imageMaxBlobBytes(${(s.imageMaxBlobBytes / 1024).toFixed(0)}KB)`);
+        pushLog('warn', `${sourceTag} 第 ${pageIdx + 1} 页图片 ${(blob.size / 1024).toFixed(0)}KB 超 imageMaxBlobBytes(${(s.imageMaxBlobBytes / 1024).toFixed(0)}KB),跳过保存`);
         useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
+        progress.clearStage(pageId);
         return;
       }
       const cid = useChatStore.getState().activeId ?? '';
@@ -150,6 +166,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
         createdAt: Date.now(),
       });
       storedUrl = `blob://${pageId}`;
+      storedSizeNote = ` · 入库 ${(blob.size / 1024).toFixed(0)}KB`;
     }
 
     useBookStore.getState().setPageImage(pageIdx, {
@@ -159,13 +176,26 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     });
     useChatStore.getState().savePages(useBookStore.getState().pages);
     if (aid) await saveConversation(aid);
-    const modeNote = resp.resolvedMode ? ` mode=${resp.resolvedMode}` : '';
-    pushLog('info', `${sourceTag} 插画已生成(${resp.durationMs}ms${modeNote})`);
+    const modeNote = resp.resolvedMode ? ` · resolvedMode=${resp.resolvedMode}` : '';
+    const totalMs = Date.now() - startedAt;
+    pushLog('info', `${sourceTag} 第 ${pageIdx + 1} 页插画已生成 · 总耗时 ${totalMs}ms(API ${resp.durationMs}ms)${modeNote}${storedSizeNote}`);
+    progress.clearStage(pageId);
   } catch (err) {
+    progress.clearStage(pageId);
     if (signal?.aborted) return;
-    pushLog('warn', `${sourceTag} 失败:${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof ImageGenError && err.recoveryHint) {
-      pushLog('warn', `${sourceTag} 修复提示:${err.recoveryHint}`);
+    const baseMsg = err instanceof Error ? err.message : String(err);
+    if (err instanceof ImageGenError) {
+      const parts: string[] = [];
+      if (err.status) parts.push(`status=${err.status}`);
+      if (err.endpoint) parts.push(`endpoint=${err.endpoint}`);
+      if (err.bodyKeys && err.bodyKeys.length) parts.push(`body=[${err.bodyKeys.join(',')}]`);
+      const annot = parts.length ? ` · ${parts.join(' · ')}` : '';
+      pushLog('error', `${sourceTag} 第 ${pageIdx + 1} 页失败${annot}:${baseMsg}`);
+      if (err.recoveryHint) {
+        pushLog('warn', `${sourceTag} 修复提示:${err.recoveryHint}`);
+      }
+    } else {
+      pushLog('error', `${sourceTag} 第 ${pageIdx + 1} 页失败:${baseMsg}`);
     }
     useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
   }

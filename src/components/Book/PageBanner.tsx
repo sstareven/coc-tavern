@@ -4,7 +4,7 @@
 //   父容器宽 437px → 浏览器自动算高 ≈ 119px;手机 360 宽 → ≈ 98px。
 // - blob:// 模式异步从 db.pageImages 拉 Blob → createObjectURL,cleanup revokeObjectURL 防泄漏。
 // - 远程 URL 直接当 src。
-// - status='pending' 显示 IconImage 旋转骨架(parchment 色)。
+// - status='pending' 显示 IconImage 旋转骨架 + 子标签(订阅 useImageGenProgressStore)+ 底部 indeterminate 进度条。
 // - status='failed' 显示 IconAlert + 右上角重生成按钮(IconRefresh)。
 // - status='done'(默认) 显示真图 + 右上角小重生成按钮(0.3 透明度,hover 增亮放大,active 按压)。
 // - opacity 跟随 isFlipping fade(cubic-bezier(0.4,0,0.2,1)),与 LeftPage 翻页动效协调。
@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../../db/database';
 import { IconImage, IconRefresh, IconAlert } from '../Layout/TabIcons';
+import { useImageGenProgressStore } from '../../stores/useImageGenProgressStore';
 
 interface Props {
   /** 'blob://<pageId>' 或 https://... 远程 URL。 */
@@ -30,6 +31,8 @@ const ANIM = 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
 export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRegenerate }: Props) {
   // 若 src 是 blob:// 占位,从 IndexedDB 拉 Blob 转 objectURL;远程 URL 直接用
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined);
+  // pending 时订阅当前阶段子标签(trigger 各节点 setStage 写入)
+  const stage = useImageGenProgressStore((s) => (pageId ? s.progress[pageId] : undefined));
 
   useEffect(() => {
     if (!src) { setObjectUrl(undefined); return; }
@@ -88,24 +91,37 @@ export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRe
       )}
 
       {status === 'pending' && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 4,
-        }}>
+        <>
           <div style={{
-            opacity: 0.4,
-            animation: 'pagebanner-spin 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: 6,
           }}>
-            <IconImage size={32} />
+            <div style={{
+              opacity: 0.4,
+              animation: 'pagebanner-spin 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+            }}>
+              <IconImage size={32} />
+            </div>
+            <span style={{
+              fontSize: 11,
+              color: 'var(--ink-faded)',
+              fontFamily: 'var(--font-ui)',
+              letterSpacing: 1,
+            }}>正在生成插画</span>
+            {stage && (
+              <span style={{
+                fontSize: 10,
+                color: 'var(--gold)',
+                fontFamily: 'var(--font-ui)',
+                letterSpacing: 2,
+                opacity: 0.85,
+              }}>{stage}…</span>
+            )}
           </div>
-          <span style={{
-            fontSize: 11,
-            color: 'var(--ink-faded)',
-            fontFamily: 'var(--font-ui)',
-            letterSpacing: 1,
-          }}>正在生成插画</span>
-        </div>
+          {/* indeterminate 进度条 — 底部铜版风流光 */}
+          <div className="page-banner-progress" />
+        </>
       )}
 
       {status === 'failed' && (
@@ -154,6 +170,27 @@ export function PageBanner({ src, pageId, alt, isFlipping, status = 'done', onRe
         @keyframes pagebanner-spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes pagebanner-progress-slide {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+        .page-banner-progress {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 3px;
+          background: rgba(var(--ink-faded-rgb), 0.12);
+          overflow: hidden;
+        }
+        .page-banner-progress::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          width: 40%;
+          background: linear-gradient(90deg, transparent, var(--gold, #c4a855) 50%, transparent);
+          animation: pagebanner-progress-slide 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         .page-banner-regen:hover {
           opacity: 1 !important;
