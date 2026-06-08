@@ -117,11 +117,35 @@ describe('parseChatCompletionsImage', () => {
     expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'AAAA' });
   });
 
+  it('Gemini multimodal inline_data → b64Data', () => {
+    const c = [
+      { type: 'text', text: 'done' },
+      { type: 'image', inline_data: { mime_type: 'image/png', data: 'A'.repeat(200) } },
+    ];
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'A'.repeat(200) });
+  });
+
+  it('裸长 base64(>=1000 字符 无 prefix)→ b64Data', () => {
+    const c = 'iVBORw0KGgo' + 'A'.repeat(1500);
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'iVBORw0KGgo' + 'A'.repeat(1500) });
+  });
+
   it('提不出图返回 null', () => {
     expect(parseChatCompletionsImage('just plain text no image')).toBeNull();
     expect(parseChatCompletionsImage('')).toBeNull();
     expect(parseChatCompletionsImage(null)).toBeNull();
     expect(parseChatCompletionsImage(undefined)).toBeNull();
+  });
+
+  it('裸 base64 但 <1000 字符 → null(避免短文本误判)', () => {
+    expect(parseChatCompletionsImage('iVBORw0KGgoAAA==')).toBeNull();
+  });
+
+  it('Anthropic 风格 source.data → b64Data', () => {
+    const c = [
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'B'.repeat(200) } },
+    ];
+    expect(parseChatCompletionsImage(c)).toEqual({ b64Data: 'B'.repeat(200) });
   });
 });
 

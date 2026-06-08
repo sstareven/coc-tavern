@@ -190,54 +190,203 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
   };
 }
 
-/** 从 chat-completions 响应的 content 字段提取图片。支持:
- *  - markdown ![alt](URL 或 data:image/...;base64,...)
- *  - 裸 data:image/...;base64,... 串
- *  - 裸 https?:// URL
- *  - multimodal content 数组 [{type:'image_url',image_url:{url}},...]
+/** 从 chat-completions 响应里任意位置提取图片。覆盖主流中转网关包装 Gemini/DALL-E 系图像 API
+ *  的所有已知形态(NewAPI / OpenRouter / LiteLLM / Vertex / Cloudflare AI Gateway / AIMLAPI):
+ *
+ *  形态 A(最常见):message.images 数组 [{type:'image_url',image_url:{url:'data:image/png;base64,...'}}]
+ *  形态 B:content 字符串含 markdown ![](URL 或 dataURL)
+ *  形态 C:message.content=null,所有图都在 message.images
+ *  形态 D:content 数组多模态 [{type:'text',text}, {type:'image',inline_data:{mime_type,data}}](Gemini 半映射)
+ *  形态 E:choices[0].images / choices[0].message.attachments(少数网关)
+ *  形态 G:content 是裸长 base64(>=1000 字符,无 prefix)
+ *  以及:裸 data URL、裸 https URL(带或不带图片后缀)、image_url 字段独立放在 part.b64_json/part.data。
+ *
  *  返回 {b64Data} 或 {url};都没找到返回 null。 */
-export function parseChatCompletionsImage(content: unknown): { b64Data?: string; url?: string } | null {
-  // multimodal 数组形态
-  if (Array.isArray(content)) {
-    for (const part of content) {
+export function parseChatCompletionsImage(input: unknown): { b64Data?: string; url?: string } | null {
+  // multimodal 数组形态:遍历每个 part 找 image 类
+  if (Array.isArray(input)) {
+    for (const part of input) {
       if (!part || typeof part !== 'object') continue;
       const p = part as Record<string, unknown>;
-      const t = p.type;
-      if (t === 'image_url' || t === 'image') {
+      const t = typeof p.type === 'string' ? p.type : '';
+      // image_url 子结构(含 {url:string} 或裸 string)
+      if (t === 'image_url' || t === 'image' || t === 'output_image') {
         const imgUrl = p.image_url;
         const urlStr = typeof imgUrl === 'string'
           ? imgUrl
           : (imgUrl && typeof imgUrl === 'object'
               ? ((imgUrl as Record<string, unknown>).url as string | undefined)
               : undefined);
-        if (typeof urlStr === 'string') {
-          if (urlStr.startsWith('data:')) return { b64Data: urlStr.replace(/^data:[^;]+;base64,/, '') };
-          if (/^https?:\/\//.test(urlStr)) return { url: urlStr };
+        if (typeof urlStr === 'string' && urlStr.trim()) {
+          if (urlStr.startsWith('data:')) return { b64Data: stripDataPrefix(urlStr) };
+          if (/^https?:\/\//i.test(urlStr)) return { url: urlStr };
+          // url 字段是裸 base64(部分网关风格)
+          if (looksLikeBase64(urlStr)) return { b64Data: urlStr };
         }
-        if (typeof p.b64_json === 'string') return { b64Data: p.b64_json };
+        // Gemini 原生 inline_data:{mime_type, data}
+        const inlineData = (p.inline_data ?? p.inlineData) as Record<string, unknown> | undefined;
+        if (inlineData && typeof inlineData.data === 'string' && inlineData.data.length > 100) {
+          return { b64Data: inlineData.data };
+        }
+        // part.b64_json / part.data / part.image 兜底
+        if (typeof p.b64_json === 'string' && p.b64_json.length > 100) return { b64Data: p.b64_json };
+        if (typeof p.data === 'string' && p.data.length > 100) return { b64Data: p.data };
+      }
+      // 部分网关把图放在 part.source.data(Anthropic 风格)
+      const src = p.source as Record<string, unknown> | undefined;
+      if (src && typeof src.data === 'string' && src.data.length > 100) {
+        return { b64Data: src.data };
       }
     }
     return null;
   }
-  if (typeof content !== 'string') return null;
+  if (typeof input !== 'string') return null;
   // markdown ![alt](xxx) — 取第一个出现的
-  const md = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/.exec(content);
+  const md = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/.exec(input);
   if (md && md[1]) {
     const target = md[1];
-    if (target.startsWith('data:')) return { b64Data: target.replace(/^data:[^;]+;base64,/, '') };
-    if (/^https?:\/\//.test(target)) return { url: target };
+    if (target.startsWith('data:')) return { b64Data: stripDataPrefix(target) };
+    if (/^https?:\/\//i.test(target)) return { url: target };
   }
   // 裸 data URL
-  const dataMatch = /(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/.exec(content);
+  const dataMatch = /(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/.exec(input);
   if (dataMatch && dataMatch[1]) {
-    return { b64Data: dataMatch[1].replace(/^data:[^;]+;base64,/, '') };
+    return { b64Data: stripDataPrefix(dataMatch[1]) };
   }
-  // 裸 URL
-  const urlMatch = /(https?:\/\/[^\s"'<>)\]]+\.(?:png|jpe?g|webp|gif)(?:\?[^\s"'<>)\]]*)?)/i.exec(content);
+  // 带图片后缀的裸 URL(严匹配)
+  const urlMatch = /(https?:\/\/[^\s"'<>)\]]+\.(?:png|jpe?g|webp|gif|bmp|avif)(?:\?[^\s"'<>)\]]*)?)/i.exec(input);
   if (urlMatch && urlMatch[1]) {
     return { url: urlMatch[1] };
   }
+  // 兜底:整个字符串是裸长 base64(>=1000 字符,无 prefix 无 markdown 包裹) → 视作 b64
+  const trimmed = input.trim();
+  if (looksLikeBase64(trimmed)) return { b64Data: trimmed.replace(/\s+/g, '') };
+  // 兜底:无后缀的 https URL(对象存储签名链接)— 只在 input 看起来不像普通文字(无中英文/无空格)时启用
+  // 避免把模型旁白里随便一个链接当图
+  if (!/\s/.test(trimmed) && trimmed.length > 30 && /^https?:\/\//i.test(trimmed)) {
+    return { url: trimmed };
+  }
   return null;
+}
+
+/** 剥 `data:image/png;base64,` 前缀(若有);base64 体回原。 */
+function stripDataPrefix(s: string): string {
+  return s.replace(/^data:[^;,]*;base64,/, '');
+}
+
+/** 看起来像裸长 base64:仅 A-Z a-z 0-9 +/= 与空白,长度 >= 1000。 */
+function looksLikeBase64(s: string): boolean {
+  if (!s || s.length < 1000) return false;
+  return /^[A-Za-z0-9+/=\s]+$/.test(s);
+}
+
+/** 从整个 chat-completions 响应 JSON 中按已知优先级探查图片:message.images → message.content
+ *  → choices[0].images → message.attachments → message.multi_mod_content。命中即返回。 */
+function extractFromChatResponse(json: unknown): { b64Data?: string; url?: string } | null {
+  const choices = (json as { choices?: unknown[] })?.choices;
+  if (!Array.isArray(choices) || choices.length === 0) return null;
+  const ch = choices[0] as Record<string, unknown>;
+  const msg = (ch?.message ?? {}) as Record<string, unknown>;
+  // 1) message.images(NewAPI/OpenRouter/LiteLLM 主形态)
+  const msgImages = msg.images;
+  if (Array.isArray(msgImages) && msgImages.length > 0) {
+    const e = parseChatCompletionsImage(msgImages);
+    if (e) return e;
+  }
+  // 2) message.content(字符串或数组)
+  if (msg.content !== undefined && msg.content !== null) {
+    const e = parseChatCompletionsImage(msg.content);
+    if (e) return e;
+  }
+  // 3) choices[0].images(少数网关)
+  if (Array.isArray(ch.images) && ch.images.length > 0) {
+    const e = parseChatCompletionsImage(ch.images);
+    if (e) return e;
+  }
+  // 4) message.attachments
+  if (Array.isArray(msg.attachments) && msg.attachments.length > 0) {
+    const e = parseChatCompletionsImage(msg.attachments);
+    if (e) return e;
+  }
+  // 5) message.multi_mod_content
+  if (Array.isArray(msg.multi_mod_content) && msg.multi_mod_content.length > 0) {
+    const e = parseChatCompletionsImage(msg.multi_mod_content);
+    if (e) return e;
+  }
+  // 6) Responses API 风格:output[].image_generation_call.result(部分中转透传)
+  const output = (json as { output?: unknown[] })?.output;
+  if (Array.isArray(output)) {
+    for (const o of output) {
+      if (!o || typeof o !== 'object') continue;
+      const ot = (o as Record<string, unknown>).type;
+      const result = (o as Record<string, unknown>).result;
+      if (ot === 'image_generation_call' && typeof result === 'string' && result.length > 100) {
+        return { b64Data: result };
+      }
+    }
+  }
+  return null;
+}
+
+/** 假流式 SSE 响应解析:按行 `data: {json}` 累积,提取 delta.images / delta.content。
+ *  即便 body 传 stream:false 部分国内中转仍走 SSE,resp.json() 会抛错 → 走 resp.text() 后调本函数。 */
+function parseSseStreamForImage(text: string): { b64Data?: string; url?: string } | null {
+  if (!text || !text.includes('data:')) return null;
+  // 收集累积的 content 字符串 + 所有 images 数组
+  let accContent = '';
+  const accImages: unknown[] = [];
+  // 按双换行分 chunk(SSE 标准),再每个 chunk 找 `data: ` 行
+  const chunks = text.split(/\r?\n\r?\n/);
+  for (const chunk of chunks) {
+    for (const line of chunk.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      let obj: Record<string, unknown>;
+      try { obj = JSON.parse(payload) as Record<string, unknown>; }
+      catch { continue; }
+      // 先按完整 response 形态试一次(部分中转直接非流式但带 data: 前缀)
+      const e = extractFromChatResponse(obj);
+      if (e) return e;
+      // 增量 delta 形态
+      const choices = obj.choices as unknown[] | undefined;
+      if (!Array.isArray(choices) || choices.length === 0) continue;
+      const c0 = choices[0] as Record<string, unknown>;
+      const delta = (c0?.delta ?? c0?.message ?? {}) as Record<string, unknown>;
+      if (typeof delta.content === 'string') accContent += delta.content;
+      if (Array.isArray(delta.images)) accImages.push(...delta.images);
+      if (Array.isArray((delta as Record<string, unknown>).image_url)) {
+        accImages.push(...((delta as { image_url: unknown[] }).image_url));
+      }
+    }
+  }
+  if (accImages.length > 0) {
+    const e = parseChatCompletionsImage(accImages);
+    if (e) return e;
+  }
+  if (accContent) {
+    const e = parseChatCompletionsImage(accContent);
+    if (e) return e;
+  }
+  return null;
+}
+
+/** 把任意 message 对象的 keys 列出(用于诊断错误时定位图片可能落在哪个字段)。 */
+function describeMessageKeys(json: unknown): string {
+  const out: string[] = [];
+  const top = json && typeof json === 'object' ? Object.keys(json as Record<string, unknown>) : [];
+  if (top.length) out.push(`top=[${top.join(',')}]`);
+  const choices = (json as { choices?: unknown[] })?.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const c0 = choices[0] as Record<string, unknown>;
+    out.push(`choices[0]=[${Object.keys(c0).join(',')}]`);
+    const msg = c0.message;
+    if (msg && typeof msg === 'object') {
+      out.push(`message=[${Object.keys(msg as Record<string, unknown>).join(',')}]`);
+    }
+  }
+  return out.join(' · ');
 }
 
 /** 单次调用图像 API。AbortController 90s 超时;失败抛 ImageGenError。 */
@@ -307,35 +456,75 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
     );
   }
 
+  // 假流式 SSE 防御:即便 body 传 stream:false,部分国内中转仍按 text/event-stream 返回。
+  // 走 resp.text() + parseSseStreamForImage 兜底。
+  const contentType = (resp.headers.get('content-type') ?? '').toLowerCase();
+  const isSse = contentType.includes('event-stream');
+
+  if (isSse) {
+    let text = '';
+    try { text = await resp.text(); } catch (err) {
+      throw new ImageGenError(`SSE 文本读取失败: ${err instanceof Error ? err.message : String(err)}`, { endpoint, bodyKeys });
+    }
+    const durationMs = Date.now() - t0;
+    const extracted = parseSseStreamForImage(text);
+    if (!extracted) {
+      throw new ImageGenError(
+        `chat-completions SSE 流中提不出图(content-type=${contentType}) · 前 500 字:${text.slice(0, 500)}`,
+        { endpoint, bodyKeys },
+      );
+    }
+    if (extracted.b64Data) return { b64Data: extracted.b64Data, durationMs, resolvedMode };
+    return { url: extracted.url, durationMs, resolvedMode };
+  }
+
   let json: unknown;
+  let rawText = '';
   try {
-    json = await resp.json();
+    // 先读 text 再解析,失败时还能用 text 走 SSE fallback
+    rawText = await resp.text();
+    json = JSON.parse(rawText);
   } catch (err) {
-    throw new ImageGenError(`JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`, { endpoint, bodyKeys });
+    // JSON 解析失败 → 极可能是被强行 SSE 化的"假流式"响应,走 SSE 解析兜底
+    const durationMs = Date.now() - t0;
+    if (resolvedMode === 'chat-completions' && rawText.includes('data:')) {
+      const extracted = parseSseStreamForImage(rawText);
+      if (extracted) {
+        if (extracted.b64Data) return { b64Data: extracted.b64Data, durationMs, resolvedMode };
+        return { url: extracted.url, durationMs, resolvedMode };
+      }
+    }
+    throw new ImageGenError(
+      `JSON 解析失败: ${err instanceof Error ? err.message : String(err)} · 响应前 300 字:${rawText.slice(0, 300)}`,
+      { endpoint, bodyKeys },
+    );
   }
 
   const durationMs = Date.now() - t0;
 
-  // chat-completions 风格响应:choices[0].message.content 含 markdown / dataURL / 裸 URL
+  // chat-completions 风格响应:多源探查(message.images → content → choices[0].images → attachments)
   if (resolvedMode === 'chat-completions') {
     const choices = (json as { choices?: unknown[] })?.choices;
     if (!Array.isArray(choices) || choices.length === 0) {
-      throw new ImageGenError('chat-completions 响应缺 choices 字段', { endpoint, bodyKeys });
-    }
-    const first = choices[0] as { message?: { content?: unknown } };
-    const content = first?.message?.content;
-    const extracted = parseChatCompletionsImage(content);
-    if (!extracted) {
-      const previewRaw = typeof content === 'string' ? content : JSON.stringify(content);
-      const preview = (previewRaw ?? '').slice(0, 300);
       throw new ImageGenError(
-        `chat-completions content 中提不出图(无 markdown 图链接 / dataURL / 裸 URL):${preview}`,
+        `chat-completions 响应缺 choices 字段 · keys: ${describeMessageKeys(json)}`,
         { endpoint, bodyKeys },
       );
     }
-    if (extracted.b64Data) {
-      return { b64Data: extracted.b64Data, durationMs, resolvedMode };
+    const extracted = extractFromChatResponse(json);
+    if (!extracted) {
+      // 200 但提不出图:把 message 各字段 keys + content 预览全部打出来,玩家能精准定位图在哪
+      const ch0 = choices[0] as Record<string, unknown>;
+      const msg = (ch0?.message ?? {}) as Record<string, unknown>;
+      const contentPreview = typeof msg.content === 'string'
+        ? msg.content.slice(0, 500)
+        : JSON.stringify(msg.content).slice(0, 500);
+      throw new ImageGenError(
+        `chat-completions 200 但提不出图 · ${describeMessageKeys(json)} · content 预览:${contentPreview} · 响应前 500 字:${rawText.slice(0, 500)}`,
+        { endpoint, bodyKeys },
+      );
     }
+    if (extracted.b64Data) return { b64Data: extracted.b64Data, durationMs, resolvedMode };
     return { url: extracted.url, durationMs, resolvedMode };
   }
 
