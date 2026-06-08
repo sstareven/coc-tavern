@@ -6,6 +6,7 @@ import { create } from 'zustand';
 
 export type ImageGenStage =
   | '准备中'        // 入口检查
+  | '提取图像 prompt' // LLM 子调用把中文叙事转英文 image prompt(NovelAI 等英文模型才跑)
   | '排队中'        // rpmAcquire
   | '连接 API'      // fetch 开始
   | '生成中'        // 等待响应
