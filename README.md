@@ -342,6 +342,7 @@ src/
 ├── components/
 │   ├── Book/        # 故事书双页 3D 翻页
 │   ├── CharSheet/   # COC 角色卡 + 创建向导
+│   ├── Combat/      # 即时战斗面板
 │   ├── Dice/        # 骰子检定面板
 │   ├── Inventory/   # 物品栏 / 线索浮层
 │   ├── Landing/     # 主菜单 / 读档 / 更新日志
@@ -354,6 +355,7 @@ src/
 ├── db/              # Dexie 持久化层（schema + 迁移 + 适配器）
 ├── constants/       # 预设、Prompt 库等常量
 ├── audio/           # 音效资源与播放
+├── utils/           # 工具 polyfill（form field 自动命名等）
 ├── types/index.ts   # 单一类型源
 ├── styles/          # tokens.css（设计令牌）+ global.css
 └── test/            # 测试 setup
