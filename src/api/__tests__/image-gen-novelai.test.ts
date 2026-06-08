@@ -12,6 +12,8 @@ import {
   extractFirstPngFromZip,
   uint8ToBase64,
   novelAiRecoveryHint,
+  randomNovelAiSeed,
+  NOVELAI_SEED_MAX,
   NOVELAI_DEFAULT_SAMPLER,
   NOVELAI_DEFAULT_MODEL,
 } from '../image-gen-novelai';
@@ -161,6 +163,88 @@ describe('buildNovelAiBody', () => {
       width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
     });
     expect(body.model).toBe(NOVELAI_DEFAULT_MODEL);
+  });
+  it('seed 是 [1, NOVELAI_SEED_MAX] 内的整数(不再是 -1)', () => {
+    const body = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+    });
+    const seed = (body.parameters as Record<string, unknown>).seed as number;
+    expect(Number.isInteger(seed)).toBe(true);
+    expect(seed).toBeGreaterThanOrEqual(1);
+    expect(seed).toBeLessThanOrEqual(NOVELAI_SEED_MAX);
+    expect(seed).not.toBe(-1);
+  });
+  it('连续构造同入参 body,seed 至少有 2 个不同值(随机性)', () => {
+    const seeds = new Set<number>();
+    for (let i = 0; i < 10; i++) {
+      const body = buildNovelAiBody({
+        model: '', prompt: 'x', negativePrompt: '',
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      seeds.add((body.parameters as Record<string, unknown>).seed as number);
+    }
+    expect(seeds.size).toBeGreaterThanOrEqual(2);
+  });
+  it('cfgScale 非有限数(NaN/字符串)兜底 5', () => {
+    const cases: Array<[unknown, number]> = [
+      [NaN, 5],
+      ['abc' as unknown, 5],
+      [undefined as unknown, 5],
+      [null as unknown, 5],
+    ];
+    for (const [input, expected] of cases) {
+      const body = buildNovelAiBody({
+        model: '', prompt: 'x', negativePrompt: '',
+        width: 832, height: 1216, steps: 28,
+        cfgScale: input as number,
+        sampler: 'k_euler',
+      });
+      expect((body.parameters as Record<string, unknown>).scale).toBe(expected);
+    }
+  });
+  it('cfgScale 越界 clamp 到 [0, 10]', () => {
+    const b1 = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: -3, sampler: 'k_euler',
+    });
+    expect((b1.parameters as Record<string, unknown>).scale).toBe(0);
+    const b2 = buildNovelAiBody({
+      model: '', prompt: 'x', negativePrompt: '',
+      width: 832, height: 1216, steps: 28, cfgScale: 25, sampler: 'k_euler',
+    });
+    expect((b2.parameters as Record<string, unknown>).scale).toBe(10);
+  });
+  it('negativePrompt 非字符串(null/数组/对象)兜底空字符串', () => {
+    const cases: unknown[] = [null, undefined, [], {}, 123];
+    for (const v of cases) {
+      const body = buildNovelAiBody({
+        model: '', prompt: 'x',
+        negativePrompt: v as string,
+        width: 832, height: 1216, steps: 28, cfgScale: 5, sampler: 'k_euler',
+      });
+      expect((body.parameters as Record<string, unknown>).negative_prompt).toBe('');
+    }
+  });
+});
+
+describe('randomNovelAiSeed', () => {
+  it('每次返回 [1, NOVELAI_SEED_MAX] 内的整数', () => {
+    for (let i = 0; i < 50; i++) {
+      const s = randomNovelAiSeed();
+      expect(Number.isInteger(s)).toBe(true);
+      expect(s).toBeGreaterThanOrEqual(1);
+      expect(s).toBeLessThanOrEqual(NOVELAI_SEED_MAX);
+    }
+  });
+  it('NOVELAI_SEED_MAX 等于 2^32 - 8(对齐社区 SDK 给 batch 留 +7 头)', () => {
+    expect(NOVELAI_SEED_MAX).toBe(0xFFFFFFFF - 7);
+    expect(NOVELAI_SEED_MAX).toBe(4294967288);
+  });
+  it('1000 次采样去重 ≥ 990(随机性 smoke)', () => {
+    const seeds = new Set<number>();
+    for (let i = 0; i < 1000; i++) seeds.add(randomNovelAiSeed());
+    expect(seeds.size).toBeGreaterThanOrEqual(990);
   });
 });
 

@@ -63,6 +63,19 @@ export const NOVELAI_DEFAULT_SAMPLER = 'k_euler_ancestral';
 export const NOVELAI_DEFAULT_WIDTH = 832;
 export const NOVELAI_DEFAULT_HEIGHT = 1216;
 
+/** NovelAI seed 合法上界:2^32 - 8。
+ *  后端字段声明 uint64 但实际接受 32 位无符号整数,且为 n_samples 最多 8 张
+ *  的 batch(后续每张取 seed+i)留 +7 头部余量,避免 seed+7 溢出 uint32。 */
+export const NOVELAI_SEED_MAX = 0xFFFFFFFF - 7;
+
+/** 生成一个合法的 NovelAI seed:[1, NOVELAI_SEED_MAX] 区间的非负整数。
+ *  每次调用现取,语义即"每次随机"。
+ *  不引入 BigInt(2^32 远小于 Number.MAX_SAFE_INTEGER = 2^53-1,JSON 输出
+ *  是普通整数字面量,后端 uint64 可吃)。 */
+export function randomNovelAiSeed(): number {
+  return Math.floor(Math.random() * NOVELAI_SEED_MAX) + 1;
+}
+
 /** SD 系 sampler 名 → NovelAI k_* sampler 字符串映射。 */
 const NOVELAI_SAMPLER_MAP: Record<string, string> = {
   'DPM++ 2M Karras': 'k_dpmpp_2m',
@@ -106,24 +119,30 @@ export interface BuildNovelAiBodyInput {
  *  默认走 Opus 免费档:n_samples=1 + sm=false + qualityToggle=true;
  *  尺寸 roundTo64 兜底(防 400 invalid request);
  *  steps clamp 到 [1, 50];
- *  玩家可用 extraParams 的 'parameters.sm true' 等点号路径覆写嵌套字段。 */
+ *  scale 兜底 NaN/字符串/越界(后端字段是 float64);
+ *  seed 客户端现取 uint32 非负整数(后端协议要求,且为 batch 留头);
+ *  negative_prompt 强制 string(防 null/对象类型穿透);
+ *  玩家可用 extraParams 的 'parameters.sm true'、'parameters.seed 12345' 等点号路径覆写嵌套字段。 */
 export function buildNovelAiBody(input: BuildNovelAiBodyInput): Record<string, unknown> {
   const w = roundTo64(input.width || NOVELAI_DEFAULT_WIDTH);
   const h = roundTo64(input.height || NOVELAI_DEFAULT_HEIGHT);
+  const scale = Number.isFinite(input.cfgScale)
+    ? Math.max(0, Math.min(input.cfgScale, 10))
+    : 5;
   const parameters: Record<string, unknown> = {
     width: w,
     height: h,
-    scale: input.cfgScale ?? 5,
+    scale,
     sampler: mapToNovelAiSampler(input.sampler),
     steps: Math.max(1, Math.min(input.steps || 28, 50)),
-    seed: -1,
+    seed: randomNovelAiSeed(),
     n_samples: 1,
     ucPreset: 0,
     qualityToggle: true,
     sm: false,
     sm_dyn: false,
     dynamic_thresholding: false,
-    negative_prompt: input.negativePrompt ?? '',
+    negative_prompt: typeof input.negativePrompt === 'string' ? input.negativePrompt : '',
   };
   return {
     input: input.prompt,

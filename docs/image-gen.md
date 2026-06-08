@@ -240,7 +240,7 @@ profile 编辑模态里的「**额外参数**」字段（textarea），支持每
 + parameters.sm_dyn true            # 开 SMEA Dynamic
 + parameters.cfg_rescale 0.2        # V4 Variety+
 + parameters.skip_cfg_above_sigma 19  # V4 Variety+
-+ parameters.seed 12345             # 固定 seed（默认 -1 随机）
++ parameters.seed 12345             # 固定 seed(默认每次随机 [1, 2^32-8])
 - parameters.qualityToggle          # 关质量 toggle
 + parameters.noise_schedule "karras"  # 噪声调度
 ```
