@@ -23,7 +23,9 @@ export const NOVELAI_ENDPOINT_PATH = '/ai/generate-image';
 /** 默认 model:V4.5 Full(官方主推,2026 在售)。 */
 export const NOVELAI_DEFAULT_MODEL = 'nai-diffusion-4-5-full';
 
-/** NovelAI 在售模型清单(无 /v1/models 端点,UI 可作为 fallback 候选)。 */
+/** NovelAI 在售模型清单(无 /v1/models 端点,UI 可作为 fallback 候选)。
+ *  NovelAI 出新模型时需要手动追加 — 本清单仅用于「保存 profile 时跳过远端探测」+
+ *  UI 模型选择器的默认候选,不是协议层强约束。 */
 export const NOVELAI_KNOWN_MODELS: ReadonlyArray<string> = [
   'nai-diffusion-4-5-full',
   'nai-diffusion-4-5-curated',
@@ -32,6 +34,18 @@ export const NOVELAI_KNOWN_MODELS: ReadonlyArray<string> = [
   'nai-diffusion-3',
   'nai-diffusion-furry-3',
 ];
+
+/** 判定 baseUrl 是否指向 NovelAI(含官方域 image.novelai.net 与所有含 novelai 子串的中转透传)。
+ *  宽容匹配 — 覆盖大小写差异、尾斜杠、子路径透传别名。 */
+export function isNovelAiBaseUrl(url: string): boolean {
+  if (typeof url !== 'string') return false;
+  return url.toLowerCase().includes('novelai');
+}
+
+/** 返回 NovelAI 已知模型清单的可写副本(给 fetchModelList: Promise<string[]> 调用方填 availableModels)。 */
+export function getNovelAiFallbackModels(): string[] {
+  return [...NOVELAI_KNOWN_MODELS];
+}
 
 /** NovelAI 默认 sampler(免 Anlas 友好,适配 V4/V4.5)。 */
 export const NOVELAI_DEFAULT_SAMPLER = 'k_euler_ancestral';
