@@ -49,9 +49,11 @@ interface Props {
   streamingSegments?: PrintSegment[];
   /** 已刻印的 header 文本(流式期间覆盖 header) */
   streamingHeader?: string;
+  /** 流式刻印的小总结(显示在 header 下方,流式时先于正文出现) */
+  streamingSummary?: PrintSegment[];
 }
 
-export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts, imageUrl, imagePageId, imageGenStatus, imageGenAt, onRegenerateImage, isStreamingPrint, streamingSegments, streamingHeader }: Props) {
+export function LeftPage({ header, content, pageNum, isFlipping, summary, diceResults, sanityCheckPrompts, imageUrl, imagePageId, imageGenStatus, imageGenAt, onRegenerateImage, isStreamingPrint, streamingSegments, streamingHeader, streamingSummary }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -80,6 +82,15 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>
             {streamingHeader || header || ''}
           </h3>
+          {streamingSummary && streamingSummary.length > 0 && (
+            <p style={{
+              fontSize: 'calc(10px * var(--text-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink-subtle)',
+              fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.6,
+              margin: '6px 0 0', textIndent: '2em',
+            }}>
+              {streamingSummary.map((seg, i) => renderStreamingSegment(seg, i))}
+            </p>
+          )}
         </div>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>

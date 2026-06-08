@@ -45,8 +45,12 @@ export function Storybook() {
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
   const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
-  const streamingSegments = useStreamingPrintStore((s) => s.segments);
-  const streamingHeader = useStreamingPrintStore((s) => s.headerText);
+  const streamingLeftSegments = useStreamingPrintStore((s) => s.leftSegments);
+  const streamingLeftHeader = useStreamingPrintStore((s) => s.leftHeaderText);
+  const streamingRightSegments = useStreamingPrintStore((s) => s.rightSegments);
+  const streamingRightHeader = useStreamingPrintStore((s) => s.rightHeaderText);
+  const streamingSummary = useStreamingPrintStore((s) => s.summarySegments);
+  const streamingChoices = useStreamingPrintStore((s) => s.choices);
   const encounter = useCombatStore((s) => s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
@@ -381,7 +385,7 @@ export function Storybook() {
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} isStreamingPrint={isStreamingPrint} streamingSegments={streamingSegments} streamingHeader={streamingHeader} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} isStreamingPrint={isStreamingPrint} streamingSegments={streamingLeftSegments} streamingHeader={streamingLeftHeader} streamingSummary={streamingSummary} />
               </AppearPage>
             )}
           </div>
@@ -417,7 +421,7 @@ export function Storybook() {
               <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} />
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} isStreamingPrint={isStreamingPrint} streamingHeader={streamingRightHeader} streamingSegments={streamingRightSegments} streamingChoices={streamingChoices} />
               </AppearPage>
             )}
           </div>

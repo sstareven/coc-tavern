@@ -26,6 +26,7 @@ import { cleanChoiceText, buildChoiceInput } from './choice-input-builder';
 import { type StagingTrigger } from '../../sillytavern/option-staging';
 import { parseAttackTarget } from '../../sillytavern/parse-attack-target';
 import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
+import type { PrintSegment, StreamingChoice } from '../../stores/useStreamingPrintStore';
 
 interface Props {
   header: string;
@@ -39,6 +40,11 @@ interface Props {
   sanityCheckPrompts?: SanityCheckPrompt[];
   /** M9 关系评估器 / 脱队联动追加的本页旁白行。 */
   narration?: string[];
+  /** 流式刻印模式 — true 时 header/content/choices 走 streamingHeader/Segments/Choices 渲染 */
+  isStreamingPrint?: boolean;
+  streamingHeader?: string;
+  streamingSegments?: PrintSegment[];
+  streamingChoices?: StreamingChoice[];
 }
 
 type BonusType = 'none' | 'bonus' | 'penalty';
@@ -433,7 +439,7 @@ function openBackpack() {
   });
 }
 
-export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts, narration }: Props) {
+export function RightPage({ header, content, choices, pageNum, isFlipping, rewrite, inventoryChanges, sanityCheckPrompts, narration, isStreamingPrint, streamingHeader, streamingSegments, streamingChoices }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
   const { edge, intensity, fading, onScroll } = useScrollGlow();
@@ -442,6 +448,47 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
     opacity: isFlipping ? 0 : 1,
     transition: isFlipping ? 'opacity 0.35s ease-in' : 'opacity 0.6s ease-out 0.6s',
   };
+
+  // 流式刻印模式 — 不走 renderContentWithCodeBlocks(那需要完整字符串),直接渲染 streamingSegments。
+  // 选项也用 streamingChoices 显示(num + textSegments 流式刻印),disabled 不可点。
+  if (isStreamingPrint) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 28px 20px 24px', minHeight: 0, background: 'linear-gradient(225deg, var(--parchment) 0%, var(--parchment-deep) 100%)', borderTopRightRadius: 4, borderBottomRightRadius: 4, boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.04)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative' }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, marginBottom: 16, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 10, flexShrink: 0 }}>
+          {streamingHeader || header || ''}
+        </h3>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <div className="rp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)' }}>
+            <p style={{ textIndent: '2em', marginBottom: 18, color: 'var(--ink)' }}>
+              {(streamingSegments ?? []).map((seg, i) => renderRpStreamingSegment(seg, i))}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(streamingChoices ?? []).map((c, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                  border: '1px solid rgba(var(--ink-faded-rgb),0.35)', borderRadius: 4,
+                  background: 'rgba(196,168,85,0.06)', color: 'var(--ink-subtle)',
+                  fontFamily: 'var(--font-body)', fontSize: 'calc(14px * var(--text-ratio, 1))',
+                  opacity: 0.85, cursor: 'wait',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'calc(13px * var(--text-ratio, 1))', minWidth: 24 }}>
+                    {c.num}
+                  </span>
+                  <span style={{ flex: 1 }}>
+                    {(c.textSegments ?? []).map((seg, j) => renderRpStreamingSegment(seg, j))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {pageNum && (
+          <div style={{ textAlign: 'center', fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 10, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{pageNum}</div>
+        )}
+      </div>
+    );
+  }
+
   const renderedContent = renderContentWithCodeBlocks(content, {
     enabled: thRender.renderEnabled,
     collapse: thRender.codeCollapse,
@@ -791,4 +838,35 @@ function renderStringWithBubblesAndBeauty(
       ? <React.Fragment key={`${keyPrefix}-s${idx}-${j}`}>{n}</React.Fragment>
       : n);
   });
+}
+
+/** RightPage 流式分支:与 LeftPage 的 renderStreamingSegment 同模式。每字单独 span 触发 streaming-ink。 */
+function renderRpStreamingSegment(seg: PrintSegment, idx: number): React.ReactNode {
+  if (seg.kind === 'sanBubble') {
+    return (
+      <span key={`rsb-${idx}`} style={{
+        display: 'inline-block', width: '0.9em', height: '0.9em', borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(220,80,80,0.5) 0%, rgba(220,80,80,0.1) 70%)',
+        margin: '0 2px', verticalAlign: 'middle', opacity: 0.6, pointerEvents: 'none', cursor: 'wait',
+      }} />
+    );
+  }
+  if (seg.kind === 'kw') {
+    return (
+      <span key={`rkw-${idx}`} style={{
+        color: 'var(--gold)', fontWeight: 600, borderBottom: '1px dashed var(--gold)',
+      }}>
+        {(seg.content ?? '').split('').map((ch, j) => (
+          <span key={j} className="streaming-ink-char">{ch}</span>
+        ))}
+      </span>
+    );
+  }
+  return (
+    <span key={`rt-${idx}`}>
+      {(seg.content ?? '').split('').map((ch, j) => (
+        <span key={j} className="streaming-ink-char">{ch}</span>
+      ))}
+    </span>
+  );
 }

@@ -34,7 +34,7 @@ import { useStreamingRenderer } from './useStreamingRenderer';
 import { useStreamingPrinter } from './useStreamingPrinter';
 import { useStreamingPrintStore } from '../stores/useStreamingPrintStore';
 import { StreamingJsonWalker } from '../sillytavern/streaming-json-walker';
-import { StreamingTagMask, type MaskEvent } from '../sillytavern/streaming-tag-mask';
+import { StreamingTagMask } from '../sillytavern/streaming-tag-mask';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
@@ -1028,20 +1028,25 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         && !unsupportedStreamingEndpoints.has(effectiveBaseUrl);
       const useStream = wantStreamingPrint || streamRenderEnabled;
       const walker = wantStreamingPrint ? new StreamingJsonWalker() : null;
-      const mask = wantStreamingPrint ? new StreamingTagMask() : null;
+      // 每个流式区段(leftContent/rightContent/summary/choiceText[i]) 独立 mask,kw/hidden 状态不互污染
+      const leftMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const rightMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const summaryMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const choiceMasks = new Map<number, StreamingTagMask>();
+      // 顶层 header 文本累积(不走 mask,直接字符串)
+      let leftHeaderAccum = '';
+      let rightHeaderAccum = '';
+      // choices num 累积(每个 idx 一个字符串,字符级累积;同时通过 printer 同步到 store)
+      const choiceNumAccum = new Map<number, string>();
+      // 当前 walker 活动字段
+      let activeField: import('../sillytavern/streaming-json-walker').FieldName | null = null;
+      let activeChoiceIdx = -1;
       let alreadyFlipped = false;
-      let activeField: 'leftHeader' | 'leftContent' | null = null;
-      let headerAccum = '';
-      let placeholderPageIndex = -1; // 流式模式下占位页的 index;-1 表示未启用
+      let placeholderPageIndex = -1;
 
       if (wantStreamingPrint) {
         printer.reset();
         useStreamingPrintStore.getState().startStreamingPrint();
-        // 立即 append 占位页 + autoFlipForward — 让翻页动画在 SSE 还没开始来字时就启动。
-        // 翻页结束(1.5s)时 streamingSegments 已积累若干字,玩家进入新页就看到正文在刻。
-        // 之后 JSON 解析成功时改 replacePage(placeholderPageIndex, newPage) 而不是再 append。
-        // rightHeader/rightContent 填占位文案让玩家知道右页正在等 LLM 完成,避免误以为系统挂了
-        // (右页要等主流 [DONE] + MVU 完成才有完整数据,通常 5-15s)。replacePage 时被真实数据覆盖。
         const blankPage = {
           leftHeader: '',
           leftContent: '',
@@ -1061,24 +1066,44 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         ? undefined
         : (chunk: string) => {
             if (streamRenderEnabled) onToken(chunk); // 旧的 raw 回显(调试用)保留
-            if (!wantStreamingPrint || !walker || !mask) return;
+            if (!wantStreamingPrint || !walker) return;
 
-            // 翻页已在流式分支开头触发,此处只管 walker → mask → printer
             const walkerEvents = walker.feed(chunk);
-            const allMaskEvents: MaskEvent[] = [];
             for (const ev of walkerEvents) {
-              if (ev.kind === 'enterField') activeField = ev.field;
-              else if (ev.kind === 'exitField') activeField = null;
-              else if (ev.kind === 'narrativeChar') {
+              if (ev.kind === 'enterField') {
+                activeField = ev.field;
+                activeChoiceIdx = ev.choiceIdx ?? -1;
+              } else if (ev.kind === 'exitField') {
+                activeField = null;
+                activeChoiceIdx = -1;
+              } else if (ev.kind === 'narrativeChar' && activeField) {
+                const store = useStreamingPrintStore.getState();
                 if (activeField === 'leftHeader') {
-                  headerAccum += ev.ch;
-                  useStreamingPrintStore.getState()._setHeaderText(headerAccum);
-                } else if (activeField === 'leftContent') {
-                  allMaskEvents.push(...mask.feed(ev.ch));
+                  leftHeaderAccum += ev.ch;
+                  store._setLeftHeader(leftHeaderAccum);
+                } else if (activeField === 'rightHeader') {
+                  rightHeaderAccum += ev.ch;
+                  store._setRightHeader(rightHeaderAccum);
+                } else if (activeField === 'leftContent' && leftMask) {
+                  printer.push({ kind: 'leftSegments' }, leftMask.feed(ev.ch));
+                } else if (activeField === 'rightContent' && rightMask) {
+                  printer.push({ kind: 'rightSegments' }, rightMask.feed(ev.ch));
+                } else if (activeField === 'summary' && summaryMask) {
+                  printer.push({ kind: 'summarySegments' }, summaryMask.feed(ev.ch));
+                } else if (activeField === 'choiceNum' && activeChoiceIdx >= 0) {
+                  // num 不走 mask,直接累积到 map,然后空 push 触发 store 同步
+                  const cur = (choiceNumAccum.get(activeChoiceIdx) ?? '') + ev.ch;
+                  choiceNumAccum.set(activeChoiceIdx, cur);
+                  // 用空 events push 同步 store 中 choices[idx].num — printer 自身 trackOf 会更新 num
+                  printer.push({ kind: 'choiceText', idx: activeChoiceIdx, num: cur }, []);
+                } else if (activeField === 'choiceText' && activeChoiceIdx >= 0) {
+                  let m = choiceMasks.get(activeChoiceIdx);
+                  if (!m) { m = new StreamingTagMask(); choiceMasks.set(activeChoiceIdx, m); }
+                  const num = choiceNumAccum.get(activeChoiceIdx) ?? '';
+                  printer.push({ kind: 'choiceText', idx: activeChoiceIdx, num }, m.feed(ev.ch));
                 }
               }
             }
-            if (allMaskEvents.length > 0) printer.push(allMaskEvents);
           };
 
       try {

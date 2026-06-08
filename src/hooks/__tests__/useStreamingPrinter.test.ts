@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useStreamingPrinter } from '../useStreamingPrinter';
 import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
 
-describe('useStreamingPrinter', () => {
+describe('useStreamingPrinter v2 (多区段)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     useStreamingPrintStore.getState().reset();
@@ -13,34 +13,56 @@ describe('useStreamingPrinter', () => {
     vi.useRealTimers();
   });
 
-  it('40ms 一个 visibleChar 入 segments', () => {
+  it('leftSegments:40ms 一个 visibleChar', () => {
     const { result } = renderHook(() => useStreamingPrinter());
     act(() => {
-      result.current.push([
+      result.current.push({ kind: 'leftSegments' }, [
         { kind: 'visibleChar', ch: '调' },
         { kind: 'visibleChar', ch: '查' },
-        { kind: 'visibleChar', ch: '员' },
       ]);
     });
-
-    // t=0:还没 tick
-    expect(useStreamingPrintStore.getState().segments).toEqual([]);
-
-    // 第 1 个字 40ms 后
+    expect(useStreamingPrintStore.getState().leftSegments).toEqual([]);
     act(() => { vi.advanceTimersByTime(40); });
-    expect(textOf(useStreamingPrintStore.getState().segments)).toBe('调');
-
+    expect(textOf(useStreamingPrintStore.getState().leftSegments)).toBe('调');
     act(() => { vi.advanceTimersByTime(40); });
-    expect(textOf(useStreamingPrintStore.getState().segments)).toBe('调查');
-
-    act(() => { vi.advanceTimersByTime(40); });
-    expect(textOf(useStreamingPrintStore.getState().segments)).toBe('调查员');
+    expect(textOf(useStreamingPrintStore.getState().leftSegments)).toBe('调查');
   });
 
-  it('openKw → 内部字符 → closeKw 形成独立 kw segment', () => {
+  it('rightSegments / summarySegments / choices 各自独立累积', () => {
     const { result } = renderHook(() => useStreamingPrinter());
     act(() => {
-      result.current.push([
+      result.current.push({ kind: 'summarySegments' }, [{ kind: 'visibleChar', ch: '总' }]);
+      result.current.push({ kind: 'leftSegments' }, [{ kind: 'visibleChar', ch: '左' }]);
+      result.current.push({ kind: 'rightSegments' }, [{ kind: 'visibleChar', ch: '右' }]);
+      result.current.push({ kind: 'choiceText', idx: 0, num: 'I' }, [{ kind: 'visibleChar', ch: 'A' }]);
+    });
+    act(() => { vi.advanceTimersByTime(40 * 4); });
+    const s = useStreamingPrintStore.getState();
+    expect(textOf(s.summarySegments)).toBe('总');
+    expect(textOf(s.leftSegments)).toBe('左');
+    expect(textOf(s.rightSegments)).toBe('右');
+    expect(s.choices.length).toBe(1);
+    expect(s.choices[0].num).toBe('I');
+    expect(textOf(s.choices[0].textSegments)).toBe('A');
+  });
+
+  it('多个 choice 按 idx 升序排列', () => {
+    const { result } = renderHook(() => useStreamingPrinter());
+    act(() => {
+      result.current.push({ kind: 'choiceText', idx: 2, num: 'III' }, [{ kind: 'visibleChar', ch: 'c' }]);
+      result.current.push({ kind: 'choiceText', idx: 0, num: 'I' }, [{ kind: 'visibleChar', ch: 'a' }]);
+      result.current.push({ kind: 'choiceText', idx: 1, num: 'II' }, [{ kind: 'visibleChar', ch: 'b' }]);
+    });
+    act(() => { vi.advanceTimersByTime(40 * 3); });
+    const choices = useStreamingPrintStore.getState().choices;
+    expect(choices.map((c) => c.num)).toEqual(['I', 'II', 'III']);
+    expect(choices.map((c) => textOf(c.textSegments)).join('')).toBe('abc');
+  });
+
+  it('leftSegments openKw → 内部字符 → closeKw 形成独立 kw segment', () => {
+    const { result } = renderHook(() => useStreamingPrinter());
+    act(() => {
+      result.current.push({ kind: 'leftSegments' }, [
         { kind: 'visibleChar', ch: 'a' },
         { kind: 'openKw' },
         { kind: 'visibleChar', ch: '词' },
@@ -48,57 +70,23 @@ describe('useStreamingPrinter', () => {
         { kind: 'visibleChar', ch: 'b' },
       ]);
     });
-
-    act(() => { vi.advanceTimersByTime(40 * 3); }); // a 词 b 全部出完
-
-    const segs = useStreamingPrintStore.getState().segments;
-    // 期望:[text("a"), kw("词"), text("b")]
-    expect(segs.length).toBe(3);
+    act(() => { vi.advanceTimersByTime(40 * 3); });
+    const segs = useStreamingPrintStore.getState().leftSegments;
     expect(segs[0]).toEqual({ kind: 'text', content: 'a' });
     expect(segs[1]).toEqual({ kind: 'kw', content: '词' });
     expect(segs[2]).toEqual({ kind: 'text', content: 'b' });
   });
 
-  it('sanBubble 事件入 segments 不占节拍', () => {
+  it('reset 清空所有区段', () => {
     const { result } = renderHook(() => useStreamingPrinter());
     act(() => {
-      result.current.push([
-        { kind: 'visibleChar', ch: 'a' },
-        { kind: 'sanBubble', id: 'p1' },
-        { kind: 'visibleChar', ch: 'b' },
-      ]);
-    });
-
-    // 1 tick 后:a 出 + sanBubble 同帧出
-    act(() => { vi.advanceTimersByTime(40); });
-    let segs = useStreamingPrintStore.getState().segments;
-    expect(segs).toEqual([
-      { kind: 'text', content: 'a' },
-      { kind: 'sanBubble', sanId: 'p1' },
-    ]);
-
-    // 又 40ms:b 接着出
-    act(() => { vi.advanceTimersByTime(40); });
-    segs = useStreamingPrintStore.getState().segments;
-    expect(segs).toEqual([
-      { kind: 'text', content: 'a' },
-      { kind: 'sanBubble', sanId: 'p1' },
-      { kind: 'text', content: 'b' },
-    ]);
-  });
-
-  it('reset 清空 store 与队列', () => {
-    const { result } = renderHook(() => useStreamingPrinter());
-    act(() => {
-      result.current.push([{ kind: 'visibleChar', ch: 'a' }]);
+      result.current.push({ kind: 'leftSegments' }, [{ kind: 'visibleChar', ch: 'a' }]);
       vi.advanceTimersByTime(40);
     });
-    expect(useStreamingPrintStore.getState().segments.length).toBe(1);
-
-    act(() => {
-      result.current.reset();
-    });
-    expect(useStreamingPrintStore.getState().segments).toEqual([]);
+    expect(useStreamingPrintStore.getState().leftSegments.length).toBe(1);
+    act(() => { result.current.reset(); });
+    expect(useStreamingPrintStore.getState().leftSegments).toEqual([]);
+    expect(useStreamingPrintStore.getState().choices).toEqual([]);
   });
 });
 
