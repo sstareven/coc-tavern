@@ -126,7 +126,7 @@ function asArray<T = unknown>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
-function parsePrologueResponse(
+export function parsePrologueResponse(
   parsed: Record<string, unknown>,
   usage?: TokenUsage,
 ): PrologueMegaAgentResult {
@@ -160,8 +160,58 @@ function parsePrologueResponse(
       .filter((d) => typeof d === 'string' && d.trim())
       .map((d) => d.trim())
       .slice(0, 8);
+
+    // 新字段(best-effort 软成功)
+    const themeRaw = asString(anchorsRaw.theme).trim();
+    const theme = themeRaw ? themeRaw.slice(0, 50) : undefined;
+
+    const worldFactsRaw = asArray<string>(anchorsRaw.worldFacts)
+      .filter((s) => typeof s === 'string' && s.trim())
+      .map((s) => s.trim())
+      .slice(0, 6);
+    const worldFacts = worldFactsRaw.length > 0 ? worldFactsRaw : undefined;
+
+    const characterArcsRaw = asArray<Record<string, unknown>>(anchorsRaw.characterArcs)
+      .map((a) => ({
+        name: asString(a?.name).trim(),
+        from: asString(a?.from).trim(),
+        mid: asString(a?.mid).trim(),
+        to: asString(a?.to).trim(),
+      }))
+      .filter((a) => a.name && a.from && a.to)
+      .map((a) => (a.mid ? a : { name: a.name, from: a.from, to: a.to }))
+      .slice(0, 6);
+    const characterArcs = characterArcsRaw.length > 0 ? characterArcsRaw : undefined;
+
+    const titleToId = new Map(nodes.map((n) => [n.title, n.id]));
+    const causalLinksRaw = asArray<Record<string, unknown>>(anchorsRaw.causalLinks)
+      .map((l) => ({
+        fromTitle: asString(l?.fromTitle).trim(),
+        toTitle: asString(l?.toTitle).trim(),
+        hookHint: asString(l?.hookHint).trim(),
+      }))
+      .filter((l) => l.fromTitle && l.toTitle && l.hookHint)
+      .map((l) => {
+        const fromNodeId = titleToId.get(l.fromTitle);
+        const toNodeId = titleToId.get(l.toTitle);
+        return fromNodeId && toNodeId
+          ? { fromNodeId, toNodeId, hookHint: l.hookHint.slice(0, 30) }
+          : null;
+      })
+      .filter((l): l is { fromNodeId: string; toNodeId: string; hookHint: string } => l !== null)
+      .slice(0, Math.max(0, nodes.length - 1));
+    const causalLinks = causalLinksRaw.length > 0 ? causalLinksRaw : undefined;
+
     if (nodes.length > 0) {
-      anchors = { nodes, constraints, threatDependencies };
+      anchors = {
+        nodes,
+        constraints,
+        threatDependencies,
+        ...(theme ? { theme } : {}),
+        ...(worldFacts ? { worldFacts } : {}),
+        ...(characterArcs ? { characterArcs } : {}),
+        ...(causalLinks ? { causalLinks } : {}),
+      };
     }
   }
 
