@@ -149,3 +149,74 @@ describe('BUG3 — 地点描述兜底', () => {
     expect(useMapStore.getState().locations[0].description).toBe('陈旧的沙发');
   });
 });
+
+describe('useMapStore.replaceAll — 非法 UUID 兜底净化', () => {
+  beforeEach(reset);
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const DIRTY_ID = 'a37bb842-d5fc-4590-9d0d-el43c2171f29'; // 末段含 'l',非法 UUID
+
+  it('伪 UUID 节点 id 被重发为合法 UUID', () => {
+    useMapStore.getState().replaceAll({
+      locations: [{ id: DIRTY_ID, name: '测试点', description: '' }],
+      edges: [],
+    });
+    const s = useMapStore.getState();
+    expect(s.locations).toHaveLength(1);
+    expect(s.locations[0].id).not.toBe(DIRTY_ID);
+    expect(UUID_RE.test(s.locations[0].id)).toBe(true);
+    expect(s.locations[0].name).toBe('测试点');
+  });
+
+  it('边的 fromId/toId 跟随节点 remap,不指向已重发的旧 id', () => {
+    const dirtyA = DIRTY_ID;
+    const dirtyB = 'b48cc953-e6gd-56a1-aebe-fl54d3282g3a'; // 多个非法字符
+    useMapStore.getState().replaceAll({
+      locations: [
+        { id: dirtyA, name: 'A', description: '' },
+        { id: dirtyB, name: 'B', description: '' },
+      ],
+      edges: [
+        { id: 'edge-not-uuid', fromId: dirtyA, toId: dirtyB, type: 'bidirectional' },
+      ],
+    });
+    const s = useMapStore.getState();
+    expect(s.locations).toHaveLength(2);
+    expect(s.edges).toHaveLength(1);
+    const idA = s.locations.find((l) => l.name === 'A')!.id;
+    const idB = s.locations.find((l) => l.name === 'B')!.id;
+    expect(s.edges[0].fromId).toBe(idA);
+    expect(s.edges[0].toId).toBe(idB);
+    expect(UUID_RE.test(s.edges[0].id)).toBe(true);
+  });
+
+  it('currentLocationId 指向被重发的脏 id 时跟随 remap', () => {
+    useMapStore.getState().replaceAll({
+      locations: [{ id: DIRTY_ID, name: '当前位置', description: '' }],
+      edges: [],
+      currentLocationId: DIRTY_ID,
+    });
+    const s = useMapStore.getState();
+    expect(s.currentLocationId).toBe(s.locations[0].id);
+    expect(s.currentLocationId).not.toBe(DIRTY_ID);
+  });
+
+  it('全部合法 id 时原样保留,不重发也不破坏引用', () => {
+    const goodA = crypto.randomUUID();
+    const goodB = crypto.randomUUID();
+    const goodEdge = crypto.randomUUID();
+    useMapStore.getState().replaceAll({
+      locations: [
+        { id: goodA, name: 'A', description: '' },
+        { id: goodB, name: 'B', description: '' },
+      ],
+      edges: [{ id: goodEdge, fromId: goodA, toId: goodB, type: 'bidirectional' }],
+      currentLocationId: goodA,
+    });
+    const s = useMapStore.getState();
+    expect(s.locations[0].id).toBe(goodA);
+    expect(s.locations[1].id).toBe(goodB);
+    expect(s.edges[0].id).toBe(goodEdge);
+    expect(s.currentLocationId).toBe(goodA);
+  });
+});
