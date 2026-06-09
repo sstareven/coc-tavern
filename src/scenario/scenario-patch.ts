@@ -12,6 +12,8 @@ import type {
   BadEnding,
   ScenarioMeta,
   ScenarioImageGen,
+  RescueEnding,
+  RescueMilestone,
 } from '../types/scenario';
 import { isImageGenLike } from '../types/scenario';
 import type { Occupation } from '../sillytavern/coc-data';
@@ -34,6 +36,7 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
   let customSkills = doc.customSkills;
   let skillBlacklist = doc.skillBlacklist;
   let imageGen: ScenarioImageGen | undefined = doc.imageGen;
+  let rescueEndings: RescueEnding[] | undefined = doc.rescueEndings;
 
   // 1) upsertEntries — 按 id upsert，否则 push 末尾
   if (patch.upsertEntries && patch.upsertEntries.length > 0) {
@@ -163,6 +166,31 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     imageGen = Object.keys(next).length === 0 ? undefined : next;
   }
 
+  // 16) rescueEndings — replaceAll 优先;否则 upsert(按 id) + removeIds 顺序合并
+  //     name 改变时同步 rename statData 子键(spec §8 #7)由调用方在 store 层处理,
+  //     reducer 本身只做 doc 层不可变更新。
+  if (patch.rescueEndings) {
+    const r = patch.rescueEndings;
+    if (r.replaceAll) {
+      rescueEndings = [...r.replaceAll];
+    } else {
+      let arr: RescueEnding[] = rescueEndings ? [...rescueEndings] : [];
+      if (r.upsert && r.upsert.length > 0) {
+        const incoming = new Map<string, RescueEnding>();
+        for (const e of r.upsert) incoming.set(e.id, e);
+        const mapped = arr.map((e) => (incoming.has(e.id) ? (incoming.get(e.id) as RescueEnding) : e));
+        const existedIds = new Set(arr.map((e) => e.id));
+        const appended = r.upsert.filter((e) => !existedIds.has(e.id));
+        arr = [...mapped, ...appended];
+      }
+      if (r.removeIds && r.removeIds.length > 0) {
+        const removeSet = new Set(r.removeIds);
+        arr = arr.filter((e) => !removeSet.has(e.id));
+      }
+      rescueEndings = arr;
+    }
+  }
+
   return {
     ...doc,
     meta,
@@ -174,6 +202,7 @@ export function applyScenarioPatch(doc: ScenarioDoc, patch: ScenarioPatch): Scen
     customSkills,
     skillBlacklist,
     imageGen,
+    rescueEndings,
     updatedAt: Date.now(),
   };
 }
@@ -241,6 +270,21 @@ function isCustomSkillLike(x: unknown): x is ScenarioCustomSkill {
   return true;
 }
 
+function isRescueMilestoneShape(x: unknown): x is RescueMilestone {
+  if (!isObj(x)) return false;
+  if (!isStr(x.id) || !isStr(x.name) || !isNum(x.delta)) return false;
+  if (x.hint !== undefined && !isStr(x.hint)) return false;
+  return true;
+}
+
+function isRescueEndingShape(x: unknown): x is RescueEnding {
+  if (!isObj(x)) return false;
+  if (!isStr(x.id) || !isStr(x.name) || !isStr(x.description) || !isStr(x.unlockHint)) return false;
+  if (!Array.isArray(x.milestones) || !x.milestones.every(isRescueMilestoneShape)) return false;
+  if (x.failureVariantId !== undefined && !isStr(x.failureVariantId)) return false;
+  return true;
+}
+
 // 任一字段缺失即视为该字段不存在；任一字段存在但类型错则返回 false
 export function validateScenarioPatch(p: unknown): p is ScenarioPatch {
   if (!isObj(p)) return false;
@@ -297,6 +341,19 @@ export function validateScenarioPatch(p: unknown): p is ScenarioPatch {
   }
   if (obj.patchImageGen !== undefined) {
     if (!isImageGenLike(obj.patchImageGen)) return false;
+  }
+  if (obj.rescueEndings !== undefined) {
+    if (!isObj(obj.rescueEndings)) return false;
+    const r = obj.rescueEndings as Record<string, unknown>;
+    if (r.upsert !== undefined) {
+      if (!Array.isArray(r.upsert) || !r.upsert.every(isRescueEndingShape)) return false;
+    }
+    if (r.removeIds !== undefined) {
+      if (!Array.isArray(r.removeIds) || !r.removeIds.every(isStr)) return false;
+    }
+    if (r.replaceAll !== undefined) {
+      if (!Array.isArray(r.replaceAll) || !r.replaceAll.every(isRescueEndingShape)) return false;
+    }
   }
 
   return true;
