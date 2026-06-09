@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.19.0';
+export const CURRENT_VERSION = 'v1.19.1';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,30 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.19.1',
+    label: '正文不再漏半截标签 · 老存档地图自动洗净',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: '流式正文',
+            entries: [
+              '以前 KP 流式吐字时,正文里偶尔会闪出 </k 或 </kw 这种半截字符,看着像乱码;现在不论标签在哪一段被截断、有没有空白杂质,都会被静默吞掉,正文干干净净',
+              '小标题(章节抬头)也会同步过滤,以前 LLM 把内联关键词高亮塞进抬头时偶有半截符号漏出,现在不再出现',
+            ],
+          },
+          {
+            title: '老存档地图',
+            entries: [
+              '以前老存档里万一记下了一个长得像编号但其实不合规的地点 id(早期版本残留或外部存档导入),会一直跟着存档走;现在读档时自动识别并换发合法编号,连线和「当前位置」跟着同步,地图不会因此断开或失锚',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.19.0',
     label: 'NPC 和世界都有自己的心思 · 剧本编辑器再不难读',
