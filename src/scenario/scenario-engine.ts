@@ -268,7 +268,7 @@ export async function activateScenario(
     // 与 scenarioEntriesToLoreEntries 分开是因为这是元配置,不进 6 类 entry 分类。
     const rescueLore = buildScenarioRescueLoreEntry(scn);
     if (rescueLore) {
-      useLorebookStore.getState().upsertEntries(scenarioBookId, { scn_rescue_preset: rescueLore });
+      useLorebookStore.getState().upsertEntries(scenarioBookId, { scn_rescue_preset: rescueLore }, { prefix: 'scn_rescue_' });
     }
 
     // 拯救路径运行态:按 rescueEndings 初始化 useRescueStore(同步写 statData 镜像)。
