@@ -29,6 +29,9 @@ export interface CharacterSheet {
   description: string;
   /** 当前姿态 — 站立/倒下/昏迷/被束缚 等，供 LLM 遵守物理约束 */
   posture: string;
+  /** 调查员当前装束:1 句中文短句,同 NpcProfile.outfit 语义。
+   *  由 outfit-extractor 写入,或玩家 UI 手改。 */
+  outfit?: string;
   /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
   statusConditions: StatusCondition[];
   /**
@@ -473,6 +476,9 @@ export interface NpcProfile {
   backstory: string;
   /** 随身物品 */
   possessions: string[];
+  /** 当前装束:1 句中文短句(≤40字),含穿着+外露物件,如「灰色羊毛大衣,手持左轮」。
+   *  仅 importance ∈ {核心,重要} 才由 outfit-extractor 写入;路人不挂。 */
+  outfit?: string;
   /** 是否在场(场景内,可被旁白引用/对话/上下文注入) */
   isPresent: boolean;
   /**
