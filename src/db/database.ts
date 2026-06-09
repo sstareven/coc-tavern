@@ -285,6 +285,15 @@ export const V13_SCHEMA = {
 
 db.version(13).stores(V13_SCHEMA);
 
+/** v14: 剧情骨架升级(theme/worldFacts/characterArcs/causalLinks) + 装束-生图对齐(NpcProfile.outfit / CharacterSheet.outfit)。
+ *  两个新增都不改 store 索引(都是值结构内字段新增),只 bump 让老 store recreate。 */
+export const V14_SCHEMA = {
+  ...V13_SCHEMA,
+  // 无 store 索引变更
+} as const;
+
+db.version(14).stores(V14_SCHEMA);
+
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
 // Minimal shapes for parsing the legacy persisted blobs.
