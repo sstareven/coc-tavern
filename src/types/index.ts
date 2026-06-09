@@ -123,6 +123,10 @@ export interface BookPage {
   sheetSnapshot?: CharacterSheet;
   /** 本回合结束时的 NPC 名册快照（按 id）——供删页快照式回溯人物状态（含战斗结算的昏迷/死亡等）。 */
   npcSnapshot?: Record<string, NpcProfile>;
+  /** 本回合结束时的 NPC 心智档案快照（按 id）——开关开启时随页持久化，供删页/翻页回溯。 */
+  npcMemorySnapshot?: Record<string, import('./npc-world-memory').NpcMemory>;
+  /** 本回合结束时的世界 Memory 快照——开关开启时随页持久化，供删页/翻页回溯。 */
+  worldMemorySnapshot?: import('./npc-world-memory').WorldMemory;
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
@@ -727,6 +731,9 @@ export interface ChatSession {
   gameState?: SessionGameState;
   /** 当前会话激活的剧本 id（剧本系统）；老会话 / 「自由探索」可为 undefined 或 '__free'。持久化随 chat blob。 */
   scenarioId?: string;
+  /** Agent 心智档案系统(2026-06-10)三态开关：true=本会话强制开 / false=强制关 / undefined=跟随全局 agentMemoryDefault。
+   *  开启后世界书+主回合注入 NPC/世界心智档案；NPC importance 升入「核心」触发独立立卡子调用。 */
+  agentMemoryEnabled?: boolean;
 }
 
 // ===== Extensions =====

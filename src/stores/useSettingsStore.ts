@@ -114,6 +114,9 @@ interface SettingsState {
   /** 流式刻印渲染:主推进走 SSE 真流式,首 chunk 触发翻页,leftContent 按汉字 40ms 逐字「高光→黑字」刻印。
    *  与 TavernHelper.render.allowStreamRender(raw 回显,调试用)解耦。默认关。 */
   streamingPrintEnabled: boolean;
+  /** Agent 心智档案系统全局默认值(2026-06-10)。控制新建存档的 Conversation.agentMemoryEnabled 默认 fallback。
+   *  conversation 独立设定(三态：true/false/undefined)优先；undefined 时取此字段。默认关。 */
+  agentMemoryDefault: boolean;
 }
 
 /**
@@ -232,6 +235,7 @@ interface SettingsStore extends SettingsState {
   /** Konami 序列匹配成功时调,永久解锁「领受赐福」tab 显示。 */
   unlockCheating: () => void;
   setStreamingPrintEnabled: (v: boolean) => void;
+  setAgentMemoryDefault: (v: boolean) => void;
 
   /**
    * v1.14.0 起的统一调用入口:主叙事 API 当前 effective 凭证。
@@ -301,6 +305,7 @@ const defaults: SettingsState = {
   cheatingEnabled: false,
   cheatingUnlocked: false,
   streamingPrintEnabled: false,
+  agentMemoryDefault: false,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -409,6 +414,7 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
       unlockCheating: () => set({ cheatingUnlocked: true }),
       setStreamingPrintEnabled: (v) => set({ streamingPrintEnabled: v }),
+      setAgentMemoryDefault: (v) => set({ agentMemoryDefault: v }),
 
       // ───────────── v1.14.0:effective API selector(跨 store 读 useApiProfilesStore) ─────────────
       // 同步读取,非订阅式 — 给 useChatPipeline / subagent-call 等纯逻辑调用站点用。

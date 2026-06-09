@@ -229,6 +229,18 @@ export const useBookStore = create<BookStore>((set, get) => ({
           const { useNpcStore } = await import('./useNpcStore');
           useNpcStore.getState().replaceAll(Object.values(lastNpcSnap));
         }
+        // Agent Memory(2026-06-10)：与 sheet/npc 同模式按页快照回滚。
+        // 开关关闭的会话从未写过快照 → reverse find 返 undefined → 不动 store(保持空)。
+        const lastNpcMemSnap = [...fixed].reverse().find((p) => p.npcMemorySnapshot)?.npcMemorySnapshot;
+        if (lastNpcMemSnap) {
+          const { useNpcMemoryStore } = await import('./useNpcMemoryStore');
+          useNpcMemoryStore.getState().replaceAll(lastNpcMemSnap);
+        }
+        const lastWorldMemSnap = [...fixed].reverse().find((p) => p.worldMemorySnapshot)?.worldMemorySnapshot;
+        if (lastWorldMemSnap) {
+          const { useWorldMemoryStore } = await import('./useWorldMemoryStore');
+          useWorldMemoryStore.getState().replace(lastWorldMemSnap);
+        }
       })();
     }, 0);
     return { pages: fixed, pageIndex };

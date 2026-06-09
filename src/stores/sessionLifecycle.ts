@@ -13,6 +13,8 @@ import { useChoiceLockStore } from './useChoiceLockStore';
 import { useTurnProgressStore } from './useTurnProgressStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
 import { useKeywordStore } from './useKeywordStore';
+import { useNpcMemoryStore } from './useNpcMemoryStore';
+import { useWorldMemoryStore } from './useWorldMemoryStore';
 import { useBookStore } from './useBookStore';
 import { useSanityBubbleStore } from './useSanityBubbleStore';
 import { useNarrationStore } from './useNarrationStore';
@@ -40,6 +42,8 @@ import {
   type MapLocationRow,
   type MapEdgeRow,
   type LocationElementRow,
+  type NpcMemoryRow,
+  type WorldMemoryRow,
 } from '../db/database';
 
 /** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */
@@ -78,6 +82,8 @@ export function clearAllGameState(prevScenarioId?: string) {
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
   useKeywordStore.getState().replaceAll({});
+  useNpcMemoryStore.getState().clearAll();
+  useWorldMemoryStore.getState().clear();
   useSanityBubbleStore.getState().reset();
   // M9: 关系评估器旁白队列(in-memory)——切档/新游戏/删会话都清空,
   // 防止上一会话未消费的旁白漏到新会话第一页。
@@ -207,6 +213,14 @@ async function saveConversationInner(cid: string): Promise<void> {
   const rescueSnapshot = useRescueStore.getState().toSnapshot();
   const rescueHasContent = rescueSnapshot.paths.length > 0;
   const keywords = useKeywordStore.getState().keywords;
+  const npcMemories = useNpcMemoryStore.getState().memories;
+  const worldMemory = useWorldMemoryStore.getState().world;
+  const worldMemoryHasContent =
+    worldMemory.darkThread.length > 0
+    || worldMemory.atmosphere.length > 0
+    || worldMemory.prose.length > 0
+    || worldMemory.unrevealed.length > 0
+    || Object.keys(worldMemory.keywordMeanings).length > 0;
   const variables = useVariableStore.getState().variables;
   const statData = useVariableStore.getState().statData;
   const macroVars = useTavernHelperStore.getState().macroVars;
@@ -220,6 +234,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const locationElementRows: LocationElementRow[] = locationElements.map((el) => ({ ...el, conversationId: cid, elementId: el.id }));
   const darkThreadRows: DarkThreadRow[] = entries.map((entry) => ({ ...entry, conversationId: cid, entryId: entry.id }));
   const keywordRows: KeywordRow[] = Object.entries(keywords).map(([word, meaning]) => ({ conversationId: cid, word, meaning }));
+  const npcMemoryRows: NpcMemoryRow[] = Object.entries(npcMemories).map(([npcId, mem]) => ({ ...mem, conversationId: cid, npcId }));
   const gameVarRows: GameVarRow[] = Object.entries(variables).map(([name, variable]) => ({ ...variable, conversationId: cid, name }));
   // MVU statData (nested narrative tree) persisted as a single reserved blob row.
   if (Object.keys(statData).length > 0) {
@@ -249,7 +264,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -328,6 +343,17 @@ async function saveConversationInner(cid: string): Promise<void> {
 
       await db.macroVars.where('conversationId').equals(cid).delete();
       if (macroVarRows.length > 0) await db.macroVars.bulkPut(macroVarRows);
+
+      // NPC 心智档案（Agent Memory 开启时写入；关闭/空 memories 时清残留行）。
+      await db.npcMemories.where('conversationId').equals(cid).delete();
+      if (npcMemoryRows.length > 0) await db.npcMemories.bulkPut(npcMemoryRows);
+
+      // 世界心智档案（单行/会话）：有内容则 put，无则删残留行。
+      if (worldMemoryHasContent) {
+        await db.worldMemories.put({ conversationId: cid, world: worldMemory });
+      } else {
+        await db.worldMemories.delete(cid);
+      }
     },
   );
 
@@ -365,10 +391,10 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, rescueRow, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, rescueRow, keywordRows, gameVarRows, macroVarRows, npcMemoryRows, worldMemoryRow] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -388,6 +414,8 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
           db.macroVars.where('conversationId').equals(cid).toArray(),
+          db.npcMemories.where('conversationId').equals(cid).toArray(),
+          db.worldMemories.get(cid),
         ]),
     );
 
@@ -517,6 +545,18 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   for (const row of macroVarRows) macroVars[row.name] = row.value;
   useTavernHelperStore.getState().setMacroVars(macroVars);
 
+  // NPC 心智档案（剥离关系键；clearAllGameState 已清空，此处显式恢复以覆盖切档）。
+  const npcMemoryMap: Record<string, import('../types/npc-world-memory').NpcMemory> = {};
+  for (const { conversationId: _cid, npcId, ...mem } of npcMemoryRows) {
+    npcMemoryMap[npcId] = mem;
+  }
+  useNpcMemoryStore.getState().replaceAll(npcMemoryMap);
+
+  // 世界心智档案（单行/会话；无行 → 空对象，clearAllGameState 已置空，此处显式恢复以覆盖切档）。
+  if (worldMemoryRow?.world) {
+    useWorldMemoryStore.getState().replace(worldMemoryRow.world);
+  }
+
   // 同步内存会话的 pages/pageCount，供 getActivePages 与会话列表使用。
   // （activeId 已在函数开头清空内存后同步设置，此处只需同步 pages。）
   useChatStore.getState().savePages(pages);
@@ -554,7 +594,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages', 'npcMemories', 'worldMemories'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -578,6 +618,9 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.consoleLogs.where('sessionId').equals(cid).delete();
       // 文生图本页插画 blob(2026-06-08) — pageImages 表
       await db.pageImages.where('conversationId').equals(cid).delete();
+      // Agent Memory(2026-06-10)
+      await db.npcMemories.where('conversationId').equals(cid).delete();
+      await db.worldMemories.delete(cid);
     },
   );
   clearDiagnosticsFor(cid); // 释放该会话的前缀诊断快照(违反 session-isolation invariant 的修复)

@@ -12,6 +12,8 @@ import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { triggerImageGenForPage } from '../../api/image-gen-trigger';
 import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
+import { useNpcMemoryStore } from '../../stores/useNpcMemoryStore';
+import { useWorldMemoryStore } from '../../stores/useWorldMemoryStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
@@ -213,6 +215,12 @@ export function Storybook() {
     // 老存档无快照则保留上面的「clearAll + 重放 npcUpdates」兜底。
     const lastNpcSnap = [...remaining].reverse().find((p) => p.npcSnapshot)?.npcSnapshot;
     if (lastNpcSnap) useNpcStore.getState().replaceAll(Object.values(lastNpcSnap));
+
+    // Agent Memory(2026-06-10) 回溯：与 sheet/npc 同模式。开关关闭过的会话无快照 → 不动 store。
+    const lastNpcMemSnap = [...remaining].reverse().find((p) => p.npcMemorySnapshot)?.npcMemorySnapshot;
+    if (lastNpcMemSnap) useNpcMemoryStore.getState().replaceAll(lastNpcMemSnap);
+    const lastWorldMemSnap = [...remaining].reverse().find((p) => p.worldMemorySnapshot)?.worldMemorySnapshot;
+    if (lastWorldMemSnap) useWorldMemoryStore.getState().replace(lastWorldMemSnap);
 
     // 检定记录回溯：从剩余页面的 diceResults 重建（newest-first），并补上页码。
     useDiceStore.getState().setHistory(

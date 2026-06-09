@@ -15,6 +15,7 @@ import type {
   Encounter,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
+import type { NpcMemory, WorldMemory } from '../types/npc-world-memory';
 
 // ===== KV (legacy single-table blob store; v1, unchanged in v2) =====
 interface KVRecord {
@@ -66,6 +67,16 @@ export type ClueRow = { conversationId: string; clueId: string } & Clue;
 
 // One NPC profile. Compound primary key [conversationId+npcId].
 export type NpcRow = { conversationId: string; npcId: string } & NpcProfile;
+
+// One NPC心智档案. Compound primary key [conversationId+npcId].
+// Agent Memory 开关开启时写入；关闭时不写。
+export type NpcMemoryRow = { conversationId: string; npcId: string } & NpcMemory;
+
+// 世界心智档案，一行/会话（与 darkEndings/keyClues 同范式）。
+export interface WorldMemoryRow {
+  conversationId: string;
+  world: WorldMemory;
+}
 
 // One map location node. Compound primary key [conversationId+locationId].
 export type MapLocationRow = { conversationId: string; locationId: string } & MapLocation;
@@ -174,6 +185,8 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   consoleLogs: EntityTable<ConsoleLogRow, 'id'>;
   pageImages: EntityTable<PageImageRow, 'pageId'>;
   rescue: EntityTable<RescueRow, 'conversationId'>;
+  npcMemories: EntityTable<NpcMemoryRow>;
+  worldMemories: EntityTable<WorldMemoryRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -293,6 +306,15 @@ export const V14_SCHEMA = {
 } as const;
 
 db.version(14).stores(V14_SCHEMA);
+
+/** v15: Agent Memory 系统(2026-06-10)。新增 NPC 心智档案 + 世界心智档案两张表(新表，无数据迁移)。 */
+export const V15_SCHEMA = {
+  ...V14_SCHEMA,
+  npcMemories: '[conversationId+npcId], conversationId',
+  worldMemories: '&conversationId',
+} as const;
+
+db.version(15).stores(V15_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
