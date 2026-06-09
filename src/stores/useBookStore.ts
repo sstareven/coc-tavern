@@ -121,6 +121,8 @@ interface BookStore {
   addPageSubCallStat: (index: number, stat: import('../types').PageSubCallStat) => void;
   /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
   setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
+  /** 按 index 覆写某页的 rescue 快照(回执提交后页锚定写回;删页 rebuild 据末页快照 hydrate)。 */
+  setPageRescue: (index: number, rescue: NonNullable<BookPage['rescue']>) => void;
   /** 按 index 覆写某页的 npcUpdates 与 npcSnapshot（供 BUG2 Part 2 补写 API 重纠后页锚定写回；删页快照式回溯据 npcSnapshot 恢复）。 */
   setPageNpcRectification: (index: number, npcUpdates: NpcUpdate[], npcSnapshot: Record<string, NpcProfile>) => void;
   /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
@@ -444,6 +446,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], darkThread };
+    return { pages };
+  }),
+  setPageRescue: (index, rescue) => set((s) => {
+    if (index < 0 || index >= s.pages.length) return s;
+    const pages = [...s.pages];
+    pages[index] = { ...pages[index], rescue };
     return { pages };
   }),
   setPageNpcRectification: (index, npcUpdates, npcSnapshot) => set((s) => {

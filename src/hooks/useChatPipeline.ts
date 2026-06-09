@@ -4,6 +4,7 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore, getEffectiveDsCache, getEffectiveSetting } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useRescueStore } from '../stores/useRescueStore';
 import { useClueStore } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
@@ -1601,6 +1602,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
         // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
         newPage.npcSnapshot = structuredClone(useNpcStore.getState().profiles);
+        // 拯救路径快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
+        newPage.rescue = useRescueStore.getState().toSnapshot();
 
         const bookStore = useBookStore.getState();
         // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。

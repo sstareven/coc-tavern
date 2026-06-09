@@ -2,6 +2,7 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { deriveStateChips, type ChipDescriptor } from './state-chips-data';
+import { RescueBar } from './RescueBar';
 
 const NO_VALUE = '未知';
 
@@ -109,6 +110,8 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
             />
           </div>
         )}
+        {/* 拯救路径横条(compact);潜伏态组件自身返回 null */}
+        <div style={{ width: '100%' }}><RescueBar compact /></div>
       </div>
     );
   }
@@ -178,6 +181,8 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
         posture={posture} conditions={statusConditions}
         temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
       />
+      {/* 拯救路径横条(桌面态);潜伏态组件自身返回 null */}
+      <div style={{ width: '100%', maxWidth: 600 }}><RescueBar /></div>
     </div>
   );
 }

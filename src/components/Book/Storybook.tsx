@@ -7,6 +7,7 @@ import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { useClueStore } from '../../stores/useClueStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
+import { useRescueStore } from '../../stores/useRescueStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { triggerImageGenForPage } from '../../api/image-gen-trigger';
 import { NpcOverlay } from '../NPC/NpcOverlay';
@@ -217,6 +218,12 @@ export function Storybook() {
     useDiceStore.getState().setHistory(
       remaining.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),
     );
+
+    // 拯救路径回溯:与 sheet/npc 同模式,从剩余末页含 rescue 快照的页 hydrate;
+    // 老存档无快照则保持 clear() 后空态(globalStatus='潜伏' RescueBar 不渲染)。
+    useRescueStore.getState().clear();
+    const lastRescueSnap = [...remaining].reverse().find((p) => p.rescue)?.rescue;
+    if (lastRescueSnap) useRescueStore.getState().hydrateFromSnapshot(lastRescueSnap);
 
     persistActiveGameState();
   };

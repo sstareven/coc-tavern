@@ -102,6 +102,20 @@ export interface BookPage {
   /** 本页独立抽取的地点元素（页锚定，随页持久化，供删页重放重建）。 */
   locationElements?: LocationElementInput[];
   darkThread?: DarkThreadData;
+  /** 本回合结束时的拯救路径快照(全局状态/胜出路径/各路径进度)——随页持久化,
+   *  供翻页回看历史进度、删页回溯重建运行态。老存档为 undefined → RescueBar 不渲染。
+   *  结构与 useRescueStore.RescueSnapshot 一致;字面声明避免循环依赖。 */
+  rescue?: {
+    paths: Array<{
+      endingId: string;
+      unlocked: boolean;
+      progress: number;
+      achievedMilestoneIds: string[];
+      lastNarration?: string;
+    }>;
+    globalStatus: '潜伏' | '对峙' | '锁定';
+    winningEndingId: string | null;
+  };
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
   /** 本回合结束时的 NPC 名册快照（按 id）——供删页快照式回溯人物状态（含战斗结算的昏迷/死亡等）。 */
