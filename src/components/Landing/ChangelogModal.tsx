@@ -2340,8 +2340,8 @@ export function ChangelogModal() {
                   ? 'calc(10px * var(--system-ratio, 1))'
                   : 'calc(11px * var(--system-ratio, 1))',
                 textAlign: 'center', letterSpacing: isMobile ? 2 : 4,
-                color: ri === 0 ? 'var(--gold)' : 'var(--ink-subtle)',
-                opacity: ri === 0 ? 1 : 0.7,
+                color: ri === 0 ? 'var(--gold)' : 'var(--text-light)',
+                opacity: ri === 0 ? 1 : 0.88,
                 marginTop: 0, marginBottom: isMobile ? 10 : 14,
                 paddingBottom: 8, borderBottom: '1px solid rgba(196,168,85,0.15)',
               }}>
@@ -2349,7 +2349,7 @@ export function ChangelogModal() {
               </p>
 
               {/* 大类 → 子类 → 条目(StS 风格分层) */}
-              <div style={{ opacity: ri === 0 ? 1 : 0.78 }}>
+              <div style={{ opacity: ri === 0 ? 1 : 0.92 }}>
                 {rel.sections.map((sec, si) => (
                   <div key={`${rel.version}-sec-${si}`} style={{ marginBottom: isMobile ? 10 : 14 }}>
                     {/* 大类标题 */}
@@ -2378,9 +2378,10 @@ export function ChangelogModal() {
                               ? 'calc(11px * var(--system-ratio, 1))'
                               : 'calc(12px * var(--system-ratio, 1))',
                             fontFamily: 'var(--font-ui)',
-                            color: 'var(--brass, #b89968)',
+                            color: 'var(--gold)',
                             letterSpacing: isMobile ? 0.8 : 1.2,
                             fontStyle: 'italic',
+                            opacity: 0.92,
                             marginBottom: isMobile ? 3 : 4,
                           }}>
                             {grp.title}:
