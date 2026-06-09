@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore, TEXT_RATIO_MIN, TEXT_RATIO_MAX } from '../../stores/useSettingsStore';
+import { useChatStore } from '../../stores/useChatStore';
 import { useStatusToastStore } from '../../stores/useStatusToastStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
@@ -347,6 +348,16 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setJsonRetryCount = useSettingsStore((s) => s.setJsonRetryCount);
   const streamingPrintEnabled = useSettingsStore((s) => s.streamingPrintEnabled);
   const setStreamingPrintEnabled = useSettingsStore((s) => s.setStreamingPrintEnabled);
+  const agentMemoryDefault = useSettingsStore((s) => s.agentMemoryDefault);
+  const setAgentMemoryDefault = useSettingsStore((s) => s.setAgentMemoryDefault);
+  const activeId = useChatStore((s) => s.activeId);
+  const activeSessionAme = useChatStore((s) => s.sessions.find((c) => c.id === activeId)?.agentMemoryEnabled);
+  const setSessionAgentMemory = (v: boolean | undefined) => {
+    if (!activeId) return;
+    useChatStore.setState((s) => ({
+      sessions: s.sessions.map((c) => (c.id === activeId ? { ...c, agentMemoryEnabled: v } : c)),
+    }));
+  };
   const rpmLimit = useSettingsStore((s) => s.rpmLimit);
   const setRpmLimit = useSettingsStore((s) => s.setRpmLimit);
   const perApiRpmEnabled = useSettingsStore((s) => s.perApiRpmEnabled);
@@ -588,6 +599,64 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   </span>
                   <Toggle on={streamingPrintEnabled} onChange={() => setStreamingPrintEnabled(!streamingPrintEnabled)} />
                 </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    Agent 心智档案（默认）
+                    <HelpIcon text={'开启后，重要 NPC 和世界本身将各自拥有「心智档案」：硬字段（目标 / 下一步 / 对调查员的信任与情绪 / 秘密 / 与其他 NPC 的关系）+ 自由散文心思。\n\nLLM 会把这些心智档案作为独立通路注入主回合 prompt，让 NPC 像有自主意图的 Agent 而不是被动数值。\n\n核心 NPC 升级时会触发一次独立立卡子调用；世界 Memory 每回合 fire-and-forget 子调用，目标 3 RPM。\n\n这是新建会话的默认值；每个存档下面可单独覆盖。默认关。'} />
+                  </span>
+                  <Toggle on={agentMemoryDefault} onChange={() => setAgentMemoryDefault(!agentMemoryDefault)} />
+                </div>
+
+                {activeId && (
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>
+                      本会话覆盖
+                      <HelpIcon text={'当前会话独立设置：跟随全局默认 / 强制开启 / 强制关闭。\n\n切换为强制开后，本会话立即获得 Agent 心智档案能力；切换为强制关则关闭该能力。\n\n选择「跟随默认」则恢复跟随上面的全局开关。'} />
+                    </span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => setSessionAgentMemory(undefined)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: 'calc(11px * var(--system-ratio, 1))',
+                          fontFamily: 'var(--font-ui)',
+                          border: '1px solid var(--ink-faded)',
+                          background: activeSessionAme === undefined ? 'var(--ink-ledger)' : 'transparent',
+                          color: activeSessionAme === undefined ? 'var(--paper)' : 'var(--ink)',
+                          cursor: 'pointer',
+                        }}
+                      >跟随默认</button>
+                      <button
+                        type="button"
+                        onClick={() => setSessionAgentMemory(true)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: 'calc(11px * var(--system-ratio, 1))',
+                          fontFamily: 'var(--font-ui)',
+                          border: '1px solid var(--ink-faded)',
+                          background: activeSessionAme === true ? 'var(--ink-ledger)' : 'transparent',
+                          color: activeSessionAme === true ? 'var(--paper)' : 'var(--ink)',
+                          cursor: 'pointer',
+                        }}
+                      >强制开</button>
+                      <button
+                        type="button"
+                        onClick={() => setSessionAgentMemory(false)}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: 'calc(11px * var(--system-ratio, 1))',
+                          fontFamily: 'var(--font-ui)',
+                          border: '1px solid var(--ink-faded)',
+                          background: activeSessionAme === false ? 'var(--ink-ledger)' : 'transparent',
+                          color: activeSessionAme === false ? 'var(--paper)' : 'var(--ink)',
+                          cursor: 'pointer',
+                        }}
+                      >强制关</button>
+                    </div>
+                  </div>
+                )}
 
                 <div style={rowStyle}>
                   <span style={labelStyle}>

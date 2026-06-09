@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNpcStore } from '../../stores/useNpcStore';
+import { useNpcMemoryStore } from '../../stores/useNpcMemoryStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useChatStore } from '../../stores/useChatStore';
+import { runNpcMemoryCard } from '../../sillytavern/npc-memory-extractor';
+import { buildImportantNpcMemoryTemplate } from '../../types/npc-world-memory';
 import { useBookStore } from '../../stores/useBookStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MobilePageToggle, type Side } from '../Book/MobilePageToggle';
@@ -173,6 +178,36 @@ function InteractionMenu({ npc }: { npc: NpcProfile }) {
 function NpcCard({ npc }: { npc: NpcProfile }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [memOpen, setMemOpen] = useState(false);
+  // Agent Memory 摘要带——只在开关开启 + importance ∈ {核心,重要} 时显示。
+  const ame = useChatStore((s) => {
+    const ses = s.sessions.find((c) => c.id === s.activeId);
+    return ses?.agentMemoryEnabled;
+  });
+  const ameDefault = useSettingsStore((s) => s.agentMemoryDefault);
+  const ameActive = (ame ?? ameDefault) === true;
+  const showMemory = ameActive && (npc.importance === '核心' || npc.importance === '重要');
+  const memory = useNpcMemoryStore((s) => s.memories[npc.id]);
+  const pending = useNpcMemoryStore((s) => s.pendingCardIds.includes(npc.id));
+  const recardNpc = () => {
+    if (pending) return;
+    useNpcMemoryStore.getState().addPending(npc.id);
+    const digest = `${npc.name}|${npc.identity ?? ''}|位置:${npc.locationName ?? '未知'}|状态:${npc.status ?? ''}`;
+    const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n').slice(0, 1200);
+    void runNpcMemoryCard({
+      npcId: npc.id,
+      npcName: npc.name,
+      npcDigest: digest,
+      scenarioCtx: recent,
+    })
+      .then((card) => {
+        useNpcMemoryStore.getState().removePending(npc.id);
+        const turn = useBookStore.getState().pages.length;
+        if (card) useNpcMemoryStore.getState().setMemory(npc.id, { ...card, updatedAt: turn });
+        else useNpcMemoryStore.getState().setMemory(npc.id, buildImportantNpcMemoryTemplate(turn));
+      })
+      .catch(() => useNpcMemoryStore.getState().removePending(npc.id));
+  };
   // 6 段背景独立折叠态，默认全收起；玩家点哪段展开哪段
   const [foldedOpen, setFoldedOpen] = useState<Set<string>>(new Set());
   const toggleFolded = (key: string) => {
@@ -209,6 +244,96 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
         {npc.appearance && <div style={{ fontSize: 'calc(11.5px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.5, ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{npc.appearance}</div>}
         <div style={{ marginTop: 7 }}><FavBar value={npc.favorability} /></div>
       </div>
+      {showMemory && (
+        <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.18)' }}>
+          {pending ? (
+            <div style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
+              心思浮现中……
+            </div>
+          ) : memory ? (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink)', fontFamily: 'var(--font-body)' }}>
+                <span><span style={{ color: 'var(--gold)' }}>目标：</span>{memory.goal || '（未浮现）'}</span>
+                <span><span style={{ color: 'var(--gold)' }}>下一步：</span>{memory.nextMove || '（未浮现）'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: 'calc(10px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>
+                <span style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.35)', borderRadius: 3, padding: '1px 6px' }}>{memory.emotionToPC}</span>
+                <span style={{ width: 80, height: 4, background: 'rgba(var(--ink-faded-rgb),0.15)', borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
+                  <span style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 0,
+                    height: '100%',
+                    width: `${Math.abs(memory.trustOnPC) * 50}%`,
+                    transform: memory.trustOnPC >= 0 ? 'none' : 'translateX(-100%)',
+                    background: memory.trustOnPC >= 0 ? 'var(--gold)' : 'var(--blood)',
+                  }} />
+                </span>
+                <span>{memory.trustOnPC.toFixed(2)}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setMemOpen((v) => !v); }}
+                  style={{
+                    marginLeft: 'auto', fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
+                    border: '1px solid rgba(var(--ink-faded-rgb),0.35)', background: 'transparent',
+                    color: 'var(--ink-subtle)', cursor: 'pointer', borderRadius: 3, padding: '1px 6px',
+                  }}
+                >{memOpen ? '收起心思' : '展开心思'}</button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); recardNpc(); }}
+                  style={{
+                    fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
+                    border: '1px solid rgba(var(--ink-faded-rgb),0.35)', background: 'transparent',
+                    color: 'var(--ink-subtle)', cursor: 'pointer', borderRadius: 3, padding: '1px 6px',
+                  }}
+                >重立心智</button>
+              </div>
+              {memOpen && (
+                <div style={{ marginTop: 6, fontSize: 'calc(11px * var(--system-ratio, 1))', fontFamily: 'var(--font-body)', color: 'var(--ink)', lineHeight: 1.6 }}>
+                  {memory.secrets.length > 0 && (
+                    <div style={{ marginBottom: 4 }}>
+                      <span style={{ color: 'var(--gold)' }}>秘密：</span>{memory.secrets.join('；')}
+                    </div>
+                  )}
+                  {memory.relationships.length > 0 && (
+                    <div style={{ marginBottom: 4 }}>
+                      <span style={{ color: 'var(--gold)' }}>关系：</span>
+                      <ul style={{ margin: '2px 0 0 16px', padding: 0 }}>
+                        {memory.relationships.map((r, i) => (
+                          <li key={`${r.target}-${i}`} style={{ marginBottom: 2 }}>
+                            对 {r.target}（{r.emotion}）：{r.note}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {memory.prose && (
+                    <div style={{ fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>
+                      {memory.prose}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
+                心思未浮现
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); recardNpc(); }}
+                style={{
+                  fontSize: 'calc(10px * var(--system-ratio, 1))', fontFamily: 'var(--font-ui)',
+                  border: '1px solid rgba(var(--ink-faded-rgb),0.35)', background: 'transparent',
+                  color: 'var(--ink-subtle)', cursor: 'pointer', borderRadius: 3, padding: '1px 6px',
+                }}
+              >立即立卡</button>
+            </div>
+          )}
+        </div>
+      )}
       {npc.isPresent && menuOpen && <InteractionMenu npc={npc} />}
       {open && (
         <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px dashed rgba(var(--ink-faded-rgb),0.2)' }}>

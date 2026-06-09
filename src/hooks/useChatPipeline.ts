@@ -7,6 +7,11 @@ import { useDarkThreadStore } from '../stores/useDarkThreadStore';
 import { useRescueStore } from '../stores/useRescueStore';
 import { useClueStore } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
+import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
+import { useWorldMemoryStore } from '../stores/useWorldMemoryStore';
+import { runNpcMemoryCard } from '../sillytavern/npc-memory-extractor';
+import { runWorldMemoryUpdate } from '../sillytavern/world-memory-extractor';
+import { buildImportantNpcMemoryTemplate, EMPTY_NPC_MEMORY } from '../types/npc-world-memory';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useKeyClueStore } from '../stores/useKeyClueStore';
@@ -587,6 +592,42 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const curLocNameForNpc = msNow.locations.find((l) => l.id === msNow.currentLocationId)?.name ?? '';
         const npcCtx = useNpcStore.getState().buildContextInjection(curLocNameForNpc);
         if (npcCtx) addFormatPart(npcCtx);
+      }
+      // Agent Memory(2026-06-10) 注入:开关开启时,把 NPC 心智档案与世界心思作为独立通路并入主回合 prompt。
+      // 分层注入(per D2 设计):核心 NPC 永远完整 / 重要 NPC 在场完整、离场简版。
+      if (!formatOverride) {
+        const chatNowAme = useChatStore.getState();
+        const sessionAme = chatNowAme.sessions.find((c) => c.id === chatNowAme.activeId);
+        const ameInject = (sessionAme?.agentMemoryEnabled ?? useSettingsStore.getState().agentMemoryDefault) === true;
+        if (ameInject) {
+          const msAme = useMapStore.getState();
+          const curLocNameAme = msAme.locations.find((l) => l.id === msAme.currentLocationId)?.name ?? '';
+          const npcAll = useNpcStore.getState().profiles;
+          const coreIds: string[] = [];
+          const importantIdsByLocation: Record<string, string[]> = {};
+          const absentImportantIds: string[] = [];
+          for (const [id, p] of Object.entries(npcAll)) {
+            if (p.importance === '核心') coreIds.push(id);
+            else if (p.importance === '重要') {
+              const loc = (p.locationName ?? '').trim();
+              if (loc && loc === curLocNameAme) {
+                (importantIdsByLocation[loc] ||= []).push(id);
+              } else {
+                absentImportantIds.push(id);
+              }
+            }
+          }
+          const memCtx = useNpcMemoryStore.getState().buildContextInjection({
+            currentLocationName: curLocNameAme,
+            coreIds,
+            importantIdsByLocation,
+            absentImportantIds,
+            nameOf: (id) => npcAll[id]?.name ?? id,
+          });
+          if (memCtx) addFormatPart(memCtx);
+          const worldCtx = useWorldMemoryStore.getState().buildContextInjection();
+          if (worldCtx) addFormatPart(worldCtx);
+        }
       }
       // 注入调查员位置 anchor:显式告知 LLM 当前所在地点(并对比上回合位置以加强位移感知)
       // — 杜绝调查员"忘记自己在哪",配合 currentLocationEcho 字段做闭环 echo 校验。
@@ -1337,6 +1378,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const megaPlayerId = megaScenarioId
               ? (useCharSheetStore.getState().sheet.identity.name || 'player')
               : null;
+            // Agent Memory(2026-06-10) effective 开关:per-conversation 三态优先,undefined 回落全局默认。
+            const agentMemoryEnabled = (session1?.agentMemoryEnabled ?? useSettingsStore.getState().agentMemoryDefault) === true;
+            const turnForMega = useBookStore.getState().pages.length;
 
             const megaInput = buildMegaAgentInput({
               narrative: hookProcessedContent,
@@ -1347,6 +1391,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               unknownKeywords: extractKwTaggedKeywords(hookProcessedContent).filter((k) => !knownKeywords.has(k)),
               scenarioId: megaScenarioId,
               playerId: megaPlayerId,
+              agentMemoryEnabled,
             });
 
             const eff = mvuSettings.getEffectiveMvuApi();
@@ -1357,7 +1402,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               signal: controller.signal,
             });
             mvuUsage = megaResult.usage;
-            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId });
+            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId, agentMemoryEnabled, turn: turnForMega });
             pushLog(
               megaResult.fallback ? 'warn' : 'info',
               `[MVU 综合] ${megaResult.fallback ? '回退到 extractVariables 路径' : '一次综合调用'}:` +
@@ -1365,9 +1410,85 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 ` / 关键词 ${summary.keywordsAdded} / 支柱命中 ${summary.evaluateKeyCluesMatches}` +
                 ` / 地点元素 ${summary.locationElementsAdded} / 线索整合 ${summary.clueIntegrationCount}` +
                 ` / 地点整合 ${summary.locationIntegrationCount} / 地图修正 ${summary.mapReconcileActions}` +
-                ` / 关系演化 ${summary.partyRelationDeltasApplied} / 脱队 ${summary.partyConflictsResolved}`,
+                ` / 关系演化 ${summary.partyRelationDeltasApplied} / 脱队 ${summary.partyConflictsResolved}` +
+                (agentMemoryEnabled ? ` / 心智档案 ${summary.npcMemoryUpdatesApplied}` : ''),
               'system',
             );
+
+            // Agent Memory(2026-06-10) 冷启动 + 世界 Memory 子调用,均 fire-and-forget。
+            if (agentMemoryEnabled) {
+              const npcAll = useNpcStore.getState().profiles;
+              const memStore = useNpcMemoryStore.getState();
+              for (const [id, p] of Object.entries(npcAll)) {
+                if (!p.name) continue;
+                const curMem = memStore.memories[id];
+                if (p.importance === '核心') {
+                  // 核心立卡:仅当 prose 为空时触发(避免重复立卡)。
+                  if (!curMem || !curMem.prose) {
+                    if (!memStore.pendingCardIds.includes(id)) {
+                      memStore.addPending(id);
+                      const digest = `${p.name}|${p.identity ?? ''}|位置:${p.locationName ?? '未知'}|状态:${p.status ?? ''}`;
+                      void runNpcMemoryCard({
+                        npcId: id,
+                        npcName: p.name,
+                        npcDigest: digest,
+                        scenarioCtx: hookProcessedContent.slice(0, 1200),
+                      })
+                        .then((card) => {
+                          useNpcMemoryStore.getState().removePending(id);
+                          if (card) {
+                            useNpcMemoryStore.getState().setMemory(id, { ...card, updatedAt: turnForMega });
+                          } else {
+                            // fail-open:沿用模板默认值
+                            useNpcMemoryStore.getState().setMemory(id, buildImportantNpcMemoryTemplate(turnForMega));
+                          }
+                        })
+                        .catch(() => useNpcMemoryStore.getState().removePending(id));
+                    }
+                  }
+                } else if (p.importance === '重要') {
+                  // 重要 NPC:首次出现时模板填充(0 RPM,程序内同步)。
+                  if (!curMem) {
+                    memStore.setMemory(id, buildImportantNpcMemoryTemplate(turnForMega));
+                  }
+                }
+              }
+
+              // 世界 Memory 子调用 fire-and-forget(开关开启 → +1 RPM/回合)。
+              // 全空时触发 bootstrap=true 给世界一份开局心思,避免「永远空 Memory」。
+              const curWorld = useWorldMemoryStore.getState().world;
+              const isWorldEmpty = !curWorld.darkThread
+                && !curWorld.atmosphere
+                && !curWorld.prose
+                && curWorld.unrevealed.length === 0
+                && Object.keys(curWorld.keywordMeanings).length === 0;
+              useWorldMemoryStore.getState().setPending(true);
+              void runWorldMemoryUpdate({
+                current: curWorld,
+                recentNarrative: hookProcessedContent.slice(0, 2000),
+                bootstrap: isWorldEmpty,
+                scenarioCtx: isWorldEmpty ? hookProcessedContent.slice(0, 800) : undefined,
+              })
+                .then((upd) => {
+                  if (upd) {
+                    useWorldMemoryStore.getState().applyUpdate(upd, turnForMega);
+                    // 同步写回 darkThread/keywordMeanings 旧 store,保 RescueBar/KeywordTooltip 等下游 UI 正常。
+                    if (upd.darkThread && upd.darkThread.trim()) {
+                      useDarkThreadStore.getState().addEntry({
+                        progress: useDarkThreadStore.getState().entries.at(-1)?.progress ?? 0,
+                        threatLevel: useDarkThreadStore.getState().entries.at(-1)?.threatLevel ?? '潜伏',
+                        details: upd.darkThread,
+                        foreshadowing: '',
+                      });
+                    }
+                    if (upd.keywordMeaningsUpsert && Object.keys(upd.keywordMeaningsUpsert).length > 0) {
+                      useKeywordStore.getState().addKeywords(upd.keywordMeaningsUpsert);
+                    }
+                  }
+                })
+                .catch(() => { /* fail-open */ })
+                .finally(() => useWorldMemoryStore.getState().setPending(false));
+            }
           } catch (err) {
             pushLog(
               'warn',
@@ -1610,6 +1731,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
         // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
         newPage.npcSnapshot = structuredClone(useNpcStore.getState().profiles);
+        // Agent Memory(2026-06-10) 快照——开关开启的会话才写,关闭的留 undefined。删页/回溯时一同滚回。
+        // 重新计算 effective 值(megaagent 块的局部 agentMemoryEnabled 不在本作用域)。
+        {
+          const chatNowSnap = useChatStore.getState();
+          const sessionSnap = chatNowSnap.sessions.find((c) => c.id === chatNowSnap.activeId);
+          const ameSnap = (sessionSnap?.agentMemoryEnabled ?? useSettingsStore.getState().agentMemoryDefault) === true;
+          if (ameSnap) {
+            newPage.npcMemorySnapshot = structuredClone(useNpcMemoryStore.getState().memories);
+            newPage.worldMemorySnapshot = structuredClone(useWorldMemoryStore.getState().world);
+          }
+        }
         // 拯救路径快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
         newPage.rescue = useRescueStore.getState().toSnapshot();
 

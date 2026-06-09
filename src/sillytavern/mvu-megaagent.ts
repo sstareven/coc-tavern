@@ -44,6 +44,8 @@ import type { RelationType, ScenarioCharacter } from '../types/scenario';
 import { extractVariablesWithLLM } from './mvu-extractor';
 import type { TokenUsage } from './stream-parser';
 import { setTreePath } from './mvu-var-access';
+import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
+import { normalizeEmotion, type NpcMemoryUpdate } from '../types/npc-world-memory';
 
 // ────────── 阈值常量(代码侧判定触发) ──────────
 
@@ -85,6 +87,16 @@ const OUTPUT_SCHEMA_DESC = `{
     "removeEdges": [ { "from": "string", "to": "string" } ],
     "merges": [ { "keep": "string", "drop": "string" } ]
   },
+  "npcMemoryUpdates": null | [ {
+    "name": "string",
+    "goal"?: "string",
+    "nextMove"?: "string",
+    "trustOnPC"?: -1~1,
+    "emotionToPC"?: "敌意"|"警惕"|"中立"|"友好"|"暧昧"|"恐惧",
+    "secretsAdd"?: ["string"],
+    "relationshipsUpsert"?: [ { "target": "string", "emotion": "敌意|警惕|中立|友好|暧昧|恐惧", "note": "string" } ],
+    "prose"?: "string"
+  } ],
   "cleanedText": "string",
   "_meta": { "skippedTasks": ["string"], "notes": "string" }
 }`;
@@ -111,6 +123,7 @@ const SYSTEM_PROMPT_A = `你是一位克苏鲁的呼唤(COC)跑团的资深守�
 - trigger.darkThread:除 isEpilogue=true 外永远 true。
 - trigger.evaluateKeyClues:newClues.length > 0 且 livePillars.length > 0 时为 true。
 - trigger.partyRelations:小队人数≥2 或叙事中多角色互动时为 true;返回真实发生变化的边,无变化返回 {"deltas":[]};"newType":"stranger" 表示删除该边变回陌生。
+- trigger.npcMemoryUpdates:agentMemoryEnabled=true 且本回合有 importance ∈ {核心,重要} 的 NPC 出场或动作时为 true。**仅对本回合被叙事直接涉及（出场/对调查员有反应/发起动作）的 NPC 输出 update**，未涉及的 NPC 不要写。所有字段可选——只写本回合"心思真的变化"的字段，无变化整条 update 不输出。trustOnPC 范围 -1~1（每回合最多 ±0.3 的微调，避免剧烈跳变）。emotionToPC / relationships[].emotion 必须落六选一枚举。relationshipsUpsert 仅写本回合关系发生变化的对象；target 一律写 NPC 真名。secretsAdd 仅追加新秘密（不输出整段已有秘密）。prose 仅当心思发生实质性演变时整段重写（300~500 字）。agentMemoryEnabled=false 时整个字段输出 null（不要给空数组）。
 
 输出 Schema:
 ${OUTPUT_SCHEMA_DESC}`;
@@ -132,6 +145,7 @@ export interface MegaAgentTrigger {
   locationIntegrate: boolean;
   mapReconcile: boolean;
   partyRelations: boolean;
+  npcMemoryUpdates: boolean;
 }
 
 export interface PartyRelationDelta {
@@ -165,6 +179,10 @@ export interface MegaAgentInput {
   mapEdgesDigest: { from: string; to: string; description?: string }[];
   newMapDigest: { newLocations: string[]; newEdges: { from: string; to: string }[] };
   unknownKeywords: string[];
+  /** Agent Memory 开关 effective 值(2026-06-10);false 时 LLM 不输出 npcMemoryUpdates。 */
+  agentMemoryEnabled: boolean;
+  /** 当前重要/核心 NPC 的心智档案摘要(供 LLM 增量参考;关闭时空串)。 */
+  npcMemoryDigest: string;
   trigger: MegaAgentTrigger;
 }
 
@@ -189,6 +207,8 @@ export interface MegaAgentResult {
     merges: { keep: string; drop: string }[];
   } | null;
   partyRelations: { deltas: PartyRelationDelta[] } | null;
+  /** 本回合 NPC 心智档案增量(2026-06-10);agentMemoryEnabled=false 时为 null。 */
+  npcMemoryUpdates: NpcMemoryUpdate[] | null;
   /** 集成测试/UI 显示用。 */
   usage?: TokenUsage;
   /** 走回退路径时为 true(综合 A 失败,只拿到 variables)。 */
@@ -214,6 +234,8 @@ export function buildMegaAgentInput(opts: {
   scenarioId: string | null;
   /** 当前玩家(调查员)在剧本里的角色 id(自由会话为 null)。 */
   playerId: string | null;
+  /** Agent Memory 开关 effective 值(2026-06-10)。 */
+  agentMemoryEnabled: boolean;
 }): MegaAgentInput {
   const sheet = useCharSheetStore.getState().sheet;
   const investigatorName = sheet?.identity?.name ?? '调查员';
@@ -277,7 +299,23 @@ export function buildMegaAgentInput(opts: {
     locationIntegrate: locElementCount > LOCATION_ELEMENT_CAP,
     mapReconcile: opts.newLocations.length > 0 || opts.newEdges.length > 0,
     partyRelations: partyRelationsTrigger,
+    npcMemoryUpdates: opts.agentMemoryEnabled,
   };
+
+  // NPC Memory 摘要(Agent Memory 开启时构造;关闭直接空串以保 prompt 缓存命中)。
+  let npcMemoryDigest = '';
+  if (opts.agentMemoryEnabled) {
+    const npcStore = useNpcStore.getState();
+    const memStore = useNpcMemoryStore.getState();
+    const lines: string[] = [];
+    for (const [id, mem] of Object.entries(memStore.memories)) {
+      const profile = npcStore.profiles[id];
+      if (!profile) continue;
+      if (profile.importance !== '核心' && profile.importance !== '重要') continue;
+      lines.push(`- ${profile.name}(${profile.importance}): goal="${mem.goal}" nextMove="${mem.nextMove}" emo=${mem.emotionToPC}/${mem.trustOnPC.toFixed(2)}`);
+    }
+    npcMemoryDigest = lines.length > 0 ? lines.join('\n') : '(尚无心智档案,请按需新建)';
+  }
 
   return {
     scenarioId: opts.scenarioId,
@@ -300,6 +338,8 @@ export function buildMegaAgentInput(opts: {
     mapEdgesDigest,
     newMapDigest: { newLocations: opts.newLocations, newEdges: opts.newEdges },
     unknownKeywords: opts.unknownKeywords,
+    agentMemoryEnabled: opts.agentMemoryEnabled,
+    npcMemoryDigest,
     trigger,
   };
 }
@@ -357,6 +397,7 @@ ${input.narrative}
 - 本回合主 API 报告的 newLocations/newEdges:${JSON.stringify(input.newMapDigest)}
 - 叙事中出现且未知的关键词 unknownKeywords:${JSON.stringify(input.unknownKeywords)}
 - 触发标志:${JSON.stringify(input.trigger)}
+- Agent Memory 开关 agentMemoryEnabled:${input.agentMemoryEnabled}${input.agentMemoryEnabled ? `\n- 当前 NPC 心智档案摘要(供增量参考):\n${input.npcMemoryDigest}` : ''}
 
 请按 Schema 一次性输出全部字段。`;
 
@@ -376,6 +417,7 @@ const EMPTY_RESULT: Omit<MegaAgentResult, 'usage' | 'fallback'> = {
   locationIntegration: null,
   mapReconcile: null,
   partyRelations: null,
+  npcMemoryUpdates: null,
 };
 
 interface RunOpts {
@@ -569,6 +611,39 @@ function parseMegaAgentResponse(parsed: Record<string, unknown>, usage?: TokenUs
     partyRelations = { deltas };
   }
 
+  // npcMemoryUpdates(2026-06-10):agentMemoryEnabled=false 时 LLM 输出 null,这里直接返 null。
+  let npcMemoryUpdates: MegaAgentResult['npcMemoryUpdates'] = null;
+  if (Array.isArray(parsed.npcMemoryUpdates)) {
+    const arr = (parsed.npcMemoryUpdates as Record<string, unknown>[])
+      .map((u): NpcMemoryUpdate | null => {
+        const name = asString(u?.name).trim();
+        if (!name) return null;
+        const out: NpcMemoryUpdate = { name };
+        if (typeof u?.goal === 'string' && u.goal.trim()) out.goal = u.goal.trim();
+        if (typeof u?.nextMove === 'string' && u.nextMove.trim()) out.nextMove = u.nextMove.trim();
+        if (typeof u?.trustOnPC === 'number' && Number.isFinite(u.trustOnPC)) out.trustOnPC = u.trustOnPC;
+        if (u?.emotionToPC !== undefined) out.emotionToPC = normalizeEmotion(u.emotionToPC);
+        if (Array.isArray(u?.secretsAdd)) {
+          const sa = (u.secretsAdd as unknown[]).filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+          if (sa.length > 0) out.secretsAdd = sa;
+        }
+        if (Array.isArray(u?.relationshipsUpsert)) {
+          const rs = (u.relationshipsUpsert as Record<string, unknown>[])
+            .map((r) => ({
+              target: asString(r?.target).trim(),
+              emotion: normalizeEmotion(r?.emotion),
+              note: typeof r?.note === 'string' ? r.note : '',
+            }))
+            .filter((r) => r.target);
+          if (rs.length > 0) out.relationshipsUpsert = rs;
+        }
+        if (typeof u?.prose === 'string' && u.prose.trim()) out.prose = u.prose.trim();
+        return out;
+      })
+      .filter((x): x is NpcMemoryUpdate => x !== null);
+    npcMemoryUpdates = arr;
+  }
+
   return {
     variables,
     cleanedText,
@@ -580,6 +655,7 @@ function parseMegaAgentResponse(parsed: Record<string, unknown>, usage?: TokenUs
     locationIntegration,
     mapReconcile,
     partyRelations,
+    npcMemoryUpdates,
     usage,
   };
 }
@@ -603,11 +679,16 @@ export interface DispatchSummary {
   mapReconcileActions: number;
   partyRelationDeltasApplied: number;
   partyConflictsResolved: number;
+  npcMemoryUpdatesApplied: number;
 }
 
 export interface DispatchOpts {
   /** 剧本 id;为应用 partyRelations 必需。自由会话或无剧本时传 null,该字段无效。 */
   scenarioId: string | null;
+  /** Agent Memory 开关 effective 值(2026-06-10);false 时即使 LLM 输出 npcMemoryUpdates 也跳过。 */
+  agentMemoryEnabled?: boolean;
+  /** 当前回合索引(pages.length),写入 NpcMemory.updatedAt。 */
+  turn?: number;
 }
 
 export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchOpts = { scenarioId: null }): DispatchSummary {
@@ -622,6 +703,7 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
     mapReconcileActions: 0,
     partyRelationDeltasApplied: 0,
     partyConflictsResolved: 0,
+    npcMemoryUpdatesApplied: 0,
   };
 
   // variables → useVariableStore
@@ -747,6 +829,17 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
   // 让 RescueBar / buildContextInjection 读到最新一致快照。
   // 即便本回合无 variables/darkThread,也调一次——LLM 可能只改了 剧情.救援.* 字段。
   useRescueStore.getState().hydrateFromStatData(useVariableStore.getState().statData);
+
+  // npcMemoryUpdates → useNpcMemoryStore(2026-06-10)。开关关闭时即使 LLM 输出也跳过,保持空 store。
+  if (opts.agentMemoryEnabled && result.npcMemoryUpdates && result.npcMemoryUpdates.length > 0) {
+    const npcStore = useNpcStore.getState();
+    const turn = typeof opts.turn === 'number' ? opts.turn : 0;
+    useNpcMemoryStore.getState().applyUpdates(result.npcMemoryUpdates, turn, {
+      findIdByName: (name) => npcStore.findIdByName(name),
+      isScenarioPreset: (id) => npcStore.profiles[id]?.isScenarioPreset === true,
+    });
+    summary.npcMemoryUpdatesApplied = result.npcMemoryUpdates.length;
+  }
 
   return summary;
 }
