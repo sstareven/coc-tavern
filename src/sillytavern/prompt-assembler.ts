@@ -1,4 +1,5 @@
 import type { ChatPreset, ChatMessage, LoreEntry } from '../types';
+import { escapeRegexMetachars } from './regex-engine';
 
 export interface AssembledMessage {
   role: 'system' | 'user' | 'assistant';
@@ -54,7 +55,7 @@ function keyMatch(ctx: string, key: string, caseSensitive: boolean, wholeWord: b
   const haystack = caseSensitive ? ctx : ctx.toLowerCase();
   const needle = caseSensitive ? key : key.toLowerCase();
   if (wholeWord) {
-    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escapeRegexMetachars(needle);
     return new RegExp(`(?:^|\\b|[\\s,，.。!！?？])${escaped}(?:$|\\b|[\\s,，.。!！?？])`, caseSensitive ? '' : 'i').test(haystack);
   }
   return haystack.includes(needle);

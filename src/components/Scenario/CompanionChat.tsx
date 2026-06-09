@@ -51,18 +51,6 @@ function newMsgId(): string {
   return `m_${Date.now().toString(36)}${Math.floor(Math.random() * 36 ** 3).toString(36)}`;
 }
 
-// 把 LLM 自由文本里第一个 { 到最后一个 } 抠出来 parse;失败返 null
-function extractFirstJson(content: string): unknown {
-  const start = content.indexOf('{');
-  const end = content.lastIndexOf('}');
-  if (start < 0 || end < 0 || end <= start) return null;
-  try {
-    return JSON.parse(content.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-}
-
 // 总览 patch 改了什么 — 列 +N/-N/改 N + 概要
 function summarizePatch(p: ScenarioPatch): string[] {
   const lines: string[] = [];
@@ -137,7 +125,7 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
       ].join('\n');
 
       const { baseUrl: apiBaseUrl, apiKey, model: apiModel } = useSettingsStore.getState().getEffectiveMainApi();
-      const { content } = await callDsSubagent({
+      const { parsed, parseError, content } = await callDsSubagent({
         apiBaseUrl,
         apiKey,
         model: apiModel,
@@ -152,9 +140,11 @@ export function CompanionChat({ scn, onApplyPatch, compact }: Props): React.Reac
         ],
       });
 
-      const parsed = extractFirstJson(content);
       if (!parsed || typeof parsed !== 'object') {
-        throw new Error('LLM 未返回合法 JSON');
+        // 把 content 前 600 字符塞进 error 便于 debug。
+        throw new Error(
+          'LLM 未返回合法 JSON: ' + (parseError || '空') + (content ? ` | head=${content.slice(0, 600)}` : ''),
+        );
       }
       const obj = parsed as Record<string, unknown>;
       const reply = typeof obj.reply === 'string' ? obj.reply : '已生成变更包';

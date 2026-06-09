@@ -13,9 +13,9 @@ describe('useInventoryStore.revertChanges — 删除回合时撤销物品变化'
   it('撤销 add：新加入的物品被移除', () => {
     const ch: InventoryChange[] = [{ action: 'add', name: '密信', category: 'misc', quantity: 1, description: '神秘信件' }];
     useInventoryStore.getState().applyChanges(ch);
-    expect(useInventoryStore.getState().hasItem('密信')).toBe(true);
+    expect(useInventoryStore.getState().findItem('密信')).toBeDefined();
     useInventoryStore.getState().revertChanges(ch);
-    expect(useInventoryStore.getState().hasItem('密信')).toBe(false);
+    expect(useInventoryStore.getState().findItem('密信')).toBeUndefined();
   });
 
   it('撤销 add：关键物品同样被移除', () => {
@@ -23,7 +23,7 @@ describe('useInventoryStore.revertChanges — 删除回合时撤销物品变化'
     useInventoryStore.getState().applyChanges(ch);
     expect(useInventoryStore.getState().findItem('古老钥匙')?.isKeyItem).toBe(true);
     useInventoryStore.getState().revertChanges(ch);
-    expect(useInventoryStore.getState().hasItem('古老钥匙')).toBe(false);
+    expect(useInventoryStore.getState().findItem('古老钥匙')).toBeUndefined();
   });
 
   it('撤销 update：数量变动被反向抵消', () => {
@@ -38,7 +38,7 @@ describe('useInventoryStore.revertChanges — 删除回合时撤销物品变化'
   it('撤销 remove：被移除的物品尽力恢复', () => {
     const ch: InventoryChange[] = [{ action: 'remove', name: '绳索', category: 'tool', quantity: 1 }];
     useInventoryStore.getState().revertChanges(ch);
-    expect(useInventoryStore.getState().hasItem('绳索')).toBe(true);
+    expect(useInventoryStore.getState().findItem('绳索')).toBeDefined();
   });
 
   it('完整一回合多项变化逆序撤销后回到原状', () => {
@@ -53,8 +53,8 @@ describe('useInventoryStore.revertChanges — 删除回合时撤销物品变化'
 
     useInventoryStore.getState().revertChanges(turn);
     const st = useInventoryStore.getState();
-    expect(st.hasItem('密信')).toBe(false);
-    expect(st.hasItem('左轮手枪')).toBe(false);
+    expect(st.findItem('密信')).toBeUndefined();
+    expect(st.findItem('左轮手枪')).toBeUndefined();
     expect(st.findItem('火柴')?.quantity).toBe(5);
   });
 });

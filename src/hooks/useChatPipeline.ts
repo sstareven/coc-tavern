@@ -89,7 +89,7 @@ import type { AssembledMessage } from '../sillytavern/prompt-assembler';
 
 // ── Return Type ──
 
-export interface UseChatPipelineReturn {
+interface UseChatPipelineReturn {
   // State
   loading: boolean;
   error: string;
@@ -1466,9 +1466,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (result.npcUpdates) newPage.npcUpdates = result.npcUpdates;
         if (result.mapUpdates) newPage.mapUpdates = result.mapUpdates;
         if (result.darkThread) newPage.darkThread = result.darkThread;
-        // M9: 把本回合 party-relation-evaluator 等子评估器追加的旁白固化进本页, 随页持久化。
-        const drainedNarration = useNarrationStore.getState().drainPending();
-        if (drainedNarration.length > 0) newPage.narration = drainedNarration;
+        // M9 旁白 drain 推迟到 settleVariables 之后(party-relation/脱队联动等子评估器在
+        // settleVariables 内 useNarrationStore.append 旁白;早 drain 会让本回合的『脱队叙述』
+        // 滞留 pending 到下页才被显示。)
         // A2 重设: 本页 SAN check 气泡数组(随页持久化, 删页时一并随页移除, 不污染剩余页面)
         if (result.sanityCheckPrompts) newPage.sanityCheckPrompts = result.sanityCheckPrompts;
 
@@ -1517,6 +1517,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           pushLog('warn', `[MVU] 变量结算失败，已用本地正则值提交本页：${settleErr instanceof Error ? settleErr.message : String(settleErr)}`, 'system');
         }
         if (controller.signal.aborted) return false;
+
+        // M9: drain settleVariables 内子评估器(party-relation 等)追加的旁白,在 abort 检查后、
+        // 页面提交前落账,保证脱队叙述出现在【当前页】而非下一页。
+        const drainedNarration = useNarrationStore.getState().drainPending();
+        if (drainedNarration.length > 0) newPage.narration = drainedNarration;
 
         // 生成统计：耗时含全程（genStart→变量结算完成），token 并入 MVU 提取/自纠用量——一次算对，
         // 右下角与顶部实时计时器同源（修复「右下角耗时只含主生成、对不上实际等待」）。

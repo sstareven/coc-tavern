@@ -136,7 +136,7 @@ export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rn
 }
 
 /** 成功等级排序（越大越好），用于对抗比较。 */
-export const LEVEL_RANK: Record<SuccessLevel, number> = {
+const LEVEL_RANK: Record<SuccessLevel, number> = {
   fumble: 0, fail: 1, success: 2, hard: 3, extreme: 4, critical: 5,
 };
 

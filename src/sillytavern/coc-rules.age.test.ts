@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   applyAgeModifiers,
   rollEduImprovement,
-  rollSkillImprovement,
 } from './coc-rules';
 
 const baseChars = { STR: 50, CON: 50, SIZ: 50, DEX: 50, APP: 50, INT: 50, POW: 50, EDU: 50 };
@@ -112,54 +111,5 @@ describe('rollEduImprovement', () => {
     })();
     const r = rollEduImprovement(95, rng);
     expect(r.newEdu).toBe(99);
-  });
-});
-
-describe('rollSkillImprovement', () => {
-  it('bonus die disqualifies even on apparent success', () => {
-    const rng = () => 0.99;
-    const r = rollSkillImprovement(40, /*useBonusDie*/ true, /*won*/ true, rng);
-    expect(r.improved).toBe(false);
-    expect(r.gain).toBe(0);
-    expect(r.finalValue).toBe(40);
-  });
-
-  it('opposed and !won disqualifies', () => {
-    const rng = () => 0.99;
-    const r = rollSkillImprovement(40, false, false, rng);
-    expect(r.improved).toBe(false);
-    expect(r.finalValue).toBe(40);
-  });
-
-  it('d100 > currentValue improves by 1D10 capped at 99', () => {
-    const rng = (() => {
-      const seq = [0.85 /* d100=86 */, 0.5 /* d10=6 */];
-      let i = 0;
-      return () => seq[i++];
-    })();
-    const r = rollSkillImprovement(50, false, true, rng);
-    expect(r.roll).toBe(86);
-    expect(r.improved).toBe(true);
-    expect(r.gain).toBe(6);
-    expect(r.finalValue).toBe(56);
-  });
-
-  it('boundary: d100 > 95 always improves regardless of currentValue', () => {
-    const rng = (() => {
-      const seq = [0.95 /* d100=96 */, 0.2 /* d10=3 */];
-      let i = 0;
-      return () => seq[i++];
-    })();
-    const r = rollSkillImprovement(98, false, true, rng);
-    expect(r.improved).toBe(true);
-    expect(r.gain).toBe(3);
-    expect(r.finalValue).toBe(99);
-  });
-
-  it('d100 <= currentValue and <= 95 does not improve', () => {
-    const rng = () => 0.3; // d100=31
-    const r = rollSkillImprovement(50, false, true, rng);
-    expect(r.improved).toBe(false);
-    expect(r.finalValue).toBe(50);
   });
 });

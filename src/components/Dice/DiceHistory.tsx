@@ -20,12 +20,6 @@ const rowColor: Record<DiceResultType, { bg: string; border: string }> = {
   'crit-failure': { bg: 'rgba(204,51,51,0.1)', border: 'var(--blood-bright)' },
 };
 
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-}
-void formatTime;
-
 export function DiceHistory({ onClose }: { onClose: () => void }) {
   const history = useDiceStore((s) => s.history);  const [visible, setVisible] = useState(true);
 

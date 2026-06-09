@@ -3,7 +3,6 @@
 // 单测固定 rng 后可断言确定行为；运行时不固定 → 玩家连按 3 次「成功」不会永远看到同一个 d100 值。
 
 import type { DiceResultType } from '../types';
-import { determineResult } from './dice-engine';
 
 /** 6 档结果常量 — DicePanel 与 OptionResolutionOverlay 的 grid 渲染共享。
  *  顺序按「从最好到最坏」展示，方便玩家瞄准目标档。 */
@@ -102,20 +101,4 @@ export function getCheatingDisabledTypes(
     }
   }
   return disabled;
-}
-
-/**
- * 调试用：验证 pickRollForResult 的返回值喂回 determineResult 是否同档。
- * 单测 verify round-trip 必查项。
- */
-export function verifyPickRoll(
-  type: DiceResultType,
-  target: number,
-  sanCheck: boolean,
-  rng: () => number = Math.random,
-): { roll: number | null; verifyType: string | null; match: boolean } {
-  const roll = pickRollForResult(type, target, sanCheck, rng);
-  if (roll === null) return { roll: null, verifyType: null, match: false };
-  const verifyType = determineResult(roll, target, sanCheck);
-  return { roll, verifyType, match: verifyType === type };
 }

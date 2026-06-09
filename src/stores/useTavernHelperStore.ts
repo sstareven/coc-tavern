@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { THScriptTree, THRenderSettings, THOptimizeSettings, PTSettings } from '../types';
 import { createDexieStorage } from '../db/storage';
 import { stripFunctions } from '../db/stripFunctions';
+import { genUid } from '../utils/uid';
 
 interface PersistedState {
   enabled: boolean;
@@ -67,7 +68,6 @@ interface TavernHelperStore extends PersistedState {
   addGlobalItem: (item: THScriptTree) => void;
   deleteGlobalItem: (id: string) => void;
   updateGlobalItem: (id: string, updater: (item: THScriptTree) => THScriptTree) => void;
-  importGlobalScripts: (scripts: THScriptTree[]) => void;
 
   setPresetScripts: (items: THScriptTree[]) => void;
   addPresetItem: (item: THScriptTree) => void;
@@ -81,13 +81,9 @@ interface TavernHelperStore extends PersistedState {
   setMacroVar: (name: string, value: string) => void;
   setMacroVars: (vars: Record<string, string>) => void;
   getMacroVar: (name: string) => string;
-
-  findItem: (tree: THScriptTree[], id: string) => THScriptTree | null;
 }
 
-export function uid(): string {
-  return 'th-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-}
+export const uid = () => genUid('th-');
 
 export const useTavernHelperStore = create<TavernHelperStore>()(
   persist(
@@ -120,8 +116,6 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
         return { globalScripts: update([...s.globalScripts]) };
       }),
 
-      importGlobalScripts: (scripts) => set((s) => ({ globalScripts: [...s.globalScripts, ...scripts] })),
-
       setPresetScripts: (items) => set({ presetScripts: items }),
       addPresetItem: (item) => set((s) => ({ presetScripts: [...s.presetScripts, item] })),
       deletePresetItem: (id) => set((s) => {
@@ -153,17 +147,6 @@ export const useTavernHelperStore = create<TavernHelperStore>()(
       setMacroVar: (name, value) => set((s) => ({ macroVars: { ...s.macroVars, [name]: value } })),
     setMacroVars: (vars) => set({ macroVars: { ...vars } }),
       getMacroVar: (name) => get().macroVars[name] ?? '',
-
-      findItem: (tree, id) => {
-        for (const item of tree) {
-          if (item.id === id) return item;
-          if (item.type === 'folder') {
-            const found = get().findItem(item.children, id);
-            if (found) return found;
-          }
-        }
-        return null;
-      },
     }),
     {
       name: 'coc_th_v2',

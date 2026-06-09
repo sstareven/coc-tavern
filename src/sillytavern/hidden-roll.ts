@@ -4,7 +4,7 @@
  */
 
 /** 暗骰技能：掷骰结果对玩家隐藏。 */
-export const HIDDEN_ROLL_SKILLS = ['心理学'];
+const HIDDEN_ROLL_SKILLS = ['心理学'];
 
 export function isHiddenRollSkill(skill: string): boolean {
   return HIDDEN_ROLL_SKILLS.some((s) => skill.includes(s));

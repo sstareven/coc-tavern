@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DiceResultType } from '../../types';
-import { CHEATING_RESULT_TYPES, pickRollForResult, verifyPickRoll } from '../cheating-helpers';
+import { CHEATING_RESULT_TYPES, pickRollForResult } from '../cheating-helpers';
+import { determineResult } from '../dice-engine';
 
 // 固定 rng 工厂 — 在 [lo, hi] 区间内取得指定位置（0=最小、1=最大）
 const rngFixed = (frac: number) => () => Math.min(0.999999, Math.max(0, frac));
@@ -23,7 +24,9 @@ describe('pickRollForResult — round-trip 一致性（笛卡尔积）', () => {
       for (const type of CHEATING_RESULT_TYPES) {
         for (const rng of rngExtremes) {
           it(`type=${type} target=${target} sanCheck=${sanCheck} rng=fixed → match or null`, () => {
-            const { roll, verifyType, match } = verifyPickRoll(type, target, sanCheck, rng);
+            const roll = pickRollForResult(type, target, sanCheck, rng);
+            const verifyType = roll === null ? null : determineResult(roll, target, sanCheck);
+            const match = verifyType === type;
             if (roll === null) {
               expect(verifyType).toBeNull();
               expect(match).toBe(false);

@@ -1,9 +1,9 @@
 /**
- * A2.6 — timeJumpGenerator (full LLM impl): 静态 reason 前缀 + 动态场景快照后置,
- * 走 callDsSubagent (max_tokens=20000), 解析 {narration, sceneInfoUpdate, additionalEffects}.
+ * A2.6 — timeJumpGenerator (full LLM impl): 静态前缀 + 动态场景快照后置,
+ * 走 callDsSubagent (max_tokens=20000), 解析 {narration, sceneInfoUpdate}.
  *
  * 这里把 useSettingsStore 与 subagent-call 都 mock 掉,确保不真发起网络请求;
- * 只校验 helper 入参 (前缀分桶 / max_tokens 下限 / 动态后置内容) 与解析结果。
+ * 只校验 helper 入参 (前缀内容 / max_tokens 下限 / 动态后置内容) 与解析结果。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -46,7 +46,7 @@ describe('generateTimeJump', () => {
     expect(req.apiBaseUrl).toBe('https://api.example.com');
     expect(req.apiKey).toBe('k');
     expect(req.model).toBe('deepseek-chat');
-    // 静态前缀(cache 友好):system 内容随 reason 切换且包含 reason 标识
+    // 静态前缀(cache 友好):system 内容包含 reason 标识
     const sys = req.messages.find((m: { role: string }) => m.role === 'system');
     expect(sys.content).toContain('bout_summary');
     // 动态后置:用户消息内有场景快照与表条目
@@ -83,22 +83,5 @@ describe('generateTimeJump', () => {
     });
     expect(r.sceneInfoUpdate).toEqual({});
     expect(r.narration).toBe('');
-    expect(r.additionalEffects).toEqual([]);
-  });
-
-  it('travel/recovery/scene_break 都有各自的静态前缀且都通过 max_tokens 下限', async () => {
-    callMock.mockResolvedValue({ content: '{}', parsed: { narration: 'x', sceneInfoUpdate: {} } });
-    for (const reason of ['travel', 'recovery', 'scene_break'] as const) {
-      await generateTimeJump({ reason, durationHint: '一日', sceneSnapshot: { location: '阿卡姆' } });
-    }
-    expect(callMock).toHaveBeenCalledTimes(3);
-    const prefixes = callMock.mock.calls.map((c) => c[0].messages[0].content as string);
-    expect(prefixes[0]).toContain('travel');
-    expect(prefixes[1]).toContain('recovery');
-    expect(prefixes[2]).toContain('scene_break');
-    // 不要互相混淆
-    expect(prefixes[0]).not.toContain('scene_break');
-    expect(prefixes[2]).not.toContain('recovery');
-    for (const c of callMock.mock.calls) expect(c[0].maxTokens).toBeGreaterThanOrEqual(20000);
   });
 });

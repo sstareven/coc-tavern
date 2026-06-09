@@ -14,6 +14,8 @@
  *  - 本引擎不写 statData 也不读 store,纯计算。落账由 SanityCheckPanel 调 applyCorrectiveOps。
  */
 
+import { escapeRegexMetachars } from './regex-engine';
+
 import type { CharacterSheet, SanityCheckPrompt } from '../types';
 
 // ─── 一. 解析叙事中的 <san id="N"/> 内联标签 ───
@@ -41,11 +43,6 @@ export function parseSanInlineTags(text: string): SanInlineTag[] {
     tags.push({ id: m[1], start: m.index, end: m.index + m[0].length });
   }
   return tags;
-}
-
-/** 正则元字符转义——把 id 字面化进 RegExp 避免 . / * / ? 等被当成元字符。 */
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -86,7 +83,7 @@ export function patchOrphanSanityTags(
   if (prompts.length === 0) return { leftContent, rightContent, orphanIds: [] };
   const hasTag = (id: string, text: string): boolean => {
     if (!text) return false;
-    const re = new RegExp(`<san\\s+id\\s*=\\s*['"]${escapeRegExp(id)}['"]\\s*/?>`, 'i');
+    const re = new RegExp(`<san\\s+id\\s*=\\s*['"]${escapeRegexMetachars(id)}['"]\\s*/?>`, 'i');
     return re.test(text);
   };
   // 把 tag 插入文本末尾「叙事正文 / 收尾标点段」的边界之前。

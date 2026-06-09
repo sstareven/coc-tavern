@@ -466,7 +466,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
   }
 
   let sceneInfo: SceneInfo | undefined;
-    if (parsed.sceneInfo && typeof parsed.sceneInfo === 'object') {
+    if (parsed.sceneInfo && typeof parsed.sceneInfo === 'object' && !Array.isArray(parsed.sceneInfo)) {
       const si = parsed.sceneInfo as Record<string, unknown>;
       sceneInfo = {
         date: String(si.date ?? ''),
@@ -499,7 +499,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     let pageKeywords: Record<string, string> | undefined;
-    if (parsed.keywords && typeof parsed.keywords === 'object') {
+    if (parsed.keywords && typeof parsed.keywords === 'object' && !Array.isArray(parsed.keywords)) {
       const kw = parsed.keywords as Record<string, unknown>;
       const entries: Record<string, string> = {};
       for (const [k, v] of Object.entries(kw)) {
@@ -646,7 +646,7 @@ export function parseLlmResponse(raw: string, opts?: { skipInventoryNarrativeChe
     }
 
     let darkThread: DarkThreadData | undefined;
-    if (parsed.darkThread && typeof parsed.darkThread === 'object') {
+    if (parsed.darkThread && typeof parsed.darkThread === 'object' && !Array.isArray(parsed.darkThread)) {
       const dt = parsed.darkThread as Record<string, unknown>;
       darkThread = {
         development: String(dt.development ?? ''),

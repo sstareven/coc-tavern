@@ -12,11 +12,9 @@
  * 把值和描述都呈现给 AI。
  */
 
-const INDENT = '  ';
+import { isPlainObject } from './mvu-flatten';
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const INDENT = '  ';
 
 /** 标量是否需要加引号（含冒号空格 / 换行 / 前后空白 / 空串等会破坏可读 YAML 的字符）。 */
 function needsQuote(s: string): boolean {

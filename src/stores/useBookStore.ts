@@ -90,7 +90,6 @@ interface BookStore {
   nextPage: () => void;
   prevPage: () => void;
   goToPage: (index: number) => void;
-  setFlipping: (v: boolean) => void;
   updateLeftPage: (index: number, header: string, content: string) => void;
   appendPage: (page: BookPage) => void;
   deletePage: (index: number) => void;
@@ -113,27 +112,18 @@ interface BookStore {
   setPageAcquiredItems: (index: number, names: string[]) => void;
   /** 按 index 覆写某页的 inventoryChanges（供起始物品 fire-and-forget 异步生成后页锚定写回；删页重放据此恢复）。 */
   setPageInventoryChanges: (index: number, changes: InventoryChange[]) => void;
-  /** 按 index 覆写某页的 locationElements（供地点元素 fire-and-forget 异步抽取后页锚定写回；删页重放据此恢复）。 */
-  setPageLocationElements: (index: number, elements: LocationElementInput[]) => void;
-  /** 按 index 覆写某页的 genStats（供 MVU 变量结算延后到页面提交之后时，回填本页 token 用量统计）。 */
-  setPageGenStats: (index: number, genStats: BookPage['genStats']) => void;
   /** 给某页追加一条子调用统计（MVU/起始物品/坏结局/...等，按时间顺序累积）。供 CacheStatsPanel 按子调用细分显示。 */
   addPageSubCallStat: (index: number, stat: import('../types').PageSubCallStat) => void;
   /** 按 index 覆写某页的 darkThread（供暗线 fire-and-forget 定向补生成后页锚定写回；删页重放据此恢复）。 */
   setPageDarkThread: (index: number, darkThread: DarkThreadData) => void;
-  /** 按 index 覆写某页的 rescue 快照(回执提交后页锚定写回;删页 rebuild 据末页快照 hydrate)。 */
-  setPageRescue: (index: number, rescue: NonNullable<BookPage['rescue']>) => void;
   /** 按 index 覆写某页的 npcUpdates 与 npcSnapshot（供 BUG2 Part 2 补写 API 重纠后页锚定写回；删页快照式回溯据 npcSnapshot 恢复）。 */
   setPageNpcRectification: (index: number, npcUpdates: NpcUpdate[], npcSnapshot: Record<string, NpcProfile>) => void;
   /** 按 index 覆写某页的 combatLog（脱战后把战斗日志固化进归属页；页锚定随页持久化）。 */
   setPageCombatLog: (index: number, combatLog: CombatLog) => void;
   /** 写入文生图结果(2026-06-08):url 走 storageMode 决定的格式,status 自动置 'done'。 */
   setPageImage: (index: number, payload: { url: string; prompt: string; at: number }) => void;
-  /** 清空某页的图片字段(玩家手动删图或重新生成时清旧)。 */
-  clearPageImage: (index: number) => void;
   /** 单独设置 imageGenStatus(用于 pending/failed/skipped 占位)。 */
   setPageImageStatus: (index: number, status: 'pending' | 'done' | 'failed' | 'skipped') => void;
-  addDiceToCurrentPage: (record: DiceRecord) => void;
 }
 
 let flipRaf = 0;
@@ -160,7 +150,6 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const { pages } = get();
     if (index >= 0 && index < pages.length) set({ pageIndex: index });
   },
-  setFlipping: (v) => set({ isFlipping: v }),
 
   updateLeftPage: (index, header, content) => set((s) => {
     const pages = [...s.pages];
@@ -416,18 +405,6 @@ export const useBookStore = create<BookStore>((set, get) => ({
     pages[index] = { ...pages[index], inventoryChanges: changes };
     return { pages };
   }),
-  setPageLocationElements: (index, elements) => set((s) => {
-    if (index < 0 || index >= s.pages.length) return s;
-    const pages = [...s.pages];
-    pages[index] = { ...pages[index], locationElements: elements };
-    return { pages };
-  }),
-  setPageGenStats: (index, genStats) => set((s) => {
-    if (index < 0 || index >= s.pages.length) return s;
-    const pages = [...s.pages];
-    pages[index] = { ...pages[index], genStats };
-    return { pages };
-  }),
   addPageSubCallStat: (index, stat) => set((s) => {
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
@@ -446,12 +423,6 @@ export const useBookStore = create<BookStore>((set, get) => ({
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], darkThread };
-    return { pages };
-  }),
-  setPageRescue: (index, rescue) => set((s) => {
-    if (index < 0 || index >= s.pages.length) return s;
-    const pages = [...s.pages];
-    pages[index] = { ...pages[index], rescue };
     return { pages };
   }),
   setPageNpcRectification: (index, npcUpdates, npcSnapshot) => set((s) => {
@@ -489,26 +460,10 @@ export const useBookStore = create<BookStore>((set, get) => ({
     };
     return { pages };
   }),
-  clearPageImage: (index) => set((s) => {
-    if (index < 0 || index >= s.pages.length) return s;
-    const pages = [...s.pages];
-    const { imageUrl: _u, imagePrompt: _p, imageGenAt: _a, imageGenStatus: _st, ...rest } = pages[index];
-    void _u; void _p; void _a; void _st;
-    pages[index] = rest;
-    return { pages };
-  }),
   setPageImageStatus: (index, status) => set((s) => {
     if (index < 0 || index >= s.pages.length) return s;
     const pages = [...s.pages];
     pages[index] = { ...pages[index], imageGenStatus: status };
     return { pages };
   }),
-  addDiceToCurrentPage: (record) => {
-    const { pages, pageIndex } = get();
-    const page = pages[pageIndex];
-    if (!page) return;
-    const updated = [...pages];
-    updated[pageIndex] = { ...page, diceResults: [...(page.diceResults || []), record] };
-    set({ pages: updated });
-  },
 }));

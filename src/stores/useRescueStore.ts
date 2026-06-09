@@ -30,6 +30,10 @@ export interface RescueStore {
   winningEndingId: string | null;
 
   initFromScenario: (endings: RescueEnding[]) => void;
+  /** 仅重建 endingsByIdCache,不触碰 paths/全局状态/winning。读档(snapshot hydrate)前必须先调,
+   * 否则 mirrorToStatData 的 nameMap 是空,「剧情.救援.路径」会以 endingId 作 key 重建,
+   * advanceMilestone/hydrateFromStatData 反查全失败 → 整个 rescue 系统读档后半瘫痪。 */
+  rehydrateEndingsCache: (endings: RescueEnding[]) => void;
   unlockPath: (endingId: string) => void;
   advanceMilestone: (endingId: string, milestoneId: string, narration?: string) => void;
   applyDelta: (endingId: string, delta: number, narration?: string) => void;
@@ -98,6 +102,11 @@ export const useRescueStore = create<RescueStore>()((set, get) => ({
     }));
     set({ paths, globalStatus: '潜伏', winningEndingId: null });
     mirrorToStatData(paths, '潜伏', null);
+  },
+
+  rehydrateEndingsCache: (endings) => {
+    for (const k of Object.keys(endingsByIdCache)) delete endingsByIdCache[k];
+    for (const e of endings) endingsByIdCache[e.id] = e;
   },
 
   unlockPath: (endingId) => {

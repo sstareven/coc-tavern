@@ -101,9 +101,11 @@ export function trimToBudget(
 
   // Keep recent messages before last user, working backward
   const beforeUser: AssembledMessage[] = [];
+  const chatBudget = budgetForChat * 0.7;
   for (let i = lastUserIdx - 1; i >= 0; i--) {
     const msgTokens = estimateTokens(chatMessages[i].content);
-    if (preservedTokens + msgTokens + countMessages(beforeUser) <= budgetForChat * 0.7) {
+    // preservedTokens 已是循环不变量(累加 beforeUser),不要再用 countMessages(beforeUser) 重复计入。
+    if (preservedTokens + msgTokens <= chatBudget) {
       beforeUser.unshift(chatMessages[i]);
       preservedTokens += msgTokens;
     } else {

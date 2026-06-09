@@ -37,11 +37,6 @@ export function registerEvaluator(name: string, fn: Evaluator): void {
   evaluators.set(name, fn);
 }
 
-/** 反注册. 主要给 HMR / test cleanup 用. */
-export function unregisterEvaluator(name: string): void {
-  evaluators.delete(name);
-}
-
 /** 测试钩子: 清空所有 evaluator. 仅 `*.test.ts` 用. */
 export function clearEvaluatorsForTest(): void {
   evaluators.clear();

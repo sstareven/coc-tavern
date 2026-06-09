@@ -108,40 +108,6 @@ export function _resetRpm(): void {
 }
 
 /**
- * 取「现在 60 秒滑动窗口内」某桶已发出的请求数（实际 Request-Per-Minute 实测值）。
- * 用于 TokenDisplay 在右页右下角显示「当时发出了多少次请求」，与 settings.rpmLimit
- * 配置上限是两回事——一个反映系统真实繁忙度（受多页/多子调用累积影响）, 一个反映
- * 用户设置的上限。
- *
- * @param kind 默认 'main'。perApiRpmEnabled 关闭时所有 kind 统一归 main 桶。
- */
-export function getCurrentRpm(kind: RpmKind = 'main'): number {
-  const { bucket } = resolveBucket(kind);
-  const now = Date.now();
-  return histories[bucket].filter((t) => now - t < WINDOW_MS).length;
-}
-
-/**
- * 取「现在 60 秒滑动窗口内」四个桶 (main + mvu + rewrite + image) 累加的总请求数。
- * 反映系统真实总繁忙度——TokenDisplay 右下角用它显示「当时发了 N 次请求」,涵盖
- * 主回合 + MVU 提取 + 起始物品/坏结局/关键线索 + 文生图等所有 API 调用。
- *
- * 当 perApiRpmEnabled=false：所有 chat 类 rpmAcquire 调用都被路由到 main 桶,
- * mvu/rewrite 数组永远空,只需读 main + image 即可拿到全部;true 时四桶独立简单累加。
- */
-export function getCurrentRpmTotal(): number {
-  const s = useSettingsStore.getState();
-  const now = Date.now();
-  const m = histories.main.filter((t) => now - t < WINDOW_MS).length;
-  const img = histories.image.filter((t) => now - t < WINDOW_MS).length;
-  if (!s.perApiRpmEnabled) return m + img;
-  return m
-    + histories.mvu.filter((t) => now - t < WINDOW_MS).length
-    + histories.rewrite.filter((t) => now - t < WINDOW_MS).length
-    + img;
-}
-
-/**
  * 仅在「桶满」(used >= limit) 时返回剩余冷却秒数:等到桶里【最早】 timestamp 过期、
  * 余量从 0 变 1 为止。桶有余量 (used < limit) 或 limit<=0 → 直接 0, UI 不锁。
  *

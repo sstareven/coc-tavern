@@ -32,7 +32,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-export interface UseKonamiCodeOptions {
+interface UseKonamiCodeOptions {
   /** 自定义序列；默认 KONAMI_SEQUENCE。所有 key 用小写字母（b/a），方向用 ArrowUp 等。 */
   sequence?: readonly string[];
   /** 全局开关 — 为 false 时 hook 不挂监听（避免已解锁后浪费 CPU） */

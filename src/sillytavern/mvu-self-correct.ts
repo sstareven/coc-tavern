@@ -8,7 +8,7 @@ import type { AssembledMessage } from './prompt-assembler';
 import type { TokenUsage } from './stream-parser';
 
 /** 重试预算硬上限（即便设置传入更大值也夹到此）。 */
-export const MVU_SELF_CORRECT_MAX_BUDGET = 3;
+const MVU_SELF_CORRECT_MAX_BUDGET = 3;
 
 /** 自纠精简上下文：本回合叙事 + 当前状态快照。用于替代「重发整份主 prompt」，仅给模型修正所需的最小依据。 */
 export interface CorrectiveContext {

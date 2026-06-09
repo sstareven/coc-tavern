@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   registerEvaluator,
-  unregisterEvaluator,
   runPostSettleEvaluators,
   clearEvaluatorsForTest,
   type EvaluatorContext,
@@ -33,19 +32,6 @@ describe('post-settle-evaluators — registry', () => {
       applyCorrectiveOps: () => [],
     });
     expect(calls).toEqual(['alpha', 'beta']);
-  });
-
-  it('unregisterEvaluator 移除注册', () => {
-    const calls: string[] = [];
-    registerEvaluator('once', () => { calls.push('once'); });
-    unregisterEvaluator('once');
-    runPostSettleEvaluators({
-      sheet: useCharSheetStore.getState().sheet,
-      statData: {},
-      patchReport: { applied: 0, failed: [] },
-      applyCorrectiveOps: () => [],
-    });
-    expect(calls).toEqual([]);
   });
 
   it('register 同名覆盖旧函数(不重复触发)', () => {

@@ -4,6 +4,7 @@ import type { RegexScript, RegexPlacement } from '../../types';
 import { useRegexStore } from '../../stores/useRegexStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { RegexProvider, runRegexScript } from '../../sillytavern/regex-engine';
+import { genUid } from '../../utils/uid';
 
 const PLACEMENT_OPTIONS: { value: RegexPlacement; label: string }[] = [
   { value: 1, label: '用户输入' },
@@ -13,9 +14,7 @@ const PLACEMENT_OPTIONS: { value: RegexPlacement; label: string }[] = [
   { value: 6, label: '推理' },
 ];
 
-function uid(): string {
-  return `regex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+const uid = () => genUid('regex_');
 
 export function RegexEditor() {
   const isMobile = useIsMobile();

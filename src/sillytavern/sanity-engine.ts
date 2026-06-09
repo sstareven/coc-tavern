@@ -29,7 +29,10 @@ export function evaluateSanLoss(input: SanLossInput): SanLossEvaluation {
   const abs = Math.abs(input.delta);
   const dailyThreshold = Math.floor(input.sanMax / 5);
   const intRollNeeded = abs >= 5;
-  const indefiniteTriggered = input.dailyAccumulated + abs >= dailyThreshold && abs > 0;
+  const indefiniteTriggered =
+    // sanMax=0 时 dailyThreshold=0,任意 abs>0 都会撞到 ≥0,会把第一次扣 SAN 误判为不定性疯狂;
+    // 实际未配置 SAN(EmptySheet/迁移空字段)时不应触发。
+    dailyThreshold > 0 && input.dailyAccumulated + abs >= dailyThreshold && abs > 0;
   const newSan = input.oldSan + input.delta;
   const permanentTriggered = newSan <= 0;
   const alone = !input.hasCompanionsPresent || input.allCompanionsInsane;

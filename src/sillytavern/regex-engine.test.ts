@@ -49,6 +49,17 @@ describe('runRegexScript — 捕获组替换', () => {
     const script = makeScript({ findRegex: '/(\\d+)/', replaceString: '<$<missing>>$1' });
     expect(runRegexScript(script, 'x42y')).toBe('x<>42y');
   });
+
+  it('{{match}} 替换：matched 含 $ 元字符时按字面处理，不当 backref', () => {
+    // 回归：line 105 旧实现走 String 字面量 replacement，matched 里的 $& / $1 / $<name>
+    // 会被 V8 当 backref 替换。例如 LLM 输出 'cost: $5'，$5 对应空 group → 'cost: '。
+    const script = makeScript({
+      findRegex: '/dollar:.*/',
+      replaceString: '[替换:{{match}}]',
+    });
+    const result = runRegexScript(script, 'dollar: $5 $& $$ $<name> rest');
+    expect(result).toBe('[替换:dollar: $5 $& $$ $<name> rest]');
+  });
 });
 describe('runRegexScript — SubstituteFindRegex 转义语义', () => {
   // 模拟宏注入：把 findRegex 中的 {{val}} 替换为变量值；ESCAPED 时对注入值施加 escaper。

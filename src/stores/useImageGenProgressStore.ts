@@ -19,10 +19,9 @@ interface ImageGenProgressStore {
   progress: Record<string, ImageGenStage>;
   setStage: (pageId: string, stage: ImageGenStage) => void;
   clearStage: (pageId: string) => void;
-  getStage: (pageId: string) => ImageGenStage | undefined;
 }
 
-export const useImageGenProgressStore = create<ImageGenProgressStore>((set, get) => ({
+export const useImageGenProgressStore = create<ImageGenProgressStore>((set) => ({
   progress: {},
   setStage: (pageId, stage) => set((s) => ({ progress: { ...s.progress, [pageId]: stage } })),
   clearStage: (pageId) => set((s) => {
@@ -31,5 +30,4 @@ export const useImageGenProgressStore = create<ImageGenProgressStore>((set, get)
     delete next[pageId];
     return { progress: next };
   }),
-  getStage: (pageId) => get().progress[pageId],
 }));
