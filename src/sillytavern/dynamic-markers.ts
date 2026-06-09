@@ -5,7 +5,7 @@
 //   deepseek-cache-restructure 的 hasDynamicMarker 用正则 + ST 静态宏剥离,服务于运行期 lore 重组
 //
 // 至少包含以下 marker(按出现频次排序):
-export const DYNAMIC_MARKERS = [
+const DYNAMIC_MARKERS = [
   '<%',          // EJS 代码/输出/转义块开头
   'getvar(',     // EJS API：读 MVU 变量
   'setvar(',     // EJS API：写 MVU 变量
