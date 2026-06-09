@@ -44,7 +44,9 @@ export interface ImageRenderContext {
   location?: string;
   time?: string;
   weather?: string;
-  characters?: string[]; // 在场重要角色名(中文)
+  /** 在场重要角色含装束。调查员第 0 项,NPC 按 updatedAt 倒序。
+   *  beta 期 breaking:从 string[] 改为 Array<{name, outfit?}>。 */
+  characters?: Array<{ name: string; outfit?: string }>;
   san?: number;
   /** 场景简述,从 leftContent 截前 120 字。可空。 */
   sceneBrief?: string;
@@ -107,6 +109,10 @@ export interface PromptTemplateContext {
   /** LLM 子调用(image-prompt-extractor)产出的英文 image prompt;空串表示未启用/失败。
    *  默认模板优先用 image_hint 主导主体描述,空时回退到 characters/location/... 中文 ctx。 */
   image_hint: string;
+  /** 含装束的中文串:「张三(灰大衣); 李四(护士裙,提油灯)」。空时退化为名字串。 */
+  characters_outfit: string;
+  /** 英文 tag 化串:由 image-prompt-extractor 翻译;不命中英文路径时等于 characters_outfit。 */
+  characters_outfit_en: string;
   // ── 条件变量(新 EJS <% if (xxx) %> 用) ──────────────────────────────
   /** 图像协议(payloadMode 实际命中值,auto 模式下是 detect 后的结果)。 */
   protocol: string;
@@ -176,6 +182,8 @@ export function renderPromptTemplate(template: string, ctx: PromptTemplateContex
     scene: ctx.scene,
     scene_brief: ctx.scene_brief,
     image_hint: ctx.image_hint,
+    characters_outfit: ctx.characters_outfit,
+    characters_outfit_en: ctx.characters_outfit_en,
   };
   const filled = template.replace(/\{\{(\w+)\}\}/g, (_, k) => placeholdersOnly[k] ?? '');
 
@@ -234,7 +242,7 @@ export function resolveImageGen(
   scnOverride: ScenarioImageGen | undefined,
   ctx: ImageRenderContext,
   settingsEnabled: boolean,
-  renderHints?: { protocol?: string; model?: string; imageHint?: string },
+  renderHints?: { protocol?: string; model?: string; imageHint?: string; charactersOutfitEn?: string },
 ): ResolvedImageGenSpec {
   const scn = scnOverride ?? {};
   const protocol = renderHints?.protocol ?? '';
@@ -277,6 +285,15 @@ export function resolveImageGen(
   // 风格片段(按 NovelAI 走两套不同 tokens)
   const styleTokens = resolveStyleTokens(style, scn.stylePromptOverride, isNovelAi);
 
+  // characters 字段:本地拼名字串 + 含装束的中文串 + 英文 fallback
+  const chs = ctx.characters ?? [];
+  const charactersNames = chs.map((c) => c.name).join('、');
+  const charactersOutfit = chs
+    .map((c) => (c.outfit ? `${c.name}(${c.outfit})` : c.name))
+    .join('; ');
+  // charactersOutfitEn 由 trigger 层从 image-prompt-extractor 拿;此处先用 charactersOutfit 作为 fallback。
+  const charactersOutfitEn = renderHints?.charactersOutfitEn || charactersOutfit;
+
   // 模板渲染上下文 — 占位符变量 + EJS 条件变量
   const tplCtx: PromptTemplateContext = {
     style: styleTokens,
@@ -284,11 +301,13 @@ export function resolveImageGen(
     location: ctx.location ?? '',
     time: ctx.time ?? '',
     weather: ctx.weather ?? '',
-    characters: (ctx.characters ?? []).join(', '),
+    characters: charactersNames,
     san: ctx.san !== undefined ? String(ctx.san) : '',
     scene: ctx.sceneBrief ?? '',
     scene_brief: ctx.sceneBrief ?? '',
     image_hint: renderHints?.imageHint ?? '',
+    characters_outfit: charactersOutfit,
+    characters_outfit_en: charactersOutfitEn,
     protocol, model,
     isNovelAi, isV4, isSd, isOpenAi, isChatCompletions,
   };

@@ -17,6 +17,8 @@ function makeCtx(overrides: Partial<PromptTemplateContext> = {}): PromptTemplate
     scene: '',
     scene_brief: '',
     image_hint: '',
+    characters_outfit: '',
+    characters_outfit_en: '',
     protocol: 'sd-compat',
     model: 'sd-1.5',
     isNovelAi: false,

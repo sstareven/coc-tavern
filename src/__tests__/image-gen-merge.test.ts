@@ -9,7 +9,7 @@ const richCtx: ImageRenderContext = {
   location: '阿卡姆',
   time: '深夜',
   weather: '雾',
-  characters: ['霍尔姆斯', '艾米'],
+  characters: [{ name: '霍尔姆斯' }, { name: '艾米' }],
   san: 55,
   sceneBrief: '调查员推开图书馆的木门',
 };
