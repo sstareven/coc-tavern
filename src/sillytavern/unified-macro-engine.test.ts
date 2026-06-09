@@ -543,6 +543,13 @@ describe('Backward compatibility layer', () => {
     expect(resolveCompatLayer('{{format_global_variable::hp::HP: %s}}', ctx).text).toBe('HP: 100');
   });
 
+  it('format_*_variable %s 替换防 $ backref 注入（值含 $&）', () => {
+    const ctx = makeCtx({ macroVars: { name: 'Bob$&' } });
+    expect(
+      resolveCompatLayer('{{format_global_variable::name::Hello %s!}}', ctx).text,
+    ).toBe('Hello Bob$&!');
+  });
+
   it('resolves <USER> to user name', () => {
     const ctx = makeCtx();
     expect(resolveCompatLayer('<USER>', ctx).text).toBe('调查员');
