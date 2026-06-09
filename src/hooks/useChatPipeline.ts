@@ -20,6 +20,7 @@ import { extractKwTaggedKeywords, buildMegaAgentInput, runMvuMegaAgent, dispatch
 import { runPrologueMegaAgent } from '../sillytavern/prologue-megaagent';
 import { extractCausalEcho } from '../sillytavern/causal-echo-extractor';
 import { pickNextUnreachedNode } from './pickNextUnreachedNode';
+import { extractOutfitDiff } from '../sillytavern/outfit-extractor';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
@@ -1874,6 +1875,49 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 }
               });
             }
+          }
+        }
+
+        // 装束差分:本回合主 API 已落 → 抽 outfit diff 写 useNpcStore / useCharSheetStore。
+        // 仅核心/重要 NPC 参与;首回合(sheet.outfit 为空)强制跑一次初始化。
+        // fire-and-forget;extractor 永不 throw。
+        {
+          const sheetOE = useCharSheetStore.getState().sheet;
+          const importantNpcs = Object.values(useNpcStore.getState().profiles)
+            .filter((p) => p.isPresent)
+            .filter((p) => p.importance === '核心' || p.importance === '重要');
+          const isFirstTimeOE = !sheetOE.outfit || !sheetOE.outfit.trim();
+          const hasMaterialOE = (newPage.leftContent ?? '').trim().length > 0;
+          if (hasMaterialOE && (importantNpcs.length > 0 || isFirstTimeOE)) {
+            const effOE = settings.getEffectiveMvuApi();
+            const aidOE = useChatStore.getState().activeId;
+            const snapshotsOE = importantNpcs.map((p) => ({
+              name: p.name,
+              outfit: p.outfit ?? '',
+            }));
+            void extractOutfitDiff({
+              leftContent: newPage.leftContent ?? '',
+              investigatorOutfitSnapshot: sheetOE.outfit ?? '',
+              npcSnapshots: snapshotsOE,
+              apiBaseUrl: effOE.baseUrl,
+              apiKey: effOE.apiKey,
+              model: effOE.model,
+              signal: controller.signal,
+            }).then((result) => {
+              if (useChatStore.getState().activeId !== aidOE) return;
+              let changedOE = false;
+              if (result.investigatorOutfit) {
+                useCharSheetStore.getState().setOutfit(result.investigatorOutfit);
+                changedOE = true;
+                pushLog('debug', `[装束·调查员] ${result.investigatorOutfit}`, 'system');
+              }
+              for (const [name, outfit] of Object.entries(result.npcs)) {
+                useNpcStore.getState().setProfileOutfitByName(name, outfit);
+                changedOE = true;
+                pushLog('debug', `[装束·${name}] ${outfit}`, 'system');
+              }
+              if (changedOE && aidOE) void saveConversation(aidOE);
+            });
           }
         }
 
