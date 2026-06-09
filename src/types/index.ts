@@ -356,6 +356,28 @@ export interface AnchorNode {
   description: string;  // 1-2 句：该节点剧情应发生什么
 }
 
+/** 调查员或关键 NPC 的角色弧：开局态 → 终态。LLM 用作长期方向，每回合不要求显式进度。 */
+export interface CharacterArc {
+  /** 角色名（调查员=sheet.identity.name；NPC=NpcProfile.name，与 findIdByName 对齐）。 */
+  name: string;
+  /** 开局态：1 句话刻画起点形象（性格/处境）。 */
+  from: string;
+  /** 中段态：1 句话刻画转折前的状态，可省。 */
+  mid?: string;
+  /** 终态：1 句话刻画结局形象，KP 让角色长期朝此方向收束。 */
+  to: string;
+}
+
+/** 相邻骨架节点之间的因果钩子：节点 A 走到 B 必须先发生什么。 */
+export interface CausalLink {
+  /** AnchorNode.id（megaagent 输出 fromTitle，parse 阶段反查 nodes 拿 id）。 */
+  fromNodeId: string;
+  /** AnchorNode.id（同上）。 */
+  toNodeId: string;
+  /** 1 句话桥接钩子（≤30字）。 */
+  hookHint: string;
+}
+
 /** 本局剧情蓝图：开局一次生成、整局固定（单行/会话）。 */
 export interface PlotAnchors {
   /** 3-6 个有序必达节点（默认推进路线）。 */
@@ -364,6 +386,14 @@ export interface PlotAnchors {
   constraints: string[];
   /** 威胁达成坏结局所依赖之物（= 玩家可逻辑性瓦解的关键靶子）。 */
   threatDependencies: string[];
+  /** 本局中心思想，1 句话（≤30字）。KP 隐性回响，不当讲道文。 */
+  theme?: string;
+  /** 3-6 条 KP 视角世界硬事实（如「狼人怕银」「社区三代旧怨」）。 */
+  worldFacts?: string[];
+  /** 调查员 + 关键 NPC 各一条角色弧，通常共 3-4 条。 */
+  characterArcs?: CharacterArc[];
+  /** 相邻骨架节点之间的因果钩子，长度通常 = nodes.length - 1。 */
+  causalLinks?: CausalLink[];
 }
 
 // ===== Map System（地点有向连线网络）=====
