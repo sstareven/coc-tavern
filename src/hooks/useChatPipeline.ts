@@ -1078,7 +1078,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       const rightMask = wantStreamingPrint ? new StreamingTagMask() : null;
       const summaryMask = wantStreamingPrint ? new StreamingTagMask() : null;
       const choiceMasks = new Map<number, StreamingTagMask>();
-      // 顶层 header 文本累积(不走 mask,直接字符串)
+      // header 也过 mask:仅取 visibleChar 拼回字符串(h3 不需要 kw 高亮,但要吞掉 `<` 等标签字符
+      // 避免半截 `</k` `<` 被 React 当文本节点渲染露给玩家)。
+      const leftHeaderMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const rightHeaderMask = wantStreamingPrint ? new StreamingTagMask() : null;
       let leftHeaderAccum = '';
       let rightHeaderAccum = '';
       // choices num 累积(每个 idx 一个字符串,字符级累积;同时通过 printer 同步到 store)
@@ -1124,10 +1127,24 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               } else if (ev.kind === 'narrativeChar' && activeField) {
                 const store = useStreamingPrintStore.getState();
                 if (activeField === 'leftHeader') {
-                  leftHeaderAccum += ev.ch;
+                  // 字符过 mask,仅取 visibleChar 拼回 accumulator(h3 不需要 kw segments,
+                  // 但 mask 会吞掉所有 `<...>` 标签字符与半截标签,避免 React 当文本节点显示)
+                  if (leftHeaderMask) {
+                    for (const me of leftHeaderMask.feed(ev.ch)) {
+                      if (me.kind === 'visibleChar') leftHeaderAccum += me.ch;
+                    }
+                  } else {
+                    leftHeaderAccum += ev.ch;
+                  }
                   store._setLeftHeader(leftHeaderAccum);
                 } else if (activeField === 'rightHeader') {
-                  rightHeaderAccum += ev.ch;
+                  if (rightHeaderMask) {
+                    for (const me of rightHeaderMask.feed(ev.ch)) {
+                      if (me.kind === 'visibleChar') rightHeaderAccum += me.ch;
+                    }
+                  } else {
+                    rightHeaderAccum += ev.ch;
+                  }
                   store._setRightHeader(rightHeaderAccum);
                 } else if (activeField === 'leftContent' && leftMask) {
                   printer.push({ kind: 'leftSegments' }, leftMask.feed(ev.ch));

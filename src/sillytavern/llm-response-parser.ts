@@ -71,6 +71,9 @@ function stripOrphanKwTags(s: string): string {
   const CLOSE_S = '\uE002';
   let temp = s.replace(/<kw>([^<]+)<\/kw>/g, (_m, k: string) => OPEN_S + k + CLOSE_S);
   temp = temp.replace(/<\/?kw>/g, '');
+  // 兜底:剥末尾未闭合的半截 kw 标签(LLM 截断/中转站丢字符导致 `</k` `</kw` `<kw` 落到末尾)。
+  // 仅锚定末尾位置兜底,中段的半截留给上游 mask/walker 处理。
+  temp = temp.replace(/<\/?kw?[^>]*$/g, '');
   temp = temp.replace(new RegExp(OPEN_S + '([\\s\\S]*?)' + CLOSE_S, 'g'), '<kw>$1</kw>');
   return temp;
 }

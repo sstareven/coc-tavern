@@ -75,8 +75,11 @@ export class StreamingTagMask {
       }
       this.tagBuf += ch;
       if (this.tagBuf.length > 64) {
-        out.push({ kind: 'visibleChar', ch: '<' });
-        for (const c of this.tagBuf) out.push({ kind: 'visibleChar', ch: c });
+        // 64 字符仍无 '>' 视为无效片段:静默丢弃,不再回放 `<` + buf。
+        // 旧行为是当 visibleChar 吐(防 LLM 漏写 > 把正文全吞),但代价是
+        // 半截 `</kw...` 会以 `</k...` 形式泄露给玩家。两害相权:LLM 漏 `>` 是极端情况,
+        // 而玩家看到 `</k` 字面是常见 bug 报告,改成静默丢弃 + console.warn 便于回溯。
+        console.warn('[streaming-tag-mask] tagBuf 超 64 字符仍无 >,静默丢弃:', this.tagBuf.slice(0, 32));
         this.inTagBuf = false;
         this.tagBuf = '';
       }
@@ -105,7 +108,8 @@ export class StreamingTagMask {
   }
 
   private decideTag(tag: string, out: MaskEvent[]): void {
-    const t = tag.trim();
+    // 容错:去内部空白(LLM 偶尔输出 `</ kw>` `</kw\n>` 等畸形闭合)
+    const t = tag.replace(/\s+/g, '');
 
     if (t === 'kw') {
       this.kwOpenCount++;
@@ -131,13 +135,36 @@ export class StreamingTagMask {
       this.hiddenBlock = 'updateVar';
       return;
     }
-    const sanMatch = /^san\s+id\s*=\s*"([^"]+)"\s*\/?$/.exec(t);
+    const sanMatch = /^san\s+id\s*=\s*"([^"]+)"\s*\/?$/.exec(tag.trim());
     if (sanMatch) {
       out.push({ kind: 'sanBubble', id: sanMatch[1] });
       return;
     }
+    // 未识别标签:开头近似 kw 闭合/开启(`/k` / `k` 等被截断或夹杂字符)的,静默丢弃,
+    // 避免 `</k...` 这种半截被回放为 visibleChar 露给玩家。
+    if (/^\/?k/i.test(t)) {
+      console.warn('[streaming-tag-mask] 疑似畸形 kw 标签,静默丢弃:', tag.slice(0, 32));
+      return;
+    }
+    // 其余完全无关的标签字符仍回放(`<abc>` 等),保留旧调试可见性。
     out.push({ kind: 'visibleChar', ch: '<' });
     for (const c of tag) out.push({ kind: 'visibleChar', ch: c });
     out.push({ kind: 'visibleChar', ch: '>' });
+  }
+
+  /**
+   * 流式结束时调用:把 inTagBuf 残留(LLM 未补 `>` 的半截 `<...`)静默丢弃,
+   * 避免下一次复用实例时旧残渣污染新流(目前 mask 不复用,本方法是防御性兜底)。
+   * 返回任何在 hiddenBlock 状态下未关闭导致的事件——目前为空。
+   */
+  finish(): MaskEvent[] {
+    const out: MaskEvent[] = [];
+    if (this.inTagBuf && this.tagBuf.length > 0) {
+      console.warn('[streaming-tag-mask] 流终止时残留未闭合标签,静默丢弃:', this.tagBuf.slice(0, 32));
+    }
+    this.inTagBuf = false;
+    this.tagBuf = '';
+    // 残留未闭合 kw 段不强制 closeKw——已通过 30 字保护处理过;此处不重复 emit。
+    return out;
   }
 }

@@ -91,4 +91,59 @@ describe('StreamingTagMask', () => {
     expect(events.some((e) => e.kind === 'openKw')).toBe(true);
     expect(events.some((e) => e.kind === 'closeKw')).toBe(true);
   });
+
+  // 回归(2026-06-10):用户报告流式生成时正文偶尔露出 `</k` —— 标签 chunk 边界 + 畸形闭合
+  // 多条泄露通道,确保 mask 这一层不再回放 `</k...` 为 visibleChar。
+
+  it('回归:畸形闭合 `</ kw>` 内含空格 → 静默丢弃,不露 `</`', () => {
+    const m = new StreamingTagMask();
+    const events = feedAll(m, '词</ kw>余');
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).toBe('词余');
+    expect(visible).not.toContain('<');
+    expect(visible).not.toContain('/');
+  });
+
+  it('回归:畸形闭合 `</kw\\n>` 内含换行 → 静默丢弃', () => {
+    const m = new StreamingTagMask();
+    const events = feedAll(m, '<kw>词</kw\n>余');
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).toBe('词余');
+    expect(visible).not.toContain('<');
+  });
+
+  it('回归:畸形开启 `< kw >` 内含空格 → 仍识别为 openKw,不露 `<`', () => {
+    const m = new StreamingTagMask();
+    const events = feedAll(m, '前< kw >词</kw>后');
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).toBe('前词后');
+    expect(events.some((e) => e.kind === 'openKw')).toBe(true);
+    expect(events.some((e) => e.kind === 'closeKw')).toBe(true);
+  });
+
+  it('回归:tagBuf 超 64 字符仍无 `>` → 静默丢弃,不露 `</k`', () => {
+    const m = new StreamingTagMask();
+    // `</kw` 接 70 个 ASCII 字符仍无 `>`,模拟 LLM 漏写或畸形输出
+    const events = feedAll(m, '</kw' + 'a'.repeat(70));
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).not.toContain('<');
+    expect(visible).not.toContain('</k');
+  });
+
+  it('回归:近似 kw 的未识别标签(`/kx` 之类)静默丢弃,不露 `</`', () => {
+    const m = new StreamingTagMask();
+    const events = feedAll(m, '词</kx>余');
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).toBe('词余');
+  });
+
+  it('回归:半截 `</k` 流终止 + finish() → 不露 `</k`', () => {
+    const m = new StreamingTagMask();
+    const events = [
+      ...feedAll(m, '词</k'),
+      ...m.finish(),
+    ];
+    const visible = events.filter((e) => e.kind === 'visibleChar').map((e) => (e as { ch: string }).ch).join('');
+    expect(visible).toBe('词');
+  });
 });
