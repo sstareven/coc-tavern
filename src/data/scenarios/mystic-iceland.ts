@@ -2,6 +2,7 @@
 // 源: COCExtends.pdf 第 3 章「神秘冰岛」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
+import { IMAGE_GEN_PRESETS } from './_image-gen-helpers';
 
 export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
   id: 'sc-mystic-iceland',
@@ -382,4 +383,5 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['sc-mystic-iceland'],
 };

@@ -7,7 +7,6 @@ import {
   leanStatData,
 } from './deepseek-cache-restructure';
 import type { AssembledMessage } from './prompt-assembler';
-import type { LoreEntry } from '../types';
 
 // 测试用默认 config(源文件已删去 export 版,这里就地保留方便覆盖测试场景)。
 const DEFAULT_CFG = {
@@ -25,17 +24,6 @@ const cfg = (over: Partial<typeof DEFAULT_CFG> = {}) => ({
   enabled: true,
   ...over,
 });
-
-function mkEntry(name: string): LoreEntry {
-  return {
-    name, keys: name, content: name, logic: 'AND_ANY', priority: 0, disabled: false,
-    constant: false, position: 0, depth: 0, probability: 100, secondaryKeys: '',
-    scanDepth: 0, caseSensitive: 0, matchWholeWord: 0, groupScoring: 0,
-    automationId: '', inclusionGroup: '', prioritizeInclusion: false, groupWeight: 100,
-    sticky: 0, cooldown: 0, delay: 0, preventRecursion: true, delayUntilRecursion: false,
-    excludeRecursion: false, ignoreReplyLimit: false,
-  };
-}
 
 describe('isDeepSeekSource', () => {
   it('modelId 含 deepseek → 命中 deepseek', () => {

@@ -2,6 +2,7 @@
 // 源: COCExtends.pdf 第 8 章「克苏鲁末日之收割」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
+import { IMAGE_GEN_PRESETS } from './_image-gen-helpers';
 
 export const SCENARIO_HARVEST: ScenarioDoc = {
   id: 'sc-harvest',
@@ -410,4 +411,5 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['sc-harvest'],
 };

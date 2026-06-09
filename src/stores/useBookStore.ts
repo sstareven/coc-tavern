@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BookPage, DiceRecord, RewriteBlock, InventoryChange, LocationElementInput, DarkThreadData, CombatLog, NpcProfile } from '../types';
+import type { BookPage, RewriteBlock, InventoryChange, DarkThreadData, CombatLog, NpcProfile } from '../types';
 import type { NpcUpdate } from './useNpcStore';
 import { sfxPageFlip } from '../audio/sfx';
 import { useLorebookStore } from './useLorebookStore';

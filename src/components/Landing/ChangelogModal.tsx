@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.17.0';
+export const CURRENT_VERSION = 'v1.18.0';
 
 interface Release {
   version: string;
@@ -19,6 +19,16 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.18.0',
+    label: '剧本生图跟着剧本世界走 · 木卫二再也不画木屋',
+    items: [
+      '【生图认得剧本时代】以前不论玩哪本剧本,生图都按全局风格画,经常给罗马剧本画出现代街景、给木卫二剧本画出田园木屋。现在 9 本内置剧本(自由探索 / 罗马阴影 / 黑暗时代 / 神秘冰岛 / 剑见箭 / 雾都阴影 / 幻梦境 / 木卫二静默 / 灰烬之原)各自带一份生图配置,生图前会把"哪个时代、哪种地貌、什么质感"先锁在 prompt 头部,再画当页内容。',
+      '【一本一风格】罗马剧本走古典油画,雾都伦敦走铜版画,幻梦境走水彩,木卫二走电影摄影,灰烬之原走怀旧胶片——9 本各自挑了和时代质感最贴的画材风格。',
+      '【针对性禁词】每本剧本另外带一份"穿帮黑名单":木卫二禁掉木屋 / 森林 / 蓝天 / 蜡烛 / 中世纪元素;雾都禁掉智能手机 / 牛仔裤 / 摩天楼;古典战阵禁掉火枪 / 大炮 / 武士铠甲——从源头把时代不对的元素挡掉。',
+      '【玩家可继续覆写】这套生图配置是剧本作者层的默认值,玩家在「剧本编辑器 → 图像生成」里仍可继续覆写风格 / 模板 / 锚定 / 负面;留空就走剧本默认,留空再留空就走全局基线,三层从上到下覆盖。',
+    ],
+  },
   {
     version: 'v1.17.0',
     label: '剧情更连贯 · 生图认得身上有什么 · 字逐字浮现 · 多结局拯救线',

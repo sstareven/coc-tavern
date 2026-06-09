@@ -1,5 +1,6 @@
 // 内置剧本常量（首装幂等种入）—— 参见 spec §7
 import type { ScenarioDoc } from '../types/scenario';
+import { IMAGE_GEN_PRESETS } from './scenarios/_image-gen-helpers';
 import { SCENARIO_ROME_CTHULHU } from './scenarios/rome-cthulhu';
 import { SCENARIO_DARK_AGES } from './scenarios/dark-ages';
 import { SCENARIO_MYSTIC_ICELAND } from './scenarios/mystic-iceland';
@@ -42,6 +43,7 @@ export const FREE_EXPLORATION_SCENARIO: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0, // 运行时首次 upsert 由主控更新
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['__free'],
 };
 
 // PDF 抽取的剧本：8 个时代设定（克苏鲁不败 / 黑暗时代 / 神秘冰岛 / 剑见箭 / 煤气灯 / 幻梦境 / 伊卡洛斯 / 收割）
