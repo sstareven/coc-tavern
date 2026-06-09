@@ -58,6 +58,8 @@ interface NpcStore {
   joinParty: (npcId: string) => void;
   leaveParty: (npcId: string) => void;
   getParty: () => NpcProfile[];
+  /** outfit-extractor 写入:按 name 反查 id 后设/清 outfit。找不到 name 静默忽略。 */
+  setProfileOutfitByName: (name: string, outfit: string) => void;
   clearAll: () => void;
 }
 
@@ -414,4 +416,15 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
   }),
 
   clearAll: () => set({ profiles: {} }),
+
+  setProfileOutfitByName: (name, outfit) => set((s) => {
+    const id = findIdByName(s.profiles, name);
+    if (!id) return s;
+    const cur = s.profiles[id];
+    const trimmed = outfit.trim();
+    const next: NpcProfile = trimmed
+      ? { ...cur, outfit: trimmed, updatedAt: Date.now() }
+      : (() => { const { outfit: _drop, ...rest } = cur; return { ...rest, updatedAt: Date.now() }; })();
+    return { profiles: { ...s.profiles, [id]: next } };
+  }),
 }));
