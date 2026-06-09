@@ -18,6 +18,8 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { extractKwTaggedKeywords, buildMegaAgentInput, runMvuMegaAgent, dispatchMegaAgentResult } from '../sillytavern/mvu-megaagent';
 import { runPrologueMegaAgent } from '../sillytavern/prologue-megaagent';
+import { extractCausalEcho } from '../sillytavern/causal-echo-extractor';
+import { pickNextUnreachedNode } from './pickNextUnreachedNode';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
@@ -1839,6 +1841,40 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             }
             if (changed && aidPro) await saveConversation(aidPro);
           })();
+        }
+
+        // 因果回响:本回合主 API 已落,且 anchors 存在 → 从 newPage.summary + 下一未达成节点
+        // 抽 1 句因果钩子,写 useAnchorStore.lastCausalEcho,下回合 buildContextInjection 注入。
+        // fire-and-forget;extractor 永不 throw,失败 echo 为空串。
+        {
+          const anchorsNow = useAnchorStore.getState().anchors;
+          const lastSummaryCE = (newPage.summary ?? '').trim();
+          if (anchorsNow.nodes.length > 0 && lastSummaryCE) {
+            const recentSummariesCE = useBookStore.getState().pages
+              .slice(-12)
+              .map((p) => p.summary)
+              .filter((s): s is string => !!s && s.trim().length > 0);
+            const nextTitle = pickNextUnreachedNode(anchorsNow.nodes, recentSummariesCE);
+            if (nextTitle) {
+              const effCE = settings.getEffectiveMvuApi();
+              const aidCE = useChatStore.getState().activeId;
+              void extractCausalEcho({
+                lastSummary: lastSummaryCE,
+                nextNodeTitle: nextTitle,
+                apiBaseUrl: effCE.baseUrl,
+                apiKey: effCE.apiKey,
+                model: effCE.model,
+                signal: controller.signal,
+              }).then(({ echo }) => {
+                if (useChatStore.getState().activeId !== aidCE) return;
+                if (echo) {
+                  useAnchorStore.getState().setLastCausalEcho(echo);
+                  pushLog('debug', `[因果回响] ${echo}`, 'system');
+                  if (aidCE) void saveConversation(aidCE);
+                }
+              });
+            }
+          }
         }
 
         // 战斗检测建场：未在战斗中 && 叙事含暴力线索 && 本回合非战斗结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进战。
