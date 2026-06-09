@@ -16,7 +16,6 @@
 
 import type { EvaluatorContext } from './post-settle-evaluators';
 import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE } from './coc7e-tables';
-import { generateTimeJump } from './time-jump-generator';
 
 /**
  * Rng 注入：测试用 seqRng 替换。默认返回 1..10 均匀分布——COC7e 表 VII/VIII 与回合数皆走 1d10。
@@ -60,7 +59,10 @@ export function triggerBout(
     return { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
   }
 
-  // summary：投 Table VIII，发起 LLM 时间跳跃（A2.6 真发起子调用）。
+  // summary：投 Table VIII。A2.6 LLM 时间跳跃由后续 ticket 接驳；本桶暂不发起子调用,
+   // 避免空 sceneSnapshot+void 丢返回值导致每次撞 summary 都白烧 ~20k token max_tokens。
+   // 接驳时:EvaluatorContext 需透传 currentSceneSnapshot,然后 .then 把 narration/sceneInfoUpdate
+   // 经 applyCorrectiveOps 落到当前页 leftContent + SceneInfo。
   const entry = rollD10();
   const row = BOUT_SUMMARY_TABLE[entry - 1];
   ctx.applyCorrectiveOps([
@@ -68,14 +70,5 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: 0 },
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
-  // A2.6 时间跳跃 LLM 调用 + sceneInfoUpdate 写回 useBookStore 由后续 ticket 接驳。
-  // fire-and-forget：本相位评估器同步收口，叙事结果由 A2.6 异步写回当前页 leftContent。
-  // 用 Table VIII 的中文 label 作 tableEntry（generateTimeJump 把它放进 user 消息动态后置）。
-  void generateTimeJump({
-    reason: 'bout_summary',
-    durationHint: '',
-    sceneSnapshot: {},
-    tableEntry: row?.label ?? `Table VIII #${entry}`,
-  });
   return { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
 }

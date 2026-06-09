@@ -458,6 +458,18 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   }
 
   // 拯救路径(单行/会话):无行 → 空快照(clearAllGameState 已置空,此处显式恢复以覆盖切档)。
+  // 关键:hydrateFromSnapshot 前必须先 rehydrate endingsByIdCache,否则 mirrorToStatData 的
+  // nameMap 是空,「剧情.救援.路径」会以 endingId 作 key 重建,advanceMilestone/hydrateFromStatData
+  // 反查全失败 → 整个 rescue 系统读档后半瘫痪。从已切到目标会话的 chatStore 拿 scenarioId。
+  {
+    const sid = useChatStore.getState().sessions.find((s) => s.id === cid)?.scenarioId;
+    if (sid && sid !== '__free') {
+      const doc = useScenarioStore.getState().getById(sid);
+      useRescueStore.getState().rehydrateEndingsCache(doc?.rescueEndings ?? []);
+    } else {
+      useRescueStore.getState().rehydrateEndingsCache([]);
+    }
+  }
   useRescueStore.getState().hydrateFromSnapshot(rescueRow?.snapshot ?? null);
 
   // 关键词

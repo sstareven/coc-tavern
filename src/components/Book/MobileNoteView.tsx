@@ -3,10 +3,13 @@ import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBookStore } from '../../stores/useBookStore';
 import { useTavernHelperStore } from '../../stores/useTavernHelperStore';
+import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
+import { useReadingModeStore } from '../../stores/useReadingModeStore';
 import { renderContentWithCodeBlocks } from '../Shared/CodeBlockRenderer';
 import { beautifyText } from '../Shared/TextBeautifier';
 import { InventoryChangesBar } from './RightPage';
 import { PageBanner } from './PageBanner';
+import { renderLpStreamingSegment, renderRpStreamingSegment } from './StreamingSegments';
 import { resolveSwipe } from './swipe';
 import { sfxPageFlip } from '../../audio/sfx';
 import { triggerImageGenForPage } from '../../api/image-gen-trigger';
@@ -29,6 +32,16 @@ export function MobileNoteView() {
   const prevPage = useBookStore((s) => s.prevPage);
   const thRender = useTavernHelperStore((s) => s.render);
   const pt = useTavernHelperStore((s) => s.promptTemplate);
+  const immersive = useReadingModeStore((s) => s.immersive);
+  // 流式刻印订阅 — 主管线 onToken 把 walker events 喂给 useStreamingPrinter,
+  // printer 按 40ms 节拍把字符 push 到这些 store 字段。
+  const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const streamingLeftHeader = useStreamingPrintStore((s) => s.leftHeaderText);
+  const streamingLeftSegments = useStreamingPrintStore((s) => s.leftSegments);
+  const streamingRightHeader = useStreamingPrintStore((s) => s.rightHeaderText);
+  const streamingRightSegments = useStreamingPrintStore((s) => s.rightSegments);
+  const streamingSummary = useStreamingPrintStore((s) => s.summarySegments);
+  const streamingChoices = useStreamingPrintStore((s) => s.choices);
   const touch = useRef<{ x: number; y: number } | null>(null);
 
   const page = pages[pageIndex];
@@ -91,10 +104,10 @@ export function MobileNoteView() {
     >
       <AnimatePresence initial={false}>
         <motion.div
-          key={pageIndex}
-          initial={{ opacity: 0, x: enterX }}
+          key={isStreamingPrint ? 'streaming' : pageIndex}
+          initial={{ opacity: 0, x: isStreamingPrint ? 0 : enterX }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -enterX }}
+          exit={{ opacity: 0, x: isStreamingPrint ? 0 : -enterX }}
           transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'absolute', inset: 0,
@@ -107,8 +120,13 @@ export function MobileNoteView() {
         >
           {/* 标题 + 骰子记录 —— 检定记录用 chip 徽章列展示,与标题视觉分层,不再像副标题下划线 */}
           <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 2, margin: 0 }}>{page.leftHeader}</h3>
-            {dice.length > 0 && (
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 2, margin: 0 }}>
+              {isStreamingPrint
+                ? (streamingLeftHeader || page.leftHeader || '')
+                : page.leftHeader}
+            </h3>
+            {/* 非流式时显示骰子记录;流式期间骰子数据未到位 */}
+            {!isStreamingPrint && dice.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                 {dice.slice(0, 2).map((d, i) => {
                   const c = RESULT_COLORS[d.type] || RESULT_COLORS.failure;
@@ -126,61 +144,109 @@ export function MobileNoteView() {
                 })}
               </div>
             )}
-            {/* 小总结(剧情回顾) —— 与检定记录一起冻结在顶部 */}
-            {page.summary && (
-              <p style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
-                {page.summary}
-              </p>
-            )}
+            {/* 小总结(剧情回顾) —— 流式期间用 streamingSummary 刻印,非流式用 page.summary */}
+            {isStreamingPrint
+              ? (streamingSummary.length > 0 && (
+                  <p style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
+                    {streamingSummary.map((seg, i) => renderLpStreamingSegment(seg, i))}
+                  </p>
+                ))
+              : (page.summary && (
+                  <p style={{ fontSize: 'calc(11px * var(--text-ratio, 1))', fontStyle: 'italic', color: 'var(--ink-subtle)', letterSpacing: 0.3, lineHeight: 1.6, margin: '8px 0 0', textIndent: '2em' }}>
+                    {page.summary}
+                  </p>
+                ))}
           </div>
-          {/* 文生图 banner(2026-06-08):位于标题/小总结之下、正文之上 */}
-          {(page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
-            <PageBanner
-              src={page.imageUrl}
-              pageId={page.id}
-              imageAt={page.imageGenAt}
-              alt={page.leftHeader}
-              status={page.imageGenStatus}
-              onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
-            />
-          )}
-          {/* 叙事卷轴 */}
+          {/* 叙事卷轴 — 流式分支用 streamingSegments,非流式用 page.leftContent。
+              PageBanner 放在卷轴内首位,跟随正文一起滚动(沉浸模式时整体不渲染插画)。 */}
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4, WebkitOverflowScrolling: 'touch' }}>
-            {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
-            <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
-            {rendered.length === 1 && typeof rendered[0] === 'string'
-              ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(rendered[0])}</p>
-              : rendered.map((node, i) => typeof node === 'string'
-                  ? <p key={i} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
-                  : <span key={i}>{node}</span>)}
-            {renderedRight && (
-              <>
-                {/* 抉择时刻 —— 左右页正文分割线（仅手机端） */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                </div>
-                {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
-                  ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedRight[0])}</p>
-                  : renderedRight.map((node, i) => typeof node === 'string'
-                      ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
-                      : <span key={`r${i}`}>{node}</span>)}
-              </>
+            {/* 片头插画 — 流式期间数据未到位不渲染;沉浸模式藏起来让出阅读空间 */}
+            {!isStreamingPrint && !immersive && (page.imageUrl || page.imageGenStatus === 'pending' || page.imageGenStatus === 'failed') && (
+              <PageBanner
+                src={page.imageUrl}
+                pageId={page.id}
+                imageAt={page.imageGenAt}
+                alt={page.leftHeader}
+                status={page.imageGenStatus}
+                onRegenerate={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }}
+              />
             )}
-            {page.rewrite?.text && (
+
+            {isStreamingPrint ? (
               <>
-                {/* 行动补写过渡叙述 —— 移动端置于卷轴最底部，单独成段，不混入右页正文 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
-                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
-                </div>
-                <p style={{ textIndent: '2em', marginBottom: 14, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
+                <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>
+                  {streamingLeftSegments.map((seg, i) => renderLpStreamingSegment(seg, i))}
+                </p>
+                {(streamingRightHeader || streamingRightSegments.length > 0) && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                    </div>
+                    <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>
+                      {streamingRightSegments.map((seg, i) => renderRpStreamingSegment(seg, i))}
+                    </p>
+                    {streamingChoices.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                        {streamingChoices.map((c, i) => (
+                          <div key={i} style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 12px',
+                            border: '1px solid rgba(var(--ink-faded-rgb),0.35)', borderRadius: 4,
+                            background: 'rgba(196,168,85,0.06)', color: 'var(--ink-subtle)',
+                            fontFamily: 'var(--font-body)', fontSize: 'calc(14px * var(--text-ratio, 1))',
+                            opacity: 0.85,
+                          }}>
+                            <span style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'calc(13px * var(--text-ratio, 1))', minWidth: 24 }}>{c.num}</span>
+                            <span style={{ flex: 1 }}>
+                              {(c.textSegments ?? []).map((seg, j) => renderRpStreamingSegment(seg, j))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {/* 物品获取提示（手机端不可点，仅展示，防误触） */}
+                <InventoryChangesBar inventoryChanges={page.inventoryChanges ?? []} interactive={false} />
+                {rendered.length === 1 && typeof rendered[0] === 'string'
+                  ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(rendered[0])}</p>
+                  : rendered.map((node, i) => typeof node === 'string'
+                      ? <p key={i} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
+                      : <span key={i}>{node}</span>)}
+                {renderedRight && (
+                  <>
+                    {/* 抉择时刻 —— 左右页正文分割线（仅手机端） */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--blood)', letterSpacing: 4, whiteSpace: 'nowrap' }}>抉择时刻</span>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                    </div>
+                    {renderedRight.length === 1 && typeof renderedRight[0] === 'string'
+                      ? <p style={{ textIndent: '2em', marginBottom: 14, whiteSpace: 'pre-wrap' }}>{beautifyText(renderedRight[0])}</p>
+                      : renderedRight.map((node, i) => typeof node === 'string'
+                          ? <p key={`r${i}`} style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{beautifyText(node)}</p>
+                          : <span key={`r${i}`}>{node}</span>)}
+                  </>
+                )}
+                {page.rewrite?.text && (
+                  <>
+                    {/* 行动补写过渡叙述 —— 移动端置于卷轴最底部，单独成段，不混入右页正文 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 14px' }}>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(13px * var(--text-ratio, 1))', color: 'var(--gold)', letterSpacing: 4, whiteSpace: 'nowrap' }}>奇思妙想</span>
+                      <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(var(--ink-faded-rgb),0.4))' }} />
+                    </div>
+                    <p style={{ textIndent: '2em', marginBottom: 14, fontStyle: 'italic', color: 'var(--ink-subtle)', whiteSpace: 'pre-wrap' }}>{beautifyText(page.rewrite.text)}</p>
+                  </>
+                )}
               </>
             )}
           </div>
-          {page.leftPage && (
+          {!isStreamingPrint && page.leftPage && (
             <div style={{ textAlign: 'center', fontSize: 'calc(12px * var(--text-ratio, 1))', color: 'var(--ink-faded)', fontFamily: 'var(--font-ui)', letterSpacing: 3, paddingTop: 8, borderTop: '1px solid rgba(var(--ink-faded-rgb),0.15)', flexShrink: 0 }}>{page.leftPage}</div>
           )}
         </motion.div>

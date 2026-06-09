@@ -97,11 +97,6 @@ export function isResponseFormatUnsupported(status: number, body: string): boole
  */
 const unsupportedJsonObjectModels = new Set<string>();
 
-/** 测试用：清掉缓存。 */
-export function _resetUnsupportedJsonObjectCache(): void {
-  unsupportedJsonObjectModels.clear();
-}
-
 /**
  * 一次子调用往返:发请求 → 拿到 content → 解析 JSON → 返回结构化结果。
  * 不重试 / 不退避——retry 留给调用方循环。

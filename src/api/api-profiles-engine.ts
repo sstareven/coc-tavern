@@ -5,6 +5,8 @@
 //   useSettingsStore.getEffectiveMainApi/Mvu/Rewrite() 把 (profile, model) 拉平为
 //   {baseUrl, apiKey, model} 喂给下游 sendChatCompletion/fetchModelList。
 
+import { genUid } from '../utils/uid';
+
 /** 一条 API 凭证记录。apiKey 字段持久化(重启不重输),但 export/UI 显示走脱敏。 */
 export interface ApiProfile {
   /** 内部 ID — crypto.randomUUID 或时间戳+随机降级。永不修改。 */
@@ -50,10 +52,7 @@ export interface ApiProfilePatch {
 
 /** 生成新 ID。优先 crypto.randomUUID;降级时间戳+随机串(老浏览器/SSR fallback)。 */
 function genId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return genUid();
 }
 
 /** 从表单创建一条新 profile。label/apiBaseUrl 自动 trim;时间戳填当前。 */

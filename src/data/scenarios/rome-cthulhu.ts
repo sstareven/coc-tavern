@@ -2,6 +2,7 @@
 // 源: COCExtends.pdf 第 1 章「克苏鲁不败」(原 Chaosium《Cthulhu Invictus》设定集摘要)
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
+import { IMAGE_GEN_PRESETS } from './_image-gen-helpers';
 
 export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
   id: 'sc-rome-cthulhu',
@@ -393,4 +394,5 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['sc-rome-cthulhu'],
 };

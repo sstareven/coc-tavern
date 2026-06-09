@@ -5,7 +5,7 @@ import { useBookStore } from './useBookStore';
 import { useCharSheetStore } from './useCharSheetStore';
 import { useVariableStore } from './useVariableStore';
 
-export interface OpenCheckOptions {
+interface OpenCheckOptions {
   skill: string;
   target: number;
   bonus?: boolean;
@@ -19,7 +19,7 @@ export interface OpenCheckOptions {
  * A1.3 staging — 暂存一次掷骰的「原始上下文」，待玩家确认/扣幸运/推骰再落账。
  * 与 history 互斥：rollStaged 不入 history，commitNow/commitWithLuck/commitAsPush 才入。
  */
-export interface LastRollContext {
+interface LastRollContext {
   skill: string;
   target: number;
   page: number;

@@ -542,7 +542,8 @@ export function resolveCompatLayer(text: string, ctx: MacroContext): { text: str
   result = result.replace(COMPAT_FMT_RE, (_, scope: string, name: string, template: string) => {
     const val = resolveCompatScope(scope, name, ctx);
     if (val === null) return `[未找到: ${scope}.${name}]`;
-    return template.includes('%s') ? template.replace('%s', val) : val;
+    // 用函数式 replacement 防 val 中 $& / $1 等被 V8 当作 backref 替换错误
+    return template.includes('%s') ? template.replace('%s', () => val) : val;
   });
 
   result = result.replace(COMPAT_GET_RE, (_, scope: string, name: string) => {
@@ -616,23 +617,9 @@ export function resolveAllMacros(
   ctx: MacroContext,
   options?: { maxDepth?: number },
 ): MacroResult {
-  const maxDepth = options?.maxDepth ?? 5;
-  const mutations: MacroMutation[] = [];
-  const outletMap = new Map<string, string[]>();
-
-  const { text: escaped, tokens } = protectEscapes(text);
-  let result = removeComments(escaped);
-  result = collectInjects(result, outletMap);
-  result = iterativeResolve(result, ctx, mutations, maxDepth);
-
-  for (const [key, contents] of outletMap) {
-    outletMap.set(key, contents.map((c) => iterativeResolve(c, ctx, mutations, maxDepth)));
-  }
-  result = fillOutlets(result, outletMap);
-  result = restoreEscapes(result, tokens);
-  result = processTrim(result);
-
-  return { text: result, outletMap, mutations };
+  // 单文本版退化为 Batch 委托，避免与 resolveAllMacrosBatch 双份实现漂移。
+  // 生产 useChatPipeline 只用 Batch 版；此入口保留签名用于单条调用与回归测试。
+  return resolveAllMacrosBatch([text], ctx, options)[0];
 }
 
 export function resolveAllMacrosBatch(

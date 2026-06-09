@@ -8,14 +8,26 @@ interface Props {
   text: string;
 }
 
+// 「贴近底部」阈值:用户主动上滑超过这个距离就不再强抢回底,免得"我想看上面历史"被流式拽回去。
+const NEAR_BOTTOM_PX = 40;
+
 export function StreamingPreview({ visible, text }: Props) {
   const thRender = useTavernHelperStore((s) => s.render);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom — RAF 合并多 token 触发,避免每 chunk 触发同步 layout(scrollTop=scrollHeight 是 read+write,强制 reflow)。
+  // 仅当 scrollTop 已接近底部时才拉回,玩家手动上滑后不强抢。
   useEffect(() => {
     if (!visible || !scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+      if (nearBottom) el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(rafRef.current);
   }, [text, visible]);
 
   if (!visible || !text) return null;
@@ -29,7 +41,8 @@ export function StreamingPreview({ visible, text }: Props) {
   return (
     <div style={{
       position: 'fixed', bottom: 80, right: 24, zIndex: 850,
-      width: 420, maxHeight: 360,
+      // width clamp:极窄桌面/分屏视口下也不会溢出右沿。手机端浮窗已由 InputBar 跳过渲染。
+      width: 'min(420px, calc(100vw - 48px))', maxHeight: 'min(360px, 50vh)',
       background: 'linear-gradient(180deg, rgba(20,16,12,0.96) 0%, rgba(13,10,7,0.98) 100%)',
       border: '1px solid var(--gold)', borderRadius: 6,
       boxShadow: '0 4px 24px rgba(0,0,0,0.5)',

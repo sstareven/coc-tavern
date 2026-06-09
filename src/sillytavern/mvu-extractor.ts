@@ -1,4 +1,4 @@
-import { extractAllVariables, parseStatChanges } from './variables';
+import { extractAllVariables, parseStatChanges, stripVariableMarkup } from './variables';
 import { callDsSubagent } from './subagent-call';
 import type { TokenUsage } from './stream-parser';
 
@@ -52,12 +52,14 @@ export async function extractVariablesWithLLM(
   apiKey: string,
   model: string,
   temperature = 1,
-  retries = 1,
-  maxTokens = 8096,
+  /** 总尝试次数(>=1):1=单次不重试,N=最多 N 次直到任一次成功。 */
+  maxAttempts = 1,
+  // 思考型模型(deepseek-v4-pro)会把预算耗在 reasoning 上,给足余量防 JSON 截断(项目硬下限 20000)
+  maxTokens = 20000,
 ): Promise<{ variables: Record<string, string>; cleanedText: string; usage?: TokenUsage }> {
   let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       // RPM 限流走 mvu 桶(关闭「每个API独立RPM」时仍归全局 main);helper 内部已含 rpmAcquire+headers+coerceJsonObject。
       const { content, usage } = await callDsSubagent({
@@ -93,15 +95,13 @@ export async function extractVariablesWithLLM(
       const statVars = parseStatChanges(text);
       variables = { ...variables, ...regexVars, ...statVars };
 
-      // Strip variable markup from text
-      const cleanedText = text
-        .replace(/<var\s+name="[^"]+"\s+value="[^"]*"\s*\/>/gi, '')
-        .replace(/\{\{set:[a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*=[^}]*\}\}/gi, '');
+      // Strip variable markup from text（含畸形 var 兜底，由 stripVariableMarkup 统一处理）
+      const cleanedText = stripVariableMarkup(text);
 
       return { variables, cleanedText, usage };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < retries - 1) {
+      if (attempt < maxAttempts - 1) {
         // Wait briefly before retry
         await new Promise((r) => setTimeout(r, 500));
       }

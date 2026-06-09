@@ -157,7 +157,7 @@ export function InputBar() {
         visible={pipeline.showPromptViewer}
         onClose={pipeline.closePromptViewer}
       />
-      {pipeline.isStreaming && (
+      {pipeline.isStreaming && !isMobile && (
         <StreamingPreview visible={pipeline.isStreaming} text={pipeline.streamingText} />
       )}
       <footer

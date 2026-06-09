@@ -1,10 +1,8 @@
 import { create } from 'zustand';
 import type { RegexScript, RegexScriptType } from '../types';
+import { genUid } from '../utils/uid';
 
-let idCounter = 0;
-function uid(): string {
-  return `regex_${Date.now()}_${++idCounter}`;
-}
+const uid = () => genUid('regex_');
 
 const DEFAULT_GLOBAL_SCRIPTS: RegexScript[] = [
   {

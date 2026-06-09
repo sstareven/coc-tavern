@@ -231,8 +231,6 @@ interface SettingsStore extends SettingsState {
   toggleCheating: () => void;
   /** Konami 序列匹配成功时调,永久解锁「领受赐福」tab 显示。 */
   unlockCheating: () => void;
-  /** 调试用:还原到未解锁状态(同时关 cheatingEnabled,避免「藏 tab 但作弊仍生效」)。 */
-  lockCheating: () => void;
   setStreamingPrintEnabled: (v: boolean) => void;
 
   /**
@@ -410,7 +408,6 @@ export const useSettingsStore = create<SettingsStore>()(
       },
       toggleCheating: () => set((s) => ({ cheatingEnabled: !s.cheatingEnabled })),
       unlockCheating: () => set({ cheatingUnlocked: true }),
-      lockCheating: () => set({ cheatingUnlocked: false, cheatingEnabled: false }),
       setStreamingPrintEnabled: (v) => set({ streamingPrintEnabled: v }),
 
       // ───────────── v1.14.0:effective API selector(跨 store 读 useApiProfilesStore) ─────────────

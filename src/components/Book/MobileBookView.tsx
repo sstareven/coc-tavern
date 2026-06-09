@@ -10,6 +10,7 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { useReadingModeStore } from '../../stores/useReadingModeStore';
 import { MobileTabBar, type MobileTab } from '../Layout/MobileTabBar';
 import { StatusBar } from './StatusBar';
 import { MobileNoteView } from './MobileNoteView';
@@ -30,18 +31,22 @@ export function MobileBookView({ showToc, selectedToc, onTocSelect, onTab }: Pro
   const npcOpen = useNpcStore((s) => s.isOpen);
   const mapOpen = useMapStore((s) => s.isOpen);
   const darkMode = useSettingsStore((s) => s.darkMode);
+  const immersive = useReadingModeStore((s) => s.immersive);
 
   const active: MobileTab | null =
     inventoryOpen ? 'inventory' : charSheetOpen ? 'charsheet' : npcOpen ? 'npc' : mapOpen ? 'map' : showToc ? 'toc' : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
-      <MobileTabBar active={active} onTab={onTab} />
+      {/* 沉浸模式同时把顶部 tab 条藏起,顶端只剩页面卷轴。 */}
+      {!immersive && <MobileTabBar active={active} onTab={onTab} />}
 
-      {/* 紧凑状态栏 —— position:relative + z-index 5 形成独立 stacking,确保 ActionSheet 抽屉/遮罩(zIndex 8/9)无法覆盖到它 */}
-      <div style={{ position: 'relative', zIndex: 5, flexShrink: 0, padding: '3px 8px', background: '#14100b', borderBottom: '1px solid rgba(196,168,85,0.12)' }}>
-        <StatusBar compact />
-      </div>
+      {/* 紧凑状态栏 —— 沉浸时藏掉,让阅读区拿回这块约 30px 的高度。 */}
+      {!immersive && (
+        <div style={{ position: 'relative', zIndex: 5, flexShrink: 0, padding: '3px 8px', background: '#14100b', borderBottom: '1px solid rgba(196,168,85,0.12)' }}>
+          <StatusBar compact />
+        </div>
+      )}
 
       {/* 便条 + 覆盖层 的定位根。ActionSheet 已挪到 InputBar footer 内,这里只剩 NoteView + 各 overlay。 */}
       <div data-night={darkMode ? 'on' : undefined} style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

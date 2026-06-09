@@ -2,6 +2,7 @@
 // 源: COCExtends.pdf 第 5 章「克苏鲁煤气灯」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
+import { IMAGE_GEN_PRESETS } from './_image-gen-helpers';
 
 export const SCENARIO_GASLIGHT: ScenarioDoc = {
   id: 'sc-gaslight',
@@ -419,4 +420,5 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['sc-gaslight'],
 };

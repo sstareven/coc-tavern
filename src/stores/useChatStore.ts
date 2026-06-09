@@ -18,7 +18,6 @@ interface ChatStore {
    *  Page CONTENT persists via sessionLifecycle.saveConversation (pages table). */
   savePages: (pages: BookPage[]) => void;
   getActivePages: () => BookPage[];
-  getAllSessionIds: () => string[];
 }
 
 /** Lightweight projection persisted into the `coc_chat_v1` blob.
@@ -124,7 +123,6 @@ export const useChatStore = create<ChatStore>()(
         const session = sessions.find((s) => s.id === activeId);
         return session?.pages ?? [];
       },
-      getAllSessionIds: () => get().sessions.map((s) => s.id),
     }),
     {
       name: 'coc_chat_v1',

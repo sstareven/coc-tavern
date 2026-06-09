@@ -2,6 +2,7 @@
 // 源: COCExtends.pdf 第 4 章「剑见箭」(原书为战斗规则变体，本剧本将其包装为一段战阵剧本)
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
+import { IMAGE_GEN_PRESETS } from './_image-gen-helpers';
 
 export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
   id: 'sc-blade-and-arrow',
@@ -411,4 +412,5 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
   schemaVersion: 1,
   createdAt: 0,
   updatedAt: 0,
+  imageGen: IMAGE_GEN_PRESETS['sc-blade-and-arrow'],
 };

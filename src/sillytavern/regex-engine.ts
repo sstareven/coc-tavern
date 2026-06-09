@@ -102,26 +102,29 @@ export function runRegexScript(
     // 故取末位并在下方用 typeof === 'object' 守卫（无命名组时末位为 string，自动跳过）。
     const groups = args[args.length - 1];
 
-    let replaceString = script.replaceString.replace(/{{match}}/gi, matched);
+    // 单 pass 函数式 replacement —— matched 里若含 `$5`/`$<name>` 等元字符,
+    // 走两次 replace(先 {{match}} 后 $1) 会被第二趟当 backref 二次吞掉;
+    // 一趟扫完保证 matched 直接落入输出,不进入下游 backref 处理。
+    const replaceString = script.replaceString.replace(
+      /{{match}}|\$(\d+)|\$<([^>]+)>/gi,
+      (whole, num: string, groupName: string) => {
+        if (whole.toLowerCase() === '{{match}}') return matched;
+        let groupMatch: string | undefined;
+        if (num) {
+          groupMatch = args[Number(num)] as string | undefined;
+        } else if (groupName && groups && typeof groups === 'object') {
+          groupMatch = (groups as Record<string, string>)[groupName];
+        }
+        if (!groupMatch) return '';
 
-    // Handle capture groups $1, $2, ..., $<name>
-    replaceString = replaceString.replace(/\$(\d+)|\$<([^>]+)>/g, (_, num: string, groupName: string) => {
-      let groupMatch: string | undefined;
-      if (num) {
-        groupMatch = args[Number(num)] as string | undefined;
-      } else if (groupName && groups && typeof groups === 'object') {
-        groupMatch = (groups as Record<string, string>)[groupName];
-      }
-      if (!groupMatch) return '';
-
-      // Apply trim strings
-      let filtered = groupMatch;
-      for (const trimStr of script.trimStrings) {
-        const resolvedTrim = resolve(trimStr);
-        filtered = filtered.replaceAll(resolvedTrim, '');
-      }
-      return filtered;
-    });
+        let filtered = groupMatch;
+        for (const trimStr of script.trimStrings) {
+          const resolvedTrim = resolve(trimStr);
+          filtered = filtered.replaceAll(resolvedTrim, '');
+        }
+        return filtered;
+      },
+    );
 
     return resolve(replaceString);
   });

@@ -3,9 +3,6 @@ import type { Clue, ClueInput } from '../types';
 
 export type { ClueInput };
 
-/** 活跃线索软上限：超过则在推进过程中自动归并成 1-3 条总结（原线索归档可回溯）。 */
-export const CLUE_ACTIVE_CAP = 10;
-
 interface ClueStore {
   clues: Clue[];
 

@@ -50,7 +50,8 @@ export async function integrateClues(
   apiKey: string,
   model: string,
   temperature = 0.7,
-  maxTokens = 2048,
+  // 思考型模型(deepseek-v4-pro)会把预算耗在 reasoning 上,给足余量防 JSON 截断(项目硬下限 20000)
+  maxTokens = 20000,
 ): Promise<IntegrateCluesResult> {
   const list = clues
     .map((c, i) => {

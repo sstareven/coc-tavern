@@ -20,7 +20,6 @@ interface InventoryStore {
   applyChanges: (changes: InventoryChange[]) => void;
   /** 完全逆转一组物品变化（用于删除某页/回合时撤销其物品增删）。 */
   revertChanges: (changes: InventoryChange[]) => void;
-  hasItem: (name: string) => boolean;
   findItem: (name: string) => InventoryItem | undefined;
   buildInventorySummary: () => string;
   clearAll: () => void;
@@ -166,7 +165,6 @@ export const useInventoryStore = create<InventoryStore>()((set, get) => ({
     });
   },
 
-  hasItem: (name) => findByName(get().items, name) >= 0,
   findItem: (name) => {
     const idx = findByName(get().items, name);
     return idx >= 0 ? get().items[idx] : undefined;

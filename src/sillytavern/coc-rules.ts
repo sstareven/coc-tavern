@@ -205,28 +205,6 @@ export function rollEduImprovement(
   return { roll, improved: false, gain: 0, newEdu: currentEdu };
 }
 
-/**
- * R5 技能改良检定（发展阶段）：
- * - 奖励骰命中 / 对抗失败 → 不计入发展（improved=false）
- * - 否则 1D100：> 当前值 或 > 95 → +1D10（上限 99）
- */
-export function rollSkillImprovement(
-  currentValue: number,
-  useBonusDie: boolean,
-  won: boolean,
-  rng: RNG = defaultRng,
-): { roll: number; improved: boolean; gain: number; finalValue: number } {
-  if (useBonusDie || !won) {
-    return { roll: 0, improved: false, gain: 0, finalValue: currentValue };
-  }
-  const roll = rollD(100, rng);
-  if (roll > currentValue || roll > 95) {
-    const gain = rollD(10, rng);
-    return { roll, improved: true, gain, finalValue: Math.min(99, currentValue + gain) };
-  }
-  return { roll, improved: false, gain: 0, finalValue: currentValue };
-}
-
 /* ============================== Skill point cap (creator) ============================== */
 
 /**

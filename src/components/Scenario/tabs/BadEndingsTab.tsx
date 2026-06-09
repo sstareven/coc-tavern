@@ -4,6 +4,7 @@ import type { ScenarioDoc, BadEnding } from '../../../types/scenario';
 import { generateBadEndings } from '../../../scenario/scenario-llm';
 import { applyScenarioPatch } from '../../../scenario/scenario-patch';
 import { IconClose, IconRefresh, IconSparkle } from '../../Layout/TabIcons';
+import { RemovableChip } from './RemovableChip';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -371,7 +372,7 @@ function ChipEditor({
       }}
     >
       {values.map((v, i) => (
-        <Chip key={`${v}_${i}`} value={v} onRemove={() => onChange(values.filter((_, j) => j !== i))} />
+        <RemovableChip key={`${v}_${i}`} value={v} onRemove={() => onChange(values.filter((_, j) => j !== i))} />
       ))}
       <input
         type="text"
@@ -402,49 +403,6 @@ function ChipEditor({
     </div>
   );
 }
-
-// chip 单元:独立 memo 子组件,避免兄弟 chip onChange identity 变化触发整行重渲
-const Chip = memo(
-  function Chip({ value, onRemove }: { value: string; onRemove: () => void }): React.ReactElement {
-    return (
-      <span
-        style={{
-          padding: '2px 8px',
-          fontSize: 11,
-          background: 'rgba(196,168,85,0.12)',
-          border: '1px solid rgba(196,168,85,0.4)',
-          color: 'var(--gold)',
-          borderRadius: 2,
-          fontFamily: 'var(--font-ui)',
-          letterSpacing: 1,
-          display: 'inline-flex',
-          gap: 6,
-          alignItems: 'center',
-        }}
-      >
-        {value}
-        <button
-          type="button"
-          onClick={onRemove}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--gold)',
-            cursor: 'pointer',
-            padding: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            lineHeight: 1,
-          }}
-          aria-label="移除"
-        >
-          <IconClose size={12} />
-        </button>
-      </span>
-    );
-  },
-  (prev, next) => prev.value === next.value,
-);
 
 function ErrBox({ text, onClose }: { text: string; onClose: () => void }): React.ReactElement {
   return (

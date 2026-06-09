@@ -6,11 +6,8 @@
  * 单纯把多条 system 合并为一条 user 只是减少消息条数 → 内容字节稳定性不变；
  * 真正让前缀稳定的关键是【静态前置、动态尾置】，把每回合变化的内容物理推到合并文本末尾。
  *
- * 本模块两个核心函数：
- *   1. splitLoreBucketsForCache —— 把 LoreBuckets 显式分为 staticLore / dynamicLore，
- *      静态(constant/generateInjects/inverted)进 wbBefore/wbAfter；
- *      动态(matchedKeyword/summary/darkThread/anchor/keyword/statSnapshot)进 dynamicTail。
- *   2. restructureMessages —— 把 [system×N, user×1, assistant×M, user] 三区重组：
+ * 本模块核心函数：
+ *   restructureMessages —— 把 [system×N, user×1, assistant×M, user] 三区重组：
  *      ┌────────────────────────────────────────────────────────────────────┐
  *      │ 顶部缓存区: 全部 system + 首 user 合并成 ONE user，含 <role==X> 标签 │
  *      │ 中间对话区: 多轮场景保留原 history                                  │
@@ -23,8 +20,6 @@
  */
 
 import type { AssembledMessage } from './prompt-assembler';
-import type { LoreEntry } from '../types';
-import type { LoreBuckets } from './rewrite-lite';
 
 const JOINER = '\n\n';
 
@@ -44,16 +39,6 @@ export interface DsRestructureConfig {
   /** 启用 WI 蓝绿灯分离（绿灯下沉到高注意力区）。 */
   separateWiLights: boolean;
 }
-
-export const DEFAULT_RESTRUCTURE_CONFIG: DsRestructureConfig = {
-  enabled: false,
-  roleTags: true,
-  debugLog: false,
-  keepTailAssistant: true,
-  customPrefillEnabled: false,
-  customPrefillContent: '',
-  separateWiLights: false,
-};
 
 /**
  * 判定当前 API 模型/来源是否在 targetSources 中（命中才启用重组）。
@@ -148,37 +133,6 @@ export function leanStatData(stat: Record<string, unknown>): Record<string, unkn
     if (Object.keys(slim).length > 0) out['剧情'] = slim;
   }
   return out;
-}
-
-/**
- * 把 LoreBuckets 显式分静态/动态：
- *   静态 = constant + generateInjects + inverted（运行时通常字节稳定）
- *   动态 = matchedKeyword + summary + darkThread + anchor + keyword + statSnapshot（每回合通常变）
- *
- * 注意：constant 桶里若条目含 EJS `<%`/`{{getvar}}` 引用动态变量，渲染后仍会变。本函数按【来源桶】粗分，
- * 不做内容扫描——若某 constant 条目实际是动态的，仍会进静态通道，命中率会稍受影响但不会出错。
- * 若用户启用 `treatConstantAsDynamic`，把 constant 桶也下沉到动态侧（最大化前缀稳定）。
- */
-export function splitLoreBucketsForCache(
-  buckets: LoreBuckets,
-  opts?: { treatConstantAsDynamic?: boolean },
-): { staticLore: LoreEntry[]; dynamicLore: LoreEntry[] } {
-  const treatConstantAsDynamic = opts?.treatConstantAsDynamic === true;
-  const staticLore: LoreEntry[] = [
-    ...(treatConstantAsDynamic ? [] : buckets.constant),
-    ...buckets.generateInjects,
-    ...buckets.inverted,
-  ];
-  const dynamicLore: LoreEntry[] = [
-    ...buckets.matchedKeyword,
-    ...buckets.summary,
-    ...buckets.darkThread,
-    ...(treatConstantAsDynamic ? buckets.constant : []),
-    ...(buckets.anchor ?? []),
-    ...(buckets.keyword ?? []),
-    ...(buckets.statSnapshot ?? []),
-  ];
-  return { staticLore, dynamicLore };
 }
 
 /**

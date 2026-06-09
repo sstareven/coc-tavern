@@ -22,11 +22,6 @@ const ATTACK_KEYWORDS = [
   '砍', '刺', '捅', '勒住', '掐',
 ];
 
-/** 把字符串里所有正则元字符转义掉，防止队友名里的 · ( ) 等被当成元字符。 */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * 解析选项文本，识别是否是"攻击某个队友"的动作。
  *
@@ -55,6 +50,3 @@ export function parseAttackTarget(text: string, partyNames: readonly string[]): 
   }
   return null;
 }
-
-// escapeRegex 当前未直接用于核心路径，留作未来"边界匹配"扩展（不删，导出供测试覆盖）。
-export { escapeRegex as __escapeRegexForTest };
