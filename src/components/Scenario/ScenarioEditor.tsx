@@ -230,7 +230,12 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
         display: 'flex', flexDirection: 'column',
         background: 'radial-gradient(ellipse at center, var(--abyss, #18120a) 0%, var(--void, #060403) 70%)',
         overflow: 'hidden',
-      }}
+        // 剧本编辑器强制 abyss/void 深背景,在 light mode 下 var(--ink*) 仍是深色字 → 几乎不可见。
+        // 局部覆盖 --ink 系列为 dark mode 值,让编辑器内所有 var(--ink) 计算时都能在深底上读清。
+        ['--ink' as string]: '#e8dfc4',
+        ['--ink-subtle' as string]: '#cdc1a0',
+        ['--ink-faded' as string]: '#aa9c78',
+      } as React.CSSProperties}
     >
       {/* 顶部工具栏 */}
       <header style={{

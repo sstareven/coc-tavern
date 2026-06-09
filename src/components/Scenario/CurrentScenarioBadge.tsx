@@ -65,9 +65,9 @@ export function CurrentScenarioBadge() {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '4px 10px', borderRadius: 12,
-          border: '1px solid rgba(120,120,120,0.35)',
-          background: 'rgba(0,0,0,0.25)',
-          color: 'var(--ink-faded, #8a7a55)',
+          border: '1px solid rgba(120,120,120,0.45)',
+          background: 'rgba(0,0,0,0.12)',
+          color: 'var(--ink, #2a2415)',
           fontFamily: 'var(--font-ui)',
           fontSize: 'calc(11px * var(--system-ratio, 1))',
           letterSpacing: 1, userSelect: 'none',
@@ -215,7 +215,7 @@ function Drawer({
         <div style={{
           display: 'flex', flexWrap: 'wrap', gap: 6,
           fontSize: 'calc(11px * var(--system-ratio, 1))',
-          color: 'var(--ink-subtle, #a89970)', letterSpacing: 0.5,
+          color: 'var(--ink, #2a2415)', letterSpacing: 0.5,
         }}>
           <Tag>{doc.meta.type}</Tag>
           <Tag>{doc.meta.durationHint}</Tag>
@@ -318,7 +318,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div style={{
         fontFamily: 'var(--font-ui)',
         fontSize: 'calc(10px * var(--system-ratio, 1))',
-        letterSpacing: 2, color: 'var(--ink-subtle, #a89970)',
+        letterSpacing: 2, color: 'var(--ink, #2a2415)',
         borderBottom: '1px solid rgba(196,168,85,0.18)',
         paddingBottom: 3,
       }}>{title}</div>

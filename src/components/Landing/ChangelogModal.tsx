@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.18.0';
+export const CURRENT_VERSION = 'v1.19.0';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,41 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.19.0',
+    label: 'NPC 和世界都有自己的心思 · 剧本编辑器再不难读',
+    sections: [
+      {
+        title: '内容与平衡',
+        groups: [
+          {
+            title: 'Agent 心智档案(开关式)',
+            entries: [
+              '以前重要 NPC 只是数值木偶,世界状态散在好几处;现在开启「Agent 心智档案」后,每位核心/重要 NPC 拥有自己的当下目标、下一步打算、对调查员的信任与情绪倾向、藏起来的秘密、和其他 NPC 的关系',
+              '每位 NPC 还有 200~500 字的自由心思散文(第一人称),KP 每回合都看得到,人物前后的连贯性大幅提升',
+              '升入核心级的 NPC 会自动跑一次独立子调用生成第一份完整心智档案;失败时可在 NPC 卡片底部「立即立卡」手动重试',
+              '世界本身也有自己的心思:暗线推进 / 氛围 / 已铺好但还没触发的剧情提示 / 全局心思散文,KP 据此推动整体节奏',
+              'NPC 卡片新增心智摘要带:目标、下一步、情绪标签、对调查员的信任度横条;点开折叠区可看秘密 / 关系列表 / 散文心思',
+              '开关可在「设置 → 通用 → Agent 心智档案(默认)」全局打开;每个存档下方「本会话覆盖」可独立选择跟随默认 / 强制开 / 强制关',
+              '开启后每回合会多消耗一次后台子调用更新世界心思,目标 3 次/分钟',
+            ],
+          },
+        ],
+      },
+      {
+        title: '修复',
+        groups: [
+          {
+            title: '剧本编辑器可读性',
+            entries: [
+              '以前剧本编辑器在深背景上某些小标签、章节标题、灰色胶囊文字太浅,几乎看不清;现在统一提到亮色,深背景上读清楚',
+              '剧本徽章(暗线进度 / 类型 / 时长 / 难度 / SAN)和「自由探索」灰胶囊文字对比度同步提升',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.18.0',
     label: '剧本生图跟着剧本世界走 · 木卫二再也不画木屋',
