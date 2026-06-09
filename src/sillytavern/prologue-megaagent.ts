@@ -10,7 +10,7 @@
 // 一次成功后永久不再触发(三个 store 都已落)。
 
 import { callDsSubagent } from './subagent-call';
-import type { PlotAnchors } from '../types';
+import type { PlotAnchors, CausalLink } from '../types';
 import type { TokenUsage } from './stream-parser';
 
 const SYSTEM_PROMPT_B = `你是一位克苏鲁的呼唤(COC)跑团的资深守秘人,正在为本局编排「真相」与「剧情骨架」。请按以下步骤【在同一次输出内】依序完成:
@@ -199,14 +199,14 @@ export function parsePrologueResponse(
         hookHint: asString(l?.hookHint).trim(),
       }))
       .filter((l) => l.fromTitle && l.toTitle && l.hookHint)
-      .map((l) => {
+      .map((l): CausalLink | null => {
         const fromNodeId = titleToId.get(l.fromTitle);
         const toNodeId = titleToId.get(l.toTitle);
         return fromNodeId && toNodeId
           ? { fromNodeId, toNodeId, hookHint: l.hookHint.slice(0, 30) }
           : null;
       })
-      .filter((l): l is { fromNodeId: string; toNodeId: string; hookHint: string } => l !== null)
+      .filter((l): l is CausalLink => l !== null)
       .slice(0, Math.max(0, nodes.length - 1));
     const causalLinks = causalLinksRaw.length > 0 ? causalLinksRaw : undefined;
 
