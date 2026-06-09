@@ -100,6 +100,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
   // 失败/不需要返空串,模板渲染时 fall back 到中文 ctx。
   const useLlmHint = needsLlmEnglishHint(resolvedProtocol);
   let imageHint = '';
+  let charactersOutfitEn: string | undefined;
   if (useLlmHint) {
     progress.setStage(pageId, '提取图像 prompt');
     const mainApi = useSettingsStore.getState().getEffectiveMainApi();
@@ -109,7 +110,7 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       .slice(0, 3);
     const sceneInfo = page.sceneInfo;
     const sanCurrent = page.sheetSnapshot?.secondary?.san?.current;
-    const hint = await extractImagePromptHint(
+    const hintResult = await extractImagePromptHint(
       {
         leftContent: page.leftContent ?? '',
         location: sceneInfo?.location,
@@ -128,14 +129,15 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
         signal,
       },
     );
-    if (hint) imageHint = hint;
+    imageHint = hintResult?.prompt ?? '';
+    charactersOutfitEn = hintResult?.charactersOutfitEn;
     if (signal?.aborted) { progress.clearStage(pageId); return; }
     if (useChatStore.getState().activeId !== aid) { progress.clearStage(pageId); return; }
   }
 
   const spec = buildImageSpecFromPage(
     page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot,
-    { protocol: resolvedProtocol, model: effectiveModel, imageHint },
+    { protocol: resolvedProtocol, model: effectiveModel, imageHint, charactersOutfitEn },
   );
   if (!spec.enabled) return;
 
