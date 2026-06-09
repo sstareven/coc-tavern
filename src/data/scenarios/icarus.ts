@@ -39,7 +39,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     makeNpc({
       id: 'npc_ic_hestia',
       role: 'optional',
-      name: 'AI 「赫斯提亚」',
+      name: '赫斯提亚',
       age: 7,
       gender: '女性化',
       occupation: '基地 AI',
@@ -70,7 +70,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     makeNpc({
       id: 'npc_ic_scientist',
       role: 'optional',
-      name: '科学家·埃伦娜·武',
+      name: '埃伦娜·武',
       age: 36,
       gender: '女',
       occupation: '海洋生物学家',
@@ -102,7 +102,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     makeNpc({
       id: 'npc_ic_security',
       role: 'protagonist',
-      name: '安全官·卡尔·迈尔斯',
+      name: '卡尔·迈尔斯',
       age: 41,
       gender: '男',
       occupation: '基地安全官 / 前星际海军',
@@ -136,7 +136,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     makeNpc({
       id: "npc_ic_captain",
       role: "protagonist",
-      name: "船长·伊莱亚斯·瓦伦",
+      name: "伊莱亚斯·瓦伦",
       age: 47,
       gender: "男",
       occupation: "「珀耳塞福涅」号船长 / 前星际海军舰长",
@@ -170,7 +170,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     makeNpc({
       id: "npc_ic_medic",
       role: "protagonist",
-      name: "船医·诺艾米·阿尔贝拉",
+      name: "诺艾米·阿尔贝拉",
       age: 39,
       gender: "女",
       occupation: "「珀耳塞福涅」号航天医师 / 前火星轨道急诊主治",

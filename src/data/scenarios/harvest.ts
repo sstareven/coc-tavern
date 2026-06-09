@@ -39,7 +39,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: 'npc_hv_prophet',
       role: 'protagonist',
-      name: '疯狂先知·克拉',
+      name: '克拉',
       age: 60,
       gender: '女',
       occupation: '部落先知',
@@ -73,7 +73,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: 'npc_hv_apprentice',
       role: 'protagonist',
-      name: '少年学徒·恩诺',
+      name: '恩诺',
       age: 16,
       gender: '男',
       occupation: '机械学徒',
@@ -106,7 +106,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: 'npc_hv_outpost_leader',
       role: 'locked_npc',
-      name: '前哨同盟·萨拉',
+      name: '萨拉',
       age: 35,
       gender: '女',
       occupation: '废土游民首领',
@@ -134,7 +134,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: "npc_hv_hunter",
       role: "protagonist",
-      name: "部落猎手·塔扎",
+      name: "塔扎",
       age: 34,
       gender: "男",
       occupation: "部落猎手兼随队医者",
@@ -169,7 +169,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: "npc_hv_scout",
       role: "optional",
-      name: "同部落侦察兵·依兰",
+      name: "依兰",
       age: 19,
       gender: "女",
       occupation: "部落外围侦察兵",
@@ -203,7 +203,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     makeNpc({
       id: "npc_hv_watcher",
       role: "optional",
-      name: "年长哨兵·老贺",
+      name: "老贺",
       age: 58,
       gender: "男",
       occupation: "部落老哨兵",

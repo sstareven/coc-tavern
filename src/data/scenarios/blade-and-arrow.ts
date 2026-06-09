@@ -37,7 +37,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: 'npc_ba_general',
       role: 'protagonist',
-      name: '主帅哈尔德',
+      name: '哈尔德',
       age: 52,
       gender: '男',
       occupation: '军主帅',
@@ -71,7 +71,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: 'npc_ba_scout',
       role: 'protagonist',
-      name: '副官莉拉',
+      name: '莉拉',
       age: 29,
       gender: '女',
       occupation: '斥候副官',
@@ -105,7 +105,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: 'npc_ba_prisoner',
       role: 'locked_npc',
-      name: '俘虏祭司·萨米尔',
+      name: '萨米尔',
       age: 38,
       gender: '男',
       occupation: '敌方密教祭司(俘虏)',
@@ -133,7 +133,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: "npc_ba_marshal",
       role: "protagonist",
-      name: "军法官莱昂",
+      name: "莱昂",
       age: 49,
       gender: "男",
       occupation: "亲卫军法官",
@@ -168,7 +168,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: "npc_ba_surgeon",
       role: "optional",
-      name: "军医姗德拉",
+      name: "姗德拉",
       age: 36,
       gender: "女",
       occupation: "随军医师",
@@ -203,7 +203,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     makeNpc({
       id: "npc_ba_ranger",
       role: "optional",
-      name: "斥候少年塔伊",
+      name: "塔伊",
       age: 19,
       gender: "男",
       occupation: "斥候组学徒",

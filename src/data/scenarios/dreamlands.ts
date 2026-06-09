@@ -43,7 +43,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     makeNpc({
       id: 'npc_dr_friend',
       role: 'protagonist',
-      name: '失语的朋友·伊莎',
+      name: '伊莎',
       age: 31,
       gender: '女',
       occupation: '业余诗人 / 古典文学译者',
@@ -77,7 +77,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     makeNpc({
       id: 'npc_dr_cat',
       role: 'protagonist',
-      name: '乌尔塔尔之猫·缪兰',
+      name: '缪兰',
       age: 9,
       gender: '雌',
       occupation: '乌尔塔尔公议成员',
@@ -110,7 +110,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     makeNpc({
       id: 'npc_dr_dreamer',
       role: 'protagonist',
-      name: '老梦行者·奥古斯丁',
+      name: '奥古斯丁',
       age: 71,
       gender: '男',
       occupation: '退休图书馆员 / 资深梦行者',
@@ -144,7 +144,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     makeNpc({
       id: "npc_dr_librarian",
       role: "optional",
-      name: "阿卡姆图书馆员·希尔达",
+      name: "希尔达",
       age: 58,
       gender: "女",
       occupation: "阿卡姆公共图书馆东厅主管 / 兼职古籍修复师",
@@ -177,7 +177,7 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     makeNpc({
       id: "npc_dr_apprentice",
       role: "optional",
-      name: "年轻梦行学徒·席勒",
+      name: "席勒",
       age: 23,
       gender: "男",
       occupation: "诗社青年成员 / 入梦学徒",
