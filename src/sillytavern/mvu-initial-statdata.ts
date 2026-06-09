@@ -32,6 +32,11 @@ export function createInitialStatData(): Record<string, unknown> {
       },
       结局类型: '',
       已解锁: {},
+      救援: {
+        全局状态: '潜伏',
+        胜出路径: '',
+        路径: {},
+      },
     },
     战斗: {
       // 是否战斗中 / 回合数：被世界书条目 ejs_combat 经 getvar 读取，注入「战斗进行中」提示词。

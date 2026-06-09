@@ -38,6 +38,7 @@ import { useNpcStore } from '../stores/useNpcStore';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useScenarioStore } from '../stores/useScenarioStore';
 import { useNarrationStore } from '../stores/useNarrationStore';
+import { useRescueStore } from '../stores/useRescueStore';
 import { detectPartyConflicts } from '../scenario/relation-graph';
 import type { RelationType, ScenarioCharacter } from '../types/scenario';
 import { extractVariablesWithLLM } from './mvu-extractor';
@@ -741,6 +742,11 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
       }
     }
   }
+
+  // 拯救路径快照水合(管线末端):从 LLM 已写入的 statData 反向回灌 useRescueStore,
+  // 让 RescueBar / buildContextInjection 读到最新一致快照。
+  // 即便本回合无 variables/darkThread,也调一次——LLM 可能只改了 剧情.救援.* 字段。
+  useRescueStore.getState().hydrateFromStatData(useVariableStore.getState().statData);
 
   return summary;
 }
