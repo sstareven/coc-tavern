@@ -6,12 +6,16 @@ const EMPTY: PlotAnchors = { nodes: [], constraints: [], threatDependencies: [] 
 interface AnchorStore {
   /** 本局剧情蓝图；未生成时 nodes 为空数组。 */
   anchors: PlotAnchors;
+  /** 上一回合 causal-echo-extractor 产出的因果回响（1 句话）；空字符串表示无。 */
+  lastCausalEcho: string;
   /** 写入蓝图——仅当当前 nodes 为空时生效（幂等防重复生成覆盖）。 */
   setAnchors: (a: PlotAnchors) => void;
   /** 读档恢复：整体替换。 */
   replaceAll: (a: PlotAnchors) => void;
   /** 清空（会话隔离）。 */
   clearAll: () => void;
+  /** causal-echo-extractor 每回合产出后写入（覆盖上一句）。 */
+  setLastCausalEcho: (echo: string) => void;
   /**
    * 构造守秘人视角「剧情骨架与进程」注入文本；nodes 为空返回 ''。
    * @param recentSummaries 最近若干页的 page.summary（事件时间线，旧→新），由调用方现算传入。
@@ -19,20 +23,36 @@ interface AnchorStore {
   buildContextInjection: (recentSummaries: string[]) => string;
 }
 
+/** 深拷贝 anchors：nodes/constraints/threatDependencies 必字段 + 4 个新可选字段。 */
+function cloneAnchors(a: PlotAnchors): PlotAnchors {
+  return {
+    nodes: a.nodes.map((n) => ({ ...n })),
+    constraints: [...a.constraints],
+    threatDependencies: [...a.threatDependencies],
+    ...(a.theme ? { theme: a.theme } : {}),
+    ...(a.worldFacts ? { worldFacts: [...a.worldFacts] } : {}),
+    ...(a.characterArcs ? { characterArcs: a.characterArcs.map((c) => ({ ...c })) } : {}),
+    ...(a.causalLinks ? { causalLinks: a.causalLinks.map((l) => ({ ...l })) } : {}),
+  };
+}
+
 export const useAnchorStore = create<AnchorStore>()((set, get) => ({
   anchors: EMPTY,
+  lastCausalEcho: '',
 
   setAnchors: (a) => {
     if (get().anchors.nodes.length !== 0) return; // 幂等防覆盖
-    set({ anchors: { nodes: a.nodes.map((n) => ({ ...n })), constraints: [...a.constraints], threatDependencies: [...a.threatDependencies] } });
+    set({ anchors: cloneAnchors(a) });
   },
 
-  replaceAll: (a) =>
-    set({ anchors: { nodes: a.nodes.map((n) => ({ ...n })), constraints: [...a.constraints], threatDependencies: [...a.threatDependencies] } }),
+  replaceAll: (a) => set({ anchors: cloneAnchors(a) }),
 
-  clearAll: () => set({ anchors: EMPTY }),
+  clearAll: () => set({ anchors: EMPTY, lastCausalEcho: '' }),
+
+  setLastCausalEcho: (echo) => set({ lastCausalEcho: echo ?? '' }),
 
   buildContextInjection: (recentSummaries) => {
+    // 原实现保留不动 — Task 5 会改写为 8 节文案
     const { nodes, constraints, threatDependencies } = get().anchors;
     if (nodes.length === 0) return '';
     const lines: string[] = ['[剧情骨架与进程 — 仅限守秘人参考，用于把控剧情走向，绝不可照搬进正文]'];
