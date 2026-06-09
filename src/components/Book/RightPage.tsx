@@ -21,6 +21,7 @@ import { beautifyText } from '../Shared/TextBeautifier';
 import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import React from 'react';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
+import { renderRpStreamingSegment } from './StreamingSegments';
 import { resolvePlayerValue, normalizeSkillName, isKnownCheckTarget } from './resolvePlayerValue';
 import { cleanChoiceText, buildChoiceInput } from './choice-input-builder';
 import { type StagingTrigger } from '../../sillytavern/option-staging';
@@ -841,32 +842,4 @@ function renderStringWithBubblesAndBeauty(
 }
 
 /** RightPage 流式分支:与 LeftPage 的 renderStreamingSegment 同模式。每字单独 span 触发 streaming-ink。 */
-function renderRpStreamingSegment(seg: PrintSegment, idx: number): React.ReactNode {
-  if (seg.kind === 'sanBubble') {
-    return (
-      <span key={`rsb-${idx}`} style={{
-        display: 'inline-block', width: '0.9em', height: '0.9em', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(220,80,80,0.5) 0%, rgba(220,80,80,0.1) 70%)',
-        margin: '0 2px', verticalAlign: 'middle', opacity: 0.6, pointerEvents: 'none', cursor: 'wait',
-      }} />
-    );
-  }
-  if (seg.kind === 'kw') {
-    return (
-      <span key={`rkw-${idx}`} style={{
-        color: 'var(--gold)', fontWeight: 600, borderBottom: '1px dashed var(--gold)',
-      }}>
-        {(seg.content ?? '').split('').map((ch, j) => (
-          <span key={j} className="streaming-ink-char">{ch}</span>
-        ))}
-      </span>
-    );
-  }
-  return (
-    <span key={`rt-${idx}`}>
-      {(seg.content ?? '').split('').map((ch, j) => (
-        <span key={j} className="streaming-ink-char">{ch}</span>
-      ))}
-    </span>
-  );
-}
+// 抽到 ./StreamingSegments.tsx 供 LeftPage / RightPage / MobileNoteView 复用。

@@ -4,6 +4,7 @@ import { beautifyText } from '../Shared/TextBeautifier';
 import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { PageBanner } from './PageBanner';
+import { renderLpStreamingSegment } from './StreamingSegments';
 import type { DiceRecord, SanityCheckPrompt } from '../../types';
 import type { PrintSegment } from '../../stores/useStreamingPrintStore';
 import React from 'react';
@@ -88,14 +89,14 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
               fontStyle: 'italic', letterSpacing: 0.3, lineHeight: 1.6,
               margin: '6px 0 0', textIndent: '2em',
             }}>
-              {streamingSummary.map((seg, i) => renderStreamingSegment(seg, i))}
+              {streamingSummary.map((seg, i) => renderLpStreamingSegment(seg, i))}
             </p>
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
             <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>
-              {(streamingSegments ?? []).map((seg, i) => renderStreamingSegment(seg, i))}
+              {(streamingSegments ?? []).map((seg, i) => renderLpStreamingSegment(seg, i))}
             </p>
           </div>
         </div>
@@ -154,21 +155,21 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
           }}>{summary}</p>
         )}
       </div>
-      {(imageUrl || imageGenStatus === 'pending' || imageGenStatus === 'failed') && (
-        <PageBanner
-          src={imageUrl}
-          pageId={imagePageId}
-          imageAt={imageGenAt}
-          alt={header}
-          isFlipping={isFlipping}
-          status={imageGenStatus}
-          onRegenerate={onRegenerateImage}
-        />
-      )}
-
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {edge !== 'none' && <ScrollParticles edge={edge} fading={fading} intensity={intensity} />}
         <div className="lp-scroll" onScroll={onScroll} style={{ height: '100%', overflowY: 'auto', paddingRight: 6, scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.1)', ...fadeStyle }}>
+        {/* 片头插画 — 放在卷轴内首位,跟随正文一起滚动(不再固定在标题/正文之间挤压可读区)。 */}
+        {(imageUrl || imageGenStatus === 'pending' || imageGenStatus === 'failed') && (
+          <PageBanner
+            src={imageUrl}
+            pageId={imagePageId}
+            imageAt={imageGenAt}
+            alt={header}
+            isFlipping={isFlipping}
+            status={imageGenStatus}
+            onRegenerate={onRegenerateImage}
+          />
+        )}
         {renderedContent.length === 1 && typeof renderedContent[0] === 'string' ? (
           <p style={{ textIndent: '2em', marginBottom: 12, whiteSpace: 'pre-wrap' }}>{renderStringWithBubblesAndBeauty(renderedContent[0], sanityCheckPrompts, 'lp0')}</p>
         ) : (
@@ -207,34 +208,4 @@ function renderStringWithBubblesAndBeauty(
 }
 
 /** 流式刻印模式下的 segment 渲染。每个汉字单独 span 触发 streaming-ink keyframe。 */
-function renderStreamingSegment(seg: PrintSegment, idx: number): React.ReactNode {
-  if (seg.kind === 'sanBubble') {
-    // 流式期间气泡不可点 — placeholder 用 opacity + pointerEvents:none 表示"未就绪",
-    // t6 后切回完整 SanityBubble 自动恢复可点。
-    return (
-      <span key={`sb-${idx}`} style={{
-        display: 'inline-block', width: '0.9em', height: '0.9em', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(220,80,80,0.5) 0%, rgba(220,80,80,0.1) 70%)',
-        margin: '0 2px', verticalAlign: 'middle', opacity: 0.6, pointerEvents: 'none', cursor: 'wait',
-      }} />
-    );
-  }
-  if (seg.kind === 'kw') {
-    return (
-      <span key={`kw-${idx}`} style={{
-        color: 'var(--gold)', fontWeight: 600, borderBottom: '1px dashed var(--gold)',
-      }}>
-        {(seg.content ?? '').split('').map((ch, j) => (
-          <span key={j} className="streaming-ink-char">{ch}</span>
-        ))}
-      </span>
-    );
-  }
-  return (
-    <span key={`t-${idx}`}>
-      {(seg.content ?? '').split('').map((ch, j) => (
-        <span key={j} className="streaming-ink-char">{ch}</span>
-      ))}
-    </span>
-  );
-}
+// 抽到 ./StreamingSegments.tsx 供 LeftPage / RightPage / MobileNoteView 复用。

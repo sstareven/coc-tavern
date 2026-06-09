@@ -8,9 +8,11 @@ import { OptionResolutionOverlay } from '../Book/OptionResolutionOverlay';
 import { SanityCheckPanel } from '../Book/SanityCheckPanel';
 import { CurrentScenarioBadge } from '../Scenario/CurrentScenarioBadge';
 import { TeamSidebar } from './TeamSidebar';
+import { ImmersiveToggleFAB } from './ImmersiveToggleFAB';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useViewportHeight } from '../../hooks/useViewportHeight';
+import { useReadingModeStore } from '../../stores/useReadingModeStore';
 import { useOptionStagingStore } from '../../stores/useOptionStagingStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { shouldStage, type StagingTrigger } from '../../sillytavern/option-staging';
@@ -99,6 +101,7 @@ export function GameView({ onReturnToMenu }: Props) {
 
   const isMobile = useIsMobile();
   const viewportH = useViewportHeight();
+  const immersive = useReadingModeStore((s) => s.immersive);
   // 手机端用可视视口高度（软键盘弹出时收缩，输入栏随之顶到键盘上方）；桌面回退 100dvh。
   // 两条路径都除以 --auto-zoom：根容器 zoom=0.75 时若直接给 ${viewportH}px,
   // 渲染高 = 1307 × 0.75 = 980,卡片够不到屏幕底部留 326px 空白。
@@ -109,18 +112,21 @@ export function GameView({ onReturnToMenu }: Props) {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: appHeight }}>
-      <TopBar onReturnToMenu={onReturnToMenu} />
+      {/* 沉浸模式(仅手机端开关 UI):藏 TopBar + 剧本/队伍胶囊条,卷轴最大化。桌面端不应用,保留完整 UI。 */}
+      {!(isMobile && immersive) && <TopBar onReturnToMenu={onReturnToMenu} />}
       {/* 手机端:剧本+队伍胶囊包成 TopBar 下方一行,避免 fixed 浮在 MobileTabBar/StatusBar 之上遮挡。
           桌面端:沿用各自 fixed 浮在左上角(top:56/92),不占布局。 */}
       {isMobile ? (
-        <div style={{
-          display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
-          padding: '2px 10px', background: '#14100b',
-          borderBottom: '1px solid rgba(196,168,85,0.08)',
-        }}>
-          <TeamSidebar />
-          <CurrentScenarioBadge />
-        </div>
+        !immersive && (
+          <div style={{
+            display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
+            padding: '2px 10px', background: '#14100b',
+            borderBottom: '1px solid rgba(196,168,85,0.08)',
+          }}>
+            <TeamSidebar />
+            <CurrentScenarioBadge />
+          </div>
+        )
       ) : (
         <>
           <CurrentScenarioBadge />
@@ -238,6 +244,8 @@ export function GameView({ onReturnToMenu }: Props) {
       <OptionResolutionOverlay />
       {/* A2 重设 — 玩家点叙事血色气泡后弹的阴森 SAN 检定面板 */}
       <SanityCheckPanel />
+      {/* 沉浸阅读浮动按钮:仅手机端显示,点一下藏 TopBar/胶囊条/StatusBar/PageBanner。 */}
+      {isMobile && <ImmersiveToggleFAB />}
     </div>
   );
 }
