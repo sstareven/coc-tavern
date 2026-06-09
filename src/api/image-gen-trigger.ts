@@ -16,6 +16,8 @@ import { useBookStore } from '../stores/useBookStore';
 import { useScenarioStore } from '../stores/useScenarioStore';
 import { useApiProfilesStore } from '../stores/useApiProfilesStore';
 import { useImageGenProgressStore } from '../stores/useImageGenProgressStore';
+import { useNpcStore } from '../stores/useNpcStore';
+import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { pushLog as pushLogRaw } from '../stores/useLogStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { rpmAcquire, RpmQueueExhaustedError } from '../sillytavern/rpm-limiter';
@@ -135,9 +137,19 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     if (useChatStore.getState().activeId !== aid) { progress.clearStage(pageId); return; }
   }
 
+  // 准备 outfitOpts:从 useNpcStore profiles 拼 name→outfit Map,从 useCharSheetStore 拿调查员 outfit
+  const npcProfiles = useNpcStore.getState().profiles;
+  const npcOutfitByName = new Map<string, string>();
+  for (const p of Object.values(npcProfiles)) {
+    if (p.outfit && p.outfit.trim()) npcOutfitByName.set(p.name, p.outfit);
+  }
+  const investigatorOutfit = useCharSheetStore.getState().sheet.outfit ?? '';
+  const outfitOpts = { npcOutfitByName, investigatorOutfit: investigatorOutfit || undefined };
+
   const spec = buildImageSpecFromPage(
     page, scnDoc, s.imageDefaults, s.imageGenerationEnabled, page.sheetSnapshot,
     { protocol: resolvedProtocol, model: effectiveModel, imageHint, charactersOutfitEn },
+    outfitOpts,
   );
   if (!spec.enabled) return;
 
