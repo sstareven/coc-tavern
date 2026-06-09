@@ -51,7 +51,7 @@ export function ImageGenTab({ scn, onChange }: Props) {
   const previewSpec = resolveImageGen(
     settings.imageDefaults,
     cleanForResolve(imgGen),
-    { location: '示例地点', time: '黄昏', weather: '雾', characters: ['示例NPC'] },
+    { location: '示例地点', time: '黄昏', weather: '雾', characters: [{ name: '示例NPC' }] },
     true,
   );
 

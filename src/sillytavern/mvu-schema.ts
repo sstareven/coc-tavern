@@ -41,6 +41,11 @@ export const COC_MVU_SCHEMA: MvuSchema = {
     '剧情.暗线.威胁等级': { kind: 'enum', values: ['潜伏', '浮现', '紧迫', '爆发'] },
     '剧情.NPC.*.态度': { kind: 'number', min: -100, max: 100 },
     '剧情.NPC.*.是否存活': { kind: 'boolean' },
+    // ── 剧情·救援路径（多结局推进系统）──
+    '剧情.救援.全局状态': { kind: 'enum', values: ['潜伏', '对峙', '锁定'] },
+    '剧情.救援.胜出路径': { kind: 'string' },
+    '剧情.救援.路径.*.已解锁': { kind: 'boolean' },
+    '剧情.救援.路径.*.进度': { kind: 'number', min: 0, max: 100 },
     // ── 战斗 ──
     '战斗.是否战斗中': { kind: 'boolean' },
     '战斗.回合数': { kind: 'number', min: 0 },

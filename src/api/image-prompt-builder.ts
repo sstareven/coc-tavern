@@ -59,13 +59,35 @@ export function pickPresentImportantNpcNames(
 export function buildImageRenderContext(
   page: BookPage,
   sheetSnapshot?: CharacterSheet,
+  opts?: {
+    /** name → outfit 短句,由 useNpcStore 当下快照拼出;调用方负责。 */
+    npcOutfitByName?: Map<string, string>;
+    /** 调查员当下 outfit(useCharSheetStore.sheet.outfit)。 */
+    investigatorOutfit?: string;
+  },
 ): ImageRenderContext {
   const sceneInfo = page.sceneInfo;
+  const npcNames = pickPresentImportantNpcNames(page, 2);
+
+  const npcEntries: Array<{ name: string; outfit?: string }> = npcNames.map((name) => {
+    const outfit = opts?.npcOutfitByName?.get(name);
+    return outfit ? { name, outfit } : { name };
+  });
+
+  const investigatorName = sheetSnapshot?.identity?.name?.trim() ?? '';
+  const investigatorEntry: { name: string; outfit?: string } | null = investigatorName
+    ? (opts?.investigatorOutfit
+        ? { name: investigatorName, outfit: opts.investigatorOutfit }
+        : { name: investigatorName })
+    : null;
+
+  const characters = investigatorEntry ? [investigatorEntry, ...npcEntries] : npcEntries;
+
   return {
     location: sceneInfo?.location ?? '',
     time: sceneInfo?.time ?? '',
     weather: sceneInfo?.weather ?? '',
-    characters: pickPresentImportantNpcNames(page, 2),
+    characters,
     san: sheetSnapshot?.secondary?.san?.current,
     sceneBrief: distillSceneBrief(page.leftContent ?? ''),
   };
@@ -81,8 +103,9 @@ export function buildImageSpecFromPage(
   settingsBase: SettingsImageDefaults,
   settingsEnabled: boolean,
   sheetSnapshot?: CharacterSheet,
-  renderHints?: { protocol?: string; model?: string; imageHint?: string },
+  renderHints?: { protocol?: string; model?: string; imageHint?: string; charactersOutfitEn?: string },
+  outfitOpts?: { npcOutfitByName?: Map<string, string>; investigatorOutfit?: string },
 ): ResolvedImageGenSpec {
-  const ctx = buildImageRenderContext(page, sheetSnapshot);
+  const ctx = buildImageRenderContext(page, sheetSnapshot, outfitOpts);
   return resolveImageGen(settingsBase, scenarioDoc?.imageGen, ctx, settingsEnabled, renderHints);
 }

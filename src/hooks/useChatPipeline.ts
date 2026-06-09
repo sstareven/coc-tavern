@@ -4,6 +4,7 @@ import { usePanelStore } from '../stores/usePanelStore';
 import { useSettingsStore, getEffectiveDsCache, getEffectiveSetting } from '../stores/useSettingsStore';
 import { useLorebookStore, AUTO_SUMMARY_BOOK_ID } from '../stores/useLorebookStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useRescueStore } from '../stores/useRescueStore';
 import { useClueStore } from '../stores/useClueStore';
 import { useNpcStore } from '../stores/useNpcStore';
 import { useMapStore } from '../stores/useMapStore';
@@ -17,6 +18,9 @@ import { useChatStore } from '../stores/useChatStore';
 import { saveConversation } from '../stores/sessionLifecycle';
 import { extractKwTaggedKeywords, buildMegaAgentInput, runMvuMegaAgent, dispatchMegaAgentResult } from '../sillytavern/mvu-megaagent';
 import { runPrologueMegaAgent } from '../sillytavern/prologue-megaagent';
+import { extractCausalEcho } from '../sillytavern/causal-echo-extractor';
+import { pickNextUnreachedNode } from './pickNextUnreachedNode';
+import { extractOutfitDiff } from '../sillytavern/outfit-extractor';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
@@ -31,6 +35,10 @@ import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
+import { useStreamingPrinter } from './useStreamingPrinter';
+import { useStreamingPrintStore } from '../stores/useStreamingPrintStore';
+import { StreamingJsonWalker } from '../sillytavern/streaming-json-walker';
+import { StreamingTagMask } from '../sillytavern/streaming-tag-mask';
 
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
@@ -155,6 +163,20 @@ async function sendWithJsonRetry<T>(opts: {
   return { result, attempts: attempt, lastContent: response.content, lastUsage: response.usage };
 }
 
+/** 进程级缓存：已知不支持 SSE 的中转站 baseUrl。
+ *  探测命中后写入；后续同 baseUrl 调用直接跳过 stream:true 尝试。刷新页面/重启进程后清空。 */
+const unsupportedStreamingEndpoints = new Set<string>();
+
+/** 判断 HTTP 错误是不是"端点不支持 stream"。模式参考 isResponseFormatUnsupported。 */
+function isLikelyStreamUnsupportedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const msg = String((err as Error).message || '').toLowerCase();
+  return (
+    msg.includes('stream') &&
+    (msg.includes('not supported') || msg.includes('unsupported') || msg.includes('invalid parameter'))
+  );
+}
+
 // ── Hook ──
 
 export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn {
@@ -174,6 +196,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
   const cooldownStateRef = useRef(new Map<string, number>());
 
   const { streamingText, isStreaming, onToken, startStream, endStream, enabled: streamRenderEnabled } = useStreamingRenderer();
+  const streamingPrintEnabled = useSettingsStore((s) => s.streamingPrintEnabled);
+  const printer = useStreamingPrinter();
   const allCommands = useMemo(() => getCommands(), []);
 
   // TH script hooks — refresh when global or preset scripts change
@@ -1002,6 +1026,90 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
 
       startStream();
 
+      // ── 流式刻印管线初始化(每次 submit 都是新 closure,无跨回合污染) ──
+      const effectiveBaseUrl = settings.getEffectiveMainApi().baseUrl;
+      const wantStreamingPrint = streamingPrintEnabled
+        && !unsupportedStreamingEndpoints.has(effectiveBaseUrl);
+      const useStream = wantStreamingPrint || streamRenderEnabled;
+      const walker = wantStreamingPrint ? new StreamingJsonWalker() : null;
+      // 每个流式区段(leftContent/rightContent/summary/choiceText[i]) 独立 mask,kw/hidden 状态不互污染
+      const leftMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const rightMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const summaryMask = wantStreamingPrint ? new StreamingTagMask() : null;
+      const choiceMasks = new Map<number, StreamingTagMask>();
+      // 顶层 header 文本累积(不走 mask,直接字符串)
+      let leftHeaderAccum = '';
+      let rightHeaderAccum = '';
+      // choices num 累积(每个 idx 一个字符串,字符级累积;同时通过 printer 同步到 store)
+      const choiceNumAccum = new Map<number, string>();
+      // 当前 walker 活动字段
+      let activeField: import('../sillytavern/streaming-json-walker').FieldName | null = null;
+      let activeChoiceIdx = -1;
+      let alreadyFlipped = false;
+      let placeholderPageIndex = -1;
+
+      if (wantStreamingPrint) {
+        printer.reset();
+        useStreamingPrintStore.getState().startStreamingPrint();
+        const blankPage = {
+          leftHeader: '',
+          leftContent: '',
+          leftPage: '',
+          rightPage: '',
+          rightHeader: '生成中',
+          rightContent: '守秘人正在编写本回合的引导与选项,请稍候。',
+          rightChoices: [],
+        };
+        useBookStore.getState().appendPage(blankPage);
+        placeholderPageIndex = useBookStore.getState().pages.length - 1;
+        useBookStore.getState().autoFlipForward();
+        alreadyFlipped = true;
+      }
+
+      const effectiveOnToken = !useStream
+        ? undefined
+        : (chunk: string) => {
+            if (streamRenderEnabled) onToken(chunk); // 旧的 raw 回显(调试用)保留
+            if (!wantStreamingPrint || !walker) return;
+
+            const walkerEvents = walker.feed(chunk);
+            for (const ev of walkerEvents) {
+              if (ev.kind === 'enterField') {
+                activeField = ev.field;
+                activeChoiceIdx = ev.choiceIdx ?? -1;
+              } else if (ev.kind === 'exitField') {
+                activeField = null;
+                activeChoiceIdx = -1;
+              } else if (ev.kind === 'narrativeChar' && activeField) {
+                const store = useStreamingPrintStore.getState();
+                if (activeField === 'leftHeader') {
+                  leftHeaderAccum += ev.ch;
+                  store._setLeftHeader(leftHeaderAccum);
+                } else if (activeField === 'rightHeader') {
+                  rightHeaderAccum += ev.ch;
+                  store._setRightHeader(rightHeaderAccum);
+                } else if (activeField === 'leftContent' && leftMask) {
+                  printer.push({ kind: 'leftSegments' }, leftMask.feed(ev.ch));
+                } else if (activeField === 'rightContent' && rightMask) {
+                  printer.push({ kind: 'rightSegments' }, rightMask.feed(ev.ch));
+                } else if (activeField === 'summary' && summaryMask) {
+                  printer.push({ kind: 'summarySegments' }, summaryMask.feed(ev.ch));
+                } else if (activeField === 'choiceNum' && activeChoiceIdx >= 0) {
+                  // num 不走 mask,直接累积到 map,然后空 push 触发 store 同步
+                  const cur = (choiceNumAccum.get(activeChoiceIdx) ?? '') + ev.ch;
+                  choiceNumAccum.set(activeChoiceIdx, cur);
+                  // 用空 events push 同步 store 中 choices[idx].num — printer 自身 trackOf 会更新 num
+                  printer.push({ kind: 'choiceText', idx: activeChoiceIdx, num: cur }, []);
+                } else if (activeField === 'choiceText' && activeChoiceIdx >= 0) {
+                  let m = choiceMasks.get(activeChoiceIdx);
+                  if (!m) { m = new StreamingTagMask(); choiceMasks.set(activeChoiceIdx, m); }
+                  const num = choiceNumAccum.get(activeChoiceIdx) ?? '';
+                  printer.push({ kind: 'choiceText', idx: activeChoiceIdx, num }, m.feed(ev.ch));
+                }
+              }
+            }
+          };
+
       try {
         // ── 发送 + 解析；解析失败时按设置自动重试（要求只输出 JSON）──
         const correctiveMsg = {
@@ -1018,18 +1126,43 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const sendRes = await sendWithJsonRetry({
           maxRetries,
           logTag: 'API',
-          send: (corrective) => sendChatCompletion(
-            applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
-            presetForApi,
-            settings.getEffectiveMainApi().baseUrl,
-            settings.getEffectiveMainApi().apiKey,
-            settings.getEffectiveMainApi().model,
-            streamRenderEnabled,
-            streamRenderEnabled ? onToken : undefined,
-            controller.signal,
-            'main',
-            settings.getEffectiveMainApi().extraParams,
-          ),
+          send: async (corrective) => {
+            try {
+              return await sendChatCompletion(
+                applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
+                presetForApi,
+                settings.getEffectiveMainApi().baseUrl,
+                settings.getEffectiveMainApi().apiKey,
+                settings.getEffectiveMainApi().model,
+                useStream,
+                effectiveOnToken,
+                controller.signal,
+                'main',
+                settings.getEffectiveMainApi().extraParams,
+              );
+            } catch (err) {
+              // SSE 不支持降级:命中 → 缓存端点 + 清流式 state + 重发非流式
+              if (wantStreamingPrint && isLikelyStreamUnsupportedError(err)) {
+                unsupportedStreamingEndpoints.add(effectiveBaseUrl);
+                pushLog('warn', `[streaming-print] 中转站 ${effectiveBaseUrl} 不支持 SSE,静默降级为非流式`, 'api');
+                printer.reset();
+                useStreamingPrintStore.getState().reset();
+                return await sendChatCompletion(
+                  applyPostProcessing(corrective ? [...editedMessages, correctiveMsg] : editedMessages, settings.promptPostProcessing),
+                  presetForApi,
+                  settings.getEffectiveMainApi().baseUrl,
+                  settings.getEffectiveMainApi().apiKey,
+                  settings.getEffectiveMainApi().model,
+                  false,
+                  undefined,
+                  controller.signal,
+                  'main',
+                  settings.getEffectiveMainApi().extraParams,
+                );
+              }
+              throw err;
+            }
+          },
           parse: (content) => parseLlmResponse(content, { skipInventoryNarrativeCheck }),
           onRetry: (k) => {
             // 主回合每次重试在前一 stage 后插一个新 queued stage,m 实时 +1
@@ -1472,16 +1605,30 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         newPage.sheetSnapshot = structuredClone(useCharSheetStore.getState().sheet);
         // NPC 名册快照（已含本页 NPC 更新）——供删页快照式回溯
         newPage.npcSnapshot = structuredClone(useNpcStore.getState().profiles);
+        // 拯救路径快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
+        newPage.rescue = useRescueStore.getState().toSnapshot();
 
         const bookStore = useBookStore.getState();
         // 补写拾取所在页 = 追加新页之前的当前页；其 acquiredItems 用于本回合正文去重。
-        const rewriteSourceIdx = bookStore.pageIndex;
+        // 流式模式下:占位页已被 append 并翻过去,真"上一页"是 placeholderPageIndex - 1。
+        const rewriteSourceIdx = wantStreamingPrint && placeholderPageIndex >= 0
+          ? placeholderPageIndex - 1
+          : bookStore.pageIndex;
         if (replace) {
           bookStore.replacePage(bookStore.pageIndex, newPage);
           pushLog('info', `页面已重新生成 — ${newPage.leftHeader}`);
           pushLog(
             'debug',
             `[页面内容/替换] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}`,
+            'system',
+          );
+        } else if (wantStreamingPrint && placeholderPageIndex >= 0) {
+          // 流式模式:占位页已在流开始时 append + autoFlipForward,这里 replace 写入真实内容
+          bookStore.replacePage(placeholderPageIndex, newPage);
+          pushLog('info', `占位页已替换为正文 — ${newPage.leftHeader}`);
+          pushLog(
+            'debug',
+            `[页面内容/流式] 左: ${newPage.leftContent}\n右: ${newPage.rightContent}\n选项: ${newPage.rightChoices.map((c: { text: string }) => c.text).join(' | ')}`,
             'system',
           );
         } else {
@@ -1697,6 +1844,83 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           })();
         }
 
+        // 因果回响:本回合主 API 已落,且 anchors 存在 → 从 newPage.summary + 下一未达成节点
+        // 抽 1 句因果钩子,写 useAnchorStore.lastCausalEcho,下回合 buildContextInjection 注入。
+        // fire-and-forget;extractor 永不 throw,失败 echo 为空串。
+        {
+          const anchorsNow = useAnchorStore.getState().anchors;
+          const lastSummaryCE = (newPage.summary ?? '').trim();
+          if (anchorsNow.nodes.length > 0 && lastSummaryCE) {
+            const recentSummariesCE = useBookStore.getState().pages
+              .slice(-12)
+              .map((p) => p.summary)
+              .filter((s): s is string => !!s && s.trim().length > 0);
+            const nextTitle = pickNextUnreachedNode(anchorsNow.nodes, recentSummariesCE);
+            if (nextTitle) {
+              const effCE = settings.getEffectiveMvuApi();
+              const aidCE = useChatStore.getState().activeId;
+              void extractCausalEcho({
+                lastSummary: lastSummaryCE,
+                nextNodeTitle: nextTitle,
+                apiBaseUrl: effCE.baseUrl,
+                apiKey: effCE.apiKey,
+                model: effCE.model,
+                signal: controller.signal,
+              }).then(({ echo }) => {
+                if (useChatStore.getState().activeId !== aidCE) return;
+                if (echo) {
+                  useAnchorStore.getState().setLastCausalEcho(echo);
+                  pushLog('debug', `[因果回响] ${echo}`, 'system');
+                  if (aidCE) void saveConversation(aidCE);
+                }
+              });
+            }
+          }
+        }
+
+        // 装束差分:本回合主 API 已落 → 抽 outfit diff 写 useNpcStore / useCharSheetStore。
+        // 仅核心/重要 NPC 参与;首回合(sheet.outfit 为空)强制跑一次初始化。
+        // fire-and-forget;extractor 永不 throw。
+        {
+          const sheetOE = useCharSheetStore.getState().sheet;
+          const importantNpcs = Object.values(useNpcStore.getState().profiles)
+            .filter((p) => p.isPresent)
+            .filter((p) => p.importance === '核心' || p.importance === '重要');
+          const isFirstTimeOE = !sheetOE.outfit || !sheetOE.outfit.trim();
+          const hasMaterialOE = (newPage.leftContent ?? '').trim().length > 0;
+          if (hasMaterialOE && (importantNpcs.length > 0 || isFirstTimeOE)) {
+            const effOE = settings.getEffectiveMvuApi();
+            const aidOE = useChatStore.getState().activeId;
+            const snapshotsOE = importantNpcs.map((p) => ({
+              name: p.name,
+              outfit: p.outfit ?? '',
+            }));
+            void extractOutfitDiff({
+              leftContent: newPage.leftContent ?? '',
+              investigatorOutfitSnapshot: sheetOE.outfit ?? '',
+              npcSnapshots: snapshotsOE,
+              apiBaseUrl: effOE.baseUrl,
+              apiKey: effOE.apiKey,
+              model: effOE.model,
+              signal: controller.signal,
+            }).then((result) => {
+              if (useChatStore.getState().activeId !== aidOE) return;
+              let changedOE = false;
+              if (result.investigatorOutfit) {
+                useCharSheetStore.getState().setOutfit(result.investigatorOutfit);
+                changedOE = true;
+                pushLog('debug', `[装束·调查员] ${result.investigatorOutfit}`, 'system');
+              }
+              for (const [name, outfit] of Object.entries(result.npcs)) {
+                useNpcStore.getState().setProfileOutfitByName(name, outfit);
+                changedOE = true;
+                pushLog('debug', `[装束·${name}] ${outfit}`, 'system');
+              }
+              if (changedOE && aidOE) void saveConversation(aidOE);
+            });
+          }
+        }
+
         // 战斗检测建场：未在战斗中 && 叙事含暴力线索 && 本回合非战斗结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进战。
         // 进战 → useCombatStore.start(encounter)，右页由 Storybook 条件渲染成战斗面板。fire-and-forget + 会话守卫。
         if (
@@ -1801,7 +2025,9 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               abortPromise,
             ]);
           }
-          useBookStore.getState().autoFlipForward();
+          if (!alreadyFlipped) {
+            useBookStore.getState().autoFlipForward();
+          }
           useTurnProgressStore.getState().finish('finalize');
         }
 
@@ -1835,12 +2061,17 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return false;
       } finally {
         endStream();
+        if (wantStreamingPrint) {
+          // 注意:不在这里 reset segments — 流成功结束后 isStreamingPrint=false 让 Storybook 退回常规渲染,
+          // 此时 segments 留在 store 也无害,下次 submit 开头 printer.reset() + startStreamingPrint() 会清。
+          useStreamingPrintStore.getState().endStreamingPrint();
+        }
         setLoading(false);
         // 进度条收尾:清空 stages -> isRunning=false -> 选项立刻解锁
         useTurnProgressStore.getState().endTurn();
       }
     },
-    [endStream, onToken, startStream, streamRenderEnabled, thHooks],
+    [endStream, onToken, startStream, streamRenderEnabled, thHooks, streamingPrintEnabled, printer],
   );
 
   // ── submit ──

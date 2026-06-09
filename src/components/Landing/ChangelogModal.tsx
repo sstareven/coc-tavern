@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.16.1';
+export const CURRENT_VERSION = 'v1.17.0';
 
 interface Release {
   version: string;
@@ -19,6 +19,14 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.17.0',
+    label: '剧情更连贯 · 生图认得身上有什么',
+    items: [
+      '【剧情更连贯】以前每回合靠 KP 自己脑补串场景,常常原地打转或角色没变化。现在开局就定下「调查员和关键 NPC 的成长方向、节点之间的因果钩子、本局中心思想、KP 视角的世界硬事实」,KP 每回合都看到这些,叙事更扣得住主线。',
+      '【生图认得身上有什么】以前角色换了衣服、捡了道具、被血溅了,生图还是默认装束。现在每回合悄悄记下调查员和重要 NPC 当下穿什么、手里拿什么,生图时按这套画。',
+    ],
+  },
   {
     version: 'v1.16.1',
     label: '修线上部署 · v1.16.0 改进真正生效',

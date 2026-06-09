@@ -183,6 +183,8 @@ interface CharSheetStore {
   toggle: () => void;
   close: () => void;
   setSheet: (sheet: CharacterSheet) => void;
+  /** outfit-extractor 写入:更新调查员装束。空串=删字段。 */
+  setOutfit: (outfit: string) => void;
   reset: () => void;
 }
 
@@ -205,5 +207,11 @@ export const useCharSheetStore = create<CharSheetStore>()((set) => ({
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   close: () => set({ isOpen: false }),
   setSheet: (sheet: CharacterSheet) => set({ sheet }),
+  setOutfit: (outfit: string) => set((s) => {
+    const trimmed = outfit.trim();
+    if (trimmed) return { sheet: { ...s.sheet, outfit: trimmed } };
+    const { outfit: _drop, ...rest } = s.sheet;
+    return { sheet: rest as typeof s.sheet };
+  }),
   reset: () => set({ sheet: defaultSheet }),
 }));

@@ -345,6 +345,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setNpcMemoryKeep = useSettingsStore((s) => s.setNpcMemoryKeep);
   const jsonRetryCount = useSettingsStore((s) => s.jsonRetryCount);
   const setJsonRetryCount = useSettingsStore((s) => s.setJsonRetryCount);
+  const streamingPrintEnabled = useSettingsStore((s) => s.streamingPrintEnabled);
+  const setStreamingPrintEnabled = useSettingsStore((s) => s.setStreamingPrintEnabled);
   const rpmLimit = useSettingsStore((s) => s.rpmLimit);
   const setRpmLimit = useSettingsStore((s) => s.setRpmLimit);
   const perApiRpmEnabled = useSettingsStore((s) => s.perApiRpmEnabled);
@@ -579,6 +581,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                 />
 
                 <CategoryBar label="生成与稳定性" />
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    流式刻印
+                    <HelpIcon text={'主推进生成时启用 SSE 真流式：拿到首个字节就翻页，左页正文按汉字逐字"高光→黑字"刻印出场。\n\n标签字符（kw/san/thinking）不可见，仅刻印实际叙事文字。\n\n右页（引导文/选项）与顶部状态栏仍等本回合完整结算后一起出现，避免数值跳变。\n\n中转站不支持 SSE 时自动静默降级为非流式，无需手动关闭。\n\n默认关。'} />
+                  </span>
+                  <Toggle on={streamingPrintEnabled} onChange={() => setStreamingPrintEnabled(!streamingPrintEnabled)} />
+                </div>
+
                 <div style={rowStyle}>
                   <span style={labelStyle}>
                     解析失败重试次数

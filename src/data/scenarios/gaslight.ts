@@ -73,7 +73,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
     makeNpc({
       id: 'npc_gl_inspector',
       role: 'protagonist',
-      name: '督察威廉·布莱克伍德',
+      name: '威廉·布莱克伍德',
       age: 46,
       gender: '男',
       occupation: '苏格兰场督察',

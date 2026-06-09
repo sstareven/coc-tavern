@@ -112,6 +112,28 @@ export interface BadEnding {
   accelerators: string[]; // 加速触发的玩家行为
 }
 
+// 拯救路径里程碑 — spec §1.1
+// delta: 推进点数(0-100 比例),LLM 命中里程碑时叠加到 RescuePathState.progress
+// hint: 给 LLM 的命中判定提示(非玩家可见)
+export interface RescueMilestone {
+  id: string;
+  name: string;
+  delta: number;
+  hint?: string;
+}
+
+// 拯救路径终局 — spec §1.1
+// 每条 RescueEnding 表示一种正向结局形态,玩家行为推进它的 milestones → progress 满 100 锁定为最终结局。
+// failureVariantId: 该路径推进失败时回落到哪个 BadEnding.id(可选,删 BadEnding 时由 reducer 清空)
+export interface RescueEnding {
+  id: string;
+  name: string;
+  description: string;
+  unlockHint: string;
+  milestones: RescueMilestone[];
+  failureVariantId?: string;
+}
+
 export interface ScenarioMeta {
   name: string;
   type: '调查' | '战斗' | '玩职' | '剧本' | '混合';
@@ -148,6 +170,9 @@ export interface ScenarioDoc {
   // 仅编辑模式
   darkTimeline: DarkPhase[];
   badEndings: BadEnding[];
+  /** 拯救路径终局列表 — spec §1.1。
+   *  未填则不启用拯救路径系统;有值时 RescueBar 显示,initFromScenario 据此种入 statData。 */
+  rescueEndings?: RescueEnding[];
   authorNotes: string;
 
   schemaVersion: number;
@@ -220,6 +245,16 @@ export interface ScenarioPatch {
 
   /** 文生图配置覆盖(浅合并;styleAnchors 整块替换;留空字段=保留原值)。 */
   patchImageGen?: Partial<ScenarioImageGen>;
+
+  /** 拯救路径变更包 — spec §3.1。
+   *  upsert: 按 id upsert(同 id 覆盖,异 id 追加;name 改变时 reducer 同步 rename statData 子键)
+   *  removeIds: 按 id 过滤删除
+   *  replaceAll: 整块替换(忽略 upsert/removeIds);CompanionChat 整段重写时用 */
+  rescueEndings?: {
+    upsert?: RescueEnding[];
+    removeIds?: string[];
+    replaceAll?: RescueEnding[];
+  };
 }
 
 // ---- 类型守卫（手写，不引 zod） ----
@@ -328,6 +363,21 @@ function isBadEnding(x: unknown): x is BadEnding {
   return isStr(x.id) && isStr(x.condition) && isStr(x.narrative) && isStrArr(x.accelerators);
 }
 
+function isRescueMilestoneLike(x: unknown): x is RescueMilestone {
+  if (!isObj(x)) return false;
+  if (!isStr(x.id) || !isStr(x.name) || !isNum(x.delta)) return false;
+  if (x.hint !== undefined && !isStr(x.hint)) return false;
+  return true;
+}
+
+function isRescueEndingLike(x: unknown): x is RescueEnding {
+  if (!isObj(x)) return false;
+  if (!isStr(x.id) || !isStr(x.name) || !isStr(x.description) || !isStr(x.unlockHint)) return false;
+  if (!Array.isArray(x.milestones) || !x.milestones.every(isRescueMilestoneLike)) return false;
+  if (x.failureVariantId !== undefined && !isStr(x.failureVariantId)) return false;
+  return true;
+}
+
 function isScenarioMeta(x: unknown): x is ScenarioMeta {
   if (!isObj(x)) return false;
   const okType = ['调查', '战斗', '玩职', '剧本', '混合'].includes(x.type as string);
@@ -359,6 +409,9 @@ export function isValidScenarioDoc(x: unknown): x is ScenarioDoc {
   if (!Array.isArray(x.entries) || !x.entries.every(isScenarioEntry)) return false;
   if (!Array.isArray(x.darkTimeline) || !x.darkTimeline.every(isDarkPhase)) return false;
   if (!Array.isArray(x.badEndings) || !x.badEndings.every(isBadEnding)) return false;
+  if (x.rescueEndings !== undefined) {
+    if (!Array.isArray(x.rescueEndings) || !x.rescueEndings.every(isRescueEndingLike)) return false;
+  }
   if (!isStr(x.authorNotes)) return false;
   if (typeof x.schemaVersion !== 'number' || !SUPPORTED_SCHEMA_VERSIONS.includes(x.schemaVersion)) return false;
   if (!isNum(x.createdAt) || !isNum(x.updatedAt)) return false;

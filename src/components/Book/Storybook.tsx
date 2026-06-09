@@ -7,12 +7,14 @@ import { InventoryOverlay } from '../Inventory/InventoryPanel';
 import { useClueStore } from '../../stores/useClueStore';
 import { useDiceStore } from '../../stores/useDiceStore';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
+import { useRescueStore } from '../../stores/useRescueStore';
 import { CharSheetOverlay } from '../CharSheet/CharSheetOverlay';
 import { triggerImageGenForPage } from '../../api/image-gen-trigger';
 import { NpcOverlay } from '../NPC/NpcOverlay';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { MapOverlay } from '../Map/MapOverlay';
 import { useMapStore } from '../../stores/useMapStore';
+import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { useKeyClueStore } from '../../stores/useKeyClueStore';
 import { useCombatStore } from '../../stores/useCombatStore';
@@ -43,6 +45,13 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
+  const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const streamingLeftSegments = useStreamingPrintStore((s) => s.leftSegments);
+  const streamingLeftHeader = useStreamingPrintStore((s) => s.leftHeaderText);
+  const streamingRightSegments = useStreamingPrintStore((s) => s.rightSegments);
+  const streamingRightHeader = useStreamingPrintStore((s) => s.rightHeaderText);
+  const streamingSummary = useStreamingPrintStore((s) => s.summarySegments);
+  const streamingChoices = useStreamingPrintStore((s) => s.choices);
   const encounter = useCombatStore((s) => s.encounter);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
@@ -209,6 +218,12 @@ export function Storybook() {
     useDiceStore.getState().setHistory(
       remaining.flatMap((p, i) => (p.diceResults ?? []).map((r) => ({ ...r, page: r.page ?? i + 1 }))).reverse(),
     );
+
+    // 拯救路径回溯:与 sheet/npc 同模式,从剩余末页含 rescue 快照的页 hydrate;
+    // 老存档无快照则保持 clear() 后空态(globalStatus='潜伏' RescueBar 不渲染)。
+    useRescueStore.getState().clear();
+    const lastRescueSnap = [...remaining].reverse().find((p) => p.rescue)?.rescue;
+    if (lastRescueSnap) useRescueStore.getState().hydrateFromSnapshot(lastRescueSnap);
 
     persistActiveGameState();
   };
@@ -377,7 +392,7 @@ export function Storybook() {
               </div>
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} />
+                <LeftPage header={page.leftHeader} content={page.leftContent} pageNum={page.leftPage} summary={page.summary} diceResults={page.diceResults} sanityCheckPrompts={page.sanityCheckPrompts} imageUrl={page.imageUrl} imagePageId={page.id} imageGenStatus={page.imageGenStatus} imageGenAt={page.imageGenAt} onRegenerateImage={() => { void triggerImageGenForPage({ pageIdx: pageIndex, source: 'manual' }); }} isStreamingPrint={isStreamingPrint} streamingSegments={streamingLeftSegments} streamingHeader={streamingLeftHeader} streamingSummary={streamingSummary} />
               </AppearPage>
             )}
           </div>
@@ -413,7 +428,7 @@ export function Storybook() {
               <CombatPanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
-                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} />
+                <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} isStreamingPrint={isStreamingPrint} streamingHeader={streamingRightHeader} streamingSegments={streamingRightSegments} streamingChoices={streamingChoices} />
               </AppearPage>
             )}
           </div>

@@ -29,6 +29,9 @@ export interface CharacterSheet {
   description: string;
   /** 当前姿态 — 站立/倒下/昏迷/被束缚 等，供 LLM 遵守物理约束 */
   posture: string;
+  /** 调查员当前装束:1 句中文短句,同 NpcProfile.outfit 语义。
+   *  由 outfit-extractor 写入,或玩家 UI 手改。 */
+  outfit?: string;
   /** 状态条件 — 极度口渴/身体着火/中毒 等持续状态 */
   statusConditions: StatusCondition[];
   /**
@@ -102,6 +105,20 @@ export interface BookPage {
   /** 本页独立抽取的地点元素（页锚定，随页持久化，供删页重放重建）。 */
   locationElements?: LocationElementInput[];
   darkThread?: DarkThreadData;
+  /** 本回合结束时的拯救路径快照(全局状态/胜出路径/各路径进度)——随页持久化,
+   *  供翻页回看历史进度、删页回溯重建运行态。老存档为 undefined → RescueBar 不渲染。
+   *  结构与 useRescueStore.RescueSnapshot 一致;字面声明避免循环依赖。 */
+  rescue?: {
+    paths: Array<{
+      endingId: string;
+      unlocked: boolean;
+      progress: number;
+      achievedMilestoneIds: string[];
+      lastNarration?: string;
+    }>;
+    globalStatus: '潜伏' | '对峙' | '锁定';
+    winningEndingId: string | null;
+  };
   /** 本回合结束时的角色卡快照（HP/SAN/MP/姿态/状态/技能等）——供删页回溯人物状态。 */
   sheetSnapshot?: CharacterSheet;
   /** 本回合结束时的 NPC 名册快照（按 id）——供删页快照式回溯人物状态（含战斗结算的昏迷/死亡等）。 */
@@ -342,6 +359,28 @@ export interface AnchorNode {
   description: string;  // 1-2 句：该节点剧情应发生什么
 }
 
+/** 调查员或关键 NPC 的角色弧：开局态 → 终态。LLM 用作长期方向，每回合不要求显式进度。 */
+export interface CharacterArc {
+  /** 角色名（调查员=sheet.identity.name；NPC=NpcProfile.name，与 findIdByName 对齐）。 */
+  name: string;
+  /** 开局态：1 句话刻画起点形象（性格/处境）。 */
+  from: string;
+  /** 中段态：1 句话刻画转折前的状态，可省。 */
+  mid?: string;
+  /** 终态：1 句话刻画结局形象，KP 让角色长期朝此方向收束。 */
+  to: string;
+}
+
+/** 相邻骨架节点之间的因果钩子：节点 A 走到 B 必须先发生什么。 */
+export interface CausalLink {
+  /** AnchorNode.id（megaagent 输出 fromTitle，parse 阶段反查 nodes 拿 id）。 */
+  fromNodeId: string;
+  /** AnchorNode.id（同上）。 */
+  toNodeId: string;
+  /** 1 句话桥接钩子（≤30字）。 */
+  hookHint: string;
+}
+
 /** 本局剧情蓝图：开局一次生成、整局固定（单行/会话）。 */
 export interface PlotAnchors {
   /** 3-6 个有序必达节点（默认推进路线）。 */
@@ -350,6 +389,14 @@ export interface PlotAnchors {
   constraints: string[];
   /** 威胁达成坏结局所依赖之物（= 玩家可逻辑性瓦解的关键靶子）。 */
   threatDependencies: string[];
+  /** 本局中心思想，1 句话（≤30字）。KP 隐性回响，不当讲道文。 */
+  theme?: string;
+  /** 3-6 条 KP 视角世界硬事实（如「狼人怕银」「社区三代旧怨」）。 */
+  worldFacts?: string[];
+  /** 调查员 + 关键 NPC 各一条角色弧，通常共 3-4 条。 */
+  characterArcs?: CharacterArc[];
+  /** 相邻骨架节点之间的因果钩子，长度通常 = nodes.length - 1。 */
+  causalLinks?: CausalLink[];
 }
 
 // ===== Map System（地点有向连线网络）=====
@@ -429,6 +476,9 @@ export interface NpcProfile {
   backstory: string;
   /** 随身物品 */
   possessions: string[];
+  /** 当前装束:1 句中文短句(≤40字),含穿着+外露物件,如「灰色羊毛大衣,手持左轮」。
+   *  仅 importance ∈ {核心,重要} 才由 outfit-extractor 写入;路人不挂。 */
+  outfit?: string;
   /** 是否在场(场景内,可被旁白引用/对话/上下文注入) */
   isPresent: boolean;
   /**

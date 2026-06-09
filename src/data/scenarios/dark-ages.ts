@@ -37,7 +37,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     makeNpc({
       id: 'npc_da_hermann',
       role: 'optional',
-      name: '院长赫尔曼',
+      name: '赫尔曼',
       age: 64,
       gender: '男',
       occupation: '本笃会修道院长',
@@ -98,7 +98,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     makeNpc({
       id: 'npc_da_knight',
       role: 'protagonist',
-      name: '骑士罗格·冯·里尔',
+      name: '罗格·冯·里尔',
       age: 27,
       gender: '男',
       occupation: '游骑士',
@@ -131,7 +131,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     makeNpc({
       id: "npc_da_arnulf",
       role: "protagonist",
-      name: "游骑士阿努尔夫·冯·埃伯巴赫",
+      name: "阿努尔夫·冯·埃伯巴赫",
       age: 29,
       gender: "男",
       occupation: "法兰克尼亚游骑士",
@@ -165,7 +165,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     makeNpc({
       id: "npc_da_brother_anselm",
       role: "protagonist",
-      name: "抄经修士安瑟姆",
+      name: "安瑟姆",
       age: 24,
       gender: "男",
       occupation: "本笃会抄经修士/院长助理",
@@ -199,7 +199,7 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     makeNpc({
       id: "npc_da_sister_walburga",
       role: "optional",
-      name: "修女瓦尔布尔加",
+      name: "瓦尔布尔加",
       age: 51,
       gender: "女",
       occupation: "修道院驻地医修女/草药师",

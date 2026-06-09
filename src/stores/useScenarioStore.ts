@@ -16,6 +16,7 @@ import type {
   ScenarioPatch,
   ScenarioRelation,
   RelationType,
+  RescueEnding,
 } from '../types/scenario';
 
 interface ScenarioState {
@@ -133,6 +134,26 @@ function mergePatch(doc: ScenarioDoc, patch: ScenarioPatch): ScenarioDoc {
       if (patch.patchImageGen![k] === undefined) delete merged[k];
     });
     next.imageGen = Object.keys(merged).length === 0 ? undefined : merged;
+  }
+  if (patch.rescueEndings) {
+    const r = patch.rescueEndings;
+    if (r.replaceAll) {
+      next.rescueEndings = [...r.replaceAll];
+    } else {
+      let arr: RescueEnding[] = next.rescueEndings ? [...next.rescueEndings] : [];
+      if (r.upsert?.length) {
+        const existedIds = new Set(arr.map((e) => e.id));
+        const incoming = new Map(r.upsert.map((e) => [e.id, e] as const));
+        const mapped = arr.map((e) => incoming.get(e.id) ?? e);
+        const appended = r.upsert.filter((e) => !existedIds.has(e.id));
+        arr = [...mapped, ...appended];
+      }
+      if (r.removeIds?.length) {
+        const drop = new Set(r.removeIds);
+        arr = arr.filter((e) => !drop.has(e.id));
+      }
+      next.rescueEndings = arr;
+    }
   }
   next.updatedAt = now();
   return next;

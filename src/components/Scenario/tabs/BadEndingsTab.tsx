@@ -33,7 +33,16 @@ export function BadEndingsTab({ scn, onChange }: Props): React.ReactElement {
   };
 
   const removeOne = (id: string): void => {
-    onChange({ ...scn, badEndings: scn.badEndings.filter((b) => b.id !== id), updatedAt: Date.now() });
+    // 同步把所有 RescueEnding.failureVariantId 等于此 id 的引用清空
+    const nextRescue = (scn.rescueEndings ?? []).map((r) =>
+      r.failureVariantId === id ? { ...r, failureVariantId: undefined } : r,
+    );
+    onChange({
+      ...scn,
+      badEndings: scn.badEndings.filter((b) => b.id !== id),
+      rescueEndings: nextRescue,
+      updatedAt: Date.now(),
+    });
   };
 
   const addOne = (): void => {
@@ -72,14 +81,20 @@ export function BadEndingsTab({ scn, onChange }: Props): React.ReactElement {
       {scn.badEndings.length === 0 ? (
         <Empty />
       ) : (
-        scn.badEndings.map((b) => (
-          <EndingCard
-            key={b.id}
-            ending={b}
-            onChange={(patch) => patchOne(b.id, patch)}
-            onRemove={() => removeOne(b.id)}
-          />
-        ))
+        scn.badEndings.map((b) => {
+          const boundBy = (scn.rescueEndings ?? [])
+            .filter((r) => r.failureVariantId === b.id)
+            .map((r) => r.name || r.id);
+          return (
+            <EndingCard
+              key={b.id}
+              ending={b}
+              boundBy={boundBy}
+              onChange={(patch) => patchOne(b.id, patch)}
+              onRemove={() => removeOne(b.id)}
+            />
+          );
+        })
       )}
     </div>
   );
@@ -181,10 +196,12 @@ function BarButton({
 const EndingCard = memo(
   function EndingCard({
     ending,
+    boundBy,
     onChange,
     onRemove,
   }: {
     ending: BadEnding;
+    boundBy: string[];
     onChange: (patch: Partial<BadEnding>) => void;
     onRemove: () => void;
   }): React.ReactElement {
@@ -229,6 +246,22 @@ const EndingCard = memo(
           </button>
         </header>
 
+        {boundBy.length > 0 && (
+          <div
+            data-testid={`bad-bound-by-${ending.id}`}
+            style={{
+              padding: '6px 10px',
+              fontSize: 11, color: 'var(--gold)',
+              background: 'rgba(196,168,85,0.10)',
+              border: '1px solid rgba(196,168,85,0.35)',
+              borderRadius: 2,
+              fontFamily: 'var(--font-ui)', letterSpacing: 1,
+            }}
+          >
+            已被路径〈{boundBy.join('、')}〉绑定为失败变体
+          </div>
+        )}
+
         <Field label="触发条件(自然语言:SAN/暗线进度/NPC 态度组合)">
           <TextArea rows={2} value={ending.condition} onCommit={(v) => onChange({ condition: v })} />
         </Field>
@@ -247,7 +280,9 @@ const EndingCard = memo(
     prev.ending.id === next.ending.id &&
     prev.ending.condition === next.ending.condition &&
     prev.ending.narrative === next.ending.narrative &&
-    prev.ending.accelerators === next.ending.accelerators,
+    prev.ending.accelerators === next.ending.accelerators &&
+    prev.boundBy.length === next.boundBy.length &&
+    prev.boundBy.every((n, i) => n === next.boundBy[i]),
 );
 
 function Field({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {
