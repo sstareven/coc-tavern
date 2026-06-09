@@ -57,16 +57,64 @@ export function scenarioEntriesToLoreEntries(
 export function buildScenarioStatDataSeed(scn: ScenarioDoc): Record<string, unknown> {
   // 项目 statData 走嵌套树（getTreePath 按点分路径读取），平铺 key 会读不到。
   // 已解锁返回 {} 仅作为「该枝缺失时建空字典」的占位，deepMerge 时不能覆盖已有子树。
-  return {
-    剧情: {
-      暗线: {
-        描述: scn.darkTimeline[0]?.directorNote ?? '',
-        进度: 0,
-        威胁等级: '潜伏',
-      },
-      结局类型: '',
-      已解锁: {},
+  const 剧情: Record<string, unknown> = {
+    暗线: {
+      描述: scn.darkTimeline[0]?.directorNote ?? '',
+      进度: 0,
+      威胁等级: '潜伏',
     },
+    结局类型: '',
+    已解锁: {},
+  };
+
+  // 拯救路径:按 rescueEndings[].name 种入 路径.<name> 空进度桶 + 全局状态/胜出路径占位。
+  // 无 rescueEndings → 整个 救援 枝省略(等 createInitialStatData 兜底)。
+  // 用 ending.name 作 key:LLM 在 JSONPatch 路径里写 /剧情/救援/路径/封印古神/进度 时直观。
+  const endings = scn.rescueEndings ?? [];
+  if (endings.length > 0) {
+    const 路径: Record<string, unknown> = {};
+    for (const e of endings) {
+      const key = (e.name ?? '').trim();
+      if (!key) continue;
+      路径[key] = { 已解锁: false, 进度: 0, 已达里程碑: [], 最近: '' };
+    }
+    剧情['救援'] = { 全局状态: '潜伏', 胜出路径: '', 路径 };
+  }
+
+  return { 剧情 };
+}
+
+/**
+ * 构造常驻 lore entry「拯救路径状态」。
+ * 与 useDarkThreadStore.buildContextInjection 的 darkThreadBucket 同形:
+ * 由 useChatPipeline 在 buildContextFromPages 阶段读 useRescueStore.buildContextInjection()
+ * 并包装到独立 LoreEntry。本函数仅生成"剧本固化的解锁/里程碑提示"部分(运行态由 store 拼接)。
+ */
+export function buildScenarioRescueLoreEntry(scn: ScenarioDoc): LoreEntry | null {
+  const endings = scn.rescueEndings ?? [];
+  if (endings.length === 0) return null;
+  const lines: string[] = ['【拯救路径预设(剧本作者标注,玩家不可见)】'];
+  for (const e of endings) {
+    lines.push(`- 「${e.name}」(id: ${e.id})`);
+    if (e.description) lines.push(`  结局:${e.description}`);
+    if (e.unlockHint) lines.push(`  解锁条件:${e.unlockHint}`);
+    if (e.milestones.length > 0) {
+      lines.push('  里程碑:');
+      for (const m of e.milestones) {
+        const hintTxt = m.hint ? ` (${m.hint})` : '';
+        lines.push(`    · ${m.name} +${m.delta}${hintTxt}`);
+      }
+    }
+  }
+  return {
+    ...EMPTY_LORE_ENTRY,
+    name: '拯救路径预设',
+    keys: '拯救, 救援, rescue',
+    content: lines.join('\n'),
+    constant: true,
+    position: 0,
+    priority: 920,
+    disabled: false,
   };
 }
 

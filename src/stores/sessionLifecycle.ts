@@ -21,6 +21,7 @@ import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
 import { useScenarioStore } from './useScenarioStore';
+import { useRescueStore } from './useRescueStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
@@ -72,6 +73,7 @@ export function clearAllGameState(prevScenarioId?: string) {
   useKeyClueStore.getState().clearAll();
   useAnchorStore.getState().clearAll();
   useCombatStore.getState().clearAll();
+  useRescueStore.getState().clear();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});
   useLorebookStore.getState().clearSummaryEntries();
@@ -202,6 +204,8 @@ async function saveConversationInner(cid: string): Promise<void> {
   const keyClueState = useKeyClueStore.getState();
   const anchorState = useAnchorStore.getState();
   const combatEncounter = useCombatStore.getState().encounter;
+  const rescueSnapshot = useRescueStore.getState().toSnapshot();
+  const rescueHasContent = rescueSnapshot.paths.length > 0;
   const keywords = useKeywordStore.getState().keywords;
   const variables = useVariableStore.getState().variables;
   const statData = useVariableStore.getState().statData;
@@ -245,7 +249,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -309,6 +313,13 @@ async function saveConversationInner(cid: string): Promise<void> {
         await db.combat.delete(cid);
       }
 
+      // 拯救路径（单行/会话）:有 path 则 put,无 path(剧本未启用 rescueEndings)删残留行。
+      if (rescueHasContent) {
+        await db.rescue.put({ conversationId: cid, snapshot: rescueSnapshot });
+      } else {
+        await db.rescue.delete(cid);
+      }
+
       await db.keywords.where('conversationId').equals(cid).delete();
       if (keywordRows.length > 0) await db.keywords.bulkPut(keywordRows);
 
@@ -354,10 +365,10 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, keywordRows, gameVarRows, macroVarRows] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, rescueRow, keywordRows, gameVarRows, macroVarRows] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -373,6 +384,7 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
           db.keyClues.get(cid),
           db.plotAnchors.get(cid),
           db.combat.get(cid),
+          db.rescue.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
           db.macroVars.where('conversationId').equals(cid).toArray(),
@@ -444,6 +456,9 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   if (isOrphanedEncounter(useCombatStore.getState().encounter, useBookStore.getState().pages.map((p) => p.id ?? ''))) {
     useCombatStore.getState().clearCombat();
   }
+
+  // 拯救路径(单行/会话):无行 → 空快照(clearAllGameState 已置空,此处显式恢复以覆盖切档)。
+  useRescueStore.getState().hydrateFromSnapshot(rescueRow?.snapshot ?? null);
 
   // 关键词
   const keywords: Record<string, string> = {};
@@ -527,7 +542,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -543,6 +558,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.keyClues.delete(cid);
       await db.plotAnchors.delete(cid);
       await db.combat.delete(cid);
+      await db.rescue.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();
       await db.macroVars.where('conversationId').equals(cid).delete();

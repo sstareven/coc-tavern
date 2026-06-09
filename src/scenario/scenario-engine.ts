@@ -16,8 +16,9 @@ import { useInventoryStore } from '../stores/useInventoryStore';
 import { useBookStore } from '../stores/useBookStore';
 import { useChatStore } from '../stores/useChatStore';
 import { useMapStore } from '../stores/useMapStore';
+import { useRescueStore } from '../stores/useRescueStore';
 import { renderTemplate } from '../sillytavern/ejs-template';
-import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed } from './scenario-injection';
+import { scenarioCharacterToNpc, scenarioEntriesToLoreEntries, buildScenarioStatDataSeed, buildScenarioRescueLoreEntry } from './scenario-injection';
 import { subscribeRelationLorebook } from './relation-lorebook';
 import { canJoinParty, hasHostileEdge } from './relation-graph';
 import { extractInitialItems } from './initial-items-extractor';
@@ -263,6 +264,17 @@ export async function activateScenario(
     });
     bookMounted = true;
 
+    // 拯救路径预设(常驻 lore):剧本声明的 RescueEnding 列表给 LLM 当作"路径菜单"。
+    // 与 scenarioEntriesToLoreEntries 分开是因为这是元配置,不进 6 类 entry 分类。
+    const rescueLore = buildScenarioRescueLoreEntry(scn);
+    if (rescueLore) {
+      useLorebookStore.getState().upsertEntries(scenarioBookId, { scn_rescue_preset: rescueLore });
+    }
+
+    // 拯救路径运行态:按 rescueEndings 初始化 useRescueStore(同步写 statData 镜像)。
+    // 在 statData seed 合并后调,确保 store 与 statData 一致。
+    useRescueStore.getState().initFromScenario(scn.rescueEndings ?? []);
+
     // B2: entries.category === '地点' 自动写入 useMapStore — 否则 lorebook 里的「地点」条目
     // 只能被世界书匹配引擎按关键词激活,玩家打开地图面板看不到任何节点,与剧本叙事脱节。
     // B6: 抽成 applyScenarioMapLocations helper,mountScenarioBook 读档重挂时复用同一份地点同步逻辑。
@@ -451,6 +463,10 @@ export function unloadScenario(scenarioId: string): void {
     unsub();
     relationUnsubscribes.delete(scenarioId);
   }
+  // 拯救路径运行态:剧本卸载即清运行态(与 lorebook book 卸载同语义)。
+  // sessionLifecycle.clearAllGameState 也会再清一次(按会话隔离不变量),这里清是为了
+  // 即便单独走 unloadScenario(无 session clear)路径也不留残骸。
+  useRescueStore.getState().clear();
   const bookId = SCENARIO_BOOK_PREFIX + scenarioId;
   // B6: 把卸载动作包成 Promise 并注册到 pendingUnloads,activateScenario 入口会等它 settle 再
   // 读 A2 状态,杜绝「读到挂载 → 早退 → 紧接着 removeBook 拔掉」的竞争。

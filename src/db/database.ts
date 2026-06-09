@@ -134,6 +134,24 @@ export interface PageImageRow {
   createdAt: number;
 }
 
+// 拯救路径状态(单行/会话)。snapshot 是 useRescueStore.toSnapshot() 的 JSON 序列化结果,
+// 与 darkEndings/keyClues 同范式:单行/会话,put 覆盖、delete 清行。
+// 这里只声明结构(避免循环依赖);具体类型由 useRescueStore.ts 维护,save/load 时按结构存读。
+export interface RescueRow {
+  conversationId: string;
+  snapshot: {
+    paths: Array<{
+      endingId: string;
+      unlocked: boolean;
+      progress: number;
+      achievedMilestoneIds: string[];
+      lastNarration?: string;
+    }>;
+    globalStatus: '潜伏' | '对峙' | '锁定';
+    winningEndingId: string | null;
+  };
+}
+
 export const db = new Dexie('abyssal_archive') as Dexie & {
   kvStore: EntityTable<KVRecord, 'key'>;
   conversations: EntityTable<ConversationRow, 'id'>;
@@ -155,6 +173,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   combat: EntityTable<CombatRow, 'conversationId'>;
   consoleLogs: EntityTable<ConsoleLogRow, 'id'>;
   pageImages: EntityTable<PageImageRow, 'pageId'>;
+  rescue: EntityTable<RescueRow, 'conversationId'>;
 };
 
 db.version(1).stores({
@@ -257,6 +276,14 @@ export const V12_SCHEMA = {
 } as const;
 
 db.version(12).stores(V12_SCHEMA);
+
+/** v13: 新增「拯救路径状态」单行表(一行/会话,无数据迁移)。 */
+export const V13_SCHEMA = {
+  ...V12_SCHEMA,
+  rescue: '&conversationId',
+} as const;
+
+db.version(13).stores(V13_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
