@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { MapLocation, MapEdge, MapUpdates } from '../types';
+import { sanitizeMapData, UUID_RE } from './map-id-sanitize';
 
 export type { MapUpdates };
 
@@ -88,15 +89,26 @@ export const useMapStore = create<MapStore>()((set) => ({
         currentLocationId = ensureLoc(u.current).id;
       }
 
+      console.assert(
+        locations.every((l) => UUID_RE.test(l.id)) && edges.every((e) => UUID_RE.test(e.id)),
+        '[useMapStore] applyUpdates 产出了非法 UUID — 某条路径绕过了 crypto.randomUUID()',
+      );
+
       return { locations, edges, currentLocationId };
     });
   },
 
-  replaceAll: (data) => set({
-    locations: data.locations,
-    edges: data.edges,
-    currentLocationId: data.currentLocationId ?? null,
-  }),
+  replaceAll: (data) => {
+    const clean = sanitizeMapData(data.locations, data.edges, data.currentLocationId);
+    if (clean.remapCount > 0) {
+      console.warn(`[useMapStore] sanitize 重发了 ${clean.remapCount} 个非法地图 id(读档/剧本回灌脏数据)`);
+    }
+    set({
+      locations: clean.locations,
+      edges: clean.edges,
+      currentLocationId: clean.currentLocationId,
+    });
+  },
 
   setCurrentByName: (name) => set((s) => {
     const loc = name?.trim() ? findLocByName(s.locations, name) : undefined;
