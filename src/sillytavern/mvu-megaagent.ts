@@ -9,9 +9,9 @@
 //   - npc-rectifier(走 rewrite 桶,与 MVU 不抢额度)
 //   - 行动补写 / 人物背景补写(用户主动触发,不在主回合循环)
 //
-// 字段顺序(2026-06-08 重排,推升 prompt cache 命中率):
+// 字段顺序(2026-06-08 重排,推升 prompt cache 命中率; 2026-06-10 npcMemoryUpdates 挪到 partyRelations 后,避免尾部截断丢心智):
 //   variables → darkThread → evaluateKeyClues → keywordMeanings → locationElements →
-//   partyRelations → clueIntegration → locationIntegration → mapReconcile → cleanedText → _meta
+//   partyRelations → npcMemoryUpdates → clueIntegration → locationIntegration → mapReconcile → cleanedText → _meta
 //   原因:
 //   - 小且核心的字段在前(variables/darkThread/evaluateKeyClues);
 //   - cleanedText 是 1-3KB 大块,挪到末段倒数第二,避开尾部截断时主功能丢失;
@@ -74,6 +74,16 @@ const OUTPUT_SCHEMA_DESC = `{
   "partyRelations": null | {
     "deltas": [ { "sourceId": "string", "targetId": "string", "newType": "family|lover|friend|colleague|mentor|rival|enemy|acquaintance|stranger", "reason"?: "string" } ]
   },
+  "npcMemoryUpdates": null | [ {
+    "name": "string",
+    "goal"?: "string",
+    "nextMove"?: "string",
+    "trustOnPC"?: -1~1,
+    "emotionToPC"?: "敌意"|"警惕"|"中立"|"友好"|"暧昧"|"恐惧",
+    "secretsAdd"?: ["string"],
+    "relationshipsUpsert"?: [ { "target": "string", "emotion": "敌意|警惕|中立|友好|暧昧|恐惧", "note": "string" } ],
+    "prose"?: "string"
+  } ],
   "clueIntegration": null | {
     "synthesized": [ { "name": "string", "summary": "string", "discoveryNarrative": "string", "relatedTo": ["string"], "tags": ["string"] } ],
     "originalClueIds": ["string"]
@@ -87,16 +97,6 @@ const OUTPUT_SCHEMA_DESC = `{
     "removeEdges": [ { "from": "string", "to": "string" } ],
     "merges": [ { "keep": "string", "drop": "string" } ]
   },
-  "npcMemoryUpdates": null | [ {
-    "name": "string",
-    "goal"?: "string",
-    "nextMove"?: "string",
-    "trustOnPC"?: -1~1,
-    "emotionToPC"?: "敌意"|"警惕"|"中立"|"友好"|"暧昧"|"恐惧",
-    "secretsAdd"?: ["string"],
-    "relationshipsUpsert"?: [ { "target": "string", "emotion": "敌意|警惕|中立|友好|暧昧|恐惧", "note": "string" } ],
-    "prose"?: "string"
-  } ],
   "cleanedText": "string",
   "_meta": { "skippedTasks": ["string"], "notes": "string" }
 }`;
@@ -834,8 +834,25 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
   if (opts.agentMemoryEnabled && result.npcMemoryUpdates && result.npcMemoryUpdates.length > 0) {
     const npcStore = useNpcStore.getState();
     const turn = typeof opts.turn === 'number' ? opts.turn : 0;
+    // 兜底匹配 — 严格 trim 后逐字相等优先(npcStore.findIdByName);找不到时尝试唯一前缀/包含
+    // (LLM 偶发会写「霍尔姆斯先生」而 profile 名是「霍尔姆斯」)。仅当只有一个候选时使用 fuzzy,
+    // 防止退化回老 bug:多 NPC 时模糊归并会误并。多义/0义都回退到丢失,而非误写。
+    const looseFindIdByName = (name: string): string | null => {
+      const strict = npcStore.findIdByName(name);
+      if (strict) return strict;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const candidates: string[] = [];
+      for (const [id, p] of Object.entries(npcStore.profiles)) {
+        const pn = p.name.trim();
+        if (!pn) continue;
+        if (pn === trimmed) continue; // 已经被 strict 找到了或不可能命中
+        if (pn.includes(trimmed) || trimmed.includes(pn)) candidates.push(id);
+      }
+      return candidates.length === 1 ? candidates[0] : null;
+    };
     useNpcMemoryStore.getState().applyUpdates(result.npcMemoryUpdates, turn, {
-      findIdByName: (name) => npcStore.findIdByName(name),
+      findIdByName: looseFindIdByName,
       isScenarioPreset: (id) => npcStore.profiles[id]?.isScenarioPreset === true,
     });
     summary.npcMemoryUpdatesApplied = result.npcMemoryUpdates.length;

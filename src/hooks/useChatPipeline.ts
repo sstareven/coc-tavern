@@ -11,7 +11,6 @@ import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
 import { useWorldMemoryStore } from '../stores/useWorldMemoryStore';
 import { runNpcMemoryCard } from '../sillytavern/npc-memory-extractor';
 import { runWorldMemoryUpdate } from '../sillytavern/world-memory-extractor';
-import { buildImportantNpcMemoryTemplate } from '../types/npc-world-memory';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useKeyClueStore } from '../stores/useKeyClueStore';
@@ -1433,42 +1432,62 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             );
 
             // Agent Memory(2026-06-10) 冷启动 + 世界 Memory 子调用,均 fire-and-forget。
+            // 2026-06-10 修复「只有一个角色有自动心智」:
+            //   - 立卡范围从仅'核心'扩到'核心'||'重要'(对齐 NpcOverlay showMemory 与玩家期望)
+            //   - 加每回合 spawn 节流 2 (rewrite 桶 + world memory 共 3 RPM 配额)
+            //   - 排序:核心>重要,在场>离场,距上次更新远者优先
+            //   - 核心 NPC 每 NPC_REFRESH_INTERVAL 回合主动 LLM 刷新(避免一辈子只立一次)
             if (agentMemoryEnabled) {
               const npcAll = useNpcStore.getState().profiles;
               const memStore = useNpcMemoryStore.getState();
+              const NPC_REFRESH_INTERVAL = 5;
+              const MAX_NPC_SPAWN_PER_TURN = 2;
+
+              type Candidate = { id: string; p: typeof npcAll[string]; ageScore: number; coreScore: number; presentScore: number };
+              const candidates: Candidate[] = [];
               for (const [id, p] of Object.entries(npcAll)) {
                 if (!p.name) continue;
+                if (p.importance !== '核心' && p.importance !== '重要') continue;
+                if (memStore.pendingCardIds.includes(id)) continue;
                 const curMem = memStore.memories[id];
-                if (p.importance === '核心') {
-                  // 核心立卡:仅当 prose 为空时触发(避免重复立卡)。
-                  if (!curMem || !curMem.prose) {
-                    if (!memStore.pendingCardIds.includes(id)) {
-                      memStore.addPending(id);
-                      const digest = `${p.name}|${p.identity ?? ''}|位置:${p.locationName ?? '未知'}|状态:${p.status ?? ''}`;
-                      void runNpcMemoryCard({
-                        npcId: id,
-                        npcName: p.name,
-                        npcDigest: digest,
-                        scenarioCtx: hookProcessedContent.slice(0, 1200),
-                      })
-                        .then((card) => {
-                          useNpcMemoryStore.getState().removePending(id);
-                          if (card) {
-                            useNpcMemoryStore.getState().setMemory(id, { ...card, updatedAt: turnForMega });
-                          } else {
-                            // fail-open:沿用模板默认值
-                            useNpcMemoryStore.getState().setMemory(id, buildImportantNpcMemoryTemplate(turnForMega));
-                          }
-                        })
-                        .catch(() => useNpcMemoryStore.getState().removePending(id));
+                const proseEmpty = !curMem || !curMem.prose || !curMem.prose.trim();
+                const stale = curMem && (turnForMega - curMem.updatedAt) >= NPC_REFRESH_INTERVAL;
+                // 核心: 空 prose 或 stale 都触发; 重要: 仅空 prose 时触发(避免重要数太多冲爆 RPM)
+                const needsCard = p.importance === '核心'
+                  ? (proseEmpty || stale)
+                  : proseEmpty;
+                if (!needsCard) continue;
+                candidates.push({
+                  id,
+                  p,
+                  ageScore: turnForMega - (curMem?.updatedAt ?? 0),
+                  coreScore: p.importance === '核心' ? 1 : 0,
+                  presentScore: p.isPresent ? 1 : 0,
+                });
+              }
+              candidates.sort((a, b) => {
+                if (b.coreScore !== a.coreScore) return b.coreScore - a.coreScore;
+                if (b.presentScore !== a.presentScore) return b.presentScore - a.presentScore;
+                return b.ageScore - a.ageScore;
+              });
+
+              for (const c of candidates.slice(0, MAX_NPC_SPAWN_PER_TURN)) {
+                memStore.addPending(c.id);
+                const digest = `${c.p.name}|${c.p.identity ?? ''}|位置:${c.p.locationName ?? '未知'}|状态:${c.p.status ?? ''}`;
+                void runNpcMemoryCard({
+                  npcId: c.id,
+                  npcName: c.p.name,
+                  npcDigest: digest,
+                  scenarioCtx: hookProcessedContent.slice(0, 1200),
+                })
+                  .then((card) => {
+                    useNpcMemoryStore.getState().removePending(c.id);
+                    if (card) {
+                      useNpcMemoryStore.getState().setMemory(c.id, { ...card, updatedAt: turnForMega });
                     }
-                  }
-                } else if (p.importance === '重要') {
-                  // 重要 NPC:首次出现时模板填充(0 RPM,程序内同步)。
-                  if (!curMem) {
-                    memStore.setMemory(id, buildImportantNpcMemoryTemplate(turnForMega));
-                  }
-                }
+                    // fail-open: 不写模板, 让 megaagent 后续 npcMemoryUpdates 或下次回合补
+                  })
+                  .catch(() => useNpcMemoryStore.getState().removePending(c.id));
               }
 
               // 世界 Memory 子调用 fire-and-forget(开关开启 → +1 RPM/回合)。

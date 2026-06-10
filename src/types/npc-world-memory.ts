@@ -71,17 +71,22 @@ export const EMPTY_NPC_MEMORY: NpcMemory = {
 };
 
 /**
- * 模板填充——「路人/undefined → 重要」升级时使用
+ * 模板填充——「路人/undefined → 重要」升级时使用 / NpcOverlay 手动立卡 fail-open 兜底。
+ * goal/nextMove/prose 必须留空串:
+ * - useNpcMemoryStore.applyUpdates 的 isPreset 守护对剧本预设 NPC「已有非空 goal/nextMove/prose」时
+ *   拒绝主回合 LLM 覆盖。模板若塞占位文案,会让剧本预设 NPC 永远锁死在套话上。
+ * - 改空串后:isPreset 守护自然通过 (empty.trim() falsy),主回合 megaagent npcMemoryUpdates 能写进去。
+ * - UI 端 NpcOverlay 对 goal/nextMove 空已有 fallback「（未浮现）」,prose 空时不渲染段落。
  */
 export function buildImportantNpcMemoryTemplate(updatedAt: number): NpcMemory {
   return {
-    goal: '（尚不明确）',
-    nextMove: '观察情况',
+    goal: '',
+    nextMove: '',
     trustOnPC: 0,
     emotionToPC: '中立',
     secrets: [],
     relationships: [],
-    prose: '刚被关注，待观察。',
+    prose: '',
     updatedAt,
   };
 }
