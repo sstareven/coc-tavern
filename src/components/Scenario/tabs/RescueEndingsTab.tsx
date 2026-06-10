@@ -185,7 +185,7 @@ function BarButton({
   );
 }
 
-const RescueCard = memo(
+export const RescueCard = memo(
   function RescueCard({
     rescue,
     badEndings,

@@ -194,7 +194,7 @@ function BarButton({
 }
 
 // React.memo + 浅比对避免父级 onChange identity 变化触发整树 re-render
-const EndingCard = memo(
+export const EndingCard = memo(
   function EndingCard({
     ending,
     boundBy,

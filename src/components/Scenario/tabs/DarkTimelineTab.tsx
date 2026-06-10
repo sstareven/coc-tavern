@@ -204,7 +204,7 @@ function BarButton({
 
 // ── 单个 phase 卡片 ──
 // 用 React.memo + 按 phase.id/字段浅比对避免父级 onChange identity 变化触发整树 re-render
-const PhaseCard = memo(
+export const PhaseCard = memo(
   function PhaseCard({
     phase,
     onChange,
