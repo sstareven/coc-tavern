@@ -23,7 +23,9 @@ import { createInitialStatData } from '../sillytavern/mvu-initial-statdata';
 import { useTavernHelperStore } from './useTavernHelperStore';
 import { useLorebookStore } from './useLorebookStore';
 import { useScenarioStore } from './useScenarioStore';
+import { cleanupRelationSubscription } from '../scenario/scenario-engine';
 import { useRescueStore } from './useRescueStore';
+import { useOptionStagingStore } from './useOptionStagingStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
@@ -87,12 +89,14 @@ export function clearAllGameState(prevScenarioId?: string) {
   // M9: 关系评估器旁白队列(in-memory)——切档/新游戏/删会话都清空,
   // 防止上一会话未消费的旁白漏到新会话第一页。
   useNarrationStore.getState().clearPending();
+  useOptionStagingStore.getState().cancel();
   // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。
   // 优先用显式传参；缺省时回落到从 activeId 反查(向后兼容)。
   const scenarioIdToUnload = prevScenarioId ?? useChatStore.getState().sessions.find(
     (s) => s.id === useChatStore.getState().activeId,
   )?.scenarioId;
   if (scenarioIdToUnload) {
+    cleanupRelationSubscription(scenarioIdToUnload);
     // **同步**直接 removeBook,而非走 dynamic import('../scenario/scenario-engine')
     // 的 fire-and-forget。否则 activateScenario A2 守卫(books[bookId]?.enabled)
     // 在 dynamic import 还没 resolve 时读到 enabled=true → 跳过激活 → page0

@@ -16,11 +16,11 @@ export interface StreamToken {
 export function parseStreamChunk(line: string): StreamToken[] {
   const tokens: StreamToken[] = [];
 
-  if (!line.startsWith('data: ')) {
+  if (!line.startsWith('data:')) {
     return tokens;
   }
 
-  const data = line.slice(6).trim();
+  const data = line.slice(line.startsWith('data: ') ? 6 : 5).trim();
 
   if (data === '[DONE]') {
     tokens.push({ done: true });

@@ -120,25 +120,29 @@ describe('advanceTurn — temporaryInsanity 倒计时', () => {
     useCombatStore.getState().clearCombat?.();
   });
 
-  it('roundsLeft>1 → 推进一次后减 1，active 仍为 true', () => {
+  it('roundsLeft>1 → 一整轮后减 1，active 仍为 true', () => {
     useCharSheetStore.getState().setSheet(baseSheet({
       temporaryInsanity: { active: true, roundsLeft: 3, bout: { mode: 'realtime', table: 'VII', entry: 3 } },
     }));
     const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
     const enemy = mkCombatant({ id: 'e', faction: 'enemy', controlledBy: 'ai' });
-    advanceTurn(mkEnc([player, enemy]));
+    let enc = mkEnc([player, enemy]);
+    enc = advanceTurn(enc); // idx 0→1
+    enc = advanceTurn(enc); // idx 1→0 (new round, decrement)
     const ti = useCharSheetStore.getState().sheet.temporaryInsanity;
     expect(ti.roundsLeft).toBe(2);
     expect(ti.active).toBe(true);
   });
 
-  it('roundsLeft=1 → 推进一次后归 0，active 清为 false，bout 被清空', () => {
+  it('roundsLeft=1 → 一整轮后归 0，active 清为 false，bout 被清空', () => {
     useCharSheetStore.getState().setSheet(baseSheet({
       temporaryInsanity: { active: true, roundsLeft: 1, bout: { mode: 'realtime', table: 'VII', entry: 5 } },
     }));
     const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
     const enemy = mkCombatant({ id: 'e', faction: 'enemy', controlledBy: 'ai' });
-    advanceTurn(mkEnc([player, enemy]));
+    let enc = mkEnc([player, enemy]);
+    enc = advanceTurn(enc); // idx 0→1
+    enc = advanceTurn(enc); // idx 1→0 (new round, decrement)
     const ti = useCharSheetStore.getState().sheet.temporaryInsanity;
     expect(ti.roundsLeft).toBe(0);
     expect(ti.active).toBe(false);

@@ -43,6 +43,11 @@ const pendingUnloads = new Map<string, Promise<void>>();
 // 防止订阅泄漏导致多次 upsertEntries 写同一 book。
 const relationUnsubscribes = new Map<string, () => void>();
 
+export function cleanupRelationSubscription(scenarioId: string): void {
+  const unsub = relationUnsubscribes.get(scenarioId);
+  if (unsub) { unsub(); relationUnsubscribes.delete(scenarioId); }
+}
+
 // B6: 把 scn.entries 里 category === '地点' 的条目同步到 useMapStore——抽成共享 helper 后
 // activateScenario step 3 后置与 mountScenarioBook(读档重挂)都能复用,避免重复粘贴维护成本。
 function applyScenarioMapLocations(entries: { category?: string; keys: string; content: string; comment: string }[]): void {
@@ -384,6 +389,8 @@ export async function activateScenario(
     // 每一步独立 try/catch,任一回滚抛错都不应阻止其它回滚(优先把残骸清干净)。
     if (bookMounted) {
       try {
+        const unsub = relationUnsubscribes.get(scenarioId);
+        if (unsub) { unsub(); relationUnsubscribes.delete(scenarioId); }
         useLorebookStore.getState().removeBook(scenarioBookId);
       } catch (rollbackErr) {
         console.warn('[scenario-engine] 回滚 lorebook 失败：', rollbackErr);

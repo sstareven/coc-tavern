@@ -242,10 +242,15 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
     lastRollContext: null,
   }),
   clearAll: () => set({
+    isOpen: false,
     history: [],
     pending: [],
     isStaged: false,
     lastRollContext: null,
+    isProgrammatic: false,
+    programmaticSkill: undefined,
+    programmaticContext: undefined,
+    onProgrammaticResolve: undefined,
   }),
   openCheck: (opts) => {
     const bonusDice = opts.bonus ? 1 : opts.penalty ? -1 : 0;

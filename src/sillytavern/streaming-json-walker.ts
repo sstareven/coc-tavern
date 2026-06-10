@@ -65,6 +65,7 @@ export class StreamingJsonWalker {
   private skipDepth = 0;
   private skipInString = false;
   private skipStringEscape = false;
+  private skipReturnState: TopState = 'outside';
   // choices 数组层
   private choiceIdx = -1;       // 还没进任何 choice 时是 -1,进入第一个 { 时变 0
   // choice 对象内状态
@@ -90,7 +91,9 @@ export class StreamingJsonWalker {
         if (ch === '}' || ch === ']') {
           this.skipDepth--;
           if (this.skipDepth === 0) {
-            this.topState = 'outside';
+            this.topState = this.skipReturnState;
+            this.skipReturnState = 'outside';
+            if (this.topState === 'inChoiceObj') this.choiceState = 'outside';
           }
           continue;
         }
@@ -164,12 +167,14 @@ export class StreamingJsonWalker {
           // 其他数组:跳过整段
           this.topState = 'inSkipObject';
           this.skipDepth = 1;
+          this.skipReturnState = 'outside';
           continue;
         }
         if (ch === '{') {
           // 嵌套对象(如 sceneInfo / mapUpdates):跳过
           this.topState = 'inSkipObject';
           this.skipDepth = 1;
+          this.skipReturnState = 'outside';
           continue;
         }
         // 数字 / true / false / null:不是 target,等回 outside
@@ -243,10 +248,10 @@ export class StreamingJsonWalker {
       }
       // 不是字符串值(对象/数组/数字)— 不刻印,但要正确跳过
       if (ch === '{' || ch === '[') {
-        // itemGain 可能是嵌套对象 — 简单处理:进 skip object 模式,但在 choice 层级
-        // 这里用 skipDepth 跟踪然后回 outside
+        // itemGain 可能是嵌套对象 — 进 skip object 模式,完成后回到 inChoiceObj
         this.topState = 'inSkipObject';
         this.skipDepth = 1;
+        this.skipReturnState = 'inChoiceObj';
         return;
       }
       this.choiceState = 'outside';

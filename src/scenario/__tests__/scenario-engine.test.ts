@@ -167,7 +167,18 @@ beforeEach(() => {
 
 describe('D1 — activateScenario 失败回滚', () => {
   it('扩首页 + 兜底 page0 写入也抛错 → removeBook(scenarioBookId) + setSessionScenario(null) 都被调', async () => {
-    const doc = emptyDoc({ id: 'sc-rollback', characters: [] });
+    const doc = emptyDoc({
+      id: 'sc-rollback',
+      characters: [{
+        id: 'c-rollback',
+        role: 'protagonist' as const,
+        sheet: {} as never,
+        npcAttrs: {
+          identityTag: '', attitudeDefault: 0, relationshipDefault: '',
+          locationDefault: '', publicBio: '', hiddenBio: '',
+        },
+      }],
+    });
     getByIdMock.mockReturnValue(doc);
     // expandPrologueToPage 在 scenario-engine 内部被 try/catch 兜底成 FALLBACK_CHOICES,
     // 不会直接 propagate;真正能触发外层 catch 回滚的是后续 appendPage/replacePage 失败。
@@ -175,7 +186,7 @@ describe('D1 — activateScenario 失败回滚', () => {
     expandPrologueMock.mockRejectedValue(new Error('LLM 扩首页 boom'));
     appendPageMock.mockImplementation(() => { throw new Error('append boom'); });
 
-    await expect(activateScenario('sc-rollback', 'newChar')).rejects.toThrow('append boom');
+    await expect(activateScenario('sc-rollback', 'newChar', 0)).rejects.toThrow('append boom');
 
     expect(upsertBookMock).toHaveBeenCalledTimes(1);
     expect(removeBookMock).toHaveBeenCalledWith('__scenario_sc-rollback');
