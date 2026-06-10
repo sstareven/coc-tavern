@@ -54,6 +54,7 @@ interface NpcStore {
   /** 地图自检合并地点时,把 NPC.locationName 中匹配 from 的统一改为 to。
    *  对齐 useLocationElementStore.renameLocation 的语义。 */
   renameLocation: (from: string, to: string) => void;
+  renameNpc: (id: string, newName: string) => void;
   replaceAll: (profiles: NpcProfile[]) => void;
   joinParty: (npcId: string) => void;
   leaveParty: (npcId: string) => void;
@@ -415,6 +416,14 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       }
     }
     return changed ? { profiles } : {};
+  }),
+
+  renameNpc: (id, newName) => set((s) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return {};
+    const p = s.profiles[id];
+    if (!p || p.name.trim() === trimmed) return {};
+    return { profiles: { ...s.profiles, [id]: { ...p, name: trimmed, updatedAt: Date.now() } } };
   }),
 
   clearAll: () => set({ profiles: {} }),

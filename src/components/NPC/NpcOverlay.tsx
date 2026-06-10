@@ -179,6 +179,8 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [memOpen, setMemOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(npc.name);
   // Agent Memory 摘要带——只在开关开启 + importance ∈ {核心,重要} 时显示。
   const ame = useChatStore((s) => {
     const ses = s.sessions.find((c) => c.id === s.activeId);
@@ -231,7 +233,35 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
     <div className="cv-row" style={{ border: '1px solid rgba(var(--ink-faded-rgb),0.2)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, background: 'rgba(196,168,85,0.04)' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 1 }}>{npc.name}</span>
+          {editing ? (
+            <input
+              autoFocus
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={() => {
+                const trimmed = editName.trim();
+                if (trimmed && trimmed !== npc.name) useNpcStore.getState().renameNpc(npc.id, trimmed);
+                setEditing(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                if (e.key === 'Escape') { setEditName(npc.name); setEditing(false); }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))',
+                color: 'var(--ink)', letterSpacing: 1,
+                background: 'rgba(196,168,85,0.08)', border: '1px solid rgba(196,168,85,0.4)',
+                borderRadius: 3, padding: '1px 6px', outline: 'none', width: 160,
+              }}
+            />
+          ) : (
+            <span
+              onDoubleClick={(e) => { e.stopPropagation(); setEditName(npc.name); setEditing(true); }}
+              title="双击改名"
+              style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(16px * var(--system-ratio, 1))', color: 'var(--ink)', letterSpacing: 1, cursor: 'text' }}
+            >{npc.name}</span>
+          )}
           <span style={{ fontSize: 'calc(11px * var(--system-ratio, 1))', color: 'var(--ink-subtle)', fontFamily: 'var(--font-ui)' }}>{npc.identity || '身份不明'}</span>
           {npc.status && <span style={{ marginLeft: 'auto', fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--blood)', border: '1px solid rgba(139,58,58,0.4)', borderRadius: 8, padding: '1px 7px' }}>{npc.status}</span>}
           {npc.isPresent && (

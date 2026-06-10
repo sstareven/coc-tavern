@@ -302,6 +302,7 @@ export function Storybook() {
         position: 'relative',
         width: '100%',
         maxWidth: 880,
+        height: '100%',
       }}>
         {/* BookUtils — outside the book at top-right */}
         <BookUtils onDeletePage={deletePage} affectedItems={affectedItems} />
@@ -312,7 +313,7 @@ export function Storybook() {
           zIndex: 3,
           display: 'flex',
           width: '100%',
-          height: 520,
+          height: 'min(520px, 100%)',
           perspective: '1400px',
           perspectiveOrigin: 'center center',
           borderRadius: 4,

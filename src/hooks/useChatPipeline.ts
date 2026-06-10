@@ -665,6 +665,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 真相支柱进度（守秘人机密引导，引导剧情逐步让玩家逼近未揭示支柱；绝不泄露原文给玩家）。
         const pillarCtx = useKeyClueStore.getState().buildContextInjection();
         if (pillarCtx) addFormatPart(pillarCtx);
+        // 已收集线索汇总：让 LLM 知道调查员目前掌握哪些线索（含标签、摘要、演化链），避免遗忘旧线索。
+        const clueCtx = useClueStore.getState().buildContextInjection();
+        if (clueCtx) addFormatPart(clueCtx);
+        // 救援路径运行时进度：已解锁路径、里程碑、暗线赛跑紧迫度（仅剧本模式有效）。
+        const rescueCtx = useRescueStore.getState().buildContextInjection();
+        if (rescueCtx) addFormatPart(rescueCtx);
         // 拯救世界模式：集齐 3 关键线索后进入与暗线赛跑的终局。
         if (saveWorldMode) addFormatPart(SAVE_WORLD_INSTRUCTION);
         // 序章首幕：结合本局谜题向调查员点明核心目标（纯叙事，无截断风险）。
