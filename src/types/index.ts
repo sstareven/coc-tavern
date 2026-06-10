@@ -88,6 +88,10 @@ export interface BookPage {
   rightHeader: string;
   rightContent: string;
   rightChoices: ChoiceItem[];
+  /** 流式占位页标记:wantStreamingPrint 时 appendPage 先压一个空白占位页, 流结束 replacePage 写真内容。
+   *  rehydrate 时 setPages 把残留(isStreamingPlaceholder===true) 的尾部页过滤掉,
+   *  避免刷新/切档后留下空白页。 */
+  isStreamingPlaceholder?: boolean;
   sceneInfo?: SceneInfo;
   summary?: string;
   keywords?: Record<string, string>;

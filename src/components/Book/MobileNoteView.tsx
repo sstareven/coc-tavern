@@ -35,7 +35,10 @@ export function MobileNoteView() {
   const immersive = useReadingModeStore((s) => s.immersive);
   // 流式刻印订阅 — 主管线 onToken 把 walker events 喂给 useStreamingPrinter,
   // printer 按 40ms 节拍把字符 push 到这些 store 字段。
-  const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const isStreamingPrintRaw = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const streamingPlaceholderIdx = useBookStore((s) => s.streamingPlaceholderIdx);
+  // 仅当前页是流式占位页时才传 isStreamingPrint=true; 否则旧页 leftContent 会被流式 segments 错位覆盖(bug #4)
+  const isStreamingPrint = isStreamingPrintRaw && streamingPlaceholderIdx !== null && pageIndex === streamingPlaceholderIdx;
   const streamingLeftHeader = useStreamingPrintStore((s) => s.leftHeaderText);
   const streamingLeftSegments = useStreamingPrintStore((s) => s.leftSegments);
   const streamingRightHeader = useStreamingPrintStore((s) => s.rightHeaderText);
