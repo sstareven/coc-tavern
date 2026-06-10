@@ -289,7 +289,7 @@ export function Storybook() {
       justifyContent: 'center',
       width: '100%',
       height: '100%',
-      padding: '0 64px',
+      padding: '0 40px',
     }}>
       <style>{`
         .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar,.inv-scroll::-webkit-scrollbar{width:5px}

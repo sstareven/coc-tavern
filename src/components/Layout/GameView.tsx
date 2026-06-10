@@ -169,24 +169,21 @@ export function GameView({ onReturnToMenu }: Props) {
             </div>
           </div>
 
-          {/* Book area: desk surface + storybook, fills remaining space */}
+          {/* Book area — centers the desk+book as one unit */}
           <div style={{
-            position: 'relative',
+            flex: 1, minHeight: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flex: 1, minHeight: 0,
             width: '100%',
-            padding: '0 0 8px',
           }}>
-            {/* Desk table surface */}
+            {/* Desk surface — IS the book cover wrapper; Storybook lives inside it.
+                They share the same box so they always shrink/grow together. */}
             <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
+              position: 'relative',
               width: 'min(92vw, 960px)',
               height: 'min(65vh, 600px, 100%)',
+              boxSizing: 'border-box',
               borderRadius: 16,
               background: `
                 url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65 0.15' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E"),
@@ -209,9 +206,9 @@ export function GameView({ onReturnToMenu }: Props) {
                 0 0 50px rgba(0,0,0,0.55),
                 0 20px 60px rgba(0,0,0,0.4)
               `,
-            }} />
-
-            <Storybook />
+            }}>
+              <Storybook />
+            </div>
           </div>
         </main>
       )}
