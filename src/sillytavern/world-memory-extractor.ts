@@ -10,7 +10,6 @@
 //  - bootstrap=true 时全字段输出;bootstrap=false 时只输出本回合发生变化的字段
 
 import { callDsSubagent } from './subagent-call';
-import { wrapSubagentMessages } from './subagent-shared';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import type {
   WorldMemoryUpdate,
@@ -50,40 +49,46 @@ const SYSTEM_PROMPT = `你是 COC 守秘人的助手。你的任务:维护「世
 不得输出 JSON 之外的任何文本,不要使用 markdown 代码围栏。`;
 
 function buildUserPayload(input: WorldMemoryUpdateInput): string {
+  // 稳定段(scenarioCtx/bootstrap)前置, 动态段(current 含每回合 updatedAt, recentNarrative) 后置
+  // current.updatedAt 每回合都变, 放在 stable 与 dynamic 分界后, 让 user 前缀仍可命中 cache.
   const payload = {
-    current: input.current,
-    recentNarrative: (input.recentNarrative ?? '').trim(),
     scenarioCtx: (input.scenarioCtx ?? '').trim(),
     bootstrap: !!input.bootstrap,
+    _separator: '--- 本回合动态 ---',
+    current: input.current,
+    recentNarrative: (input.recentNarrative ?? '').trim(),
   };
   return JSON.stringify(payload, null, 2);
 }
 
 export async function runWorldMemoryUpdate(
   input: WorldMemoryUpdateInput,
+  signal?: AbortSignal,
 ): Promise<WorldMemoryUpdateResult> {
+  if (signal?.aborted) return null;
   const api = useSettingsStore.getState().getEffectiveRewriteApi();
   if (!api.baseUrl || !api.apiKey || !api.model) return null;
 
   const userPayload = buildUserPayload(input);
 
   try {
+    // 注意: 不在此处提前调 wrapSubagentMessages — callDsSubagent 内部已 wrap 一次,
+    // 双重 wrap 会把 SUBAGENT_SHARED_SYSTEM 复写到 user 段, 破坏前缀缓存.
+    // label 固定 'world-memory-update' (bootstrap 状态进 user payload, 不污染 label 前缀).
     const resp = await callDsSubagent({
       apiBaseUrl: api.baseUrl,
       apiKey: api.apiKey,
       model: api.model,
       extraParams: api.extraParams,
-      label: `world-memory-update${input.bootstrap ? '[bootstrap]' : ''}`,
+      label: 'world-memory-update',
       rpmLane: 'rewrite',
       jsonObject: true,
       maxTokens: 32768,
-      messages: wrapSubagentMessages(
-        [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPayload },
-        ],
-        'world-memory-update',
-      ),
+      signal,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPayload },
+      ],
     });
 
     const parsed = resp.parsed as
@@ -119,7 +124,8 @@ export async function runWorldMemoryUpdate(
       }
       out.keywordMeaningsUpsert = upsert;
     }
-    if (Array.isArray(parsed.unrevealedReplace)) {
+    if (Array.isArray(parsed.unrevealedReplace) && parsed.unrevealedReplace.length > 0) {
+      // 空数组视为"LLM 没说" — 否则 LLM 不确定时输出 [] 会让已铺好的提示一次清空
       out.unrevealedReplace = parsed.unrevealedReplace.map((v) => String(v));
     }
 

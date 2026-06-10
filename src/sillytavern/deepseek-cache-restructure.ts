@@ -79,7 +79,7 @@ export function isDeepSeekSource(modelId: string | undefined, targetSources: str
  * 故意不命中：
  * - `{{user}}` / `{{char}}` / `{{charName}}` / `{{newline}}`(无参) 等无参字面宏 — 这些在同一会话内字节稳定。
  */
-const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|\$|time|date|isotime|isodate|random(?:\s*::|\s*\})|roll\s*::|newline\s*::|format_message_variable\s*::)|\{\{[^{}]*[^\s{}|()=+\-]\./;
+const DYNAMIC_MARKER_RE = /<%|\{\{\s*(getvar|getwi|setvar|addvar|incvar|decvar|hasvar|deletevar|getglobalvar|setglobalvar|addglobalvar|incglobalvar|decglobalvar|hasglobalvar|deleteglobalvar|weekday|\$|time|date|isotime|isodate|random(?:\s*::|\s*\})|roll\s*::|newline\s*::|format_message_variable\s*::)|\{\{\s*[.$]\w+\s*([=+\-?|}]|\?\?|\|\|)|\{\{[^{}]*[^\s{}|()=+\-]\./;
 
 // SillyTavern 标准角色卡静态点路径宏 — 这些在会话内字节稳定,但点路径分支会误把它们当动态,
 // 导致过度下沉。先剥掉再判,避免误判。

@@ -185,7 +185,7 @@ function BarButton({
   );
 }
 
-const RescueCard = memo(
+export const RescueCard = memo(
   function RescueCard({
     rescue,
     badEndings,
@@ -194,6 +194,7 @@ const RescueCard = memo(
     onAddMilestone,
     onPatchMilestone,
     onRemoveMilestone,
+    hideRemove,
   }: {
     rescue: RescueEnding;
     badEndings: ScenarioDoc['badEndings'];
@@ -202,6 +203,7 @@ const RescueCard = memo(
     onAddMilestone: () => void;
     onPatchMilestone: (msId: string, patch: Partial<RescueMilestone>) => void;
     onRemoveMilestone: (msId: string) => void;
+    hideRemove?: boolean;
   }): React.ReactElement {
     return (
       <article
@@ -219,18 +221,20 @@ const RescueCard = memo(
             fontSize: 10, color: 'var(--gold)', opacity: 0.45,
             letterSpacing: 1.5, fontFamily: 'var(--font-mono)',
           }}>{rescue.id}</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            style={{
-              padding: '2px 8px', fontSize: 10, color: '#d08585',
-              background: 'transparent', border: '1px solid rgba(160,80,80,0.5)', borderRadius: 2,
-              cursor: 'pointer', fontFamily: 'var(--font-ui)', letterSpacing: 1,
-              transition: `background 180ms ${EASE}`,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >删除</button>
+          {!hideRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              style={{
+                padding: '2px 8px', fontSize: 10, color: '#d08585',
+                background: 'transparent', border: '1px solid rgba(160,80,80,0.5)', borderRadius: 2,
+                cursor: 'pointer', fontFamily: 'var(--font-ui)', letterSpacing: 1,
+                transition: `background 180ms ${EASE}`,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >删除</button>
+          )}
         </header>
 
         <Field label="路径名">
@@ -294,7 +298,8 @@ const RescueCard = memo(
     prev.rescue.unlockHint === next.rescue.unlockHint &&
     prev.rescue.failureVariantId === next.rescue.failureVariantId &&
     prev.rescue.milestones === next.rescue.milestones &&
-    prev.badEndings === next.badEndings,
+    prev.badEndings === next.badEndings &&
+    prev.hideRemove === next.hideRemove,
 );
 
 const MilestoneRow = memo(

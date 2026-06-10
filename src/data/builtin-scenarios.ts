@@ -46,7 +46,7 @@ export const FREE_EXPLORATION_SCENARIO: ScenarioDoc = {
   imageGen: IMAGE_GEN_PRESETS['__free'],
 };
 
-// PDF 抽取的剧本：8 个时代设定（克苏鲁不败 / 黑暗时代 / 神秘冰岛 / 剑见箭 / 煤气灯 / 幻梦境 / 伊卡洛斯 / 收割）
+// PDF 抽取的剧本：8 个时代设定（克苏鲁不败 / 黑暗时代 / 萨迦冰岛 / 古战阵 / 煤气灯 / 幻梦境 / 木卫二 / 末日收割）
 // 源：COCExtends.pdf (Cthulhu Through the Ages)
 export const PDF_EXTRACTED_SCENARIOS: ScenarioDoc[] = [
   SCENARIO_ROME_CTHULHU,

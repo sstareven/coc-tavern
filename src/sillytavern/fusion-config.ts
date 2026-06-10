@@ -5,4 +5,4 @@
 // 条目开关完全由「ST JSON 自带的 prompt_order.enabled + by-name/by-id 规则」决定
 // （见 fusion-preset.ts 的 enabled 逻辑：lib_/使用指南/KILL_NAME/NSFW/文风库/main/推剧情）。
 // 这两张死表已移除，避免被误当作生效配置。
-export const FUSION_SAMPLERS = { temperature: 0.95, topP: 0.92, topK: 60, frequencyPenalty: 0, presencePenalty: 0, maxTokens: 18000 } as const;
+export const FUSION_SAMPLERS = { temperature: 0.95, topP: 0.92, topK: 60, frequencyPenalty: 0, presencePenalty: 0, maxTokens: 32768 } as const;

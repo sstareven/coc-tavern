@@ -98,7 +98,7 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
           <span style={{ opacity: 0.4 }}>·</span>
           <span>{time}</span>
         </div>
-        {/* 数值行(HP/SAN/MP + 状态标签) —— 仅在角色卡有数值时显示,避免空行占位 */}
+        {/* 数值行(HP/SAN/MP + 状态标签 + 拯救气泡) —— 仅在角色卡有数值时显示,避免空行占位 */}
         {hasStats && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', rowGap: 2 }}>
             <CompactStat label="HP" stat={hp} color="var(--success)" />
@@ -108,10 +108,10 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
               posture={posture} conditions={statusConditions} compact
               temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
             />
+            {/* 拯救气泡(compact):潜伏态自身返回 null;对峙/锁定 inline 嵌在数值行 */}
+            <RescueBar compact />
           </div>
         )}
-        {/* 拯救路径横条(compact);潜伏态组件自身返回 null */}
-        <div style={{ width: '100%' }}><RescueBar compact /></div>
       </div>
     );
   }
@@ -169,20 +169,20 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
         </span>
       </div>
 
-      {/* Row 2 — HP / SAN / MP (below the time row) */}
+      {/* Row 2 — HP / SAN / MP + 拯救气泡 (below the time row) */}
       {hasStats && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <StatPill label="HP" stat={hp} color="var(--success)" />
           <StatPill label="SAN" stat={san} color="var(--blood)" />
           <StatPill label="MP" stat={mp} color="var(--gold)" />
+          {/* 拯救气泡(桌面):潜伏态自身返回 null;对峙/锁定 inline 嵌在数值行 */}
+          <RescueBar />
         </div>
       )}
       <StateChips
         posture={posture} conditions={statusConditions}
         temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
       />
-      {/* 拯救路径横条(桌面态);潜伏态组件自身返回 null */}
-      <div style={{ width: '100%', maxWidth: 600 }}><RescueBar /></div>
     </div>
   );
 }

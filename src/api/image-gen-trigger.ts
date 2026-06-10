@@ -47,7 +47,11 @@ const pushLog = (level: 'info' | 'warn' | 'error', msg: string) => {
  * 4. 失败 setPageImageStatus('failed') + clearStage
  *
  * 永不抛,玩家/管线层不需要 try/catch。
+ *
+ * In-flight dedup: 同一 pageId 已在跑时, 后到的调用直接 return (避免自动 + manual 双跑撞 RPM/双写 db.pageImages)。
  */
+const inFlightPages = new Set<string>();
+
 export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise<void> {
   const { pageIdx, signal, source = 'auto' } = opts;
   const sourceTag = source === 'manual' ? '[手动]' : '[自动]';
@@ -72,6 +76,14 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
     return;
   }
   const pageId = page.id;
+
+  // in-flight dedup: 同一页正在跑时, 新调用直接退
+  if (inFlightPages.has(pageId)) {
+    if (source === 'manual') pushLog('info', `${sourceTag} 第 ${pageIdx + 1} 页已在生成中,跳过重复调用`);
+    return;
+  }
+  inFlightPages.add(pageId);
+  try {
 
   // 剧本 imageGen.enabled === false 强关
   const session = useChatStore.getState().sessions.find((c) => c.id === useChatStore.getState().activeId);
@@ -280,5 +292,8 @@ export async function triggerImageGenForPage(opts: TriggerImageGenOpts): Promise
       pushLog('error', `${sourceTag} 第 ${pageIdx + 1} 页失败:${baseMsg}`);
     }
     useBookStore.getState().setPageImageStatus(pageIdx, 'failed');
+  }
+  } finally {
+    inFlightPages.delete(pageId);
   }
 }

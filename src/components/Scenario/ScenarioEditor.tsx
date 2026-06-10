@@ -22,6 +22,7 @@ import { ImageGenTab } from './tabs/ImageGenTab';
 import { DarkTimelineTab } from './tabs/DarkTimelineTab';
 import { BadEndingsTab } from './tabs/BadEndingsTab';
 import { RescueEndingsTab } from './tabs/RescueEndingsTab';
+import { OverviewTab } from './tabs/overview/OverviewTab';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
@@ -32,7 +33,7 @@ interface Props {
 
 type TabKey =
   | 'meta' | 'locations' | 'people' | 'occupations' | 'skills' | 'factions'
-  | 'items' | 'dark' | 'secrets' | 'imageGen' | 'darkTimeline' | 'badEndings' | 'rescue';
+  | 'items' | 'dark' | 'secrets' | 'imageGen' | 'overview' | 'darkTimeline' | 'badEndings' | 'rescue';
 
 interface TabDef { key: TabKey; label: string; hidden?: boolean }
 
@@ -47,7 +48,8 @@ const TABS: TabDef[] = [
   { key: 'dark', label: '暗线' },
   { key: 'secrets', label: '秘密与解锁' },
   { key: 'imageGen', label: '生图' },
-  { key: 'rescue', label: '拯救路径' },
+  { key: 'overview', label: '结局总览' },
+  { key: 'rescue', label: '拯救路径', hidden: true },
   { key: 'darkTimeline', label: '暗线时间线', hidden: true },
   { key: 'badEndings', label: '坏结局矩阵', hidden: true },
 ];
@@ -58,7 +60,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
 
   const initial = useMemo<ScenarioDoc | undefined>(() => getById(scenarioId), [getById, scenarioId]);
   const [working, setWorkingRaw] = useState<ScenarioDoc | undefined>(initial);
-  const [activeTab, setActiveTab] = useState<TabKey>('meta');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [toast, setToast] = useState<string | null>(null);
   const [companionOpen, setCompanionOpen] = useState(false); // 移动端抽屉显隐
   const toastTimerRef = useRef<number | null>(null);
@@ -211,6 +213,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
       case 'dark': return <DarkThreadsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'secrets': return <SecretsTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'imageGen': return <ImageGenTab scn={working} onChange={onChange} />;
+      case 'overview': return <OverviewTab scn={working} onChange={onChange} onToast={passToast} />;
       case 'darkTimeline': return <DarkTimelineTab scn={working} onChange={onChange} />;
       case 'badEndings': return <BadEndingsTab scn={working} onChange={onChange} />;
       case 'rescue': return <RescueEndingsTab scn={working} onChange={onChange} />;

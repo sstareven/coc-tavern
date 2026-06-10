@@ -55,16 +55,21 @@ export async function extractVariablesWithLLM(
   /** 总尝试次数(>=1):1=单次不重试,N=最多 N 次直到任一次成功。 */
   maxAttempts = 1,
   // 思考型模型(deepseek-v4-pro)会把预算耗在 reasoning 上,给足余量防 JSON 截断(项目硬下限 20000)
-  maxTokens = 20000,
+  maxTokens = 32768,
+  /** 上层取消信号; mvu-megaagent fallback 路径透传, 用户中止时这里立即抛 AbortError 不再跑第二次 LLM. */
+  signal?: AbortSignal,
 ): Promise<{ variables: Record<string, string>; cleanedText: string; usage?: TokenUsage }> {
+  if (signal?.aborted) throw new Error('aborted');
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (signal?.aborted) throw new Error('aborted');
     try {
       // RPM 限流走 mvu 桶(关闭「每个API独立RPM」时仍归全局 main);helper 内部已含 rpmAcquire+headers+coerceJsonObject。
       const { content, usage } = await callDsSubagent({
         apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'mvu',
         label: 'MVU 变量提取',
+        signal,
         messages: [
           { role: 'system', content: EXTRACTOR_PROMPT },
           { role: 'user', content: text },

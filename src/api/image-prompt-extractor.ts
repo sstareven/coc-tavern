@@ -129,9 +129,13 @@ export async function extractImagePromptHint(
     extraParams: llmConfig.extraParams,
     signal: llmConfig.signal,
     label: 'image-prompt-extract',
-    temperature: 0.7,
-    maxTokens: 600,
-    rpmLane: 'main',
+    // 结构化提取走低温, 防 tag 顺序/同义替换抖动 → 同页重生成结果稳定
+    temperature: 0.2,
+    // 必须 >= 项目硬下限 20000 (user memory: max-tokens-min-20000); thinking 模型 reasoning
+    // 会先吃掉数百 token, 600 上限会让 JSON 直接被截 → parsed null → fail-open 退回中文模板
+    maxTokens: 32768,
+    // 走 rewrite 桶 — 图像 prompt 提取本质是改写/翻译, 不应与主 API 抢 main 桶 RPM
+    rpmLane: 'rewrite',
     jsonObject: true,
     messages: [
       { role: 'system', content: system },
