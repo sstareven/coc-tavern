@@ -289,7 +289,7 @@ export function Storybook() {
       justifyContent: 'center',
       width: '100%',
       height: '100%',
-      padding: '0 64px',
+      padding: '0 40px',
     }}>
       <style>{`
         .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar,.inv-scroll::-webkit-scrollbar{width:5px}
@@ -302,6 +302,7 @@ export function Storybook() {
         position: 'relative',
         width: '100%',
         maxWidth: 880,
+        height: '100%',
       }}>
         {/* BookUtils — outside the book at top-right */}
         <BookUtils onDeletePage={deletePage} affectedItems={affectedItems} />
@@ -312,7 +313,7 @@ export function Storybook() {
           zIndex: 3,
           display: 'flex',
           width: '100%',
-          height: 520,
+          height: '100%',
           perspective: '1400px',
           perspectiveOrigin: 'center center',
           borderRadius: 4,

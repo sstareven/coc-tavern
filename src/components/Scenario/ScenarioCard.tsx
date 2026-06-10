@@ -7,6 +7,7 @@ interface Props {
   scn: ScenarioDoc;
   onPlay: () => void;
   onEdit: () => void;
+  onDelete?: () => void;
 }
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -54,16 +55,20 @@ function ActionButton({
   children,
   onClick,
   primary,
+  danger,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   primary?: boolean;
+  danger?: boolean;
 }) {
   const [hover, setHover] = useState(false);
   const [pressed, setPressed] = useState(false);
   const scale = pressed ? 0.96 : hover ? 1.04 : 1;
-  const baseBg = primary ? 'rgba(196,168,85,0.14)' : 'transparent';
-  const hoverBg = primary ? 'rgba(196,168,85,0.24)' : 'rgba(255,255,255,0.06)';
+  const baseBg = primary ? 'rgba(196,168,85,0.14)' : danger ? 'rgba(139,58,58,0.08)' : 'transparent';
+  const hoverBg = primary ? 'rgba(196,168,85,0.24)' : danger ? 'rgba(139,58,58,0.20)' : 'rgba(255,255,255,0.06)';
+  const color = primary ? 'var(--gold)' : danger ? 'var(--blood-bright, #c85050)' : 'var(--text-light)';
+  const borderColor = primary ? 'var(--brass)' : danger ? 'rgba(180,60,60,0.40)' : 'rgba(196,168,85,0.30)';
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
@@ -77,9 +82,9 @@ function ActionButton({
         fontSize: 13,
         fontFamily: 'var(--font-ui)',
         letterSpacing: 1.5,
-        color: primary ? 'var(--gold)' : 'var(--text-light)',
+        color,
         background: hover ? hoverBg : baseBg,
-        border: `1px solid ${primary ? 'var(--brass)' : 'rgba(196,168,85,0.30)'}`,
+        border: `1px solid ${borderColor}`,
         borderRadius: 2,
         cursor: 'pointer',
         transform: `scale(${scale})`,
@@ -91,7 +96,7 @@ function ActionButton({
   );
 }
 
-export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
+export function ScenarioCard({ scn, onPlay, onEdit, onDelete }: Props) {
   const [hover, setHover] = useState(false);
   const { meta, builtin } = scn;
 
@@ -224,6 +229,7 @@ export function ScenarioCard({ scn, onPlay, onEdit }: Props) {
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <ActionButton onClick={onPlay} primary>开始</ActionButton>
         <ActionButton onClick={onEdit}>编辑</ActionButton>
+        {onDelete && <ActionButton onClick={onDelete} danger>删除</ActionButton>}
       </div>
     </article>
   );

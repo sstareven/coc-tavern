@@ -121,6 +121,7 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
   const builtins = useScenarioStore(s => s.builtins);
   const userScenarios = useScenarioStore(s => s.userScenarios);
   const upsert = useScenarioStore(s => s.upsert);
+  const remove = useScenarioStore(s => s.remove);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string): void => {
@@ -215,6 +216,13 @@ export function ScenarioScreen({ onPick, onClose, onOpenEditor }: Props) {
                 scn={scn}
                 onPlay={() => onPick(scn.id)}
                 onEdit={() => onOpenEditor(scn.id)}
+                onDelete={scn.builtin ? undefined : () => {
+                  // eslint-disable-next-line no-alert
+                  const ok = window.confirm(`删除剧本「${scn.meta.name}」?\n此操作不可撤销。`);
+                  if (!ok) return;
+                  remove(scn.id);
+                  showToast(`已删除 — ${scn.meta.name}`);
+                }}
               />
             ))}
           </div>

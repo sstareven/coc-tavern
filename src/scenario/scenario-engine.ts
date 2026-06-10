@@ -171,26 +171,15 @@ export async function activateScenario(
   const originalPage0 = useBookStore.getState().pages[0] ?? null;
 
   // ── 1. 角色卡 + NPC ─────────────────────────────────────────────────
-  // M10: playerId 为玩家本人对应的 ScenarioCharacter.id;
-  //  - preset 模式 = scn.characters[charIdx].id(玩家扮演该角色)
-  //  - newChar 模式 = null(玩家自创卡,关系图中 player_created 角色由 CharCreator M4/M5 写入,
-  //    此时尚未指定具体 id;canJoinParty 第 4 参 playerId 类型为 string 不容空,
-  //    故 newChar 模式下跳过 R1 入队判定——presentAtStart NPC 仅 isPresent=true 建场,
-  //    入队由后续 PeopleTab/post-settle 评估器按真实关系驱动)
   let playerId: string | null = null;
-  if (mode === 'preset') {
-    // preset 模式必须显式指定主角索引；不允许 undefined 默默兜底到 0，
-    // 否则一旦上游路由没传 charIdx，玩家会被随机分配第 0 号角色（可能是 locked_npc）。
+  if (mode === 'preset' || mode === 'newChar') {
     if (charIdx === undefined) {
-      throw new Error('[scenario-engine] preset 模式必须显式传 charIdx');
+      throw new Error(`[scenario-engine] ${mode} 模式必须显式传 charIdx`);
     }
-    const idx = charIdx;
-    const proto = scn.characters[idx];
-    if (!proto) throw new Error(`[scenario-engine] preset 模式 charIdx=${idx} 越界`);
-    // protagonist (推荐主角) 和 optional (配角可玩) 都允许玩家扮演;
-    // locked_npc 是剧本钉死的不可选角色(反派/序章死者),拒绝。
+    const proto = scn.characters[charIdx];
+    if (!proto) throw new Error(`[scenario-engine] ${mode} 模式 charIdx=${charIdx} 越界`);
     if (proto.role === 'locked_npc') {
-      throw new Error(`[scenario-engine] charIdx=${idx} 指向的角色被剧本锁定不可扮演 (role=${proto.role})`);
+      throw new Error(`[scenario-engine] charIdx=${charIdx} 指向的角色被剧本锁定不可扮演 (role=${proto.role})`);
     }
     useCharSheetStore.getState().setSheet(proto.sheet);
     playerId = proto.id;
@@ -208,7 +197,7 @@ export async function activateScenario(
   const partyIds: string[] = []; // 已入队 NPC id(不含玩家;canJoinParty 第 3 参语义)
   for (let i = 0; i < scn.characters.length; i++) {
     const c = scn.characters[i];
-    if (mode === 'preset' && c.id === playerId) continue; // 玩家本人不进名册
+    if (playerId && c.id === playerId) continue; // 玩家本人不进名册
     const npc = scenarioCharacterToNpc(c);
     if (c.presentAtStart === true) {
       // R5: 与已在场 NPC 互为敌对 → 后到者强制 isPresent=false

@@ -566,16 +566,21 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
         createdAt: Date.now(),
       };
       useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: [playerScenarioChar] });
+      // 内置剧本 applyPatch 会 fork 副本，自创角色写入 fork 而非原剧本；
+      // 把 lastPicked 切到 fork，否则回 RosterPicker 看到的还是原剧本（无新角色）。
+      const forkId = useScenarioStore.getState().forkMap[lastPickedScn];
+      const effectiveScnId = forkId ?? lastPickedScn;
+      if (forkId) useScenarioStore.getState().setLastPicked(forkId);
       // 把"玩家勾选与某 NPC 一起开场"的反向也作为该 NPC 的 presentAtStart 来源——
       // M10 activateScenario 会读 character.presentAtStart 决定 isPresent;这里把玩家勾过的
       // 目标 NPC.presentAtStart 设 true(不动其它字段)。
-      const targetDoc = useScenarioStore.getState().getById(lastPickedScn);
+      const targetDoc = useScenarioStore.getState().getById(effectiveScnId);
       if (targetDoc) {
         const updates = targetDoc.characters
           .filter((c) => presentAtStart.includes(c.id))
           .map((c) => ({ ...c, presentAtStart: true }));
         if (updates.length > 0) {
-          useScenarioStore.getState().applyPatch(lastPickedScn, { patchCharacters: updates });
+          useScenarioStore.getState().applyPatch(effectiveScnId, { patchCharacters: updates });
         }
       }
     } else {
