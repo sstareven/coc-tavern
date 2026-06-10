@@ -1,4 +1,4 @@
-// 克苏鲁末日之收割 · 灰烬之原 — 后启示录幸存者
+// 末日收割 · 北方三柱黑烟 — 后启示录幸存者
 // 源: COCExtends.pdf 第 8 章「克苏鲁末日之收割」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
@@ -8,7 +8,7 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
   id: 'sc-harvest',
   builtin: true,
   meta: {
-    name: '克苏鲁末日之收割 · 灰烬之原',
+    name: '末日收割 · 北方三柱黑烟',
     type: '混合',
     durationHint: '3-5h',
     difficulty: 4,

@@ -86,7 +86,7 @@ export const IMAGE_GEN_PRESETS: Record<string, ScenarioImageGen> = {
       'firearms, victorian gas lamp, skyscraper, modern clothing, neon, smartphone, anime, hard sci-fi, full plate armor, samurai, asian temple',
   },
 
-  // 神秘冰岛 — 维京 / 峡湾 / 长船
+  // 萨迦冰岛 — 维京 / 峡湾 / 长船
   'sc-mystic-iceland': {
     style: 'engraving',
     promptTemplate: makeScenarioPrompt(
@@ -103,7 +103,7 @@ export const IMAGE_GEN_PRESETS: Record<string, ScenarioImageGen> = {
       'medieval plate armor, firearms, gothic cathedral, sandstone temple, asian architecture, modern clothing, skyscraper, neon, anime',
   },
 
-  // 剑见箭 — 泛西方古典战阵
+  // 古战阵 — 泛西方古典战阵
   'sc-blade-and-arrow': {
     style: 'oil_painting',
     promptTemplate: makeScenarioPrompt(
@@ -175,7 +175,7 @@ export const IMAGE_GEN_PRESETS: Record<string, ScenarioImageGen> = {
       'wooden cabin, log house, rural village, forest, daylight, blue sky, victorian, candlelight, fireplace, medieval, fantasy, anime, sword, horse, hansom cab, samurai',
   },
 
-  // 灰烬之原 — 末日废土 / 灰烬覆盖
+  // 末日收割 — 末日废土 / 灰烬覆盖
   'sc-harvest': {
     style: 'sepia_film',
     promptTemplate: makeScenarioPrompt(

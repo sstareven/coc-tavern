@@ -1,4 +1,4 @@
-// 神秘冰岛 · 萨迦低语 — 北欧维京时代背景下的神话调查
+// 萨迦冰岛 · 峡湾归来的木箱 — 北欧维京时代背景下的神话调查
 // 源: COCExtends.pdf 第 3 章「神秘冰岛」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
@@ -8,7 +8,7 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
   id: 'sc-mystic-iceland',
   builtin: true,
   meta: {
-    name: '神秘冰岛 · 萨迦低语',
+    name: '萨迦冰岛 · 峡湾归来的木箱',
     type: '混合',
     durationHint: '3-5h',
     difficulty: 3,

@@ -1,4 +1,4 @@
-// 克苏鲁伊卡洛斯 · 木卫二静默 — 近未来太空殖民
+// 木卫二静默 · 冰下伊卡洛斯 — 近未来太空殖民
 // 源: COCExtends.pdf 第 7 章「克苏鲁伊卡洛斯」
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
@@ -8,7 +8,7 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
   id: 'sc-icarus',
   builtin: true,
   meta: {
-    name: '克苏鲁伊卡洛斯 · 木卫二静默',
+    name: '木卫二静默 · 冰下伊卡洛斯',
     type: '调查',
     durationHint: '3-5h',
     difficulty: 4,

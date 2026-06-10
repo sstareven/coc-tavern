@@ -1,4 +1,4 @@
-// 剑见箭 · 古典战阵 — 古典冷兵器战场背景下的神话调查
+// 古战阵 · 战前夜的旗影 — 古典冷兵器战场背景下的神话调查
 // 源: COCExtends.pdf 第 4 章「剑见箭」(原书为战斗规则变体，本剧本将其包装为一段战阵剧本)
 import type { ScenarioDoc } from '../../types/scenario';
 import { makeNpc } from './_npc-helpers';
@@ -8,7 +8,7 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
   id: 'sc-blade-and-arrow',
   builtin: true,
   meta: {
-    name: '剑见箭 · 古典战阵',
+    name: '古战阵 · 战前夜的旗影',
     type: '战斗',
     durationHint: '3-5h',
     difficulty: 4,
