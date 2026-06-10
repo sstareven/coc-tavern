@@ -84,6 +84,7 @@ function combatActionDesc(combatant?: Combatant, isCurrent?: boolean): string | 
 
 export function TeamSidebar(): React.ReactElement | null {
   const [open, setOpen] = useState(false);
+  const [pillHover, setPillHover] = useState(false);
   const sheet = useCharSheetStore((s) => s.sheet);
   const profiles = useNpcStore((s) => s.profiles);
   const encounter = useCombatStore((s) => s.encounter);
@@ -144,18 +145,20 @@ export function TeamSidebar(): React.ReactElement | null {
 
   return (
     <>
-      {/* 折叠胶囊 — 桌面端 fixed 左上 + hover 拉出侧边把手 (缩到只露 28px),
+      {/* 折叠胶囊 — 桌面端 fixed 左上 + hover 拉出侧边把手 (缩到只露 40px chip),
        *  手机端 relative 由 GameView 包到 TopBar 下方一行,不缩进 */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
           onMouseEnter={(e) => {
+            setPillHover(true);
             if (!isMobile) e.currentTarget.style.transform = 'translateX(0)';
             e.currentTarget.style.background = 'linear-gradient(180deg, rgba(60,40,20,0.95), rgba(30,20,12,0.98))';
             e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.6)';
           }}
           onMouseLeave={(e) => {
-            if (!isMobile) e.currentTarget.style.transform = 'translateX(calc(-100% + 28px))';
+            setPillHover(false);
+            if (!isMobile) e.currentTarget.style.transform = 'translateX(calc(-100% + 40px))';
             e.currentTarget.style.background = 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))';
             e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.5)';
           }}
@@ -166,11 +169,11 @@ export function TeamSidebar(): React.ReactElement | null {
               : {
                 position: 'fixed',
                 top: 56, left: 0, zIndex: 50,
-                transform: 'translateX(calc(-100% + 28px))',
+                transform: 'translateX(calc(-100% + 40px))',
               }),
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '6px 14px 6px 14px',
-            paddingRight: isMobile ? 14 : 18,
+            padding: '6px 14px',
+            paddingRight: isMobile ? 14 : 36,
             background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',
             border: `1px solid ${inCombat ? 'rgba(139,58,58,0.7)' : 'var(--brass)'}`,
             borderRadius: isMobile ? 18 : '0 18px 18px 0',
@@ -200,6 +203,22 @@ export function TeamSidebar(): React.ReactElement | null {
             animation: `${inCombat ? 'team-pulse-red' : 'team-pulse-green'} 2s ${EASE} infinite`,
           }} />
           <span>{pillLabel}</span>
+          {/* 缩进态识别 chip — 单字「队」让玩家一眼认出; absolute 贴右边缘, hover 拉出后淡出 */}
+          {!isMobile && (
+            <span style={{
+              position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)',
+              width: 22, height: 22, borderRadius: '50%',
+              background: inCombat ? 'rgba(139,58,58,0.25)' : 'rgba(196,168,85,0.22)',
+              border: `1px solid ${inCombat ? 'rgba(220,150,150,0.7)' : 'var(--gold)'}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontFamily: 'var(--font-display)',
+              color: inCombat ? 'rgba(220,150,150,0.95)' : 'var(--gold)',
+              letterSpacing: 0, flexShrink: 0,
+              opacity: pillHover ? 0 : 1,
+              pointerEvents: 'none',
+              transition: `opacity 200ms ${EASE}`,
+            }}>队</span>
+          )}
         </button>
       )}
 

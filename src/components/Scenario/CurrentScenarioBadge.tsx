@@ -107,24 +107,25 @@ export function CurrentScenarioBadge() {
 }
 
 function BadgeButton({ name, progress, isMobile, onClick }: { name: string; progress: number; isMobile: boolean; onClick: () => void }) {
+  const [pillHover, setPillHover] = useState(false);
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`查看剧本「${name}」详情(暗线 ${progress}/100)`}
       style={{
-        // 桌面端:左上角 fixed 胶囊, 默认缩到只露 28px 把手, hover 向右拉出
+        // 桌面端:左上角 fixed 胶囊, 默认缩到只露 40px (chip 22 + paddingRight 18), hover 向右拉出
         // 手机端:relative 由 GameView 包到 TopBar 下方一行, 不缩进
         ...(isMobile
           ? { position: 'relative', flexShrink: 0 }
           : {
             position: 'fixed',
             top: 92, left: 0, zIndex: 49,
-            transform: 'translateX(calc(-100% + 28px))',
+            transform: 'translateX(calc(-100% + 40px))',
           }),
         display: 'inline-flex', alignItems: 'center', gap: 8,
         padding: '6px 14px',
-        paddingRight: isMobile ? 14 : 18,
+        paddingRight: isMobile ? 14 : 36,
         background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',
         border: '1px solid var(--brass)',
         borderRadius: isMobile ? 18 : '0 18px 18px 0',
@@ -138,13 +139,15 @@ function BadgeButton({ name, progress, isMobile, onClick }: { name: string; prog
       }}
       title="点击查看剧本详情"
       onMouseEnter={(e) => {
+        setPillHover(true);
         if (!isMobile) e.currentTarget.style.transform = 'translateX(0)';
         e.currentTarget.style.background = 'linear-gradient(180deg, rgba(60,40,20,0.95), rgba(30,20,12,0.98))';
         e.currentTarget.style.borderColor = 'var(--gold)';
         e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.6)';
       }}
       onMouseLeave={(e) => {
-        if (!isMobile) e.currentTarget.style.transform = 'translateX(calc(-100% + 28px))';
+        setPillHover(false);
+        if (!isMobile) e.currentTarget.style.transform = 'translateX(calc(-100% + 40px))';
         e.currentTarget.style.background = 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))';
         e.currentTarget.style.borderColor = 'var(--brass)';
         e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.5)';
@@ -163,6 +166,22 @@ function BadgeButton({ name, progress, isMobile, onClick }: { name: string; prog
       <span style={{ color: 'var(--parchment, #d8c79a)', fontWeight: 500 }}>{name}</span>
       <span style={{ opacity: 0.45 }}>·</span>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>暗线 {progress}/100</span>
+      {/* 缩进态识别 chip — 单字「暗」让玩家一眼认出; absolute 贴右边缘, hover 拉出后淡出 */}
+      {!isMobile && (
+        <span style={{
+          position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)',
+          width: 22, height: 22, borderRadius: '50%',
+          background: 'rgba(196,168,85,0.22)',
+          border: '1px solid var(--gold)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontFamily: 'var(--font-display)',
+          color: 'var(--gold)',
+          letterSpacing: 0, flexShrink: 0,
+          opacity: pillHover ? 0 : 1,
+          pointerEvents: 'none',
+          transition: 'opacity 200ms cubic-bezier(0.4,0,0.2,1)',
+        }}>暗</span>
+      )}
     </button>
   );
 }
