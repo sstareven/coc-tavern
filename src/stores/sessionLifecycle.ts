@@ -491,14 +491,18 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   // 反查全失败 → 整个 rescue 系统读档后半瘫痪。从已切到目标会话的 chatStore 拿 scenarioId。
   {
     const sid = useChatStore.getState().sessions.find((s) => s.id === cid)?.scenarioId;
-    if (sid && sid !== '__free') {
-      const doc = useScenarioStore.getState().getById(sid);
-      useRescueStore.getState().rehydrateEndingsCache(doc?.rescueEndings ?? []);
+    const doc = sid && sid !== '__free' ? useScenarioStore.getState().getById(sid) : null;
+    const scenarioEndings = doc?.rescueEndings ?? [];
+    useRescueStore.getState().rehydrateEndingsCache(scenarioEndings);
+    const snap = rescueRow?.snapshot ?? null;
+    if (!snap && scenarioEndings.length > 0) {
+      // 老存档迁移:存档没存 rescue snapshot(写档时剧本还没 rescueEndings),但剧本现已补上
+      // → 用 initFromScenario 与新开会话同行为种入 paths/status,玩家进游戏即看到 RescueBar 与拯救路径
+      useRescueStore.getState().initFromScenario(scenarioEndings);
     } else {
-      useRescueStore.getState().rehydrateEndingsCache([]);
+      useRescueStore.getState().hydrateFromSnapshot(snap);
     }
   }
-  useRescueStore.getState().hydrateFromSnapshot(rescueRow?.snapshot ?? null);
 
   // 关键词
   const keywords: Record<string, string> = {};

@@ -59,30 +59,66 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
   const visiblePaths = paths.filter((p) => p.unlocked);
   if (visiblePaths.length === 0) return null;
 
+  // 拯救聚合 = 所有已解锁路径的最大值(代表"最有希望的那条")— 用于与暗线赛跑对比
+  const rescueAggregate = visiblePaths.reduce((m, p) => Math.max(m, p.progress), 0);
+
   return (
     <div data-testid="rescue-bar" data-status="contested" style={{
-      display: 'flex', flexDirection: 'column', gap: compact ? 2 : 3,
-      padding: compact ? '3px 6px' : '4px 10px',
+      display: 'flex', flexDirection: 'column', gap: compact ? 3 : 4,
+      padding: compact ? '4px 8px' : '6px 12px',
       margin: '2px 0',
-      background: 'rgba(20,14,8,0.4)',
-      border: '1px solid rgba(196,168,85,0.18)',
+      background: 'rgba(20,14,8,0.45)',
+      border: '1px solid rgba(196,168,85,0.22)',
       borderRadius: 3,
       userSelect: 'none',
     }}>
+      {/* 顶部模式标识 — 明确告知玩家「现在处于拯救模式」 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        fontFamily: 'var(--font-ui)', fontSize: compact ? 9 : 10,
-        color: 'var(--gold, #c4a855)', opacity: 0.7,
-        letterSpacing: 1.5,
+        fontFamily: 'var(--font-display)',
+        fontSize: compact ? 10 : 12,
+        color: 'var(--gold, #c4a855)',
+        letterSpacing: 3,
+        borderBottom: '1px solid rgba(196,168,85,0.15)',
+        paddingBottom: compact ? 2 : 3,
       }}>
-        <IconLuck size={compact ? 10 : 12} />
-        <span>拯救进度</span>
+        <IconLuck size={compact ? 11 : 13} />
+        <span>拯救模式 · 对峙</span>
+      </div>
+
+      {/* 赛跑对比 — 拯救最高 vs 暗线 progress 上下两条窄条 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 2 : 3 }}>
+        <RaceRow
+          label="拯救"
+          value={rescueAggregate}
+          color="var(--gold, #c4a855)"
+          gradient="linear-gradient(90deg, rgba(196,168,85,0.4), var(--gold, #c4a855))"
+          compact={compact}
+        />
         {darkProgress !== null && (
-          <span style={{ marginLeft: 'auto', color: 'var(--blood, #8b1e1e)', fontFamily: 'var(--font-mono)' }}>
-            暗线 {Math.round(darkProgress)}
-          </span>
+          <RaceRow
+            label="暗线"
+            value={darkProgress}
+            color="var(--blood, #8b1e1e)"
+            gradient="linear-gradient(90deg, rgba(139,30,30,0.4), var(--blood, #8b1e1e))"
+            compact={compact}
+          />
         )}
       </div>
+
+      {/* 路径明细分隔标识 */}
+      {visiblePaths.length > 1 && (
+        <div style={{
+          fontFamily: 'var(--font-ui)',
+          fontSize: compact ? 8 : 9,
+          color: 'var(--brass, #a89970)',
+          opacity: 0.6,
+          letterSpacing: 1.5,
+          paddingTop: compact ? 1 : 2,
+        }}>
+          路径明细
+        </div>
+      )}
       {visiblePaths.map((p) => {
         const ending = endingById.get(p.endingId);
         const total = ending?.milestones.length ?? 0;
@@ -134,6 +170,58 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** 顶部赛跑对比单条:[label] [窄进度条] [数字]。拯救/暗线共用同一组件,只差颜色。 */
+function RaceRow({
+  label,
+  value,
+  color,
+  gradient,
+  compact,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  gradient: string;
+  compact: boolean;
+}): React.ReactElement {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      fontFamily: 'var(--font-display)',
+      fontSize: compact ? 10 : 11,
+      letterSpacing: 1,
+    }}>
+      <span style={{
+        minWidth: compact ? 28 : 32,
+        color,
+        fontFamily: 'var(--font-ui)',
+        letterSpacing: 2,
+        fontSize: compact ? 9 : 10,
+      }}>{label}</span>
+      <div style={{
+        flex: 1, minWidth: 40, height: compact ? 6 : 8, borderRadius: 3,
+        background: 'rgba(0,0,0,0.4)',
+        border: '1px solid rgba(196,168,85,0.2)',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        <div style={{
+          width: `${pct}%`, height: '100%',
+          background: gradient,
+          transition: `width 360ms ${EASE}`,
+        }} />
+      </div>
+      <span style={{
+        minWidth: 28, textAlign: 'right',
+        color,
+        fontFamily: 'var(--font-mono)',
+        fontSize: compact ? 10 : 11,
+      }}>{Math.round(pct)}</span>
     </div>
   );
 }
