@@ -2622,7 +2622,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
    *  "RPM 冷却中 60s 后可继续推进" 让玩家以为 LLM 没真取消。
    *  各桶 pop 数对齐"本回合最坏情况": main 4 (主+jsonRetry+echo), mvu 2 (mega+self-correct),
    *  rewrite 5 (NPC memory 2+world memory 1+outfit+image-prompt+causal-echo), image 2.
-   *  数组少于 count 时一并 pop 完, 不进入负态。 */
+   *  数组少于 count 时一并 pop 完, 不进入负态。
+   *  同时关闭顶部「正在窥探深渊...」status toast (本回合 4.9s 计时), 避免玩家以为还在跑。 */
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     rewriteAbortRef.current?.abort();
@@ -2630,6 +2631,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     rpmRelease('mvu', 2);
     rpmRelease('rewrite', 5);
     rpmRelease('image', 2);
+    useStatusToastStore.getState().hide();
   }, []);
 
   // ── Effects ──
