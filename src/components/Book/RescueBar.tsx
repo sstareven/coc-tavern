@@ -1,7 +1,9 @@
-// 顶部拯救路径横条 — spec §4
-// 潜伏:整体不渲染;对峙:每条 unlocked path 一行(灰行=未解锁不显)+右上角暗线 progress 红字;
-// 锁定:整条变金 + 胜出路径铭牌(其他路径变灰显示已冻结)。
-// 嵌在 StatusBar 内,不浮层不绝对定位。
+// 拯救路径气泡 — 嵌入状态栏行内的金色圆形按钮,点击展开浮层显示赛跑对比 + 路径明细。
+// 潜伏态:整体不渲染(globalStatus='潜伏' 或无 unlocked path);
+// 对峙态:金色脉冲气泡 + IconLuck,点击展开浮层;
+// 锁定态:金色实心气泡 + IconStar filled,点击展开浮层显示胜出结局。
+// 浮层用 absolute positioning,需父容器 position:relative。
+import { useState, useRef, useEffect } from 'react';
 import { useRescueStore } from '../../stores/useRescueStore';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import { useDarkThreadStore } from '../../stores/useDarkThreadStore';
@@ -24,191 +26,246 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
   const endings = scenario?.rescueEndings ?? [];
   const darkProgress = useDarkThreadStore((s) => s.entries.length > 0 ? s.entries[s.entries.length - 1].progress : null);
 
-  // 潜伏态(剧本未启用拯救路径或玩家尚未触达任何路径)整体不渲染
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+
+  // 点击外部关闭
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
   if (globalStatus === '潜伏') return null;
   if (paths.length === 0) return null;
 
   const endingById = new Map(endings.map((e) => [e.id, e]));
-
-  // 锁定态:整条金 + 铭牌
-  if (globalStatus === '锁定' && winningEndingId) {
-    const winEnding = endingById.get(winningEndingId);
-    return (
-      <div data-testid="rescue-bar" data-status="locked" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: compact ? '4px 10px' : '6px 14px',
-        margin: '2px 0',
-        background: 'linear-gradient(90deg, rgba(196,168,85,0.18), rgba(196,168,85,0.35), rgba(196,168,85,0.18))',
-        border: '1px solid var(--gold, #c4a855)',
-        borderRadius: 4,
-        fontFamily: 'var(--font-display)',
-        color: 'var(--gold, #c4a855)',
-        letterSpacing: 4,
-        fontSize: compact ? 11 : 13,
-        transition: `all 360ms ${EASE}`,
-        userSelect: 'none',
-      }}>
-        <IconStar size={compact ? 12 : 14} filled />
-        <span>最终结局 · {winEnding?.name ?? '胜出路径'}</span>
-        <IconStar size={compact ? 12 : 14} filled />
-      </div>
-    );
-  }
-
-  // 对峙态:渲染所有路径行(unlocked=金点动条,locked-out=灰色冻结提示;unrevealed 不渲染)
   const visiblePaths = paths.filter((p) => p.unlocked);
-  if (visiblePaths.length === 0) return null;
+  const isLocked = globalStatus === '锁定';
+  if (!isLocked && visiblePaths.length === 0) return null;
 
-  // 拯救聚合 = 所有已解锁路径的最大值(代表"最有希望的那条")— 用于与暗线赛跑对比
   const rescueAggregate = visiblePaths.reduce((m, p) => Math.max(m, p.progress), 0);
+  const winEnding = isLocked && winningEndingId ? endingById.get(winningEndingId) : null;
+
+  const bubbleSize = compact ? 22 : 26;
+  const iconSize = compact ? 11 : 13;
+  const scale = hover ? 1.06 : 1;
 
   return (
-    <div data-testid="rescue-bar" data-status="contested" style={{
-      display: 'flex', flexDirection: 'column', gap: compact ? 3 : 4,
-      padding: compact ? '4px 8px' : '6px 12px',
-      margin: '2px 0',
-      background: 'rgba(20,14,8,0.45)',
-      border: '1px solid rgba(196,168,85,0.22)',
-      borderRadius: 3,
-      userSelect: 'none',
-    }}>
-      {/* 顶部模式标识 — 明确告知玩家「现在处于拯救模式」 */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        fontFamily: 'var(--font-display)',
-        fontSize: compact ? 10 : 12,
-        color: 'var(--gold, #c4a855)',
-        letterSpacing: 3,
-        borderBottom: '1px solid rgba(196,168,85,0.15)',
-        paddingBottom: compact ? 2 : 3,
-      }}>
-        <IconLuck size={compact ? 11 : 13} />
-        <span>拯救模式 · 对峙</span>
-      </div>
+    <span ref={wrapRef} style={{ display: 'inline-block', position: 'relative', verticalAlign: 'middle' }}>
+      <style>{`
+        @keyframes rescue-bubble-pulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 0 rgba(196, 168, 85, 0.55),
+              inset 0 0 4px rgba(255, 220, 130, 0.5);
+          }
+          50% {
+            box-shadow:
+              0 0 0 5px rgba(196, 168, 85, 0),
+              inset 0 0 7px rgba(255, 230, 150, 0.8);
+          }
+        }
+      `}</style>
+      <button
+        type="button"
+        data-testid="rescue-bar"
+        data-status={isLocked ? 'locked' : 'contested'}
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        title={isLocked ? `最终结局 · ${winEnding?.name ?? '胜出路径'}` : `拯救模式 · 对峙 (最高 ${Math.round(rescueAggregate)})`}
+        aria-label="拯救路径"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: bubbleSize,
+          height: bubbleSize,
+          padding: 0,
+          margin: 0,
+          border: `1px solid var(--gold, #c4a855)`,
+          borderRadius: '50%',
+          background: isLocked
+            ? 'radial-gradient(circle at 35% 30%, #e0c074 0%, #8a7235 70%, #4a3a18 100%)'
+            : 'radial-gradient(circle at 35% 30%, rgba(196,168,85,0.85) 0%, rgba(120,95,40,0.9) 70%, rgba(50,38,15,0.95) 100%)',
+          color: '#fff4d4',
+          cursor: 'pointer',
+          animation: isLocked ? 'none' : `rescue-bubble-pulse 1.8s ${EASE} infinite`,
+          transform: `scale(${scale})`,
+          transition: `transform 220ms ${EASE}`,
+          flexShrink: 0,
+        }}
+      >
+        {isLocked
+          ? <IconStar size={iconSize} filled />
+          : <IconLuck size={iconSize} />
+        }
+      </button>
 
-      {/* 赛跑对比 — 拯救最高 vs 暗线 progress 上下两条窄条 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 2 : 3 }}>
-        <RaceRow
-          label="拯救"
-          value={rescueAggregate}
-          color="var(--gold, #c4a855)"
-          gradient="linear-gradient(90deg, rgba(196,168,85,0.4), var(--gold, #c4a855))"
-          compact={compact}
-        />
-        {darkProgress !== null && (
-          <RaceRow
-            label="暗线"
-            value={darkProgress}
-            color="var(--blood, #8b1e1e)"
-            gradient="linear-gradient(90deg, rgba(139,30,30,0.4), var(--blood, #8b1e1e))"
-            compact={compact}
-          />
-        )}
-      </div>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: `calc(100% + 6px)`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            minWidth: 280,
+            maxWidth: 360,
+            padding: '10px 12px',
+            background: 'linear-gradient(135deg, rgba(30,22,12,0.97) 0%, rgba(20,14,8,0.97) 100%)',
+            border: '1px solid var(--gold, #c4a855)',
+            borderRadius: 4,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
+            zIndex: 100,
+            userSelect: 'none',
+            color: 'var(--parchment, #d8c79a)',
+            fontFamily: 'var(--font-display)',
+          }}
+        >
+          {/* 标题:对峙=「拯救模式·对峙」,锁定=「最终结局·名」 */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 12, color: 'var(--gold, #c4a855)',
+            letterSpacing: 3,
+            borderBottom: '1px solid rgba(196,168,85,0.18)',
+            paddingBottom: 5, marginBottom: 6,
+          }}>
+            {isLocked
+              ? <><IconStar size={13} filled /><span>最终结局 · {winEnding?.name ?? '胜出路径'}</span></>
+              : <><IconLuck size={13} /><span>拯救模式 · 对峙</span></>
+            }
+          </div>
 
-      {/* 路径明细分隔标识 */}
-      {visiblePaths.length > 1 && (
-        <div style={{
-          fontFamily: 'var(--font-ui)',
-          fontSize: compact ? 8 : 9,
-          color: 'var(--brass, #a89970)',
-          opacity: 0.6,
-          letterSpacing: 1.5,
-          paddingTop: compact ? 1 : 2,
-        }}>
-          路径明细
+          {/* 锁定态:直接显示结局描述,不再赛跑 */}
+          {isLocked ? (
+            <div style={{
+              fontSize: 11,
+              lineHeight: 1.65,
+              color: 'var(--parchment, #d8c79a)',
+              fontFamily: 'var(--font-body)',
+              padding: '2px 0',
+            }}>
+              {winEnding?.description ?? '其他路径已冻结,叙事围绕这一结局展开。'}
+            </div>
+          ) : (
+            <>
+              {/* 赛跑对比 — 拯救/暗线两条窄条 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                <RaceRow
+                  label="拯救"
+                  value={rescueAggregate}
+                  color="var(--gold, #c4a855)"
+                  gradient="linear-gradient(90deg, rgba(196,168,85,0.4), var(--gold, #c4a855))"
+                />
+                {darkProgress !== null && (
+                  <RaceRow
+                    label="暗线"
+                    value={darkProgress}
+                    color="var(--blood, #8b1e1e)"
+                    gradient="linear-gradient(90deg, rgba(139,30,30,0.4), var(--blood, #8b1e1e))"
+                  />
+                )}
+              </div>
+
+              {/* 路径明细 */}
+              {visiblePaths.length > 0 && (
+                <div style={{
+                  fontSize: 8, color: 'var(--brass, #a89970)',
+                  opacity: 0.7, letterSpacing: 1.5, marginBottom: 4,
+                  fontFamily: 'var(--font-ui)',
+                }}>
+                  路径明细
+                </div>
+              )}
+              {visiblePaths.map((p) => {
+                const ending = endingById.get(p.endingId);
+                const total = ending?.milestones.length ?? 0;
+                const achieved = p.achievedMilestoneIds.length;
+                return (
+                  <div
+                    key={p.endingId}
+                    data-testid="rescue-row"
+                    data-ending-id={p.endingId}
+                    title={ending?.description ?? ''}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      fontSize: 10, letterSpacing: 1,
+                      padding: '2px 0',
+                    }}
+                  >
+                    <span style={{
+                      minWidth: 64,
+                      color: 'var(--gold, #c4a855)',
+                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                    }}>{ending?.name ?? p.endingId}</span>
+                    <div style={{
+                      flex: 1, minWidth: 40, height: 5, borderRadius: 3,
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(196,168,85,0.22)',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${Math.max(0, Math.min(100, p.progress))}%`, height: '100%',
+                        background: 'linear-gradient(90deg, var(--blood, #8b1e1e), var(--gold, #c4a855))',
+                        transition: `width 360ms ${EASE}`,
+                      }} />
+                    </div>
+                    <span data-testid="milestone-count" style={{
+                      minWidth: 26, textAlign: 'right',
+                      color: 'var(--brass, #a89970)',
+                      fontFamily: 'var(--font-mono)', fontSize: 9,
+                    }}>{achieved}/{total}</span>
+                    <span data-testid="progress-pct" style={{
+                      minWidth: 22, textAlign: 'right',
+                      color: 'var(--gold, #c4a855)',
+                      fontFamily: 'var(--font-mono)', fontSize: 9,
+                    }}>{Math.round(p.progress)}</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
-      {visiblePaths.map((p) => {
-        const ending = endingById.get(p.endingId);
-        const total = ending?.milestones.length ?? 0;
-        const achieved = p.achievedMilestoneIds.length;
-        return (
-          <div
-            key={p.endingId}
-            data-testid="rescue-row"
-            data-ending-id={p.endingId}
-            title={ending?.description ?? ''}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontFamily: 'var(--font-display)',
-              fontSize: compact ? 10 : 11,
-              color: 'var(--parchment, #d8c79a)',
-              letterSpacing: 1,
-            }}
-          >
-            <span style={{
-              minWidth: compact ? 56 : 72,
-              color: 'var(--gold, #c4a855)',
-              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-            }}>{ending?.name ?? p.endingId}</span>
-            <div style={{
-              flex: 1, minWidth: 40, height: compact ? 5 : 7, borderRadius: 3,
-              background: 'rgba(0,0,0,0.35)',
-              border: '1px solid rgba(196,168,85,0.25)',
-              overflow: 'hidden',
-              position: 'relative',
-            }}>
-              <div style={{
-                width: `${Math.max(0, Math.min(100, p.progress))}%`, height: '100%',
-                background: 'linear-gradient(90deg, var(--blood, #8b1e1e), var(--gold, #c4a855))',
-                transition: `width 360ms ${EASE}`,
-              }} />
-            </div>
-            <span data-testid="milestone-count" style={{
-              minWidth: 28, textAlign: 'right',
-              color: 'var(--brass, #a89970)',
-              fontFamily: 'var(--font-mono)',
-            }}>{achieved}/{total}</span>
-            <span data-testid="progress-pct" style={{
-              minWidth: 28, textAlign: 'right',
-              color: 'var(--gold, #c4a855)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: compact ? 9 : 10,
-              opacity: 0.85,
-            }}>{Math.round(p.progress)}</span>
-          </div>
-        );
-      })}
-    </div>
+    </span>
   );
 }
 
-/** 顶部赛跑对比单条:[label] [窄进度条] [数字]。拯救/暗线共用同一组件,只差颜色。 */
+/** 浮层内的赛跑对比单条 */
 function RaceRow({
   label,
   value,
   color,
   gradient,
-  compact,
 }: {
   label: string;
   value: number;
   color: string;
   gradient: string;
-  compact: boolean;
 }): React.ReactElement {
   const pct = Math.max(0, Math.min(100, value));
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
-      fontFamily: 'var(--font-display)',
-      fontSize: compact ? 10 : 11,
-      letterSpacing: 1,
+      fontSize: 10, letterSpacing: 1,
     }}>
       <span style={{
-        minWidth: compact ? 28 : 32,
+        minWidth: 28,
         color,
         fontFamily: 'var(--font-ui)',
         letterSpacing: 2,
-        fontSize: compact ? 9 : 10,
+        fontSize: 9,
       }}>{label}</span>
       <div style={{
-        flex: 1, minWidth: 40, height: compact ? 6 : 8, borderRadius: 3,
-        background: 'rgba(0,0,0,0.4)',
-        border: '1px solid rgba(196,168,85,0.2)',
+        flex: 1, minWidth: 40, height: 7, borderRadius: 3,
+        background: 'rgba(0,0,0,0.45)',
+        border: '1px solid rgba(196,168,85,0.22)',
         overflow: 'hidden',
-        position: 'relative',
       }}>
         <div style={{
           width: `${pct}%`, height: '100%',
@@ -217,10 +274,9 @@ function RaceRow({
         }} />
       </div>
       <span style={{
-        minWidth: 28, textAlign: 'right',
+        minWidth: 24, textAlign: 'right',
         color,
-        fontFamily: 'var(--font-mono)',
-        fontSize: compact ? 10 : 11,
+        fontFamily: 'var(--font-mono)', fontSize: 10,
       }}>{Math.round(pct)}</span>
     </div>
   );
