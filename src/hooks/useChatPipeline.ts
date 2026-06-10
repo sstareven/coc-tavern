@@ -47,6 +47,7 @@ import { StreamingTagMask } from '../sillytavern/streaming-tag-mask';
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
+import { rpmRelease } from '../sillytavern/rpm-limiter';
 import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
 import { buildKeywordInjection } from '../sillytavern/keyword-injection';
 import { formatStatDataYaml } from '../sillytavern/mvu-format';
@@ -2616,10 +2617,19 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
    *  abort 信号会触发主管线 catch 块的 controller.signal.aborted 分支:
    *  - 流式: 播放向左翻页动画 + 删除占位页 + reset 流式 store
    *  - 非流式 / 行动补写: 仅静默 return, finally 收尾 loading
-   *  同时 abort 所有在途子调用 (NPC memory / world memory / outfit / image-gen 等) */
+   *  同时 abort 所有在途子调用 (NPC memory / world memory / outfit / image-gen 等)
+   *  并回退本回合 rpmAcquire 写入的 timestamp, 避免取消后 RpmCooldownBar 还显示
+   *  "RPM 冷却中 60s 后可继续推进" 让玩家以为 LLM 没真取消。
+   *  各桶 pop 数对齐"本回合最坏情况": main 4 (主+jsonRetry+echo), mvu 2 (mega+self-correct),
+   *  rewrite 5 (NPC memory 2+world memory 1+outfit+image-prompt+causal-echo), image 2.
+   *  数组少于 count 时一并 pop 完, 不进入负态。 */
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     rewriteAbortRef.current?.abort();
+    rpmRelease('main', 4);
+    rpmRelease('mvu', 2);
+    rpmRelease('rewrite', 5);
+    rpmRelease('image', 2);
   }, []);
 
   // ── Effects ──
