@@ -87,6 +87,7 @@ import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
+import { buildNameSubstitutions, applyNameSubstitutions } from '../sillytavern/npc-name-substitution';
 import { getTreePath } from '../sillytavern/mvu-var-access';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
@@ -251,6 +252,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Build context from recent pages
       const contextText = buildContextFromPages();
 
+      // NPC 改名全局替换:prompt 组装时把旧名(aliases)替换为当前名,覆盖上下文/关键词/megaagent
+      const npcNameSubs = buildNameSubstitutions(useNpcStore.getState().profiles);
+      const substitutedContextText = applyNameSubstitutions(contextText, npcNameSubs);
+
       // Match lorebook entries against context + user input (scope-aware: global + bound chat books)
       const allBooks = useLorebookStore.getState().books;
       const thOptimize = useTavernHelperStore.getState().optimize;
@@ -290,7 +295,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
       }
-      const matchCtx = contextText + '\n' + macroProcessedInput;
+      const matchCtx = substitutedContextText + '\n' + macroProcessedInput;
       const settingsNow = useSettingsStore.getState();
       // Character variables (also reused later for macro substitution) — needed here for matchSources
       const charVars = buildCharacterVariables();
@@ -698,7 +703,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (useBookStore.getState().pages.length <= 1) addFormatPart(PROLOGUE_GOAL_INSTRUCTION);
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
-      const dynamicFormatJoined = dynamicFormatParts.join('\n\n');
+      // NPC 改名替换:dynamicFormatParts 内的 NPC 档案/物品栏/关键词/锚点等注入段可能含旧名
+      const substitutedFormatParts = dynamicFormatParts.map(
+        (part) => applyNameSubstitutions(part, npcNameSubs),
+      );
+      const dynamicFormatJoined = substitutedFormatParts.join('\n\n');
       const renderedDynamicFormat = dynamicFormatJoined ? renderTemplate(dynamicFormatJoined, tmplOpts) : '';
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
@@ -1433,7 +1442,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const turnForMega = useBookStore.getState().pages.length;
 
             const megaInput = buildMegaAgentInput({
-              narrative: hookProcessedContent,
+              narrative: applyNameSubstitutions(hookProcessedContent, buildNameSubstitutions(useNpcStore.getState().profiles)),
               isEpilogue: isEpilogueEarly,
               newClues,
               newLocations,
