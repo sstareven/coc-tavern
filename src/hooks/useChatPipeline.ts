@@ -38,6 +38,7 @@ import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
+import { useScenarioStore } from '../stores/useScenarioStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 import { useStreamingPrinter } from './useStreamingPrinter';
 import { useStreamingPrintStore } from '../stores/useStreamingPrintStore';
@@ -86,6 +87,8 @@ import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
+import { buildNameSubstitutions, applyNameSubstitutions } from '../sillytavern/npc-name-substitution';
+import { getTreePath } from '../sillytavern/mvu-var-access';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
 
@@ -249,6 +252,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       // Build context from recent pages
       const contextText = buildContextFromPages();
 
+      // NPC 改名全局替换:prompt 组装时把旧名(aliases)替换为当前名,覆盖上下文/关键词/megaagent
+      const npcNameSubs = buildNameSubstitutions(useNpcStore.getState().profiles);
+      const substitutedContextText = applyNameSubstitutions(contextText, npcNameSubs);
+
       // Match lorebook entries against context + user input (scope-aware: global + bound chat books)
       const allBooks = useLorebookStore.getState().books;
       const thOptimize = useTavernHelperStore.getState().optimize;
@@ -288,7 +295,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
       }
-      const matchCtx = contextText + '\n' + macroProcessedInput;
+      const matchCtx = substitutedContextText + '\n' + macroProcessedInput;
       const settingsNow = useSettingsStore.getState();
       // Character variables (also reused later for macro substitution) — needed here for matchSources
       const charVars = buildCharacterVariables();
@@ -597,6 +604,20 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const npcCtx = useNpcStore.getState().buildContextInjection(curLocNameForNpc);
         if (npcCtx) addFormatPart(npcCtx);
       }
+      // 时间管理(2026-06-10):注入当前剧情时间,让主回合 LLM 写出时间一致的叙事
+      if (!formatOverride) {
+        const timeEpoch = Number(getTreePath(rawStat, '世界.时间.epoch')) || 0;
+        const timeDisplay = String(getTreePath(rawStat, '世界.时间.display') || '');
+        if (timeDisplay) {
+          const lastRestEpoch = Number(getTreePath(rawStat, '世界.时间.lastRestEpoch')) || 0;
+          const hoursSinceRest = (timeEpoch - lastRestEpoch) / 60;
+          let timeCtx = '[当前剧情时间] ' + timeDisplay;
+          if (hoursSinceRest >= 18) {
+            timeCtx += '\n调查员已连续活动 ' + Math.floor(hoursSinceRest) + ' 小时，应在叙事中体现疲劳感。';
+          }
+          addFormatPart(timeCtx);
+        }
+      }
       // Agent Memory(2026-06-10) 注入:开关开启时,把 NPC 心智档案与世界心思作为独立通路并入主回合 prompt。
       // 分层注入(per D2 设计):核心 NPC 永远完整 / 重要 NPC 在场完整、离场简版。
       if (!formatOverride) {
@@ -626,7 +647,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             coreIds,
             importantIdsByLocation,
             absentImportantIds,
-            nameOf: (id) => npcAll[id]?.name ?? id,
+            nameOf: (id) => {
+              const p = npcAll[id];
+              if (!p) return id;
+              const aliasNote = (p.aliases?.length) ? ' (原名:' + p.aliases.join('/') + ')' : '';
+              return p.name + aliasNote;
+            },
           });
           if (memCtx) addFormatPart(memCtx);
           const worldCtx = useWorldMemoryStore.getState().buildContextInjection();
@@ -677,7 +703,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         if (useBookStore.getState().pages.length <= 1) addFormatPart(PROLOGUE_GOAL_INSTRUCTION);
       }
       const processedFormat = renderTemplate(baseFormat, tmplOpts);
-      const dynamicFormatJoined = dynamicFormatParts.join('\n\n');
+      // NPC 改名替换:dynamicFormatParts 内的 NPC 档案/物品栏/关键词/锚点等注入段可能含旧名
+      const substitutedFormatParts = dynamicFormatParts.map(
+        (part) => applyNameSubstitutions(part, npcNameSubs),
+      );
+      const dynamicFormatJoined = substitutedFormatParts.join('\n\n');
       const renderedDynamicFormat = dynamicFormatJoined ? renderTemplate(dynamicFormatJoined, tmplOpts) : '';
 
       // ── Unified Macro Engine: resolve all {{...}} syntax in one batch ──
@@ -1412,7 +1442,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             const turnForMega = useBookStore.getState().pages.length;
 
             const megaInput = buildMegaAgentInput({
-              narrative: hookProcessedContent,
+              narrative: applyNameSubstitutions(hookProcessedContent, buildNameSubstitutions(useNpcStore.getState().profiles)),
               isEpilogue: isEpilogueEarly,
               newClues,
               newLocations,
@@ -1431,7 +1461,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               signal: controller.signal,
             });
             mvuUsage = megaResult.usage;
-            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId, agentMemoryEnabled, turn: turnForMega });
+            const megaScenarioDoc = megaScenarioId ? useScenarioStore.getState().getById(megaScenarioId) : null;
+            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId, agentMemoryEnabled, turn: turnForMega, storyDurationMinutes: megaScenarioDoc?.storyDurationMinutes ?? 0 });
             pushLog(
               megaResult.fallback ? 'warn' : 'info',
               `[MVU 综合] ${megaResult.fallback ? '回退到 extractVariables 路径' : '一次综合调用'}:` +
@@ -1440,7 +1471,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 ` / 地点元素 ${summary.locationElementsAdded} / 线索整合 ${summary.clueIntegrationCount}` +
                 ` / 地点整合 ${summary.locationIntegrationCount} / 地图修正 ${summary.mapReconcileActions}` +
                 ` / 关系演化 ${summary.partyRelationDeltasApplied} / 脱队 ${summary.partyConflictsResolved}` +
-                (agentMemoryEnabled ? ` / 心智档案 ${summary.npcMemoryUpdatesApplied}` : ''),
+                (agentMemoryEnabled ? ` / 心智档案 ${summary.npcMemoryUpdatesApplied}` : '')
+                + (summary.timeAdvancedMinutes > 0 ? ` / 时间 +${summary.timeAdvancedMinutes}min` : ''),
               'system',
             );
 

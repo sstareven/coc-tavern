@@ -183,6 +183,11 @@ export interface ScenarioDoc {
    *  三层 merge:settings.imageDefaults 基线 → scn.imageGen 覆盖 → 运行时 ImageRenderContext;
    *  全部 optional,未填字段沿用上一层。schemaVersion 不升(memory: beta-no-backward-compat)。 */
   imageGen?: ScenarioImageGen;
+
+  /** 冒险起始日期时间 ISO 格式，如 "1930-01-01T08:00"。缺省时由首回合 megaagent 从叙事推断。 */
+  startDateTime?: string;
+  /** 剧本推荐的剧情时间跨度（分钟）。如 3 天 = 4320。缺省则不做暗线节奏引导。 */
+  storyDurationMinutes?: number;
 }
 
 /** 10 种风格预设 key。custom 时优先用 stylePromptOverride 自填风格描述。 */
@@ -416,6 +421,8 @@ export function isValidScenarioDoc(x: unknown): x is ScenarioDoc {
   if (typeof x.schemaVersion !== 'number' || !SUPPORTED_SCHEMA_VERSIONS.includes(x.schemaVersion)) return false;
   if (!isNum(x.createdAt) || !isNum(x.updatedAt)) return false;
   if (x.imageGen !== undefined && !isImageGenLike(x.imageGen)) return false;
+  if (x.startDateTime !== undefined && !isStr(x.startDateTime)) return false;
+  if (x.storyDurationMinutes !== undefined && !isNum(x.storyDurationMinutes)) return false;
   return true;
 }
 

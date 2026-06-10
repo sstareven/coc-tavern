@@ -28,6 +28,7 @@ import { type StagingTrigger } from '../../sillytavern/option-staging';
 import { parseAttackTarget } from '../../sillytavern/parse-attack-target';
 import type { ChoiceItem, DiceRecord, DiceResultType, RewriteBlock, InventoryChange, SanityCheckPrompt } from '../../types';
 import type { PrintSegment, StreamingChoice } from '../../stores/useStreamingPrintStore';
+import { RestHint } from './RestHint';
 
 interface Props {
   header: string;
@@ -532,6 +533,7 @@ export function RightPage({ header, content, choices, pageNum, isFlipping, rewri
               ? <p key={i} style={{ textIndent: '2em', marginBottom: 8, color: 'var(--ink)' }}>{renderStringWithBubblesAndBeauty(node, sanityCheckPrompts, `rp${i}`)}</p>
               : <span key={i}>{node}</span>)
           )}
+          <RestHint />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {choices.map((ch) => <ChoiceButton key={ch.num} choice={ch} />)}
           </div>

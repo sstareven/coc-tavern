@@ -44,7 +44,8 @@ import { detectPartyConflicts } from '../scenario/relation-graph';
 import type { RelationType, ScenarioCharacter } from '../types/scenario';
 import { extractVariablesWithLLM } from './mvu-extractor';
 import type { TokenUsage } from './stream-parser';
-import { setTreePath } from './mvu-var-access';
+import { getTreePath, setTreePath } from './mvu-var-access';
+import { formatEpochDisplay, computeExpectedProgress, clampDarkThreadProgress } from './time-engine';
 import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
 import { normalizeEmotion, type NpcMemoryUpdate } from '../types/npc-world-memory';
 
@@ -74,6 +75,7 @@ const OUTPUT_SCHEMA_DESC = `{
   "partyRelations": null | {
     "deltas": [ { "sourceId": "string", "targetId": "string", "newType": "family|lover|friend|colleague|mentor|rival|enemy|acquaintance|stranger", "reason"?: "string" } ]
   },
+  "timeDelta": { "days": number, "hours": number, "minutes": number },
   "npcMemoryUpdates": null | [ {
     "name": "string",
     "goal"?: "string",
@@ -122,6 +124,7 @@ const SYSTEM_PROMPT_A = `你是一位克苏鲁的呼唤(COC)跑团的资深守�
 - trigger.evaluateKeyClues:newClues.length > 0 且 livePillars.length > 0 时为 true。
 - trigger.partyRelations:小队人数≥2 或叙事中多角色互动时为 true;返回真实发生变化的边,无变化返回 {"deltas":[]};"newType":"stranger" 表示删除该边变回陌生。
 - trigger.npcMemoryUpdates:agentMemoryEnabled=true 且本回合有 importance ∈ {核心,重要} 的 NPC 出场或动作时为 true。**仅对本回合被叙事直接涉及（出场/对调查员有反应/发起动作）的 NPC 输出 update**，未涉及的 NPC 不要写。所有字段可选——只写本回合"心思真的变化"的字段，无变化整条 update 不输出。trustOnPC 范围 -1~1（每回合最多 ±0.3 的微调，避免剧烈跳变）。emotionToPC / relationships[].emotion 必须落六选一枚举。relationshipsUpsert 仅写本回合关系发生变化的对象；target 一律写 NPC 真名。secretsAdd 仅追加新秘密（不输出整段已有秘密）。prose 仅当心思发生实质性演变时整段重写（300~500 字）。agentMemoryEnabled=false 时整个字段输出 null（不要给空数组）。
+- trigger.timeDelta:永远 true（每回合都有时间流逝）。根据叙事活动类型估算增量：战斗/对峙 1~10 分钟，对话/搜索 10~30 分钟，图书馆查阅/大范围搜索 1~4 小时，城际旅行 数小时~1 天，休息/过夜 8~12 小时。即使叙事是回忆/闪回，时间增量给 {"days":0,"hours":0,"minutes":0}。
 
 **npcMemoryUpdates 硬性规则**：
 - 当 agentMemoryEnabled=true 时，必须为**所有在本回合叙事中出现或在场的 NPC** 输出 nextMove 更新（即使目标/情绪未变，nextMove 也必须反映叙事结束时该 NPC 的实际下一步计划）。
@@ -148,6 +151,7 @@ export interface MegaAgentTrigger {
   mapReconcile: boolean;
   partyRelations: boolean;
   npcMemoryUpdates: boolean;
+  timeDelta: boolean;
 }
 
 export interface PartyRelationDelta {
@@ -185,6 +189,11 @@ export interface MegaAgentInput {
   agentMemoryEnabled: boolean;
   /** 当前重要/核心 NPC 的心智档案摘要(供 LLM 增量参考;关闭时空串)。 */
   npcMemoryDigest: string;
+  /** 当前剧情已过时间(分钟) + 显示用字符串(2026-06-10)。 */
+  currentTimeEpoch: number;
+  currentTimeDisplay: string;
+  /** 剧本推荐时间跨度(分钟)；无剧本时 0。 */
+  storyDurationMinutes: number;
   trigger: MegaAgentTrigger;
 }
 
@@ -208,6 +217,8 @@ export interface MegaAgentResult {
     merges: { keep: string; drop: string }[];
   } | null;
   partyRelations: { deltas: PartyRelationDelta[] } | null;
+  /** 本回合剧情时间增量(2026-06-10)。 */
+  timeDelta: { days: number; hours: number; minutes: number } | null;
   /** 本回合 NPC 心智档案增量(2026-06-10);agentMemoryEnabled=false 时为 null。 */
   npcMemoryUpdates: NpcMemoryUpdate[] | null;
   /** 集成测试/UI 显示用。 */
@@ -303,6 +314,7 @@ export function buildMegaAgentInput(opts: {
     mapReconcile: opts.newLocations.length > 0 || opts.newEdges.length > 0,
     partyRelations: partyRelationsTrigger,
     npcMemoryUpdates: opts.agentMemoryEnabled,
+    timeDelta: true,
   };
 
   // NPC Memory 摘要(Agent Memory 开启时构造;关闭直接空串以保 prompt 缓存命中)。
@@ -319,6 +331,13 @@ export function buildMegaAgentInput(opts: {
     }
     npcMemoryDigest = lines.length > 0 ? lines.join('\n') : '(尚无心智档案,请按需新建)';
   }
+
+  const varState = useVariableStore.getState();
+  const currentTimeEpoch = Number(getTreePath(varState.statData, '世界.时间.epoch')) || 0;
+  const currentTimeDisplay = String(getTreePath(varState.statData, '世界.时间.display') || '');
+  const scenarioDoc = (opts.scenarioId && opts.scenarioId !== '__free')
+    ? useScenarioStore.getState().getById(opts.scenarioId) : null;
+  const storyDurationMinutes = scenarioDoc?.storyDurationMinutes ?? 0;
 
   return {
     scenarioId: opts.scenarioId,
@@ -343,6 +362,9 @@ export function buildMegaAgentInput(opts: {
     unknownKeywords: opts.unknownKeywords,
     agentMemoryEnabled: opts.agentMemoryEnabled,
     npcMemoryDigest,
+    currentTimeEpoch,
+    currentTimeDisplay,
+    storyDurationMinutes,
     trigger,
   };
 }
@@ -375,6 +397,7 @@ function formatUserPayload(input: MegaAgentInput): string {
 - 调查员:${input.investigatorName}(职业:${input.occupation})
 - 注定坏结局(机密):${input.badEndingDesc || '(未生成)'}
 - 阈值常量:CLUE_ACTIVE_CAP=${CLUE_ACTIVE_CAP},LOCATION_ELEMENT_CAP=${LOCATION_ELEMENT_CAP}
+- 剧本推荐时间跨度: ${input.storyDurationMinutes > 0 ? input.storyDurationMinutes + '分钟' : '(无)'}
 - 未揭示真相支柱(机密,仅未揭示):
 ${livePillarsText}
 - 当前剧本关系图:
@@ -400,6 +423,7 @@ ${input.narrative}
 - 本回合主 API 报告的 newLocations/newEdges:${JSON.stringify(input.newMapDigest)}
 - 叙事中出现且未知的关键词 unknownKeywords:${JSON.stringify(input.unknownKeywords)}
 - 触发标志:${JSON.stringify(input.trigger)}
+- 当前剧情已过时间: epoch=${input.currentTimeEpoch}分钟 display="${input.currentTimeDisplay}"
 - Agent Memory 开关 agentMemoryEnabled:${input.agentMemoryEnabled}${input.agentMemoryEnabled ? `\n- 当前 NPC 心智档案摘要(供增量参考):\n${input.npcMemoryDigest}` : ''}
 
 请按 Schema 一次性输出全部字段。`;
@@ -419,6 +443,7 @@ const EMPTY_RESULT: Omit<MegaAgentResult, 'usage' | 'fallback'> = {
   locationIntegration: null,
   mapReconcile: null,
   partyRelations: null,
+  timeDelta: null,
   npcMemoryUpdates: null,
 };
 
@@ -619,6 +644,18 @@ function parseMegaAgentResponse(parsed: Record<string, unknown>, usage?: TokenUs
     partyRelations = { deltas };
   }
 
+  // timeDelta
+  let timeDelta: MegaAgentResult['timeDelta'] = null;
+  const tdRaw = asObject(parsed.timeDelta);
+  if (tdRaw) {
+    const days = Math.max(0, asNumber(tdRaw.days));
+    const hours = Math.max(0, asNumber(tdRaw.hours));
+    const minutes = Math.max(0, asNumber(tdRaw.minutes));
+    if (days > 0 || hours > 0 || minutes > 0) {
+      timeDelta = { days, hours, minutes };
+    }
+  }
+
   // npcMemoryUpdates(2026-06-10):agentMemoryEnabled=false 时 LLM 输出 null,这里直接返 null。
   let npcMemoryUpdates: MegaAgentResult['npcMemoryUpdates'] = null;
   if (Array.isArray(parsed.npcMemoryUpdates)) {
@@ -662,6 +699,7 @@ function parseMegaAgentResponse(parsed: Record<string, unknown>, usage?: TokenUs
     locationIntegration,
     mapReconcile,
     partyRelations,
+    timeDelta,
     npcMemoryUpdates,
     usage,
   };
@@ -687,6 +725,7 @@ export interface DispatchSummary {
   partyRelationDeltasApplied: number;
   partyConflictsResolved: number;
   npcMemoryUpdatesApplied: number;
+  timeAdvancedMinutes: number;
 }
 
 export interface DispatchOpts {
@@ -696,6 +735,7 @@ export interface DispatchOpts {
   agentMemoryEnabled?: boolean;
   /** 当前回合索引(pages.length),写入 NpcMemory.updatedAt。 */
   turn?: number;
+  storyDurationMinutes?: number;
 }
 
 export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchOpts = { scenarioId: null }): DispatchSummary {
@@ -711,6 +751,7 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
     partyRelationDeltasApplied: 0,
     partyConflictsResolved: 0,
     npcMemoryUpdatesApplied: 0,
+    timeAdvancedMinutes: 0,
   };
 
   // variables → useVariableStore
@@ -719,10 +760,41 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
     summary.variablesApplied += 1;
   }
 
+  // timeDelta → statData.世界.時間
+  if (result.timeDelta) {
+    const deltaMinutes = result.timeDelta.days * 1440 + result.timeDelta.hours * 60 + result.timeDelta.minutes;
+    if (deltaMinutes > 0) {
+      const varStore = useVariableStore.getState();
+      const sd: Record<string, unknown> = structuredClone(varStore.statData) ?? {};
+      const prevEpoch = Number(getTreePath(sd, '世界.时间.epoch')) || 0;
+      const newEpoch = prevEpoch + deltaMinutes;
+      setTreePath(sd, '世界.时间.epoch', newEpoch);
+      const startDate = String(getTreePath(sd, '世界.时间.startDate') || '');
+      if (startDate) {
+        setTreePath(sd, '世界.时间.display', formatEpochDisplay(startDate, newEpoch));
+      }
+      varStore.setStatData(sd);
+      summary.timeAdvancedMinutes = deltaMinutes;
+    }
+  }
+
   // darkThread → useDarkThreadStore + useBookStore.setPageDarkThread(由 useChatPipeline 处理)
   //               + statData 树同步(让 CurrentScenarioBadge / 世界书 EJS 等读 statData 的位点立刻
   //                 跟上;否则后端 store 已有 progress=7,UI 仍读 statData 的 '剧情.暗线.进度' 初值 0)。
   if (result.darkThread && result.darkThread.development) {
+    // 暗线节奏钳位(2026-06-10 时间管理):有剧本推荐时长时,用 clampDarkThreadProgress 限制
+    // progress 偏离期望值的幅度。必须在 store 写入之前完成,否则钳位结果不会落盘。
+    const storyDur = opts.storyDurationMinutes ?? 0;
+    if (storyDur > 0) {
+      const varStore0 = useVariableStore.getState();
+      const curEpoch = Number(getTreePath(varStore0.statData, '世界.时间.epoch')) || 0;
+      const expected = computeExpectedProgress(curEpoch, storyDur);
+      // 取上一回合的 progress 作为单调不减基线(而非 LLM 本回合输出)
+      const dtStore = useDarkThreadStore.getState();
+      const prevProgress = dtStore.entries[dtStore.entries.length - 1]?.progress ?? 0;
+      result.darkThread.progress = clampDarkThreadProgress(prevProgress, expected, result.darkThread.progress);
+    }
+
     useDarkThreadStore.getState().addEntry({
       progress: result.darkThread.progress,
       threatLevel: result.darkThread.threatLevel as never,

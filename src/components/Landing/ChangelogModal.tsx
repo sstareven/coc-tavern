@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.22.0';
+export const CURRENT_VERSION = 'v1.23.0';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,56 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.23.0',
+    label: '剧情时间管理 · NPC 改名升级 · 休息提示 · 缓存优化',
+    sections: [
+      {
+        title: '新功能',
+        groups: [
+          {
+            title: '剧情时间管理',
+            entries: [
+              '以前剧情时间全凭 LLM 自由发挥,经常写出"凌晨三点阳光明媚"之类的矛盾；现在系统有了自己的时钟——每回合根据活动类型(战斗几分钟、查阅图书馆几小时)自动推进,状态栏显示精确到分钟的剧情时间',
+              '暗线进度和剧情时间挂钩了：剧本设定了推荐时长(比如 3 天)的话,暗线会自动按时间线匀速推进,调查员干预可以减缓但不会完全停住,也不会一回合突然跳到 90%',
+              '正文里的环境描写(光线、温度、人群)会参考当前时间,不再出现"半夜的午后阳光"',
+            ],
+          },
+          {
+            title: '休息提示',
+            entries: [
+              '调查员连续活动超过 24 小时后,选项上方会出现一条"可以休息"的提示；点击后推进 8 小时、恢复 1 点生命',
+              '战斗中不会弹出提示,不影响紧张节奏',
+            ],
+          },
+        ],
+      },
+      {
+        title: '改进',
+        groups: [
+          {
+            title: 'NPC 改名彻底生效了',
+            entries: [
+              '以前改名后正文还是用旧名字,而且偶尔会多出一张同一个人的重复名片；现在改名后系统会在正文、关键词、心智档案等所有地方统一替换成新名字',
+              '关键词词条里的旧名也会跟着改(比如"埃伦娜·武的舱室"变成"小美的舱室")',
+            ],
+          },
+          {
+            title: '缓存优化',
+            entries: [
+              '以前刷新页面后缓存命中率要等好几轮才能恢复,现在刷新后立刻恢复到之前的水平',
+            ],
+          },
+          {
+            title: '队伍气泡',
+            entries: [
+              '打开队伍列表再关闭后,左上角的「队」字不再消失',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.22.0',
     label: '自创角色修复 · 书本自适应 · NPC 改名 · 线索记忆',

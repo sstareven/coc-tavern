@@ -130,7 +130,7 @@ export function TeamSidebar(): React.ReactElement | null {
   };
 
   const inCombat = encounter !== null && encounter.status === 'active';
-  const currentActorId = inCombat ? encounter.turnOrder[encounter.currentIdx] : null;
+  const currentActorId = inCombat ? encounter.turnOrder[encounter.currentIdx] ?? null : null;
 
   // 仅当队伍只剩玩家 且 也没有在场非队 NPC 时,才完全不渲染——否则玩家就邀请不了
   if (members.length <= 1 && presentOutsideNpcs.length === 0) return null;
@@ -149,7 +149,7 @@ export function TeamSidebar(): React.ReactElement | null {
        *  手机端 relative 由 GameView 包到 TopBar 下方一行,不缩进 */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { setOpen(true); setPillHover(false); }}
           onMouseEnter={(e) => {
             setPillHover(true);
             if (!isMobile) e.currentTarget.style.transform = 'translateX(0)';
