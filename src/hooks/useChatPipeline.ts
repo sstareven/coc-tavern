@@ -87,6 +87,7 @@ import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';
 import { applyPostProcessing } from '../sillytavern/post-processor';
 import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/character-variables';
 import { buildContextFromPages } from '../sillytavern/context-builder';
+import { getTreePath } from '../sillytavern/mvu-var-access';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
 
@@ -597,6 +598,20 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         const curLocNameForNpc = msNow.locations.find((l) => l.id === msNow.currentLocationId)?.name ?? '';
         const npcCtx = useNpcStore.getState().buildContextInjection(curLocNameForNpc);
         if (npcCtx) addFormatPart(npcCtx);
+      }
+      // 时间管理(2026-06-10):注入当前剧情时间,让主回合 LLM 写出时间一致的叙事
+      if (!formatOverride) {
+        const timeEpoch = Number(getTreePath(rawStat, '世界.时间.epoch')) || 0;
+        const timeDisplay = String(getTreePath(rawStat, '世界.时间.display') || '');
+        if (timeDisplay) {
+          const lastRestEpoch = Number(getTreePath(rawStat, '世界.时间.lastRestEpoch')) || 0;
+          const hoursSinceRest = (timeEpoch - lastRestEpoch) / 60;
+          let timeCtx = '[当前剧情时间] ' + timeDisplay;
+          if (hoursSinceRest >= 18) {
+            timeCtx += '\n调查员已连续活动 ' + Math.floor(hoursSinceRest) + ' 小时，应在叙事中体现疲劳感。';
+          }
+          addFormatPart(timeCtx);
+        }
       }
       // Agent Memory(2026-06-10) 注入:开关开启时,把 NPC 心智档案与世界心思作为独立通路并入主回合 prompt。
       // 分层注入(per D2 设计):核心 NPC 永远完整 / 重要 NPC 在场完整、离场简版。

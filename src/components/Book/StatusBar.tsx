@@ -57,10 +57,16 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
   const weekday = cleanStatus(scene.weekday
     || computeWeekday(date)
     || '');
-  const time = cleanStatus(scene.time
+  const timeObj = statData?.['世界'] as Record<string, unknown> | undefined;
+  const timeInner = timeObj?.['时间'];
+  const structuredDisplay = (timeInner && typeof timeInner === 'object' && !Array.isArray(timeInner))
+    ? String((timeInner as Record<string, unknown>).display || '')
+    : '';
+  const time = cleanStatus(structuredDisplay
+    || scene.time
     || statPath(statData, '世界.时间')
     || vars['世界.时间']?.value
-    || vars.time?.value  // legacy flat key
+    || vars.time?.value
     || NO_VALUE);
   const weather = cleanStatus(scene.weather
     || statPath(statData, '世界.天气')
