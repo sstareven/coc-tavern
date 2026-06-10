@@ -20,7 +20,6 @@ import {
 } from '../types/npc-world-memory';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { callDsSubagent, type DsSubagentRequest } from './subagent-call';
-import { wrapSubagentMessages } from './subagent-shared';
 
 const SYSTEM_PROMPT = [
   '你是 Call of Cthulhu 7e 跑团中某位 NPC 的「内心独白生成器」。',
@@ -54,11 +53,13 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 function buildUserPayload(input: NpcMemoryCardInput): string {
-  // 用 JSON.stringify 既稳又便于 LLM 解析；字段名与 schema 对应
+  // 稳定段(npcId/npcName)前置 + 分隔符 + 动态段(npcDigest 含 status/location, scenarioCtx 含本回合叙事)后置
+  // 让跨回合调用的 user 前缀有 stable 段可命中 prompt cache
   return JSON.stringify(
     {
       npcId: input.npcId,
       npcName: input.npcName,
+      _separator: '--- 本回合动态 ---',
       npcDigest: input.npcDigest,
       scenarioCtx: input.scenarioCtx,
     },
@@ -109,16 +110,20 @@ function parseRelationships(v: unknown): NpcRelationship[] {
  * - jsonObject: true（response_format 强制 JSON object，配合 strictJsonParse）
  * - maxTokens: 32768（≥ 项目硬下限 20000）
  * - updatedAt: 留 0，由 dispatch 层在写入 store 时填上当前 pages.length
+ * - signal: 可取消; useChatPipeline 关闭/abort 时透传过来,避免污染下个会话
  *
  * 任何异常（缺配 / HTTP / 解析失败）→ 返 null，fail-open。
  */
-export async function runNpcMemoryCard(input: NpcMemoryCardInput): Promise<NpcMemoryCardResult> {
+export async function runNpcMemoryCard(input: NpcMemoryCardInput, signal?: AbortSignal): Promise<NpcMemoryCardResult> {
+  if (signal?.aborted) return null;
   const apiConfig = useSettingsStore.getState().getEffectiveRewriteApi();
   if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) return null;
   if (!input.npcId || !input.npcName) return null;
 
   const userPayload = buildUserPayload(input);
 
+  // 注意:不在此处提前调 wrapSubagentMessages — callDsSubagent 内部已 wrap 一次,
+  // 双重 wrap 会把 SUBAGENT_SHARED_SYSTEM 复写到 user 段, 缓存命中失效 + 子任务说明被埋深.
   const req: DsSubagentRequest = {
     apiBaseUrl: apiConfig.baseUrl,
     apiKey: apiConfig.apiKey,
@@ -129,13 +134,11 @@ export async function runNpcMemoryCard(input: NpcMemoryCardInput): Promise<NpcMe
     maxTokens: 32768,
     rpmLane: 'rewrite',
     jsonObject: true,
-    messages: wrapSubagentMessages(
-      [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPayload },
-      ],
-      'npc-memory-card',
-    ),
+    signal,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPayload },
+    ],
   };
 
   let parsed: Record<string, unknown> | null;

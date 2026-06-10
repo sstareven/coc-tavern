@@ -58,7 +58,9 @@ export async function extractOutfitDiff(req: OutfitExtractorRequest): Promise<Ou
   }, null, 2);
 
   const truncatedNarrative = req.leftContent.slice(0, 1200).trim();
-  const user = `本回合叙事正文:\n${truncatedNarrative}\n\n当前装束快照:\n${snapshotJson}\n\n请仅输出 diff。`;
+  // 稳定段(装束快照,跨回合 outfit 不变时不变)前置, 动态段(本回合 narrative)后置;
+  // 让 outfit 不变的回合可命中 system + snapshot 共 ~500-800 token 的 user 前缀缓存
+  const user = `当前装束快照:\n${snapshotJson}\n\n--- 本回合动态 ---\n本回合叙事正文:\n${truncatedNarrative}\n\n请仅输出 diff。`;
 
   try {
     const resp = await callDsSubagent({

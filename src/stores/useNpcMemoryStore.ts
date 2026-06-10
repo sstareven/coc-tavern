@@ -116,26 +116,40 @@ export const useNpcMemoryStore = create<NpcMemoryStore>()((set, get) => ({
         const cur: NpcMemory = memories[id] ?? { ...EMPTY_NPC_MEMORY };
         const next: NpcMemory = { ...cur };
 
+        // 是否本回合 update 实际改了任何字段; 若 LLM 在 name 字段提到了 NPC 但所有
+        // 字段都为空/未变, 不应 bump updatedAt — 否则 useChatPipeline 的 NPC stale
+        // 触发条件 (turn - updatedAt >= NPC_REFRESH_INTERVAL) 永远不命中。
+        let changed = false;
+
         // 剧本预设 NPC 的 goal/nextMove/prose 非空时受保护——这三项是作者写定的暗线骨架，
         // 主回合 LLM 增量只能在尚未填充时初始化；secrets/relationships 仍可累积。
         if (typeof u.goal === 'string' && u.goal.trim()) {
-          if (!(isPreset && next.goal.trim())) next.goal = u.goal;
+          if (!(isPreset && next.goal.trim())) { next.goal = u.goal; changed = true; }
         }
         if (typeof u.nextMove === 'string' && u.nextMove.trim()) {
-          if (!(isPreset && next.nextMove.trim())) next.nextMove = u.nextMove;
+          if (!(isPreset && next.nextMove.trim())) { next.nextMove = u.nextMove; changed = true; }
         }
         if (typeof u.prose === 'string' && u.prose.trim()) {
-          if (!(isPreset && next.prose.trim())) next.prose = u.prose;
+          if (!(isPreset && next.prose.trim())) { next.prose = u.prose; changed = true; }
         }
-        if (typeof u.trustOnPC === 'number') next.trustOnPC = clampTrust(u.trustOnPC);
-        if (u.emotionToPC !== undefined) next.emotionToPC = normalizeEmotion(u.emotionToPC);
+        if (typeof u.trustOnPC === 'number') {
+          const c = clampTrust(u.trustOnPC);
+          if (c !== next.trustOnPC) { next.trustOnPC = c; changed = true; }
+        }
+        if (u.emotionToPC !== undefined) {
+          const e = normalizeEmotion(u.emotionToPC);
+          if (e !== next.emotionToPC) { next.emotionToPC = e; changed = true; }
+        }
         if (Array.isArray(u.secretsAdd) && u.secretsAdd.length > 0) {
-          next.secrets = mergeSecrets(next.secrets, u.secretsAdd);
+          const merged = mergeSecrets(next.secrets, u.secretsAdd);
+          if (merged.length !== next.secrets.length) { next.secrets = merged; changed = true; }
         }
         if (Array.isArray(u.relationshipsUpsert) && u.relationshipsUpsert.length > 0) {
           next.relationships = upsertRelationships(next.relationships, u.relationshipsUpsert);
+          changed = true;
         }
-        next.updatedAt = turn;
+
+        if (changed) next.updatedAt = turn;
         memories[id] = next;
       }
       return { memories };

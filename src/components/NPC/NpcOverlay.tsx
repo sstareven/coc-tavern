@@ -203,8 +203,16 @@ function NpcCard({ npc }: { npc: NpcProfile }) {
       .then((card) => {
         useNpcMemoryStore.getState().removePending(npc.id);
         const turn = useBookStore.getState().pages.length;
-        if (card) useNpcMemoryStore.getState().setMemory(npc.id, { ...card, updatedAt: turn });
-        else useNpcMemoryStore.getState().setMemory(npc.id, buildImportantNpcMemoryTemplate(turn));
+        if (card) {
+          useNpcMemoryStore.getState().setMemory(npc.id, { ...card, updatedAt: turn });
+        } else {
+          // fail-open: 若已有非空 prose 心智, 保留原值; 只有从未立卡时才写空模板兜底.
+          // 旧版会一律覆盖空模板 → 一次 429/网络抖动 + 玩家点重立卡就把现有心思清零.
+          const cur = useNpcMemoryStore.getState().memories[npc.id];
+          if (!cur || !cur.prose || !cur.prose.trim()) {
+            useNpcMemoryStore.getState().setMemory(npc.id, buildImportantNpcMemoryTemplate(turn));
+          }
+        }
       })
       .catch(() => useNpcMemoryStore.getState().removePending(npc.id));
   };

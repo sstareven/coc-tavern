@@ -1471,6 +1471,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 return b.ageScore - a.ageScore;
               });
 
+              // 会话守卫: 取调度时的 activeId, 切档后回写直接跳, 防污染下个会话
+              const aidNpcMem = useChatStore.getState().activeId;
               for (const c of candidates.slice(0, MAX_NPC_SPAWN_PER_TURN)) {
                 memStore.addPending(c.id);
                 const digest = `${c.p.name}|${c.p.identity ?? ''}|位置:${c.p.locationName ?? '未知'}|状态:${c.p.status ?? ''}`;
@@ -1479,9 +1481,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                   npcName: c.p.name,
                   npcDigest: digest,
                   scenarioCtx: hookProcessedContent.slice(0, 1200),
-                })
+                }, controller.signal)
                   .then((card) => {
                     useNpcMemoryStore.getState().removePending(c.id);
+                    if (useChatStore.getState().activeId !== aidNpcMem) return;
                     if (card) {
                       useNpcMemoryStore.getState().setMemory(c.id, { ...card, updatedAt: turnForMega });
                     }
@@ -1499,24 +1502,19 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 && curWorld.unrevealed.length === 0
                 && Object.keys(curWorld.keywordMeanings).length === 0;
               useWorldMemoryStore.getState().setPending(true);
+              const aidWorldMem = useChatStore.getState().activeId;
               void runWorldMemoryUpdate({
                 current: curWorld,
                 recentNarrative: hookProcessedContent.slice(0, 2000),
                 bootstrap: isWorldEmpty,
                 scenarioCtx: isWorldEmpty ? hookProcessedContent.slice(0, 800) : undefined,
-              })
+              }, controller.signal)
                 .then((upd) => {
+                  if (useChatStore.getState().activeId !== aidWorldMem) return;
                   if (upd) {
                     useWorldMemoryStore.getState().applyUpdate(upd, turnForMega);
-                    // 同步写回 darkThread/keywordMeanings 旧 store,保 RescueBar/KeywordTooltip 等下游 UI 正常。
-                    if (upd.darkThread && upd.darkThread.trim()) {
-                      useDarkThreadStore.getState().addEntry({
-                        progress: useDarkThreadStore.getState().entries.at(-1)?.progress ?? 0,
-                        threatLevel: useDarkThreadStore.getState().entries.at(-1)?.threatLevel ?? '潜伏',
-                        details: upd.darkThread,
-                        foreshadowing: '',
-                      });
-                    }
+                    // darkThread 写入 useDarkThreadStore 已由 mvu-megaagent dispatchMegaAgentResult 负责;
+                    // 此处不再 addEntry, 避免与 mvu 双写 (每回合多一条 entry 污染 buildContextInjection + 角标计数)
                     if (upd.keywordMeaningsUpsert && Object.keys(upd.keywordMeaningsUpsert).length > 0) {
                       useKeywordStore.getState().addKeywords(upd.keywordMeaningsUpsert);
                     }

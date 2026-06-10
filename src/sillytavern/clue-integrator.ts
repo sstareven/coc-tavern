@@ -67,7 +67,7 @@ export async function integrateClues(
   let resp;
   try {
     resp = await callDsSubagent({
-      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'main',
+      apiBaseUrl, apiKey, model, temperature, maxTokens, rpmLane: 'rewrite',
       label: '线索整合',
       messages: [
         { role: 'system', content: INTEGRATOR_PROMPT },

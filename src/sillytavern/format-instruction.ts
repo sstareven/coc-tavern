@@ -80,6 +80,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
 
 {
   "sceneInfo": {"date": "1925年3月15日", "weekday": "星期一", "time": "深夜", "weather": "阴雨", "location": "阿卡姆·书房"},
+  "currentLocationEcho": "大学图书馆",
   "summary": "调查员在图书馆中发现了一封神秘信件和可疑的档案记录",
   "leftHeader": "章节标题",
   "leftContent": "<kw>大学图书馆</kw>的空气中弥漫着陈旧纸张的气味，<kw>阿卡姆</kw>入夜后的寂静在书架之间沉淀。桌上放着一封<kw>密信</kw>——纸张背面的红墨水在灯下泛出锈血般的色泽，那些符号【并非静止】：每一笔都像被无形的手缓缓拉扯，蛇形的线条以一种不属于这世界的节律微微蠕动，凑近时甚至能听见极轻的、像指甲刮过铜板的摩擦声。<san id=\"p1\"/>胃里一阵翻涌，几步后撤的脚步在木地板上回响。",
@@ -118,8 +119,7 @@ export const FORMAT_INSTRUCTION = `你的回复分两步：先思考，再输出
       {"name": "大学图书馆", "description": "密斯卡塔尼克大学的图书馆，藏书浩繁，特藏室戒备森严"}
     ],
     "newEdges": [{"from": "校门", "to": "大学图书馆", "type": "bidirectional", "description": "穿过林荫道即达图书馆正门"}]
-  },
-  "currentLocationEcho": "大学图书馆"
+  }
 }
 
 变量补丁块放在上面整个 JSON 之后单独输出，例如：
