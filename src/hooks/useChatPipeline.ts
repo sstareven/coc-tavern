@@ -47,6 +47,7 @@ import { StreamingTagMask } from '../sillytavern/streaming-tag-mask';
 import { assemblePrompt, matchLoreEntries } from '../sillytavern/prompt-assembler';
 import { resolveActiveBooks, sortByInsertionStrategy, type WorldInfoSource } from '../sillytavern/worldinfo-scope';
 import { sendChatCompletion } from '../sillytavern/api-router';
+import { rpmRelease } from '../sillytavern/rpm-limiter';
 import { selectLoreForRewrite, droppedLoreForRewrite } from '../sillytavern/rewrite-lite';
 import { buildKeywordInjection } from '../sillytavern/keyword-injection';
 import { formatStatDataYaml } from '../sillytavern/mvu-format';
@@ -121,6 +122,10 @@ interface UseChatPipelineReturn {
   submit: (text: string) => Promise<string>;
   regenerate: () => Promise<void>;
   rewriteAction: (input: string) => Promise<void>;
+  /** 取消进行中的生成(主管线 / 行动补写)。abort 信号会终止主 + 子调用,
+   *  catch 块据 controller.signal.aborted 判定为用户取消;若是流式占位页,会同时播放
+   *  向左翻页动画 + 删除占位页 + reset 流式 store, 玩家回到发送前的页。 */
+  cancel: () => void;
 
   // Slash command autocomplete
   allCommands: ReturnType<typeof getCommands>;
@@ -1102,9 +1107,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           rightHeader: '生成中',
           rightContent: '守秘人正在编写本回合的引导与选项,请稍候。',
           rightChoices: [],
+          isStreamingPlaceholder: true,
         };
         useBookStore.getState().appendPage(blankPage);
         placeholderPageIndex = useBookStore.getState().pages.length - 1;
+        useBookStore.getState().setStreamingPlaceholderIdx(placeholderPageIndex);
         useBookStore.getState().autoFlipForward();
         alreadyFlipped = true;
       }
@@ -1796,6 +1803,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         } else if (wantStreamingPrint && placeholderPageIndex >= 0) {
           // 流式模式:占位页已在流开始时 append + autoFlipForward,这里 replace 写入真实内容
           bookStore.replacePage(placeholderPageIndex, newPage);
+          useBookStore.getState().setStreamingPlaceholderIdx(null);
           pushLog('info', `占位页已替换为正文 — ${newPage.leftHeader}`);
           pushLog(
             'debug',
@@ -2223,6 +2231,20 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         // 用 controller.signal.aborted 而非 err.name==='AbortError'：非流式路径的中止
         // 在 api-router 已被重包装成普通 Error，仅流式路径才原样冒泡 AbortError。
         if (controller.signal.aborted) {
+          // 流式占位页清理: 播放向左翻页动画 + onComplete 删页 + reset 流式 store。
+          // 流式以外的 abort 路径无占位页,只需 catch 静默 return; finally 收尾 loading/turn。
+          if (wantStreamingPrint && placeholderPageIndex >= 0) {
+            const bookStore = useBookStore.getState();
+            // 立即 reset 流式 store, 让 isStreamingPrint=false; isFlipping=true 期间 UI 进入翻页渲染分支,
+            // CSSFlipPage 把占位页(leftContent='') 绕右边缘向右翻; 1500ms 后 onComplete 删占位页
+            // + 清 streamingPlaceholderIdx, deletePage 内部 pageIndex 自动钳到剩余末页(上一页)。
+            useStreamingPrintStore.getState().reset();
+            bookStore.decorativeFlip('backward', 1500, () => {
+              const cur = useBookStore.getState();
+              cur.deletePage(placeholderPageIndex);
+              cur.setStreamingPlaceholderIdx(null);
+            });
+          }
           return false;
         }
         const message = err instanceof Error ? err.message : 'AI请求失败';
@@ -2591,6 +2613,27 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     document.dispatchEvent(new CustomEvent('toggle-debug-log'));
   }, []);
 
+  /** 取消当前进行中的生成 — UI 取消按钮调它。
+   *  abort 信号会触发主管线 catch 块的 controller.signal.aborted 分支:
+   *  - 流式: 播放向左翻页动画 + 删除占位页 + reset 流式 store
+   *  - 非流式 / 行动补写: 仅静默 return, finally 收尾 loading
+   *  同时 abort 所有在途子调用 (NPC memory / world memory / outfit / image-gen 等)
+   *  并回退本回合 rpmAcquire 写入的 timestamp, 避免取消后 RpmCooldownBar 还显示
+   *  "RPM 冷却中 60s 后可继续推进" 让玩家以为 LLM 没真取消。
+   *  各桶 pop 数对齐"本回合最坏情况": main 4 (主+jsonRetry+echo), mvu 2 (mega+self-correct),
+   *  rewrite 5 (NPC memory 2+world memory 1+outfit+image-prompt+causal-echo), image 2.
+   *  数组少于 count 时一并 pop 完, 不进入负态。
+   *  同时关闭顶部「正在窥探深渊...」status toast (本回合 4.9s 计时), 避免玩家以为还在跑。 */
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+    rewriteAbortRef.current?.abort();
+    rpmRelease('main', 4);
+    rpmRelease('mvu', 2);
+    rpmRelease('rewrite', 5);
+    rpmRelease('image', 2);
+    useStatusToastStore.getState().hide();
+  }, []);
+
   // ── Effects ──
 
   // Abort in-flight request on unmount
@@ -2646,6 +2689,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
     submit,
     regenerate,
     rewriteAction,
+    cancel,
 
     // Slash command autocomplete
     allCommands,

@@ -87,6 +87,12 @@ interface BookStore {
   isFlipping: boolean;
   flipProgress: number;
   flipDirection: 'forward' | 'backward';
+  /** 流式生成时的占位页 index; null 表示当前没有流式占位页。
+   *  useChatPipeline 在 appendPage(blankPage) 后立即写入, 流式 replacePage 成功后置 null。
+   *  Storybook/MobileNoteView 用 (pageIndex === streamingPlaceholderIdx) 判定是否渲染流式 segments,
+   *  避免流式期间玩家翻回旧页时 leftContent 被流式 segments 错位覆盖。
+   *  运行时状态, 不持久化。 */
+  streamingPlaceholderIdx: number | null;
   nextPage: () => void;
   prevPage: () => void;
   goToPage: (index: number) => void;
@@ -103,6 +109,8 @@ interface BookStore {
   /** Trim old pages to stay within limit (0 = no limit) */
   trimPages: (limit: number) => void;
   setPages: (pages: BookPage[]) => void;
+  /** 设置/清空流式占位页索引; null 表示当前没有流式生成。 */
+  setStreamingPlaceholderIdx: (idx: number | null) => void;
   /** 重置到全新序章（新建人物时调用，确保新会话不残留上一局的页面）。 */
   resetToPrologue: () => void;
   setPageRewrite: (index: number, block: RewriteBlock | undefined) => void;
@@ -137,6 +145,7 @@ export const useBookStore = create<BookStore>((set, get) => ({
   isFlipping: false,
   flipProgress: 0,
   flipDirection: 'forward',
+  streamingPlaceholderIdx: null,
 
   nextPage: () => {
     const { pageIndex, pages } = get();
@@ -361,9 +370,23 @@ export const useBookStore = create<BookStore>((set, get) => ({
     // 空页面（新会话 / 关系表无 pages 行 / 读档竞态）时，回退到默认序章——
     // 否则 Storybook 渲染空白书页（pages[0] 为 undefined）。与「序章不可删除、至少保留一页」不变量一致。
     if (pages.length === 0) {
-      set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0 });
+      set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0, streamingPlaceholderIdx: null });
       return;
     }
+    // 流式残留页清理: 刷新/切档/崩溃可能让 isStreamingPlaceholder=true 的占位页落库, 这里 rehydrate 时
+    // 把它们从尾部剥掉(序章除外, index>0)。避免玩家回到旧会话看到一个空白"生成中"页。
+    const trimmed: BookPage[] = [];
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      // 启发式 + 显式标记双保险: 显式标记优先,空字段校验兜底(老存档没有标记字段时也能识别)
+      const looksLikePlaceholder =
+        p.isStreamingPlaceholder === true ||
+        (i > 0 && !p.leftContent && p.rightHeader === '生成中' && (p.rightChoices?.length ?? 0) === 0);
+      if (looksLikePlaceholder && i === pages.length - 1) break;
+      trimmed.push(p);
+    }
+    const cleaned = trimmed.length > 0 ? trimmed : pages;
+
     // 开场白随版本刷新：老存档里固化的序章页用最新模板替换，保留后续进度与原 id
     // 例外：剧本会话（scenarioId 存在）的 page0 是 scenario-engine LLM 扩写的专属序章，
     // 不能被默认模板覆盖——否则重载会话会把剧本开场白打回「你做了一个梦」。
@@ -371,14 +394,15 @@ export const useBookStore = create<BookStore>((set, get) => ({
     const chat = useChatStore.getState();
     const activeSession = chat.sessions.find(s => s.id === chat.activeId);
     const isScenarioSession = !!activeSession?.scenarioId;
-    const refreshed = (pages[0]?.leftHeader === '序章' && !isScenarioSession)
-      ? [{ ...defaultPages[0], id: pages[0].id }, ...pages.slice(1)]
-      : pages;
+    const refreshed = (cleaned[0]?.leftHeader === '序章' && !isScenarioSession)
+      ? [{ ...defaultPages[0], id: cleaned[0].id }, ...cleaned.slice(1)]
+      : cleaned;
     const withIds = refreshed.map(p => p.id ? p : { ...p, id: crypto.randomUUID() });
-    set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1) });
+    set({ pages: withIds, pageIndex: Math.max(0, withIds.length - 1), streamingPlaceholderIdx: null });
   },
+  setStreamingPlaceholderIdx: (idx) => set({ streamingPlaceholderIdx: idx }),
   resetToPrologue: () => {
-    set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0 });
+    set({ pages: [{ ...defaultPages[0], id: crypto.randomUUID() }], pageIndex: 0, streamingPlaceholderIdx: null });
   },
   setPageRewrite: (index, block) => set((s) => {
     if (index < 0 || index >= s.pages.length) return s;

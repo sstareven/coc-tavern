@@ -108,6 +108,21 @@ export function _resetRpm(): void {
 }
 
 /**
+ * 把指定桶里最近 N 个 timestamp 回退掉(从末尾 pop)。
+ * 用于用户取消生成时让 rpm 桶恢复名额 — 已 abort 的 LLM 调用虽然 fetch 取消了,
+ * 但 acquire 时已 push 了 timestamp, 不回退会让玩家看到"已取消"但 60s 内不能推进。
+ * 大多数 API 对 abort 的请求不计入限额, 这里反向操作让 UI 与体验对齐。
+ * 数组长度不足时一并 pop 完, 不会进入负态。
+ */
+export function rpmRelease(kind: RpmKind, count = 1): void {
+  const { bucket } = resolveBucket(kind);
+  for (let i = 0; i < count; i++) {
+    if (histories[bucket].length === 0) break;
+    histories[bucket].pop();
+  }
+}
+
+/**
  * 仅在「桶满」(used >= limit) 时返回剩余冷却秒数:等到桶里【最早】 timestamp 过期、
  * 余量从 0 变 1 为止。桶有余量 (used < limit) 或 limit<=0 → 直接 0, UI 不锁。
  *

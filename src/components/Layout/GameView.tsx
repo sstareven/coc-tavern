@@ -102,6 +102,7 @@ export function GameView({ onReturnToMenu }: Props) {
   const isMobile = useIsMobile();
   const viewportH = useViewportHeight();
   const immersive = useReadingModeStore((s) => s.immersive);
+  const topCollapsed = useReadingModeStore((s) => s.topCollapsed);
   // 手机端用可视视口高度（软键盘弹出时收缩，输入栏随之顶到键盘上方）；桌面回退 100dvh。
   // 两条路径都除以 --auto-zoom：根容器 zoom=0.75 时若直接给 ${viewportH}px,
   // 渲染高 = 1307 × 0.75 = 980,卡片够不到屏幕底部留 326px 空白。
@@ -120,8 +121,13 @@ export function GameView({ onReturnToMenu }: Props) {
         !immersive && (
           <div style={{
             display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6, flexWrap: 'wrap',
-            padding: '2px 10px', background: '#14100b',
-            borderBottom: '1px solid rgba(196,168,85,0.08)',
+            padding: topCollapsed ? '0 10px' : '2px 10px',
+            maxHeight: topCollapsed ? 0 : 60,
+            opacity: topCollapsed ? 0 : 1,
+            overflow: 'hidden',
+            background: '#14100b',
+            borderBottom: topCollapsed ? 'none' : '1px solid rgba(196,168,85,0.08)',
+            transition: 'max-height 220ms cubic-bezier(0.4,0,0.2,1), opacity 200ms cubic-bezier(0.4,0,0.2,1), padding 200ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1)',
           }}>
             <TeamSidebar />
             <CurrentScenarioBadge />

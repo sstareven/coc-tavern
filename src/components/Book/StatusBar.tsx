@@ -2,7 +2,6 @@ import { useBookStore } from '../../stores/useBookStore';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { deriveStateChips, type ChipDescriptor } from './state-chips-data';
-import { RescueBar } from './RescueBar';
 
 const NO_VALUE = '未知';
 
@@ -98,7 +97,8 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
           <span style={{ opacity: 0.4 }}>·</span>
           <span>{time}</span>
         </div>
-        {/* 数值行(HP/SAN/MP + 状态标签 + 拯救气泡) —— 仅在角色卡有数值时显示,避免空行占位 */}
+        {/* 数值行(HP/SAN/MP + 状态标签) — 仅在角色卡有数值时显示,避免空行占位。
+         *  拯救气泡 (RescueBar mode="tab") 已迁移到正文页左上角侧边把手, 不再嵌行内 */}
         {hasStats && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', rowGap: 2 }}>
             <CompactStat label="HP" stat={hp} color="var(--success)" />
@@ -108,8 +108,6 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
               posture={posture} conditions={statusConditions} compact
               temporaryInsanity={temporaryInsanity} indefiniteInsanity={indefiniteInsanity} permanentInsanity={permanentInsanity}
             />
-            {/* 拯救气泡(compact):潜伏态自身返回 null;对峙/锁定 inline 嵌在数值行 */}
-            <RescueBar compact />
           </div>
         )}
       </div>
@@ -169,14 +167,12 @@ export function StatusBar({ compact = false }: { compact?: boolean } = {}) {
         </span>
       </div>
 
-      {/* Row 2 — HP / SAN / MP + 拯救气泡 (below the time row) */}
+      {/* Row 2 — HP / SAN / MP (拯救气泡已迁移到正文页左上角侧边把手) */}
       {hasStats && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <StatPill label="HP" stat={hp} color="var(--success)" />
           <StatPill label="SAN" stat={san} color="var(--blood)" />
           <StatPill label="MP" stat={mp} color="var(--gold)" />
-          {/* 拯救气泡(桌面):潜伏态自身返回 null;对峙/锁定 inline 嵌在数值行 */}
-          <RescueBar />
         </div>
       )}
       <StateChips

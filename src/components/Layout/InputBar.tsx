@@ -464,66 +464,100 @@ export function InputBar() {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              border: '1px solid var(--gold)',
+              border: `1px solid ${pipeline.loading ? '#e8815b' : 'var(--gold)'}`,
               borderRadius: 3,
               overflow: 'hidden',
-              opacity: pipeline.loading ? 0.7 : 1,
+              opacity: 1,
+              transition: 'border-color 200ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            <button
-              onClick={handleSubmit}
-              disabled={pipeline.loading || !rpmReady || buttonMode !== 'advance'}
-              title="推进剧情"
-              data-sfx="primary"
-              style={dualBtnStyle(buttonMode === 'advance', pipeline.loading, isMobile)}
-              onMouseEnter={(e) => {
-                if (buttonMode === 'advance' && !pipeline.loading) {
-                  e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
-                  e.currentTarget.style.color = 'var(--gold)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  buttonMode === 'advance' ? 'rgba(196,168,85,0.18)' : 'transparent';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseDown={(e) => {
-                if (buttonMode === 'advance' && !pipeline.loading)
+            {pipeline.loading ? (
+              <button
+                onClick={pipeline.cancel}
+                title="取消当前生成"
+                data-sfx="primary"
+                style={{
+                  ...dualBtnStyle(true, false, isMobile),
+                  color: '#e8815b',
+                  background: 'rgba(180,60,30,0.10)',
+                  height: isMobile ? '52px' : '76px',
+                  letterSpacing: isMobile ? 1 : 3,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(180,60,30,0.28)';
+                  e.currentTarget.style.color = '#e8815b';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(180,60,30,0.10)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onMouseDown={(e) => {
                   e.currentTarget.style.transform = 'scale(0.98)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-            >
-              {pipeline.loading && buttonMode === 'advance' ? '...' : '推 进'}
-            </button>
-            <div style={{ height: 1, background: 'rgba(196,168,85,0.25)' }} />
-            <button
-              onClick={handleRewrite}
-              disabled={pipeline.loading || !rpmReady || buttonMode !== 'rewrite'}
-              title="补写当前自定义行动，生成新候选选项"
-              style={dualBtnStyle(buttonMode === 'rewrite', pipeline.loading, isMobile)}
-              onMouseEnter={(e) => {
-                if (buttonMode === 'rewrite' && !pipeline.loading) {
-                  e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
-                  e.currentTarget.style.color = 'var(--gold)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  buttonMode === 'rewrite' ? 'rgba(196,168,85,0.18)' : 'transparent';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              onMouseDown={(e) => {
-                if (buttonMode === 'rewrite' && !pipeline.loading)
-                  e.currentTarget.style.transform = 'scale(0.98)';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-            >
-              {pipeline.loading && buttonMode === 'rewrite' ? '...' : '行动补写'}
-            </button>
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                取 消
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!rpmReady || buttonMode !== 'advance'}
+                  title="推进剧情"
+                  data-sfx="primary"
+                  style={dualBtnStyle(buttonMode === 'advance', false, isMobile)}
+                  onMouseEnter={(e) => {
+                    if (buttonMode === 'advance') {
+                      e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
+                      e.currentTarget.style.color = 'var(--gold)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      buttonMode === 'advance' ? 'rgba(196,168,85,0.18)' : 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onMouseDown={(e) => {
+                    if (buttonMode === 'advance')
+                      e.currentTarget.style.transform = 'scale(0.98)';
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  推 进
+                </button>
+                <div style={{ height: 1, background: 'rgba(196,168,85,0.25)' }} />
+                <button
+                  onClick={handleRewrite}
+                  disabled={!rpmReady || buttonMode !== 'rewrite'}
+                  title="补写当前自定义行动，生成新候选选项"
+                  style={dualBtnStyle(buttonMode === 'rewrite', false, isMobile)}
+                  onMouseEnter={(e) => {
+                    if (buttonMode === 'rewrite') {
+                      e.currentTarget.style.background = 'rgba(196,168,85,0.28)';
+                      e.currentTarget.style.color = 'var(--gold)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      buttonMode === 'rewrite' ? 'rgba(196,168,85,0.18)' : 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onMouseDown={(e) => {
+                    if (buttonMode === 'rewrite')
+                      e.currentTarget.style.transform = 'scale(0.98)';
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  行动补写
+                </button>
+              </>
+            )}
           </div>
         </div>
       </footer>

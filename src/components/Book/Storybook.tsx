@@ -47,7 +47,11 @@ export function Storybook() {
   const isFlipping = useBookStore((s) => s.isFlipping);
   const flipProgress = useBookStore((s) => s.flipProgress);
   const direction = useBookStore((s) => s.flipDirection);
-  const isStreamingPrint = useStreamingPrintStore((s) => s.isStreamingPrint);
+  const streamingPlaceholderIdx = useBookStore((s) => s.streamingPlaceholderIdx);
+  const isStreamingPrintRaw = useStreamingPrintStore((s) => s.isStreamingPrint);
+  // 仅在当前页是流式占位页时, 才把 isStreamingPrint 传给 LeftPage/RightPage.
+  // 否则玩家流式期间翻回旧页, 旧页的 leftContent 会被流式 segments 覆盖显示空白(bug #4).
+  const isStreamingPrint = isStreamingPrintRaw && streamingPlaceholderIdx !== null && pageIndex === streamingPlaceholderIdx;
   const streamingLeftSegments = useStreamingPrintStore((s) => s.leftSegments);
   const streamingLeftHeader = useStreamingPrintStore((s) => s.leftHeaderText);
   const streamingRightSegments = useStreamingPrintStore((s) => s.rightSegments);
