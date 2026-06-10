@@ -1,7 +1,9 @@
-// 拯救路径气泡 — 嵌入状态栏行内的金色圆形按钮,点击展开浮层显示赛跑对比 + 路径明细。
+// 拯救路径气泡 — 两种渲染模式:
+//   - mode='inline' (默认, 兼容旧调用): 嵌在状态栏行内的金色圆形按钮; 浮层在气泡下方居中展开
+//   - mode='tab': 正文页左上角侧边抽屉柄, 默认 translateX(-75%) 只露 25%, hover 拉出, 点击右侧展开浮层
 // 潜伏态:整体不渲染(globalStatus='潜伏' 或无 unlocked path);
-// 对峙态:金色脉冲气泡 + IconLuck,点击展开浮层;
-// 锁定态:金色实心气泡 + IconStar filled,点击展开浮层显示胜出结局。
+// 对峙态:金色脉冲气泡 + IconLuck;
+// 锁定态:金色实心气泡 + IconStar filled。
 // 浮层用 absolute positioning,需父容器 position:relative。
 import { useState, useRef, useEffect } from 'react';
 import { useRescueStore } from '../../stores/useRescueStore';
@@ -14,9 +16,11 @@ const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
 interface Props {
   compact?: boolean;
+  /** 'inline' (默认) = 状态栏行内圆形气泡; 'tab' = 正文页左上角侧边抽屉柄 */
+  mode?: 'inline' | 'tab';
 }
 
-export function RescueBar({ compact = false }: Props): React.ReactElement | null {
+export function RescueBar({ compact = false, mode = 'inline' }: Props): React.ReactElement | null {
   const globalStatus = useRescueStore((s) => s.globalStatus);
   const paths = useRescueStore((s) => s.paths);
   const winningEndingId = useRescueStore((s) => s.winningEndingId);
@@ -50,13 +54,115 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
 
   const rescueAggregate = visiblePaths.reduce((m, p) => Math.max(m, p.progress), 0);
   const winEnding = isLocked && winningEndingId ? endingById.get(winningEndingId) : null;
+  const isTab = mode === 'tab';
 
+  // inline 模式: 圆形;  tab 模式: 竖向药丸 (左侧贴书脊, 右侧圆角作把手)
   const bubbleSize = compact ? 22 : 26;
   const iconSize = compact ? 11 : 13;
-  const scale = hover ? 1.06 : 1;
+  // tab 模式: 容器自身 hover/open 都会向右滑出 75%; 不再用 scale
+  const inlineScale = isTab ? 1 : (hover ? 1.06 : 1);
+
+  // tab 模式: 容器 absolute, 默认 translateX(-75%) 只露 25% 当作把手, hover/open 时归位
+  const tabRevealed = hover || open;
+  const containerStyle: React.CSSProperties = isTab
+    ? {
+      position: 'absolute',
+      top: 40,
+      left: 0,
+      zIndex: 5,
+      display: 'inline-block',
+      transform: tabRevealed ? 'translateX(0)' : 'translateX(-75%)',
+      transition: `transform 280ms ${EASE}`,
+      // 让 hover 区域比可见部分大一点(留 8px 边沿响应), 避免玩家鼠标贴书脊时拉不出
+      paddingRight: 8,
+    }
+    : { display: 'inline-block', position: 'relative', verticalAlign: 'middle' };
+
+  const tabBubbleStyle: React.CSSProperties = isTab
+    ? {
+      // tab 模式: 高 32 宽 36 的竖向把手 (右半圆), 玩家默认看到 9px 宽月牙
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      width: 36,
+      height: 32,
+      paddingRight: 8,
+      border: '1px solid var(--gold, #c4a855)',
+      borderLeft: 'none',
+      borderRadius: '0 16px 16px 0',
+      background: isLocked
+        ? 'radial-gradient(circle at 80% 50%, #e0c074 0%, #8a7235 70%, #4a3a18 100%)'
+        : 'radial-gradient(circle at 80% 50%, rgba(196,168,85,0.85) 0%, rgba(120,95,40,0.9) 70%, rgba(50,38,15,0.95) 100%)',
+      color: '#fff4d4',
+      cursor: 'pointer',
+      animation: isLocked ? 'none' : `rescue-bubble-pulse 1.8s ${EASE} infinite`,
+      boxShadow: tabRevealed ? '2px 2px 12px rgba(0,0,0,0.35)' : '1px 1px 4px rgba(0,0,0,0.25)',
+      flexShrink: 0,
+    }
+    : {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: bubbleSize,
+      height: bubbleSize,
+      padding: 0,
+      margin: 0,
+      border: '1px solid var(--gold, #c4a855)',
+      borderRadius: '50%',
+      background: isLocked
+        ? 'radial-gradient(circle at 35% 30%, #e0c074 0%, #8a7235 70%, #4a3a18 100%)'
+        : 'radial-gradient(circle at 35% 30%, rgba(196,168,85,0.85) 0%, rgba(120,95,40,0.9) 70%, rgba(50,38,15,0.95) 100%)',
+      color: '#fff4d4',
+      cursor: 'pointer',
+      animation: isLocked ? 'none' : `rescue-bubble-pulse 1.8s ${EASE} infinite`,
+      transform: `scale(${inlineScale})`,
+      transition: `transform 220ms ${EASE}`,
+      flexShrink: 0,
+    };
+
+  // 浮层位置: inline = 气泡下方居中; tab = 气泡右侧(把手露出后向右弹)
+  const overlayStyle: React.CSSProperties = isTab
+    ? {
+      position: 'absolute',
+      top: 0,
+      left: 'calc(100% + 6px)',
+      minWidth: 280,
+      maxWidth: 360,
+      padding: '10px 12px',
+      background: 'linear-gradient(135deg, rgba(30,22,12,0.97) 0%, rgba(20,14,8,0.97) 100%)',
+      border: '1px solid var(--gold, #c4a855)',
+      borderRadius: 4,
+      boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
+      zIndex: 100,
+      userSelect: 'none',
+      color: 'var(--parchment, #d8c79a)',
+      fontFamily: 'var(--font-display)',
+    }
+    : {
+      position: 'absolute',
+      top: 'calc(100% + 6px)',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      minWidth: 280,
+      maxWidth: 360,
+      padding: '10px 12px',
+      background: 'linear-gradient(135deg, rgba(30,22,12,0.97) 0%, rgba(20,14,8,0.97) 100%)',
+      border: '1px solid var(--gold, #c4a855)',
+      borderRadius: 4,
+      boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
+      zIndex: 100,
+      userSelect: 'none',
+      color: 'var(--parchment, #d8c79a)',
+      fontFamily: 'var(--font-display)',
+    };
 
   return (
-    <span ref={wrapRef} style={{ display: 'inline-block', position: 'relative', verticalAlign: 'middle' }}>
+    <span
+      ref={wrapRef}
+      style={containerStyle}
+      onMouseEnter={isTab ? () => setHover(true) : undefined}
+      onMouseLeave={isTab ? () => setHover(false) : undefined}
+    >
       <style>{`
         @keyframes rescue-bubble-pulse {
           0%, 100% {
@@ -75,31 +181,13 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
         type="button"
         data-testid="rescue-bar"
         data-status={isLocked ? 'locked' : 'contested'}
+        data-mode={mode}
         onClick={() => setOpen((v) => !v)}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
+        onMouseEnter={isTab ? undefined : () => setHover(true)}
+        onMouseLeave={isTab ? undefined : () => setHover(false)}
         title={isLocked ? `最终结局 · ${winEnding?.name ?? '胜出路径'}` : `拯救模式 · 对峙 (最高 ${Math.round(rescueAggregate)})`}
         aria-label="拯救路径"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: bubbleSize,
-          height: bubbleSize,
-          padding: 0,
-          margin: 0,
-          border: `1px solid var(--gold, #c4a855)`,
-          borderRadius: '50%',
-          background: isLocked
-            ? 'radial-gradient(circle at 35% 30%, #e0c074 0%, #8a7235 70%, #4a3a18 100%)'
-            : 'radial-gradient(circle at 35% 30%, rgba(196,168,85,0.85) 0%, rgba(120,95,40,0.9) 70%, rgba(50,38,15,0.95) 100%)',
-          color: '#fff4d4',
-          cursor: 'pointer',
-          animation: isLocked ? 'none' : `rescue-bubble-pulse 1.8s ${EASE} infinite`,
-          transform: `scale(${scale})`,
-          transition: `transform 220ms ${EASE}`,
-          flexShrink: 0,
-        }}
+        style={tabBubbleStyle}
       >
         {isLocked
           ? <IconStar size={iconSize} filled />
@@ -108,25 +196,7 @@ export function RescueBar({ compact = false }: Props): React.ReactElement | null
       </button>
 
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: `calc(100% + 6px)`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            minWidth: 280,
-            maxWidth: 360,
-            padding: '10px 12px',
-            background: 'linear-gradient(135deg, rgba(30,22,12,0.97) 0%, rgba(20,14,8,0.97) 100%)',
-            border: '1px solid var(--gold, #c4a855)',
-            borderRadius: 4,
-            boxShadow: '0 6px 18px rgba(0,0,0,0.6)',
-            zIndex: 100,
-            userSelect: 'none',
-            color: 'var(--parchment, #d8c79a)',
-            fontFamily: 'var(--font-display)',
-          }}
-        >
+        <div style={overlayStyle}>
           {/* 标题:对峙=「拯救模式·对峙」,锁定=「最终结局·名」 */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,

@@ -4,6 +4,7 @@ import { beautifyText } from '../Shared/TextBeautifier';
 import { splitTextWithSanBubbles } from '../Shared/SanityBubbleRenderer';
 import { useScrollGlow, ScrollParticles } from './ScrollParticles';
 import { PageBanner } from './PageBanner';
+import { RescueBar } from './RescueBar';
 import { renderLpStreamingSegment } from './StreamingSegments';
 import type { DiceRecord, SanityCheckPrompt } from '../../types';
 import type { PrintSegment } from '../../stores/useStreamingPrintStore';
@@ -128,6 +129,7 @@ export function LeftPage({ header, content, pageNum, isFlipping, summary, diceRe
       color: 'var(--ink)', fontFamily: 'var(--font-body)',
       fontSize: 'calc(15px * var(--text-ratio, 1))', lineHeight: 1.75, position: 'relative',
     }}>
+      <RescueBar mode="tab" />
       <div style={{ flexShrink: 0, marginBottom: 12, borderBottom: '1px solid rgba(var(--ink-faded-rgb),0.25)', paddingBottom: 8, ...fadeStyle }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'calc(18px * var(--text-ratio, 1))', color: 'var(--ink)', letterSpacing: 4, margin: 0 }}>{header}</h3>
         {diceResults && diceResults.length > 0 && diceResults.slice(0, 2).map((d, i) => {
