@@ -1,6 +1,6 @@
 // 中栏坏结局缩略卡 — 顶视图左/中栏选中态行
 // 与 RescueOverviewRow 同款样式规则:default/hover/related/selected 四态
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import type { BadEnding } from '../../../../types/scenario';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -10,7 +10,7 @@ interface Props {
   boundCount: number;
   selected: boolean;
   related: boolean;
-  onClick: () => void;
+  onSelect: (id: string) => void;
 }
 
 function DiamondIcon(): React.ReactElement {
@@ -26,9 +26,11 @@ export const BadEndingOverviewRow = memo(function BadEndingOverviewRow({
   boundCount,
   selected,
   related,
-  onClick,
+  onSelect,
 }: Props): React.ReactElement {
   const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const handleClick = useCallback(() => onSelect(ending.id), [onSelect, ending.id]);
 
   const borderColor = selected
     ? 'var(--gold)'
@@ -46,12 +48,25 @@ export const BadEndingOverviewRow = memo(function BadEndingOverviewRow({
         ? 'rgba(196,168,85,0.04)'
         : 'transparent';
 
+  const boxShadow = selected
+    ? 'inset 0 0 0 1px rgba(196,168,85,0.5)'
+    : hover && !pressed
+      ? '0 4px 12px rgba(0,0,0,0.4)'
+      : 'none';
+
+  const transform = pressed
+    ? 'translateY(0) scale(0.97)'
+    : hover && !selected ? 'translateY(-1px)' : 'translateY(0)';
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseLeave={() => { setHover(false); setPressed(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      aria-current={selected || undefined}
       style={{
         padding: '8px 12px',
         display: 'flex',
@@ -64,8 +79,9 @@ export const BadEndingOverviewRow = memo(function BadEndingOverviewRow({
         margin: '0 0 6px 0',
         border: `1px solid ${borderColor}`,
         background,
-        transition: `background 200ms ${EASE}, border-color 200ms ${EASE}, transform 200ms ${EASE}`,
-        transform: hover && !selected ? 'translateY(-1px)' : 'translateY(0)',
+        boxShadow,
+        transform,
+        transition: `background 200ms ${EASE}, border-color 200ms ${EASE}, transform 200ms ${EASE}, box-shadow 200ms ${EASE}`,
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'baseline', width: '100%' }}>

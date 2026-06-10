@@ -1,17 +1,17 @@
 // 总览左栏 — 拯救路径缩略行(~64px)
 // 进度甜甜圈 + 路径名 + 里程碑数 + 失败变体绑定状态 + 解锁提示
-// 自定义 memo 比较: rescue 同字段(浅比较 + milestones 引用) + selected + related + badEndings 引用
-import { memo, useMemo, useState } from 'react';
-import type { RescueEnding, BadEnding } from '../../../../types/scenario';
+// 自定义 memo 比较:rescue 同字段(浅比较 + milestones 引用) + selected + related + failBad?.id
+import { memo, useCallback, useMemo, useState } from 'react';
+import type { BadEnding, RescueEnding } from '../../../../types/scenario';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
 interface Props {
   rescue: RescueEnding;
-  badEndings: BadEnding[];
+  failBad: BadEnding | null;
   selected: boolean;
   related: boolean;
-  onClick: () => void;
+  onSelect: (id: string) => void;
 }
 
 interface DonutProps {
@@ -19,7 +19,7 @@ interface DonutProps {
 }
 
 const DONUT_RADIUS = 16;
-const DONUT_CIRCUMFERENCE = Math.PI * 32; // 2π·16
+const DONUT_CIRCUMFERENCE = Math.PI * 32;
 
 function ProgressDonut({ progress }: DonutProps): React.ReactElement {
   const clamped = Math.min(1, Math.max(0, progress));
@@ -27,16 +27,9 @@ function ProgressDonut({ progress }: DonutProps): React.ReactElement {
   const pct = Math.round(clamped * 100);
   return (
     <div style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
-      <svg width={40} height={40} viewBox="0 0 40 40">
+      <svg width={40} height={40} viewBox="0 0 40 40" aria-hidden>
         <g transform="rotate(-90 20 20)">
-          <circle
-            cx={20}
-            cy={20}
-            r={DONUT_RADIUS}
-            fill="none"
-            stroke="rgba(196,168,85,0.2)"
-            strokeWidth={3}
-          />
+          <circle cx={20} cy={20} r={DONUT_RADIUS} fill="none" stroke="rgba(196,168,85,0.2)" strokeWidth={3} />
           <circle
             cx={20}
             cy={20}
@@ -71,18 +64,16 @@ function ProgressDonut({ progress }: DonutProps): React.ReactElement {
   );
 }
 
-function RescueOverviewRowImpl({ rescue, badEndings, selected, related, onClick }: Props): React.ReactElement {
+function RescueOverviewRowImpl({ rescue, failBad, selected, related, onSelect }: Props): React.ReactElement {
   const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
 
   const progress = useMemo(() => {
     const sum = (rescue.milestones ?? []).reduce((acc, m) => acc + (Number.isFinite(m.delta) ? m.delta : 0), 0);
     return Math.min(1, sum / 100);
   }, [rescue.milestones]);
 
-  const failBad = useMemo(() => {
-    if (!rescue.failureVariantId) return null;
-    return badEndings.find((b) => b.id === rescue.failureVariantId) ?? null;
-  }, [rescue.failureVariantId, badEndings]);
+  const handleClick = useCallback(() => onSelect(rescue.id), [onSelect, rescue.id]);
 
   // 容器底色/边框 — selected 优先于 related,related 优先于 hover,hover 优先于 default
   const background = selected
@@ -102,10 +93,12 @@ function RescueOverviewRowImpl({ rescue, badEndings, selected, related, onClick 
   const borderLeft = selected ? '3px solid var(--gold, #c4a855)' : undefined;
   const boxShadow = selected
     ? 'inset 0 0 0 1px rgba(196,168,85,0.5)'
-    : hover
+    : hover && !pressed
       ? '0 4px 12px rgba(0,0,0,0.4)'
       : 'none';
-  const transform = hover && !selected ? 'translateY(-1px)' : 'translateY(0)';
+  const transform = pressed
+    ? 'translateY(0) scale(0.97)'
+    : hover && !selected ? 'translateY(-1px)' : 'translateY(0)';
 
   const milestoneCount = rescue.milestones?.length ?? 0;
   const displayName = (rescue.name && rescue.name.trim()) || rescue.id;
@@ -113,9 +106,12 @@ function RescueOverviewRowImpl({ rescue, badEndings, selected, related, onClick 
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseLeave={() => { setHover(false); setPressed(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      aria-current={selected || undefined}
       style={{
         width: '100%',
         padding: '10px 12px',
@@ -209,7 +205,7 @@ function RescueOverviewRowImpl({ rescue, badEndings, selected, related, onClick 
             letterSpacing: 0.3,
           }}
         >
-          {rescue.unlockHint || ' '}
+          {rescue.unlockHint || ' '}
         </div>
       </div>
     </button>
@@ -219,8 +215,8 @@ function RescueOverviewRowImpl({ rescue, badEndings, selected, related, onClick 
 function areEqual(prev: Props, next: Props): boolean {
   if (prev.selected !== next.selected) return false;
   if (prev.related !== next.related) return false;
-  if (prev.badEndings !== next.badEndings) return false;
-  if (prev.onClick !== next.onClick) return false;
+  if (prev.onSelect !== next.onSelect) return false;
+  if ((prev.failBad?.id ?? null) !== (next.failBad?.id ?? null)) return false;
   const a = prev.rescue;
   const b = next.rescue;
   if (a === b) return true;

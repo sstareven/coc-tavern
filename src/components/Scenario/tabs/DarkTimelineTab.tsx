@@ -209,10 +209,12 @@ export const PhaseCard = memo(
     phase,
     onChange,
     onRemove,
+    hideRemove,
   }: {
     phase: DarkPhase;
     onChange: (patch: Partial<DarkPhase>) => void;
     onRemove: () => void;
+    hideRemove?: boolean;
   }): React.ReactElement {
     return (
       <article
@@ -233,26 +235,28 @@ export const PhaseCard = memo(
           }}>
             {phase.id}
           </span>
-          <button
-            type="button"
-            onClick={onRemove}
-            style={{
-              padding: '2px 8px',
-              fontSize: 10,
-              color: '#d08585',
-              background: 'transparent',
-              border: '1px solid rgba(160,80,80,0.5)',
-              borderRadius: 2,
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              letterSpacing: 1,
-              transition: `background 180ms ${EASE}`,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            删除
-          </button>
+          {!hideRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                color: '#d08585',
+                background: 'transparent',
+                border: '1px solid rgba(160,80,80,0.5)',
+                borderRadius: 2,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
+                letterSpacing: 1,
+                transition: `background 180ms ${EASE}`,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              删除
+            </button>
+          )}
         </header>
 
         {/* threshold 滑块 — 拖动量大,不走 draft */}
@@ -296,7 +300,8 @@ export const PhaseCard = memo(
     prev.phase.title === next.phase.title &&
     prev.phase.directorNote === next.phase.directorNote &&
     prev.phase.triggers === next.phase.triggers &&
-    prev.phase.autoUnlockKeys === next.phase.autoUnlockKeys,
+    prev.phase.autoUnlockKeys === next.phase.autoUnlockKeys &&
+    prev.hideRemove === next.hideRemove,
 );
 
 function Field({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {

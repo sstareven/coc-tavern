@@ -60,7 +60,7 @@ export function ScenarioEditor({ scenarioId, onClose }: Props) {
 
   const initial = useMemo<ScenarioDoc | undefined>(() => getById(scenarioId), [getById, scenarioId]);
   const [working, setWorkingRaw] = useState<ScenarioDoc | undefined>(initial);
-  const [activeTab, setActiveTab] = useState<TabKey>('meta');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [toast, setToast] = useState<string | null>(null);
   const [companionOpen, setCompanionOpen] = useState(false); // 移动端抽屉显隐
   const toastTimerRef = useRef<number | null>(null);

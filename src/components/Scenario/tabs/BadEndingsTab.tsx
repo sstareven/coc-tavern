@@ -200,11 +200,13 @@ export const EndingCard = memo(
     boundBy,
     onChange,
     onRemove,
+    hideRemove,
   }: {
     ending: BadEnding;
     boundBy: string[];
     onChange: (patch: Partial<BadEnding>) => void;
     onRemove: () => void;
+    hideRemove?: boolean;
   }): React.ReactElement {
     return (
       <article
@@ -225,26 +227,28 @@ export const EndingCard = memo(
           }}>
             {ending.id}
           </span>
-          <button
-            type="button"
-            onClick={onRemove}
-            style={{
-              padding: '2px 8px',
-              fontSize: 10,
-              color: '#d08585',
-              background: 'transparent',
-              border: '1px solid rgba(160,80,80,0.5)',
-              borderRadius: 2,
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              letterSpacing: 1,
-              transition: `background 180ms ${EASE}`,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            删除
-          </button>
+          {!hideRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                color: '#d08585',
+                background: 'transparent',
+                border: '1px solid rgba(160,80,80,0.5)',
+                borderRadius: 2,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
+                letterSpacing: 1,
+                transition: `background 180ms ${EASE}`,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(160,80,80,0.18)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              删除
+            </button>
+          )}
         </header>
 
         {boundBy.length > 0 && (
@@ -283,7 +287,8 @@ export const EndingCard = memo(
     prev.ending.narrative === next.ending.narrative &&
     prev.ending.accelerators === next.ending.accelerators &&
     prev.boundBy.length === next.boundBy.length &&
-    prev.boundBy.every((n, i) => n === next.boundBy[i]),
+    prev.boundBy.every((n, i) => n === next.boundBy[i]) &&
+    prev.hideRemove === next.hideRemove,
 );
 
 function Field({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {

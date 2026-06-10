@@ -1,6 +1,6 @@
 // 编辑器 — 总览 tab(横向三栏拯救/坏结局/暗线 + 联动高亮 + 详情抽屉)
-// 桌面三栏并列(4:3:3),移动单栏切换;Esc 关闭选中;搜索过滤+联动高亮
-import { useEffect, useMemo, useState } from 'react';
+// 桌面三栏并列(4:3:3),移动单栏切换;Esc/点空白关闭选中;搜索过滤+联动高亮
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ScenarioDoc, RescueEnding, BadEnding, DarkPhase, RescueMilestone } from '../../../../types/scenario';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
 import { RescueOverviewRow } from './RescueOverviewRow';
@@ -22,31 +22,23 @@ interface Props {
   onToast?: (msg: string) => void;
 }
 
-// ── ID 生成(与 RescueEndingsTab 同结构) ───────────────────────────
-function newRescueId(): string {
-  return `res_${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 36 ** 3).toString(36)}`;
-}
-function newBadId(): string {
-  return `bad_${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 36 ** 3).toString(36)}`;
-}
-function newPhaseId(): string {
-  return `phase_${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 36 ** 3).toString(36)}`;
-}
-function newMilestoneId(): string {
-  return `ms_${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 36 ** 3).toString(36)}`;
+function newId(prefix: string): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  const tail = c?.randomUUID ? c.randomUUID().replace(/-/g, '').slice(0, 12) : Math.floor(Math.random() * 36 ** 8).toString(36);
+  return `${prefix}_${tail}`;
 }
 
 function blankRescue(): RescueEnding {
-  return { id: newRescueId(), name: '', description: '', unlockHint: '', milestones: [] };
+  return { id: newId('res'), name: '', description: '', unlockHint: '', milestones: [] };
 }
 function blankBad(): BadEnding {
-  return { id: newBadId(), condition: '', narrative: '', accelerators: [] };
+  return { id: newId('bad'), condition: '', narrative: '', accelerators: [] };
 }
 function blankPhase(threshold: number): DarkPhase {
-  return { id: newPhaseId(), threshold, title: '', triggers: [], directorNote: '', autoUnlockKeys: [] };
+  return { id: newId('phase'), threshold, title: '', triggers: [], directorNote: '', autoUnlockKeys: [] };
 }
 function blankMilestone(): RescueMilestone {
-  return { id: newMilestoneId(), name: '', delta: 25 };
+  return { id: newId('ms'), name: '', delta: 25 };
 }
 
 function stamp(): number {
@@ -60,8 +52,14 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
   const compact = useIsMobile('(max-width: 800px)');
 
   const rescueEndings = scn.rescueEndings ?? [];
-  const badEndings = scn.badEndings ?? [];
-  const darkTimeline = scn.darkTimeline ?? [];
+  const badEndings = scn.badEndings;
+  const darkTimeline = scn.darkTimeline;
+
+  // ── 稳定回调 ──────────────────────────────────────────────────
+  const closeDrawer = useCallback(() => setSelection(null), []);
+  const selectRescue = useCallback((id: string) => setSelection({ kind: 'rescue', id }), []);
+  const selectBad = useCallback((id: string) => setSelection({ kind: 'bad', id }), []);
+  const selectPhase = useCallback((id: string) => setSelection({ kind: 'phase', id }), []);
 
   // ── 数据 helpers ───────────────────────────────────────────────
   const addRescue = (): void => {
@@ -153,7 +151,20 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
     if (selection?.kind === 'phase' && selection.id === id) setSelection(null);
   };
 
-  // ── 联动 ───────────────────────────────────────────────────────
+  // ── 联动 + 预计算 Map ──────────────────────────────────────────
+  // failBadById: 单条 rescue 的 failureVariant 指向的 BadEnding;传给 Row 让它只看自己绑定的 bad
+  // boundCountByBad: 每条 BadEnding 被多少条 rescue 引用;O(N) 取代每行 O(rescue) filter
+  const { failBadById, boundCountByBad } = useMemo(() => {
+    const failMap = new Map<string, BadEnding | null>();
+    const boundMap = new Map<string, number>();
+    const badIndex = new Map(badEndings.map((b) => [b.id, b] as const));
+    for (const r of rescueEndings) {
+      failMap.set(r.id, r.failureVariantId ? badIndex.get(r.failureVariantId) ?? null : null);
+      if (r.failureVariantId) boundMap.set(r.failureVariantId, (boundMap.get(r.failureVariantId) ?? 0) + 1);
+    }
+    return { failBadById: failMap, boundCountByBad: boundMap };
+  }, [rescueEndings, badEndings]);
+
   const related = useMemo<{ rescueIds: Set<string>; badIds: Set<string> }>(() => {
     const rescueIds = new Set<string>();
     const badIds = new Set<string>();
@@ -208,11 +219,20 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
     return () => window.removeEventListener('keydown', onKey);
   }, [selection]);
 
-  // ── 渲染 ───────────────────────────────────────────────────────
+  // ── 移动栏切换关 drawer:避免浮层遮挡新栏 ───────────────────────
+  const switchMobileCol = useCallback((col: 'rescue' | 'bad' | 'phase') => {
+    setMobileCol(col);
+    setSelection(null);
+  }, []);
+
+  // ── main 容器空白点击关 drawer ─────────────────────────────────
+  const handleMainBackdrop = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (e.target === e.currentTarget) setSelection(null);
+  }, []);
 
   // ── 渲染 ───────────────────────────────────────────────────────
   const rescueColumn = (
-    <Column title="拯救路径" count={filteredRescues.length} compact={compact}>
+    <Column title="拯救路径" count={filteredRescues.length}>
       {filteredRescues.length === 0 ? (
         <EmptyHint>暂无拯救路径</EmptyHint>
       ) : (
@@ -220,10 +240,10 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
           <RescueOverviewRow
             key={r.id}
             rescue={r}
-            badEndings={badEndings}
+            failBad={failBadById.get(r.id) ?? null}
             selected={selection?.kind === 'rescue' && selection.id === r.id}
             related={related.rescueIds.has(r.id)}
-            onClick={() => setSelection({ kind: 'rescue', id: r.id })}
+            onSelect={selectRescue}
           />
         ))
       )}
@@ -231,29 +251,26 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
   );
 
   const badColumn = (
-    <Column title="坏结局" count={filteredBads.length} compact={compact}>
+    <Column title="坏结局" count={filteredBads.length}>
       {filteredBads.length === 0 ? (
         <EmptyHint>暂无坏结局</EmptyHint>
       ) : (
-        filteredBads.map((b) => {
-          const boundCount = rescueEndings.filter((r) => r.failureVariantId === b.id).length;
-          return (
-            <BadEndingOverviewRow
-              key={b.id}
-              ending={b}
-              boundCount={boundCount}
-              selected={selection?.kind === 'bad' && selection.id === b.id}
-              related={related.badIds.has(b.id)}
-              onClick={() => setSelection({ kind: 'bad', id: b.id })}
-            />
-          );
-        })
+        filteredBads.map((b) => (
+          <BadEndingOverviewRow
+            key={b.id}
+            ending={b}
+            boundCount={boundCountByBad.get(b.id) ?? 0}
+            selected={selection?.kind === 'bad' && selection.id === b.id}
+            related={related.badIds.has(b.id)}
+            onSelect={selectBad}
+          />
+        ))
       )}
     </Column>
   );
 
   const phaseColumn = (
-    <Column title="暗线阶段" count={sortedPhases.length} compact={compact}>
+    <Column title="暗线阶段" count={sortedPhases.length}>
       {sortedPhases.length === 0 ? (
         <EmptyHint>暂无暗线阶段</EmptyHint>
       ) : (
@@ -262,7 +279,7 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
             key={p.id}
             phase={p}
             selected={selection?.kind === 'phase' && selection.id === p.id}
-            onClick={() => setSelection({ kind: 'phase', id: p.id })}
+            onSelect={selectPhase}
           />
         ))
       )}
@@ -287,9 +304,10 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
         onAddPhase={addPhase}
       />
 
-      {compact && <MobileColTabs current={mobileCol} onSwitch={setMobileCol} />}
+      {compact && <MobileColTabs current={mobileCol} onSwitch={switchMobileCol} />}
 
       <main
+        onClick={handleMainBackdrop}
         style={{
           flex: 1,
           display: 'flex',
@@ -344,7 +362,7 @@ export function OverviewTab({ scn, onChange, onToast }: Props): React.ReactEleme
           selection={selection}
           scn={scn}
           compact={compact}
-          onClose={() => setSelection(null)}
+          onClose={closeDrawer}
           onPatchRescue={patchRescue}
           onRemoveRescue={removeRescue}
           onAddMilestone={addMilestone}
@@ -420,37 +438,32 @@ function BarButton({
   onClick: () => void;
   children: React.ReactNode;
 }): React.ReactElement {
+  const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const transform = pressed
+    ? 'translateY(0) scale(0.97)'
+    : hover ? 'translateY(-1px)' : 'translateY(0)';
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPressed(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
       style={{
         padding: '6px 12px',
         fontFamily: 'var(--font-ui)',
         fontSize: 12,
         letterSpacing: 1.2,
         color: 'var(--text-light, #d0c2a0)',
-        background: 'rgba(20,14,8,0.6)',
+        background: hover ? 'rgba(40,28,16,0.85)' : 'rgba(20,14,8,0.6)',
         border: '1px solid rgba(196,168,85,0.4)',
         borderRadius: 3,
         cursor: 'pointer',
+        boxShadow: hover && !pressed ? '0 4px 12px rgba(0,0,0,0.4)' : 'none',
+        transform,
         transition: `transform 160ms ${EASE}, background 200ms ${EASE}, box-shadow 200ms ${EASE}`,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
-        e.currentTarget.style.background = 'rgba(40,28,16,0.85)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-        e.currentTarget.style.background = 'rgba(20,14,8,0.6)';
-      }}
-      onMouseDown={(e) => {
-        e.currentTarget.style.transform = 'translateY(0) scale(0.97)';
-      }}
-      onMouseUp={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
       }}
     >
       {children}
@@ -466,7 +479,6 @@ function Column({
 }: {
   title: string;
   count: number;
-  compact: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   return (
