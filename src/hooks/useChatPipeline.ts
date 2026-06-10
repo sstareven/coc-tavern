@@ -38,6 +38,7 @@ import { useInventoryStore } from '../stores/useInventoryStore';
 import { useCharSheetStore, isDefaultSheet } from '../stores/useCharSheetStore';
 import { useDiceStore } from '../stores/useDiceStore';
 import { useErrorModalStore } from '../stores/useErrorModalStore';
+import { useScenarioStore } from '../stores/useScenarioStore';
 import { useStreamingRenderer } from './useStreamingRenderer';
 import { useStreamingPrinter } from './useStreamingPrinter';
 import { useStreamingPrintStore } from '../stores/useStreamingPrintStore';
@@ -1431,7 +1432,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               signal: controller.signal,
             });
             mvuUsage = megaResult.usage;
-            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId, agentMemoryEnabled, turn: turnForMega });
+            const megaScenarioDoc = megaScenarioId ? useScenarioStore.getState().getById(megaScenarioId) : null;
+            const summary = dispatchMegaAgentResult(megaResult, { scenarioId: megaScenarioId, agentMemoryEnabled, turn: turnForMega, storyDurationMinutes: megaScenarioDoc?.storyDurationMinutes ?? 0 });
             pushLog(
               megaResult.fallback ? 'warn' : 'info',
               `[MVU 综合] ${megaResult.fallback ? '回退到 extractVariables 路径' : '一次综合调用'}:` +
@@ -1440,7 +1442,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 ` / 地点元素 ${summary.locationElementsAdded} / 线索整合 ${summary.clueIntegrationCount}` +
                 ` / 地点整合 ${summary.locationIntegrationCount} / 地图修正 ${summary.mapReconcileActions}` +
                 ` / 关系演化 ${summary.partyRelationDeltasApplied} / 脱队 ${summary.partyConflictsResolved}` +
-                (agentMemoryEnabled ? ` / 心智档案 ${summary.npcMemoryUpdatesApplied}` : ''),
+                (agentMemoryEnabled ? ` / 心智档案 ${summary.npcMemoryUpdatesApplied}` : '')
+                + (summary.timeAdvancedMinutes > 0 ? ` / 时间 +${summary.timeAdvancedMinutes}min` : ''),
               'system',
             );
 
