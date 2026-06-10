@@ -1458,7 +1458,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
                 if (memStore.pendingCardIds.includes(id)) continue;
                 const curMem = memStore.memories[id];
                 const proseEmpty = !curMem || !curMem.prose || !curMem.prose.trim();
-                const stale = curMem && (turnForMega - curMem.updatedAt) >= NPC_REFRESH_INTERVAL;
+                const refreshInterval = (p.importance === '核心' && p.isPresent) ? 3 : NPC_REFRESH_INTERVAL;
+                const stale = curMem && (turnForMega - curMem.updatedAt) >= refreshInterval;
                 // 核心: 空 prose 或 stale 都触发; 重要: 仅空 prose 时触发(避免重要数太多冲爆 RPM)
                 const needsCard = p.importance === '核心'
                   ? (proseEmpty || stale)
