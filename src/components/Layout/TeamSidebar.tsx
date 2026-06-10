@@ -149,7 +149,7 @@ export function TeamSidebar(): React.ReactElement | null {
        *  手机端 relative 由 GameView 包到 TopBar 下方一行,不缩进 */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { setOpen(true); setPillHover(false); }}
           onMouseEnter={(e) => {
             setPillHover(true);
             if (!isMobile) e.currentTarget.style.transform = 'translateX(0)';
