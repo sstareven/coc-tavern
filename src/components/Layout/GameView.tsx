@@ -184,7 +184,7 @@ export function GameView({ onReturnToMenu }: Props) {
               width: 'min(92vw, 960px)',
               height: 'min(65vh, 600px, 100%)',
               boxSizing: 'border-box',
-              padding: '20px 0',
+              padding: '28px 0',
               borderRadius: 16,
               background: `
                 url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65 0.15' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E"),

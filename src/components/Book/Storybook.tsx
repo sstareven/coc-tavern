@@ -313,7 +313,7 @@ export function Storybook() {
           zIndex: 3,
           display: 'flex',
           width: '100%',
-          height: 'min(520px, 100%)',
+          height: '100%',
           perspective: '1400px',
           perspectiveOrigin: 'center center',
           borderRadius: 4,
