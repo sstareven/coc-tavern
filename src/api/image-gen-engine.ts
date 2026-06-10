@@ -193,6 +193,7 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
       prompt,
       size: mapToOpenAiSize(width, height),
       n,
+      stream: false,
     };
   }
 
@@ -208,6 +209,7 @@ function buildBody(req: CallImageApiRequest, mode: Exclude<ImagePayloadMode, 'au
     cfg_scale: cfgScale,
     sampler,
     seed: -1,
+    stream: false,
   };
 }
 
@@ -465,6 +467,9 @@ export async function callImageApi(req: CallImageApiRequest): Promise<CallImageA
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // 明确拒绝 SSE — 中转看到 Accept:application/json 应按 JSON 包响应,
+        // 避免被强转 text/event-stream 然后等上游慢出 curl(28) 超时。
+        Accept: 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
