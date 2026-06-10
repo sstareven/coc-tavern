@@ -113,34 +113,42 @@ function BadgeButton({ name, progress, isMobile, onClick }: { name: string; prog
       onClick={onClick}
       aria-label={`查看剧本「${name}」详情(暗线 ${progress}/100)`}
       style={{
-        // 桌面端:左上角 fixed 胶囊;手机端:relative 由 GameView 包到 TopBar 下方一行,避免遮挡 StatusBar
+        // 桌面端:左上角 fixed 胶囊, 默认缩到只露 28px 把手, hover 向右拉出
+        // 手机端:relative 由 GameView 包到 TopBar 下方一行, 不缩进
         ...(isMobile
           ? { position: 'relative', flexShrink: 0 }
-          : { position: 'fixed', top: 92, left: 14, zIndex: 49 }),
+          : {
+            position: 'fixed',
+            top: 92, left: 0, zIndex: 49,
+            transform: 'translateX(calc(-100% + 28px))',
+          }),
         display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: '6px 14px', borderRadius: 18,
+        padding: '6px 14px',
+        paddingRight: isMobile ? 14 : 18,
         background: 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))',
         border: '1px solid var(--brass)',
+        borderRadius: isMobile ? 18 : '0 18px 18px 0',
+        borderLeft: isMobile ? undefined : 'none',
         color: 'var(--gold)',
         fontFamily: 'var(--font-ui)',
         fontSize: 11, letterSpacing: 2,
         cursor: 'pointer', userSelect: 'none',
         boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-        transition: 'transform 180ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1), background 200ms cubic-bezier(0.4,0,0.2,1)',
+        transition: 'transform 280ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1), background 200ms cubic-bezier(0.4,0,0.2,1), box-shadow 200ms cubic-bezier(0.4,0,0.2,1)',
       }}
       title="点击查看剧本详情"
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)';
+        if (!isMobile) e.currentTarget.style.transform = 'translateX(0)';
         e.currentTarget.style.background = 'linear-gradient(180deg, rgba(60,40,20,0.95), rgba(30,20,12,0.98))';
         e.currentTarget.style.borderColor = 'var(--gold)';
+        e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.6)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
+        if (!isMobile) e.currentTarget.style.transform = 'translateX(calc(-100% + 28px))';
         e.currentTarget.style.background = 'linear-gradient(180deg, rgba(40,28,16,0.92), rgba(20,14,8,0.96))';
         e.currentTarget.style.borderColor = 'var(--brass)';
+        e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.5)';
       }}
-      onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(0.97)'; }}
-      onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-1px) scale(1)'; }}
     >
       <span style={{
         width: 16, height: 16, borderRadius: '50%',
