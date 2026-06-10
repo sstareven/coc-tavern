@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { NpcProfile, NpcUpdate, COC7Characteristic } from '../types';
 import { useSettingsStore } from './useSettingsStore';
 import { useCharSheetStore } from './useCharSheetStore';
+import { useKeywordStore } from './useKeywordStore';
 import { parseNpcDerived } from '../sillytavern/npc-derived';
 
 export type { NpcUpdate };
@@ -424,16 +425,34 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     return changed ? { profiles } : {};
   }),
 
-  renameNpc: (id, newName) => set((s) => {
+  renameNpc: (id, newName) => {
     const trimmed = newName.trim();
-    if (!trimmed) return {};
-    const p = s.profiles[id];
-    if (!p || p.name.trim() === trimmed) return {};
+    if (!trimmed) return;
+    const p = get().profiles[id];
+    if (!p || p.name.trim() === trimmed) return;
     const oldName = p.name.trim();
     const aliases = [...(p.aliases ?? [])];
     if (oldName && !aliases.includes(oldName)) aliases.push(oldName);
-    return { profiles: { ...s.profiles, [id]: { ...p, name: trimmed, aliases, updatedAt: Date.now() } } };
-  }),
+    set((s) => ({
+      profiles: { ...s.profiles, [id]: { ...p, name: trimmed, aliases, updatedAt: Date.now() } },
+    }));
+    // 副作用：关键词 store 里的旧名替换成新名
+    const kwStore = useKeywordStore.getState();
+    const keywords = kwStore.keywords;
+    let changed = false;
+    const next: Record<string, string> = {};
+    for (const [word, meaning] of Object.entries(keywords)) {
+      const newMeaning = meaning.includes(oldName)
+        ? meaning.split(oldName).join(trimmed)
+        : meaning;
+      const newWord = word.includes(oldName)
+        ? word.split(oldName).join(trimmed)
+        : word;
+      next[newWord] = newMeaning;
+      if (newWord !== word || newMeaning !== meaning) changed = true;
+    }
+    if (changed) kwStore.replaceAll(next);
+  },
 
   clearAll: () => set({ profiles: {} }),
 
