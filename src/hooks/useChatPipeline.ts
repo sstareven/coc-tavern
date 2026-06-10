@@ -11,7 +11,7 @@ import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
 import { useWorldMemoryStore } from '../stores/useWorldMemoryStore';
 import { runNpcMemoryCard } from '../sillytavern/npc-memory-extractor';
 import { runWorldMemoryUpdate } from '../sillytavern/world-memory-extractor';
-import { buildImportantNpcMemoryTemplate, EMPTY_NPC_MEMORY } from '../types/npc-world-memory';
+import { buildImportantNpcMemoryTemplate } from '../types/npc-world-memory';
 import { useMapStore } from '../stores/useMapStore';
 import { useLocationElementStore } from '../stores/useLocationElementStore';
 import { useKeyClueStore } from '../stores/useKeyClueStore';

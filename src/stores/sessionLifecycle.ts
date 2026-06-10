@@ -43,7 +43,6 @@ import {
   type MapEdgeRow,
   type LocationElementRow,
   type NpcMemoryRow,
-  type WorldMemoryRow,
 } from '../db/database';
 
 /** Reserved gameVars row name holding the MVU statData nested tree as a JSON blob. */

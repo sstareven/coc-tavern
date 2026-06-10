@@ -60,6 +60,8 @@ interface NpcStore {
   getParty: () => NpcProfile[];
   /** outfit-extractor 写入:按 name 反查 id 后设/清 outfit。找不到 name 静默忽略。 */
   setProfileOutfitByName: (name: string, outfit: string) => void;
+  /** 按 trim 后逐字相等查 NPC id;mvu-megaagent 等需要按 LLM 给出的 name 反查 id 时用。 */
+  findIdByName: (name: string) => string | null;
   clearAll: () => void;
 }
 
@@ -69,7 +71,7 @@ interface NpcStore {
  * 导致新登场的同姓 NPC 不入名册、表面上看像「登场了却查不到」。
  * 真正的别名归并交给 {@link mergeAliases} 显式执行，不在每次 applyUpdates 自动触发。
  */
-function findIdByName(profiles: Record<string, NpcProfile>, name: string): string | null {
+function findIdByNameInProfiles(profiles: Record<string, NpcProfile>, name: string): string | null {
   const trimmed = name.trim();
   if (!trimmed) return null;
   for (const [id, p] of Object.entries(profiles)) {
@@ -176,7 +178,7 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
         delete (u as unknown as Record<string, unknown>).inParty;
         if (investigator && u.name.trim() === investigator) continue; // 调查员不入名册
         const now = Date.now();
-        let id = findIdByName(profiles, u.name);
+        let id = findIdByNameInProfiles(profiles, u.name);
         let p: NpcProfile;
         if (id) {
           p = { ...profiles[id] };
@@ -417,8 +419,10 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
 
   clearAll: () => set({ profiles: {} }),
 
+  findIdByName: (name) => findIdByNameInProfiles(get().profiles, name),
+
   setProfileOutfitByName: (name, outfit) => set((s) => {
-    const id = findIdByName(s.profiles, name);
+    const id = findIdByNameInProfiles(s.profiles, name);
     if (!id) return s;
     const cur = s.profiles[id];
     const trimmed = outfit.trim();
