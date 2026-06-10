@@ -642,7 +642,12 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             coreIds,
             importantIdsByLocation,
             absentImportantIds,
-            nameOf: (id) => npcAll[id]?.name ?? id,
+            nameOf: (id) => {
+              const p = npcAll[id];
+              if (!p) return id;
+              const aliasNote = (p.aliases?.length) ? ' (原名:' + p.aliases.join('/') + ')' : '';
+              return p.name + aliasNote;
+            },
           });
           if (memCtx) addFormatPart(memCtx);
           const worldCtx = useWorldMemoryStore.getState().buildContextInjection();

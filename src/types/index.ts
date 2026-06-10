@@ -513,6 +513,7 @@ export interface NpcProfile {
    *  '路人' → 仅在 isPresent && locationName 匹配当前地点时注入简略身份+位置行。
    *  LLM 自动判定;剧本预设 NPC (isScenarioPreset=true) 默认 '重要'。 */
   importance: '核心' | '重要' | '路人';
+  aliases?: string[];  // 曾用名列表(改名时自动记录)
   createdAt: number;
   updatedAt: number;
 }

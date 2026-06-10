@@ -75,8 +75,13 @@ interface NpcStore {
 function findIdByNameInProfiles(profiles: Record<string, NpcProfile>, name: string): string | null {
   const trimmed = name.trim();
   if (!trimmed) return null;
+  // 第一轮：精确匹配当前名（优先，避免别名与另一个 NPC 当前名冲突时误匹配）
   for (const [id, p] of Object.entries(profiles)) {
     if (p.name.trim() === trimmed) return id;
+  }
+  // 第二轮：检查 aliases（改名后 LLM 用旧名时仍能找到）
+  for (const [id, p] of Object.entries(profiles)) {
+    if (p.aliases?.some((a) => a.trim() === trimmed)) return id;
   }
   return null;
 }
@@ -310,7 +315,8 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       const fav = p.favorability > 30 ? '友好' : p.favorability < -30 ? '敌对' : '中立';
       const loc = p.locationName?.trim() ? `,所在地点:${p.locationName.trim()}` : '';
       const presence = p.isPresent ? '在场' : '离场';
-      const parts = [`- ${p.name}（${p.importance}·${presence}·${p.identity || '身份不明'}${loc},对调查员好感度${p.favorability}/${fav}）`];
+      const aliasNote = p.aliases?.length ? ` (原名:${p.aliases.join('/')})` : '';
+      const parts = [`- ${p.name}${aliasNote}（${p.importance}·${presence}·${p.identity || '身份不明'}${loc},对调查员好感度${p.favorability}/${fav}）`];
       if (p.personality) parts.push(`  性格：${p.personality}`);
       if (p.innerThoughts) parts.push(`  动机/秘密(KP视角)：${p.innerThoughts}`);
       if (p.memorySummary) parts.push(`  记忆梗概：${p.memorySummary}`);
@@ -423,7 +429,10 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
     if (!trimmed) return {};
     const p = s.profiles[id];
     if (!p || p.name.trim() === trimmed) return {};
-    return { profiles: { ...s.profiles, [id]: { ...p, name: trimmed, updatedAt: Date.now() } } };
+    const oldName = p.name.trim();
+    const aliases = [...(p.aliases ?? [])];
+    if (oldName && !aliases.includes(oldName)) aliases.push(oldName);
+    return { profiles: { ...s.profiles, [id]: { ...p, name: trimmed, aliases, updatedAt: Date.now() } } };
   }),
 
   clearAll: () => set({ profiles: {} }),
