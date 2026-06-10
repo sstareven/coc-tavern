@@ -12,7 +12,12 @@ export function createInitialStatData(): Record<string, unknown> {
   return {
     世界: {
       日期: '1925-01-01',
-      时间: '清晨',
+      时间: {
+        epoch: 0,
+        display: '',
+        startDate: '',
+        lastRestEpoch: 0,
+      },
       天气: '薄雾',
       地点: '未知',
       场景描述: '',
