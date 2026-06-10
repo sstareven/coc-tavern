@@ -129,6 +129,18 @@ function flushDirty(): void {
   dirtySessions.clear();
 }
 
+// 页面关闭/刷新前同步 flush,防止最后 300ms 内的脏数据丢失。
+// sessionStorage.setItem 是同步的,beforeunload handler 中可安全执行。
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    flushDirty();
+  });
+}
+
 /** djb2 hash —— 字节级稳定,适合检测内容变化(无需密码学强度)。 */
 function djb2(text: string): string {
   let h = 5381;
@@ -155,7 +167,10 @@ export function isRenderStable(
   itemId: string,
   content: string,
 ): boolean {
-  if (renderHashCache.size > MAX_HASH_ENTRIES) renderHashCache.clear();
+  if (renderHashCache.size > MAX_HASH_ENTRIES) {
+    renderHashCache.clear();
+    restoredSessions.clear(); // 允许后续 restoreSession 从 sessionStorage 重新加载
+  }
 
   // 首次遇到该 session 时尝试从 sessionStorage 恢复
   restoreSession(sessionId);

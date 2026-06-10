@@ -532,6 +532,14 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   for (const [vname, gv] of Object.entries(variables)) {
     if (!vname.includes('.') || isCharsheetPath(vname)) continue;
     if (getTreePath(statData, vname) !== undefined) continue;
+    // 时间管理迁移(2026-06-10):老存档的 世界.时间 是纯标量字符串(如 "清晨"),但新架构期望
+    // { epoch, display, startDate, lastRestEpoch } 对象。若直接回灌字符串会覆盖该子树,导致
+    // accumulateTime / canRestNow 等函数全部降级(epoch 读为 0)。
+    // 检测到目标路径应为对象子树(有更深层后代键)而值为标量时,升级为对象结构。
+    if (vname === '世界.时间' && typeof gv.value === 'string') {
+      setTreePath(statData, vname, { epoch: 0, display: gv.value, startDate: '', lastRestEpoch: 0 });
+      continue;
+    }
     setTreePath(statData, vname, gv.value);
   }
   useVariableStore.getState().replaceAll(variables);

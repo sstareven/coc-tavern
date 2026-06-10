@@ -45,7 +45,7 @@ import type { RelationType, ScenarioCharacter } from '../types/scenario';
 import { extractVariablesWithLLM } from './mvu-extractor';
 import type { TokenUsage } from './stream-parser';
 import { getTreePath, setTreePath } from './mvu-var-access';
-import { formatEpochDisplay } from './time-engine';
+import { formatEpochDisplay, computeExpectedProgress, clampDarkThreadProgress } from './time-engine';
 import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
 import { normalizeEmotion, type NpcMemoryUpdate } from '../types/npc-world-memory';
 
@@ -397,6 +397,7 @@ function formatUserPayload(input: MegaAgentInput): string {
 - 调查员:${input.investigatorName}(职业:${input.occupation})
 - 注定坏结局(机密):${input.badEndingDesc || '(未生成)'}
 - 阈值常量:CLUE_ACTIVE_CAP=${CLUE_ACTIVE_CAP},LOCATION_ELEMENT_CAP=${LOCATION_ELEMENT_CAP}
+- 剧本推荐时间跨度: ${input.storyDurationMinutes > 0 ? input.storyDurationMinutes + '分钟' : '(无)'}
 - 未揭示真相支柱(机密,仅未揭示):
 ${livePillarsText}
 - 当前剧本关系图:
@@ -423,7 +424,6 @@ ${input.narrative}
 - 叙事中出现且未知的关键词 unknownKeywords:${JSON.stringify(input.unknownKeywords)}
 - 触发标志:${JSON.stringify(input.trigger)}
 - 当前剧情已过时间: epoch=${input.currentTimeEpoch}分钟 display="${input.currentTimeDisplay}"
-- 剧本推荐时间跨度: ${input.storyDurationMinutes > 0 ? input.storyDurationMinutes + '分钟' : '(无)'}
 - Agent Memory 开关 agentMemoryEnabled:${input.agentMemoryEnabled}${input.agentMemoryEnabled ? `\n- 当前 NPC 心智档案摘要(供增量参考):\n${input.npcMemoryDigest}` : ''}
 
 请按 Schema 一次性输出全部字段。`;
@@ -782,6 +782,19 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
   //               + statData 树同步(让 CurrentScenarioBadge / 世界书 EJS 等读 statData 的位点立刻
   //                 跟上;否则后端 store 已有 progress=7,UI 仍读 statData 的 '剧情.暗线.进度' 初值 0)。
   if (result.darkThread && result.darkThread.development) {
+    // 暗线节奏钳位(2026-06-10 时间管理):有剧本推荐时长时,用 clampDarkThreadProgress 限制
+    // progress 偏离期望值的幅度。必须在 store 写入之前完成,否则钳位结果不会落盘。
+    const storyDur = opts.storyDurationMinutes ?? 0;
+    if (storyDur > 0) {
+      const varStore0 = useVariableStore.getState();
+      const curEpoch = Number(getTreePath(varStore0.statData, '世界.时间.epoch')) || 0;
+      const expected = computeExpectedProgress(curEpoch, storyDur);
+      // 取上一回合的 progress 作为单调不减基线(而非 LLM 本回合输出)
+      const dtStore = useDarkThreadStore.getState();
+      const prevProgress = dtStore.entries[dtStore.entries.length - 1]?.progress ?? 0;
+      result.darkThread.progress = clampDarkThreadProgress(prevProgress, expected, result.darkThread.progress);
+    }
+
     useDarkThreadStore.getState().addEntry({
       progress: result.darkThread.progress,
       threatLevel: result.darkThread.threatLevel as never,
@@ -795,17 +808,6 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
     setTreePath(next, '剧情.暗线.描述', result.darkThread.development);
     varStore.setStatData(next);
     summary.darkThreadApplied = true;
-
-    // 暗线节奏钳位(2026-06-10 时间管理):有剧本推荐时长时,限制 progress 偏离期望值的幅度
-    const storyDur = opts.storyDurationMinutes ?? 0;
-    if (storyDur > 0) {
-      const varStore2 = useVariableStore.getState();
-      const curEpoch = Number(getTreePath(varStore2.statData, '世界.时间.epoch')) || 0;
-      const expected = Math.min(100, Math.round((curEpoch / storyDur) * 100));
-      const clampFloor = Math.max(result.darkThread.progress, expected - 15);
-      const clampCeiling = expected + 10;
-      result.darkThread.progress = Math.max(clampFloor, Math.min(clampCeiling, result.darkThread.progress));
-    }
   }
 
   // keywordMeanings → useKeywordStore

@@ -21,15 +21,17 @@ describe('createInitialStatData', () => {
 
   it('初始叙事字段就位', () => {
     const s = createInitialStatData() as { 世界: Record<string, unknown>; 剧情: Record<string, unknown> };
-    expect(s.世界.时间).toBe('清晨');
+    // 时间管理(2026-06-10): 世界.时间 已改为 { epoch, display, startDate, lastRestEpoch } 对象
+    const timeObj = s.世界.时间 as Record<string, unknown>;
+    expect(timeObj).toEqual({ epoch: 0, display: '', startDate: '', lastRestEpoch: 0 });
     expect(s.剧情.阶段).toBe('调查期');
   });
 
   it('每次返回独立对象(不共享引用)', () => {
     const a = createInitialStatData() as { 世界: Record<string, unknown> };
     const b = createInitialStatData() as { 世界: Record<string, unknown> };
-    a.世界.时间 = '深夜';
-    expect((b.世界 as Record<string, unknown>).时间).toBe('清晨');
+    (a.世界.时间 as Record<string, unknown>).epoch = 999;
+    expect((b.世界.时间 as Record<string, unknown>).epoch).toBe(0);
   });
 
   it('_元数据 用 _ 只读前缀(flatten/宏会跳过)', () => {

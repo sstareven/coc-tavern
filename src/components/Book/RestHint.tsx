@@ -8,7 +8,7 @@ export function RestHint() {
   const statData = useVariableStore((s) => s.statData);
   const epoch = Number(getTreePath(statData, '世界.时间.epoch')) || 0;
   const lastRest = Number(getTreePath(statData, '世界.时间.lastRestEpoch')) || 0;
-  const inCombat = !!useCombatStore((s) => s.encounter);
+  const inCombat = useCombatStore((s) => !!s.encounter);
   const hoursSinceRest = (epoch - lastRest) / 60;
   const canRest = canRestNow(epoch, lastRest, inCombat) && epoch > 0;
 
@@ -73,7 +73,7 @@ export function RestHint() {
           e.currentTarget.style.transform = 'scale(1)';
         }}
         onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
       >
         休息
       </button>
