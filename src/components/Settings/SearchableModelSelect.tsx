@@ -210,9 +210,7 @@ export function SearchableModelSelect({
                           color: 'var(--gold)', opacity: 0.75, fontSize: '0.9em',
                           flexShrink: 0,
                         }}>[{it.profileLabel}]</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {it.modelName}
-                        </span>
+                        <MarqueeLabel text={it.modelName} />
                       </div>
                     );
                   })}
