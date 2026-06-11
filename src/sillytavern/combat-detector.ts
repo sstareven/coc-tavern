@@ -1,6 +1,7 @@
 import { callDsSubagent } from './subagent-call';
 import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
+import { matchCreature } from './creature-data';
 import { parseNpcDerived } from './npc-derived';
 import type { TokenUsage } from './stream-parser';
 import type {
@@ -199,23 +200,45 @@ function normalizeWeapon(raw: Record<string, unknown>, defaultSkill: number): Co
 }
 
 function normalizeCombatant(raw: Record<string, unknown>, faction: CombatFaction, idx: number): Combatant {
-  const fighting = num(raw.fighting, 40);
+  const rawName = str(raw.name, faction === 'enemy' ? '敌人' : '同伴');
+  // D3: 优先用 COC7e 生物模板覆盖 LLM 数值，确保跨场景属性一致
+  const creature = matchCreature(rawName);
+
+  const fighting = creature ? (creature.attacks[0]?.skill ?? 40) : num(raw.fighting, 40);
   const firearm = typeof raw.firearm === 'number' ? raw.firearm : undefined;
-  const weaponsRaw = Array.isArray(raw.weapons) ? (raw.weapons as Record<string, unknown>[]) : [];
-  const weapons = weaponsRaw.map((w) => normalizeWeapon(w, w.ranged === true ? (firearm ?? 40) : fighting));
+
+  let weapons: CombatWeapon[];
+  if (creature) {
+    // 从模板攻击构建武器列表
+    weapons = creature.attacks.map((atk) => ({
+      name: atk.name,
+      skill: atk.skill,
+      damage: atk.damage,
+      impaling: false,
+      ranged: false,
+      attacksPerRound: atk.attacksPerRound,
+    }));
+  } else {
+    const weaponsRaw = Array.isArray(raw.weapons) ? (raw.weapons as Record<string, unknown>[]) : [];
+    weapons = weaponsRaw.map((w) => normalizeWeapon(w, w.ranged === true ? (firearm ?? 40) : fighting));
+  }
   if (weapons.length === 0) weapons.push({ name: '利爪', skill: fighting, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 });
-  const maxHp = num(raw.hp, 10);
+
+  const maxHp = creature ? creature.hp : num(raw.hp, 10);
   return {
-    id: `${faction}-${idx}-${str(raw.name, 'X')}`,
-    name: str(raw.name, faction === 'enemy' ? '敌人' : '同伴'),
+    id: `${faction}-${idx}-${rawName}`,
+    name: rawName,
     faction,
     controlledBy: 'ai',
-    dex: num(raw.dex, 50), str: num(raw.str, 50), siz: num(raw.siz, 50), con: num(raw.con, 50),
-    mov: num(raw.mov, 8),
+    dex: creature ? creature.dex : num(raw.dex, 50),
+    str: creature ? creature.str : num(raw.str, 50),
+    siz: creature ? creature.siz : num(raw.siz, 50),
+    con: creature ? creature.con : num(raw.con, 50),
+    mov: creature ? creature.mov : num(raw.mov, 8),
     fighting, dodge: num(raw.dodge, 25), firearm,
-    damageBonus: str(raw.db, '0'),
+    damageBonus: creature ? creature.db : str(raw.db, '0'),
     hp: maxHp, maxHp,
-    armor: num(raw.armor, 0),
+    armor: creature ? creature.armor : num(raw.armor, 0),
     weapons,
     flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     tendency: { attack: num((raw.tendency as Record<string, unknown> | undefined)?.attack, 70), flee: num((raw.tendency as Record<string, unknown> | undefined)?.flee, 20) },
