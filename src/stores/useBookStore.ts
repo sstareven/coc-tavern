@@ -250,6 +250,12 @@ export const useBookStore = create<BookStore>((set, get) => ({
           const { useWorldMemoryStore } = await import('./useWorldMemoryStore');
           useWorldMemoryStore.getState().replace(lastWorldMemSnap);
         }
+        // 真相支柱快照回滚：与 sheet/npc 同模式按页快照恢复 pillar 揭示进度。
+        const lastKeyClueSnap = [...fixed].reverse().find((p) => p.keyClueSnapshot)?.keyClueSnapshot;
+        if (lastKeyClueSnap) {
+          const { useKeyClueStore } = await import('./useKeyClueStore');
+          useKeyClueStore.getState().replaceAll(lastKeyClueSnap.pillars, lastKeyClueSnap.saveWorldMode);
+        }
       })();
     }, 0);
     return { pages: fixed, pageIndex };

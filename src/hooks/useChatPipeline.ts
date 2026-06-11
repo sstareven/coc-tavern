@@ -1831,6 +1831,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             newPage.worldMemorySnapshot = structuredClone(useWorldMemoryStore.getState().world);
           }
         }
+        // 真相支柱快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
+        newPage.keyClueSnapshot = { pillars: structuredClone(useKeyClueStore.getState().pillars), saveWorldMode: useKeyClueStore.getState().saveWorldMode };
         // 拯救路径快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
         newPage.rescue = useRescueStore.getState().toSnapshot();
 

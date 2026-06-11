@@ -131,6 +131,8 @@ export interface BookPage {
   npcMemorySnapshot?: Record<string, import('./npc-world-memory').NpcMemory>;
   /** 本回合结束时的世界 Memory 快照——开关开启时随页持久化，供删页/翻页回溯。 */
   worldMemorySnapshot?: import('./npc-world-memory').WorldMemory;
+  /** 本回合结束时的真相支柱快照——供删页回溯恢复 pillar 进度（防 clearAll 丢失揭示状态）。 */
+  keyClueSnapshot?: { pillars: KeyPillar[]; saveWorldMode: boolean };
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
