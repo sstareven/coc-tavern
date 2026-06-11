@@ -4,6 +4,7 @@ import {
   cleanClicheText,
   type CleanerRuleGroup,
 } from '../cliche-cleaner-engine';
+import { DEFAULT_CLEANER_RULES } from '../cliche-cleaner-rules';
 
 // ── expandSimplePattern ──────────────────────────────────
 
@@ -164,5 +165,118 @@ describe('cleanClicheText', () => {
   it('applies simple-mode without optional suffix', () => {
     // "略微" without trailing 的/地 should also be deleted
     expect(cleanClicheText('他略微颤抖', rules)).toBe('他颤抖');
+  });
+});
+
+// ── DEFAULT_CLEANER_RULES ───────────────────────────────
+
+describe('DEFAULT_CLEANER_RULES', () => {
+  it('all enabled rules compile without error', () => {
+    const result = cleanClicheText('测试文本', DEFAULT_CLEANER_RULES);
+    expect(typeof result).toBe('string');
+  });
+
+  it('cleans known cliche: 微微的', () => {
+    expect(cleanClicheText('他微微的点了点头', DEFAULT_CLEANER_RULES)).toBe('他点了点头');
+  });
+
+  it('cleans known cliche: 头颅 -> 头', () => {
+    expect(cleanClicheText('他抬起头颅', DEFAULT_CLEANER_RULES)).toBe('他抬起头');
+  });
+
+  it('cleans known cliche: 四肢百骸 -> 全身', () => {
+    expect(cleanClicheText('四肢百骸都在颤抖', DEFAULT_CLEANER_RULES)).toBe('全身都在颤抖');
+  });
+
+  it('cleans duplicate punctuation', () => {
+    expect(cleanClicheText('真的吗？？？', DEFAULT_CLEANER_RULES)).toBe('真的吗？');
+  });
+
+  // GROUP 1 extras
+  it('cleans template modifiers: 狡黠地', () => {
+    expect(cleanClicheText('他狡黠地笑了', DEFAULT_CLEANER_RULES)).toBe('他笑了');
+  });
+
+  it('cleans state modifiers: 绝望的', () => {
+    expect(cleanClicheText('发出绝望的叫声', DEFAULT_CLEANER_RULES)).toBe('发出叫声');
+  });
+
+  it('cleans exaggeration: 惊人的', () => {
+    expect(cleanClicheText('以惊人的速度', DEFAULT_CLEANER_RULES)).toBe('以速度');
+  });
+
+  it('cleans degree words: 极其', () => {
+    expect(cleanClicheText('极其危险', DEFAULT_CLEANER_RULES)).toBe('危险');
+  });
+
+  // GROUP 2
+  it('cleans 一丝 but preserves 一丝不挂', () => {
+    expect(cleanClicheText('一丝恐惧', DEFAULT_CLEANER_RULES)).toBe('恐惧');
+    expect(cleanClicheText('一丝不挂', DEFAULT_CLEANER_RULES)).toBe('一丝不挂');
+  });
+
+  it('cleans callus template', () => {
+    expect(cleanClicheText('布满薄茧的手', DEFAULT_CLEANER_RULES)).toBe('手');
+  });
+
+  // GROUP 3
+  it('cleans 脊背 -> 背', () => {
+    expect(cleanClicheText('脊背发凉', DEFAULT_CLEANER_RULES)).toBe('背发凉');
+  });
+
+  it('cleans 躯体 -> 身体', () => {
+    expect(cleanClicheText('躯体僵硬', DEFAULT_CLEANER_RULES)).toBe('身体僵硬');
+  });
+
+  it('cleans 肩胛骨 -> 肩膀', () => {
+    expect(cleanClicheText('肩胛骨疼痛', DEFAULT_CLEANER_RULES)).toBe('肩膀疼痛');
+  });
+
+  it('cleans 指骨 -> 手指', () => {
+    expect(cleanClicheText('指骨发白', DEFAULT_CLEANER_RULES)).toBe('手指发白');
+  });
+
+  it('cleans 肌理 -> 肌肉', () => {
+    expect(cleanClicheText('肌理紧绷', DEFAULT_CLEANER_RULES)).toBe('肌肉紧绷');
+  });
+
+  // GROUP 4
+  it('cleans 嘴角弧度 cliche', () => {
+    expect(cleanClicheText('嘴角勾起一抹淡笑', DEFAULT_CLEANER_RULES)).toBe('笑了一下');
+  });
+
+  it('cleans touch template: 粗糙的指腹 (粗糙的 stripped by group 1)', () => {
+    expect(cleanClicheText('用粗糙的指腹抚过', DEFAULT_CLEANER_RULES)).toBe('用指腹抚过');
+  });
+
+  // GROUP 5
+  it('cleans trailing simile', () => {
+    expect(cleanClicheText('他站在那里，仿佛一座雕像。', DEFAULT_CLEANER_RULES)).toBe('他站在那里。');
+  });
+
+  it('cleans inserted simile shell', () => {
+    expect(cleanClicheText('声音像破碎的玻璃一样刺耳', DEFAULT_CLEANER_RULES)).toBe('声音刺耳');
+  });
+
+  // GROUP 6
+  it('cleans 不是X而是 -> 是', () => {
+    expect(cleanClicheText('不是恐惧，而是愤怒', DEFAULT_CLEANER_RULES)).toBe('是愤怒');
+  });
+
+  it('cleans 平日里', () => {
+    expect(cleanClicheText('平日里安静的小镇', DEFAULT_CLEANER_RULES)).toBe('安静的小镇');
+  });
+
+  // GROUP 7
+  it('cleans excess ellipsis', () => {
+    expect(cleanClicheText('他说……………', DEFAULT_CLEANER_RULES)).toBe('他说……');
+  });
+
+  it('cleans excess dashes', () => {
+    expect(cleanClicheText('他想————不对', DEFAULT_CLEANER_RULES)).toBe('他想——不对');
+  });
+
+  it('cleans repeated exclamation', () => {
+    expect(cleanClicheText('快跑！！！', DEFAULT_CLEANER_RULES)).toBe('快跑！');
   });
 });

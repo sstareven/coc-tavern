@@ -151,11 +151,16 @@ export function cleanClicheText(
       for (const { regex, replacements } of compiled) {
         // Reset lastIndex for safety
         regex.lastIndex = 0;
-        result = result.replace(regex, () => {
-          if (replacements.length === 0) return '';
-          if (replacements.length === 1) return replacements[0];
-          return replacements[Math.floor(rng() * replacements.length)];
-        });
+        if (replacements.length === 1 && replacements[0].includes('$')) {
+          // Use string replacement to support $1, $2 etc. backreferences
+          result = result.replace(regex, replacements[0]);
+        } else {
+          result = result.replace(regex, () => {
+            if (replacements.length === 0) return '';
+            if (replacements.length === 1) return replacements[0];
+            return replacements[Math.floor(rng() * replacements.length)];
+          });
+        }
       }
     }
   }
