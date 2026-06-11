@@ -203,7 +203,7 @@ export function resolveRanged(firearmSkill: number, tier: DistanceTier, rng: Rng
   return { hit, jam, roll, level };
 }
 
-export interface DamageResult { combatant: Combatant; dealt: number; majorWound: boolean; }
+export interface DamageResult { combatant: Combatant; dealt: number; majorWound: boolean; conCheckRequired: boolean; }
 
 /** 施加伤害（已含护甲减免）。判轻/重伤、>maxHP 即死、HP 归零分轻伤/重伤态。返回新 combatant（不可变）。 */
 export function applyDamage(target: Combatant, rawDamage: number): DamageResult {
@@ -213,18 +213,20 @@ export function applyDamage(target: Combatant, rawDamage: number): DamageResult 
   let majorWound = false;
   if (dealt > target.maxHp) {
     flags.dead = true;
-    return { combatant: { ...target, hp: 0, flags }, dealt, majorWound: false };
+    return { combatant: { ...target, hp: 0, flags }, dealt, majorWound: false, conCheckRequired: false };
   }
   if (dealt >= Math.ceil(target.maxHp / 2)) {
     majorWound = true;
     flags.majorWound = true;
-    flags.prone = true; // 重伤倒地（避免昏迷的 CON 检定由 store/调用方掷，结果回写 unconscious）
+    flags.prone = true; // 重伤倒地（避免昏迷的 CON 检定由 controller 掷，结果回写 unconscious）
   }
   if (hp === 0) {
     flags.unconscious = true;
     if (flags.majorWound) flags.dying = true; // 曾受重伤 → 濒死
   }
-  return { combatant: { ...target, hp, flags }, dealt, majorWound };
+  // CON 检定条件：重伤且未死（COC7e p101：重伤须通过 CON 检定否则昏迷）
+  const conCheckRequired = majorWound && !flags.dead;
+  return { combatant: { ...target, hp, flags }, dealt, majorWound, conCheckRequired };
 }
 
 /** 寡不敌众：本轮已防御过(≥1次)→后续近战攻击者获得【恒为 1 个】奖励骰（COC7e 不随次数累加）。 */

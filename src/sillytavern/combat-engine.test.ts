@@ -210,6 +210,37 @@ describe('applyDamage', () => {
   });
 });
 
+describe('major wound CON check (conCheckRequired)', () => {
+  it('returns conCheckRequired when dealt damage >= ceil(maxHp/2)', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 5); // 5 >= ceil(10/2)=5
+    expect(result.conCheckRequired).toBe(true);
+    expect(result.majorWound).toBe(true);
+  });
+  it('does not require CON check for minor damage', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 3); // 3 < 5
+    expect(result.conCheckRequired).toBe(false);
+  });
+  it('does not require CON check if target dies (dealt > maxHp)', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 20); // > maxHp=10, instant death
+    expect(result.conCheckRequired).toBe(false);
+    expect(result.combatant.flags.dead).toBe(true);
+  });
+  it('conCheckRequired true at exact threshold (dealt == ceil(maxHp/2))', () => {
+    // maxHp=11 → ceil(11/2)=6; dealt=6 → major wound
+    const target = mkCombatant({ hp: 11, maxHp: 11, armor: 0 });
+    const result = applyDamage(target, 6);
+    expect(result.conCheckRequired).toBe(true);
+  });
+  it('conCheckRequired false when damage absorbed by armor below threshold', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 4 });
+    const result = applyDamage(target, 8); // dealt = max(0, 8-4)=4 < 5
+    expect(result.conCheckRequired).toBe(false);
+  });
+});
+
 describe('寡不敌众 / 行动顺序 / AI / 弹药', () => {
   it('outnumberBonusDice = 防御过则恒 1 个(不累加)', () => {
     expect(outnumberBonusDice(mkCombatant({ roundDefenses: 0 }))).toBe(0);

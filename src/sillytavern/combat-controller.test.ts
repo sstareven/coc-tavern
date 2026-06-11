@@ -334,3 +334,76 @@ describe('attacksPerRound > 1 (semi-auto handguns fire multiple shots)', () => {
     expect(out.log.some((l) => l.text.includes('[1/'))).toBe(false);
   });
 });
+
+describe('major wound CON check in performAttack', () => {
+  it('melee major wound: CON check fail → target unconscious + log', () => {
+    // Attacker deals major wound (>= ceil(maxHp/2)=5 on maxHp=10) via melee.
+    // Use non-impaling weapon to avoid extreme/crit impale damage.
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '棍棒', skill: 90, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 30, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveOpposed (no bonus/penalty): att d100(ones=0,tens=10)→10 extreme≤90; def d100(ones=5,tens=90)→95 fail>10
+    // rollDamage: impale=false (success not extreme for impale... wait, extreme IS impale level)
+    // Actually isImpaleLevel('extreme')=true. But weapon.impaling=false → rollDamage with impale=true and
+    // weapon.crushing undefined → falls to "贯穿" path but weapon.impaling=false → extra not rolled.
+    // wMax=maxDiceOfFormula('1D6')→total=6. dMax='0'→0. No extra (impaling=false). Total=6. 6>=5 → major wound, 6<10 → not dead.
+    // CON check: d100(ones=9,tens=90)→99 fail>30
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9, 0.9, 0.9]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(true);
+    expect(out.log.some((l) => l.text.includes('未通过 CON 检定'))).toBe(true);
+    expect(out.diceRecords.some((r) => r.purpose === '重伤CON检定')).toBe(true);
+  });
+
+  it('melee major wound: CON check pass → target stays conscious + log', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '棍棒', skill: 90, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 80, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // Same attack path as above: dealt=6 major wound.
+    // CON check: d100(ones=0,tens=10)→10 success≤80
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9, 0.0, 0.1]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(false);
+    expect(out.log.some((l) => l.text.includes('通过 CON 检定'))).toBe(true);
+  });
+
+  it('ranged major wound triggers CON check', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 20 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveRanged: d100(ones=0,tens=30)→30 success≤90 (not extreme, so no impale)
+    // Damage: rollDamage(weapon,'0',false,rng): 1D6 → rng=0.8→die=floor(0.8*6)+1=5+1=5 (not 6). Wait: floor(0.8*6)=floor(4.8)=4, +1=5.
+    // dealt=5 >= ceil(10/2)=5 → major wound. 5<10 → not dead.
+    // CON check: d100(ones=0,tens=90)→90 fail>20
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.3, 0.8, 0.0, 0.9]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(true);
+    expect(out.log.some((l) => l.text.includes('未通过 CON 检定'))).toBe(true);
+  });
+
+  it('no CON check when damage is minor (below major wound threshold)', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '小刀', skill: 90, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 50, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveOpposed: att d100(ones=0,tens=10)→10 extreme≤90; def d100(ones=5,tens=90)→95 fail>10
+    // rollDamage: impale=true(extreme), weapon impaling=false → wMax=maxDiceOfFormula('1D3')→3. Total=3. 3<5→no major wound.
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9]));
+    expect(out.log.some((l) => l.text.includes('CON 检定'))).toBe(false);
+    expect(out.diceRecords.some((r) => r.purpose === '重伤CON检定')).toBe(false);
+  });
+});

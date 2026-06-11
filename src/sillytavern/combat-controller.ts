@@ -111,6 +111,35 @@ function joinDmg(base: string, db: string): string {
   return /^[+-]/.test(db) ? `${base}${db}` : `${base}+${db}`;
 }
 
+/**
+ * 重伤 CON 检定（COC7e p101）：重伤后须通过体质检定，失败则昏迷。
+ * 仅当 dr.conCheckRequired=true 时调用。修改 enc（日志+检定记录+可能昏迷标记）并返回。
+ */
+function resolveConCheck(enc0: Encounter, targetId: string, rng: Rng): Encounter {
+  let enc = enc0;
+  const target = byId(enc, targetId);
+  if (!target) return enc;
+  const conVal = target.con;
+  const r = d100WithDice(0, 0, rng);
+  const lvl = successLevel(r.finalRoll, conVal);
+  const passed = lvl !== 'fail' && lvl !== 'fumble';
+  enc = rec(enc, {
+    skill: `${target.name}·CON检定`,
+    roll: String(r.finalRoll),
+    target: String(conVal),
+    type: diceTypeFor(r.finalRoll, conVal),
+    purpose: '重伤CON检定',
+  });
+  if (!passed) {
+    const curTarget = byId(enc, targetId)!;
+    enc = patchCombatant(enc, targetId, { flags: { ...curTarget.flags, unconscious: true } });
+    enc = log(enc, `${target.name} 未通过 CON 检定（d100=${r.finalRoll}/${conVal}），昏迷`, 'roll');
+  } else {
+    enc = log(enc, `${target.name} 通过 CON 检定（d100=${r.finalRoll}/${conVal}），保持清醒`, 'roll');
+  }
+  return enc;
+}
+
 /** 判定脱战原因；null=继续。 */
 export function checkEndReason(enc: Encounter): CombatEndReason | null {
   const enemies = enc.combatants.filter((c) => c.faction === 'enemy');
@@ -213,6 +242,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const dr = applyDamage(curTarget, dmgRoll.total);
       enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
       enc = log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${curWeapon.damage}=${dmgRoll.total}，${curTarget.name} HP ${hpBefore}→${dr.combatant.hp}/${curTarget.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: curTarget.maxHp })]);
+      if (dr.conCheckRequired) enc = resolveConCheck(enc, targetId, rng);
     }
     return enc;
   }
@@ -242,7 +272,9 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = target.hp;
     const dr = applyDamage(target, dmgRoll.total);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags, roundDefenses: target.roundDefenses + 1 });
-    return log(enc, `命中：${attacker.name} ${LEVEL_CN[op.attackerLevel]} 压过 ${target.name}${defLabel} ${LEVEL_CN[op.defenderLevel]}${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
+    enc = log(enc, `命中：${attacker.name} ${LEVEL_CN[op.attackerLevel]} 压过 ${target.name}${defLabel} ${LEVEL_CN[op.defenderLevel]}${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, targetId, rng);
+    return enc;
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? weapon;
@@ -251,7 +283,9 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    enc = log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, attackerId, rng);
+    return enc;
   }
   if (op.winner === 'defender') return log(enc, `${attacker.name} 被 ${target.name}${defLabel}化解（${LEVEL_CN[op.defenderLevel]} ≥ ${LEVEL_CN[op.attackerLevel]}）`);
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
@@ -452,7 +486,9 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    enc = log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, attackerId, rng);
+    return enc;
   }
   if (op.winner === 'defender' && defense === 'maneuver-counter') {
     // 战技反击得手:不致伤,施加同战技效果给攻方(规则书 p89)
