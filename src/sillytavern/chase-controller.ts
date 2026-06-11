@@ -13,6 +13,14 @@ import type { Rng } from './combat-engine';
 
 export type ChaseAction = 'move' | 'sprint' | 'shortcut' | 'barricade' | 'attack' | 'hide';
 
+// ── AI 决策常量 ─────────────────────────────────────────
+/** AI 冲刺所需的最低 CON 阈值。 */
+const AI_SPRINT_CON_THRESHOLD = 40;
+/** AI 允许的最大冲刺次数。 */
+const AI_MAX_SPRINT_COUNT = 4;
+/** 猎物 AI 制造路障的概率。 */
+const AI_BARRICADE_CHANCE = 0.5;
+
 // ── 回合推进 ─────────────────────────────────────────
 
 /**
@@ -84,12 +92,12 @@ export function runAiChaseTurn(chase: Chase, participantId: string, rng: Rng = M
   const p = chase.participants.find(pp => pp.id === participantId);
   if (!p || p.flags.caught || p.flags.escaped || p.flags.exhausted) return chase;
 
-  // Simple AI: prefer sprint if CON > 40 and not already sprinted 4+ times, else move
-  const shouldSprint = p.con > 40 && p.sprintCount < 4;
+  // Simple AI: prefer sprint if CON > threshold and not already sprinted too many times, else move
+  const shouldSprint = p.con > AI_SPRINT_CON_THRESHOLD && p.sprintCount < AI_MAX_SPRINT_COUNT;
   let c = moveParticipant(chase, participantId, shouldSprint, rng);
 
   // Quarry: try to create barricade if past first location
-  if (p.role === 'quarry' && p.position > 0 && rng() > 0.5) {
+  if (p.role === 'quarry' && p.position > 0 && rng() > AI_BARRICADE_CHANCE) {
     c = createBarricade(c, participantId);
   }
 

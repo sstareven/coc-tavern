@@ -237,7 +237,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
       enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(effectiveSkill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
       const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, effectiveSkill);
-      const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${curWeapon.skill}（${LEVEL_CN[r.level]}）`;
+      const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${effectiveSkill}（${LEVEL_CN[r.level]}）`;
       if (r.jam) {
         enc = patchCombatant(enc, attackerId, { flags: { ...curAttacker.flags, weaponJammed: true } });
         enc = log(enc, `${hitLine} — ${curWeapon.name}卡壳！`, 'roll', [aViz]);
@@ -276,9 +276,9 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(effectiveMelee), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
   enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
-  const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${weapon.skill}（${LEVEL_CN[op.attackerLevel]}）`;
+  const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${effectiveMelee}（${LEVEL_CN[op.attackerLevel]}）`;
   const defLine = `${target.name} ${defLabel}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
-  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, weapon.skill, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
+  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, effectiveMelee, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
 
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿

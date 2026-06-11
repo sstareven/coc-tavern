@@ -53,7 +53,7 @@ describe('buildChaseFromLlmResponse', () => {
       initialGap: 3,
       opener: '邪教徒发现了你！',
     };
-    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {});
+    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet);
     expect(chase).not.toBeNull();
     expect(chase!.locations).toHaveLength(5);
     expect(chase!.participants).toHaveLength(2); // player + 1 NPC
@@ -76,7 +76,7 @@ describe('buildChaseFromLlmResponse', () => {
       participants: [{ name: 'X', role: 'pursuer' }],
       initialGap: 1,
     };
-    expect(buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {})).toBeNull();
+    expect(buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet)).toBeNull();
   });
 
   it('hazard / barrier 正确解析', () => {
@@ -86,7 +86,7 @@ describe('buildChaseFromLlmResponse', () => {
       participants: [{ name: 'X', role: 'pursuer' }],
       initialGap: 2,
     };
-    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {});
+    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet);
     expect(chase).not.toBeNull();
     const hazardLoc = chase!.locations.find((l) => l.hazard);
     expect(hazardLoc).toBeDefined();
@@ -107,7 +107,7 @@ describe('buildChaseFromLlmResponse', () => {
       participants: [{ name: '嫌疑人', role: 'quarry', mov: 8, con: 50, dex: 50 }],
       initialGap: 2,
     };
-    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {});
+    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet);
     expect(chase).not.toBeNull();
     expect(chase!.participants[0].role).toBe('pursuer');
     expect(chase!.participants[0].position).toBe(0); // pursuer at 0
@@ -125,7 +125,7 @@ describe('buildChaseFromLlmResponse', () => {
       ],
       initialGap: 2,
     };
-    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {});
+    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet);
     expect(chase).not.toBeNull();
     // DEX order: A(80) > player(defaultSheet.DEX) or B(30) — A should be first
     expect(chase!.turnOrder[0]).toBe('chase-npc-0'); // A has dex 80
@@ -139,7 +139,7 @@ describe('buildChaseFromLlmResponse', () => {
       ],
       participants: [{ role: 'pursuer' }], // no name, no stats
     };
-    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet, {});
+    const chase = buildChaseFromLlmResponse(data as Record<string, unknown>, defaultSheet);
     expect(chase).not.toBeNull();
     const npc = chase!.participants.find((p) => p.id.startsWith('chase-npc'));
     expect(npc).toBeDefined();
@@ -171,7 +171,7 @@ describe('detectAndBuildChase', () => {
       opener: '追逐开始',
     });
     vi.stubGlobal('fetch', vi.fn(async () => mockChat(payload)));
-    const chase = await detectAndBuildChase('邪教徒追赶着你穿过走廊', defaultSheet, {}, 'http://x', 'k', 'm');
+    const chase = await detectAndBuildChase('邪教徒追赶着你穿过走廊', defaultSheet, 'http://x', 'k', 'm');
     expect(chase).not.toBeNull();
     expect(chase!.participants.some((p) => p.controlledBy === 'player')).toBe(true);
     expect(chase!.participants.some((p) => p.role === 'pursuer' && p.name === '邪教徒')).toBe(true);
@@ -181,18 +181,18 @@ describe('detectAndBuildChase', () => {
 
   it('inChase:false → null', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => mockChat('{"inChase": false}')));
-    expect(await detectAndBuildChase('平静的午后', defaultSheet, {}, 'http://x', 'k', 'm')).toBeNull();
+    expect(await detectAndBuildChase('平静的午后', defaultSheet, 'http://x', 'k', 'm')).toBeNull();
   });
 
   it('inChase:true 但位置不足 → null（重试耗尽）', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => mockChat('{"inChase": true, "locations": [{"name":"A"}], "participants": []}')));
-    expect(await detectAndBuildChase('逃跑', defaultSheet, {}, 'http://x', 'k', 'm', undefined, 0.3, 20000, 1)).toBeNull();
+    expect(await detectAndBuildChase('逃跑', defaultSheet, 'http://x', 'k', 'm', undefined, 0.3, 20000, 1)).toBeNull();
   });
 
   it('fetch 异常 → null（fail-open）', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network'); }));
     const abortCtrl = new AbortController();
     // retries=1, abort after short delay to prevent RPM-limiter waits on retry
-    expect(await detectAndBuildChase('逃跑', defaultSheet, {}, 'http://x', 'k', 'm', abortCtrl.signal, 0.3, 20000, 1)).toBeNull();
+    expect(await detectAndBuildChase('逃跑', defaultSheet, 'http://x', 'k', 'm', abortCtrl.signal, 0.3, 20000, 1)).toBeNull();
   }, 10000);
 });

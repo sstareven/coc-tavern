@@ -3,8 +3,8 @@
  *
  * 纯函数、不可变返回、可注入 RNG。与 combat-engine.ts 同模式。
  */
-import type { Chase, ChaseParticipant, ChaseLocation, CombatLogEntry, DiceRecord } from '../types';
-import { d100WithDice, successLevel, type Rng } from './combat-engine';
+import type { Chase, ChaseParticipant, ChaseLocation, CombatLogEntry, DiceRecord, DiceResultType } from '../types';
+import { d100WithDice, successLevel, type Rng, type SuccessLevel } from './combat-engine';
 
 // ── 常量 ──────────────────────────────────────────────
 
@@ -19,7 +19,18 @@ const DIFFICULTY_TARGET: Record<string, (skill: number) => number> = {
 };
 
 /** 每隔多少次冲刺须做 CON 检定。 */
-const SPRINT_CON_INTERVAL = 5;
+export const SPRINT_CON_INTERVAL = 5;
+
+/** 成功等级 → 检定记录用的 DiceResultType（与 combat-controller 同映射）。 */
+const LEVEL_TO_DICE_TYPE: Record<SuccessLevel, DiceResultType> = {
+  critical: 'crit-success', extreme: 'extreme-success', hard: 'hard-success',
+  success: 'success', fail: 'failure', fumble: 'crit-failure',
+};
+
+/** d100=roll 对 skill 的检定记录 type。 */
+function diceTypeFor(roll: number, skill: number): DiceResultType {
+  return LEVEL_TO_DICE_TYPE[successLevel(roll, skill)];
+}
 
 // ── 内部辅助 ─────────────────────────────────────────
 
@@ -41,11 +52,9 @@ function addDiceRecord(chase: Chase, rec: DiceRecord): Chase {
   return { ...chase, diceRecords: [...chase.diceRecords, rec] };
 }
 
-/** 查找参与者，不存在则抛。 */
-function findParticipant(chase: Chase, id: string): ChaseParticipant {
-  const p = chase.participants.find((x) => x.id === id);
-  if (!p) throw new Error(`chase participant not found: ${id}`);
-  return p;
+/** 查找参与者，不存在返回 undefined（与 combat-controller.byId 同模式）。 */
+function findParticipant(chase: Chase, id: string): ChaseParticipant | undefined {
+  return chase.participants.find((x) => x.id === id);
 }
 
 /** 将位置限制在 [0, locations.length - 1]。 */
@@ -112,6 +121,7 @@ export function moveParticipant(
   rng: Rng = Math.random,
 ): Chase {
   let p = findParticipant(chase, participantId);
+  if (!p) return chase;
   const movement = calcMovement(p, sprinting);
   const newPos = clampPosition(p.position + movement, chase);
   p = { ...p, position: newPos };
@@ -119,8 +129,13 @@ export function moveParticipant(
   let c = replaceParticipant(chase, p);
   c = logEntry(c, `${p.name} 前进 ${movement} 格至位置 ${newPos}${sprinting ? '（冲刺）' : ''}`);
 
+  // 结算目标位置的 hazard / barrier
+  c = resolveHazard(c, participantId, rng);
+
   // 冲刺逻辑
   if (sprinting) {
+    p = findParticipant(c, participantId);
+    if (!p) return c;
     p = { ...p, sprintCount: p.sprintCount + 1 };
 
     // 每 SPRINT_CON_INTERVAL 次冲刺须做 CON 检定
@@ -134,7 +149,7 @@ export function moveParticipant(
         skill: 'CON',
         roll: String(roll.finalRoll),
         target: String(p.con),
-        type: passed ? 'success' : 'failure',
+        type: diceTypeFor(roll.finalRoll, p.con),
         time: Date.now(),
         purpose: '冲刺体质检定',
       });
@@ -180,6 +195,7 @@ export function attemptShortcut(
   rng: Rng = Math.random,
 ): Chase {
   const p = findParticipant(chase, participantId);
+  if (!p) return chase;
   const skillValue = p.skills[skillName] ?? 0;
   const roll = d100WithDice(0, 0, rng);
   const level = successLevel(roll.finalRoll, skillValue);
@@ -189,7 +205,7 @@ export function attemptShortcut(
     skill: skillName,
     roll: String(roll.finalRoll),
     target: String(skillValue),
-    type: passed ? 'success' : 'failure',
+    type: diceTypeFor(roll.finalRoll, skillValue),
     time: Date.now(),
     purpose: '抄近路',
   });
@@ -217,6 +233,7 @@ export function createBarricade(
   difficulty: 'normal' | 'hard' | 'extreme' = 'normal',
 ): Chase {
   const p = findParticipant(chase, participantId);
+  if (!p) return chase;
   const locIdx = Math.max(0, p.position - 1); // 刚经过的位置
   const loc = chase.locations[locIdx];
   if (!loc) return chase;
@@ -247,6 +264,7 @@ export function resolveHazard(
   rng: Rng = Math.random,
 ): Chase {
   const p = findParticipant(chase, participantId);
+  if (!p) return chase;
   const loc = chase.locations[p.position];
   if (!loc) return chase;
 
@@ -266,7 +284,7 @@ export function resolveHazard(
     skill: obstacle.skill,
     roll: String(roll.finalRoll),
     target: String(target),
-    type: passed ? 'success' : 'failure',
+    type: diceTypeFor(roll.finalRoll, target),
     time: Date.now(),
     purpose: `${label}检定`,
   });

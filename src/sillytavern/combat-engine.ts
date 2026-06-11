@@ -116,6 +116,7 @@ function maxDiceOfFormula(formula: string): { total: number; dice: RolledDie[] }
       const count = m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : parseInt(m[1], 10);
       const faces = parseInt(m[2], 10);
       const n = Math.abs(count), sign = count < 0 ? -1 : 1;
+      if (n > 100 || faces > 1000 || faces <= 0) continue;
       for (let i = 0; i < n; i++) { dice.push({ value: faces, faces }); total += sign * faces; }
     } else { const f = parseInt(token, 10); if (!Number.isNaN(f)) total += f; }
   }
@@ -211,7 +212,7 @@ export function resolveRanged(firearmSkill: number, tier: DistanceTier, rng: Rng
 
 export interface DamageResult { combatant: Combatant; dealt: number; majorWound: boolean; conCheckRequired: boolean; }
 
-/** 施加伤害（已含护甲减免）。判轻/重伤、>maxHP 即死、HP 归零分轻伤/重伤态。返回新 combatant（不可变）。 */
+/** 施加伤害（已含护甲减免）。判轻/重伤、>=maxHP 即死、HP 归零分轻伤/重伤态。返回新 combatant（不可变）。 */
 export function applyDamage(target: Combatant, rawDamage: number): DamageResult {
   const dealt = Math.max(0, rawDamage - target.armor);
   const flags = { ...target.flags };

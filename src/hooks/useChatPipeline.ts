@@ -2216,11 +2216,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           if (ccBase.trim() && ccKey.trim() && ccModel.trim()) {
             const aidCC = useChatStore.getState().activeId;
             const sheetCC = useCharSheetStore.getState().sheet;
-            const statDataCC = useVariableStore.getState().statData;
             const narrativeCC = newPage.leftContent;
             void (async () => {
               try {
-                const chase = await detectAndBuildChase(narrativeCC, sheetCC, statDataCC, ccBase, ccKey, ccModel, controller.signal);
+                const chase = await detectAndBuildChase(narrativeCC, sheetCC, ccBase, ccKey, ccModel, controller.signal);
                 if (!chase || useChatStore.getState().activeId !== aidCC || useChaseStore.getState().chase || useCombatStore.getState().encounter) return;
                 const anchorPages = useBookStore.getState().pages;
                 chase.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到追逐所属页
@@ -2512,7 +2511,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const recent = useBookStore.getState().pages.slice(-2).map((p) => p.leftContent).filter(Boolean).join('\n');
           const ctx = `${recent}\n玩家主动发起：${trimmed}`;
           const enc = await detectAndBuildEncounter(ctx, useCharSheetStore.getState().sheet, useInventoryStore.getState().items, cdBase, cdKey, cdModel, controller.signal);
-          if (enc && !useCombatStore.getState().encounter) {
+          if (enc && !useCombatStore.getState().encounter && !useChaseStore.getState().chase) {
             enc.log = [...enc.log, { kind: 'narrative', text: trimmed }];
             const anchorPages = useBookStore.getState().pages;
             enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页

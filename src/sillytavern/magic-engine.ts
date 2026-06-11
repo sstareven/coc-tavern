@@ -63,7 +63,7 @@ export function resolveSpellCast(
   let hpSacrificed = 0;
   if (mpFromPool < mpNeeded && allowHpSacrifice) {
     // 以 HP 代偿不足部分，但不可牺牲最后 1 点 HP
-    hpSacrificed = Math.min(mpNeeded - mpFromPool, casterHp - 1);
+    hpSacrificed = Math.max(0, Math.min(mpNeeded - mpFromPool, casterHp - 1));
   }
 
   return {
