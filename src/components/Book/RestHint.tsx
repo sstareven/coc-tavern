@@ -4,6 +4,7 @@ import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
 import { formatEpochDisplay, canRestNow, executeRest, executeMedicalCare, rollSanRecovery } from '../../sillytavern/time-engine';
+import { rollPsychoanalysis } from '../../sillytavern/sanity-engine';
 
 export function RestHint() {
   const statData = useVariableStore((s) => s.statData);
@@ -20,6 +21,15 @@ export function RestHint() {
       .filter((p) => p.skills && typeof p.skills['医学'] === 'number' && p.skills['医学'] > 0)
       .sort((a, b) => (b.skills?.['医学'] ?? 0) - (a.skills?.['医学'] ?? 0));
     return withMedicine.length > 0 ? withMedicine[0] : null;
+  });
+
+  // Find best party NPC with Psychoanalysis (精神分析) skill
+  const psychoanalystNpc = useNpcStore((s) => {
+    const party = Object.values(s.profiles).filter((p) => p.isPresent && p.inParty);
+    const withPsych = party
+      .filter((p) => p.skills && typeof p.skills['精神分析'] === 'number' && p.skills['精神分析'] > 0)
+      .sort((a, b) => (b.skills?.['精神分析'] ?? 0) - (a.skills?.['精神分析'] ?? 0));
+    return withPsych.length > 0 ? withPsych[0] : null;
   });
 
   if (!canRest) return null;
@@ -75,6 +85,22 @@ export function RestHint() {
     if (result.success && result.hpRecovered > 0 && hp.current < hp.max) {
       const newSheet = structuredClone(cs.sheet);
       newSheet.secondary.hp.current = Math.min(hp.max, hp.current + result.hpRecovered);
+      cs.setSheet(newSheet);
+    }
+  };
+
+  const handlePsychoanalysis = () => {
+    if (!psychoanalystNpc) return;
+    const psychSkill = psychoanalystNpc.skills?.['精神分析'] ?? 0;
+    if (psychSkill <= 0) return;
+
+    const cs = useCharSheetStore.getState();
+    const san = cs.sheet.secondary.san;
+    const result = rollPsychoanalysis(psychSkill, san.current, san.max);
+
+    if (result.success && result.recovered > 0 && san.current < san.max) {
+      const newSheet = structuredClone(cs.sheet);
+      newSheet.secondary.san.current = Math.min(san.max, san.current + result.recovered);
       cs.setSheet(newSheet);
     }
   };
@@ -146,6 +172,35 @@ export function RestHint() {
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
         >
           接受治疗({partyNpcs.name})
+        </button>
+      )}
+      {psychoanalystNpc && (
+        <button
+          onClick={handlePsychoanalysis}
+          style={{
+            padding: '3px 12px',
+            background: 'transparent',
+            border: '1px solid var(--brass)',
+            borderRadius: 4,
+            color: 'var(--gold)',
+            fontFamily: 'var(--font-ui)',
+            fontSize: 'calc(11px * var(--system-ratio, 1))',
+            cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        >
+          心理治疗({psychoanalystNpc.name})
         </button>
       )}
     </div>
