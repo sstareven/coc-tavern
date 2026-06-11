@@ -13,6 +13,7 @@ import type {
   KeyPillar,
   PlotAnchors,
   Encounter,
+  Chase,
 } from '../types';
 import type { DarkThreadEntry, BadEnding } from '../stores/useDarkThreadStore';
 import type { NpcMemory, WorldMemory } from '../types/npc-world-memory';
@@ -119,6 +120,12 @@ export interface CombatRow {
   encounter: Encounter;
 }
 
+// 进行中追逐（一行/会话；追逐结束后删行、内容固化进 BookPage）。
+export interface ChaseRow {
+  conversationId: string;
+  chase: Chase;
+}
+
 // 项目命名空间 console.log 捕获([cache-diag] 等)。
 // 跨会话保留,删会话时随 deleteConversationInner 事务同步清除。
 // 命名注:此表用 sessionId 而非全表惯用的 conversationId——本表会收 boot 期/无会话期日志
@@ -182,6 +189,7 @@ export const db = new Dexie('abyssal_archive') as Dexie & {
   keyClues: EntityTable<KeyClueRow, 'conversationId'>;
   plotAnchors: EntityTable<PlotAnchorRow, 'conversationId'>;
   combat: EntityTable<CombatRow, 'conversationId'>;
+  chase: EntityTable<ChaseRow, 'conversationId'>;
   consoleLogs: EntityTable<ConsoleLogRow, 'id'>;
   pageImages: EntityTable<PageImageRow, 'pageId'>;
   rescue: EntityTable<RescueRow, 'conversationId'>;
@@ -315,6 +323,14 @@ export const V15_SCHEMA = {
 } as const;
 
 db.version(15).stores(V15_SCHEMA);
+
+/** v16: 新增「进行中追逐」单行表（无数据迁移）。 */
+export const V16_SCHEMA = {
+  ...V15_SCHEMA,
+  chase: '&conversationId',
+} as const;
+
+db.version(16).stores(V16_SCHEMA);
 
 export const V2_UPGRADE_FAILED = '_v2_upgrade_failed';
 
