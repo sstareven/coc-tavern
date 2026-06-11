@@ -199,6 +199,7 @@ export function rollSanLoss(expr: string, rollDice: RollDice = defaultRollDice):
     }
     const count = parseInt(m[1], 10);
     const sides = parseInt(m[2], 10);
+    if (count <= 0 || count > 100 || sides <= 0 || sides > 1000) continue;
     for (let i = 0; i < count; i++) total += rollDice(sides);
   }
   return total;

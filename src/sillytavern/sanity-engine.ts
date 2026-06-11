@@ -54,9 +54,9 @@ export function rollPsychoanalysis(
   analystSkill: number,
   currentSan: number,
   sanMax: number,
+  selfTherapy: boolean = false,
   rng: () => number = Math.random,
   hpRng: () => number = Math.random,
-  selfTherapy: boolean = false,
 ): { recovered: number; roll: number; success: boolean } {
   const effectiveSkill = selfTherapy ? Math.floor(analystSkill / 2) : analystSkill;
   const roll = Math.floor(rng() * 100) + 1;

@@ -94,12 +94,12 @@ describe('magic-engine — resolveSpellCast POW 对抗', () => {
     expect(result.hpSacrificed).toBe(0);
   });
 
-  it('failure deducts only 1 MP', () => {
+  it('failure deducts full spell MP cost (COC7e: same as success)', () => {
     // casterPow=50, roll=80 → fail; targetPow=60, roll=30 → hard
     const rng = rngForD100(80, 30);
     const result = resolveSpellCast(50, 60, baseSpell, 10, 12, false, rng);
     expect(result.success).toBe(false);
-    expect(result.mpSpent).toBe(1);
+    expect(result.mpSpent).toBe(6); // full mpCost regardless of success
     expect(result.hpSacrificed).toBe(0);
   });
 
@@ -110,7 +110,7 @@ describe('magic-engine — resolveSpellCast POW 对抗', () => {
     const rng = rngForD100(1, 80);
     const result = resolveSpellCast(60, 50, baseSpell, 3, 12, true, rng);
     expect(result.success).toBe(true);
-    expect(result.mpSpent).toBe(6); // 3 MP + 3 HP = 6 total
+    expect(result.mpSpent).toBe(3); // only from MP pool
     expect(result.hpSacrificed).toBe(3);
   });
 
@@ -125,25 +125,25 @@ describe('magic-engine — resolveSpellCast POW 对抗', () => {
 
   it('cannot sacrifice last HP point', () => {
     // Success with mpCost=6, MP=0, HP=4, allow sacrifice
-    // Can sacrifice at most HP-1=3, so mpSpent = 0 + 3 = 3
+    // Can sacrifice at most HP-1=3, mpSpent = 0 (from MP pool)
     const rng = rngForD100(1, 80);
     const result = resolveSpellCast(60, 50, baseSpell, 0, 4, true, rng);
     expect(result.success).toBe(true);
-    expect(result.mpSpent).toBe(3); // 0 MP + 3 HP sacrifice
+    expect(result.mpSpent).toBe(0); // 0 from MP pool
     expect(result.hpSacrificed).toBe(3);
   });
 
-  it('0 MP caster with HP sacrifice — failure costs 1 HP', () => {
-    // Failure: mpNeeded=1, MP=0, HP=5, allow sacrifice → sacrifice 1 HP
+  it('0 MP caster with HP sacrifice — failure costs full MP via HP', () => {
+    // Failure: mpNeeded=6 (full cost), MP=0, HP=5, allow sacrifice → sacrifice min(6, 4)=4 HP
     const rng = rngForD100(80, 1);
     const result = resolveSpellCast(50, 60, baseSpell, 0, 5, true, rng);
     expect(result.success).toBe(false);
-    expect(result.mpSpent).toBe(1); // 0 MP + 1 HP
-    expect(result.hpSacrificed).toBe(1);
+    expect(result.mpSpent).toBe(0); // 0 from MP pool
+    expect(result.hpSacrificed).toBe(4); // min(6-0, 5-1) = 4
   });
 
   it('0 MP and only 1 HP — cannot sacrifice last HP, mpSpent capped', () => {
-    // Failure: mpNeeded=1, MP=0, HP=1 → can't sacrifice last HP → hpSacrificed=0
+    // Failure: mpNeeded=6, MP=0, HP=1 → can't sacrifice last HP → hpSacrificed=0
     const rng = rngForD100(80, 1);
     const result = resolveSpellCast(50, 60, baseSpell, 0, 1, true, rng);
     expect(result.success).toBe(false);

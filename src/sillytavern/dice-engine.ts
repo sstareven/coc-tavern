@@ -138,11 +138,12 @@ export function checkPhobiaPenalty(
     // Direct match: context contains the full cleaned keyword
     if (ctx.includes(clean)) return 1;
     // Fuzzy CJK match: for compound keywords like 纵火 (arson), also try
-    // progressively shorter suffixes down to single characters so that
-    // 纵火 matches contexts mentioning 火 (fire) or 火焰 (flame).
+    // progressively shorter suffixes down to 2 characters so that
+    // 纵火 matches contexts mentioning 火焰 (flame) but single chars don't over-match.
     if (clean.length >= 2) {
       for (let i = 1; i < clean.length; i++) {
         const suffix = clean.slice(i);
+        if (suffix.length < 2) break;
         if (ctx.includes(suffix)) return 1;
       }
     }
