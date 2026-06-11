@@ -5,29 +5,14 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { playerChaseAction } from '../../sillytavern/chase-controller';
-import { getGap } from '../../sillytavern/chase-engine';
+import { getGap, SPRINT_CON_INTERVAL } from '../../sillytavern/chase-engine';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { DiceRecordsExpander } from '../Combat/CombatPanel';
 import { CombatDiceRoll, type DiceToss } from '../Combat/CombatDiceRoll';
-import type { Chase, CombatRollViz, DiceResultType } from '../../types';
+import type { Chase } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
-
-/** Dice result type to color (shared palette with CombatPanel). */
-const DICE_COLORS: Record<DiceResultType, string> = {
-  'crit-success': '#69f0ae', 'extreme-success': '#00e676', 'hard-success': '#4fc3f7',
-  'success': '#69f0ae', 'failure': '#ff5252', 'crit-failure': '#d50000',
-};
-const colorFor = (t: DiceResultType): string => DICE_COLORS[t] ?? '#999';
-
-function buildTossesFromViz(rolls: CombatRollViz[]): DiceToss[] {
-  return rolls.map((rv) => ({
-    title: rv.title ?? (rv.damage ? '伤害' : '检定'),
-    dice: rv.dice.map((d) => ({ value: d.value, faces: d.faces, color: rv.damage ? '#ff7043' : colorFor(d.type ?? 'success'), caption: d.caption })),
-    total: rv.total,
-  }));
-}
 
 // ── Location chain visualization ─────────────────────────────
 
@@ -143,7 +128,7 @@ function TypewriterLine({ text, narrative, dim, onDone }: { text: string; narrat
     <div style={{
       color: dim ? 'var(--ink-faded)' : narrative ? 'var(--ink-subtle)' : 'var(--ink)',
       fontStyle: narrative ? 'italic' : 'normal',
-      fontSize: dim ? 11.5 : undefined, opacity: dim ? 0.78 : 1,
+      fontSize: dim ? 'calc(11.5px * var(--system-ratio, 1))' : undefined, opacity: dim ? 0.78 : 1,
       marginBottom: dim ? 1 : 2,
     }}>
       {text.slice(0, n)}
@@ -159,7 +144,7 @@ function ActionBtn({ label, primary, disabled, title, onClick }: { label: string
   return (
     <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title}
       style={{
-        fontSize: 12, padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: 'calc(12px * var(--system-ratio, 1))', padding: '6px 14px', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer',
         border: '1px solid ' + border, background: disabled ? 'transparent' : 'rgba(196,168,85,0.08)', color,
         fontFamily: 'var(--font-ui)', letterSpacing: 1, transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', transform: 'scale(1)',
         opacity: disabled ? 0.5 : 1,
@@ -179,10 +164,10 @@ export function ChasePanel() {
   const setChase = useChaseStore((s) => s.setChase);
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const logRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; });
 
   // Log reveal system (same pattern as CombatPanel)
   const [revealed, setRevealed] = useState(0);
+  useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [revealed]);
   const [tosses, setTosses] = useState<DiceToss[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const revealedRef = useRef(0);
@@ -197,13 +182,7 @@ export function ChasePanel() {
     const n = revealedRef.current;
     if (n >= log.length) { runningRef.current = false; setTosses(null); return; }
     runningRef.current = true;
-    const rolls = log[n].rolls;
-    if (rolls && rolls.length) {
-      setTosses(buildTossesFromViz(rolls));
-      safetyRef.current = setTimeout(() => { setTosses(null); setRevealedBoth(revealedRef.current + 1); }, 8000);
-    } else {
-      setRevealedBoth(n + 1);
-    }
+    setRevealedBoth(n + 1);
   };
 
   const onTossComplete = () => {
@@ -252,8 +231,8 @@ export function ChasePanel() {
     setChase(next);
   };
 
-  // Sprint disabled if already at 5 sprints or CON too low for check
-  const sprintDisabled = !canAct || !player || player.sprintCount >= 5;
+  // Sprint disabled if already at max sprints or CON too low for check
+  const sprintDisabled = !canAct || !player || player.sprintCount >= SPRINT_CON_INTERVAL;
 
   // Attack only when gap === 0 (adjacent)
   const attackDisabled = !canAct || gap > 0;
@@ -307,7 +286,6 @@ export function ChasePanel() {
       }}>
         {ch.log.slice(0, revealed).map((l, i) => (
           <TypewriterLine key={i} text={l.kind === 'narrative' ? `— ${l.text} —` : `· ${l.text}`} narrative={l.kind === 'narrative'}
-            dim={!!l.rolls?.length && l.rolls.every((rv) => !rv.damage)}
             onDone={i === revealed - 1 ? advance : undefined} />
         ))}
         <DiceRecordsExpander records={ch.diceRecords} />
@@ -323,7 +301,7 @@ export function ChasePanel() {
         }}>
           <span>MOV <b style={{ color: 'var(--ink)' }}>{player.mov}</b></span>
           <span>CON <b style={{ color: 'var(--ink)' }}>{player.con}</b></span>
-          <span>冲刺 <b style={{ color: player.sprintCount >= 4 ? 'var(--blood)' : 'var(--ink)' }}>{player.sprintCount}/5</b></span>
+          <span>冲刺 <b style={{ color: player.sprintCount >= SPRINT_CON_INTERVAL - 1 ? 'var(--blood)' : 'var(--ink)' }}>{player.sprintCount}/{SPRINT_CON_INTERVAL}</b></span>
           <span>角色 <b style={{ color: player.role === 'pursuer' ? 'var(--blood)' : 'var(--gold)' }}>{player.role === 'pursuer' ? '追赶者' : '逃跑者'}</b></span>
           {playerFlags.map((f) => <span key={f} style={{ color: 'var(--blood)' }}>{f}</span>)}
         </div>
@@ -357,7 +335,7 @@ export function ChasePanel() {
           borderTop: `1px solid ${FAINTER}`, padding: '10px 24px 0', marginTop: 8, flexShrink: 0,
         }}>
           <ActionBtn label="移动" primary disabled={!canAct} title="向前移动 1 地点（基于 MOV 差额可能额外移动）" onClick={() => act(true, () => doAction('move'))} />
-          <ActionBtn label="冲刺" disabled={sprintDisabled} title={`消耗体力加速移动，需要 CON 检定（已冲刺 ${player?.sprintCount ?? 0}/5 次）`} onClick={() => act(true, () => doAction('sprint'))} />
+          <ActionBtn label="冲刺" disabled={sprintDisabled} title={`消耗体力加速移动，需要 CON 检定（已冲刺 ${player?.sprintCount ?? 0}/${SPRINT_CON_INTERVAL} 次）`} onClick={() => act(true, () => doAction('sprint'))} />
           <ActionBtn label="设障" disabled={!canAct} title="在当前位置设置路障，阻碍追赶者" onClick={() => act(false, () => doAction('barricade'))} />
           <ActionBtn label="攻击" disabled={attackDisabled} title={gap > 0 ? '距离太远，无法攻击（需要相邻）' : '攻击相邻的目标'} onClick={() => act(true, () => doAction('attack'))} />
         </div>

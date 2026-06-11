@@ -402,7 +402,7 @@ describe('attemptShortcut', () => {
     const q = result.participants.find((p) => p.id === 'q1')!;
     expect(q.position).toBe(4); // 3 + 1
     expect(result.diceRecords.length).toBe(1);
-    expect(result.diceRecords[0].type).toBe('success');
+    expect(result.diceRecords[0].type).toBe('hard-success'); // roll 30 <= skill/2=30 → hard success
   });
 
   it('failure gives no extra movement', () => {
@@ -538,7 +538,7 @@ describe('resolveHazard', () => {
     const q = result.participants.find((p) => p.id === 'q1')!;
     expect(q.flags.fallen).toBe(false);
     expect(result.diceRecords.length).toBe(1);
-    expect(result.diceRecords[0].type).toBe('success');
+    expect(result.diceRecords[0].type).toBe('hard-success'); // roll 30 <= skill/2=30 → hard success
   });
 
   it('fail hazard — fall consequence', () => {
