@@ -60,6 +60,23 @@ export function accumulateTime(
 }
 
 /* ------------------------------------------------------------------ */
+/*  shouldResetDailySan                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Returns true when oldEpoch → newEpoch crosses a calendar-day boundary
+ * relative to the given startDate.  Used to reset dailySanLoss at midnight.
+ */
+export function shouldResetDailySan(startDate: string, oldEpoch: number, newEpoch: number): boolean {
+  if (!startDate || newEpoch <= oldEpoch) return false;
+  const base = new Date(startDate);
+  if (isNaN(base.getTime())) return false;
+  const oldDay = Math.floor((base.getTime() + oldEpoch * 60_000) / 86_400_000);
+  const newDay = Math.floor((base.getTime() + newEpoch * 60_000) / 86_400_000);
+  return newDay > oldDay;
+}
+
+/* ------------------------------------------------------------------ */
 /*  canRestNow                                                         */
 /* ------------------------------------------------------------------ */
 

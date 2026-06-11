@@ -7,6 +7,7 @@ import {
   executeRest,
   computeExpectedProgress,
   clampDarkThreadProgress,
+  shouldResetDailySan,
 } from './time-engine';
 
 /* ------------------------------------------------------------------ */
@@ -131,6 +132,44 @@ describe('accumulateTime', () => {
     const result = accumulateTime({}, { days: 0, hours: 2, minutes: 0 });
     expect(result.newEpoch).toBe(120);
     expect(result.display).toBe('');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  shouldResetDailySan                                                */
+/* ------------------------------------------------------------------ */
+
+describe('shouldResetDailySan', () => {
+  const startDate = '1930-01-01T08:00';
+
+  it('returns false when epoch stays within the same day', () => {
+    // 08:00 + 100min = 09:40, still Jan 1
+    expect(shouldResetDailySan(startDate, 100, 200)).toBe(false);
+  });
+
+  it('returns true when epoch crosses a day boundary', () => {
+    // 08:00 + 0min = Jan 1 08:00 → 08:00 + 1440min = Jan 2 08:00
+    expect(shouldResetDailySan(startDate, 0, 1440)).toBe(true);
+  });
+
+  it('returns true when crossing midnight specifically', () => {
+    // Use UTC-explicit start so day boundaries are predictable
+    const sd = '1930-01-01T00:00:00Z';
+    // epoch 1380 = 23:00 UTC Jan 1, epoch 1500 = 01:00 UTC Jan 2
+    expect(shouldResetDailySan(sd, 1380, 1500)).toBe(true);
+  });
+
+  it('returns false for invalid startDate', () => {
+    expect(shouldResetDailySan('not-a-date', 0, 1440)).toBe(false);
+  });
+
+  it('returns false for empty startDate', () => {
+    expect(shouldResetDailySan('', 0, 1440)).toBe(false);
+  });
+
+  it('returns false when newEpoch <= oldEpoch', () => {
+    expect(shouldResetDailySan(startDate, 1440, 1440)).toBe(false);
+    expect(shouldResetDailySan(startDate, 1440, 100)).toBe(false);
   });
 });
 
