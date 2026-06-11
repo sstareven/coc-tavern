@@ -1,3 +1,4 @@
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
@@ -5,6 +6,45 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
 import { formatEpochDisplay, canRestNow, executeRest, executeMedicalCare, rollSanRecovery, computeMpRecovery } from '../../sillytavern/time-engine';
 import { rollPsychoanalysis } from '../../sillytavern/sanity-engine';
+
+const restActionBtnStyle: CSSProperties = {
+  padding: '3px 12px',
+  background: 'transparent',
+  border: '1px solid var(--brass)',
+  borderRadius: 4,
+  color: 'var(--gold)',
+  fontFamily: 'var(--font-ui)',
+  fontSize: 'calc(11px * var(--system-ratio, 1))',
+  cursor: 'pointer',
+  transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+  flexShrink: 0,
+};
+
+function RestActionBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  const onEnter = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
+    e.currentTarget.style.transform = 'scale(1.05)';
+  };
+  const onLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.background = 'transparent';
+    e.currentTarget.style.transform = 'scale(1)';
+  };
+  const onDown = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.95)'; };
+  const onUp = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(1)'; };
+
+  return (
+    <button
+      onClick={onClick}
+      style={restActionBtnStyle}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onMouseDown={onDown}
+      onMouseUp={onUp}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function RestHint() {
   const statData = useVariableStore((s) => s.statData);
@@ -125,92 +165,15 @@ export function RestHint() {
       color: 'var(--parchment)', opacity: 0.85,
       transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1)',
     }}>
+      {/* TODO: replace Unicode crescent with TabIcons SVG icon when available */}
       <span style={{ color: 'var(--gold-bright)', fontSize: 'calc(13px * var(--system-ratio, 1))' }}>☽</span>
       <span>调查员已连续活动超过 {Math.floor(hoursSinceRest)} 小时，可以寻找安全场所休息</span>
-      <button
-        onClick={handleRest}
-        style={{
-          padding: '3px 12px',
-          background: 'transparent',
-          border: '1px solid var(--brass)',
-          borderRadius: 4,
-          color: 'var(--gold)',
-          fontFamily: 'var(--font-ui)',
-          fontSize: 'calc(11px * var(--system-ratio, 1))',
-          cursor: 'pointer',
-          transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-          flexShrink: 0,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
-          e.currentTarget.style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-      >
-        休息
-      </button>
+      <RestActionBtn onClick={handleRest}>休息</RestActionBtn>
       {partyNpcs && (
-        <button
-          onClick={handleMedicalCare}
-          style={{
-            padding: '3px 12px',
-            background: 'transparent',
-            border: '1px solid var(--brass)',
-            borderRadius: 4,
-            color: 'var(--gold)',
-            fontFamily: 'var(--font-ui)',
-            fontSize: 'calc(11px * var(--system-ratio, 1))',
-            cursor: 'pointer',
-            transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-        >
-          接受治疗({partyNpcs.name})
-        </button>
+        <RestActionBtn onClick={handleMedicalCare}>接受治疗({partyNpcs.name})</RestActionBtn>
       )}
       {psychoanalystNpc && (
-        <button
-          onClick={handlePsychoanalysis}
-          style={{
-            padding: '3px 12px',
-            background: 'transparent',
-            border: '1px solid var(--brass)',
-            borderRadius: 4,
-            color: 'var(--gold)',
-            fontFamily: 'var(--font-ui)',
-            fontSize: 'calc(11px * var(--system-ratio, 1))',
-            cursor: 'pointer',
-            transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-        >
-          心理治疗({psychoanalystNpc.name})
-        </button>
+        <RestActionBtn onClick={handlePsychoanalysis}>心理治疗({psychoanalystNpc.name})</RestActionBtn>
       )}
     </div>
   );

@@ -326,6 +326,10 @@ export async function detectAndBuildEncounter(
     const surprisedFaction = surpriseRound && VALID_FACTIONS.includes(p.surprisedFaction as typeof VALID_FACTIONS[number])
       ? (p.surprisedFaction as 'player' | 'enemy') : undefined;
     // B4 掩护：LLM 按 name 给出 coverMap，映射为 combatant id 键
+    // Limitation: if multiple combatants share the same name, only the last
+    // one encountered gets a coverMap entry — earlier same-name combatants
+    // are silently overwritten. Acceptable for now since duplicate names are
+    // rare in practice.
     const VALID_COVER = ['none', 'half', 'full'] as const;
     const rawCoverMap = (p.coverMap && typeof p.coverMap === 'object') ? (p.coverMap as Record<string, unknown>) : {};
     const coverMap: Record<string, 'none' | 'half' | 'full'> = {};
