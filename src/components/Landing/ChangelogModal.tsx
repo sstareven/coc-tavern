@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.24.1';
+export const CURRENT_VERSION = 'v1.24.2';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,23 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.24.2',
+    label: '模型选择器走马灯',
+    sections: [
+      {
+        title: '改进',
+        groups: [
+          {
+            title: 'API 模型选择',
+            entries: [
+              '以前模型名太长会被截断看不全；现在选择器按钮和下拉列表里的长名字会自动滚动显示完整名称',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.24.1',
     label: '剧本技能修复',
