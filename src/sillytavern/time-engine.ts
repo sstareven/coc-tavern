@@ -77,6 +77,20 @@ export function shouldResetDailySan(startDate: string, oldEpoch: number, newEpoc
 }
 
 /* ------------------------------------------------------------------ */
+/*  fatiguePenalty                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * COC 7e sleep deprivation: after 24 h without sleep, -20% to all skill
+ * checks. Cumulative per additional 24 h block.
+ * Returns 0 (no penalty) or a negative number (e.g. -20, -40 ...).
+ */
+export function fatiguePenalty(hoursSinceRest: number): number {
+  if (hoursSinceRest < 24) return 0;
+  return -20 * Math.floor(hoursSinceRest / 24);
+}
+
+/* ------------------------------------------------------------------ */
 /*  canRestNow                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -95,6 +109,41 @@ export function canRestNow(
 
 export function executeRest(epochMinutes: number): { newEpoch: number; hpRecovered: number } {
   return { newEpoch: epochMinutes + 480, hpRecovered: 1 };
+}
+
+/* ------------------------------------------------------------------ */
+/*  rollSanRecovery                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface SanRecoveryResult {
+  recovered: number;
+  roll: number;
+  success: boolean;
+}
+
+/**
+ * COC7e SAN self-help recovery during rest.
+ * Roll d100 vs POW — on success recover 1D3 SAN (capped at sanMax).
+ *
+ * @param pow        investigator's POW characteristic
+ * @param currentSan current SAN value
+ * @param sanMax     maximum SAN value
+ * @param rng        random number generator returning [0,1) — defaults to Math.random
+ */
+export function rollSanRecovery(
+  pow: number,
+  currentSan: number,
+  sanMax: number,
+  rng: () => number = Math.random,
+): SanRecoveryResult {
+  const roll = Math.floor(rng() * 100) + 1; // 1–100
+  const success = roll <= pow;
+  if (!success || currentSan >= sanMax) {
+    return { recovered: 0, roll, success };
+  }
+  const d3 = Math.floor(rng() * 3) + 1; // 1–3
+  const recovered = Math.min(d3, sanMax - currentSan);
+  return { recovered, roll, success };
 }
 
 /* ------------------------------------------------------------------ */

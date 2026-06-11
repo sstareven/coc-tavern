@@ -8,6 +8,7 @@ import {
   computeExpectedProgress,
   clampDarkThreadProgress,
   shouldResetDailySan,
+  rollSanRecovery,
 } from './time-engine';
 
 /* ------------------------------------------------------------------ */
@@ -282,5 +283,57 @@ describe('clampDarkThreadProgress', () => {
     // ceiling = 60
     // result = max(45, min(60, 40)) = max(45, 40) = 45
     expect(clampDarkThreadProgress(45, 50, 40)).toBe(45);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  rollSanRecovery                                                    */
+/* ------------------------------------------------------------------ */
+
+describe('rollSanRecovery', () => {
+  it('succeeds when roll <= pow and recovers 1D3 SAN', () => {
+    // rng returns 0.49 for d100 → floor(0.49*100)+1 = 50, then 0.5 for d3 → floor(0.5*3)+1 = 2
+    let call = 0;
+    const rng = () => [0.49, 0.5][call++];
+    const result = rollSanRecovery(50, 40, 99, rng);
+    expect(result.roll).toBe(50);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(2);
+  });
+
+  it('fails when roll > pow', () => {
+    // rng returns 0.50 → floor(0.50*100)+1 = 51, which is > 50
+    const rng = () => 0.50;
+    const result = rollSanRecovery(50, 40, 99, rng);
+    expect(result.roll).toBe(51);
+    expect(result.success).toBe(false);
+    expect(result.recovered).toBe(0);
+  });
+
+  it('recovers 0 when already at sanMax even on success', () => {
+    // rng returns 0.0 → roll = 1 (always success)
+    const rng = () => 0.0;
+    const result = rollSanRecovery(50, 99, 99, rng);
+    expect(result.roll).toBe(1);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(0);
+  });
+
+  it('caps recovery so SAN does not exceed sanMax', () => {
+    // san=98, max=99, so at most 1 can be recovered even if d3 rolls 3
+    // rng: 0.0 → roll=1 (success), 0.99 → d3=floor(0.99*3)+1=3
+    let call = 0;
+    const rng = () => [0.0, 0.99][call++];
+    const result = rollSanRecovery(50, 98, 99, rng);
+    expect(result.roll).toBe(1);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(1);
+  });
+
+  it('rolls d100 in range 1-100 at boundary values', () => {
+    // rng=0.0 → roll=1
+    expect(rollSanRecovery(50, 40, 99, () => 0.0).roll).toBe(1);
+    // rng=0.99 → floor(99)+1=100
+    expect(rollSanRecovery(50, 40, 99, () => 0.99).roll).toBe(100);
   });
 });
