@@ -38,13 +38,13 @@ describe('coc_lore 条件解锁', () => {
   describe('神话典籍 — 接触禁书后才列出书目', () => {
     it('锁定态不列出具体典籍', () => {
       const out = renderTemplate(lore().necronomicon.content);
-      expect(out).not.toContain('无名祭祀书');
+      expect(out).not.toContain('无名邪教');
     });
 
     it('解锁「接触禁书」后列出典籍详情', () => {
       set('剧情.已解锁.接触禁书', 'true');
       const out = renderTemplate(lore().necronomicon.content);
-      expect(out).toContain('无名祭祀书');
+      expect(out).toContain('无名邪教');
     });
   });
 

@@ -107,7 +107,8 @@ function buildCharSheetDescriptionLegacy(input: MakeNpcInput): string {
 
 export function makeNpc(input: MakeNpcInput): ScenarioCharacter {
   const chars: Record<COC7Characteristic, number> = { ...DEFAULT_CHARS, ...input.chars } as Record<COC7Characteristic, number>;
-  const { hpMax, sanMax, mpMax, db, build } = deriveSecondaryStats(chars);
+  const mythosSkill = input.skills?.['克苏鲁神话'] ?? 0;
+  const { hpMax, sanMax, mpMax, db, build } = deriveSecondaryStats(chars, mythosSkill);
   const skills: Record<string, { base: number; current: number }> = {};
   for (const [name, v] of Object.entries(input.skills ?? {})) {
     skills[name] = { base: v, current: v };

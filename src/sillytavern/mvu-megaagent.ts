@@ -45,7 +45,7 @@ import type { RelationType, ScenarioCharacter } from '../types/scenario';
 import { extractVariablesWithLLM } from './mvu-extractor';
 import type { TokenUsage } from './stream-parser';
 import { getTreePath, setTreePath } from './mvu-var-access';
-import { formatEpochDisplay, computeExpectedProgress, clampDarkThreadProgress } from './time-engine';
+import { formatEpochDisplay, computeExpectedProgress, clampDarkThreadProgress, shouldResetDailySan } from './time-engine';
 import { useNpcMemoryStore } from '../stores/useNpcMemoryStore';
 import { normalizeEmotion, type NpcMemoryUpdate } from '../types/npc-world-memory';
 
@@ -775,6 +775,35 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
       }
       varStore.setStatData(sd);
       summary.timeAdvancedMinutes = deltaMinutes;
+
+      // Day-boundary crossing → reset dailySanLoss & count down indefiniteInsanity
+      if (startDate && shouldResetDailySan(startDate, prevEpoch, newEpoch)) {
+        const csStore = useCharSheetStore.getState();
+        const sheet = csStore.sheet;
+        let updated = false;
+        let patched = sheet;
+        // Reset daily SAN accumulator
+        if (patched.dailySanLoss > 0) {
+          patched = { ...patched, dailySanLoss: 0 };
+          updated = true;
+        }
+        // Count down indefinite insanity recovery days
+        if (patched.indefiniteInsanity?.active && patched.indefiniteInsanity.daysLeft > 0) {
+          const newDaysLeft = patched.indefiniteInsanity.daysLeft - 1;
+          patched = {
+            ...patched,
+            indefiniteInsanity: {
+              ...patched.indefiniteInsanity,
+              daysLeft: newDaysLeft,
+              ...(newDaysLeft <= 0 ? { active: false } : {}),
+            },
+          };
+          updated = true;
+        }
+        if (updated) {
+          csStore.setSheet(patched);
+        }
+      }
     }
   }
 
@@ -818,11 +847,21 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
 
   // evaluateKeyClues → useKeyClueStore + useClueStore
   if (result.evaluateKeyClues && result.evaluateKeyClues.matches.length > 0) {
+    let validMatches = 0;
     for (const m of result.evaluateKeyClues.matches) {
+      // Validate clue actually exists in the active clue store
+      const clueExists = useClueStore.getState().clues.some(
+        c => c.status !== 'archived' && (c.name === m.clueName.trim() || c.name.includes(m.clueName.trim()) || m.clueName.trim().includes(c.name))
+      );
+      if (!clueExists) {
+        console.warn('[mvu-megaagent] evaluateKeyClues: clue not found in store, skipping:', m.clueName);
+        continue;
+      }
       useKeyClueStore.getState().markPillarUncovered(m.pillarId, m.clueName);
       useClueStore.getState().markClueKey(m.clueName, m.pillarId);
+      validMatches++;
     }
-    summary.evaluateKeyCluesMatches = result.evaluateKeyClues.matches.length;
+    summary.evaluateKeyCluesMatches = validMatches;
   }
 
   // locationElements → useLocationElementStore

@@ -7,6 +7,9 @@ import {
   buildDevelopmentRows,
   buildDevelopmentOps,
   hasTickedDevelopmentSkill,
+  rollLuckImprovement,
+  buildLuckRow,
+  buildLuckOps,
 } from '../skill-improvement';
 import type { CharacterSheet } from '../../types';
 
@@ -233,5 +236,51 @@ describe('A3.4 hasTickedDevelopmentSkill', () => {
       信用评级: { base: 30, current: 30, ticked: true },
       侦查: { base: 25, current: 40, ticked: true },
     }))).toBe(true);
+  });
+});
+
+/* ============================== Luck Improvement ============================== */
+
+describe('A3.4 rollLuckImprovement', () => {
+  it('d100 > current → improved：current=50, rng=()=>0.5 → d100=51>50 → +d10=6 → final=56', () => {
+    const r = rollLuckImprovement(50, () => 0.5);
+    expect(r.d100).toBe(51);
+    expect(r.improved).toBe(true);
+    expect(r.d10).toBe(6);
+    expect(r.finalValue).toBe(56);
+  });
+  it('d100 ≤ current → not improved：current=50, rng=()=>0.05 → d100=6≤50 → unchanged', () => {
+    const r = rollLuckImprovement(50, () => 0.05);
+    expect(r.d100).toBe(6);
+    expect(r.improved).toBe(false);
+    expect(r.d10).toBe(0);
+    expect(r.finalValue).toBe(50);
+  });
+});
+
+describe('A3.4 buildLuckRow', () => {
+  it('improved 路径', () => {
+    const row = buildLuckRow(50, () => 0.5);
+    expect(row.before).toBe(50);
+    expect(row.after).toBe(56);
+    expect(row.improved).toBe(true);
+    expect(row.d100).toBe(51);
+    expect(row.d10).toBe(6);
+  });
+  it('未提升路径', () => {
+    const row = buildLuckRow(50, () => 0.05);
+    expect(row.improved).toBe(false);
+    expect(row.after).toBe(50);
+  });
+});
+
+describe('A3.4 buildLuckOps', () => {
+  it('improved → 发 replace /调查员/幸运', () => {
+    const ops = buildLuckOps({ before: 50, after: 56, d100: 51, d10: 6, improved: true });
+    expect(ops).toEqual([{ op: 'replace', path: '/调查员/幸运', value: 56 }]);
+  });
+  it('not improved → 空数组', () => {
+    const ops = buildLuckOps({ before: 50, after: 50, d100: 6, d10: 0, improved: false });
+    expect(ops).toEqual([]);
   });
 });

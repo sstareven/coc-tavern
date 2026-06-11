@@ -7,6 +7,9 @@ import {
   executeRest,
   computeExpectedProgress,
   clampDarkThreadProgress,
+  shouldResetDailySan,
+  rollSanRecovery,
+  fatiguePenalty,
 } from './time-engine';
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +138,44 @@ describe('accumulateTime', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/*  shouldResetDailySan                                                */
+/* ------------------------------------------------------------------ */
+
+describe('shouldResetDailySan', () => {
+  const startDate = '1930-01-01T08:00';
+
+  it('returns false when epoch stays within the same day', () => {
+    // 08:00 + 100min = 09:40, still Jan 1
+    expect(shouldResetDailySan(startDate, 100, 200)).toBe(false);
+  });
+
+  it('returns true when epoch crosses a day boundary', () => {
+    // 08:00 + 0min = Jan 1 08:00 → 08:00 + 1440min = Jan 2 08:00
+    expect(shouldResetDailySan(startDate, 0, 1440)).toBe(true);
+  });
+
+  it('returns true when crossing midnight specifically', () => {
+    // Use UTC-explicit start so day boundaries are predictable
+    const sd = '1930-01-01T00:00:00Z';
+    // epoch 1380 = 23:00 UTC Jan 1, epoch 1500 = 01:00 UTC Jan 2
+    expect(shouldResetDailySan(sd, 1380, 1500)).toBe(true);
+  });
+
+  it('returns false for invalid startDate', () => {
+    expect(shouldResetDailySan('not-a-date', 0, 1440)).toBe(false);
+  });
+
+  it('returns false for empty startDate', () => {
+    expect(shouldResetDailySan('', 0, 1440)).toBe(false);
+  });
+
+  it('returns false when newEpoch <= oldEpoch', () => {
+    expect(shouldResetDailySan(startDate, 1440, 1440)).toBe(false);
+    expect(shouldResetDailySan(startDate, 1440, 100)).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /*  canRestNow                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -243,5 +284,91 @@ describe('clampDarkThreadProgress', () => {
     // ceiling = 60
     // result = max(45, min(60, 40)) = max(45, 40) = 45
     expect(clampDarkThreadProgress(45, 50, 40)).toBe(45);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  rollSanRecovery                                                    */
+/* ------------------------------------------------------------------ */
+
+describe('rollSanRecovery', () => {
+  it('succeeds when roll <= pow and recovers 1D3 SAN', () => {
+    // rng returns 0.49 for d100 → floor(0.49*100)+1 = 50, then 0.5 for d3 → floor(0.5*3)+1 = 2
+    let call = 0;
+    const rng = () => [0.49, 0.5][call++];
+    const result = rollSanRecovery(50, 40, 99, rng);
+    expect(result.roll).toBe(50);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(2);
+  });
+
+  it('fails when roll > pow', () => {
+    // rng returns 0.50 → floor(0.50*100)+1 = 51, which is > 50
+    const rng = () => 0.50;
+    const result = rollSanRecovery(50, 40, 99, rng);
+    expect(result.roll).toBe(51);
+    expect(result.success).toBe(false);
+    expect(result.recovered).toBe(0);
+  });
+
+  it('recovers 0 when already at sanMax even on success', () => {
+    // rng returns 0.0 → roll = 1 (always success)
+    const rng = () => 0.0;
+    const result = rollSanRecovery(50, 99, 99, rng);
+    expect(result.roll).toBe(1);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(0);
+  });
+
+  it('caps recovery so SAN does not exceed sanMax', () => {
+    // san=98, max=99, so at most 1 can be recovered even if d3 rolls 3
+    // rng: 0.0 → roll=1 (success), 0.99 → d3=floor(0.99*3)+1=3
+    let call = 0;
+    const rng = () => [0.0, 0.99][call++];
+    const result = rollSanRecovery(50, 98, 99, rng);
+    expect(result.roll).toBe(1);
+    expect(result.success).toBe(true);
+    expect(result.recovered).toBe(1);
+  });
+
+  it('rolls d100 in range 1-100 at boundary values', () => {
+    // rng=0.0 → roll=1
+    expect(rollSanRecovery(50, 40, 99, () => 0.0).roll).toBe(1);
+    // rng=0.99 → floor(99)+1=100
+    expect(rollSanRecovery(50, 40, 99, () => 0.99).roll).toBe(100);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  fatiguePenalty                                                      */
+/* ------------------------------------------------------------------ */
+
+describe('fatiguePenalty', () => {
+  it('returns 0 for 0 hours', () => {
+    expect(fatiguePenalty(0)).toBe(0);
+  });
+
+  it('returns 0 for 12 hours', () => {
+    expect(fatiguePenalty(12)).toBe(0);
+  });
+
+  it('returns -20 for 24 hours', () => {
+    expect(fatiguePenalty(24)).toBe(-20);
+  });
+
+  it('returns -40 for 48 hours', () => {
+    expect(fatiguePenalty(48)).toBe(-40);
+  });
+
+  it('returns -60 for 72 hours', () => {
+    expect(fatiguePenalty(72)).toBe(-60);
+  });
+
+  it('returns 0 just below 24h boundary', () => {
+    expect(fatiguePenalty(23.9)).toBe(0);
+  });
+
+  it('returns -20 for values between 24 and 48', () => {
+    expect(fatiguePenalty(36)).toBe(-20);
   });
 });

@@ -131,6 +131,8 @@ export interface BookPage {
   npcMemorySnapshot?: Record<string, import('./npc-world-memory').NpcMemory>;
   /** 本回合结束时的世界 Memory 快照——开关开启时随页持久化，供删页/翻页回溯。 */
   worldMemorySnapshot?: import('./npc-world-memory').WorldMemory;
+  /** 本回合结束时的真相支柱快照——供删页回溯恢复 pillar 进度（防 clearAll 丢失揭示状态）。 */
+  keyClueSnapshot?: { pillars: KeyPillar[]; saveWorldMode: boolean };
   /** 本页生成记录：本次主生成消耗的 token 与耗时，随页面持久化、翻回该页即显示。 */
   genStats?: PageGenStats;
   /** 脱战后固化的战斗日志（页锚定，随页持久化，供删页重放重建）。 */
@@ -865,6 +867,7 @@ export interface CombatWeapon {
   skill: number;
   damage: string;          // 伤害骰式，如 "1D10"、"1D8+1D4"、"1D3"
   impaling: boolean;
+  crushing?: boolean;
   ranged: boolean;
   baseRange?: number;
   attacksPerRound: number;
@@ -955,6 +958,9 @@ export interface Encounter {
   diceRecords: DiceRecord[];
   status: 'active' | 'resolving' | 'ended';
   endReason?: CombatEndReason;
+  /** 本场战斗的典型交战距离（由 LLM 据叙事场景判定）：close=室内近距/normal=一般/far=室外远距/extreme=极远。
+   *  火器射击据此加减奖惩骰（close +1 奖励骰，far +1 惩罚骰，extreme +2 惩罚骰）。 */
+  rangeTier?: 'close' | 'normal' | 'far' | 'extreme';
   /** 战斗所属页的稳定 id——战斗面板只在查看该页时显示(翻去别页见正常左右页)。 */
   anchorPageId?: string;
   /** 触发本场战斗的选项/动作文本——脱战生成正文时并入输入。 */
@@ -973,6 +979,10 @@ export interface Encounter {
     /** kind='maneuver' 时战技种类 */
     maneuverKind?: ManeuverKind;
   } | null;
+  /** 突袭轮：一方伏击另一方时，伏击方先行动一整轮，被突袭方不能行动。 */
+  surpriseRound?: boolean;
+  /** 被突袭的阵营：该阵营在突袭轮(round=1)中被跳过。 */
+  surprisedFaction?: 'player' | 'enemy';
 }
 
 export interface CombatLog {

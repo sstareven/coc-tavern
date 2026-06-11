@@ -15,7 +15,8 @@
  */
 
 import type { EvaluatorContext } from './post-settle-evaluators';
-import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE } from './coc7e-tables';
+import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE, type CocTableEntry } from './coc7e-tables';
+import { rollPhobia, rollMania } from './coc-rules';
 
 /**
  * Rng 注入：测试用 seqRng 替换。默认返回 1..10 均匀分布——COC7e 表 VII/VIII 与回合数皆走 1d10。
@@ -31,6 +32,22 @@ export interface TriggerBoutResult {
   roundsLeft: number;
   label: string;
   description: string;
+  acquiredPhobia?: string;
+  acquiredMania?: string;
+}
+
+
+function applyPhobiaManiaOps(ctx: EvaluatorContext, row: CocTableEntry | undefined, result: TriggerBoutResult, rng: () => number): void {
+  if (!row) return;
+  if (row.description.includes('恐惧症')) {
+    const rolled = rollPhobia(rng);
+    ctx.applyCorrectiveOps([{ op: 'insert', path: '/调查员/恐惧症', value: rolled.label }]);
+    result.acquiredPhobia = rolled.label;
+  } else if (row.description.includes('狂躁症')) {
+    const rolled = rollMania(rng);
+    ctx.applyCorrectiveOps([{ op: 'insert', path: '/调查员/狂躁症', value: rolled.label }]);
+    result.acquiredMania = rolled.label;
+  }
 }
 
 /**
@@ -44,6 +61,7 @@ export function triggerBout(
   ctx: EvaluatorContext,
   mode: 'realtime' | 'summary',
   rollD10: RollD10 = defaultRollD10,
+  rng01: () => number = Math.random,
 ): TriggerBoutResult {
   if (mode === 'realtime') {
     const roundsLeft = rollD10();           // 1..10 回合
@@ -56,7 +74,9 @@ export function triggerBout(
       { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: roundsLeft },
       { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'realtime', table: 'VII', entry } },
     ]);
-    return { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
+    const result: TriggerBoutResult = { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
+    applyPhobiaManiaOps(ctx, row, result, rng01);
+    return result;
   }
 
   // summary：投 Table VIII。A2.6 LLM 时间跳跃由后续 ticket 接驳；本桶暂不发起子调用,
@@ -70,5 +90,7 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: 0 },
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
-  return { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
+  const result: TriggerBoutResult = { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
+  applyPhobiaManiaOps(ctx, row, result, rng01);
+  return result;
 }

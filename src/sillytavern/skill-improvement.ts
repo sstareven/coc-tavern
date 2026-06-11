@@ -159,6 +159,34 @@ export function buildDevelopmentOps(rows: DevPhaseRow[]): MvuOp[] {
   return ops;
 }
 
+/* ============================== Luck Improvement (A3.4) ============================== */
+
+/**
+ * 幸运成长：与技能成长同机制（d100 > current OR ≥ 96 → +1d10，上限 99）。
+ * COC7e 发展阶段中，调查员可尝试提升幸运值。
+ */
+export function rollLuckImprovement(currentLuck: number, rng: RNG = defaultRng): SkillImprovementResult {
+  return rollSkillImprovement(currentLuck, rng);
+}
+
+export interface LuckDevRow {
+  before: number;
+  after: number;
+  d100: number;
+  d10: number;
+  improved: boolean;
+}
+
+export function buildLuckRow(currentLuck: number, rng: RNG = defaultRng): LuckDevRow {
+  const r = rollSkillImprovement(currentLuck, rng);
+  return { before: currentLuck, after: r.finalValue, d100: r.d100, d10: r.d10, improved: r.improved };
+}
+
+export function buildLuckOps(row: LuckDevRow): MvuOp[] {
+  if (!row.improved) return [];
+  return [{ op: 'replace', path: '/调查员/幸运', value: row.after }];
+}
+
 /* ============================== UI Helper ============================== */
 
 /**

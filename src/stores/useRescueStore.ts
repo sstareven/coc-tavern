@@ -7,6 +7,7 @@ import type { RescueEnding } from '../types/scenario';
 import { useVariableStore } from './useVariableStore';
 import { setTreePath } from '../sillytavern/mvu-var-access';
 import { useDarkThreadStore } from './useDarkThreadStore';
+import { useKeyClueStore } from './useKeyClueStore';
 
 export type RescueGlobalStatus = '潜伏' | '对峙' | '锁定';
 
@@ -287,9 +288,18 @@ export const useRescueStore = create<RescueStore>()((set, get) => ({
     // 已锁定不被回退覆盖(spec §1.2「不降级」)
     if (globalStatus === '锁定' && winningEndingId) return;
 
+    const { saveWorldMode } = useKeyClueStore.getState();
+    if (!saveWorldMode) {
+      // Before save-world mode is unlocked, rescue paths stay latent
+      // Allow statData writes but do NOT promote globalStatus or unlock paths
+      return;
+    }
+
     const nextStatusRaw = rescue['全局状态'];
     let nextStatus: RescueGlobalStatus =
       nextStatusRaw === '对峙' || nextStatusRaw === '锁定' ? nextStatusRaw : '潜伏';
+    // Prevent skipping 对峙 phase — must go 潜伏 → 对峙 → 锁定 in order
+    if (nextStatus === '锁定' && globalStatus === '潜伏') nextStatus = '对峙';
     const winnerName = typeof rescue['胜出路径'] === 'string' ? (rescue['胜出路径'] as string) : '';
     // 反查 winnerName → endingId
     let nextWinning: string | null = null;
@@ -310,8 +320,9 @@ export const useRescueStore = create<RescueStore>()((set, get) => ({
       if (!incoming) return p;
       const unlocked = incoming['已解锁'] === true;
       const progressRaw = incoming['进度'];
+      const MAX_PROGRESS_DELTA = 25;
       const progress = typeof progressRaw === 'number'
-        ? clamp01_100(progressRaw)
+        ? clamp01_100(Math.min(progressRaw, p.progress + MAX_PROGRESS_DELTA))
         : p.progress;
       const msIds = Array.isArray(incoming['已达里程碑'])
         ? (incoming['已达里程碑'] as unknown[]).filter((x): x is string => typeof x === 'string')

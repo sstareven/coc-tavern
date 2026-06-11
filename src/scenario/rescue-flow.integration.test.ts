@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useRescueStore } from '../stores/useRescueStore';
 import { useVariableStore } from '../stores/useVariableStore';
 import { useDarkThreadStore } from '../stores/useDarkThreadStore';
+import { useKeyClueStore } from '../stores/useKeyClueStore';
 import { setTreePath } from '../sillytavern/mvu-var-access';
 import type { RescueEnding } from '../types/scenario';
 
@@ -45,6 +46,7 @@ const ENDINGS: RescueEnding[] = [
 function reset() {
   useRescueStore.getState().clear();
   useDarkThreadStore.getState().clearAll();
+  useKeyClueStore.getState().clearAll();
   useVariableStore.setState({ statData: {}, variables: {} } as never);
 }
 
@@ -73,6 +75,7 @@ describe('rescue-flow integration · 完整链路', () => {
 
   it('LLM 解锁单路径 → globalStatus 升「对峙」(经 hydrateFromStatData)', () => {
     useRescueStore.getState().initFromScenario(ENDINGS);
+    useKeyClueStore.setState({ saveWorldMode: true });
     llmWriteStatData([
       { path: '剧情.救援.全局状态', value: '对峙' },
       { path: '剧情.救援.路径.封印古神.已解锁', value: true },
@@ -129,6 +132,7 @@ describe('rescue-flow integration · 完整链路', () => {
 
   it('LLM 写 statData 显示胜出 → hydrateFromStatData 自动 lockOutcome(spec §1.2)', () => {
     useRescueStore.getState().initFromScenario(ENDINGS);
+    useKeyClueStore.setState({ saveWorldMode: true });
     // 模拟 LLM 主回执 JSONPatch:同回合一次性写 解锁/进度满/胜出
     llmWriteStatData([
       { path: '剧情.救援.全局状态', value: '锁定' },
@@ -141,7 +145,8 @@ describe('rescue-flow integration · 完整链路', () => {
     const s = useRescueStore.getState();
     expect(s.globalStatus).toBe('锁定');
     expect(s.winningEndingId).toBe('dispel');
-    expect(s.paths.find((p) => p.endingId === 'dispel')?.progress).toBe(100);
+    // progress capped: from 0, LLM wrote 100, but max delta=25 → 25
+    expect(s.paths.find((p) => p.endingId === 'dispel')?.progress).toBe(25);
   });
 
   it('锁定后 hydrateFromStatData 不被回退(LLM 再写 statData 也不降级)', () => {

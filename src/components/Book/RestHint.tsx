@@ -2,7 +2,7 @@ import { useVariableStore } from '../../stores/useVariableStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
-import { formatEpochDisplay, canRestNow, executeRest } from '../../sillytavern/time-engine';
+import { formatEpochDisplay, canRestNow, executeRest, rollSanRecovery } from '../../sillytavern/time-engine';
 
 export function RestHint() {
   const statData = useVariableStore((s) => s.statData);
@@ -27,12 +27,28 @@ export function RestHint() {
     }
     varStore.setStatData(sd);
 
-    // HP +1 (COC7e 自然恢复)
+    // Clone sheet once, apply HP + SAN recovery, write once
     const cs = useCharSheetStore.getState();
-    const hp = cs.sheet.secondary.hp;
+    const newSheet = structuredClone(cs.sheet);
+    let sheetChanged = false;
+
+    // HP +1 (COC7e natural recovery)
+    const hp = newSheet.secondary.hp;
     if (hp.current < hp.max && hpRecovered > 0) {
-      const newSheet = structuredClone(cs.sheet);
       newSheet.secondary.hp.current = Math.min(hp.max, hp.current + hpRecovered);
+      sheetChanged = true;
+    }
+
+    // SAN self-help: d100 vs POW, success = +1D3
+    const san = newSheet.secondary.san;
+    const pow = newSheet.characteristics.POW;
+    const sanResult = rollSanRecovery(pow, san.current, san.max);
+    if (sanResult.recovered > 0) {
+      newSheet.secondary.san.current = san.current + sanResult.recovered;
+      sheetChanged = true;
+    }
+
+    if (sheetChanged) {
       cs.setSheet(newSheet);
     }
   };

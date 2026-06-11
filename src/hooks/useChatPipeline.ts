@@ -89,6 +89,7 @@ import { buildCharacterVariables, buildAbilityBrief } from '../sillytavern/chara
 import { buildContextFromPages } from '../sillytavern/context-builder';
 import { buildNameSubstitutions, applyNameSubstitutions } from '../sillytavern/npc-name-substitution';
 import { getTreePath } from '../sillytavern/mvu-var-access';
+import { fatiguePenalty } from '../sillytavern/time-engine';
 import { kvGet } from '../db/kv';
 import type { TokenUsage } from '../sillytavern/stream-parser';
 
@@ -612,7 +613,10 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           const lastRestEpoch = Number(getTreePath(rawStat, '世界.时间.lastRestEpoch')) || 0;
           const hoursSinceRest = (timeEpoch - lastRestEpoch) / 60;
           let timeCtx = '[当前剧情时间] ' + timeDisplay;
-          if (hoursSinceRest >= 18) {
+          if (hoursSinceRest >= 24) {
+            const penalty = fatiguePenalty(hoursSinceRest);
+            timeCtx += '\n调查员已连续活动 ' + Math.floor(hoursSinceRest) + ' 小时，严重睡眠不足，所有技能检定' + penalty + '%。应在叙事中体现疲劳感。';
+          } else if (hoursSinceRest >= 18) {
             timeCtx += '\n调查员已连续活动 ' + Math.floor(hoursSinceRest) + ' 小时，应在叙事中体现疲劳感。';
           }
           addFormatPart(timeCtx);
@@ -1827,6 +1831,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             newPage.worldMemorySnapshot = structuredClone(useWorldMemoryStore.getState().world);
           }
         }
+        // 真相支柱快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
+        newPage.keyClueSnapshot = { pillars: structuredClone(useKeyClueStore.getState().pillars), saveWorldMode: useKeyClueStore.getState().saveWorldMode };
         // 拯救路径快照(与 sheetSnapshot/npcSnapshot 同回溯不变量;删页回溯据此 hydrate)
         newPage.rescue = useRescueStore.getState().toSnapshot();
 

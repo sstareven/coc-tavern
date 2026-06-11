@@ -132,6 +132,12 @@ describe('rollDamage（贯穿）', () => {
     const r = rollDamage(knife, '1D4', true, seqRng([0.3])); // 4(满)+4(满)+追加1D4(r=0.3→2) ⇒ 10
     expect(r.total).toBe(10);
   });
+  it('钝击极限成功：武器骰+DB 取满，无追加骰', () => {
+    const club: CombatWeapon = { name: '棍', skill: 50, damage: '1D8', impaling: false, crushing: true, ranged: false, attacksPerRound: 1 };
+    const r = rollDamage(club, '1D4', true, seqRng([])); // 8(满)+4(满)=12, 无追加骰 → 不消费 rng
+    expect(r.total).toBe(12);
+    expect(r.dice).toEqual([{ value: 8, faces: 8 }, { value: 4, faces: 4 }]);
+  });
 });
 
 describe('resolveOpposed（近战对抗，每方掷 个位+十位）', () => {

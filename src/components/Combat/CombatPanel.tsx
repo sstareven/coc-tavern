@@ -9,7 +9,7 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
-  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense,
+  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense, playerFirstAid,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
@@ -130,7 +130,8 @@ export function CombatPanel() {
   const enemies = enc.combatants.filter((c) => c.faction === 'enemy' && !isPartyMember(c));
   const allies = enc.combatants.filter((c) => c.faction === 'ally');
   const sheet = useCharSheetStore.getState().sheet;
-  const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active';
+  const isSurprised = enc.surpriseRound && enc.round === 1 && player?.faction === enc.surprisedFaction;
+  const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active' && !isSurprised;
   const resolving = enc.status === 'resolving';
   // 「忙线」: 骰子动画在播 / 日志未追平 → 锁所有玩家动作按钮。
   // 否则在 AI 动画中连点"攻击"会触发 playerAttack→advanceUntilPlayerOrEnd 把后续 AI 一次推完,
@@ -274,6 +275,15 @@ export function CombatPanel() {
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!canAct} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!canAct} onClick={() => act(false, doCallHelp)} />}
+        {(() => {
+          // 急救目标：自身或友方中 HP < maxHp 且未死亡的最伤者
+          const candidates = enc.combatants.filter((c) => (c.faction === 'player' || c.faction === 'ally') && !c.flags.dead && c.hp < c.maxHp);
+          const target = candidates.length > 0 ? candidates.reduce((a, b) => (a.hp / a.maxHp) < (b.hp / b.maxHp) ? a : b) : null;
+          return target ? (
+            <ActionBtn label="急救" disabled={!canAct} title={`对 ${target.name} 急救（HP ${target.hp}/${target.maxHp}）`}
+              onClick={() => act(false, () => setEncounter(playerFirstAid(enc, target.id)))} />
+          ) : null;
+        })()}
         <ActionBtn label="逃跑" disabled={!canAct} onClick={() => act(false, doFlee)} />
         {enc.test && <ActionBtn label="结束测试" onClick={() => act(false, endTest)} />}
       </div>

@@ -277,3 +277,60 @@ describe('近战日志拆行 + 倒地劣势', () => {
     expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
   });
 });
+
+describe('attacksPerRound > 1 (semi-auto handguns fire multiple shots)', () => {
+  it('attacksPerRound=2 fires twice, consuming 2 ammo and producing 2 log entries', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '.45自动', skill: 80, damage: '1D10+2', impaling: true, ranged: true, attacksPerRound: 2, loadedAmmo: 6, magazine: 7 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 30, maxHp: 30 });
+    const enc = mkEnc([player, enemy], 'e');
+    // Both shots hit: shot1 d100=10(success) dmg=10+2, shot2 d100=10(success) dmg=10+2
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.1, 0.0, 0.1, 0.9, 0.1]));
+    // Two shot labels [1/2] and [2/2]
+    expect(out.log.filter((l) => l.text.includes('[1/2]')).length).toBe(1);
+    expect(out.log.filter((l) => l.text.includes('[2/2]')).length).toBe(1);
+    // 2 ammo consumed
+    const w = out.combatants.find((c) => c.id === 'p')!.weapons[0];
+    expect(w.loadedAmmo).toBe(4); // 6 - 2
+  });
+
+  it('second shot stops if target dies from first shot', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '.45自动', skill: 80, damage: '1D10+2', impaling: true, ranged: true, attacksPerRound: 2, loadedAmmo: 6, magazine: 7 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 1, maxHp: 10 });
+    const enc = mkEnc([player, enemy], 'e');
+    // shot1 hits: d100=10 success, dmg roll large enough to kill
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.9]));
+    // Only 1 shot fired (target dead after first)
+    expect(out.log.filter((l) => l.text.includes('[2/2]')).length).toBe(0);
+    expect(out.combatants.find((c) => c.id === 'p')!.weapons[0].loadedAmmo).toBe(5);
+  });
+
+  it('second shot stops if weapon jams on first shot', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '.45自动', skill: 80, damage: '1D10+2', impaling: true, ranged: true, attacksPerRound: 2, loadedAmmo: 6, magazine: 7 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 30, maxHp: 30 });
+    const enc = mkEnc([player, enemy], 'e');
+    // d100WithDice(0,0,rng): ones=floor(rng*10), tens=floor(rng*10)*10; 0+0=100→fumble→jam
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.0, 0.5, 0.5]));
+    expect(out.log.filter((l) => l.text.includes('卡壳')).length).toBe(1);
+    expect(out.log.filter((l) => l.text.includes('[2/2]')).length).toBe(0);
+  });
+
+  it('attacksPerRound=1 weapon does not show shot labels', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '左轮', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 30, maxHp: 30 });
+    const enc = mkEnc([player, enemy], 'e');
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.1]));
+    expect(out.log.some((l) => l.text.includes('[1/'))).toBe(false);
+  });
+});

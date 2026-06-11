@@ -120,13 +120,20 @@ function maxDiceOfFormula(formula: string): { total: number; dice: RolledDie[] }
   return { total, dice };
 }
 
-/** 武器伤害（含 DB）。impale=true 时贯穿：武器骰+DB 取满，贯穿武器再追加一份武器伤害骰。返回逐颗骰子供动画。 */
+/** 武器伤害（含 DB）。impale=true 时极限/大成功：贯穿武器→武器骰+DB 取满+追加一份武器伤害骰；钝击武器→武器骰+DB 取满（无追加骰）；普通武器→正常掷骰。返回逐颗骰子供动画。 */
 export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rng: Rng = defaultRng): { total: number; dice: RolledDie[] } {
   if (!impale) {
     const w = rollDamageDice(weapon.damage, rng);
     const d = db && db !== '0' ? rollDamageDice(db, rng) : { total: 0, dice: [] as RolledDie[] };
     return { total: w.total + d.total, dice: [...w.dice, ...d.dice] };
   }
+  if (weapon.crushing) {
+    // 钝击极限/大成功：武器骰+DB 取满（无追加骰）
+    const wMax = maxDiceOfFormula(weapon.damage);
+    const dMax = db && db !== '0' ? maxDiceOfFormula(db) : { total: 0, dice: [] as RolledDie[] };
+    return { total: wMax.total + dMax.total, dice: [...wMax.dice, ...dMax.dice] };
+  }
+  // 贯穿极限/大成功：武器骰+DB 取满 + 追加一份武器骰
   const wMax = maxDiceOfFormula(weapon.damage);
   const dMax = db && db !== '0' ? maxDiceOfFormula(db) : { total: 0, dice: [] as RolledDie[] };
   let total = wMax.total + dMax.total;
@@ -183,12 +190,13 @@ export function resolveOpposed(
   return { winner, attackerRoll: aRoll, attackerLevel: aLevel, defenderRoll: dRoll, defenderLevel: dLevel };
 }
 
-export type DistanceTier = 'normal' | 'far' | 'extreme';
+export type DistanceTier = 'close' | 'normal' | 'far' | 'extreme';
 
-/** 射击（非对抗）。距离档加难度（far=困难/extreme=极难，用惩罚骰近似）。大失败→卡壳。 */
+/** 射击（非对抗）。距离档加难度（close=贴身+1奖励骰/far=困难+1惩罚骰/extreme=极难+2惩罚骰）。大失败→卡壳。 */
 export function resolveRanged(firearmSkill: number, tier: DistanceTier, rng: Rng = defaultRng, bonus = 0, penalty = 0) {
+  const tierBonus = tier === 'close' ? 1 : 0;
   const tierPenalty = tier === 'far' ? 1 : tier === 'extreme' ? 2 : 0;
-  const roll = d100WithDice(bonus, penalty + tierPenalty, rng);
+  const roll = d100WithDice(bonus + tierBonus, penalty + tierPenalty, rng);
   const level = successLevel(roll.finalRoll, firearmSkill);
   const hit = LEVEL_RANK[level] >= LEVEL_RANK['success'];
   const jam = level === 'fumble';

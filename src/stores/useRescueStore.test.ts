@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useRescueStore } from './useRescueStore';
 import { useVariableStore } from './useVariableStore';
 import { useDarkThreadStore } from './useDarkThreadStore';
+import { useKeyClueStore } from './useKeyClueStore';
 import type { RescueEnding } from '../types/scenario';
 
 function reset() {
   useRescueStore.getState().clear();
   useDarkThreadStore.getState().clearAll();
+  useKeyClueStore.getState().clearAll();
   useVariableStore.setState({ statData: {}, variables: {} } as never);
 }
 
@@ -331,6 +333,7 @@ describe('useRescueStore - hydrateFromStatData', () => {
 
   it('从 statData 读回路径状态', () => {
     useRescueStore.getState().initFromScenario(SAMPLE);
+    useKeyClueStore.setState({ saveWorldMode: true });
     const stat: Record<string, unknown> = {
       剧情: {
         救援: {
@@ -348,13 +351,15 @@ describe('useRescueStore - hydrateFromStatData', () => {
     expect(s.globalStatus).toBe('对峙');
     const seal = s.paths.find((p) => p.endingId === 'seal')!;
     expect(seal.unlocked).toBe(true);
-    expect(seal.progress).toBe(50);
+    // progress capped: from 0, LLM wrote 50, but max delta=25 → 25
+    expect(seal.progress).toBe(25);
     expect(seal.achievedMilestoneIds).toEqual(['s1', 's2']);
     expect(seal.lastNarration).toBe('完成第二符');
   });
 
   it('胜出路径已填时自动 lockOutcome(spec §1.2)', () => {
     useRescueStore.getState().initFromScenario(SAMPLE);
+    useKeyClueStore.setState({ saveWorldMode: true });
     const stat: Record<string, unknown> = {
       剧情: {
         救援: {
@@ -382,6 +387,7 @@ describe('useRescueStore - hydrateFromStatData', () => {
 
   it('幂等', () => {
     useRescueStore.getState().initFromScenario(SAMPLE);
+    useKeyClueStore.setState({ saveWorldMode: true });
     const stat: Record<string, unknown> = {
       剧情: {
         救援: {
