@@ -15,7 +15,7 @@
  */
 
 import type { EvaluatorContext } from './post-settle-evaluators';
-import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE } from './coc7e-tables';
+import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE, type CocTableEntry } from './coc7e-tables';
 import { rollPhobia, rollMania } from './coc-rules';
 
 /**
@@ -36,15 +36,14 @@ export interface TriggerBoutResult {
   acquiredMania?: string;
 }
 
-const PHOBIA_ENTRY = 6;
-const MANIA_ENTRY = 7;
 
-function applyPhobiaManiaOps(ctx: EvaluatorContext, entry: number, result: TriggerBoutResult, rng: () => number = Math.random): void {
-  if (entry === PHOBIA_ENTRY) {
+function applyPhobiaManiaOps(ctx: EvaluatorContext, row: CocTableEntry | undefined, result: TriggerBoutResult, rng: () => number): void {
+  if (!row) return;
+  if (row.description.includes('恐惧症')) {
     const rolled = rollPhobia(rng);
     ctx.applyCorrectiveOps([{ op: 'insert', path: '/调查员/恐惧症', value: rolled.label }]);
     result.acquiredPhobia = rolled.label;
-  } else if (entry === MANIA_ENTRY) {
+  } else if (row.description.includes('狂躁症')) {
     const rolled = rollMania(rng);
     ctx.applyCorrectiveOps([{ op: 'insert', path: '/调查员/狂躁症', value: rolled.label }]);
     result.acquiredMania = rolled.label;
@@ -76,7 +75,7 @@ export function triggerBout(
       { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'realtime', table: 'VII', entry } },
     ]);
     const result: TriggerBoutResult = { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
-    applyPhobiaManiaOps(ctx, entry, result, rng01);
+    applyPhobiaManiaOps(ctx, row, result, rng01);
     return result;
   }
 
@@ -92,6 +91,6 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
   const result: TriggerBoutResult = { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
-  applyPhobiaManiaOps(ctx, entry, result, rng01);
+  applyPhobiaManiaOps(ctx, row, result, rng01);
   return result;
 }
