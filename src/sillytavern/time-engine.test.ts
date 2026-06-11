@@ -9,6 +9,7 @@ import {
   clampDarkThreadProgress,
   shouldResetDailySan,
   rollSanRecovery,
+  fatiguePenalty,
 } from './time-engine';
 
 /* ------------------------------------------------------------------ */
@@ -335,5 +336,39 @@ describe('rollSanRecovery', () => {
     expect(rollSanRecovery(50, 40, 99, () => 0.0).roll).toBe(1);
     // rng=0.99 → floor(99)+1=100
     expect(rollSanRecovery(50, 40, 99, () => 0.99).roll).toBe(100);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  fatiguePenalty                                                      */
+/* ------------------------------------------------------------------ */
+
+describe('fatiguePenalty', () => {
+  it('returns 0 for 0 hours', () => {
+    expect(fatiguePenalty(0)).toBe(0);
+  });
+
+  it('returns 0 for 12 hours', () => {
+    expect(fatiguePenalty(12)).toBe(0);
+  });
+
+  it('returns -20 for 24 hours', () => {
+    expect(fatiguePenalty(24)).toBe(-20);
+  });
+
+  it('returns -40 for 48 hours', () => {
+    expect(fatiguePenalty(48)).toBe(-40);
+  });
+
+  it('returns -60 for 72 hours', () => {
+    expect(fatiguePenalty(72)).toBe(-60);
+  });
+
+  it('returns 0 just below 24h boundary', () => {
+    expect(fatiguePenalty(23.9)).toBe(0);
+  });
+
+  it('returns -20 for values between 24 and 48', () => {
+    expect(fatiguePenalty(36)).toBe(-20);
   });
 });

@@ -8,8 +8,20 @@ import {
 } from './combat-engine';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useVariableStore } from '../stores/useVariableStore';
+import { getTreePath } from './mvu-var-access';
+import { fatiguePenalty } from './time-engine';
 
 const defaultRng: Rng = Math.random;
+
+/** Compute current fatigue penalty from statData epoch times. */
+function getPlayerFatiguePenalty(): number {
+  const sd = useVariableStore.getState().statData;
+  const epoch = Number(getTreePath(sd, '世界.时间.epoch')) || 0;
+  const lastRest = Number(getTreePath(sd, '世界.时间.lastRestEpoch')) || 0;
+  const hours = (epoch - lastRest) / 60;
+  return fatiguePenalty(hours);
+}
 
 /** 开场对抗预设：复用「选项里那次对抗掷骰」作为进面板的第一次判定（跳过引擎重掷）。 */
 export interface OpeningPreset {
@@ -154,6 +166,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const weapon = attacker.weapons[weaponIdx] ?? attacker.weapons[0];
   if (!weapon) return enc;
   const dmgFormula = (db: string) => joinDmg(weapon.damage, db);
+  // COC7e sleep deprivation: player skill penalty
+  const fpPenalty = attacker.controlledBy === 'player' ? getPlayerFatiguePenalty() : 0;
 
   if (weapon.ranged) {
     if (!canFire(weapon) || attacker.flags.weaponJammed) {
@@ -166,7 +180,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const curTarget = byId(enc, targetId);
       const curWeapon = curAttacker.weapons[weaponIdx] ?? curAttacker.weapons[0];
       if (!curTarget || !alive(curTarget) || !canFire(curWeapon) || curAttacker.flags.weaponJammed) break;
-      const r = resolveRanged(curWeapon.skill, tier, rng);
+      const effectiveSkill = Math.max(1, curWeapon.skill + fpPenalty);
+      const r = resolveRanged(effectiveSkill, tier, rng);
       enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
       enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
@@ -196,7 +211,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const defenderValue = preset ? preset.defenderValue : (defense === 'fightback' ? target.fighting : target.dodge);
   const pm = proneMods(target); // 倒地(被压制)：攻方+1奖励骰、守方防御+1惩罚骰
   const bonus = outnumberBonusDice(target) + pm.atkBonus; // 守方本轮已防御→攻方得奖励骰
-  const op = preset ? preset.op : resolveOpposed(weapon.skill, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
+  const effectiveMelee = Math.max(1, weapon.skill + fpPenalty);
+  const op = preset ? preset.op : resolveOpposed(effectiveMelee, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
   enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
