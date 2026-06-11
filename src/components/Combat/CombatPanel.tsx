@@ -9,7 +9,7 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
-  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense, playerFirstAid,
+  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense, playerFirstAid, playerAim,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
@@ -272,6 +272,7 @@ export function CombatPanel() {
           disabled={!canAct}
           options={MANEUVERS.map((m) => ({ label: m.label, title: m.title, onClick: () => act(true, () => doManeuver(m.kind)) }))}
         />
+        {rangedIdx >= 0 && <ActionBtn label="瞄准" disabled={!canAct} title="花费本回合瞄准目标，下次射击 +1 奖励骰" onClick={() => act(false, () => setEncounter(playerAim(enc, enc.playerTargetId!)))} />}
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!canAct} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!canAct} onClick={() => act(false, doCallHelp)} />}

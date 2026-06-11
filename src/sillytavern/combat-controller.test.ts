@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, resolvePlayerDefense, type OpeningPreset } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, resolvePlayerDefense, playerAim, type OpeningPreset } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -405,5 +405,75 @@ describe('major wound CON check in performAttack', () => {
     const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9]));
     expect(out.log.some((l) => l.text.includes('CON 检定'))).toBe(false);
     expect(out.diceRecords.some((r) => r.purpose === '重伤CON检定')).toBe(false);
+  });
+});
+
+describe('B3: playerAim（瞄准动作）', () => {
+  it('瞄准设置 aimingAt flag 并产生日志', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // playerAim calls advanceUntilPlayerOrEnd which runs AI turns; provide enough rng
+    const out = playerAim(enc, 'e');
+    const p = out.combatants.find((c) => c.id === 'p')!;
+    expect(p.flags.aimingAt).toBe('e');
+    expect(out.log.some((l) => l.text.includes('瞄准'))).toBe(true);
+  });
+
+  it('瞄准后射击同一目标 → +1 奖励骰(resolveRanged bonus=1)，射击后 aimingAt 清除', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e' },
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // resolveRanged with bonus=1: d100WithDice(1,0,rng) → net=-1(bonus), tensCount=2
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30, tens[1]=floor(0.1*10)*10=10
+    // candidates: 30+1=31, 10+1=11 → min=11 → success ≤80
+    // damage: 1D10 rng=0.9→die(10,rng)=floor(0.9*10)+1=10
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3, 0.1, 0.9]));
+    // Hit should happen (d100=11 ≤ 80)
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+    // aimingAt cleared after shot
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBeUndefined();
+  });
+
+  it('射击未命中时也清除 aimingAt', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 20, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e' },
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // resolveRanged with bonus=1: d100WithDice(1,0,rng) → net=-1(bonus), tensCount=2
+    // ones=floor(0.5*10)=5, tens[0]=floor(0.8*10)*10=80, tens[1]=floor(0.7*10)*10=70
+    // candidates: 80+5=85, 70+5=75 → min=75 → fail >20
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.5, 0.8, 0.7]));
+    expect(out.log.some((l) => l.text.includes('未命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBeUndefined();
+  });
+
+  it('瞄准目标 A 但射击目标 B → 无奖励骰，aimingAt 不清除', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e1' },
+    });
+    const enemyA = mkC({ id: 'e1', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enemyB = mkC({ id: 'e2', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemyA, enemyB], 'e2');
+    // Shooting e2, but aiming at e1 → aimBonus=0
+    // resolveRanged with bonus=0: d100WithDice(0,0,rng) → tensCount=1
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30 → 31 success ≤80
+    // damage: 1D10 rng=0.5→die(10)=floor(0.5*10)+1=6
+    const out = performAttack(enc, 'p', 'e2', 0, seqRng([0.1, 0.3, 0.5]));
+    // aimingAt should still be 'e1' (not cleared because we shot a different target)
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBe('e1');
   });
 });

@@ -217,6 +217,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       return log(enc, `${attacker.name} 的 ${weapon.name} 无法击发`, 'narrative');
     }
     const tier = weapon.ranged ? (enc.rangeTier ?? 'normal') : 'normal';
+    // B3 瞄准加成：若攻击者正在瞄准此目标，射击 +1 奖励骰
+    const aimBonus = attacker.flags.aimingAt === targetId ? 1 : 0;
     const totalShots = weapon.attacksPerRound ?? 1;
     for (let shot = 0; shot < totalShots; shot++) {
       const curAttacker = byId(enc, attackerId)!;
@@ -224,7 +226,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const curWeapon = curAttacker.weapons[weaponIdx] ?? curAttacker.weapons[0];
       if (!curTarget || !alive(curTarget) || !canFire(curWeapon) || curAttacker.flags.weaponJammed) break;
       const effectiveSkill = Math.max(1, curWeapon.skill + fpPenalty);
-      const r = resolveRanged(effectiveSkill, tier, rng);
+      const r = resolveRanged(effectiveSkill, tier, rng, aimBonus);
       enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
       enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
@@ -243,6 +245,13 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
       enc = log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${curWeapon.damage}=${dmgRoll.total}，${curTarget.name} HP ${hpBefore}→${dr.combatant.hp}/${curTarget.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: curTarget.maxHp })]);
       if (dr.conCheckRequired) enc = resolveConCheck(enc, targetId, rng);
+    }
+    // B3：射击后清除瞄准状态（无论命中/脱靶/卡壳）
+    if (aimBonus > 0) {
+      const postAttacker = byId(enc, attackerId);
+      if (postAttacker) {
+        enc = patchCombatant(enc, attackerId, { flags: { ...postAttacker.flags, aimingAt: undefined } });
+      }
     }
     return enc;
   }
@@ -413,6 +422,18 @@ export function resolvePlayerDefense(
 }
 
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
+
+/** 瞄准：玩家花费本回合瞄准目标，下次对该目标射击 +1 奖励骰（B3）。 */
+export function playerAim(enc: Encounter, targetId: string): Encounter {
+  const player = enc.combatants.find((c) => c.faction === 'player');
+  if (!player) return enc;
+  let e = patchCombatant(enc, player.id, { flags: { ...player.flags, aimingAt: targetId } });
+  const target = byId(e, targetId);
+  e = log(e, `${player.name} 瞄准 ${target?.name ?? '目标'}`, 'narrative');
+  const end = checkEndReason(e);
+  if (end) return { ...e, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(e);
+}
 
 export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   const enc1 = reaimPlayerTarget(enc0); // 目标已死/脱离则自动切下一个活敌,避免 performAttack 静默 return 把回合让给 AI
