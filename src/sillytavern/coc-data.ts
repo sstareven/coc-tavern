@@ -178,61 +178,86 @@ export interface Occupation {
   name: string;
   crMin: number; crMax: number;
   skills: string[]; // suggested occupation skills (8 recommended)
+  formula?: string; // e.g. 'EDU*2+APP*2'; omit → EDU*4
 }
 // 职业表 — 推荐技能均按 COC7e 规则书 canonical 名（射击(手枪)/闪避/会计/话术）。
 export const COC_OCCUPATIONS: Occupation[] = [
   { name: '会计', crMin: 30, crMax: 70, skills: ['会计','法律','图书馆使用','聆听','说服','侦查','语言(其他)','科学(数学)'] },
-  { name: '演员', crMin: 9, crMax: 40, skills: ['艺术与手艺','乔装','话术','取悦','心理学','侦查','语言(其他)','历史'] },
+  { name: '演员', crMin: 9, crMax: 40, skills: ['艺术与手艺','乔装','话术','取悦','心理学','侦查','语言(其他)','历史'], formula: 'EDU*2+APP*2' },
   { name: '特工', crMin: 20, crMax: 45, skills: ['侦查','乔装','心理学','法律','潜行','图书馆使用','话术','射击(手枪)'] },
   { name: '人类学家', crMin: 9, crMax: 30, skills: ['人类学','历史','图书馆使用','聆听','说服','神秘学','考古学','科学'] },
   { name: '古物学家', crMin: 30, crMax: 70, skills: ['估价','考古学','历史','图书馆使用','神秘学','说服','侦查','语言(其他)'] },
   { name: '考古学家', crMin: 10, crMax: 40, skills: ['考古学','历史','图书馆使用','神秘学','科学','侦查','摄影','导航'] },
   { name: '建筑师', crMin: 30, crMax: 70, skills: ['艺术与手艺','科学(数学)','图书馆使用','说服','科学','侦查','机械维修','电气维修'] },
   { name: '艺术家', crMin: 9, crMax: 50, skills: ['艺术与手艺','历史','心理学','侦查','取悦','博物学','摄影','科学'] },
-  { name: '运动员', crMin: 9, crMax: 70, skills: ['攀爬','跳跃','格斗(斗殴)','游泳','投掷','闪避','急救','骑术'] },
-  { name: '作家', crMin: 9, crMax: 50, skills: ['艺术与手艺','历史','图书馆使用','神秘学','心理学','说服','侦查','语言(其他)'] },
+  { name: '运动员', crMin: 9, crMax: 70, skills: ['攀爬','跳跃','格斗(斗殴)','游泳','投掷','闪避','急救','骑术'], formula: 'EDU*2+STR*2' },
+  { name: '作家', crMin: 9, crMax: 50, skills: ['艺术与手艺','历史','图书馆使用','神秘学','心理学','说服','侦查','语言(其他)'], formula: 'EDU*2+INT*2' },
   { name: '酒保', crMin: 9, crMax: 40, skills: ['话术','取悦','聆听','心理学','侦查','格斗(斗殴)','语言(其他)','急救'] },
-  { name: '拳击手', crMin: 9, crMax: 30, skills: ['格斗(斗殴)','闪避','攀爬','跳跃','恐吓','急救','心理学','侦查'] },
-  { name: '窃贼', crMin: 5, crMax: 40, skills: ['锁匠','妙手','潜行','侦查','估价','攀爬','话术','心理学'] },
+  { name: '拳击手', crMin: 9, crMax: 30, skills: ['格斗(斗殴)','闪避','攀爬','跳跃','恐吓','急救','心理学','侦查'], formula: 'EDU*2+STR*2' },
+  { name: '窃贼', crMin: 5, crMax: 40, skills: ['锁匠','妙手','潜行','侦查','估价','攀爬','话术','心理学'], formula: 'EDU*2+DEX*2' },
   { name: '管家/女仆', crMin: 9, crMax: 40, skills: ['会计','急救','聆听','心理学','侦查','潜行','艺术与手艺','取悦'] },
-  { name: '神职人员', crMin: 9, crMax: 60, skills: ['会计','历史','图书馆使用','聆听','说服','心理学','神秘学','急救'] },
-  { name: '罪犯', crMin: 5, crMax: 65, skills: ['妙手','潜行','锁匠','侦查','话术','心理学','格斗(斗殴)','驾驶'] },
-  { name: '设计师', crMin: 20, crMax: 60, skills: ['艺术与手艺','会计','说服','心理学','侦查','图书馆使用','摄影','语言(其他)'] },
+  { name: '神职人员', crMin: 9, crMax: 60, skills: ['会计','历史','图书馆使用','聆听','说服','心理学','神秘学','急救'], formula: 'EDU*2+POW*2' },
+  { name: '罪犯', crMin: 5, crMax: 65, skills: ['妙手','潜行','锁匠','侦查','话术','心理学','格斗(斗殴)','驾驶'], formula: 'EDU*2+DEX*2' },
+  { name: '设计师', crMin: 20, crMax: 60, skills: ['艺术与手艺','会计','说服','心理学','侦查','图书馆使用','摄影','语言(其他)'], formula: 'EDU*2+INT*2' },
   { name: '医生', crMin: 30, crMax: 80, skills: ['急救','医学','心理学','科学','说服','图书馆使用','语言(其他)','科学(生物学)'] },
-  { name: '流浪者', crMin: 0, crMax: 5, skills: ['攀爬','跳跃','聆听','侦查','潜行','妙手','急救','博物学'] },
-  { name: '编辑', crMin: 10, crMax: 40, skills: ['艺术与手艺','历史','图书馆使用','说服','心理学','侦查','语言(其他)','科学'] },
+  { name: '流浪者', crMin: 0, crMax: 5, skills: ['攀爬','跳跃','聆听','侦查','潜行','妙手','急救','博物学'], formula: 'EDU*2+CON*2' },
+  { name: '编辑', crMin: 10, crMax: 40, skills: ['艺术与手艺','历史','图书馆使用','说服','心理学','侦查','语言(其他)','科学'], formula: 'EDU*2+INT*2' },
   { name: '工程师', crMin: 20, crMax: 50, skills: ['机械维修','电气维修','科学','图书馆使用','科学(数学)','操作重型机械','科学(物理学)','导航'] },
-  { name: '艺人', crMin: 9, crMax: 40, skills: ['艺术与手艺','乔装','话术','取悦','聆听','心理学','侦查','语言(其他)'] },
-  { name: '探险家', crMin: 20, crMax: 55, skills: ['导航','生存','博物学','攀爬','游泳','侦查','急救','摄影'] },
-  { name: '农民', crMin: 9, crMax: 30, skills: ['操作重型机械','机械维修','博物学','电气维修','急救','汽车驾驶','科学','投掷'] },
-  { name: '消防员', crMin: 9, crMax: 30, skills: ['攀爬','跳跃','操作重型机械','急救','机械维修','汽车驾驶','科学','侦查'] },
-  { name: '赌徒', crMin: 4, crMax: 45, skills: ['妙手','话术','心理学','会计','侦查','取悦','聆听','语言(其他)'] },
+  { name: '艺人', crMin: 9, crMax: 40, skills: ['艺术与手艺','乔装','话术','取悦','聆听','心理学','侦查','语言(其他)'], formula: 'EDU*2+APP*2' },
+  { name: '探险家', crMin: 20, crMax: 55, skills: ['导航','生存','博物学','攀爬','游泳','侦查','急救','摄影'], formula: 'EDU*2+CON*2' },
+  { name: '农民', crMin: 9, crMax: 30, skills: ['操作重型机械','机械维修','博物学','电气维修','急救','汽车驾驶','科学','投掷'], formula: 'EDU*2+CON*2' },
+  { name: '消防员', crMin: 9, crMax: 30, skills: ['攀爬','跳跃','操作重型机械','急救','机械维修','汽车驾驶','科学','侦查'], formula: 'EDU*2+STR*2' },
+  { name: '赌徒', crMin: 4, crMax: 45, skills: ['妙手','话术','心理学','会计','侦查','取悦','聆听','语言(其他)'], formula: 'EDU*2+DEX*2' },
   { name: '黑帮', crMin: 10, crMax: 60, skills: ['格斗(斗殴)','射击(手枪)','话术','恐吓','心理学','汽车驾驶','侦查','妙手'] },
-  { name: '记者', crMin: 9, crMax: 50, skills: ['话术','聆听','图书馆使用','心理学','侦查','说服','摄影','语言(其他)'] },
+  { name: '记者', crMin: 9, crMax: 50, skills: ['话术','聆听','图书馆使用','心理学','侦查','说服','摄影','语言(其他)'], formula: 'EDU*2+BEST*2' },
   { name: '律师', crMin: 30, crMax: 80, skills: ['法律','说服','话术','心理学','图书馆使用','会计','取悦','语言(其他)'] },
   { name: '图书馆员', crMin: 9, crMax: 35, skills: ['图书馆使用','会计','历史','神秘学','心理学','说服','侦查','语言(其他)'] },
   { name: '机械师', crMin: 10, crMax: 40, skills: ['机械维修','电气维修','操作重型机械','科学','汽车驾驶','科学(物理学)','科学(工程学)','估价'] },
-  { name: '军官', crMin: 20, crMax: 70, skills: ['会计','格斗(斗殴)','射击(手枪)','导航','心理学','侦查','汽车驾驶','急救'] },
-  { name: '矿工', crMin: 9, crMax: 30, skills: ['攀爬','操作重型机械','机械维修','科学','博物学','潜行','侦查','电气维修'] },
+  { name: '军官', crMin: 20, crMax: 70, skills: ['会计','格斗(斗殴)','射击(手枪)','导航','心理学','侦查','汽车驾驶','急救'], formula: 'EDU*2+BEST*2' },
+  { name: '矿工', crMin: 9, crMax: 30, skills: ['攀爬','操作重型机械','机械维修','科学','博物学','潜行','侦查','电气维修'], formula: 'EDU*2+STR*2' },
   { name: '音乐家', crMin: 9, crMax: 40, skills: ['艺术与手艺','聆听','心理学','取悦','话术','侦查','语言(其他)','历史'] },
   { name: '护士', crMin: 9, crMax: 40, skills: ['急救','医学','心理学','科学','说服','聆听','侦查','人类学'] },
-  { name: '神秘学家', crMin: 9, crMax: 65, skills: ['神秘学','历史','图书馆使用','人类学','心理学','说服','侦查','科学'] },
+  { name: '神秘学家', crMin: 9, crMax: 65, skills: ['神秘学','历史','图书馆使用','人类学','心理学','说服','侦查','科学'], formula: 'EDU*2+POW*2' },
   { name: '摄影师', crMin: 9, crMax: 30, skills: ['摄影','乔装','科学','侦查','艺术与手艺','心理学','汽车驾驶','科学(化学)'] },
-  { name: '飞行员', crMin: 20, crMax: 70, skills: ['驾驶','导航','机械维修','电气维修','科学','侦查','科学(气象学)','急救'] },
-  { name: '警察', crMin: 20, crMax: 50, skills: ['侦查','心理学','格斗(斗殴)','射击(手枪)','法律','话术','汽车驾驶','潜行'] },
-  { name: '私家侦探', crMin: 9, crMax: 50, skills: ['侦查','心理学','法律','潜行','锁匠','图书馆使用','摄影','格斗(斗殴)'] },
+  { name: '飞行员', crMin: 20, crMax: 70, skills: ['驾驶','导航','机械维修','电气维修','科学','侦查','科学(气象学)','急救'], formula: 'EDU*2+DEX*2' },
+  { name: '警察', crMin: 20, crMax: 50, skills: ['侦查','心理学','格斗(斗殴)','射击(手枪)','法律','话术','汽车驾驶','潜行'], formula: 'EDU*2+BEST*2' },
+  { name: '私家侦探', crMin: 9, crMax: 50, skills: ['侦查','心理学','法律','潜行','锁匠','图书馆使用','摄影','格斗(斗殴)'], formula: 'EDU*2+BEST*2' },
   { name: '教授', crMin: 20, crMax: 70, skills: ['图书馆使用','心理学','说服','历史','科学','语言(其他)','会计','聆听'] },
-  { name: '精神分析师', crMin: 30, crMax: 80, skills: ['精神分析','心理学','医学','说服','图书馆使用','历史','科学','聆听'] },
-  { name: '水手', crMin: 9, crMax: 30, skills: ['导航','游泳','攀爬','生存','机械维修','急救','会计','电气维修'] },
+  { name: '精神分析师', crMin: 30, crMax: 80, skills: ['精神分析','心理学','医学','说服','图书馆使用','历史','科学','聆听'], formula: 'EDU*2+POW*2' },
+  { name: '水手', crMin: 9, crMax: 30, skills: ['导航','游泳','攀爬','生存','机械维修','急救','会计','电气维修'], formula: 'EDU*2+CON*2' },
   { name: '科学家', crMin: 10, crMax: 50, skills: ['科学','图书馆使用','科学(数学)','电气维修','科学(化学)','科学(生物学)','科学(物理学)','摄影'] },
-  { name: '士兵', crMin: 10, crMax: 50, skills: ['格斗(斗殴)','射击(手枪)','闪避','潜行','急救','导航','汽车驾驶','侦查'] },
+  { name: '士兵', crMin: 10, crMax: 50, skills: ['格斗(斗殴)','射击(手枪)','闪避','潜行','急救','导航','汽车驾驶','侦查'], formula: 'EDU*2+STR*2' },
   { name: '学生', crMin: 5, crMax: 30, skills: ['图书馆使用','历史','科学','语言(其他)','说服','心理学','侦查','藏匿'] },
   { name: '出租车司机', crMin: 9, crMax: 30, skills: ['汽车驾驶','导航','话术','聆听','侦查','机械维修','急救','心理学'] },
   { name: '教师', crMin: 9, crMax: 50, skills: ['说服','心理学','图书馆使用','历史','科学','语言(其他)','聆听','急救'] },
   { name: '殡葬师', crMin: 20, crMax: 60, skills: ['会计','乔装','话术','心理学','聆听','潜行','科学','急救'] },
-  { name: '服务员', crMin: 5, crMax: 30, skills: ['聆听','话术','取悦','侦查','急救','会计','语言(其他)','心理学'] },
+  { name: '服务员', crMin: 5, crMax: 30, skills: ['聆听','话术','取悦','侦查','急救','会计','语言(其他)','心理学'], formula: 'EDU*2+APP*2' },
   { name: '动物学家', crMin: 10, crMax: 50, skills: ['科学','博物学','医学','追踪','生存','摄影','攀爬','急救'] },
 ];
+
+export function calcOccSkillPoints(
+  formula: string | undefined,
+  chars: Record<COC7Characteristic, number>,
+): number {
+  const f = (formula ?? '').trim().toUpperCase() || 'EDU*4';
+  const termRe = /([A-Z]+)\*(\d+)/g;
+  let m: RegExpExecArray | null;
+  let total = 0;
+  let matched = false;
+  while ((m = termRe.exec(f)) !== null) {
+    matched = true;
+    const key = m[1];
+    const mult = parseInt(m[2], 10);
+    if (key === 'BEST') {
+      const candidates = (['STR', 'CON', 'DEX', 'APP', 'POW', 'INT'] as const).map((k) => chars[k] ?? 0);
+      total += Math.max(...candidates) * mult;
+    } else if (key in chars) {
+      total += (chars[key as COC7Characteristic] ?? 0) * mult;
+    }
+  }
+  if (!matched) return (chars.EDU ?? 50) * 4;
+  return total;
+}
 
 export const DEFAULT_CHARS: Record<COC7Characteristic, number> = { STR: 50, CON: 50, POW: 50, DEX: 50, APP: 50, SIZ: 50, INT: 50, EDU: 50 };
 
