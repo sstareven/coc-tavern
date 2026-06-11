@@ -10,6 +10,12 @@
  *    emit op 写 `调查员.临时疯狂 = {active:true, roundsLeft:0, bout:{mode,table:'VIII',entry}}`。
  *    sceneInfoUpdate 由后续 ticket 接驳到 useBookStore；本函数 fire-and-forget 不等结果。
  *
+ * C3 潜伏疯狂（COC7e p132）：
+ *   bout 触发时同步写入 latentInsanity{active:true, expiresAtEpoch=currentEpoch+1D10*60}。
+ *   bout active 期间 boutEvaluator 不会走 latent 路径（因为 SAN loss 已直接进 bout 判定）；
+ *   bout 结束（roundsLeft→0，active=false）后 latentInsanity 仍在，1D10 小时窗口内
+ *   任何 SAN loss ≥ 1 → boutEvaluator 直接触发新发作（跳过 |delta|≥5 阈值）。
+ *
  * 不使用主管线 MVU 通道——evaluator 已在 G3 相位外，直接走 ctx.applyCorrectiveOps（同评估器写永久疯狂的路径），
  * 避免 LLM 看见这次 emit 当作"本回合 LLM 输出"做二次纠错。
  */
@@ -17,6 +23,7 @@
 import type { EvaluatorContext } from './post-settle-evaluators';
 import { BOUT_BEHAVIOR_TABLE, BOUT_SUMMARY_TABLE, type CocTableEntry } from './coc7e-tables';
 import { rollPhobia, rollMania } from './coc-rules';
+import { getTreePath } from './mvu-var-access';
 
 /**
  * Rng 注入：测试用 seqRng 替换。默认返回 1..10 均匀分布——COC7e 表 VII/VIII 与回合数皆走 1d10。
@@ -34,6 +41,8 @@ export interface TriggerBoutResult {
   description: string;
   acquiredPhobia?: string;
   acquiredMania?: string;
+  /** C3：本次 bout 写入的潜伏疯狂时长（游戏小时）。0 = 未写入（epoch 不可用时降级）。 */
+  latentHours: number;
 }
 
 
@@ -48,6 +57,26 @@ function applyPhobiaManiaOps(ctx: EvaluatorContext, row: CocTableEntry | undefin
     ctx.applyCorrectiveOps([{ op: 'insert', path: '/调查员/狂躁症', value: rolled.label }]);
     result.acquiredMania = rolled.label;
   }
+}
+
+/**
+ * C3：写入潜伏疯狂（latent insanity）corrective ops。
+ * bout 触发时立即写入；bout active 期间 boutEvaluator 不走 latent 路径，
+ * bout 结束后在 expiresAtEpoch 窗口内任意 SAN loss ≥ 1 → 新发作。
+ *
+ * @returns latentHours（1..10），若 epoch 不可用则降级返回 0（不写 ops）。
+ */
+function emitLatentInsanityOps(ctx: EvaluatorContext, rollD10: RollD10): number {
+  const currentEpoch = Number(getTreePath(ctx.statData, '世界.时间.epoch')) || 0;
+  // epoch 为 0 通常意味着时间系统尚未初始化（空 statData / 测试环境），
+  // 降级不写——避免 expiresAtEpoch 落在一个无意义的绝对值上。
+  // 当 epoch > 0 时（正常游戏中），才写入。
+  if (currentEpoch <= 0) return 0;
+  const latentHours = rollD10();
+  ctx.applyCorrectiveOps([
+    { op: 'replace', path: '/调查员/潜伏疯狂', value: { active: true, expiresAtEpoch: currentEpoch + latentHours * 60 } },
+  ]);
+  return latentHours;
 }
 
 /**
@@ -74,7 +103,8 @@ export function triggerBout(
       { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: roundsLeft },
       { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'realtime', table: 'VII', entry } },
     ]);
-    const result: TriggerBoutResult = { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
+    const latentHours = emitLatentInsanityOps(ctx, rollD10);
+    const result: TriggerBoutResult = { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '', latentHours };
     applyPhobiaManiaOps(ctx, row, result, rng01);
     return result;
   }
@@ -90,7 +120,8 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/roundsLeft', value: 0 },
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
-  const result: TriggerBoutResult = { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
+  const latentHours = emitLatentInsanityOps(ctx, rollD10);
+  const result: TriggerBoutResult = { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '', latentHours };
   applyPhobiaManiaOps(ctx, row, result, rng01);
   return result;
 }

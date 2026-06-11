@@ -56,6 +56,12 @@ export interface CharacterSheet {
   manias: string[];
   /** 已知法术（B1 法术系统）。仅记法术 id/名，详细 cost/effect 在法术库 / 世界书内。 */
   known_spells: string[];
+  /**
+   * 潜伏疯狂（COC7e p132）：一次临时疯狂发作结束后，调查员进入 1D10 小时的潜伏疯狂期。
+   * 在此期间，任何 ≥1 点的 SAN 损失直接触发新一轮疯狂发作（跳过 INT 检定阈值判定）。
+   * expiresAtEpoch 为游戏内 epoch（分钟），超过该 epoch 后自动失效。
+   */
+  latentInsanity?: { active: boolean; expiresAtEpoch: number };
   /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
   recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
   /** Step 5 玩家填写的「初始物品」原文，进游戏前由 LLM 抽取入 useInventoryStore；preset 模式下空字符串 */

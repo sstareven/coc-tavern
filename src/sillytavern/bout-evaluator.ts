@@ -5,6 +5,12 @@
  *  - 不定性疯狂 (当日累计 ≥ maxSan/5) → emit `/调查员/不定性疯狂/active = true`
  *  - 临时疯狂发作 (|delta| ≥ 5) → 按 boutMode 触发 triggerBout(realtime/summary)
  *
+ * C3 潜伏疯狂（COC7e p132）：
+ *   bout 结束后进入 1D10 小时潜伏期——latentInsanity{active,expiresAtEpoch} 已在 triggerBout 时写入。
+ *   在此窗口内（且 bout 已结束即 temporaryInsanity.active=false），任何 SAN loss ≥ 1
+ *   直接触发新发作，跳过 |delta|≥5 阈值判定。
+ *   如果窗口已过期（epoch > expiresAtEpoch），自动清除 latentInsanity。
+ *
  * 与旧 sanityEvaluator 的关键差异:
  *   旧版在 |delta|≥5 时弹 DicePanel 跑 INT 检定,INT 失败再 triggerBout。
  *   新版【删除】这条 INT-check 自动弹窗分支——INT 检定现在由 SanityCheckPanel 在 SAN loss
@@ -18,12 +24,14 @@
  *  - 优先级: 永久 > 不定 > Bout。永久疯狂触发即终局,不再启动临时疯狂发作。
  *  - hasCompanionsPresent / allCompanionsInsane: M1 默认 (true, false); 战斗在场检测属 M2,先简化。
  *  - 触发 Bout 的阈值仍是 |delta| ≥ 5(R6 中"单次损失 ≥ 5 触发临时疯狂候选"的承袭)。
+ *  - C3 潜伏疯狂：在 bout 不 active 且 latentInsanity 窗口内时，任何 |delta| ≥ 1 即触发。
  */
 
 import type { EvaluatorContext, Evaluator } from './post-settle-evaluators';
 import { registerEvaluator } from './post-settle-evaluators';
 import { evaluateSanLoss } from './sanity-engine';
 import { triggerBout } from './bout-dispatch';
+import { getTreePath } from './mvu-var-access';
 
 /**
  * Fingerprint dedupe 缓存: 以 episodeId 为键。同一事件(同 pageIdx:时间戳)再次跑 evaluator
@@ -65,6 +73,29 @@ export const boutEvaluator: Evaluator = (ctx: EvaluatorContext): void => {
     ctx.applyCorrectiveOps([{ op: 'replace', path: '/调查员/不定性疯狂/active', value: true }]);
     return;
   }
+
+  // C3 潜伏疯狂：检测过期 & 窗口内 SAN loss ≥ 1 直接触发新发作。
+  const latent = ctx.sheet.latentInsanity;
+  const epochNow = Number(getTreePath(ctx.statData, '世界.时间.epoch')) || 0;
+  let latentEffective = false;  // 当前 latent 是否仍在有效窗口内
+
+  if (latent?.active && epochNow > 0) {
+    if (epochNow >= latent.expiresAtEpoch) {
+      // 已过期——清除标志，继续走正常阈值判定。
+      ctx.applyCorrectiveOps([{ op: 'replace', path: '/调查员/潜伏疯狂', value: null }]);
+    } else {
+      latentEffective = true;
+    }
+  }
+
+  // C3 潜伏疯狂：bout 不 active 且在 latent 窗口内，任何 SAN loss ≥ 1 直接触发新发作。
+  // bout active 期间不走此路径——bout 已经占据控制权，latent 在 bout 结束后才生效。
+  const boutActive = ctx.sheet.temporaryInsanity.active;
+  if (latentEffective && !boutActive && Math.abs(cs.sanDelta) >= 1) {
+    triggerBout(ctx, evalResult.boutMode);
+    return;
+  }
+
   // A2 重设: |delta|≥5 直接触发 Bout, 不再绕道 DicePanel 跑 INT。
   // 旧路径(sanityEvaluator 弹 DicePanel 跑 INT 通过→放过 / 失败→Bout)已删除——
   // INT "忽视"判定移到 SanityCheckPanel 内的第二阶段, 由玩家明示决策。
