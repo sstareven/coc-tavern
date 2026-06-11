@@ -188,7 +188,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
         sheet.phobias,
         sheet.manias,
       );
-      if (penalty > 0) effectiveBonusDice = Math.min(effectiveBonusDice - penalty, -1);
+      if (penalty > 0) effectiveBonusDice = effectiveBonusDice - penalty;
     }
     const snap = rollDiceSnapshot({ ...s, bonusDice: effectiveBonusDice });
     set({
@@ -291,7 +291,7 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
         sheet.phobias,
         sheet.manias,
       );
-      if (penalty > 0) effectiveBonusDice = Math.min(effectiveBonusDice - penalty, -1);
+      if (penalty > 0) effectiveBonusDice = effectiveBonusDice - penalty;
     }
     const snap = rollDiceSnapshot({ ...s, bonusDice: effectiveBonusDice });
     set({

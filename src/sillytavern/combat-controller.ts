@@ -4,7 +4,6 @@ import {
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
-  rollDamageFormula,
 } from './combat-engine';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -236,8 +235,8 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const r = resolveRanged(effectiveSkill, tier, rng, aimBonus, coverPenalty);
       enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
-      enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
-      const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, curWeapon.skill);
+      enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(effectiveSkill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
+      const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, effectiveSkill);
       const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${curWeapon.skill}（${LEVEL_CN[r.level]}）`;
       if (r.jam) {
         enc = patchCombatant(enc, attackerId, { flags: { ...curAttacker.flags, weaponJammed: true } });
@@ -274,7 +273,7 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const effectiveMelee = Math.max(1, weapon.skill + fpPenalty);
   const op = preset ? preset.op : resolveOpposed(effectiveMelee, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
-  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
+  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(effectiveMelee), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
   enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
   const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${weapon.skill}（${LEVEL_CN[op.attackerLevel]}）`;
@@ -324,7 +323,7 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     }
     enc = log(enc, `${ai.name} 从地上起身，随即发难`, 'narrative');
   }
-  // ally 急救分支(COC7e p61:急救成功 1d3 HP,大成功 1d3+1,且稳定 dying)
+  // ally 急救分支(COC7e p61:急救成功恢复 1 HP,且稳定 dying)
   if (action.type === 'firstAid') {
     const targetC = byId(enc, action.targetId);
     if (!targetC || !alive(targetC)) {
@@ -343,8 +342,8 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     if (lvl === 'fail' || lvl === 'fumble') {
       return log(enc, `${ai.name} 试图为 ${targetC.name} 急救 — 失败`, 'narrative');
     }
-    // 成功:1d3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
-    const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+    // COC7e p61:急救成功恢复 1 HP。clamp 到 maxHp。稳定 dying。
+    const heal = 1;
     const newHp = Math.min(targetC.maxHp, targetC.hp + heal);
     enc = patchCombatant(enc, targetC.id, {
       hp: newHp,
@@ -384,7 +383,8 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
   let guard = 0;
   while (guard++ < 200) {
     if (enc.pendingDefense) return enc; // AI 攻击玩家挂起,UI 显示防御按钮组,等玩家 resolvePlayerDefense
-    if (checkEndReason(enc)) { return { ...enc, status: 'resolving', endReason: checkEndReason(enc)! }; }
+    const endReason = checkEndReason(enc);
+    if (endReason) { return { ...enc, status: 'resolving', endReason }; }
     enc = advanceTurn(enc);
     const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
     if (!cur || !alive(cur)) continue;          // 跳过已倒下者
@@ -614,7 +614,7 @@ export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
   return advanceUntilPlayerOrEnd(enc, rng);
 }
 
-/** 玩家急救：对指定友方(或自身)进行急救检定(COC7e p61)。成功恢复 1D3 HP，大成功/极难 +1，并稳定 dying。 */
+/** 玩家急救：对指定友方(或自身)进行急救检定(COC7e p61)。成功恢复 1 HP，并稳定 dying。 */
 export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = defaultRng): Encounter {
   let enc = enc0;
   const player = enc.combatants.find((c) => c.controlledBy === 'player');
@@ -640,8 +640,8 @@ export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = def
     return advanceUntilPlayerOrEnd(enc, rng);
   }
 
-  // 成功:1D3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
-  const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+  // COC7e p61:急救成功恢复 1 HP。clamp 到 maxHp。稳定 dying。
+  const heal = 1;
   const newHp = Math.min(target.maxHp, target.hp + heal);
   const newFlags = { ...target.flags, stabilized: true };
   if (newFlags.dying) newFlags.dying = false;

@@ -45,12 +45,14 @@ export const milestoneSanEvaluator: Evaluator = (ctx: EvaluatorContext): void =>
   const currentSan = ctx.sheet.secondary.san.current;
   const sanMax = ctx.sheet.secondary.san.max;
 
+  let cumulativeRecovery = 0;
   for (const nodeId of newNodeIds) {
-    const result = rollMilestoneSanRecovery(nodeId, currentSan, sanMax);
+    const result = rollMilestoneSanRecovery(nodeId, currentSan + cumulativeRecovery, sanMax);
     // 标记已奖励(不论 recovered 是否为 0 — SAN 已满也只奖一次)
     REWARDED_NODE_IDS.add(nodeId);
 
     if (result.recovered > 0) {
+      cumulativeRecovery += result.recovered;
       ctx.applyCorrectiveOps([
         { op: 'delta', path: '/调查员/理智值/当前', value: result.recovered },
       ]);
