@@ -26,8 +26,10 @@ import { extractCausalEcho } from '../sillytavern/causal-echo-extractor';
 import { pickNextUnreachedNode } from './pickNextUnreachedNode';
 import { extractOutfitDiff } from '../sillytavern/outfit-extractor';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
+import { shouldDetectChase, detectAndBuildChase } from '../sillytavern/chase-detector';
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
 import { useCombatStore } from '../stores/useCombatStore';
+import { useChaseStore } from '../stores/useChaseStore';
 // generateStartingItems 已废弃 — 剧本系统 activateScenario 统一处理初始物品(commit removed)
 import { rectifyMissingNpcs } from '../sillytavern/npc-rectifier';
 import { usePromptViewerStore } from '../stores/usePromptViewerStore';
@@ -2151,10 +2153,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           }
         }
 
-        // 战斗检测建场：未在战斗中 && 叙事含暴力线索 && 本回合非战斗结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进战。
+        // 战斗检测建场：未在战斗/追逐中 && 叙事含暴力线索 && 本回合非战斗结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进战。
         // 进战 → useCombatStore.start(encounter)，右页由 Storybook 条件渲染成战斗面板。fire-and-forget + 会话守卫。
         if (
           !useCombatStore.getState().encounter &&
+          !useChaseStore.getState().chase &&
           shouldDetectCombat(newPage.leftContent) &&
           !isEpilogue &&
           !lastInputRef.current.includes('即时战斗结束') // 防战斗结算页再次触发进战
@@ -2192,6 +2195,53 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
               } catch (e) {
                 if (controller.signal.aborted) return;
                 pushLog('warn', `[战斗] 检测失败：${e instanceof Error ? e.message : String(e)}`, 'api');
+              }
+            })();
+          }
+        }
+
+        // 追逐检测建场：未在战斗/追逐中 && 叙事含追逐线索 && 本回合非追逐结算页 && 非后日谈 → 独立调用(优先MVU API)判定是否进追逐。
+        // 进追逐 → useChaseStore.start(chase)，右页由 Storybook 条件渲染成追逐面板。fire-and-forget + 会话守卫。
+        if (
+          !useCombatStore.getState().encounter &&
+          !useChaseStore.getState().chase &&
+          shouldDetectChase(newPage.leftContent) &&
+          !isEpilogue &&
+          !lastInputRef.current.includes('追逐结束') // 防追逐结算页再次触发
+        ) {
+          const useMvuApiCC = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
+          const ccBase = (useMvuApiCC ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
+          const ccKey = (useMvuApiCC ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';
+          const ccModel = (useMvuApiCC ? settings.getEffectiveMvuApi().model : settings.getEffectiveMainApi().model) ?? '';
+          if (ccBase.trim() && ccKey.trim() && ccModel.trim()) {
+            const aidCC = useChatStore.getState().activeId;
+            const sheetCC = useCharSheetStore.getState().sheet;
+            const statDataCC = useVariableStore.getState().statData;
+            const narrativeCC = newPage.leftContent;
+            void (async () => {
+              try {
+                const chase = await detectAndBuildChase(narrativeCC, sheetCC, statDataCC, ccBase, ccKey, ccModel, controller.signal);
+                if (!chase || useChatStore.getState().activeId !== aidCC || useChaseStore.getState().chase || useCombatStore.getState().encounter) return;
+                const anchorPages = useBookStore.getState().pages;
+                chase.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到追逐所属页
+                useChaseStore.getState().start(chase);
+                if (chase.usage) {
+                  const ccPageIdx = replace ? rewriteSourceIdx : useBookStore.getState().pages.length - 1;
+                  useBookStore.getState().addPageSubCallStat(ccPageIdx, {
+                    label: '追逐检测',
+                    model: ccModel,
+                    hit: chase.usage.prompt_cache_hit_tokens,
+                    miss: chase.usage.prompt_cache_miss_tokens,
+                    promptTokens: chase.usage.prompt_tokens,
+                    output: chase.usage.completion_tokens,
+                    at: Date.now(),
+                  });
+                }
+                if (aidCC) await saveConversation(aidCC);
+                pushLog('info', `[追逐] 进入追逐：${chase.participants.filter((p) => p.controlledBy === 'ai').map((p) => p.name).join('、')}`, 'system');
+              } catch (e) {
+                if (controller.signal.aborted) return;
+                pushLog('warn', `[追逐] 检测失败：${e instanceof Error ? e.message : String(e)}`, 'api');
               }
             })();
           }
@@ -2451,8 +2501,8 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
       }
 
       // 行动补写·战斗发起：玩家明确发起攻击/搏斗 → 据当前场景建场进入即时战斗面板，跳过候选选项生成；
-      // 脱战后由 InputBar 订阅 status='resolving' 走主管线翻页叙述。仅当未在战斗中且检测出可战目标才进战，否则回落正常补写。
-      if (shouldDetectCombat(trimmed) && !useCombatStore.getState().encounter) {
+      // 脱战后由 InputBar 订阅 status='resolving' 走主管线翻页叙述。仅当未在战斗/追逐中且检测出可战目标才进战，否则回落正常补写。
+      if (shouldDetectCombat(trimmed) && !useCombatStore.getState().encounter && !useChaseStore.getState().chase) {
         const useMvuApiCB = !!(settings.mvuUseIndependentApi && settings.getEffectiveMvuApi().apiKey?.trim());
         const cdBase = (useMvuApiCB ? settings.getEffectiveMvuApi().baseUrl : settings.getEffectiveMainApi().baseUrl) ?? '';
         const cdKey = (useMvuApiCB ? settings.getEffectiveMvuApi().apiKey : settings.getEffectiveMainApi().apiKey) ?? '';

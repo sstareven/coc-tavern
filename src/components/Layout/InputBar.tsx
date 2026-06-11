@@ -4,6 +4,7 @@ import { useChatPipeline } from '../../hooks/useChatPipeline';
 import { useApiProfilesStore } from '../../stores/useApiProfilesStore';
 import { useBookStore } from '../../stores/useBookStore';
 import { useCombatStore } from '../../stores/useCombatStore';
+import { useChaseStore } from '../../stores/useChaseStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
@@ -115,6 +116,39 @@ export function InputBar() {
       if (!s.encounter) resolvingRef.current = false;
     });
     return () => { document.removeEventListener('combat-advance', doAdvance); unsub(); };
+  }, []);
+
+  // ── 追逐结算：追逐 status 转 'resolving' 后等玩家在追逐面板点「推进剧情」(chase-advance 事件)
+  // 再把追逐日志交主管线生成右页(承接追逐结果+后续选项)。一次性触发(chaseResolvingRef 守卫)。──
+  const chaseResolvingRef = useRef(false);
+  useEffect(() => {
+    const doChaseAdvance = () => {
+      const chase = useChaseStore.getState().chase;
+      if (!chase || chase.status !== 'resolving' || chaseResolvingRef.current) return;
+      chaseResolvingRef.current = true;
+      const reason = chase.endReason ?? 'aborted';
+      const outcomeText: Record<string, string> = {
+        caught: '调查员被追上', escaped: '调查员成功逃脱',
+        exhausted: '追逐者体力耗尽', aborted: '追逐中断',
+      };
+      const summary = chase.log.map((l) => l.text).join('\n');
+      const openerLine = chase.opener ? `触发本场追逐的起因：${chase.opener}\n` : '';
+      const input = `（追逐结束：${outcomeText[reason] ?? '追逐结束'}。以下是这场追逐的经过，请据此承接叙述追逐结果与现场状况，并给出后续行动选项。）\n${openerLine}${summary}`;
+      void (async () => {
+        try {
+          await pipelineRef.current.submit(input);
+        } finally {
+          useChaseStore.getState().clearChase();
+          const id = useChatStore.getState().activeId;
+          if (id) void saveConversation(id);
+        }
+      })();
+    };
+    document.addEventListener('chase-advance', doChaseAdvance);
+    const unsub = useChaseStore.subscribe((s) => {
+      if (!s.chase) chaseResolvingRef.current = false;
+    });
+    return () => { document.removeEventListener('chase-advance', doChaseAdvance); unsub(); };
   }, []);
 
   // ── Click outside to close wand menu ──
