@@ -241,6 +241,40 @@ export function applyCharsheetRedirect(
     return { sheet: { ...sheet, permanentInsanity: v } };
   }
 
+  // ── 潜伏疯狂（C3）──
+  if (dotPath === '调查员.潜伏疯狂.active') {
+    if (op !== 'replace') return null;
+    const v = value === true || value === 'true';
+    if (v) {
+      // activate: 保留 expiresAtEpoch（必须已由外层写入）
+      const existing = sheet.latentInsanity;
+      return { sheet: { ...sheet, latentInsanity: { active: true, expiresAtEpoch: existing?.expiresAtEpoch ?? 0 } } };
+    }
+    // deactivate: 清除整个 latentInsanity
+    return { sheet: { ...sheet, latentInsanity: undefined } };
+  }
+  if (dotPath === '调查员.潜伏疯狂.expiresAtEpoch') {
+    if (op !== 'replace') return null;
+    const n = toNumber(value);
+    if (n === null) return null;
+    const existing = sheet.latentInsanity;
+    return { sheet: { ...sheet, latentInsanity: { active: existing?.active ?? true, expiresAtEpoch: n } } };
+  }
+  if (dotPath === '调查员.潜伏疯狂') {
+    if (op !== 'replace') return null;
+    // 整树写入：接受 { active, expiresAtEpoch } 或 falsy 清除
+    if (!value || typeof value !== 'object') {
+      return { sheet: { ...sheet, latentInsanity: undefined } };
+    }
+    const v = value as { active?: unknown; expiresAtEpoch?: unknown };
+    const active = v.active === true || v.active === 'true';
+    const expires = toNumber(v.expiresAtEpoch);
+    if (!active || expires === null) {
+      return { sheet: { ...sheet, latentInsanity: undefined } };
+    }
+    return { sheet: { ...sheet, latentInsanity: { active, expiresAtEpoch: expires } } };
+  }
+
   // ── 恐惧症 / 狂躁症（string[] 受控；add/insert/replace 追加去重、remove 过滤）──
   const arrayPath: 'phobias' | 'manias' | null =
     dotPath === '调查员.恐惧症' ? 'phobias' :

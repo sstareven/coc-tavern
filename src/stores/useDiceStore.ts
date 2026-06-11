@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { DiceRecord, DiceResultType, DiceMode } from '../types';
-import { randD10, d100, determineResult } from '../sillytavern/dice-engine';
+import { randD10, d100, determineResult, checkPhobiaPenalty } from '../sillytavern/dice-engine';
 import { useBookStore } from './useBookStore';
 import { useCharSheetStore } from './useCharSheetStore';
 import { useVariableStore } from './useVariableStore';
@@ -178,7 +178,19 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
   toggleSan: () => set((s) => ({ sanCheck: !s.sanCheck })),
   roll: () => {
     const s = get();
-    const snap = rollDiceSnapshot(s);
+    // C5: 恐惧症/躁狂惩罚骰 — programmatic check 有 context 时自动叠加
+    let effectiveBonusDice = s.bonusDice;
+    if (s.isProgrammatic && s.programmaticContext) {
+      const sheet = useCharSheetStore.getState().sheet;
+      const penalty = checkPhobiaPenalty(
+        s.programmaticSkill ?? '',
+        s.programmaticContext,
+        sheet.phobias,
+        sheet.manias,
+      );
+      if (penalty > 0) effectiveBonusDice = effectiveBonusDice - penalty;
+    }
+    const snap = rollDiceSnapshot({ ...s, bonusDice: effectiveBonusDice });
     set({
       tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
       oppTens: snap.oppTens, oppOnes: snap.oppOnes,
@@ -269,7 +281,19 @@ export const useDiceStore = create<DiceStore>((set, get) => ({
 
   rollStaged: (skill) => {
     const s = get();
-    const snap = rollDiceSnapshot(s);
+    // C5: 恐惧症/躁狂惩罚骰 — programmatic check 有 context 时自动叠加
+    let effectiveBonusDice = s.bonusDice;
+    if (s.isProgrammatic && s.programmaticContext) {
+      const sheet = useCharSheetStore.getState().sheet;
+      const penalty = checkPhobiaPenalty(
+        skill ?? s.programmaticSkill ?? '',
+        s.programmaticContext,
+        sheet.phobias,
+        sheet.manias,
+      );
+      if (penalty > 0) effectiveBonusDice = effectiveBonusDice - penalty;
+    }
+    const snap = rollDiceSnapshot({ ...s, bonusDice: effectiveBonusDice });
     set({
       tens: snap.tens, ones: snap.ones, finalTens: snap.finalTens, bonusTens: snap.bonusTens,
       oppTens: snap.oppTens, oppOnes: snap.oppOnes,

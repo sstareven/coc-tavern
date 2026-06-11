@@ -39,3 +39,29 @@ export function evaluateSanLoss(input: SanLossInput): SanLossEvaluation {
   const boutMode: 'summary' | 'realtime' = alone ? 'summary' : 'realtime';
   return { intRollNeeded, indefiniteTriggered, permanentTriggered, boutMode };
 }
+
+/* ------------------------------------------------------------------ */
+/*  rollPsychoanalysis — 心理分析恢复 SAN (COC7e)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 心理治疗（精神分析）检定。
+ * - 由具有「精神分析」技能的 NPC（或自我治疗）发起。
+ * - 成功时恢复 1D3 SAN（上限 sanMax）。
+ * - selfTherapy 时技能减半（hard difficulty）。
+ */
+export function rollPsychoanalysis(
+  analystSkill: number,
+  currentSan: number,
+  sanMax: number,
+  selfTherapy: boolean = false,
+  rng: () => number = Math.random,
+  hpRng: () => number = Math.random,
+): { recovered: number; roll: number; success: boolean } {
+  const effectiveSkill = selfTherapy ? Math.floor(analystSkill / 2) : analystSkill;
+  const roll = Math.floor(rng() * 100) + 1;
+  const success = roll <= effectiveSkill;
+  if (!success || currentSan >= sanMax) return { recovered: 0, roll, success };
+  const d3 = Math.floor(hpRng() * 3) + 1;
+  return { recovered: Math.min(d3, sanMax - currentSan), roll, success };
+}

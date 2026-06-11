@@ -21,7 +21,7 @@ function mkCombatant(over: Partial<Combatant> = {}): Combatant {
     id: 'c1', name: '甲', faction: 'enemy', controlledBy: 'ai',
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 30,
     hp: 12, maxHp: 12, armor: 0, weapons: [], roundDefenses: 0,
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     ...over,
   };
 }
@@ -194,8 +194,13 @@ describe('applyDamage', () => {
     expect(r.combatant.flags.majorWound).toBe(true);
     expect(r.combatant.flags.prone).toBe(true);
   });
-  it('单次>maxHP 直接死亡', () => {
+  it('单次>=maxHP 直接死亡', () => {
     const r = applyDamage(mkCombatant(), 13);
+    expect(r.combatant.flags.dead).toBe(true);
+    expect(r.combatant.hp).toBe(0);
+  });
+  it('单次==maxHP 也直接死亡（COC7e: equal to or greater than）', () => {
+    const r = applyDamage(mkCombatant(), 12); // maxHp=12, dealt=12
     expect(r.combatant.flags.dead).toBe(true);
     expect(r.combatant.hp).toBe(0);
   });
@@ -207,6 +212,37 @@ describe('applyDamage', () => {
     const light = applyDamage(mkCombatant({ hp: 2 }), 2).combatant;
     expect(light.flags.dying).toBe(false);
     expect(light.flags.unconscious).toBe(true);
+  });
+});
+
+describe('major wound CON check (conCheckRequired)', () => {
+  it('returns conCheckRequired when dealt damage >= floor(maxHp/2)', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 5); // 5 >= floor(10/2)=5
+    expect(result.conCheckRequired).toBe(true);
+    expect(result.majorWound).toBe(true);
+  });
+  it('does not require CON check for minor damage', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 3); // 3 < 5
+    expect(result.conCheckRequired).toBe(false);
+  });
+  it('does not require CON check if target dies (dealt >= maxHp)', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 0 });
+    const result = applyDamage(target, 20); // > maxHp=10, instant death
+    expect(result.conCheckRequired).toBe(false);
+    expect(result.combatant.flags.dead).toBe(true);
+  });
+  it('conCheckRequired true at exact threshold (dealt == floor(maxHp/2))', () => {
+    // maxHp=11 → floor(11/2)=5; dealt=5 → major wound
+    const target = mkCombatant({ hp: 11, maxHp: 11, armor: 0 });
+    const result = applyDamage(target, 5);
+    expect(result.conCheckRequired).toBe(true);
+  });
+  it('conCheckRequired false when damage absorbed by armor below threshold', () => {
+    const target = mkCombatant({ hp: 10, maxHp: 10, armor: 4 });
+    const result = applyDamage(target, 8); // dealt = max(0, 8-4)=4 < 5
+    expect(result.conCheckRequired).toBe(false);
   });
 });
 

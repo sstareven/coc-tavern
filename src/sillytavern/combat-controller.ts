@@ -4,7 +4,6 @@ import {
   successLevel, resolveOpposed, resolveRanged, rollDamage, applyDamage,
   isImpaleLevel, outnumberBonusDice, nextTurnOrder, decideAiAction,
   consumeAmmo, canReload, canFire, d100WithDice, buildAndDamageBonus,
-  rollDamageFormula,
 } from './combat-engine';
 import { useCharSheetStore } from '../stores/useCharSheetStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -111,6 +110,35 @@ function joinDmg(base: string, db: string): string {
   return /^[+-]/.test(db) ? `${base}${db}` : `${base}+${db}`;
 }
 
+/**
+ * 重伤 CON 检定（COC7e p101）：重伤后须通过体质检定，失败则昏迷。
+ * 仅当 dr.conCheckRequired=true 时调用。修改 enc（日志+检定记录+可能昏迷标记）并返回。
+ */
+function resolveConCheck(enc0: Encounter, targetId: string, rng: Rng): Encounter {
+  let enc = enc0;
+  const target = byId(enc, targetId);
+  if (!target) return enc;
+  const conVal = target.con;
+  const r = d100WithDice(0, 0, rng);
+  const lvl = successLevel(r.finalRoll, conVal);
+  const passed = lvl !== 'fail' && lvl !== 'fumble';
+  enc = rec(enc, {
+    skill: `${target.name}·CON检定`,
+    roll: String(r.finalRoll),
+    target: String(conVal),
+    type: diceTypeFor(r.finalRoll, conVal),
+    purpose: '重伤CON检定',
+  });
+  if (!passed) {
+    const curTarget = byId(enc, targetId)!;
+    enc = patchCombatant(enc, targetId, { flags: { ...curTarget.flags, unconscious: true } });
+    enc = log(enc, `${target.name} 未通过 CON 检定（d100=${r.finalRoll}/${conVal}），昏迷`, 'roll');
+  } else {
+    enc = log(enc, `${target.name} 通过 CON 检定（d100=${r.finalRoll}/${conVal}），保持清醒`, 'roll');
+  }
+  return enc;
+}
+
 /** 判定脱战原因；null=继续。 */
 export function checkEndReason(enc: Encounter): CombatEndReason | null {
   const enemies = enc.combatants.filter((c) => c.faction === 'enemy');
@@ -148,9 +176,23 @@ export function advanceTurn(enc: Encounter): Encounter {
         },
       });
     }
-    const cleared = enc.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
+    // B1: 濒死逐轮失血 — dying && !dead && !stabilized 者每轮 -1 HP；HP 达 -maxHp 即死。
+    let bled = enc;
+    for (const c of bled.combatants) {
+      if (c.flags.dying && !c.flags.dead && !c.flags.stabilized) {
+        const newHp = c.hp - 1;
+        if (newHp <= -c.maxHp) {
+          bled = patchCombatant(bled, c.id, { hp: -c.maxHp, flags: { ...c.flags, dead: true } });
+          bled = log(bled, `${c.name} 因失血过多死亡（HP ${c.hp}→${-c.maxHp}）`, 'narrative');
+        } else {
+          bled = patchCombatant(bled, c.id, { hp: newHp });
+          bled = log(bled, `${c.name} 濒死失血 HP ${c.hp}→${newHp}`, 'narrative');
+        }
+      }
+    }
+    const cleared = bled.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
     const order = nextTurnOrder(cleared);
-    return { ...enc, combatants: cleared, turnOrder: order, currentIdx: 0, round: enc.round + 1, surpriseRound: false };
+    return { ...bled, combatants: cleared, turnOrder: order, currentIdx: 0, round: bled.round + 1, surpriseRound: false };
   }
   return { ...enc, currentIdx: next };
 }
@@ -174,19 +216,28 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       return log(enc, `${attacker.name} 的 ${weapon.name} 无法击发`, 'narrative');
     }
     const tier = weapon.ranged ? (enc.rangeTier ?? 'normal') : 'normal';
+    // B3 瞄准加成：若攻击者正在瞄准此目标，射击 +1 奖励骰
+    const aimBonus = attacker.flags.aimingAt === targetId ? 1 : 0;
     const totalShots = weapon.attacksPerRound ?? 1;
     for (let shot = 0; shot < totalShots; shot++) {
       const curAttacker = byId(enc, attackerId)!;
       const curTarget = byId(enc, targetId);
       const curWeapon = curAttacker.weapons[weaponIdx] ?? curAttacker.weapons[0];
       if (!curTarget || !alive(curTarget) || !canFire(curWeapon) || curAttacker.flags.weaponJammed) break;
+      // B4 掩护修正：全掩护不可射击，半掩护+1惩罚骰
+      const cover = enc.coverMap?.[targetId] ?? 'none';
+      if (cover === 'full') {
+        enc = log(enc, `${attacker.name} 无法射击 ${curTarget.name}（全掩护）`, 'narrative');
+        break;
+      }
+      const coverPenalty = cover === 'half' ? 1 : 0;
       const effectiveSkill = Math.max(1, curWeapon.skill + fpPenalty);
-      const r = resolveRanged(effectiveSkill, tier, rng);
+      const r = resolveRanged(effectiveSkill, tier, rng, aimBonus, coverPenalty);
       enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
-      enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
-      const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, curWeapon.skill);
-      const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${curWeapon.skill}（${LEVEL_CN[r.level]}）`;
+      enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(effectiveSkill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
+      const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, effectiveSkill);
+      const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${effectiveSkill}（${LEVEL_CN[r.level]}）`;
       if (r.jam) {
         enc = patchCombatant(enc, attackerId, { flags: { ...curAttacker.flags, weaponJammed: true } });
         enc = log(enc, `${hitLine} — ${curWeapon.name}卡壳！`, 'roll', [aViz]);
@@ -199,6 +250,14 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const dr = applyDamage(curTarget, dmgRoll.total);
       enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
       enc = log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${curWeapon.damage}=${dmgRoll.total}，${curTarget.name} HP ${hpBefore}→${dr.combatant.hp}/${curTarget.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: curTarget.maxHp })]);
+      if (dr.conCheckRequired) enc = resolveConCheck(enc, targetId, rng);
+    }
+    // B3：射击后清除瞄准状态（无论命中/脱靶/卡壳）
+    if (aimBonus > 0) {
+      const postAttacker = byId(enc, attackerId);
+      if (postAttacker) {
+        enc = patchCombatant(enc, attackerId, { flags: { ...postAttacker.flags, aimingAt: undefined } });
+      }
     }
     return enc;
   }
@@ -214,12 +273,12 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
   const effectiveMelee = Math.max(1, weapon.skill + fpPenalty);
   const op = preset ? preset.op : resolveOpposed(effectiveMelee, target.fighting, defenderValue, 0, defense, rng, bonus, 0, 0, pm.defPenalty);
   enc = patchCombatant(enc, targetId, { roundDefenses: target.roundDefenses + 1 });
-  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
+  enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(op.attackerRoll.finalRoll), target: String(effectiveMelee), type: LEVEL_TO_DICE_TYPE[op.attackerLevel], purpose: '攻击命中-近战' });
   const defLabel = defense === 'dodge' ? '闪避' : '反击';
   enc = rec(enc, { skill: `${target.name}·${defLabel}`, roll: String(op.defenderRoll.finalRoll), target: String(defenderValue), type: LEVEL_TO_DICE_TYPE[op.defenderLevel], purpose: defense === 'dodge' ? '闪避' : '格斗反击' });
-  const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${weapon.skill}（${LEVEL_CN[op.attackerLevel]}）`;
+  const atkLine = `${attacker.name} 用${weapon.name} d100=${op.attackerRoll.finalRoll}/${effectiveMelee}（${LEVEL_CN[op.attackerLevel]}）`;
   const defLine = `${target.name} ${defLabel}${pm.note} d100=${op.defenderRoll.finalRoll}/${defenderValue}（${LEVEL_CN[op.defenderLevel]}）`;
-  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, weapon.skill, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
+  enc = log(enc, `${atkLine} ｜ ${defLine}`, 'roll', [checkViz(attackerId, weapon.name, op.attackerRoll.finalRoll, op.attackerLevel, effectiveMelee, defLabel, op.defenderRoll.finalRoll, op.defenderLevel, defenderValue)]); // 第一行：检定判断(攻击+守骰)
 
   if (op.winner === 'attacker') {
     const impale = isImpaleLevel(op.attackerLevel); // 主动攻击极难/大成功→贯穿
@@ -228,7 +287,9 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = target.hp;
     const dr = applyDamage(target, dmgRoll.total);
     enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags, roundDefenses: target.roundDefenses + 1 });
-    return log(enc, `命中：${attacker.name} ${LEVEL_CN[op.attackerLevel]} 压过 ${target.name}${defLabel} ${LEVEL_CN[op.defenderLevel]}${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
+    enc = log(enc, `命中：${attacker.name} ${LEVEL_CN[op.attackerLevel]} 压过 ${target.name}${defLabel} ${LEVEL_CN[op.defenderLevel]}${impale ? '·贯穿' : ''} → 伤害 ${dmgFormula(db)}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, targetId, rng);
+    return enc;
   }
   if (op.winner === 'defender' && defense === 'fightback') {
     const cw = target.weapons[0] ?? weapon;
@@ -237,7 +298,9 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    enc = log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, attackerId, rng);
+    return enc;
   }
   if (op.winner === 'defender') return log(enc, `${attacker.name} 被 ${target.name}${defLabel}化解（${LEVEL_CN[op.defenderLevel]} ≥ ${LEVEL_CN[op.attackerLevel]}）`);
   return log(enc, `${attacker.name} 与 ${target.name} 均未得手`);
@@ -260,7 +323,7 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     }
     enc = log(enc, `${ai.name} 从地上起身，随即发难`, 'narrative');
   }
-  // ally 急救分支(COC7e p61:急救成功 1d3 HP,大成功 1d3+1,且稳定 dying)
+  // ally 急救分支(COC7e p61:急救成功恢复 1 HP,且稳定 dying)
   if (action.type === 'firstAid') {
     const targetC = byId(enc, action.targetId);
     if (!targetC || !alive(targetC)) {
@@ -279,12 +342,12 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     if (lvl === 'fail' || lvl === 'fumble') {
       return log(enc, `${ai.name} 试图为 ${targetC.name} 急救 — 失败`, 'narrative');
     }
-    // 成功:1d3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
-    const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+    // COC7e p61:急救成功恢复 1 HP。clamp 到 maxHp。稳定 dying。
+    const heal = 1;
     const newHp = Math.min(targetC.maxHp, targetC.hp + heal);
     enc = patchCombatant(enc, targetC.id, {
       hp: newHp,
-      flags: { ...targetC.flags, dying: false, ...(newHp > 0 ? { unconscious: false } : {}) },
+      flags: { ...targetC.flags, dying: false, stabilized: true, ...(newHp > 0 ? { unconscious: false } : {}) },
     });
     return log(enc, `${ai.name} 为 ${targetC.name} 急救 — +${heal} HP`, 'narrative');
   }
@@ -320,7 +383,8 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
   let guard = 0;
   while (guard++ < 200) {
     if (enc.pendingDefense) return enc; // AI 攻击玩家挂起,UI 显示防御按钮组,等玩家 resolvePlayerDefense
-    if (checkEndReason(enc)) { return { ...enc, status: 'resolving', endReason: checkEndReason(enc)! }; }
+    const endReason = checkEndReason(enc);
+    if (endReason) { return { ...enc, status: 'resolving', endReason }; }
     enc = advanceTurn(enc);
     const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
     if (!cur || !alive(cur)) continue;          // 跳过已倒下者
@@ -365,6 +429,18 @@ export function resolvePlayerDefense(
 }
 
 // ── 玩家动作（每个动作后跑完 AI 回合，返回新 Encounter）──
+
+/** 瞄准：玩家花费本回合瞄准目标，下次对该目标射击 +1 奖励骰（B3）。 */
+export function playerAim(enc: Encounter, targetId: string): Encounter {
+  const player = enc.combatants.find((c) => c.faction === 'player');
+  if (!player) return enc;
+  let e = patchCombatant(enc, player.id, { flags: { ...player.flags, aimingAt: targetId } });
+  const target = byId(e, targetId);
+  e = log(e, `${player.name} 瞄准 ${target?.name ?? '目标'}`, 'narrative');
+  const end = checkEndReason(e);
+  if (end) return { ...e, status: 'resolving', endReason: end };
+  return advanceUntilPlayerOrEnd(e);
+}
 
 export function playerAttack(enc0: Encounter, weaponIdx: number, rng: Rng = defaultRng, preset?: OpeningPreset): Encounter {
   const enc1 = reaimPlayerTarget(enc0); // 目标已死/脱离则自动切下一个活敌,避免 performAttack 静默 return 把回合让给 AI
@@ -438,7 +514,9 @@ export function performManeuver(enc0: Encounter, attackerId: string, targetId: s
     const hpBefore = attacker.hp;
     const dr = applyDamage(attacker, dmgRoll.total);
     enc = patchCombatant(enc, attackerId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    enc = log(enc, `${target.name} 反击得手（${LEVEL_CN[op.defenderLevel]} 压过 ${LEVEL_CN[op.attackerLevel]}）→ ${attacker.name} 受 ${cw.damage}=${dmgRoll.total} 伤，HP ${hpBefore}→${dr.combatant.hp}/${attacker.maxHp}`, 'roll', [dmgViz(dmgRoll.total, dmgRoll.dice, { id: attackerId, from: hpBefore, to: dr.combatant.hp, max: attacker.maxHp })]);
+    if (dr.conCheckRequired) enc = resolveConCheck(enc, attackerId, rng);
+    return enc;
   }
   if (op.winner === 'defender' && defense === 'maneuver-counter') {
     // 战技反击得手:不致伤,施加同战技效果给攻方(规则书 p89)
@@ -536,7 +614,7 @@ export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
   return advanceUntilPlayerOrEnd(enc, rng);
 }
 
-/** 玩家急救：对指定友方(或自身)进行急救检定(COC7e p61)。成功恢复 1D3 HP，大成功/极难 +1，并稳定 dying。 */
+/** 玩家急救：对指定友方(或自身)进行急救检定(COC7e p61)。成功恢复 1 HP，并稳定 dying。 */
 export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = defaultRng): Encounter {
   let enc = enc0;
   const player = enc.combatants.find((c) => c.controlledBy === 'player');
@@ -562,10 +640,10 @@ export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = def
     return advanceUntilPlayerOrEnd(enc, rng);
   }
 
-  // 成功:1D3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
-  const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+  // COC7e p61:急救成功恢复 1 HP。clamp 到 maxHp。稳定 dying。
+  const heal = 1;
   const newHp = Math.min(target.maxHp, target.hp + heal);
-  const newFlags = { ...target.flags };
+  const newFlags = { ...target.flags, stabilized: true };
   if (newFlags.dying) newFlags.dying = false;
   if (newHp > 0 && newFlags.unconscious) newFlags.unconscious = false;
 

@@ -117,6 +117,8 @@ interface SettingsState {
   /** Agent 心智档案系统全局默认值(2026-06-10)。控制新建存档的 Conversation.agentMemoryEnabled 默认 fallback。
    *  conversation 独立设定(三态：true/false/undefined)优先；undefined 时取此字段。默认关。 */
   agentMemoryDefault: boolean;
+  /** 八股净化：对 LLM 输出的叙事正文和选项文字做规则替换，消除模板化措辞（"几不可查""嘴角弧度"等）。默认开。 */
+  clicheCleanerEnabled: boolean;
 }
 
 /**
@@ -236,6 +238,7 @@ interface SettingsStore extends SettingsState {
   unlockCheating: () => void;
   setStreamingPrintEnabled: (v: boolean) => void;
   setAgentMemoryDefault: (v: boolean) => void;
+  setClicheCleanerEnabled: (v: boolean) => void;
 
   /**
    * v1.14.0 起的统一调用入口:主叙事 API 当前 effective 凭证。
@@ -306,6 +309,7 @@ const defaults: SettingsState = {
   cheatingUnlocked: false,
   streamingPrintEnabled: false,
   agentMemoryDefault: false,
+  clicheCleanerEnabled: true,
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -415,6 +419,7 @@ export const useSettingsStore = create<SettingsStore>()(
       unlockCheating: () => set({ cheatingUnlocked: true }),
       setStreamingPrintEnabled: (v) => set({ streamingPrintEnabled: v }),
       setAgentMemoryDefault: (v) => set({ agentMemoryDefault: v }),
+      setClicheCleanerEnabled: (v) => set({ clicheCleanerEnabled: v }),
 
       // ───────────── v1.14.0:effective API selector(跨 store 读 useApiProfilesStore) ─────────────
       // 同步读取,非订阅式 — 给 useChatPipeline / subagent-call 等纯逻辑调用站点用。

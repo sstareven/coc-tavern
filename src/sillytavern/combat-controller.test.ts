@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Encounter } from '../types';
-import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, resolvePlayerDefense, type OpeningPreset } from './combat-controller';
+import { checkEndReason, playerAttack, playerFlee, advanceTurn, runAiTurn, performAttack, performManeuver, resolvePlayerDefense, playerAim, type OpeningPreset } from './combat-controller';
 import type { Rng } from './combat-engine';
 
 function seqRng(values: number[]): Rng { let i = 0; return () => values[i++ % values.length]; }
@@ -11,7 +11,7 @@ function mkC(over: Partial<Combatant>): Combatant {
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 25, damageBonus: '0',
     hp: 10, maxHp: 10, armor: 0,
     weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
     ...over,
   } as Combatant;
@@ -139,7 +139,7 @@ describe('AI 近战攻击玩家时挂起 pendingDefense,玩家选 dodge/fightbac
 
 describe('倒地(prone)者须先起身，当回合不可脱离战斗（COC7e 俯卧规则）', () => {
   const prone = (over: Partial<Combatant>) =>
-    mkC({ ...over, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+    mkC({ ...over, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false, stabilized: false } });
 
   it('倒地 AI 选逃 → 本回合只起身(prone清)，不脱离(fled仍false、仍在战斗)', () => {
     // MOV 占优本会「直接脱离」，但倒地必须先起身 → 不脱离
@@ -249,7 +249,7 @@ describe('近战日志拆行 + 倒地劣势', () => {
 
   it('目标倒地(prone) → 判断行标注「倒地·劣势」', () => {
     const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 70 });
-    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 40, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 40, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false, stabilized: false } });
     const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]));
     expect(out.log.some((l) => l.text.includes('倒地·劣势'))).toBe(true);
   });
@@ -332,5 +332,214 @@ describe('attacksPerRound > 1 (semi-auto handguns fire multiple shots)', () => {
     const enc = mkEnc([player, enemy], 'e');
     const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.9, 0.1]));
     expect(out.log.some((l) => l.text.includes('[1/'))).toBe(false);
+  });
+});
+
+describe('major wound CON check in performAttack', () => {
+  it('melee major wound: CON check fail → target unconscious + log', () => {
+    // Attacker deals major wound (>= ceil(maxHp/2)=5 on maxHp=10) via melee.
+    // Use non-impaling weapon to avoid extreme/crit impale damage.
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '棍棒', skill: 90, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 30, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveOpposed (no bonus/penalty): att d100(ones=0,tens=10)→10 extreme≤90; def d100(ones=5,tens=90)→95 fail>10
+    // rollDamage: impale=false (success not extreme for impale... wait, extreme IS impale level)
+    // Actually isImpaleLevel('extreme')=true. But weapon.impaling=false → rollDamage with impale=true and
+    // weapon.crushing undefined → falls to "贯穿" path but weapon.impaling=false → extra not rolled.
+    // wMax=maxDiceOfFormula('1D6')→total=6. dMax='0'→0. No extra (impaling=false). Total=6. 6>=5 → major wound, 6<10 → not dead.
+    // CON check: d100(ones=9,tens=90)→99 fail>30
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9, 0.9, 0.9]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(true);
+    expect(out.log.some((l) => l.text.includes('未通过 CON 检定'))).toBe(true);
+    expect(out.diceRecords.some((r) => r.purpose === '重伤CON检定')).toBe(true);
+  });
+
+  it('melee major wound: CON check pass → target stays conscious + log', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '棍棒', skill: 90, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 80, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // Same attack path as above: dealt=6 major wound.
+    // CON check: d100(ones=0,tens=10)→10 success≤80
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9, 0.0, 0.1]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(false);
+    expect(out.log.some((l) => l.text.includes('通过 CON 检定'))).toBe(true);
+  });
+
+  it('ranged major wound triggers CON check', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 90, damage: '1D6', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 20 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveRanged: d100(ones=0,tens=30)→30 success≤90 (not extreme, so no impale)
+    // Damage: rollDamage(weapon,'0',false,rng): 1D6 → rng=0.8→die=floor(0.8*6)+1=5+1=5 (not 6). Wait: floor(0.8*6)=floor(4.8)=4, +1=5.
+    // dealt=5 >= ceil(10/2)=5 → major wound. 5<10 → not dead.
+    // CON check: d100(ones=0,tens=90)→90 fail>20
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.3, 0.8, 0.0, 0.9]));
+    const e = out.combatants.find((c) => c.id === 'e')!;
+    expect(e.flags.majorWound).toBe(true);
+    expect(e.flags.unconscious).toBe(true);
+    expect(out.log.some((l) => l.text.includes('未通过 CON 检定'))).toBe(true);
+  });
+
+  it('no CON check when damage is minor (below major wound threshold)', () => {
+    const attacker = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player', fighting: 90, damageBonus: '0',
+      weapons: [{ name: '小刀', skill: 90, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
+    });
+    const target = mkC({ id: 'e', faction: 'enemy', hp: 10, maxHp: 10, con: 50, fighting: 5, dodge: 10 });
+    const enc = mkEnc([attacker, target], 'e');
+    // resolveOpposed: att d100(ones=0,tens=10)→10 extreme≤90; def d100(ones=5,tens=90)→95 fail>10
+    // rollDamage: impale=true(extreme), weapon impaling=false → wMax=maxDiceOfFormula('1D3')→3. Total=3. 3<5→no major wound.
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.0, 0.1, 0.5, 0.9]));
+    expect(out.log.some((l) => l.text.includes('CON 检定'))).toBe(false);
+    expect(out.diceRecords.some((r) => r.purpose === '重伤CON检定')).toBe(false);
+  });
+});
+
+describe('B3: playerAim（瞄准动作）', () => {
+  it('瞄准设置 aimingAt flag 并产生日志', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // playerAim calls advanceUntilPlayerOrEnd which runs AI turns; provide enough rng
+    const out = playerAim(enc, 'e');
+    const p = out.combatants.find((c) => c.id === 'p')!;
+    expect(p.flags.aimingAt).toBe('e');
+    expect(out.log.some((l) => l.text.includes('瞄准'))).toBe(true);
+  });
+
+  it('瞄准后射击同一目标 → +1 奖励骰(resolveRanged bonus=1)，射击后 aimingAt 清除', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e' },
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // resolveRanged with bonus=1: d100WithDice(1,0,rng) → net=-1(bonus), tensCount=2
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30, tens[1]=floor(0.1*10)*10=10
+    // candidates: 30+1=31, 10+1=11 → min=11 → success ≤80
+    // damage: 1D10 rng=0.9→die(10,rng)=floor(0.9*10)+1=10
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3, 0.1, 0.9]));
+    // Hit should happen (d100=11 ≤ 80)
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+    // aimingAt cleared after shot
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBeUndefined();
+  });
+
+  it('射击未命中时也清除 aimingAt', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 20, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e' },
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e');
+    // resolveRanged with bonus=1: d100WithDice(1,0,rng) → net=-1(bonus), tensCount=2
+    // ones=floor(0.5*10)=5, tens[0]=floor(0.8*10)*10=80, tens[1]=floor(0.7*10)*10=70
+    // candidates: 80+5=85, 70+5=75 → min=75 → fail >20
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.5, 0.8, 0.7]));
+    expect(out.log.some((l) => l.text.includes('未命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBeUndefined();
+  });
+
+  it('瞄准目标 A 但射击目标 B → 无奖励骰，aimingAt 不清除', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+      flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false, aimingAt: 'e1' },
+    });
+    const enemyA = mkC({ id: 'e1', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enemyB = mkC({ id: 'e2', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemyA, enemyB], 'e2');
+    // Shooting e2, but aiming at e1 → aimBonus=0
+    // resolveRanged with bonus=0: d100WithDice(0,0,rng) → tensCount=1
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30 → 31 success ≤80
+    // damage: 1D10 rng=0.5→die(10)=floor(0.5*10)+1=6
+    const out = performAttack(enc, 'p', 'e2', 0, seqRng([0.1, 0.3, 0.5]));
+    // aimingAt should still be 'e1' (not cleared because we shot a different target)
+    expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBe('e1');
+  });
+});
+
+describe('B4: cover modifiers（掩护修正）', () => {
+  it('half cover adds 1 penalty die for ranged attack', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'half' } };
+    // resolveRanged(80, 'normal', rng, aimBonus=0, coverPenalty=1)
+    // d100WithDice(0, 1, rng): net=1(penalty), tensCount=2
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30, tens[1]=floor(0.2*10)*10=20
+    // candidates: 30+1=31, 20+1=21 → max=31 (penalty picks worst) → success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+  });
+
+  it('full cover blocks ranged attack entirely', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'full' } };
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3]));
+    // Should log that the shot is blocked by full cover
+    expect(out.log.some((l) => l.text.includes('全掩护'))).toBe(true);
+    // Enemy HP should be unchanged
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBe(20);
+    // Ammo should NOT be consumed (attack never fires)
+    expect(out.combatants.find((c) => c.id === 'p')!.weapons[0].loadedAmmo).toBe(6);
+  });
+
+  it('no penalty when cover is none', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'none' } };
+    // resolveRanged(80, 'normal', rng, 0, 0): no penalty
+    // d100WithDice(0, 0, rng): tensCount=1
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.2*10)*10=20 → 21 success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+  });
+
+  it('no penalty when coverMap is absent (undefined)', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e'); // no coverMap at all
+    // resolveRanged(80, 'normal', rng, 0, 0): no penalty
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.2*10)*10=20 → 21 success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
   });
 });

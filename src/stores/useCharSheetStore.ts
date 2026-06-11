@@ -148,6 +148,12 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
   const asStringArray = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 
+  // ── latentInsanity：C3 潜伏疯狂——bout 结束后 1D10 小时窗口，任意 SAN loss ≥1 直接触发新发作 ──
+  const rawLI = r.latentInsanity as Partial<NonNullable<CharacterSheet['latentInsanity']>> | undefined;
+  const latentInsanity: CharacterSheet['latentInsanity'] = rawLI && rawLI.active === true && typeof rawLI.expiresAtEpoch === 'number'
+    ? { active: true, expiresAtEpoch: rawLI.expiresAtEpoch }
+    : undefined;
+
   // ── recovery：B1.6 (M2) 时间戳占位形（hpRegenAtMs / sanRegenAtMs，均可选），现仅透传无字段 ──
   const rawRec = (r.recovery ?? {}) as Partial<CharacterSheet['recovery']>;
   const recovery: CharacterSheet['recovery'] = {};
@@ -170,6 +176,7 @@ export function migrateSheet(raw: Partial<CharacterSheet> | undefined | null): C
     phobias: asStringArray(r.phobias),
     manias: asStringArray(r.manias),
     known_spells: asStringArray(r.known_spells),
+    latentInsanity,
     recovery,
   };
 }

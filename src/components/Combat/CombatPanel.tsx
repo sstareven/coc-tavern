@@ -9,7 +9,7 @@ import { useNpcStore } from '../../stores/useNpcStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { canReload } from '../../sillytavern/combat-engine';
 import {
-  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense, playerFirstAid,
+  playerAttack, playerReload, playerClearJam, playerCallForHelp, playerFlee, playerManeuver, resolvePlayerDefense, playerFirstAid, playerAim,
 } from '../../sillytavern/combat-controller';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { CombatDiceRoll, type DiceToss } from './CombatDiceRoll';
@@ -201,9 +201,13 @@ export function CombatPanel() {
 
       {/* 敌人 / 友方 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, padding: '0 24px 10px', borderBottom: `1px solid ${FAINTER}` }}>
-        {enemies.map((e) => (
-          <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} active={activeActorId === e.id} onClick={() => act(false, () => setTarget(e.id))} />
-        ))}
+        {enemies.map((e) => {
+          const cover = enc.coverMap?.[e.id];
+          const coverLabel = cover === 'half' ? '(半掩)' : cover === 'full' ? '(全掩)' : undefined;
+          return (
+            <CombatantRow key={e.id} c={e} hp={displayHp[e.id] ?? e.hp} hostile target={enc.playerTargetId === e.id} active={activeActorId === e.id} coverLabel={coverLabel} onClick={() => act(false, () => setTarget(e.id))} />
+          );
+        })}
         {allies.length > 0 && <NpcTendencyChips />}
         {allies.map((a) => <CombatantRow key={a.id} c={a} hp={displayHp[a.id] ?? a.hp} hostile={false} target={false} active={activeActorId === a.id} />)}
       </div>
@@ -272,6 +276,7 @@ export function CombatPanel() {
           disabled={!canAct}
           options={MANEUVERS.map((m) => ({ label: m.label, title: m.title, onClick: () => act(true, () => doManeuver(m.kind)) }))}
         />
+        {rangedIdx >= 0 && <ActionBtn label="瞄准" disabled={!canAct || !enc.playerTargetId} title="花费本回合瞄准目标，下次射击 +1 奖励骰" onClick={() => act(false, () => setEncounter(playerAim(enc, enc.playerTargetId!)))} />}
         {rangedIdx >= 0 && <ActionBtn label="换弹" disabled={!canReloadNow} onClick={() => act(false, doReload)} />}
         {jammed && <ActionBtn label="排除故障" disabled={!canAct} onClick={() => act(false, doClearJam)} />}
         {hasFriendly && <ActionBtn label="呼救" disabled={!canAct} onClick={() => act(false, doCallHelp)} />}
@@ -322,7 +327,7 @@ function TypewriterLine({ text, narrative, dim, onDone }: { text: string; narrat
   );
 }
 
-function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatant; hp?: number; hostile: boolean; target: boolean; active?: boolean; onClick?: () => void }) {
+function CombatantRow({ c, hp, hostile, target, active, coverLabel, onClick }: { c: Combatant; hp?: number; hostile: boolean; target: boolean; active?: boolean; coverLabel?: string; onClick?: () => void }) {
   const fled = c.flags.fled;
   const down = c.flags.dead || c.flags.unconscious || fled;
   const stateLabel = fled ? '（脱离）' : (c.flags.dead || c.flags.unconscious) ? '（倒下）' : c.flags.dying ? '·濒死' : c.flags.majorWound ? '·重伤' : '';
@@ -348,7 +353,7 @@ function CombatantRow({ c, hp, hostile, target, active, onClick }: { c: Combatan
         >▶</motion.span>
       )}
       <span style={{ flex: 1, fontSize: 'calc(13px * var(--system-ratio, 1))', color: hostile ? 'var(--ink)' : 'var(--success)' }}>
-        {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}
+        {c.name}{target && !down ? ' ▸目标' : ''}{stateLabel}{coverLabel && !down ? ` ${coverLabel}` : ''}
       </span>
       {active && <span style={{ fontSize: 'calc(9px * var(--system-ratio, 1))', color: 'var(--gold)', border: '1px solid rgba(196,168,85,0.6)', borderRadius: 8, padding: '0 6px', flexShrink: 0, letterSpacing: 1 }}>行动中</span>}
       {!down && (c.flags.prone || c.flags.weaponJammed) && (

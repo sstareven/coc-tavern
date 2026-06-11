@@ -1,6 +1,7 @@
 import { callDsSubagent } from './subagent-call';
 import { nextTurnOrder, buildAndDamageBonus } from './combat-engine';
 import { matchWeaponTemplate } from './coc-weapons';
+import { matchCreature } from './creature-data';
 import { parseNpcDerived } from './npc-derived';
 import type { TokenUsage } from './stream-parser';
 import type {
@@ -102,7 +103,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: detectArmorFromInventory(items),
     weapons: [unarmed, ...mapInventoryToWeapons(items, sheet)],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
   };
 }
@@ -175,7 +176,7 @@ export function buildCombatantFromNpc(npc: NpcProfile, faction: CombatFaction = 
     hp, maxHp: hp,
     armor: 0,
     weapons: [unarmed, ...mapNamesToWeapons(npc.possessions ?? [], resolve)],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     tendency,
     roundDefenses: 0,
   };
@@ -199,25 +200,47 @@ function normalizeWeapon(raw: Record<string, unknown>, defaultSkill: number): Co
 }
 
 function normalizeCombatant(raw: Record<string, unknown>, faction: CombatFaction, idx: number): Combatant {
-  const fighting = num(raw.fighting, 40);
+  const rawName = str(raw.name, faction === 'enemy' ? '敌人' : '同伴');
+  // D3: 优先用 COC7e 生物模板覆盖 LLM 数值，确保跨场景属性一致
+  const creature = matchCreature(rawName);
+
+  const fighting = creature ? (creature.attacks[0]?.skill ?? 40) : num(raw.fighting, 40);
   const firearm = typeof raw.firearm === 'number' ? raw.firearm : undefined;
-  const weaponsRaw = Array.isArray(raw.weapons) ? (raw.weapons as Record<string, unknown>[]) : [];
-  const weapons = weaponsRaw.map((w) => normalizeWeapon(w, w.ranged === true ? (firearm ?? 40) : fighting));
+
+  let weapons: CombatWeapon[];
+  if (creature) {
+    // 从模板攻击构建武器列表
+    weapons = creature.attacks.map((atk) => ({
+      name: atk.name,
+      skill: atk.skill,
+      damage: atk.damage,
+      impaling: false,
+      ranged: false,
+      attacksPerRound: atk.attacksPerRound,
+    }));
+  } else {
+    const weaponsRaw = Array.isArray(raw.weapons) ? (raw.weapons as Record<string, unknown>[]) : [];
+    weapons = weaponsRaw.map((w) => normalizeWeapon(w, w.ranged === true ? (firearm ?? 40) : fighting));
+  }
   if (weapons.length === 0) weapons.push({ name: '利爪', skill: fighting, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 });
-  const maxHp = num(raw.hp, 10);
+
+  const maxHp = creature ? creature.hp : num(raw.hp, 10);
   return {
-    id: `${faction}-${idx}-${str(raw.name, 'X')}`,
-    name: str(raw.name, faction === 'enemy' ? '敌人' : '同伴'),
+    id: `${faction}-${idx}-${rawName}`,
+    name: rawName,
     faction,
     controlledBy: 'ai',
-    dex: num(raw.dex, 50), str: num(raw.str, 50), siz: num(raw.siz, 50), con: num(raw.con, 50),
-    mov: num(raw.mov, 8),
+    dex: creature ? creature.dex : num(raw.dex, 50),
+    str: creature ? creature.str : num(raw.str, 50),
+    siz: creature ? creature.siz : num(raw.siz, 50),
+    con: creature ? creature.con : num(raw.con, 50),
+    mov: creature ? creature.mov : num(raw.mov, 8),
     fighting, dodge: num(raw.dodge, 25), firearm,
-    damageBonus: str(raw.db, '0'),
+    damageBonus: creature ? creature.db : str(raw.db, '0'),
     hp: maxHp, maxHp,
-    armor: num(raw.armor, 0),
+    armor: creature ? creature.armor : num(raw.armor, 0),
     weapons,
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     tendency: { attack: num((raw.tendency as Record<string, unknown> | undefined)?.attack, 70), flee: num((raw.tendency as Record<string, unknown> | undefined)?.flee, 20) },
     roundDefenses: 0,
   };
@@ -240,6 +263,8 @@ const DETECT_PROMPT = `你是 COC7e 跑团守秘人的战斗裁判。下面给�
 
 另外根据叙事场景判断交战距离 rangeTier："close"=室内狭小空间/贴身肉搏、"normal"=室内一般房间、"far"=室外/大厅/远距离、"extreme"=旷野/跨越大片区域。缺省为"normal"。
 
+根据叙事场景为每个参战者评估掩护等级 coverMap：{"combatant_id":"none"|"half"|"full"}。none=无掩护（开阔地带）、half=半掩护（低矮墙壁/桌子/柱子后）、full=全掩护（完全隐蔽在掩体后，射击无法命中）。仅在场景有明确遮蔽物描写时给 half/full，否则默认 none。coverMap 的键为 combatant name（与 combatants 数组中的 name 对应）。
+
 若叙事中一方对另一方进行了埋伏/偷袭/突然袭击，则设 "surpriseRound": true，"surprisedFaction" 设为被突袭的阵营（"player"=调查员一方被突袭，"enemy"=敌方被突袭）。突袭轮中被突袭方不能行动。若无突袭则不输出这两个字段。
 
 只输出严格 JSON，不要任何额外文字或代码围栏：
@@ -248,6 +273,7 @@ const DETECT_PROMPT = `你是 COC7e 跑团守秘人的战斗裁判。下面给�
   "rangeTier": "normal",
   "surpriseRound": false,
   "surprisedFaction": null,
+  "coverMap": {"邪教徒":"none"},
   "combatants": [
     {"name":"邪教徒","faction":"enemy","dex":55,"con":55,"fighting":45,"dodge":27,"hp":11,"armor":0,"mov":8,"db":"0","weapons":[{"name":"匕首","damage":"1D4","impaling":true,"ranged":false,"attacksPerRound":1}],"tendency":{"attack":80,"flee":15}}
   ],
@@ -299,6 +325,20 @@ export async function detectAndBuildEncounter(
     const VALID_FACTIONS = ['player', 'enemy'] as const;
     const surprisedFaction = surpriseRound && VALID_FACTIONS.includes(p.surprisedFaction as typeof VALID_FACTIONS[number])
       ? (p.surprisedFaction as 'player' | 'enemy') : undefined;
+    // B4 掩护：LLM 按 name 给出 coverMap，映射为 combatant id 键
+    // Limitation: if multiple combatants share the same name, only the last
+    // one encountered gets a coverMap entry — earlier same-name combatants
+    // are silently overwritten. Acceptable for now since duplicate names are
+    // rare in practice.
+    const VALID_COVER = ['none', 'half', 'full'] as const;
+    const rawCoverMap = (p.coverMap && typeof p.coverMap === 'object') ? (p.coverMap as Record<string, unknown>) : {};
+    const coverMap: Record<string, 'none' | 'half' | 'full'> = {};
+    for (const c of combatants) {
+      const val = rawCoverMap[c.name];
+      if (typeof val === 'string' && VALID_COVER.includes(val as typeof VALID_COVER[number])) {
+        coverMap[c.id] = val as 'none' | 'half' | 'full';
+      }
+    }
     return {
       active: true,
       round: 1,
@@ -311,6 +351,7 @@ export async function detectAndBuildEncounter(
       diceRecords: [],
       status: 'active',
       rangeTier,
+      ...(Object.keys(coverMap).length > 0 ? { coverMap } : {}),
       ...(surpriseRound && surprisedFaction ? { surpriseRound, surprisedFaction } : {}),
       usage,
     };

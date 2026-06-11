@@ -32,7 +32,7 @@ export interface EnterCombatOpts {
   npcTarget?: NpcProfile;
 }
 
-const NO_FLAGS = { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false };
+const NO_FLAGS = { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false };
 let entering = false; // 防并发双触发(LLM 建场期间重复点选项)
 
 function mkRoll(n: number) { return { tens: [Math.floor(n / 10) * 10], ones: n % 10, finalRoll: n }; }

@@ -56,6 +56,12 @@ export interface CharacterSheet {
   manias: string[];
   /** 已知法术（B1 法术系统）。仅记法术 id/名，详细 cost/effect 在法术库 / 世界书内。 */
   known_spells: string[];
+  /**
+   * 潜伏疯狂（COC7e p132）：一次临时疯狂发作结束后，调查员进入 1D10 小时的潜伏疯狂期。
+   * 在此期间，任何 ≥1 点的 SAN 损失直接触发新一轮疯狂发作（跳过 INT 检定阈值判定）。
+   * expiresAtEpoch 为游戏内 epoch（分钟），超过该 epoch 后自动失效。
+   */
+  latentInsanity?: { active: boolean; expiresAtEpoch: number };
   /** 恢复进度（C2 长期/短期恢复机制）：HP/SAN 下一次恢复的 epoch ms 时间戳——B1.6 (M2) 落地时再补默认值。 */
   recovery: { hpRegenAtMs?: number; sanRegenAtMs?: number };
   /** Step 5 玩家填写的「初始物品」原文，进游戏前由 LLM 抽取入 useInventoryStore；preset 模式下空字符串 */
@@ -886,6 +892,10 @@ export interface CombatantFlags {
   weaponJammed: boolean;
   /** 已逃离/脱离战斗（区别于倒下/死亡——显示「脱离」而非「倒下」）。 */
   fled: boolean;
+  /** 急救成功后稳定——濒死者不再逐轮失血（COC7e 急救规则）。 */
+  stabilized?: boolean;
+  /** 正在瞄准的目标 combatant ID（B3 瞄准动作：下次对该目标射击 +1 奖励骰）。 */
+  aimingAt?: string;
 }
 
 export interface Combatant {
@@ -983,9 +993,66 @@ export interface Encounter {
   surpriseRound?: boolean;
   /** 被突袭的阵营：该阵营在突袭轮(round=1)中被跳过。 */
   surprisedFaction?: 'player' | 'enemy';
+  /** B4 掩护：各战斗者的掩护等级（none=无掩护/half=半掩/full=全掩）。键为 combatant id。 */
+  coverMap?: Record<string, 'none' | 'half' | 'full'>;
 }
 
 export interface CombatLog {
   entries: CombatLogEntry[];
   endReason: CombatEndReason;
+}
+
+// ===== Chase System (COC7e Ch7) =====
+
+export interface ChaseLocation {
+  name: string;
+  description?: string;
+  hazard?: {
+    skill: string;
+    difficulty: 'normal' | 'hard' | 'extreme';
+    failConsequence: 'fall' | 'trapped' | 'damage';
+    damage?: string;
+  };
+  barrier?: {
+    skill: string;
+    difficulty: 'normal' | 'hard' | 'extreme';
+    breakThrough: boolean;
+  };
+}
+
+export interface ChaseParticipant {
+  id: string;
+  name: string;
+  role: 'pursuer' | 'quarry';
+  controlledBy: 'player' | 'ai';
+  mov: number;
+  con: number;
+  dex: number;
+  position: number;
+  sprintCount: number;
+  conChecksUsed: number;
+  flags: {
+    fallen: boolean;
+    trapped: boolean;
+    exhausted: boolean;
+    escaped: boolean;
+    caught: boolean;
+  };
+  skills: Record<string, number>;
+}
+
+export interface Chase {
+  active: boolean;
+  round: number;
+  locations: ChaseLocation[];
+  participants: ChaseParticipant[];
+  turnOrder: string[];
+  currentIdx: number;
+  log: CombatLogEntry[];
+  diceRecords: DiceRecord[];
+  status: 'active' | 'resolving' | 'ended';
+  endReason?: 'caught' | 'escaped' | 'exhausted' | 'aborted';
+  initialGap: number;
+  anchorPageId?: string;
+  opener?: string;
 }

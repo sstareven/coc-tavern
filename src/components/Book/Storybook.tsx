@@ -20,6 +20,7 @@ import { useStreamingPrintStore } from '../../stores/useStreamingPrintStore';
 import { useLocationElementStore } from '../../stores/useLocationElementStore';
 import { useKeyClueStore } from '../../stores/useKeyClueStore';
 import { useCombatStore } from '../../stores/useCombatStore';
+import { useChaseStore } from '../../stores/useChaseStore';
 import { usePanelStore } from '../../stores/usePanelStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
@@ -29,6 +30,7 @@ import { LeftPage } from './LeftPage';
 import { RightPage } from './RightPage';
 import { useSanityBubbleStore } from '../../stores/useSanityBubbleStore';
 import { CombatPanel } from '../Combat/CombatPanel';
+import { ChasePanel } from '../Chase/ChasePanel';
 import { TocOverlay } from './TocOverlay';
 import { PageNav } from './PageNav';
 import { CSSFlipPage, FadingPage, AppearPage } from './PageFlip3D';
@@ -59,6 +61,7 @@ export function Storybook() {
   const streamingSummary = useStreamingPrintStore((s) => s.summarySegments);
   const streamingChoices = useStreamingPrintStore((s) => s.choices);
   const encounter = useCombatStore((s) => s.encounter);
+  const chase = useChaseStore((s) => s.chase);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
@@ -103,6 +106,13 @@ export function Storybook() {
   const inCombat = !!encounter && (
     encounter.anchorPageId
       ? page.id === encounter.anchorPageId
+      : pageIndex === pages.length - 1
+  );
+
+  // 追逐面板只在「追逐所属页」显示——与战斗面板同逻辑。
+  const inChase = !inCombat && !!chase && (
+    chase.anchorPageId
+      ? page.id === chase.anchorPageId
       : pageIndex === pages.length - 1
   );
 
@@ -236,6 +246,19 @@ export function Storybook() {
     useRescueStore.getState().clear();
     const lastRescueSnap = [...remaining].reverse().find((p) => p.rescue)?.rescue;
     if (lastRescueSnap) useRescueStore.getState().hydrateFromSnapshot(lastRescueSnap);
+
+    // 删页后清理孤立的战斗/追逐：锚定页已被级联删除 → 面板不可见却堵死入口，与读档自愈同理。
+    {
+      const remainingIds = remaining.map((p) => p.id ?? '');
+      const enc = useCombatStore.getState().encounter;
+      if (enc?.anchorPageId && !remainingIds.includes(enc.anchorPageId)) {
+        useCombatStore.getState().clearCombat();
+      }
+      const ch = useChaseStore.getState().chase;
+      if (ch?.anchorPageId && !remainingIds.includes(ch.anchorPageId)) {
+        useChaseStore.getState().clearChase();
+      }
+    }
 
     persistActiveGameState();
   };
@@ -439,6 +462,9 @@ export function Storybook() {
             ) : inCombat ? (
               /* 战斗中：右页变即时战斗面板（CombatPanel 自带 flex:1 填满右页；脱战后 clearCombat 自动回正常右页） */
               <CombatPanel />
+            ) : inChase ? (
+              /* 追逐中：右页变追逐面板（与战斗面板同模式） */
+              <ChasePanel />
             ) : (
               <AppearPage pageIndex={pageIndex}>
                 <RightPage header={page.rightHeader} content={page.rightContent} choices={page.rightChoices} pageNum={page.rightPage} rewrite={page.rewrite} inventoryChanges={page.inventoryChanges} sanityCheckPrompts={page.sanityCheckPrompts} narration={page.narration} isStreamingPrint={isStreamingPrint} streamingHeader={streamingRightHeader} streamingSegments={streamingRightSegments} streamingChoices={streamingChoices} />

@@ -8,6 +8,7 @@ import { useLocationElementStore } from './useLocationElementStore';
 import { useKeyClueStore } from './useKeyClueStore';
 import { useAnchorStore } from './useAnchorStore';
 import { useCombatStore, isOrphanedEncounter } from './useCombatStore';
+import { useChaseStore } from './useChaseStore';
 import { useDiceStore } from './useDiceStore';
 import { useChoiceLockStore } from './useChoiceLockStore';
 import { useTurnProgressStore } from './useTurnProgressStore';
@@ -29,6 +30,7 @@ import { useOptionStagingStore } from './useOptionStagingStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
+import { _resetMilestoneSanCacheForTest as resetMilestoneSanCache } from '../sillytavern/milestone-san-evaluator';
 import type { GameVariable, BookPage } from '../types';
 import {
   db,
@@ -78,6 +80,7 @@ export function clearAllGameState(prevScenarioId?: string) {
   useKeyClueStore.getState().clearAll();
   useAnchorStore.getState().clearAll();
   useCombatStore.getState().clearAll();
+  useChaseStore.getState().clearAll();
   useRescueStore.getState().clear();
   useVariableStore.getState().clearAll();
   useTavernHelperStore.getState().setMacroVars({});
@@ -90,6 +93,8 @@ export function clearAllGameState(prevScenarioId?: string) {
   // 防止上一会话未消费的旁白漏到新会话第一页。
   useNarrationStore.getState().clearPending();
   useOptionStagingStore.getState().cancel();
+  // C2: 里程碑 SAN 恢复幂等缓存——切会话时清空,防旧会话节点 id 阻塞新会话同 id 奖励。
+  resetMilestoneSanCache();
   // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。
   // 优先用显式传参；缺省时回落到从 activeId 反查(向后兼容)。
   const scenarioIdToUnload = prevScenarioId ?? useChatStore.getState().sessions.find(
@@ -213,6 +218,7 @@ async function saveConversationInner(cid: string): Promise<void> {
   const keyClueState = useKeyClueStore.getState();
   const anchorState = useAnchorStore.getState();
   const combatEncounter = useCombatStore.getState().encounter;
+  const chaseState = useChaseStore.getState().chase;
   const rescueSnapshot = useRescueStore.getState().toSnapshot();
   const rescueHasContent = rescueSnapshot.paths.length > 0;
   const keywords = useKeywordStore.getState().keywords;
@@ -267,7 +273,7 @@ async function saveConversationInner(cid: string): Promise<void> {
 
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'chase', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
     async () => {
       await db.conversations.put(conversationRow);
 
@@ -329,6 +335,13 @@ async function saveConversationInner(cid: string): Promise<void> {
         await db.combat.put({ conversationId: cid, encounter: combatEncounter });
       } else {
         await db.combat.delete(cid);
+      }
+
+      // 进行中追逐（单行/会话）：有 chase 则 put，无则删残留行。
+      if (chaseState) {
+        await db.chase.put({ conversationId: cid, chase: chaseState });
+      } else {
+        await db.chase.delete(cid);
       }
 
       // 拯救路径（单行/会话）:有 path 则 put,无 path(剧本未启用 rescueEndings)删残留行。
@@ -394,10 +407,10 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   useChatStore.getState().setActive(cid);
 
   // P1-4：7 个读包在单一只读事务里，杜绝读偏斜（并发写在两读之间提交会产生跨域不一致快照）。
-  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, rescueRow, keywordRows, gameVarRows, macroVarRows, npcMemoryRows, worldMemoryRow] =
+  const [pageRows, charRow, inventoryRows, clueRows, npcRows, mapLocationRows, mapEdgeRows, locationElementRows, darkThreadRows, darkEndingRow, keyClueRow, plotAnchorRow, combatRow, chaseRow, rescueRow, keywordRows, gameVarRows, macroVarRows, npcMemoryRows, worldMemoryRow] =
     await db.transaction(
       'r',
-      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
+      ['pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'chase', 'rescue', 'keywords', 'gameVars', 'macroVars', 'npcMemories', 'worldMemories'],
       async () =>
         Promise.all([
           db.pages.where('conversationId').equals(cid).toArray(),
@@ -413,6 +426,7 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
           db.keyClues.get(cid),
           db.plotAnchors.get(cid),
           db.combat.get(cid),
+          db.chase.get(cid),
           db.rescue.get(cid),
           db.keywords.where('conversationId').equals(cid).toArray(),
           db.gameVars.where('conversationId').equals(cid).toArray(),
@@ -486,6 +500,16 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
   // 会静默堵死所有进战入口(名册攻击/选项格斗/行动补写)。锚定页已不在现存 pages → 视为脱战清除。
   if (isOrphanedEncounter(useCombatStore.getState().encounter, useBookStore.getState().pages.map((p) => p.id ?? ''))) {
     useCombatStore.getState().clearCombat();
+  }
+
+  // 进行中追逐（单行/会话）：无行则为 null（clearAllGameState 已置 null，此处显式恢复以覆盖切档）。
+  useChaseStore.getState().replaceAll(chaseRow?.chase ?? null);
+  // 读档自愈：与战斗同理——删页/回溯曾删掉追逐锚定页，使存档里的 chase 悬空。锚定页已不在现存 pages → 清除。
+  {
+    const loadedChase = useChaseStore.getState().chase;
+    if (loadedChase?.anchorPageId && !useBookStore.getState().pages.some((p) => p.id === loadedChase.anchorPageId)) {
+      useChaseStore.getState().clearChase();
+    }
   }
 
   // 拯救路径(单行/会话):无行 → 空快照(clearAllGameState 已置空,此处显式恢复以覆盖切档)。
@@ -609,7 +633,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
   if (!cid) return;
   await db.transaction(
     'rw',
-    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'rescue', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages', 'npcMemories', 'worldMemories'],
+    ['conversations', 'pages', 'charsheets', 'inventory', 'clues', 'npcProfiles', 'mapLocations', 'mapEdges', 'locationElements', 'darkThreads', 'darkEndings', 'keyClues', 'plotAnchors', 'combat', 'chase', 'rescue', 'keywords', 'gameVars', 'macroVars', 'consoleLogs', 'pageImages', 'npcMemories', 'worldMemories'],
     async () => {
       await db.conversations.delete(cid);
       await db.pages.where('conversationId').equals(cid).delete();
@@ -625,6 +649,7 @@ async function deleteConversationInner(cid: string): Promise<void> {
       await db.keyClues.delete(cid);
       await db.plotAnchors.delete(cid);
       await db.combat.delete(cid);
+      await db.chase.delete(cid);
       await db.rescue.delete(cid);
       await db.keywords.where('conversationId').equals(cid).delete();
       await db.gameVars.where('conversationId').equals(cid).delete();

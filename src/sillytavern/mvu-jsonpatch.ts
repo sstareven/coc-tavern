@@ -346,7 +346,10 @@ function applyReplace(
 ): void {
   if (dotPath === '') {
     if (isContainer(value) && !Array.isArray(value)) {
-      Object.assign(tree, value);
+      const safe = Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).filter(([k]) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype'),
+      );
+      Object.assign(tree, safe);
     } else {
       onError(`replace at root requires an object value`);
     }

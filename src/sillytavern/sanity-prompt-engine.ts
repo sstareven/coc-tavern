@@ -199,12 +199,37 @@ export function rollSanLoss(expr: string, rollDice: RollDice = defaultRollDice):
     }
     const count = parseInt(m[1], 10);
     const sides = parseInt(m[2], 10);
+    if (count <= 0 || count > 100 || sides <= 0 || sides > 1000) continue;
     for (let i = 0; i < count; i++) total += rollDice(sides);
   }
   return total;
 }
 
-// ─── 四. 把单次 SAN loss 编排成 MvuOp 列表 ───
+// ─── 四. 现实检定提示注入（C4 — COC7e p133） ───
+
+/**
+ * 现实检定（Reality Check）提示文本。
+ * 当调查员处于任一疯狂状态（临时 / 不定性 / 潜伏）时，
+ * 注入该段指导让 LLM 在叙事中掺杂虚假感知并用 INT 困难检定验证。
+ */
+export const REALITY_CHECK_GUIDANCE =
+  '调查员正处于疯狂状态。你可以在叙事中加入虚假感知（幻觉、幻听、不存在的人物）。\n' +
+  '当调查员试图辨别真假时，在选项中使用检定标签让玩家投 INT 困难检定：\n' +
+  '成功则告知幻觉，失败则维持幻象不提示。';
+
+/**
+ * 根据角色卡判断是否需要注入现实检定提示。
+ * 纯函数：临时疯狂 / 不定性疯狂 / 潜伏疯狂 中任一 active 即返回提示文本，否则空串。
+ */
+export function buildRealityCheckInjection(sheet: CharacterSheet): string {
+  const insane =
+    sheet.temporaryInsanity.active ||
+    sheet.indefiniteInsanity.active ||
+    sheet.latentInsanity?.active;
+  return insane ? REALITY_CHECK_GUIDANCE : '';
+}
+
+// ─── 五. 把单次 SAN loss 编排成 MvuOp 列表 ───
 
 export interface MvuOp {
   op: 'replace' | 'delta' | 'insert' | 'remove';

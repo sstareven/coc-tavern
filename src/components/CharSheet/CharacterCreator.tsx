@@ -12,7 +12,7 @@ import {
 } from '../../sillytavern/coc-rules';
 import {
   STEPS, CHAR_ORDER, type SkillCat,
-  DEFAULT_CHARS, POOL_VALUES,
+  DEFAULT_CHARS, POOL_VALUES, calcOccSkillPoints,
 } from '../../sillytavern/coc-data';
 import { useScenarioStore } from '../../stores/useScenarioStore';
 import {
@@ -259,9 +259,9 @@ export function CharacterCreator({ onComplete, onClose }: Props) {
     setEditingType(type);
   };
 
-  const eduVal = charValues.EDU ?? 0;
+  const selectedOccObj = occupation ? occupationPool.find((o) => o.name === occupation) : null;
+  const occPointPool = calcOccSkillPoints(selectedOccObj?.formula, charValues);
   const intVal = charValues.INT ?? 0;
-  const occPointPool = eduVal * 4;
   const intPointPool = intVal * 2;
   const intRef = useRef(0);
   useEffect(() => { intRef.current = intPointPool; }, [intPointPool]);
