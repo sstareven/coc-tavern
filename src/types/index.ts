@@ -1001,3 +1001,58 @@ export interface CombatLog {
   entries: CombatLogEntry[];
   endReason: CombatEndReason;
 }
+
+// ===== Chase System (COC7e Ch7) =====
+
+export interface ChaseLocation {
+  name: string;
+  description?: string;
+  hazard?: {
+    skill: string;
+    difficulty: 'normal' | 'hard' | 'extreme';
+    failConsequence: 'fall' | 'trapped' | 'damage';
+    damage?: string;
+  };
+  barrier?: {
+    skill: string;
+    difficulty: 'normal' | 'hard' | 'extreme';
+    breakThrough: boolean;
+  };
+}
+
+export interface ChaseParticipant {
+  id: string;
+  name: string;
+  role: 'pursuer' | 'quarry';
+  controlledBy: 'player' | 'ai';
+  mov: number;
+  con: number;
+  dex: number;
+  position: number;
+  sprintCount: number;
+  conChecksUsed: number;
+  flags: {
+    fallen: boolean;
+    trapped: boolean;
+    exhausted: boolean;
+    escaped: boolean;
+    caught: boolean;
+  };
+  skills: Record<string, number>;
+}
+
+export interface Chase {
+  active: boolean;
+  round: number;
+  locations: ChaseLocation[];
+  participants: ChaseParticipant[];
+  turnOrder: string[];
+  currentIdx: number;
+  log: CombatLogEntry[];
+  diceRecords: DiceRecord[];
+  status: 'active' | 'resolving' | 'ended';
+  endReason?: 'caught' | 'escaped' | 'exhausted' | 'aborted';
+  initialGap: number;
+  anchorPageId?: string;
+  opener?: string;
+}
