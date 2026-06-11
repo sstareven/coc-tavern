@@ -348,6 +348,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setJsonRetryCount = useSettingsStore((s) => s.setJsonRetryCount);
   const streamingPrintEnabled = useSettingsStore((s) => s.streamingPrintEnabled);
   const setStreamingPrintEnabled = useSettingsStore((s) => s.setStreamingPrintEnabled);
+  const clicheCleanerEnabled = useSettingsStore((s) => s.clicheCleanerEnabled);
+  const setClicheCleanerEnabled = useSettingsStore((s) => s.setClicheCleanerEnabled);
   const agentMemoryDefault = useSettingsStore((s) => s.agentMemoryDefault);
   const setAgentMemoryDefault = useSettingsStore((s) => s.setAgentMemoryDefault);
   const activeId = useChatStore((s) => s.activeId);
@@ -598,6 +600,14 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                     <HelpIcon text={'主推进生成时启用 SSE 真流式：拿到首个字节就翻页，左页正文按汉字逐字"高光→黑字"刻印出场。\n\n标签字符（kw/san/thinking）不可见，仅刻印实际叙事文字。\n\n右页（引导文/选项）与顶部状态栏仍等本回合完整结算后一起出现，避免数值跳变。\n\n中转站不支持 SSE 时自动静默降级为非流式，无需手动关闭。\n\n默认关。'} />
                   </span>
                   <Toggle on={streamingPrintEnabled} onChange={() => setStreamingPrintEnabled(!streamingPrintEnabled)} />
+                </div>
+
+                <div style={rowStyle}>
+                  <span style={labelStyle}>
+                    八股净化
+                    <HelpIcon text={'对 AI 输出的叙事正文和选项文字做规则替换，自动消除模板化措辞。\n\n例：「嘴角勾起一抹玩味的弧度」→「笑了一下」、「几不可查的」→ 删除、「头颅」→「头」、重复标点折叠等。\n\n仅作用于叙事文字，不影响技能名、JSON 结构等功能字段。\n\n默认开。'} />
+                  </span>
+                  <Toggle on={clicheCleanerEnabled} onChange={() => setClicheCleanerEnabled(!clicheCleanerEnabled)} />
                 </div>
 
                 <div style={rowStyle}>

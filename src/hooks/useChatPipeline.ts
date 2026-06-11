@@ -28,6 +28,7 @@ import { extractOutfitDiff } from '../sillytavern/outfit-extractor';
 import { shouldDetectCombat, detectAndBuildEncounter } from '../sillytavern/combat-detector';
 import { shouldDetectChase, detectAndBuildChase } from '../sillytavern/chase-detector';
 import { sanitizeNarrative } from '../sillytavern/sanitize-narrative';
+import { cleanNarrativeCliche } from '../sillytavern/cliche-cleaner';
 import { useCombatStore } from '../stores/useCombatStore';
 import { useChaseStore } from '../stores/useChaseStore';
 // generateStartingItems 已废弃 — 剧本系统 activateScenario 统一处理初始物品(commit removed)
@@ -1663,14 +1664,16 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         };
 
         const newPage = result.page;
+        // 八股净化：在正文/选项净化之前，根据设置对叙事文本做规则替换消除模板化措辞。
+        const clicheClean = useSettingsStore.getState().clicheCleanerEnabled;
         // 正文/选项净化：剥「中文紧贴英文」黏连(如「借书台circulation desk」) + 折叠连续重复标点(「。。」→「。」)，防污染上下文。
-        newPage.leftContent = sanitizeNarrative(newPage.leftContent);
+        newPage.leftContent = sanitizeNarrative(clicheClean ? cleanNarrativeCliche(newPage.leftContent) : newPage.leftContent);
         newPage.rightContent = sanitizeNarrative(newPage.rightContent);
         if (newPage.summary) newPage.summary = sanitizeNarrative(newPage.summary);
         if (newPage.rightChoices) {
           newPage.rightChoices = newPage.rightChoices.map((c) => ({
             ...c,
-            text: sanitizeNarrative(c.text),
+            text: sanitizeNarrative(clicheClean ? cleanNarrativeCliche(c.text) : c.text),
             action: c.action ? sanitizeNarrative(c.action) : c.action,
           }));
         }
@@ -2588,6 +2591,13 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         return;
       }
       block.sourceInput = trimmed;
+      // 八股净化：补写叙事和选项文字也做规则替换。
+      if (useSettingsStore.getState().clicheCleanerEnabled) {
+        if (block.text) block.text = cleanNarrativeCliche(block.text);
+        for (const c of block.choices) {
+          if (c.text) c.text = cleanNarrativeCliche(c.text);
+        }
+      }
       useBookStore.getState().setPageRewrite(idx, block);
       // 把补写这次的 token 用量追加进该页 genStats（中途增加 → 右下角数字翻滚）。
       {
