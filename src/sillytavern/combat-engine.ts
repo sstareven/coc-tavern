@@ -183,12 +183,13 @@ export function resolveOpposed(
   return { winner, attackerRoll: aRoll, attackerLevel: aLevel, defenderRoll: dRoll, defenderLevel: dLevel };
 }
 
-export type DistanceTier = 'normal' | 'far' | 'extreme';
+export type DistanceTier = 'close' | 'normal' | 'far' | 'extreme';
 
-/** 射击（非对抗）。距离档加难度（far=困难/extreme=极难，用惩罚骰近似）。大失败→卡壳。 */
+/** 射击（非对抗）。距离档加难度（close=贴身+1奖励骰/far=困难+1惩罚骰/extreme=极难+2惩罚骰）。大失败→卡壳。 */
 export function resolveRanged(firearmSkill: number, tier: DistanceTier, rng: Rng = defaultRng, bonus = 0, penalty = 0) {
+  const tierBonus = tier === 'close' ? 1 : 0;
   const tierPenalty = tier === 'far' ? 1 : tier === 'extreme' ? 2 : 0;
-  const roll = d100WithDice(bonus, penalty + tierPenalty, rng);
+  const roll = d100WithDice(bonus + tierBonus, penalty + tierPenalty, rng);
   const level = successLevel(roll.finalRoll, firearmSkill);
   const hit = LEVEL_RANK[level] >= LEVEL_RANK['success'];
   const jam = level === 'fumble';

@@ -159,22 +159,33 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
     if (!canFire(weapon) || attacker.flags.weaponJammed) {
       return log(enc, `${attacker.name} 的 ${weapon.name} 无法击发`, 'narrative');
     }
-    const r = resolveRanged(weapon.skill, 'normal', rng);
-    enc = patchCombatant(enc, attackerId, { weapons: attacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
-    enc = rec(enc, { skill: `${attacker.name}·${weapon.name}`, roll: String(r.roll.finalRoll), target: String(weapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
-    const aViz = singleViz(attackerId, weapon.name, r.roll.finalRoll, r.level, weapon.skill);
-    const hitLine = `${attacker.name} 用${weapon.name}射击 d100=${r.roll.finalRoll}/${weapon.skill}（${LEVEL_CN[r.level]}）`;
-    if (r.jam) {
-      enc = patchCombatant(enc, attackerId, { flags: { ...attacker.flags, weaponJammed: true } });
-      return log(enc, `${hitLine} — ${weapon.name}卡壳！`, 'roll', [aViz]);
+    const tier = weapon.ranged ? (enc.rangeTier ?? 'normal') : 'normal';
+    const totalShots = weapon.attacksPerRound ?? 1;
+    for (let shot = 0; shot < totalShots; shot++) {
+      const curAttacker = byId(enc, attackerId)!;
+      const curTarget = byId(enc, targetId);
+      const curWeapon = curAttacker.weapons[weaponIdx] ?? curAttacker.weapons[0];
+      if (!curTarget || !alive(curTarget) || !canFire(curWeapon) || curAttacker.flags.weaponJammed) break;
+      const r = resolveRanged(curWeapon.skill, tier, rng);
+      enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
+      const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
+      enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });
+      const aViz = singleViz(attackerId, curWeapon.name, r.roll.finalRoll, r.level, curWeapon.skill);
+      const hitLine = `${curAttacker.name} 用${curWeapon.name}射击${shotLabel} d100=${r.roll.finalRoll}/${curWeapon.skill}（${LEVEL_CN[r.level]}）`;
+      if (r.jam) {
+        enc = patchCombatant(enc, attackerId, { flags: { ...curAttacker.flags, weaponJammed: true } });
+        enc = log(enc, `${hitLine} — ${curWeapon.name}卡壳！`, 'roll', [aViz]);
+        break;
+      }
+      if (!r.hit) { enc = log(enc, `${hitLine} → 未命中 ${curTarget.name}`, 'roll', [aViz]); continue; }
+      const impale = isImpaleLevel(r.level);
+      const dmgRoll = rollDamage(curWeapon, '0', impale, rng);
+      const hpBefore = curTarget.hp;
+      const dr = applyDamage(curTarget, dmgRoll.total);
+      enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
+      enc = log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${curWeapon.damage}=${dmgRoll.total}，${curTarget.name} HP ${hpBefore}→${dr.combatant.hp}/${curTarget.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: curTarget.maxHp })]);
     }
-    if (!r.hit) return log(enc, `${hitLine} → 未命中 ${target.name}`, 'roll', [aViz]);
-    const impale = isImpaleLevel(r.level);
-    const dmgRoll = rollDamage(weapon, '0', impale, rng); // 火器不加 DB(COC7e)
-    const hpBefore = target.hp;
-    const dr = applyDamage(target, dmgRoll.total);
-    enc = patchCombatant(enc, targetId, { hp: dr.combatant.hp, flags: dr.combatant.flags });
-    return log(enc, `${hitLine}${impale ? '·贯穿' : ''} → 命中，伤害 ${weapon.damage}=${dmgRoll.total}，${target.name} HP ${hpBefore}→${dr.combatant.hp}/${target.maxHp}`, 'roll', [aViz, dmgViz(dmgRoll.total, dmgRoll.dice, { id: targetId, from: hpBefore, to: dr.combatant.hp, max: target.maxHp })]);
+    return enc;
   }
 
   // 近战对抗：preset > forcedDefense(玩家UI选择) > 默认决策(AI 倾向)。

@@ -955,6 +955,9 @@ export interface Encounter {
   diceRecords: DiceRecord[];
   status: 'active' | 'resolving' | 'ended';
   endReason?: CombatEndReason;
+  /** 本场战斗的典型交战距离（由 LLM 据叙事场景判定）：close=室内近距/normal=一般/far=室外远距/extreme=极远。
+   *  火器射击据此加减奖惩骰（close +1 奖励骰，far +1 惩罚骰，extreme +2 惩罚骰）。 */
+  rangeTier?: 'close' | 'normal' | 'far' | 'extreme';
   /** 战斗所属页的稳定 id——战斗面板只在查看该页时显示(翻去别页见正常左右页)。 */
   anchorPageId?: string;
   /** 触发本场战斗的选项/动作文本——脱战生成正文时并入输入。 */

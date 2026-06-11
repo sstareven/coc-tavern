@@ -30,12 +30,12 @@ const TABLE: WeaponTemplate[] = [
   { test: /冲锋枪|汤普森|汤姆逊|斯登/, skillKeys: SMG, damage: '1D10+2', impaling: true, ranged: true, baseRange: 20, attacksPerRound: 1, magazine: 20 },
   { test: /步枪|来福|马枪|卡宾/, skillKeys: RIFLE, damage: '2D6+4', impaling: true, ranged: true, baseRange: 110, attacksPerRound: 1, magazine: 5 },
   { test: /弓箭|长弓|短弓|弓/, skillKeys: BOW, damage: '1D6', impaling: true, ranged: true, baseRange: 30, attacksPerRound: 1, magazine: 1 },
-  { test: /\.?45|点四五|柯尔特|马格南|马革南/, skillKeys: HANDGUN, damage: '1D10+2', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 7 },
-  { test: /\.?38|点三八/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 6 },
-  { test: /\.?32|点三二/, skillKeys: HANDGUN, damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 6 },
-  { test: /\.?22|点二二/, skillKeys: HANDGUN, damage: '1D6', impaling: true, ranged: true, baseRange: 10, attacksPerRound: 1, magazine: 6 },
+  { test: /\.?45|点四五|柯尔特|马格南|马革南/, skillKeys: HANDGUN, damage: '1D10+2', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 2, magazine: 7 },
+  { test: /\.?38|点三八/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 2, magazine: 6 },
+  { test: /\.?32|点三二/, skillKeys: HANDGUN, damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 2, magazine: 6 },
+  { test: /\.?22|点二二/, skillKeys: HANDGUN, damage: '1D6', impaling: true, ranged: true, baseRange: 10, attacksPerRound: 2, magazine: 6 },
   { test: /左轮|转轮/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 6 },
-  { test: /手枪|手铳|手炮|自动手枪/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 7 },
+  { test: /手枪|手铳|手炮|自动手枪/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 2, magazine: 7 },
   { test: /枪/, skillKeys: HANDGUN, damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 6 }, // 兜底火器
 
   // —— 近战 ——

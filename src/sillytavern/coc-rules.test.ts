@@ -91,9 +91,15 @@ describe('deriveSecondaryStats', () => {
     expect(deriveSecondaryStats({ SIZ: 0, CON: 0 }).hpMax).toBe(0);
   });
 
-  it('sanMax = POW (直接等于 POW)', () => {
+  it('sanMax = POW when mythosSkill defaults to 0', () => {
     expect(deriveSecondaryStats({ POW: 70 }).sanMax).toBe(70);
     expect(deriveSecondaryStats({ POW: 50 }).sanMax).toBe(50);
+  });
+
+  it('sanMax = min(POW, 99 - mythosSkill) with Cthulhu Mythos', () => {
+    expect(deriveSecondaryStats({ POW: 60 }, 0).sanMax).toBe(60);
+    expect(deriveSecondaryStats({ POW: 60 }, 15).sanMax).toBe(60); // 99-15=84 > 60
+    expect(deriveSecondaryStats({ POW: 80 }, 30).sanMax).toBe(69); // 99-30=69 < 80
   });
 
   it('mpMax = floor(POW / 5)', () => {
@@ -181,12 +187,12 @@ describe('CHAR_ROLL', () => {
     }
   });
 
-  it('EDU: (roll3D6+3)*5, capped at 99 (min 20, max 99)', () => {
+  it('EDU: (roll2D6+6)*5 — same as SIZ/INT (40–90)', () => {
     for (let i = 0; i < 10; i++) {
       const v = CHAR_ROLL['EDU']();
-      expect(v).toBeGreaterThanOrEqual(20);
-      expect(v).toBeLessThanOrEqual(99);
-      // Usually multiple of 5, but Math.min caps at 99 which breaks divisibility
+      expect(v).toBeGreaterThanOrEqual(40);
+      expect(v).toBeLessThanOrEqual(90);
+      expect(v % 5).toBe(0);
     }
   });
 });
