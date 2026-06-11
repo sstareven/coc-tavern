@@ -10,6 +10,7 @@ export interface WeaponTemplate {
   skillKeys: string[];
   damage: string;
   impaling: boolean;
+  crushing?: boolean;
   ranged: boolean;
   baseRange?: number;
   attacksPerRound: number;
@@ -40,7 +41,7 @@ const TABLE: WeaponTemplate[] = [
 
   // —— 近战 ——
   { test: /链锯/, skillKeys: ['格斗(链锯)', ...BRAWL], damage: '2D8', impaling: true, ranged: false, attacksPerRound: 1 },
-  { test: /指虎|拳套/, skillKeys: BRAWL, damage: '1D3+1', impaling: false, ranged: false, attacksPerRound: 1 },
+  { test: /指虎|拳套/, skillKeys: BRAWL, damage: '1D3+1', impaling: false, crushing: true, ranged: false, attacksPerRound: 1 },
   { test: /伐木斧|大斧|战斧/, skillKeys: ['格斗(斧)', ...BRAWL], damage: '1D8+2', impaling: true, ranged: false, attacksPerRound: 1 },
   { test: /斧|镰/, skillKeys: ['格斗(斧)', ...BRAWL], damage: '1D6+1', impaling: true, ranged: false, attacksPerRound: 1 },
   { test: /武士刀|军刀|马刀|大刀|弯刀|砍刀/, skillKeys: ['格斗(剑)', ...BRAWL], damage: '1D8', impaling: true, ranged: false, attacksPerRound: 1 },
@@ -49,7 +50,7 @@ const TABLE: WeaponTemplate[] = [
   { test: /鞭/, skillKeys: ['格斗(鞭)', ...BRAWL], damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 },
   { test: /切肉刀|菜刀/, skillKeys: BRAWL, damage: '1D4+2', impaling: true, ranged: false, attacksPerRound: 1 },
   { test: /匕首|短刀|折叠刀|弹簧刀|小刀|猎刀|刀/, skillKeys: BRAWL, damage: '1D4', impaling: true, ranged: false, attacksPerRound: 1 },
-  { test: /棒球棒|球棒|拨火棍|警棍|铁棍|木棒|短棍|长棍|棍|棒|锤|榔头/, skillKeys: BRAWL, damage: '1D8', impaling: false, ranged: false, attacksPerRound: 1 },
+  { test: /棒球棒|球棒|拨火棍|警棍|铁棍|木棒|短棍|长棍|棍|棒|锤|榔头/, skillKeys: BRAWL, damage: '1D8', impaling: false, crushing: true, ranged: false, attacksPerRound: 1 },
   { test: /火把|火炬/, skillKeys: BRAWL, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 },
 ];
 

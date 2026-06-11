@@ -120,13 +120,20 @@ function maxDiceOfFormula(formula: string): { total: number; dice: RolledDie[] }
   return { total, dice };
 }
 
-/** 武器伤害（含 DB）。impale=true 时贯穿：武器骰+DB 取满，贯穿武器再追加一份武器伤害骰。返回逐颗骰子供动画。 */
+/** 武器伤害（含 DB）。impale=true 时极限/大成功：贯穿武器→武器骰+DB 取满+追加一份武器伤害骰；钝击武器→武器骰+DB 取满（无追加骰）；普通武器→正常掷骰。返回逐颗骰子供动画。 */
 export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rng: Rng = defaultRng): { total: number; dice: RolledDie[] } {
   if (!impale) {
     const w = rollDamageDice(weapon.damage, rng);
     const d = db && db !== '0' ? rollDamageDice(db, rng) : { total: 0, dice: [] as RolledDie[] };
     return { total: w.total + d.total, dice: [...w.dice, ...d.dice] };
   }
+  if (weapon.crushing) {
+    // 钝击极限/大成功：武器骰+DB 取满（无追加骰）
+    const wMax = maxDiceOfFormula(weapon.damage);
+    const dMax = db && db !== '0' ? maxDiceOfFormula(db) : { total: 0, dice: [] as RolledDie[] };
+    return { total: wMax.total + dMax.total, dice: [...wMax.dice, ...dMax.dice] };
+  }
+  // 贯穿极限/大成功：武器骰+DB 取满 + 追加一份武器骰
   const wMax = maxDiceOfFormula(weapon.damage);
   const dMax = db && db !== '0' ? maxDiceOfFormula(db) : { total: 0, dice: [] as RolledDie[] };
   let total = wMax.total + dMax.total;

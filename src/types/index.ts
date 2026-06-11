@@ -865,6 +865,7 @@ export interface CombatWeapon {
   skill: number;
   damage: string;          // 伤害骰式，如 "1D10"、"1D8+1D4"、"1D3"
   impaling: boolean;
+  crushing?: boolean;
   ranged: boolean;
   baseRange?: number;
   attacksPerRound: number;
@@ -976,6 +977,10 @@ export interface Encounter {
     /** kind='maneuver' 时战技种类 */
     maneuverKind?: ManeuverKind;
   } | null;
+  /** 突袭轮：一方伏击另一方时，伏击方先行动一整轮，被突袭方不能行动。 */
+  surpriseRound?: boolean;
+  /** 被突袭的阵营：该阵营在突袭轮(round=1)中被跳过。 */
+  surprisedFaction?: 'player' | 'enemy';
 }
 
 export interface CombatLog {
