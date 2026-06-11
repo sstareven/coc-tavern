@@ -119,10 +119,10 @@ export function hasUpdateVariableMarker(text: string): boolean {
 
 /* ============================== Path helpers ============================== */
 
-/** Split a dot-path into segments. Empty path → []. */
+/** Split a dot-path into segments. Empty path → []. Strips empty segments from malformed LLM paths like '/a/b/' → 'a.b.' */
 function toPathSegments(dotPath: string): string[] {
   if (dotPath === '') return [];
-  return dotPath.split('.');
+  return dotPath.split('.').filter(Boolean);
 }
 
 /** JSON Pointer `/a/b/c` → dot-path `a.b.c`. Tolerant of a missing leading `/`. */

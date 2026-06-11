@@ -95,6 +95,14 @@ export function InputBar() {
             useChatStore.getState().savePages(useBookStore.getState().pages);
           }
           useNpcStore.getState().applyCombatResult(enc.combatants); // 把名册NPC战斗员终值HP/状态回写档案
+          const playerC = enc.combatants.find(c => c.faction === 'player');
+          if (playerC) {
+            const s = useCharSheetStore.getState().sheet;
+            useCharSheetStore.getState().setSheet({
+              ...s,
+              secondary: { ...s.secondary, hp: { ...s.secondary.hp, current: Math.max(0, playerC.hp) } },
+            });
+          }
           useCombatStore.getState().clearCombat();
           const id = useChatStore.getState().activeId;
           if (id) void saveConversation(id);

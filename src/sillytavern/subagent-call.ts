@@ -187,6 +187,7 @@ export async function callDsSubagent(req: DsSubagentRequest): Promise<DsSubagent
         `[子调用 ${label}] 模型「${model}」不支持 response_format=json_object,已自动切回常规模式（本会话剩余子调用同样跳过）`,
         'api',
       );
+      await rpmAcquire(rpmLane);
       response = await doFetch(false);
       usedJsonObject = false;
     }

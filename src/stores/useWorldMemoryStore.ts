@@ -42,7 +42,7 @@ export const useWorldMemoryStore = create<WorldMemoryStore>()((set, get) => ({
 
   replace: (world) => set({ world }),
 
-  clear: () => set({ world: EMPTY_WORLD_MEMORY }),
+  clear: () => set({ world: EMPTY_WORLD_MEMORY, pending: false }),
 
   setPending: (value) => set({ pending: value }),
 

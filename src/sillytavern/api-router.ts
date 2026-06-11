@@ -82,7 +82,7 @@ export async function sendChatCompletion(
     presence_penalty: preset.presencePenalty,
     // seed = -1 表随机：按 OpenAI 语义不下发该键，仅在 >= 0 时附带固定种子
     ...(preset.seed >= 0 ? { seed: preset.seed } : {}),
-    max_tokens: preset.maxTokens,
+    max_tokens: Math.max(20000, preset.maxTokens),
     stream,
     ...(stream ? { stream_options: { include_usage: true } } : {}),
   };

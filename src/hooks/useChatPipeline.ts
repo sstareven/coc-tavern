@@ -1349,6 +1349,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
           // 顶部 processing toast 是 persistent 的——需主动 showError/hide 才会清，否则进度条会一直转。
           useStatusToastStore.getState().showError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合`);
           setError(`AI 连续 ${attempt + 1} 次未按格式返回，已放弃本回合（输入已保留，可重试）。`);
+          if (wantStreamingPrint && placeholderPageIndex >= 0) {
+            useStreamingPrintStore.getState().reset();
+            useBookStore.getState().deletePage(placeholderPageIndex);
+            useBookStore.getState().setStreamingPlaceholderIdx(null);
+          }
           return false;
         }
 
@@ -2290,6 +2295,11 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
         pushLog('error', `API请求失败: ${message}`, 'api');
         useStatusToastStore.getState().showError(`窥探失败：${message}`);
         setError(message);
+        if (wantStreamingPrint && placeholderPageIndex >= 0) {
+          useStreamingPrintStore.getState().reset();
+          useBookStore.getState().deletePage(placeholderPageIndex);
+          useBookStore.getState().setStreamingPlaceholderIdx(null);
+        }
         return false;
       } finally {
         endStream();

@@ -3,6 +3,7 @@ import type { NpcProfile, NpcUpdate, COC7Characteristic } from '../types';
 import { useSettingsStore } from './useSettingsStore';
 import { useCharSheetStore } from './useCharSheetStore';
 import { useKeywordStore } from './useKeywordStore';
+import { useNpcMemoryStore } from './useNpcMemoryStore';
 import { parseNpcDerived } from '../sillytavern/npc-derived';
 
 export type { NpcUpdate };
@@ -275,7 +276,7 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       const profiles = { ...s.profiles };
       let changed = false;
       for (const c of combatants) {
-        const m = /^npc-(.+)$/.exec(c.id); // 仅回写由名册 NPC 建场的战斗员(buildCombatantFromNpc 用 npc-<id>)
+        const m = /^(?:npc|ally)-(.+)$/.exec(c.id);
         if (!m) continue;
         const id = m[1];
         const p = profiles[id];
@@ -452,6 +453,22 @@ export const useNpcStore = create<NpcStore>()((set, get) => ({
       if (newWord !== word || newMeaning !== meaning) changed = true;
     }
     if (changed) kwStore.replaceAll(next);
+    const memStore = useNpcMemoryStore.getState();
+    const mems = memStore.memories;
+    let memChanged = false;
+    const nextMems: Record<string, typeof mems[string]> = {};
+    for (const [mid, m] of Object.entries(mems)) {
+      const newRels = m.relationships.map(r =>
+        r.target === oldName ? { ...r, target: trimmed } : r,
+      );
+      if (newRels.some((r, i) => r !== m.relationships[i])) {
+        memChanged = true;
+        nextMems[mid] = { ...m, relationships: newRels };
+      } else {
+        nextMems[mid] = m;
+      }
+    }
+    if (memChanged) memStore.replaceAll(nextMems);
   },
 
   clearAll: () => set({ profiles: {} }),
