@@ -81,6 +81,7 @@ import { type MvuPatchReport, hasUpdateVariableMarker } from '../sillytavern/mvu
 import { runMvuSelfCorrect } from '../sillytavern/mvu-self-correct';
 import { runPostSettleEvaluators } from '../sillytavern/post-settle-evaluators';
 import '../sillytavern/bout-evaluator'; // A2 重设: 模块加载即 registerEvaluator('bout', ...)
+import '../sillytavern/milestone-san-evaluator'; // C2: 模块加载即 registerEvaluator('milestone-san', ...)
 import { useNarrationStore } from '../stores/useNarrationStore';
 import { triggerImageGenForPage } from '../api/image-gen-trigger';
 import { REWRITE_INSTRUCTION } from '../sillytavern/rewrite-instruction';

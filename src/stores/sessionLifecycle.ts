@@ -29,6 +29,7 @@ import { useOptionStagingStore } from './useOptionStagingStore';
 import { isCharsheetPath } from '../sillytavern/mvu-charsheet-redirect';
 import { getTreePath, setTreePath } from '../sillytavern/mvu-var-access';
 import { clearAllDiagnostics, clearDiagnosticsFor } from '../sillytavern/prefix-cache-diagnostics';
+import { _resetMilestoneSanCacheForTest as resetMilestoneSanCache } from '../sillytavern/milestone-san-evaluator';
 import type { GameVariable, BookPage } from '../types';
 import {
   db,
@@ -90,6 +91,8 @@ export function clearAllGameState(prevScenarioId?: string) {
   // 防止上一会话未消费的旁白漏到新会话第一页。
   useNarrationStore.getState().clearPending();
   useOptionStagingStore.getState().cancel();
+  // C2: 里程碑 SAN 恢复幂等缓存——切会话时清空,防旧会话节点 id 阻塞新会话同 id 奖励。
+  resetMilestoneSanCache();
   // 剧本系统：卸载当前会话挂载的剧本 lorebook book（若有）。
   // 优先用显式传参；缺省时回落到从 activeId 反查(向后兼容)。
   const scenarioIdToUnload = prevScenarioId ?? useChatStore.getState().sessions.find(
