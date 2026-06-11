@@ -26,7 +26,6 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
     '拉丁语',
     '希腊语',
     '历史',
-    '克苏鲁神话',
     '侦查',
     '聆听',
     '格斗(短剑)',

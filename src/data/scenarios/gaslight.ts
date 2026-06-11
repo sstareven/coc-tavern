@@ -29,7 +29,6 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
     '侦查',
     '聆听',
     '话术',
-    '克苏鲁神话',
     '神秘学',
     '医学',
     '历史',

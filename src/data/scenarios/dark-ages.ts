@@ -26,7 +26,6 @@ export const SCENARIO_DARK_AGES: ScenarioDoc = {
     '拉丁语抄写',
     '神秘学',
     '医学',
-    '克苏鲁神话',
     '聆听',
     '侦查',
     '急救',

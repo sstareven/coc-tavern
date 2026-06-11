@@ -30,7 +30,6 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
 【守秘人指引】入梦方式由玩家与守秘人当场决定，不预设。`,
   recommendedSkills: [
     '梦境知识',
-    '克苏鲁神话',
     '神秘学',
     '导航',
     '语言(古东方语)',

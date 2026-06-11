@@ -30,7 +30,6 @@ export const SCENARIO_BLADE_AND_ARROW: ScenarioDoc = {
     '聆听',
     '侦查',
     '生存',
-    '克苏鲁神话',
     '急救',
   ],
   recommendedOccupations: ['战士', '弓手', '盾牌兵', '骑士', '雇佣兵', '将领副官', '军医'],

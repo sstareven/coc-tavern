@@ -29,7 +29,6 @@ export const SCENARIO_HARVEST: ScenarioDoc = {
     '急救',
     '格斗(冷兵器)',
     '射击(步枪)',
-    '克苏鲁神话',
     '侦查',
     '电气维修',
     '医学',

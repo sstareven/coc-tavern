@@ -31,7 +31,6 @@ export const SCENARIO_ICARUS: ScenarioDoc = {
     '科学(生物学)',
     '驾驶(航天器)',
     '医学',
-    '克苏鲁神话',
     '聆听',
     '急救',
   ],

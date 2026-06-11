@@ -26,7 +26,6 @@ export const SCENARIO_MYSTIC_ICELAND: ScenarioDoc = {
     '古诺尔斯诗律',
     '萨迦传说',
     '神秘学',
-    '克苏鲁神话',
     '导航',
     '生存',
     '格斗(战斧)',
