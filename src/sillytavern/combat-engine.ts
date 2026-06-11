@@ -69,8 +69,9 @@ export function rollDamageFormula(formula: string, rng: Rng = defaultRng): { tot
     if (m) {
       const count = m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : parseInt(m[1], 10);
       const faces = parseInt(m[2], 10);
-      let sum = 0;
       const n = Math.abs(count);
+      if (n > 100 || faces > 1000 || faces <= 0) continue;
+      let sum = 0;
       for (let i = 0; i < n; i++) sum += die(faces, rng);
       parts.push(count < 0 ? -sum : sum);
     } else {
@@ -94,6 +95,7 @@ export function rollDamageDice(formula: string, rng: Rng = defaultRng): { total:
       const count = m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : parseInt(m[1], 10);
       const faces = parseInt(m[2], 10);
       const n = Math.abs(count), sign = count < 0 ? -1 : 1;
+      if (n > 100 || faces > 1000 || faces <= 0) continue;
       for (let i = 0; i < n; i++) { const v = die(faces, rng); dice.push({ value: v, faces }); total += sign * v; }
     } else {
       const flat = parseInt(token, 10);
@@ -143,7 +145,7 @@ export function rollDamage(weapon: CombatWeapon, db: string, impale: boolean, rn
 }
 
 /** 成功等级排序（越大越好），用于对抗比较。 */
-const LEVEL_RANK: Record<SuccessLevel, number> = {
+export const LEVEL_RANK: Record<SuccessLevel, number> = {
   fumble: 0, fail: 1, success: 2, hard: 3, extreme: 4, critical: 5,
 };
 
@@ -195,9 +197,13 @@ export type DistanceTier = 'close' | 'normal' | 'far' | 'extreme';
 /** 射击（非对抗）。距离档加难度（close=贴身+1奖励骰/far=困难+1惩罚骰/extreme=极难+2惩罚骰）。大失败→卡壳。 */
 export function resolveRanged(firearmSkill: number, tier: DistanceTier, rng: Rng = defaultRng, bonus = 0, penalty = 0) {
   const tierBonus = tier === 'close' ? 1 : 0;
-  const tierPenalty = tier === 'far' ? 1 : tier === 'extreme' ? 2 : 0;
-  const roll = d100WithDice(bonus + tierBonus, penalty + tierPenalty, rng);
-  const level = successLevel(roll.finalRoll, firearmSkill);
+  // COC7e uses difficulty levels for range, not penalty dice:
+  // far = Hard (skill/2), extreme = Extreme (skill/5)
+  const effectiveSkill = tier === 'far' ? Math.floor(firearmSkill / 2)
+    : tier === 'extreme' ? Math.floor(firearmSkill / 5)
+    : firearmSkill;
+  const roll = d100WithDice(bonus + tierBonus, penalty, rng);
+  const level = successLevel(roll.finalRoll, effectiveSkill);
   const hit = LEVEL_RANK[level] >= LEVEL_RANK['success'];
   const jam = level === 'fumble';
   return { hit, jam, roll, level };
@@ -211,11 +217,11 @@ export function applyDamage(target: Combatant, rawDamage: number): DamageResult 
   const flags = { ...target.flags };
   const hp = Math.max(0, target.hp - dealt);
   let majorWound = false;
-  if (dealt > target.maxHp) {
+  if (dealt >= target.maxHp) {
     flags.dead = true;
     return { combatant: { ...target, hp: 0, flags }, dealt, majorWound: false, conCheckRequired: false };
   }
-  if (dealt >= Math.ceil(target.maxHp / 2)) {
+  if (dealt >= Math.floor(target.maxHp / 2)) {
     majorWound = true;
     flags.majorWound = true;
     flags.prone = true; // 重伤倒地（避免昏迷的 CON 检定由 controller 掷，结果回写 unconscious）

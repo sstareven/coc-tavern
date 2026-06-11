@@ -4,12 +4,7 @@
  * 纯逻辑，不依赖 React / Zustand。
  */
 
-import { d100WithDice, successLevel, type SuccessLevel, type Rng } from './combat-engine';
-
-/** 成功等级排序（越大越好）。combat-engine 有同表但未导出，此处自建。 */
-const LEVEL_RANK: Record<SuccessLevel, number> = {
-  fumble: 0, fail: 1, success: 2, hard: 3, extreme: 4, critical: 5,
-};
+import { d100WithDice, successLevel, type SuccessLevel, type Rng, LEVEL_RANK } from './combat-engine';
 
 export interface SpellCastResult {
   /** 施法是否成功（POW 对抗胜出） */
@@ -22,7 +17,7 @@ export interface SpellCastResult {
   targetRoll: number;
   /** 目标的成功等级 */
   targetLevel: SuccessLevel;
-  /** 实际消耗的 MP（成功=法术全额，失败=1） */
+  /** 实际从 MP 池消耗的 MP（不含 HP 代偿） */
   mpSpent: number;
   /** 理智值损失 */
   sanLost: number;
@@ -36,7 +31,7 @@ export interface SpellCastResult {
  * COC7e 规则：
  * - 施法者与目标各掷 d100 对 POW，比较成功等级。
  * - 施法者等级 > 目标等级 → 成功；平手 → 防御方（目标）胜。
- * - 成功消耗法术全额 MP；失败仍消耗 1 MP。
+ * - 无论成败均消耗法术全额 MP（COC7e p148）。
  * - MP 不足时若允许 HP 代偿，可牺牲 HP（不可牺牲最后 1 点）。
  * - SAN 消耗与成败无关，始终扣除。
  */
@@ -62,14 +57,13 @@ export function resolveSpellCast(
   const tR = LEVEL_RANK[tLevel];
   const success = cR > tR;
 
-  // MP 消耗：成功付全额，失败付 1
-  const mpNeeded = success ? spell.mpCost : 1;
-  let mpSpent = Math.min(mpNeeded, casterMp);
+  // MP 消耗：COC7e 施法无论成败均消耗法术全额 MP
+  const mpNeeded = spell.mpCost;
+  const mpFromPool = Math.min(mpNeeded, casterMp);
   let hpSacrificed = 0;
-  if (mpSpent < mpNeeded && allowHpSacrifice) {
+  if (mpFromPool < mpNeeded && allowHpSacrifice) {
     // 以 HP 代偿不足部分，但不可牺牲最后 1 点 HP
-    hpSacrificed = Math.min(mpNeeded - mpSpent, casterHp - 1);
-    mpSpent += hpSacrificed;
+    hpSacrificed = Math.min(mpNeeded - mpFromPool, casterHp - 1);
   }
 
   return {
@@ -78,7 +72,7 @@ export function resolveSpellCast(
     casterLevel: cLevel,
     targetRoll: tRoll.finalRoll,
     targetLevel: tLevel,
-    mpSpent,
+    mpSpent: mpFromPool,
     sanLost: spell.sanCost,
     hpSacrificed,
   };
