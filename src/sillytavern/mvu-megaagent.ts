@@ -847,11 +847,21 @@ export function dispatchMegaAgentResult(result: MegaAgentResult, opts: DispatchO
 
   // evaluateKeyClues → useKeyClueStore + useClueStore
   if (result.evaluateKeyClues && result.evaluateKeyClues.matches.length > 0) {
+    let validMatches = 0;
     for (const m of result.evaluateKeyClues.matches) {
+      // Validate clue actually exists in the active clue store
+      const clueExists = useClueStore.getState().clues.some(
+        c => c.status !== 'archived' && (c.name === m.clueName.trim() || c.name.includes(m.clueName.trim()) || m.clueName.trim().includes(c.name))
+      );
+      if (!clueExists) {
+        console.warn('[mvu-megaagent] evaluateKeyClues: clue not found in store, skipping:', m.clueName);
+        continue;
+      }
       useKeyClueStore.getState().markPillarUncovered(m.pillarId, m.clueName);
       useClueStore.getState().markClueKey(m.clueName, m.pillarId);
+      validMatches++;
     }
-    summary.evaluateKeyCluesMatches = result.evaluateKeyClues.matches.length;
+    summary.evaluateKeyCluesMatches = validMatches;
   }
 
   // locationElements → useLocationElementStore
