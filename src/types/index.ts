@@ -893,7 +893,7 @@ export interface CombatantFlags {
   /** 已逃离/脱离战斗（区别于倒下/死亡——显示「脱离」而非「倒下」）。 */
   fled: boolean;
   /** 急救成功后稳定——濒死者不再逐轮失血（COC7e 急救规则）。 */
-  stabilized: boolean;
+  stabilized?: boolean;
   /** 正在瞄准的目标 combatant ID（B3 瞄准动作：下次对该目标射击 +1 奖励骰）。 */
   aimingAt?: string;
 }

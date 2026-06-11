@@ -504,6 +504,13 @@ async function loadConversationInner(cid: string, prevScenarioIdHint?: string): 
 
   // 进行中追逐（单行/会话）：无行则为 null（clearAllGameState 已置 null，此处显式恢复以覆盖切档）。
   useChaseStore.getState().replaceAll(chaseRow?.chase ?? null);
+  // 读档自愈：与战斗同理——删页/回溯曾删掉追逐锚定页，使存档里的 chase 悬空。锚定页已不在现存 pages → 清除。
+  {
+    const loadedChase = useChaseStore.getState().chase;
+    if (loadedChase?.anchorPageId && !useBookStore.getState().pages.some((p) => p.id === loadedChase.anchorPageId)) {
+      useChaseStore.getState().clearChase();
+    }
+  }
 
   // 拯救路径(单行/会话):无行 → 空快照(clearAllGameState 已置空,此处显式恢复以覆盖切档)。
   // 关键:hydrateFromSnapshot 前必须先 rehydrate endingsByIdCache,否则 mirrorToStatData 的

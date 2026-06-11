@@ -2174,7 +2174,7 @@ export function useChatPipeline(returnToMenu: () => void): UseChatPipelineReturn
             void (async () => {
               try {
                 const enc = await detectAndBuildEncounter(narrativeCB, sheetCB, invCB, cdBase, cdKey, cdModel, controller.signal);
-                if (!enc || useChatStore.getState().activeId !== aidCB || useCombatStore.getState().encounter) return;
+                if (!enc || useChatStore.getState().activeId !== aidCB || useCombatStore.getState().encounter || useChaseStore.getState().chase) return;
                 const anchorPages = useBookStore.getState().pages;
                 enc.anchorPageId = anchorPages[anchorPages.length - 1]?.id; // 锚定到战斗所属页
                 useCombatStore.getState().start(enc);

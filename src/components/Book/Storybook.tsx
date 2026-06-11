@@ -247,6 +247,19 @@ export function Storybook() {
     const lastRescueSnap = [...remaining].reverse().find((p) => p.rescue)?.rescue;
     if (lastRescueSnap) useRescueStore.getState().hydrateFromSnapshot(lastRescueSnap);
 
+    // 删页后清理孤立的战斗/追逐：锚定页已被级联删除 → 面板不可见却堵死入口，与读档自愈同理。
+    {
+      const remainingIds = remaining.map((p) => p.id ?? '');
+      const enc = useCombatStore.getState().encounter;
+      if (enc?.anchorPageId && !remainingIds.includes(enc.anchorPageId)) {
+        useCombatStore.getState().clearCombat();
+      }
+      const ch = useChaseStore.getState().chase;
+      if (ch?.anchorPageId && !remainingIds.includes(ch.anchorPageId)) {
+        useChaseStore.getState().clearChase();
+      }
+    }
+
     persistActiveGameState();
   };
 
