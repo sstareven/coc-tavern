@@ -130,7 +130,8 @@ export function CombatPanel() {
   const enemies = enc.combatants.filter((c) => c.faction === 'enemy' && !isPartyMember(c));
   const allies = enc.combatants.filter((c) => c.faction === 'ally');
   const sheet = useCharSheetStore.getState().sheet;
-  const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active';
+  const isSurprised = enc.surpriseRound && enc.round === 1 && player?.faction === enc.surprisedFaction;
+  const isPlayerTurn = !!player && enc.turnOrder[enc.currentIdx] === player.id && enc.status === 'active' && !isSurprised;
   const resolving = enc.status === 'resolving';
   // 「忙线」: 骰子动画在播 / 日志未追平 → 锁所有玩家动作按钮。
   // 否则在 AI 动画中连点"攻击"会触发 playerAttack→advanceUntilPlayerOrEnd 把后续 AI 一次推完,

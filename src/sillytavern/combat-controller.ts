@@ -284,7 +284,7 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     const newHp = Math.min(targetC.maxHp, targetC.hp + heal);
     enc = patchCombatant(enc, targetC.id, {
       hp: newHp,
-      flags: { ...targetC.flags, dying: false },
+      flags: { ...targetC.flags, dying: false, ...(newHp > 0 ? { unconscious: false } : {}) },
     });
     return log(enc, `${ai.name} 为 ${targetC.name} 急救 — +${heal} HP`, 'narrative');
   }
@@ -567,6 +567,7 @@ export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = def
   const newHp = Math.min(target.maxHp, target.hp + heal);
   const newFlags = { ...target.flags };
   if (newFlags.dying) newFlags.dying = false;
+  if (newHp > 0 && newFlags.unconscious) newFlags.unconscious = false;
 
   enc = patchCombatant(enc, targetId, { hp: newHp, flags: newFlags });
   const levelCn = lvl === 'critical' ? '大成功' : lvl === 'extreme' ? '极难' : lvl === 'hard' ? '困难' : '成功';
