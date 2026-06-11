@@ -102,7 +102,7 @@ export function buildPlayerCombatant(sheet: CharacterSheet, items: InventoryItem
     hp: sheet.secondary.hp.current, maxHp: sheet.secondary.hp.max,
     armor: detectArmorFromInventory(items),
     weapons: [unarmed, ...mapInventoryToWeapons(items, sheet)],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
   };
 }
@@ -175,7 +175,7 @@ export function buildCombatantFromNpc(npc: NpcProfile, faction: CombatFaction = 
     hp, maxHp: hp,
     armor: 0,
     weapons: [unarmed, ...mapNamesToWeapons(npc.possessions ?? [], resolve)],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     tendency,
     roundDefenses: 0,
   };
@@ -217,7 +217,7 @@ function normalizeCombatant(raw: Record<string, unknown>, faction: CombatFaction
     hp: maxHp, maxHp,
     armor: num(raw.armor, 0),
     weapons,
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     tendency: { attack: num((raw.tendency as Record<string, unknown> | undefined)?.attack, 70), flee: num((raw.tendency as Record<string, unknown> | undefined)?.flee, 20) },
     roundDefenses: 0,
   };

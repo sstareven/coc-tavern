@@ -148,9 +148,23 @@ export function advanceTurn(enc: Encounter): Encounter {
         },
       });
     }
-    const cleared = enc.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
+    // B1: 濒死逐轮失血 — dying && !dead && !stabilized 者每轮 -1 HP；HP 达 -maxHp 即死。
+    let bled = enc;
+    for (const c of bled.combatants) {
+      if (c.flags.dying && !c.flags.dead && !c.flags.stabilized) {
+        const newHp = c.hp - 1;
+        if (newHp <= -c.maxHp) {
+          bled = patchCombatant(bled, c.id, { hp: -c.maxHp, flags: { ...c.flags, dead: true } });
+          bled = log(bled, `${c.name} 因失血过多死亡（HP ${c.hp}→${-c.maxHp}）`, 'narrative');
+        } else {
+          bled = patchCombatant(bled, c.id, { hp: newHp });
+          bled = log(bled, `${c.name} 濒死失血 HP ${c.hp}→${newHp}`, 'narrative');
+        }
+      }
+    }
+    const cleared = bled.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
     const order = nextTurnOrder(cleared);
-    return { ...enc, combatants: cleared, turnOrder: order, currentIdx: 0, round: enc.round + 1, surpriseRound: false };
+    return { ...bled, combatants: cleared, turnOrder: order, currentIdx: 0, round: bled.round + 1, surpriseRound: false };
   }
   return { ...enc, currentIdx: next };
 }
@@ -284,7 +298,7 @@ export function runAiTurn(enc0: Encounter, aiId: string, rng: Rng = defaultRng):
     const newHp = Math.min(targetC.maxHp, targetC.hp + heal);
     enc = patchCombatant(enc, targetC.id, {
       hp: newHp,
-      flags: { ...targetC.flags, dying: false, ...(newHp > 0 ? { unconscious: false } : {}) },
+      flags: { ...targetC.flags, dying: false, stabilized: true, ...(newHp > 0 ? { unconscious: false } : {}) },
     });
     return log(enc, `${ai.name} 为 ${targetC.name} 急救 — +${heal} HP`, 'narrative');
   }
@@ -565,7 +579,7 @@ export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = def
   // 成功:1D3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
   const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
   const newHp = Math.min(target.maxHp, target.hp + heal);
-  const newFlags = { ...target.flags };
+  const newFlags = { ...target.flags, stabilized: true };
   if (newFlags.dying) newFlags.dying = false;
   if (newHp > 0 && newFlags.unconscious) newFlags.unconscious = false;
 

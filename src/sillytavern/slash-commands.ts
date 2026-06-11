@@ -355,7 +355,7 @@ export function initBuiltinCommands(): void {
         fighting: 40, dodge: 20, damageBonus: '0',
         hp: 60, maxHp: 60, armor: 2,
         weapons: [{ name: '硬拳', skill: 40, damage: '1D6', impaling: false, ranged: false, attacksPerRound: 1 }],
-        flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+        flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
         tendency: { attack: 100, flee: 0 }, // 训练假人：只挨打/还手，绝不逃跑(避免战斗自行结束)
         roundDefenses: 0,
       });

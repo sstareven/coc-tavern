@@ -14,7 +14,7 @@ function mkCombatant(id: string, name: string, faction: Combatant['faction']): C
     fighting: 50, dodge: 25, damageBonus: '0',
     hp: 10, maxHp: 10, armor: 0,
     weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
   };
 }

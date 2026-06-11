@@ -886,6 +886,8 @@ export interface CombatantFlags {
   weaponJammed: boolean;
   /** 已逃离/脱离战斗（区别于倒下/死亡——显示「脱离」而非「倒下」）。 */
   fled: boolean;
+  /** 急救成功后稳定——濒死者不再逐轮失血（COC7e 急救规则）。 */
+  stabilized: boolean;
 }
 
 export interface Combatant {

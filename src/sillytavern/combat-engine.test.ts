@@ -21,7 +21,7 @@ function mkCombatant(over: Partial<Combatant> = {}): Combatant {
     id: 'c1', name: '甲', faction: 'enemy', controlledBy: 'ai',
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 30,
     hp: 12, maxHp: 12, armor: 0, weapons: [], roundDefenses: 0,
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     ...over,
   };
 }

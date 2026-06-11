@@ -147,7 +147,7 @@ function mkCombatant(over: Partial<Combatant>): Combatant {
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 25, damageBonus: '0',
     hp: 10, maxHp: 10, armor: 0,
     weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
     ...over,
   } as Combatant;
@@ -215,5 +215,76 @@ describe('advanceTurn — temporaryInsanity 倒计时', () => {
     const a2 = advanceTurn(a1);
     expect(a2.currentIdx).toBe(0); // 新一轮 reset 到 0
     expect(a2.round).toBe(2);
+  });
+});
+
+describe('advanceTurn — 濒死逐轮失血 (B1 dying bleed)', () => {
+  beforeEach(() => {
+    useCharSheetStore.getState().setSheet(baseSheet({
+      temporaryInsanity: { active: false, roundsLeft: 0 },
+    }));
+  });
+
+  it('dying+not-stabilized → 新一轮 HP -1', () => {
+    const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
+    const dying = mkCombatant({
+      id: 'e', faction: 'enemy', controlledBy: 'ai',
+      hp: 0, maxHp: 10,
+      flags: { majorWound: true, dying: true, unconscious: true, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
+    });
+    let enc = mkEnc([player, dying]);
+    // 推进到轮末:idx=0→1, idx=1→new round(触发失血)
+    enc = advanceTurn(enc); // idx 0→1
+    enc = advanceTurn(enc); // new round → bleed
+    const e = enc.combatants.find((c) => c.id === 'e')!;
+    expect(e.hp).toBe(-1);
+    expect(e.flags.dead).toBe(false);
+    expect(enc.log.some((l) => l.text.includes('濒死失血'))).toBe(true);
+  });
+
+  it('dying 者 HP 达 -maxHp → 死亡', () => {
+    const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
+    const dying = mkCombatant({
+      id: 'e', faction: 'enemy', controlledBy: 'ai',
+      hp: -9, maxHp: 10, // 再 -1 → -10 = -maxHp → dead
+      flags: { majorWound: true, dying: true, unconscious: true, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
+    });
+    let enc = mkEnc([player, dying]);
+    enc = advanceTurn(enc); // idx 0→1
+    enc = advanceTurn(enc); // new round → bleed → death
+    const e = enc.combatants.find((c) => c.id === 'e')!;
+    expect(e.hp).toBe(-10);
+    expect(e.flags.dead).toBe(true);
+    expect(enc.log.some((l) => l.text.includes('失血过多死亡'))).toBe(true);
+  });
+
+  it('stabilized → 不失血', () => {
+    const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
+    const stabilized = mkCombatant({
+      id: 'e', faction: 'enemy', controlledBy: 'ai',
+      hp: 0, maxHp: 10,
+      flags: { majorWound: true, dying: true, unconscious: true, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: true },
+    });
+    let enc = mkEnc([player, stabilized]);
+    enc = advanceTurn(enc); // idx 0→1
+    enc = advanceTurn(enc); // new round → no bleed (stabilized)
+    const e = enc.combatants.find((c) => c.id === 'e')!;
+    expect(e.hp).toBe(0); // unchanged
+    expect(e.flags.dead).toBe(false);
+    expect(enc.log.some((l) => l.text.includes('濒死失血'))).toBe(false);
+    expect(enc.log.some((l) => l.text.includes('失血过多死亡'))).toBe(false);
+  });
+
+  it('dead 者不再失血', () => {
+    const player = mkCombatant({ id: 'p', faction: 'player', controlledBy: 'player' });
+    const dead = mkCombatant({
+      id: 'e', faction: 'enemy', controlledBy: 'ai',
+      hp: -5, maxHp: 10,
+      flags: { majorWound: true, dying: true, unconscious: true, dead: true, prone: false, weaponJammed: false, fled: false, stabilized: false },
+    });
+    let enc = mkEnc([player, dead]);
+    enc = advanceTurn(enc);
+    const e = enc.combatants.find((c) => c.id === 'e')!;
+    expect(e.hp).toBe(-5); // unchanged — dead, not bled
   });
 });

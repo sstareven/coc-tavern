@@ -11,7 +11,7 @@ function mkC(over: Partial<Combatant>): Combatant {
     dex: 50, str: 50, siz: 50, con: 50, mov: 8, fighting: 50, dodge: 25, damageBonus: '0',
     hp: 10, maxHp: 10, armor: 0,
     weapons: [{ name: '徒手', skill: 50, damage: '1D3', impaling: false, ranged: false, attacksPerRound: 1 }],
-    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false },
+    flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: false, weaponJammed: false, fled: false, stabilized: false },
     roundDefenses: 0,
     ...over,
   } as Combatant;
@@ -139,7 +139,7 @@ describe('AI 近战攻击玩家时挂起 pendingDefense,玩家选 dodge/fightbac
 
 describe('倒地(prone)者须先起身，当回合不可脱离战斗（COC7e 俯卧规则）', () => {
   const prone = (over: Partial<Combatant>) =>
-    mkC({ ...over, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+    mkC({ ...over, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false, stabilized: false } });
 
   it('倒地 AI 选逃 → 本回合只起身(prone清)，不脱离(fled仍false、仍在战斗)', () => {
     // MOV 占优本会「直接脱离」，但倒地必须先起身 → 不脱离
@@ -249,7 +249,7 @@ describe('近战日志拆行 + 倒地劣势', () => {
 
   it('目标倒地(prone) → 判断行标注「倒地·劣势」', () => {
     const attacker = mkC({ id: 'p', faction: 'player', controlledBy: 'player', fighting: 70 });
-    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 40, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false } });
+    const target = mkC({ id: 'e', faction: 'enemy', fighting: 5, dodge: 40, flags: { majorWound: false, dying: false, unconscious: false, dead: false, prone: true, weaponJammed: false, fled: false, stabilized: false } });
     const out = performAttack(mkEnc([attacker, target], 'e'), 'p', 'e', 0, seqRng([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]));
     expect(out.log.some((l) => l.text.includes('倒地·劣势'))).toBe(true);
   });
