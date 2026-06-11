@@ -186,6 +186,23 @@ export function rollSanRecovery(
 }
 
 /* ------------------------------------------------------------------ */
+/*  computeMpRecovery                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * COC7e (p148): Magic Points regenerate over time.
+ * Full recovery (MP → max) every 24 hours; shorter rests give proportional recovery.
+ *
+ * @param maxMp      floor(POW / 5)
+ * @param currentMp  current MP value
+ * @param restHours  hours of rest taken
+ */
+export function computeMpRecovery(maxMp: number, currentMp: number, restHours: number): number {
+  const recovery = Math.floor(maxMp * (restHours / 24));
+  return Math.min(recovery, Math.max(0, maxMp - currentMp));
+}
+
+/* ------------------------------------------------------------------ */
 /*  computeExpectedProgress                                            */
 /* ------------------------------------------------------------------ */
 

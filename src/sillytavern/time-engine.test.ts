@@ -11,6 +11,7 @@ import {
   shouldResetDailySan,
   rollSanRecovery,
   fatiguePenalty,
+  computeMpRecovery,
 } from './time-engine';
 
 /* ------------------------------------------------------------------ */
@@ -410,6 +411,28 @@ describe('rollSanRecovery', () => {
     expect(rollSanRecovery(50, 40, 99, () => 0.0).roll).toBe(1);
     // rng=0.99 → floor(99)+1=100
     expect(rollSanRecovery(50, 40, 99, () => 0.99).roll).toBe(100);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  computeMpRecovery                                                  */
+/* ------------------------------------------------------------------ */
+
+describe('computeMpRecovery', () => {
+  it('recovers proportional MP during 8h rest', () => {
+    expect(computeMpRecovery(11, 5, 8)).toBe(3); // floor(11*8/24)=3, min(3, 11-5=6)=3
+  });
+  it('full recovery at 24h', () => {
+    expect(computeMpRecovery(11, 0, 24)).toBe(11);
+  });
+  it('caps at maxMp', () => {
+    expect(computeMpRecovery(11, 10, 24)).toBe(1); // 11-10=1
+  });
+  it('returns 0 when already at max', () => {
+    expect(computeMpRecovery(11, 11, 24)).toBe(0);
+  });
+  it('returns 0 for 0h rest', () => {
+    expect(computeMpRecovery(11, 5, 0)).toBe(0);
   });
 });
 

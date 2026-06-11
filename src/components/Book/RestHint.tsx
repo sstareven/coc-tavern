@@ -3,7 +3,7 @@ import { useCombatStore } from '../../stores/useCombatStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useNpcStore } from '../../stores/useNpcStore';
 import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
-import { formatEpochDisplay, canRestNow, executeRest, executeMedicalCare, rollSanRecovery } from '../../sillytavern/time-engine';
+import { formatEpochDisplay, canRestNow, executeRest, executeMedicalCare, rollSanRecovery, computeMpRecovery } from '../../sillytavern/time-engine';
 import { rollPsychoanalysis } from '../../sillytavern/sanity-engine';
 
 export function RestHint() {
@@ -65,6 +65,15 @@ export function RestHint() {
     const sanResult = rollSanRecovery(pow, san.current, san.max);
     if (sanResult.recovered > 0) {
       newSheet.secondary.san.current = san.current + sanResult.recovered;
+      sheetChanged = true;
+    }
+
+    // MP recovery (COC7e p148: proportional over 24h)
+    const mpMax = Math.floor(pow / 5);
+    const mpCurrent = newSheet.secondary.mp.current;
+    const mpRecovery = computeMpRecovery(mpMax, mpCurrent, 8);
+    if (mpRecovery > 0) {
+      newSheet.secondary.mp.current = mpCurrent + mpRecovery;
       sheetChanged = true;
     }
 
