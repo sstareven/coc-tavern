@@ -225,8 +225,15 @@ export function performAttack(enc0: Encounter, attackerId: string, targetId: str
       const curTarget = byId(enc, targetId);
       const curWeapon = curAttacker.weapons[weaponIdx] ?? curAttacker.weapons[0];
       if (!curTarget || !alive(curTarget) || !canFire(curWeapon) || curAttacker.flags.weaponJammed) break;
+      // B4 掩护修正：全掩护不可射击，半掩护+1惩罚骰
+      const cover = enc.coverMap?.[targetId] ?? 'none';
+      if (cover === 'full') {
+        enc = log(enc, `${attacker.name} 无法射击 ${curTarget.name}（全掩护）`, 'narrative');
+        break;
+      }
+      const coverPenalty = cover === 'half' ? 1 : 0;
       const effectiveSkill = Math.max(1, curWeapon.skill + fpPenalty);
-      const r = resolveRanged(effectiveSkill, tier, rng, aimBonus);
+      const r = resolveRanged(effectiveSkill, tier, rng, aimBonus, coverPenalty);
       enc = patchCombatant(enc, attackerId, { weapons: curAttacker.weapons.map((w, i) => (i === weaponIdx ? consumeAmmo(w) : w)) });
       const shotLabel = totalShots > 1 ? `[${shot + 1}/${totalShots}]` : '';
       enc = rec(enc, { skill: `${curAttacker.name}·${curWeapon.name}`, roll: String(r.roll.finalRoll), target: String(curWeapon.skill), type: LEVEL_TO_DICE_TYPE[r.level], purpose: '攻击命中-火器' });

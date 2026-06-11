@@ -987,6 +987,8 @@ export interface Encounter {
   surpriseRound?: boolean;
   /** 被突袭的阵营：该阵营在突袭轮(round=1)中被跳过。 */
   surprisedFaction?: 'player' | 'enemy';
+  /** B4 掩护：各战斗者的掩护等级（none=无掩护/half=半掩/full=全掩）。键为 combatant id。 */
+  coverMap?: Record<string, 'none' | 'half' | 'full'>;
 }
 
 export interface CombatLog {

@@ -477,3 +477,69 @@ describe('B3: playerAim（瞄准动作）', () => {
     expect(out.combatants.find((c) => c.id === 'p')!.flags.aimingAt).toBe('e1');
   });
 });
+
+describe('B4: cover modifiers（掩护修正）', () => {
+  it('half cover adds 1 penalty die for ranged attack', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'half' } };
+    // resolveRanged(80, 'normal', rng, aimBonus=0, coverPenalty=1)
+    // d100WithDice(0, 1, rng): net=1(penalty), tensCount=2
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.3*10)*10=30, tens[1]=floor(0.2*10)*10=20
+    // candidates: 30+1=31, 20+1=21 → max=31 (penalty picks worst) → success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+  });
+
+  it('full cover blocks ranged attack entirely', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'full' } };
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.3]));
+    // Should log that the shot is blocked by full cover
+    expect(out.log.some((l) => l.text.includes('全掩护'))).toBe(true);
+    // Enemy HP should be unchanged
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBe(20);
+    // Ammo should NOT be consumed (attack never fires)
+    expect(out.combatants.find((c) => c.id === 'p')!.weapons[0].loadedAmmo).toBe(6);
+  });
+
+  it('no penalty when cover is none', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc: Encounter = { ...mkEnc([player, enemy], 'e'), coverMap: { 'e': 'none' } };
+    // resolveRanged(80, 'normal', rng, 0, 0): no penalty
+    // d100WithDice(0, 0, rng): tensCount=1
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.2*10)*10=20 → 21 success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+  });
+
+  it('no penalty when coverMap is absent (undefined)', () => {
+    const player = mkC({
+      id: 'p', faction: 'player', controlledBy: 'player',
+      weapons: [{ name: '手枪', skill: 80, damage: '1D10', impaling: true, ranged: true, attacksPerRound: 1, loadedAmmo: 6, magazine: 6 }],
+    });
+    const enemy = mkC({ id: 'e', faction: 'enemy', hp: 20, maxHp: 20 });
+    const enc = mkEnc([player, enemy], 'e'); // no coverMap at all
+    // resolveRanged(80, 'normal', rng, 0, 0): no penalty
+    // ones=floor(0.1*10)=1, tens[0]=floor(0.2*10)*10=20 → 21 success ≤80
+    // damage: 1D10 rng=0.5→6
+    const out = performAttack(enc, 'p', 'e', 0, seqRng([0.1, 0.2, 0.5]));
+    expect(out.log.some((l) => l.text.includes('命中'))).toBe(true);
+    expect(out.combatants.find((c) => c.id === 'e')!.hp).toBeLessThan(20);
+  });
+});
