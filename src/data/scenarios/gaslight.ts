@@ -114,7 +114,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
       birthplace: '曼彻斯特',
       residence: '白教堂南端公寓',
       chars: { STR: 50, CON: 55, POW: 80, DEX: 60, APP: 65, SIZ: 60, INT: 85, EDU: 80 },
-      skills: { '心理学': 80, '说服': 75, '神秘学': 70, '医学(精神)': 65, '化学': 60, '克苏鲁神话': 50, '语言(古拉丁)': 55, '催眠': 75 },
+      skills: { '心理学': 80, '说服': 75, '神秘学': 70, '精神分析': 65, '科学(化学)': 60, '克苏鲁神话': 50, '拉丁医典': 55, '催眠': 75 },
       description: '中等身材，灰白短发，深棕色西装。瞳孔比一般人略小。手指修长且非常稳定。',
       personality: '温文尔雅，言谈像剑桥学者。对降神会参与者态度温和，私下时眼神冷静而精准。',
       initialItemsRaw: '怀表、几只装液体的小玻璃瓶、皮质笔记本、镶月长石的戒指',
@@ -1033,6 +1033,7 @@ export const SCENARIO_GASLIGHT: ScenarioDoc = {
     { name: '街头消息', base: 10, cat: '侦查系', desc: '从酒馆、码头、廉租房听取本地消息与黑话' },
     { name: '打字电报', base: 5, cat: '生活系', desc: '操作莫尔斯电报与早期打字机收发讯息' },
     { name: '拉丁医典', base: 5, cat: '生活系', desc: '阅读拉丁文医典、神学典籍与古代抄本' },
+    { name: '催眠', base: 1, cat: '交涉系', desc: '通过暗示、呼吸引导与视觉诱导使对象进入催眠状态' },
   ],
   skillBlacklist: [
     '汽车驾驶',

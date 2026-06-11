@@ -112,7 +112,7 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
       birthplace: '阿尔卑斯山外行省',
       residence: '罗马城 · 苏布拉区',
       chars: { STR: 75, CON: 70, POW: 55, DEX: 65, APP: 50, SIZ: 70, INT: 60, EDU: 50 },
-      skills: { '格斗(短剑)': 80, '格斗(标枪)': 60, '射击(弩)': 55, '战术': 70, '生存': 65, '聆听': 55, '侦查': 60, '医学(战场急救)': 45, '克苏鲁神话': 5 },
+      skills: { '格斗(短剑)': 80, '格斗(标枪)': 60, '射击(弩)': 55, '战术': 70, '生存': 65, '聆听': 55, '侦查': 60, '急救': 45, '克苏鲁神话': 5 },
       description: '中年壮汉，左小臂有一道横贯的旧伤。剃短的发已显灰白。常背一根军用短剑。',
       personality: '直率寡言，对命令保持军人本能。对调查员的态度由对方是否表现出「能扛事」决定。',
       initialItemsRaw: '军用短剑、皮质护臂、军团徽章、军囊（含口粮与火石）',
@@ -1006,6 +1006,9 @@ export const SCENARIO_ROME_CTHULHU: ScenarioDoc = {
     { name: '格斗(短剑)', base: 20, cat: '战斗系', desc: '使用罗马军团制式短剑(gladius)进行近身刺击' },
     { name: '格斗(标枪)', base: 15, cat: '战斗系', desc: '使用罗马军团重标枪(pilum)进行近战或投掷' },
     { name: '战术', base: 5, cat: '生活系', desc: '布阵、行军、攻城等罗马军团式战场指挥;百夫长以上军职常修' },
+    { name: '拉丁语', base: 5, cat: '交涉系', desc: '使用与理解古典拉丁语的读写听说能力' },
+    { name: '希腊语', base: 1, cat: '交涉系', desc: '使用与理解古典希腊语,在罗马上层社交与学术中广泛使用' },
+    { name: '射击(弩)', base: 15, cat: '战斗系', desc: '使用罗马军团弩炮或手持弩进行远程射击' },
   ],
   skillBlacklist: [
     '汽车驾驶',
