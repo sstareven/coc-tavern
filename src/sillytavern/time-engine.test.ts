@@ -5,6 +5,7 @@ import {
   formatEpochDisplay,
   canRestNow,
   executeRest,
+  executeMedicalCare,
   computeExpectedProgress,
   clampDarkThreadProgress,
   shouldResetDailySan,
@@ -206,10 +207,83 @@ describe('canRestNow', () => {
 /* ------------------------------------------------------------------ */
 
 describe('executeRest', () => {
-  it('advances time by 480 minutes and recovers 1 hp', () => {
+  it('8h rest advances time by 480 minutes and recovers 0 HP', () => {
+    const result = executeRest(1000, 8);
+    expect(result.newEpoch).toBe(1000 + 480);
+    expect(result.hpRecovered).toBe(0);
+  });
+
+  it('default restHours is 8', () => {
     const result = executeRest(1000);
-    expect(result.newEpoch).toBe(1480);
+    expect(result.newEpoch).toBe(1000 + 480);
+    expect(result.hpRecovered).toBe(0);
+  });
+
+  it('168h full rest recovers 1D3 HP', () => {
+    const result = executeRest(1000, 168, () => 0.5);
+    expect(result.hpRecovered).toBe(2); // floor(0.5*3)+1=2
+    expect(result.newEpoch).toBe(1000 + 168 * 60);
+  });
+
+  it('168h rest with rng=0.0 recovers 1 HP', () => {
+    const result = executeRest(1000, 168, () => 0.0);
     expect(result.hpRecovered).toBe(1);
+  });
+
+  it('168h rest with rng=0.99 recovers 3 HP', () => {
+    const result = executeRest(1000, 168, () => 0.99);
+    expect(result.hpRecovered).toBe(3);
+  });
+
+  it('167h rest recovers 0 HP (below weekly threshold)', () => {
+    const result = executeRest(1000, 167);
+    expect(result.hpRecovered).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  executeMedicalCare                                                 */
+/* ------------------------------------------------------------------ */
+
+describe('executeMedicalCare', () => {
+  it('success recovers 1D3 HP when roll <= skill', () => {
+    const result = executeMedicalCare(60, 80, () => 0.1, () => 0.5);
+    expect(result.success).toBe(true);
+    expect(result.roll).toBe(11); // floor(0.1*100)+1
+    expect(result.hpRecovered).toBe(2); // floor(0.5*3)+1
+  });
+
+  it('failure recovers 0 HP when roll > skill', () => {
+    const result = executeMedicalCare(60, 80, () => 0.9);
+    expect(result.success).toBe(false);
+    expect(result.roll).toBe(91); // floor(0.9*100)+1
+    expect(result.hpRecovered).toBe(0);
+  });
+
+  it('success with min roll and min HP', () => {
+    const result = executeMedicalCare(50, 100, () => 0.0, () => 0.0);
+    expect(result.success).toBe(true);
+    expect(result.roll).toBe(1);
+    expect(result.hpRecovered).toBe(1);
+  });
+
+  it('success with max HP roll', () => {
+    const result = executeMedicalCare(50, 100, () => 0.0, () => 0.99);
+    expect(result.success).toBe(true);
+    expect(result.hpRecovered).toBe(3); // floor(0.99*3)+1
+  });
+
+  it('failure at exact skill boundary', () => {
+    // skill=50, rng=0.5 → roll=floor(50)+1=51 > 50 → fail
+    const result = executeMedicalCare(50, 100, () => 0.5);
+    expect(result.success).toBe(false);
+  });
+
+  it('success at exact skill boundary', () => {
+    // skill=50, rng=0.49 → roll=floor(49)+1=50 <= 50 → success
+    const result = executeMedicalCare(50, 100, () => 0.49, () => 0.5);
+    expect(result.success).toBe(true);
+    expect(result.hpRecovered).toBe(2);
   });
 });
 

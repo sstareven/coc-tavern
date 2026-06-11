@@ -107,8 +107,47 @@ export function canRestNow(
 /*  executeRest                                                        */
 /* ------------------------------------------------------------------ */
 
-export function executeRest(epochMinutes: number): { newEpoch: number; hpRecovered: number } {
-  return { newEpoch: epochMinutes + 480, hpRecovered: 1 };
+export function executeRest(
+  epochMinutes: number,
+  restHours: number = 8,
+  rng: () => number = Math.random,
+): { newEpoch: number; hpRecovered: number } {
+  const newEpoch = epochMinutes + restHours * 60;
+  // COC7e: natural recovery = 1D3 HP per week (168 hours) of rest
+  // 8h rest = only fatigue reset, no HP recovery
+  const hpRecovered = restHours >= 168 ? Math.floor(rng() * 3) + 1 : 0;
+  return { newEpoch, hpRecovered };
+}
+
+/* ------------------------------------------------------------------ */
+/*  executeMedicalCare                                                 */
+/* ------------------------------------------------------------------ */
+
+export interface MedicalCareResult {
+  success: boolean;
+  roll: number;
+  hpRecovered: number;
+}
+
+/**
+ * COC7e medical care: roll d100 vs Medicine skill.
+ * On success, recover 1D3 HP.
+ *
+ * @param medicineSkill  NPC's Medicine (医学) skill value
+ * @param _maxHp         investigator's max HP (reserved for future capping)
+ * @param rng            RNG for d100 roll — defaults to Math.random
+ * @param hpRng          RNG for 1D3 HP roll — defaults to Math.random
+ */
+export function executeMedicalCare(
+  medicineSkill: number,
+  _maxHp: number,
+  rng: () => number = Math.random,
+  hpRng: () => number = Math.random,
+): MedicalCareResult {
+  const roll = Math.floor(rng() * 100) + 1;
+  const success = roll <= medicineSkill;
+  const hpRecovered = success ? Math.floor(hpRng() * 3) + 1 : 0;
+  return { success, roll, hpRecovered };
 }
 
 /* ------------------------------------------------------------------ */

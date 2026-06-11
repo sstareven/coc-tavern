@@ -1,8 +1,9 @@
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { useCharSheetStore } from '../../stores/useCharSheetStore';
+import { useNpcStore } from '../../stores/useNpcStore';
 import { getTreePath, setTreePath } from '../../sillytavern/mvu-var-access';
-import { formatEpochDisplay, canRestNow, executeRest, rollSanRecovery } from '../../sillytavern/time-engine';
+import { formatEpochDisplay, canRestNow, executeRest, executeMedicalCare, rollSanRecovery } from '../../sillytavern/time-engine';
 
 export function RestHint() {
   const statData = useVariableStore((s) => s.statData);
@@ -11,6 +12,15 @@ export function RestHint() {
   const inCombat = useCombatStore((s) => !!s.encounter);
   const hoursSinceRest = (epoch - lastRest) / 60;
   const canRest = canRestNow(epoch, lastRest, inCombat) && epoch > 0;
+
+  // Find best party NPC with Medicine (医学) skill
+  const partyNpcs = useNpcStore((s) => {
+    const party = Object.values(s.profiles).filter((p) => p.isPresent && p.inParty);
+    const withMedicine = party
+      .filter((p) => p.skills && typeof p.skills['医学'] === 'number' && p.skills['医学'] > 0)
+      .sort((a, b) => (b.skills?.['医学'] ?? 0) - (a.skills?.['医学'] ?? 0));
+    return withMedicine.length > 0 ? withMedicine[0] : null;
+  });
 
   if (!canRest) return null;
 
@@ -32,7 +42,7 @@ export function RestHint() {
     const newSheet = structuredClone(cs.sheet);
     let sheetChanged = false;
 
-    // HP +1 (COC7e natural recovery)
+    // HP recovery (COC7e: 8h rest = 0 HP, only fatigue reset)
     const hp = newSheet.secondary.hp;
     if (hp.current < hp.max && hpRecovered > 0) {
       newSheet.secondary.hp.current = Math.min(hp.max, hp.current + hpRecovered);
@@ -49,6 +59,22 @@ export function RestHint() {
     }
 
     if (sheetChanged) {
+      cs.setSheet(newSheet);
+    }
+  };
+
+  const handleMedicalCare = () => {
+    if (!partyNpcs) return;
+    const medicineSkill = partyNpcs.skills?.['医学'] ?? 0;
+    if (medicineSkill <= 0) return;
+
+    const cs = useCharSheetStore.getState();
+    const hp = cs.sheet.secondary.hp;
+    const result = executeMedicalCare(medicineSkill, hp.max);
+
+    if (result.success && result.hpRecovered > 0 && hp.current < hp.max) {
+      const newSheet = structuredClone(cs.sheet);
+      newSheet.secondary.hp.current = Math.min(hp.max, hp.current + result.hpRecovered);
       cs.setSheet(newSheet);
     }
   };
@@ -93,6 +119,35 @@ export function RestHint() {
       >
         休息
       </button>
+      {partyNpcs && (
+        <button
+          onClick={handleMedicalCare}
+          style={{
+            padding: '3px 12px',
+            background: 'transparent',
+            border: '1px solid var(--brass)',
+            borderRadius: 4,
+            color: 'var(--gold)',
+            fontFamily: 'var(--font-ui)',
+            fontSize: 'calc(11px * var(--system-ratio, 1))',
+            cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(196,168,85,0.15)';
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        >
+          接受治疗({partyNpcs.name})
+        </button>
+      )}
     </div>
   );
 }
