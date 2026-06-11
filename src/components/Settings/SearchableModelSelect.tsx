@@ -11,7 +11,7 @@
 //   - 上层 ApiModelPicker 把 channel→store selectors 接进来
 //   - 也可独立用于其他需要「跨 profile 选模型」场景
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   type ProfileModel,
   filterModelsBySearch,
@@ -71,6 +71,41 @@ const itemBaseStyle: React.CSSProperties = {
   transition: 'background 150ms cubic-bezier(0.4,0,0.2,1), color 150ms',
 };
 
+function MarqueeLabel({ text }: { text: string }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(false);
+
+  const measure = useCallback(() => {
+    const o = outerRef.current;
+    const i = innerRef.current;
+    if (o && i) setOverflow(i.scrollWidth > o.clientWidth + 1);
+  }, []);
+
+  useEffect(() => { measure(); }, [text, measure]);
+
+  const dur = Math.max(3, text.length * 0.18);
+
+  return (
+    <div ref={outerRef} style={{ overflow: 'hidden', flex: 1, whiteSpace: 'nowrap' }}>
+      <span
+        ref={innerRef}
+        style={{
+          display: 'inline-block',
+          whiteSpace: 'nowrap',
+          ...(overflow ? {
+            animation: `marquee-scroll ${dur}s linear infinite`,
+            paddingRight: 40,
+          } : {}),
+        }}
+      >{text}{overflow && <span style={{ paddingLeft: 40 }}>{text}</span>}</span>
+      {overflow && (
+        <style>{`@keyframes marquee-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+      )}
+    </div>
+  );
+}
+
 export function SearchableModelSelect({
   items, selectedProfileId, selectedModel, onSelect, maxHeight = 280,
 }: Props) {
@@ -115,10 +150,8 @@ export function SearchableModelSelect({
         onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--gold)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = open ? 'var(--gold)' : 'var(--brass)'; }}
       >
-        <span style={{
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-        }}>{triggerLabel}</span>
-        <span style={{ color: 'var(--gold)', fontSize: 9, opacity: 0.7 }}>{open ? '▲' : '▼'}</span>
+        <MarqueeLabel text={triggerLabel} />
+        <span style={{ color: 'var(--gold)', fontSize: 9, opacity: 0.7, flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
