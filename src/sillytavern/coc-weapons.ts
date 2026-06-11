@@ -39,6 +39,12 @@ const TABLE: WeaponTemplate[] = [
   { test: /手枪|手铳|手炮|自动手枪/, skillKeys: HANDGUN, damage: '1D10', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 2, magazine: 7 },
   { test: /枪/, skillKeys: HANDGUN, damage: '1D8', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 6 }, // 兜底火器
 
+  // —— 投掷武器（magazine: 1 = 投一次就没了，复用弹药追踪）——
+  { test: /投掷.*矛|投掷.*标枪|掷矛|掷标枪/, skillKeys: ['投掷'], damage: '1D8+1', impaling: true, ranged: true, baseRange: 15, attacksPerRound: 1, magazine: 1 },
+  { test: /投掷.*刀|飞刀|投掷.*匕首/, skillKeys: ['投掷'], damage: '1D4', impaling: true, ranged: true, baseRange: 10, attacksPerRound: 1, magazine: 1 },
+  { test: /投掷.*斧|飞斧/, skillKeys: ['投掷'], damage: '1D6', impaling: false, ranged: true, baseRange: 10, attacksPerRound: 1, magazine: 1 },
+  { test: /投掷|投石/, skillKeys: ['投掷'], damage: '1D4', impaling: false, ranged: true, baseRange: 10, attacksPerRound: 1, magazine: 1 },
+
   // —— 近战 ——
   { test: /链锯/, skillKeys: ['格斗(链锯)', ...BRAWL], damage: '2D8', impaling: true, ranged: false, attacksPerRound: 1 },
   { test: /指虎|拳套/, skillKeys: BRAWL, damage: '1D3+1', impaling: false, crushing: true, ranged: false, attacksPerRound: 1 },

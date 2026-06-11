@@ -295,6 +295,10 @@ export async function detectAndBuildEncounter(
     const combatants = [player, ...allies, ...enemies];
     const VALID_RANGE_TIERS = ['close', 'normal', 'far', 'extreme'] as const;
     const rangeTier = VALID_RANGE_TIERS.includes(p.rangeTier as typeof VALID_RANGE_TIERS[number]) ? (p.rangeTier as typeof VALID_RANGE_TIERS[number]) : 'normal';
+    const surpriseRound = p.surpriseRound === true;
+    const VALID_FACTIONS = ['player', 'enemy'] as const;
+    const surprisedFaction = surpriseRound && VALID_FACTIONS.includes(p.surprisedFaction as typeof VALID_FACTIONS[number])
+      ? (p.surprisedFaction as 'player' | 'enemy') : undefined;
     return {
       active: true,
       round: 1,
@@ -303,10 +307,11 @@ export async function detectAndBuildEncounter(
       combatants,
       bystanders,
       playerTargetId: enemies[0].id,
-      log: [{ kind: 'narrative', text: '战斗爆发！' }],
+      log: [{ kind: 'narrative', text: surpriseRound ? (surprisedFaction === 'player' ? '突袭！敌方先发制人！' : '突袭！你率先出手！') : '战斗爆发！' }],
       diceRecords: [],
       status: 'active',
       rangeTier,
+      ...(surpriseRound && surprisedFaction ? { surpriseRound, surprisedFaction } : {}),
       usage,
     };
   }

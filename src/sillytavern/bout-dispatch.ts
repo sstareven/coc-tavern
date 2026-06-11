@@ -62,6 +62,7 @@ export function triggerBout(
   ctx: EvaluatorContext,
   mode: 'realtime' | 'summary',
   rollD10: RollD10 = defaultRollD10,
+  rng01: () => number = Math.random,
 ): TriggerBoutResult {
   if (mode === 'realtime') {
     const roundsLeft = rollD10();           // 1..10 回合
@@ -75,7 +76,7 @@ export function triggerBout(
       { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'realtime', table: 'VII', entry } },
     ]);
     const result: TriggerBoutResult = { mode, table: 'VII', entry, roundsLeft, label: row?.label ?? '', description: row?.description ?? '' };
-    applyPhobiaManiaOps(ctx, entry, result);
+    applyPhobiaManiaOps(ctx, entry, result, rng01);
     return result;
   }
 
@@ -91,6 +92,6 @@ export function triggerBout(
     { op: 'replace', path: '/调查员/临时疯狂/bout', value: { mode: 'summary', table: 'VIII', entry } },
   ]);
   const result: TriggerBoutResult = { mode, table: 'VIII', entry, roundsLeft: 0, label: row?.label ?? '', description: row?.description ?? '' };
-  applyPhobiaManiaOps(ctx, entry, result);
+  applyPhobiaManiaOps(ctx, entry, result, rng01);
   return result;
 }

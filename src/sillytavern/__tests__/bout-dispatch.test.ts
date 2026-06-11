@@ -4,6 +4,7 @@ import { useCharSheetStore, migrateSheet } from '../../stores/useCharSheetStore'
 import { useVariableStore } from '../../stores/useVariableStore';
 import { useCombatStore } from '../../stores/useCombatStore';
 import { advanceTurn } from '../combat-controller';
+import { PHOBIA_TABLE, MANIA_TABLE } from '../coc7e-tables';
 import type { EvaluatorContext } from '../post-settle-evaluators';
 import type { CharacterSheet, Encounter, Combatant } from '../../types';
 
@@ -92,6 +93,50 @@ describe('triggerBout — summary', () => {
     const ti = useCharSheetStore.getState().sheet.temporaryInsanity;
     expect(ti.active).toBe(true);
     expect(ti.bout?.table).toBe('VIII');
+  });
+});
+
+describe('triggerBout — phobia/mania acquisition', () => {
+  it('realtime entry=6 → rolls phobia, writes to sheet.phobias, sets acquiredPhobia', () => {
+    const rng01 = () => 0;
+    const out = triggerBout(mkCtx(), 'realtime', seqRollD10([5, 6]), rng01);
+    expect(out.entry).toBe(6);
+    expect(out.acquiredPhobia).toBe(PHOBIA_TABLE[0].label);
+    expect(out.acquiredMania).toBeUndefined();
+    expect(useCharSheetStore.getState().sheet.phobias).toContain(PHOBIA_TABLE[0].label);
+  });
+
+  it('realtime entry=7 → rolls mania, writes to sheet.manias, sets acquiredMania', () => {
+    const rng01 = () => 0;
+    const out = triggerBout(mkCtx(), 'realtime', seqRollD10([5, 7]), rng01);
+    expect(out.entry).toBe(7);
+    expect(out.acquiredMania).toBe(MANIA_TABLE[0].label);
+    expect(out.acquiredPhobia).toBeUndefined();
+    expect(useCharSheetStore.getState().sheet.manias).toContain(MANIA_TABLE[0].label);
+  });
+
+  it('summary entry=6 → rolls phobia, writes to sheet.phobias', () => {
+    const rng01 = () => 0;
+    const out = triggerBout(mkCtx(), 'summary', seqRollD10([6]), rng01);
+    expect(out.entry).toBe(6);
+    expect(out.acquiredPhobia).toBe(PHOBIA_TABLE[0].label);
+    expect(useCharSheetStore.getState().sheet.phobias).toContain(PHOBIA_TABLE[0].label);
+  });
+
+  it('summary entry=7 → rolls mania, writes to sheet.manias', () => {
+    const rng01 = () => 0;
+    const out = triggerBout(mkCtx(), 'summary', seqRollD10([7]), rng01);
+    expect(out.entry).toBe(7);
+    expect(out.acquiredMania).toBe(MANIA_TABLE[0].label);
+    expect(useCharSheetStore.getState().sheet.manias).toContain(MANIA_TABLE[0].label);
+  });
+
+  it('entry != 6 or 7 → no phobia/mania acquired', () => {
+    const out = triggerBout(mkCtx(), 'realtime', seqRollD10([5, 3]));
+    expect(out.acquiredPhobia).toBeUndefined();
+    expect(out.acquiredMania).toBeUndefined();
+    expect(useCharSheetStore.getState().sheet.phobias).toEqual([]);
+    expect(useCharSheetStore.getState().sheet.manias).toEqual([]);
   });
 });
 

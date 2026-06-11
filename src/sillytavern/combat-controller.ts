@@ -138,7 +138,7 @@ export function advanceTurn(enc: Encounter): Encounter {
     }
     const cleared = enc.combatants.map((c) => ({ ...c, roundDefenses: 0 }));
     const order = nextTurnOrder(cleared);
-    return { ...enc, combatants: cleared, turnOrder: order, currentIdx: 0, round: enc.round + 1 };
+    return { ...enc, combatants: cleared, turnOrder: order, currentIdx: 0, round: enc.round + 1, surpriseRound: false };
   }
   return { ...enc, currentIdx: next };
 }
@@ -308,7 +308,14 @@ export function advanceUntilPlayerOrEnd(enc0: Encounter, rng: Rng = defaultRng):
     enc = advanceTurn(enc);
     const cur = byId(enc, enc.turnOrder[enc.currentIdx]);
     if (!cur || !alive(cur)) continue;          // 跳过已倒下者
-    if (cur.controlledBy === 'player') return reaimPlayerTarget(enc); // 轮到玩家,顺手把死目标切到下一个活敌
+    // 突袭轮(COC7e):第1轮中被突袭阵营的角色不能行动
+    if (enc.surpriseRound && enc.round === 1 && cur.faction === enc.surprisedFaction) {
+      continue; // 跳过被突袭方
+    }
+    if (cur.controlledBy === 'player') {
+      // 突袭轮中玩家被突袭 → 已在上面 continue 跳过;此处到达说明玩家可行动
+      return reaimPlayerTarget(enc); // 轮到玩家,顺手把死目标切到下一个活敌
+    }
     enc = runAiTurn(enc, cur.id, rng);             // AI 行动
   }
   return enc;
@@ -510,5 +517,45 @@ export function playerFlee(enc0: Encounter, rng: Rng = defaultRng): Encounter {
     return { ...enc, status: 'resolving', endReason: 'flee' };
   }
   enc = log(enc, `${player.name} 逃跑失败，仍被缠住`, 'narrative');
+  return advanceUntilPlayerOrEnd(enc, rng);
+}
+
+/** 玩家急救：对指定友方(或自身)进行急救检定(COC7e p61)。成功恢复 1D3 HP，大成功/极难 +1，并稳定 dying。 */
+export function playerFirstAid(enc0: Encounter, targetId: string, rng: Rng = defaultRng): Encounter {
+  let enc = enc0;
+  const player = enc.combatants.find((c) => c.controlledBy === 'player');
+  if (!player) return enc;
+  const target = byId(enc, targetId);
+  if (!target || target.hp >= target.maxHp || target.flags.dead) return enc;
+
+  const firstAidSkill = player.firstAid ?? 30;
+  const r = d100WithDice(0, 0, rng);
+  const lvl = successLevel(r.finalRoll, firstAidSkill);
+  enc = rec(enc, {
+    skill: `${player.name}·急救`,
+    roll: String(r.finalRoll),
+    target: String(firstAidSkill),
+    type: diceTypeFor(r.finalRoll, firstAidSkill),
+    purpose: '急救检定',
+  });
+
+  if (lvl === 'fail' || lvl === 'fumble') {
+    enc = log(enc, `${player.name} 对 ${target.name} 急救失败 d100=${r.finalRoll}/${firstAidSkill}`, 'roll');
+    const end = checkEndReason(enc);
+    if (end) return { ...enc, status: 'resolving', endReason: end };
+    return advanceUntilPlayerOrEnd(enc, rng);
+  }
+
+  // 成功:1D3 HP;大成功(critical/extreme)再 +1。clamp 到 maxHp。稳定 dying。
+  const heal = rollDamageFormula('1d3', rng).total + ((lvl === 'critical' || lvl === 'extreme') ? 1 : 0);
+  const newHp = Math.min(target.maxHp, target.hp + heal);
+  const newFlags = { ...target.flags };
+  if (newFlags.dying) newFlags.dying = false;
+
+  enc = patchCombatant(enc, targetId, { hp: newHp, flags: newFlags });
+  const levelCn = lvl === 'critical' ? '大成功' : lvl === 'extreme' ? '极难' : lvl === 'hard' ? '困难' : '成功';
+  enc = log(enc, `${player.name} 对 ${target.name} 急救成功 d100=${r.finalRoll}/${firstAidSkill}（${levelCn}）→ 恢复 ${heal} HP，${target.name} HP ${target.hp}→${newHp}`, 'roll');
+  const end = checkEndReason(enc);
+  if (end) return { ...enc, status: 'resolving', endReason: end };
   return advanceUntilPlayerOrEnd(enc, rng);
 }
