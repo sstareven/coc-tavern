@@ -15,6 +15,7 @@ import { applyScenarioPatch } from '../../../scenario/scenario-patch';
 import { generateCustomOccupations } from '../../../scenario/scenario-llm';
 import {
   MAX_OCCUPATIONS,
+  FORMULA_OPTIONS,
   makeBlankOccupation,
   normalizeSkills,
   upsertByName,
@@ -92,6 +93,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
       crMin: selected.crMin,
       crMax: selected.crMax,
       skills: [...normalizeSkills(selected.skills)],
+      ...(selected.formula ? { formula: selected.formula } : {}),
     };
     commitOccupations([...list, dup]);
     setSelectedIdx(list.length);
@@ -106,6 +108,7 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
       crMin: patch.crMin !== undefined ? patch.crMin : selected.crMin,
       crMax: patch.crMax !== undefined ? patch.crMax : selected.crMax,
       skills: patch.skills !== undefined ? normalizeSkills(patch.skills) : normalizeSkills(selected.skills),
+      ...(patch.formula !== undefined ? { formula: patch.formula || undefined } : selected.formula ? { formula: selected.formula } : {}),
     };
     const nextList = upsertByName(list, merged, prevName);
     commitOccupations(nextList);
@@ -317,6 +320,21 @@ export function OccupationsTab({ scn, onChange, onToast }: Props) {
                   />
                   <span style={{ fontSize: 11, color: 'var(--gold)', minWidth: 24, textAlign: 'left' }}>{selected.crMax}</span>
                 </div>
+              </Row>
+
+              <Row label="技能点公式">
+                <select
+                  value={selected.formula ?? ''}
+                  onChange={(e) => patchSelected({ formula: e.target.value })}
+                  style={{
+                    ...inputStyle,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {FORMULA_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </Row>
 
               <div style={{ marginTop: 4 }}>

@@ -5,6 +5,18 @@ import type { Occupation } from '../../../sillytavern/coc-data';
 export const SKILL_SLOT_COUNT = 8;
 export const MAX_OCCUPATIONS = 15;
 
+export const FORMULA_OPTIONS = [
+  { value: '', label: '默认 (EDU×4)' },
+  { value: 'EDU*4', label: 'EDU×4' },
+  { value: 'EDU*2+APP*2', label: 'EDU×2 + APP×2' },
+  { value: 'EDU*2+STR*2', label: 'EDU×2 + STR×2' },
+  { value: 'EDU*2+DEX*2', label: 'EDU×2 + DEX×2' },
+  { value: 'EDU*2+POW*2', label: 'EDU×2 + POW×2' },
+  { value: 'EDU*2+INT*2', label: 'EDU×2 + INT×2' },
+  { value: 'EDU*2+CON*2', label: 'EDU×2 + CON×2' },
+  { value: 'EDU*2+BEST*2', label: 'EDU×2 + 最高属性×2' },
+] as const;
+
 // 空职业骨架:8 个空槽,信用 10-50
 export function makeBlankOccupation(): Occupation {
   return {
