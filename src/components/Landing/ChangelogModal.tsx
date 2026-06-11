@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.24.0';
+export const CURRENT_VERSION = 'v1.24.1';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,25 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.24.1',
+    label: '剧本技能修复',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: '剧本推荐技能',
+            entries: [
+              '修复了 8 个剧本里推荐了不存在的技能的问题——以前有些技能名和系统里的对不上,现在全部对齐了',
+              '时代/地域特色技能(如投掷矛、古诺尔斯语等)已正式注册到对应剧本的自定义技能列表,不再是空壳',
+              '克苏鲁神话不再出现在推荐技能中——这个技能只能通过剧情事件或阅读禁忌典籍获得,不应该让玩家在开始时分配点数',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.24.0',
     label: 'COC 规则书全面对齐 · 魔法与典籍 · 拯救系统加固',

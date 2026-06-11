@@ -30,10 +30,8 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
 【守秘人指引】入梦方式由玩家与守秘人当场决定，不预设。`,
   recommendedSkills: [
     '梦境知识',
-    '克苏鲁神话',
     '神秘学',
     '导航',
-    '航海',
     '语言(古东方语)',
     '聆听',
     '说服',
@@ -994,6 +992,9 @@ export const SCENARIO_DREAMLANDS: ScenarioDoc = {
     { name: '猫语', base: 1, cat: '交涉系', desc: '理解并以猫的方式与猫交流;乌尔塔尔与幻梦境境内尤为有用' },
     { name: '咒语吟唱', base: 1, cat: '交涉系', desc: '吟诵古老诗律以稳定梦境结构、安抚梦中存在或唤起记忆' },
     { name: '梦境知识', base: 5, cat: '生活系', desc: '关于幻梦境地理、风俗、规则与禁忌的学识' },
+    { name: '语言(古东方语)', base: 1, cat: '交涉系', desc: '理解与使用幻梦境东方古老语言的能力' },
+    { name: '艺术(诗歌)', base: 5, cat: '交涉系', desc: '创作与吟诵诗歌的艺术技巧' },
+    { name: '艺术与手艺(古籍修复)', base: 5, cat: '生活系', desc: '修复古旧书册、手抄本与纸质文献的专业技艺' },
   ],
   skillBlacklist: [
     '汽车驾驶',
