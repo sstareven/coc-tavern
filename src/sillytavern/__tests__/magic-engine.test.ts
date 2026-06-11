@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSpellCast, type SpellCastResult } from '../magic-engine';
+import { resolveSpellCast } from '../magic-engine';
 import type { Rng } from '../combat-engine';
 
 /**

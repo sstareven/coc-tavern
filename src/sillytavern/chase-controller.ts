@@ -4,10 +4,10 @@
  * 包装 chase-engine 纯函数，加入回合推进、玩家动作分发、AI 决策逻辑。
  * 与 combat-controller.ts 同模式：playerAction → checkEnd → advanceUntilPlayerOrEnd。
  */
-import type { Chase, ChaseParticipant } from '../types';
+import type { Chase } from '../types';
 import {
-  calcMovement, getGap, checkChaseEnd, moveParticipant,
-  attemptShortcut, createBarricade, resolveHazard,
+  checkChaseEnd, moveParticipant,
+  attemptShortcut, createBarricade,
 } from './chase-engine';
 import type { Rng } from './combat-engine';
 

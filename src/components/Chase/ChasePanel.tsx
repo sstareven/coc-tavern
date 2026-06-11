@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useChaseStore } from '../../stores/useChaseStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useCharSheetStore } from '../../stores/useCharSheetStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { saveConversation } from '../../stores/sessionLifecycle';
 import { playerChaseAction } from '../../sillytavern/chase-controller';
@@ -10,7 +9,7 @@ import { getGap } from '../../sillytavern/chase-engine';
 import { sfxClick, sfxClickPrimary } from '../../audio/sfx';
 import { DiceRecordsExpander } from '../Combat/CombatPanel';
 import { CombatDiceRoll, type DiceToss } from '../Combat/CombatDiceRoll';
-import type { Chase, ChaseParticipant, CombatRollViz, DiceResultType } from '../../types';
+import type { Chase, CombatRollViz, DiceResultType } from '../../types';
 
 const FAINT = 'rgba(var(--ink-faded-rgb),0.25)';
 const FAINTER = 'rgba(var(--ink-faded-rgb),0.15)';
@@ -232,8 +231,6 @@ export function ChasePanel() {
   if (!chase) return null;
   const ch = chase;
   const player = ch.participants.find((p) => p.controlledBy === 'player');
-  const sheet = useCharSheetStore.getState().sheet;
-
   const currentId = ch.turnOrder[ch.currentIdx];
   const isPlayerTurn = !!player && currentId === player.id && ch.status === 'active';
   const resolving = ch.status === 'resolving';
