@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.23.0';
+export const CURRENT_VERSION = 'v1.23.1';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,47 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.23.1',
+    label: '全面体检修复 · 战斗结算 · 流式稳定性',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: '战斗系统',
+            entries: [
+              '以前战斗结束后调查员受的伤会消失(角色卡上的 HP 没跟着扣)；现在战后 HP 会正确回写到角色卡',
+              '以前队友在战斗中受伤或阵亡后,名片上的状态不会更新；现在队友的战斗结果也会回写',
+              '以前临时疯狂倒计时太快——每个人行动一次就减一轮,4 人战斗里 7 轮疯狂只持续不到 2 轮；现在按完整回合倒计时,和规则书一致了',
+            ],
+          },
+          {
+            title: '生成稳定性',
+            entries: [
+              '以前如果 AI 连续几次返回格式错误,书里会留下一页永久的"生成中"空白页删不掉；现在失败后会自动清理',
+              '以前选项里带物品奖励等复杂数据时,后续选项的文字可能丢失；现在不会了',
+              '部分中转站发送数据格式略有不同时会导致内容丢失；现在兼容了更多格式',
+            ],
+          },
+          {
+            title: '切换存档',
+            entries: [
+              '以前切换存档时如果骰子面板正好打开,新存档里掷骰可能会把结果写回旧存档；现在切档会彻底关闭骰子面板',
+              '以前切换存档时如果检定选项弹窗正好打开,它会残留到新存档；现在切档会关闭弹窗',
+            ],
+          },
+          {
+            title: '其他',
+            entries: [
+              'NPC 改名后,其他角色心智档案里对 TA 的关系引用也会跟着更新,不再出现重复条目',
+              'AI 输出 token 上限保底 20000,防止思考型模型的回复被截断',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.23.0',
     label: '剧情时间管理 · NPC 改名升级 · 休息提示 · 缓存优化',
