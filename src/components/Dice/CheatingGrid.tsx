@@ -4,24 +4,7 @@
 import { motion } from 'framer-motion';
 import type { DiceResultType } from '../../types';
 import { CHEATING_RESULT_TYPES } from '../../sillytavern/cheating-helpers';
-
-const RESULT_LABEL: Record<DiceResultType, string> = {
-  'crit-success': '大成功！',
-  'extreme-success': '极难成功',
-  'hard-success': '困难成功',
-  success: '成功',
-  failure: '失败',
-  'crit-failure': '大失败！',
-};
-
-const RESULT_COLOR: Record<DiceResultType, string> = {
-  'crit-success': 'var(--gold)',
-  'extreme-success': '#69f0ae',
-  'hard-success': '#4fc3f7',
-  success: '#69f0ae',
-  failure: '#ef5350',
-  'crit-failure': '#d50000',
-};
+import { DICE_RESULT_LABEL, DICE_RESULT_COLOR } from '../../constants/diceResults';
 
 interface Props {
   /** 当前选中的档位（两步式用；undefined/null = 未选中） */
@@ -54,7 +37,7 @@ export function CheatingGrid({
         {CHEATING_RESULT_TYPES.map((type, i) => {
           const disabled = disabledTypes?.has(type) ?? false;
           const selected = selectedType === type;
-          const color = RESULT_COLOR[type];
+          const color = DICE_RESULT_COLOR[type];
           const baseStyle: React.CSSProperties = {
             padding: '8px 4px', borderRadius: 4,
             border: `1px solid ${selected ? color : 'var(--brass)'}`,
@@ -100,7 +83,7 @@ export function CheatingGrid({
                 onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(0.97)'; }}
                 onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(1.04)'; }}
               >
-                {RESULT_LABEL[type]}
+                {DICE_RESULT_LABEL[type]}
               </motion.button>
             );
           }
@@ -113,7 +96,7 @@ export function CheatingGrid({
               onMouseEnter={(e) => handleEnter(e.currentTarget)}
               onMouseLeave={(e) => handleLeave(e.currentTarget)}
             >
-              {RESULT_LABEL[type]}
+              {DICE_RESULT_LABEL[type]}
             </button>
           );
         })}
