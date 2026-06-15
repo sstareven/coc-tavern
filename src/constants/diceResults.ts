@@ -2,12 +2,12 @@ import type { DiceResultType } from '../types';
 
 /** Dice check result Chinese labels */
 export const DICE_RESULT_LABEL: Record<DiceResultType, string> = {
-  'crit-success': '大成功！',
-  'extreme-success': '极难成功',
-  'hard-success': '困难成功',
-  success: '成功',
-  failure: '失败',
-  'crit-failure': '大失败！',
+  'crit-success': '澶ф垚鍔燂紒',
+  'extreme-success': '鏋侀毦鎴愬姛',
+  'hard-success': '鍥伴毦鎴愬姛',
+  success: '鎴愬姛',
+  failure: '澶辫触',
+  'crit-failure': '澶уけ璐ワ紒',
 };
 
 /** Dice check result colors (bright palette shared by CheatingGrid and OptionResolutionOverlay) */

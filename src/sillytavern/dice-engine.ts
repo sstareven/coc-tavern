@@ -23,7 +23,7 @@ export const d100 = (tens: number, ones: number): number =>
  *   4. roll ≤ target / 5         → extreme-success
  *   5. roll ≤ target / 2         → hard-success
  *   6. roll ≤ target             → success
- *   7. !SAN && target < 50 && roll ≥ 96 → crit-failure (low-skill botch)
+ *   7. !SAN && target <= 50 && roll ≥ 96 → crit-failure (CoC7e p.88)
  *   8. otherwise                 → failure
  */
 export function determineResult(
@@ -40,7 +40,7 @@ export function determineResult(
   if (roll <= fifth) return 'extreme-success';
   if (roll <= half) return 'hard-success';
   if (roll <= target) return 'success';
-  if (!sanCheck && target < 50 && roll >= 96) return 'crit-failure';
+  if (!sanCheck && target <= 50 && roll >= 96) return 'crit-failure';
   return 'failure';
 }
 
