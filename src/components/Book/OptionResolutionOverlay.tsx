@@ -29,6 +29,7 @@ import {
 } from '../Dice/dice-panel-state';
 import { IconLuck, IconPush } from '../Layout/TabIcons';
 import { pickRollForResult, getCheatingDisabledTypes } from '../../sillytavern/cheating-helpers';
+import { DICE_RESULT_LABEL, DICE_RESULT_COLOR } from '../../constants/diceResults';
 import { CheatingGrid } from '../Dice/CheatingGrid';
 import type { DiceRecord, DiceResultType } from '../../types';
 
@@ -95,7 +96,7 @@ export function OptionResolutionOverlay() {
       return;
     }
 
-    const label = RESULT_LABEL[type] || type;
+    const label = DICE_RESULT_LABEL[type] || type;
     const rollStr = String(roll).padStart(2, '0');
     const newResultLine = `[${trigger.skill} d100=${rollStr}/${trigger.target} ${label}]\n`;
     const newInputText = rebuildInputText(trigger.inputText, trigger.resultLine, newResultLine);
@@ -213,23 +214,6 @@ export function OptionResolutionOverlay() {
     ? previewLuckResult(pending.originalRoll, luckSpend, pending.target, pending.sanCheck)
     : null;
 
-  // 中文标签——与 DicePanel/RightPage 保持一致；不引入新表
-  const RESULT_LABEL: Record<string, string> = {
-    'crit-success': '大成功！',
-    'extreme-success': '极难成功',
-    'hard-success': '困难成功',
-    success: '成功',
-    failure: '失败',
-    'crit-failure': '大失败！',
-  };
-  const RESULT_COLOR: Record<string, string> = {
-    'crit-success': 'var(--gold)',
-    'extreme-success': '#69f0ae',
-    'hard-success': '#4fc3f7',
-    success: '#69f0ae',
-    failure: '#ef5350',
-    'crit-failure': '#d50000',
-  };
 
   return (
     <AnimatePresence>
@@ -288,10 +272,10 @@ export function OptionResolutionOverlay() {
             <span style={{
               fontSize: 'calc(22px * var(--text-ratio, 1))', fontWeight: 600, letterSpacing: 6,
               fontFamily: 'var(--font-display)',
-              color: RESULT_COLOR[pending.originalResult] || 'var(--ink-subtle)',
-              textShadow: `0 0 18px ${RESULT_COLOR[pending.originalResult] || 'rgba(255,255,255,0.1)'}66`,
+              color: DICE_RESULT_COLOR[pending.originalResult] || 'var(--ink-subtle)',
+              textShadow: `0 0 18px ${DICE_RESULT_COLOR[pending.originalResult] || 'rgba(255,255,255,0.1)'}66`,
             }}>
-              {RESULT_LABEL[pending.originalResult] || pending.originalResult}
+              {DICE_RESULT_LABEL[pending.originalResult] || pending.originalResult}
             </span>
           </div>
 
@@ -378,10 +362,10 @@ export function OptionResolutionOverlay() {
                     {String(luckPreview.previewRoll).padStart(2, '0')} / {pending.target}
                   </span>
                   <span style={{
-                    color: RESULT_COLOR[luckPreview.previewResult] || 'var(--ink-subtle)',
+                    color: DICE_RESULT_COLOR[luckPreview.previewResult] || 'var(--ink-subtle)',
                     fontFamily: 'var(--font-display)', letterSpacing: 3,
                   }}>
-                    {RESULT_LABEL[luckPreview.previewResult] || luckPreview.previewResult}
+                    {DICE_RESULT_LABEL[luckPreview.previewResult] || luckPreview.previewResult}
                   </span>
                 </div>
               )}

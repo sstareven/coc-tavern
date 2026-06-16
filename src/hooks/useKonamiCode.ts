@@ -6,8 +6,6 @@
 //   - 匹配成功调 onUnlock 后归零（允许玩家再输一次玩花活）
 //
 // 用法（在 App.tsx mount 时挂一个就行）：
-//   useKonamiCode(() => useSettingsStore.getState().unlockCheating());
-
 import { useEffect, useRef } from 'react';
 
 /** ↑ ↑ ↓ ↓ ← → ← → B A */

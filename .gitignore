@@ -52,3 +52,4 @@ tmp_preview/
 # 见 scripts/backfill-scenario-pools.ts 与 spec §7.1）
 scripts/.backfill-output/
 .mcfast/
+.gbk.bak
