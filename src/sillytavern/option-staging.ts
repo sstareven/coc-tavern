@@ -18,6 +18,7 @@
 
 import type { DiceRecord, DiceResultType } from '../types';
 import { applyLuckToRoll, determineResult } from './dice-engine';
+import { DICE_RESULT_LABEL } from '../constants/diceResults';
 
 /** RightPage 选项检定的种类，对应 fillInputBar 的 4 个分支。 */
 export type StagingKind = 'check' | 'opposed' | 'poly' | 'hidden';
@@ -75,15 +76,7 @@ export function shouldStage(ctx: {
   return true;
 }
 
-/** 五档中文标签——单源在 RightPage 也用同一份；这里独立一份避免循环依赖。 */
-const RESULT_LABELS: Record<DiceResultType, string> = {
-  'crit-success': '大成功！',
-  'extreme-success': '极难成功',
-  'hard-success': '困难成功',
-  success: '成功',
-  failure: '失败',
-  'crit-failure': '大失败！',
-};
+
 
 /**
  * 花费幸运：直接复用 dice-engine.applyLuckToRoll —— 它已经处理 01/96-100 不可救援、SAN/伤害/幸运自检拒绝。
@@ -106,7 +99,7 @@ export function applyLuckSpend(
 } {
   const r = applyLuckToRoll(originalRoll, target, spend, sanCheck, false, false);
   const resultType = determineResult(r.finalRoll, target, sanCheck);
-  const label = RESULT_LABELS[resultType] || resultType;
+  const label = DICE_RESULT_LABEL[resultType] || resultType;
   const rollStr = String(r.finalRoll).padStart(2, '0');
   const line = `[${skill} d100=${rollStr}/${target} ${label} (幸运扣${r.appliedSpend}点)]\n`;
   return { finalRoll: r.finalRoll, resultType, label, line, appliedSpend: r.appliedSpend };
@@ -130,7 +123,7 @@ export function applyPushReroll(
   const o = Math.floor(rng() * 10);
   const newRoll = (t === 0 && o === 0) ? 100 : t * 10 + o;
   const newResult = determineResult(newRoll, target, sanCheck);
-  const label = RESULT_LABELS[newResult] || newResult;
+  const label = DICE_RESULT_LABEL[newResult] || newResult;
   const rollStr = String(newRoll).padStart(2, '0');
   const line = `[${skill} d100=${rollStr}/${target} ${label} (孤注一掷)]\n`;
   return { newRoll, newResult, label, line, reason };

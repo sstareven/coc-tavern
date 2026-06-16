@@ -34,6 +34,8 @@ export function pickRollForResult(
   sanCheck: boolean,
   rng: () => number = Math.random,
 ): number | null {
+  // 校验 target 合法性：非法值（NaN/超限）直接返回 null，避免向下传播
+  if (typeof target !== 'number' || !Number.isFinite(target) || target < 0 || target > 100) return null;
   const fifth = Math.floor(target / 5);
   const half = Math.floor(target / 2);
 
@@ -57,14 +59,14 @@ export function pickRollForResult(
     case 'success': {
       // 区间 [max(half+1, 2), target]；SAN 检定时 96-100 是大失败区，要避开
       const lo = Math.max(half + 1, 2);
-      const hi = sanCheck ? Math.min(target, 95) : target;
+      const hi = sanCheck ? Math.min(target, 95) : Math.min(target, 99);
       if (hi < lo) return null;
       return randInt(lo, hi, rng);
     }
 
     case 'failure': {
-      const lo = target + 1;
-      const hi = sanCheck || target < 50 ? 95 : 99;
+      const lo = Math.max(target + 1, 2);
+      const hi = sanCheck || target <= 50 ? 95 : 99;
       if (lo > hi) return null;
       return randInt(lo, hi, rng);
     }

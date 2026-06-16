@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.25.1';
+export const CURRENT_VERSION = 'v1.25.3';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,56 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.25.3',
+    label: '领受赐福 CoC7e 规则修正 + 死代码回滚',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: '领受赐福',
+            entries: [
+              'CoC7e p.88 大失败规则修正：非 SAN 检定 target≤50 时 roll 96-100 判大失败（原仅 <50，target=50 时漏判）',
+              'pickRollForResult 修复 4 处区间 bug：success 档 hi 含 100、failure 档 lo=1 误判大成功、failure 档 hi parity、target=100 时无 failure',
+              'pickRollForResult 加 target 合法性校验：NaN/Infinity/负数/>100 一律返回 null，不再向下游传播坏区间',
+              '补全边界测试：getCheatingDisabledTypes、target=0/50/100、非法 target 共 14 个新用例',
+              '清理 CheatingGrid 死注释（已删除的 DicePanel 引用），移除 unused props（selectedType/caption/animated）',
+            ],
+          },
+        ],
+      },
+      {
+        title: '回滚',
+        groups: [
+          {
+            title: '伤害骰赐福（未完成）',
+            entries: [
+              'v1.25.2 引入的 useBlessingStore + getBlessingDamageOptions 在生产代码中无任何调用方，UI 未实装。删除 4 个死代码文件，恢复到 1.25.1 的稳定状态',
+              '若需要此功能，需先在 combat/damage-roll 流程添加 BlessingDamageModal UI 和 setPending 触发点，再重新引入 helpers',
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v1.25.2',
+    label: '领受赐福·共享常量提取',
+    sections: [
+      {
+        title: '改进',
+        groups: [
+          {
+            title: '领受赐福',
+            entries: [
+              'RESULT_LABEL/RESULT_COLOR 提取为 src/constants/diceResults.ts 共享常量，消除 3 处重复定义',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.25.1',
     label: '剧本职业技能点公式',

@@ -80,8 +80,13 @@ describe('determineResult', () => {
       expect(determineResult(99, 49, false)).toBe('crit-failure');
     });
 
-    it('non-SAN, target ≥ 50: roll 96–99 → failure (not crit-failure)', () => {
-      expect(determineResult(96, 50, false)).toBe('failure');
+    it('non-SAN, target=50: roll 96–99 → crit-failure (CoC7e p.88)', () => {
+      expect(determineResult(96, 50, false)).toBe('crit-failure');
+      expect(determineResult(99, 50, false)).toBe('crit-failure');
+    });
+
+    it('non-SAN, target > 50: roll 96–99 → failure (not crit-failure)', () => {
+      expect(determineResult(97, 51, false)).toBe('failure');
       expect(determineResult(97, 65, false)).toBe('failure');
       expect(determineResult(99, 80, false)).toBe('failure');
     });
@@ -197,7 +202,7 @@ describe('determineResult', () => {
     function legacyInline(raw: number, target: number): DiceResultType {
       const fifth = Math.floor(target / 5);
       const half = Math.floor(target / 2);
-      if (raw === 100 || (target < 50 && raw >= 96)) return 'crit-failure';
+      if (raw === 100 || (target <= 50 && raw >= 96)) return 'crit-failure';
       if (raw === 1) return 'crit-success';
       if (raw <= fifth) return 'extreme-success';
       if (raw <= half) return 'hard-success';
@@ -213,10 +218,10 @@ describe('determineResult', () => {
       }
     });
 
-    it('保留 target<50 && raw>=96 失误特例', () => {
+    it('target<=50 && raw>=96 大失败 (CoC7e p.88)', () => {
       expect(determineResult(96, 49, false)).toBe('crit-failure');
       expect(determineResult(99, 30, false)).toBe('crit-failure');
-      expect(determineResult(96, 50, false)).toBe('failure');
+      expect(determineResult(96, 50, false)).toBe('crit-failure');
     });
 
     it('保留大成功/大失败边界', () => {
