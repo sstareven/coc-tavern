@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { inputStyle } from '../CharSheet/styles';
 import { getAutoZoom } from '../../hooks/useResponsiveZoom';
@@ -26,6 +26,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const portalKey = useId();
   const selected = options.find((o) => o.value === value);
 
   const toggle = () => {
@@ -77,7 +78,12 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
         }
         return (
           <div key={o.value}
-            onClick={() => { onChange(o.value); setOpen(false); }}
+            onClick={() => {
+              // 先关闭 portal,再把选择事件延迟到下一微任务,
+              // 避免 React 19 在 portal 卸载与父组件大量重渲染之间出现 insertBefore 竞争。
+              setOpen(false);
+              queueMicrotask(() => onChange(o.value));
+            }}
             style={{
               padding: menuItemPadding, cursor: 'pointer', fontSize: menuItemFontSize, textAlign: menuItemAlign,
               color: o.value === value ? 'var(--gold)' : 'var(--text-light)',
@@ -94,6 +100,7 @@ export function DarkSelect({ value, onChange, options, style, compact }: {
       })}
     </div>,
     document.body,
+    portalKey,
     );
   })() : null;
 
