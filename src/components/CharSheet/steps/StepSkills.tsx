@@ -140,7 +140,7 @@ export function StepSkills({
         <span style={{
           position: 'absolute', right: 8, top: '50%', zIndex: 1,
           transform: 'translateY(calc(-50% - 10px))',
-          fontSize: 'calc(14px * var(--system-ratio, 1))' + (creditRating - crMin) / Math.max(1, crMax - crMin) * 6,
+          fontSize: `calc(${(14 + (creditRating - crMin) / Math.max(1, crMax - crMin) * 6)}px * var(--system-ratio, 1))`,
           fontFamily: 'var(--font-display)', fontWeight: 900, color: 'rgba(255,255,255,0.30)',
           transition: 'font-size 0.25s cubic-bezier(0.4,0,0.2,1)',
           lineHeight: 1, pointerEvents: 'none', userSelect: 'none',
