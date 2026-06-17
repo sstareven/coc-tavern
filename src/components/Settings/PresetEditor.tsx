@@ -125,7 +125,7 @@ export function PresetEditor({ preset, onClose, onSave }: Props) {
   return (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="pe-scroll" style={{ ...panel, minWidth: 620, maxWidth: 660, maxHeight: '90vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.2)',
-        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
+        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: 'calc(100dvh / var(--auto-zoom, 1))', maxHeight: 'calc(100dvh / var(--auto-zoom, 1))', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
         <style>{`
           .pe-scroll::-webkit-scrollbar { width: 5px; }
           .pe-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.15); border-radius: 3px; }

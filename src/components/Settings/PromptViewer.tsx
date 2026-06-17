@@ -78,7 +78,7 @@ export function PromptViewer({ visible, onClose }: Props) {
           background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
           border: '1px solid var(--gold)', borderRadius: 8,
           padding: 24, width: 780, maxWidth: '100vw', maxHeight: '90vh',
-          ...(isMobile ? { width: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none', padding: 16 } : {}),
+          ...(isMobile ? { width: '100vw', height: 'calc(100dvh / var(--auto-zoom, 1))', maxHeight: 'calc(100dvh / var(--auto-zoom, 1))', borderRadius: 0, border: 'none', padding: 16 } : {}),
           display: 'flex', flexDirection: 'column',
           fontFamily: 'var(--font-ui)',
           boxShadow: '0 0 80px rgba(0,0,0,0.6)',

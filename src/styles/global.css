@@ -7,6 +7,7 @@ html, body {
   background: var(--void);
   font-family: var(--font-ui);
   color: var(--text-light);
+  -webkit-user-select: none;
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
@@ -29,11 +30,13 @@ html, body {
 
 /* 流式刻印 — 字进入 DOM 时高光金色,缓慢落定为正文黑字。
  * 用在 LeftPage isStreamingPrint 分支中每个新出现的字符 span 上。
- * 时长 0.45s,缓动用项目标准 cubic-bezier(0.4, 0, 0.2, 1)。 */
+ * 时长 0.45s,缓动用项目标准 cubic-bezier(0.4, 0, 0.2, 1)。
+ * 辉光用 filter: drop-shadow() 替代 text-shadow,避免 @keyframes 中修改
+ * text-shadow 触发每帧 Layout(Chrome/Safari 性能警告)。 */
 @keyframes streaming-ink {
-  0%   { color: rgba(196, 168, 85, 1); text-shadow: 0 0 8px rgba(196, 168, 85, 0.6); }
-  60%  { color: rgba(196, 168, 85, 0.6); text-shadow: 0 0 4px rgba(196, 168, 85, 0.3); }
-  100% { color: var(--ink); text-shadow: none; }
+  0%   { color: rgba(196, 168, 85, 1); filter: drop-shadow(0 0 8px rgba(196, 168, 85, 0.6)); }
+  60%  { color: rgba(196, 168, 85, 0.6); filter: drop-shadow(0 0 4px rgba(196, 168, 85, 0.3)); }
+  100% { color: var(--ink); filter: drop-shadow(0 0 0 transparent); }
 }
 .streaming-ink-char {
   animation: streaming-ink 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;

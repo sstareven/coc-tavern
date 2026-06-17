@@ -372,7 +372,7 @@ export function LorebookEditor({ bookId, onClose }: Props) {
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ ...panelStyle, minWidth: 720, maxWidth: 820,
-        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
+        ...(isMobile ? { minWidth: 0, width: '100vw', maxWidth: '100vw', height: 'calc(100dvh / var(--auto-zoom, 1))', maxHeight: 'calc(100dvh / var(--auto-zoom, 1))', borderRadius: 0, border: 'none' } : {}) }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
