@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.25.4';
+export const CURRENT_VERSION = 'v1.25.5';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,42 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.25.5',
+    label: 'CSS 兼容性 / iOS 创建调查员半屏修复 / 测试指南',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: 'CSS',
+            entries: [
+              'global.css: 添加 -webkit-user-select: none 以兼容 Safari',
+              'streaming-ink 动画改用 filter: drop-shadow()，避免 text-shadow 每帧触发 Layout',
+            ],
+          },
+          {
+            title: 'iOS 移动端',
+            entries: [
+              '创建调查员面板：手机端 height 补回 / var(--auto-zoom, 1)，修复 zoom=0.75 时只渲染约 75% 视口的问题',
+              '设置面板群（Settings / Preset / Lorebook / Regex / Prompt）同步补回 100dvh 的 auto-zoom 除数',
+            ],
+          },
+        ],
+      },
+      {
+        title: '文档',
+        groups: [
+          {
+            title: 'AGENTS.md',
+            entries: [
+              '新增 TESTING GUIDELINES：前端验证以源码修复、类型检查和单元测试为主，不使用 Chrome / Playwright 做端到端测试',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.25.4',
     label: 'React 19 portal 修复 + CoC7e 规则修正 + 死代码回滚',
