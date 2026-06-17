@@ -1035,15 +1035,17 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
 .bg-input::-webkit-scrollbar-track{background:rgba(0,0,0,0.12);border-radius:3px}
 .bg-input::-webkit-scrollbar-thumb{background:rgba(196,168,85,0.22);border-radius:3px;transition:background 0.25s cubic-bezier(0.4,0,0.2,1)}
 .bg-input::-webkit-scrollbar-thumb:hover{background:rgba(196,168,85,0.45)}
+.cc-step-wrap::-webkit-scrollbar{display:none}
 `}</style>
       {/* Backdrop —— v1.11.6: 不再用 inset:0(那会被根 zoom 拉到 150vw 致子元素居中漂移)。
-          改用 vw/vh ÷ uiScale 让 layout 算出来后渲染正好 100vw × 100vh 不超出。 */}
+          改用 vw/vh ÷ uiScale 让 layout 算出来后渲染正好 100vw × 100vh 不超出。
+          v1.11.11: 手机端直接 100vw/100vh,不除 auto-zoom（手机端 zoom<1 会把 backdrop 放大到屏幕外）。 */}
       <div
         onClick={() => {}}
         style={{
           position: 'fixed', top: 0, left: 0,
-          width: 'calc(100vw / var(--auto-zoom, 1))',
-          height: 'calc(100vh / var(--auto-zoom, 1))',
+          width: isMobile ? '100vw' : 'calc(100vw / var(--auto-zoom, 1))',
+          height: isMobile ? '100vh' : 'calc(100vh / var(--auto-zoom, 1))',
           zIndex: 800,
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
@@ -1062,7 +1064,10 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         background: 'linear-gradient(180deg, var(--leather) 0%, var(--abyss) 100%)',
         overflow: 'hidden',
         ...(isMobile
-          ? { inset: 0, width: 'calc(100vw / var(--auto-zoom, 1))', height: 'calc(100dvh / var(--auto-zoom, 1))', border: 'none', borderRadius: 0, boxShadow: 'none' }
+          ? {
+              // v1.11.11: 手机端直接 100vw/100dvh,不除 auto-zoom（手机端 zoom<1 会把 backdrop 放大到屏幕外）,与 ChangelogModal 一致。
+              inset: 0, width: '100vw', height: '100dvh', border: 'none', borderRadius: 0, boxShadow: 'none',
+            }
           : {
               top: '50%',
               left: '50%',
@@ -1081,7 +1086,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          padding: '18px 24px 14px',
+          padding: isMobile ? '12px 16px 10px' : '18px 24px 14px',
           borderBottom: '1px solid rgba(196,168,85,0.18)',
           background: 'rgba(13,10,7,0.6)',
           flexShrink: 0,
@@ -1120,18 +1125,26 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
           </div>
 
           {/* Step indicator */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14,
-            flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: 8, width: '100%',
-          }}>
+          <div
+            className={isMobile ? 'cc-step-wrap' : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: isMobile ? 4 : 6, marginTop: 14,
+              flexWrap: isMobile ? 'nowrap' : 'nowrap',
+              ...(isMobile ? { overflowX: 'auto' as const, scrollbarWidth: 'none' as const } : { rowGap: 8 }),
+              width: '100%',
+            }}>
             {STEPS.map((label, i) => {
               const active = i === step;
               const done = i < step;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: i > 0 ? 1 : 'none', minWidth: 0 }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6, flex: i > 0 ? 1 : 'none', minWidth: 0 }}>
                   {i > 0 && (
                     <div style={{
-                      flex: 1, minWidth: 16, maxWidth: 80, height: 1,
+                      flex: 1,
+                      minWidth: isMobile ? 8 : 16,
+                      maxWidth: isMobile ? 60 : 80,
+                      height: 1,
                       background: i <= step ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
                       transition: 'var(--transition-smooth)',
                     }} />
@@ -1140,7 +1153,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                     onClick={() => { if (done) setStep(i); }}
                     className={done ? 'sk-btn' : undefined}
                     style={{
-                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                      width: isMobile ? 22 : 28, height: isMobile ? 22 : 28, borderRadius: '50%', flexShrink: 0,
                       border: active ? '1px solid var(--gold)' : done ? '1px solid rgba(196,168,85,0.35)' : '1px solid rgba(255,255,255,0.1)',
                       background: active ? 'var(--gold)' : done ? 'rgba(196,168,85,0.15)' : 'transparent',
                       color: active ? 'var(--void)' : done ? 'var(--gold)' : 'var(--ink-subtle)',
@@ -1151,7 +1164,7 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
                   >
                     {done ? '✓' : i + 1}
                   </button>
-                  {active && (
+                  {active && !isMobile && (
                     <span style={{ fontSize: 9, color: 'var(--gold)', fontFamily: 'var(--font-ui)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
                       {label}
                     </span>
@@ -1180,19 +1193,21 @@ input[type=range]::-webkit-slider-thumb:active{filter:brightness(0.85);transform
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          padding: '14px 24px',
+          padding: isMobile ? '10px 16px' : '14px 24px',
           borderTop: '1px solid rgba(196,168,85,0.15)',
           background: 'rgba(13,10,7,0.5)',
           flexShrink: 0,
+          ...(isMobile ? { flexWrap: 'wrap' as const, gap: 8 } : {}),
         }}>
-          <button
-            onClick={prevStep}
-            disabled={step === 0}
-            className={step > 0 ? 'sk-btn' : undefined}
-            style={step === 0 ? btnDisabled : btnBase}
-          >
-            ← 上一步
-          </button>
+          {step === 0 ? (
+            <button onClick={onClose} className="sk-btn" style={btnBase}>
+              ← 返回
+            </button>
+          ) : (
+            <button onClick={prevStep} className="sk-btn" style={btnBase}>
+              ← 上一步
+            </button>
+          )}
 
           {step === 3 && (
             <div style={{ display: 'flex', gap: 8 }}>
