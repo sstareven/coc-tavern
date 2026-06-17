@@ -119,6 +119,10 @@ npm run preview    # 预览生产构建
 - 测试覆盖：536 tests / 32 文件（macro-engine 102 + llm-response-parser 60 + mvu-jsonpatch 47 + dice-engine 35 + mvu-format 29 + resolvePlayerValue 23 + coc-rules 18 + mvu-charsheet-redirect 13 + choice-match 15 + keyword-injection 6 + extension-runtime 5 + prompt-assembler + rewrite-lite + item-acquisition + mvu-flatten/var-access/initial-statdata + ...），Vitest + fake-indexeddb
 - 子目录 AGENTS.md：`src/sillytavern/` `src/stores/` `src/hooks/` `src/db/` `src/components/Book/` `src/components/CharSheet/` `src/components/Dice/` `src/components/Layout/` `src/components/Settings/` `src/components/Shared/`
 
+## TESTING GUIDELINES
+
+- **不要用 Chrome 或者 Playwright 去测试。** 本项目的前端验证以源码修复、类型检查（`tsc -b`）和单元测试（`npm test`）为主，不通过浏览器自动化工具做端到端测试。
+
 ## 待办 / 已知问题
 
 - [ ] 剩余 ~110 lint 警告（多为故意的 setState/沙箱 eval/Zustand selector 误报）
