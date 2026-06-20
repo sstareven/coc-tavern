@@ -8,6 +8,9 @@ import { useRegexStore, BUILTIN_REGEX_IDS } from '../../stores/useRegexStore';
 import { DarkSelect } from '../Shared/DarkSelect';
 import { type DsThinkingMode } from '../../sillytavern/deepseek-cache';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useViewportHeight } from '../../hooks/useViewportHeight';
+import { getAutoZoom } from '../../hooks/useResponsiveZoom';
+import { computeMobilePanelHeight } from './settings-scroll-mobile';
 import { IconSparkle, IconGear, IconRegex, IconExtension, IconFlask, IconQuill, IconClose } from '../Layout/TabIcons';
 import { ApiManagementTab } from './ApiManagementTab';
 import { TavernHelperContent } from './TavernHelperContent';
@@ -319,6 +322,8 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 
 export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const isMobile = useIsMobile();
+  const vvHeight = useViewportHeight();
+  const mobilePanelHeight = isMobile ? computeMobilePanelHeight(vvHeight, getAutoZoom()) : undefined;
   const [section, setSection] = useState<SettingsSection>('general');
   const cheatingUnlocked = useSettingsStore((s) => s.cheatingUnlocked);
 
@@ -409,7 +414,7 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         width: isMobile ? '100vw' : 820, maxWidth: isMobile ? '100vw' : '95vw',
-        height: isMobile ? 'calc(100dvh / var(--auto-zoom, 1))' : 560, maxHeight: isMobile ? 'calc(100dvh / var(--auto-zoom, 1))' : '90vh',
+        height: isMobile ? mobilePanelHeight : 560, maxHeight: isMobile ? mobilePanelHeight : '90vh',
         background: 'linear-gradient(135deg, var(--leather) 0%, var(--abyss) 100%)',
         border: isMobile ? 'none' : '1px solid var(--gold)',
         borderRadius: isMobile ? 0 : 8,
@@ -483,9 +488,13 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         {/* ── Content ── */}
         <style>{`.settings-scroll::-webkit-scrollbar{width:5px}.settings-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
         <div className="settings-scroll" style={{
-          flex: 1, padding: isMobile ? '16px 14px' : '24px 28px', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0,
-          WebkitOverflowScrolling: 'touch',
+          flex: 1,
+          padding: isMobile ? '16px 14px' : '24px 28px',
+          paddingBottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom, 0px))' : 28,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          display: 'flex', flexDirection: 'column',
+          minWidth: 0, minHeight: 0,
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.15)',
         }}>
           {/* Section title */}
