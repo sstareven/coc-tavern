@@ -8,7 +8,7 @@ const CHANGELOG_KEY = 'coc-changelog-seen';
 // hot-reload 偶发判定为 non-statically-analyzable）。与 RELEASES[0].version
 // 的一致性由 src/components/Landing/__tests__/changelog-version.test.ts 守护
 // —— 任何一处忘改 CI 立刻 fail。
-export const CURRENT_VERSION = 'v1.25.6';
+export const CURRENT_VERSION = 'v1.25.7';
 
 // 公告结构:大类 → 子类 → 一行短句(Slay the Spire 风格)。
 // 子类 title 可空(=直接挂条目到大类下);老/简单版本只需一个 section 即可。
@@ -29,6 +29,26 @@ interface Release {
 // 版本倒序：最新在最前。新增版本时在数组顶部插入，并同步更新 CURRENT_VERSION
 // （vitest changelog-version 用例会拒绝两者不一致）。
 export const RELEASES: Release[] = [
+  {
+    version: 'v1.25.7',
+    label: '修复 iPhone Safari 设置面板滚动截断问题',
+    sections: [
+      {
+        title: '修复',
+        groups: [
+          {
+            title: 'iOS 移动端',
+            entries: [
+              '设置面板：手机端改用 JS 计算 visualViewport.height / zoom 像素高度，取代与 Safari zoom 交互不良的 100dvh / auto-zoom CSS 表达式',
+              '设置面板：移除已弃用的 -webkit-overflow-scrolling: touch，添加 overscroll-behavior: contain 防止弹性滚动传播',
+              '设置面板：底部内边距适配 iPhone 主屏幕指示条（env(safe-area-inset-bottom)）',
+              'index.html：viewport meta 添加 viewport-fit=cover，使 safe-area-inset 生效',
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.25.6',
     label: 'iOS 创建调查员面板截断与返回按钮修复',
