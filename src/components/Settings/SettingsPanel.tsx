@@ -484,7 +484,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
         <style>{`.settings-scroll::-webkit-scrollbar{width:5px}.settings-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.15);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb{background:var(--brass);border-radius:3px}.settings-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold)}`}</style>
         <div className="settings-scroll" style={{
           flex: 1, padding: isMobile ? '16px 14px' : '24px 28px', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', minWidth: 0,
+          display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0,
+          WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'thin', scrollbarColor: 'var(--brass) rgba(0,0,0,0.15)',
         }}>
           {/* Section title */}
