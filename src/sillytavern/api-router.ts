@@ -9,7 +9,7 @@ import { applyExtraParamsRules } from '../api/api-extra-params-engine';
  * 注意：极少数 CORS 严格、未放行 X-Title 的中转站可能因此预检失败——若某站连不上可移除本头。
  */
 export const APP_TITLE = 'coc-tavern';
-export const appIdHeaders = (): Record<string, string> => ({ 'X-Title': APP_TITLE });
+export const appIdHeaders = (): Record<string, string> => ({});
 
 export interface ChatCompletionRequest {
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
