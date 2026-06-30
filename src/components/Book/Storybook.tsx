@@ -64,6 +64,7 @@ export function Storybook() {
   const chase = useChaseStore((s) => s.chase);
   const { flipForward, flipBackward, canGoNext, canGoPrev } = usePageFlip();
   const darkMode = useSettingsStore((s) => s.darkMode);
+  const bookZoom = useSettingsStore((s) => s.bookZoom) ?? 1;
   const inventoryOpen = useInventoryStore((s) => s.isOpen);
   const charSheetOpen = useCharSheetStore((s) => s.isOpen);
   const npcOpen = useNpcStore((s) => s.isOpen);
@@ -312,7 +313,7 @@ export function Storybook() {
       justifyContent: 'center',
       width: '100%',
       height: '100%',
-      padding: '0 40px',
+      padding: `0 ${Math.max(10, 40 / bookZoom)}px`,
     }}>
       <style>{`
         .lp-scroll::-webkit-scrollbar,.rp-scroll::-webkit-scrollbar,.inv-scroll::-webkit-scrollbar{width:5px}
@@ -324,7 +325,7 @@ export function Storybook() {
       <div style={{
         position: 'relative',
         width: '100%',
-        maxWidth: 880,
+        maxWidth: 880 * bookZoom,
         height: '100%',
       }}>
         {/* BookUtils — outside the book at top-right */}

@@ -342,6 +342,8 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
   const setTextRatio = useSettingsStore((s) => s.setTextRatio);
   const systemRatio = useSettingsStore((s) => s.systemRatio);
   const setSystemRatio = useSettingsStore((s) => s.setSystemRatio);
+  const bookZoom = useSettingsStore((s) => s.bookZoom);
+  const setBookZoom = useSettingsStore((s) => s.setBookZoom);
   const setAutoSubmitChoice = useSettingsStore((s) => s.setAutoSubmitChoice);
   const maxSummaryEntries = useSettingsStore((s) => s.maxSummaryEntries);
   const setMaxSummaryEntries = useSettingsStore((s) => s.setMaxSummaryEntries);
@@ -569,6 +571,15 @@ export function SettingsPanel({ visible, onClose, onReturnToMenu }: Props) {
                   value={Math.round(systemRatio * 100)}
                   onChange={(v) => setSystemRatio(v / 100)}
                   min={Math.round(TEXT_RATIO_MIN * 100)} max={Math.round(TEXT_RATIO_MAX * 100)} step={5}
+                  unit="%" rangeWidth={140}
+                />
+
+                <SliderRow
+                  label="书本界面尺寸"
+                  help={'调节桌面端书本的最大横向宽度比例。\n50% ~ 200%，默认 100% (880px)。\n\n开启此项可充分利用带宽显示器的横向空间。移动端自动忽略此设置。'}
+                  value={Math.round(bookZoom * 100)}
+                  onChange={(v) => setBookZoom(v / 100)}
+                  min={50} max={200} step={5}
                   unit="%" rangeWidth={140}
                 />
 

@@ -90,6 +90,8 @@ interface SettingsState {
   textRatio: number;
   /** 系统文字倍率(0.8-1.5)。作用于按钮/菜单/设置面板/header/tab 等"系统 UI"文字。默认 1=100%。 */
   systemRatio: number;
+  /** 桌面端书本显示区域的最大宽度缩放比例 (默认 1.0 = 880px) */
+  bookZoom: number;
   /** DeepSeek V4 缓存优化器：思维模式指令注入（附着到末条用户消息，保前缀缓存）。 */
   dsCache: DsCacheConfig;
   /**
@@ -218,6 +220,7 @@ interface SettingsStore extends SettingsState {
   setMvuSelfCorrectRetries: (n: number) => void;
   setTextRatio: (v: number) => void;
   setSystemRatio: (v: number) => void;
+  setBookZoom: (v: number) => void;
   setDsCache: (c: Partial<DsCacheConfig>) => void;
   setForceJsonObject: (v: boolean) => void;
   /**
@@ -302,6 +305,7 @@ const defaults: SettingsState = {
   mvuSelfCorrectRetries: 1,
   textRatio: 1,
   systemRatio: 1,
+  bookZoom: 1,
   dsCache: DEFAULT_DS_CACHE_CONFIG,
   forceJsonObject: true,
   dsUltraActive: false,
@@ -361,6 +365,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setMvuSelfCorrectRetries: (n) => set({ mvuSelfCorrectRetries: Math.max(0, Math.min(3, Math.floor(n))) }),
       setTextRatio: (v) => set({ textRatio: clampTextRatio(v) }),
       setSystemRatio: (v) => set({ systemRatio: clampTextRatio(v) }),
+      setBookZoom: (v) => set({ bookZoom: Math.max(0.5, Math.min(2.0, v)) }),
       setDsCache: (c) => set((s) => ({ dsCache: { ...s.dsCache, ...c } })),
       setForceJsonObject: (v) => set({ forceJsonObject: v }),
       /**
